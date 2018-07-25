@@ -96,6 +96,8 @@ configuration.
 
     dyn_last_coldstart_time = None
     dyn_up_ports = set() # type: ignore
+    dyn_vlan_acl_matches = {}
+    dyn_port_acl_matches = {}
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -622,6 +624,7 @@ configuration.
 
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config and mark mirror destinations."""
+                matches = {}
                 if acl.rules:
                     try:
                         ofmsgs = valve_acl.build_acl_ofmsgs(
@@ -635,11 +638,14 @@ configuration.
                             ofmsg.datapath = NullRyuDatapath()
                             ofmsg.set_xid(0)
                             ofmsg.serialize()
+                            for match, value in list(ofmsg.match.items()):
+                                matches[match] = True
                     except (AddrFormatError, KeyError, ValueError) as err:
                         raise InvalidConfigError(err)
                     for port_no in mirror_destinations:
                         port = self.ports[port_no]
                         port.output_only = True
+                return matches
 
             for rule_conf in acl.rules:
                 for attrib, attrib_value in list(rule_conf.items()):
@@ -655,7 +661,7 @@ configuration.
                             resolved_actions[action_name] = resolved_action_conf
                         rule_conf[attrib] = resolved_actions
 
-            build_acl(acl, vid=1)
+            return build_acl(acl, vid=1)
 
         def verify_acl_exact_match(acls):
             for acl in acls:
@@ -670,7 +676,7 @@ configuration.
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
-                        resolve_acl(acl)
+                        self.dyn_vlan_acl_matches.update(resolve_acl(acl))
                         acls.append(self.acls[acl])
                     vlan.acls_in = acls
                     verify_acl_exact_match(acls)
@@ -680,14 +686,14 @@ configuration.
                         'dataplane ACLs cannot be used with port ACLs.'))
                     acls = []
                     for acl in port.acls_in:
-                        resolve_acl(acl)
+                        self.dyn_port_acl_matches.update(resolve_acl(acl))
                         acls.append(self.acls[acl])
                     port.acls_in = acls
                     verify_acl_exact_match(acls)
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
-                    resolve_acl(acl)
+                    self.dyn_port_acl_matches.update(resolve_acl(acl))
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
 
