@@ -1592,12 +1592,13 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
-    def wait_port_status(self, dpid, port_no, expected_status, timeout=10):
+    def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10):
         for _ in range(timeout):
             port_status = self.scrape_prometheus_var(
                 'port_status', {'port': port_no}, default=None, dpid=dpid)
             if port_status is not None and port_status == expected_status:
                 return
+            self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
             time.sleep(1)
         self.fail('dpid %x port %s status %s != expected %u' % (
             dpid, port_no, port_status, expected_status))
@@ -1605,12 +1606,12 @@ dbs:
     def set_port_status(self, dpid, port_no, status, wait):
         if dpid is None:
             dpid = self.dpid
+        expected_status = 1
+        if status == OFPPC_PORT_DOWN:
+            expected_status = 0
         self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
         if wait:
-            expected_status = 1
-            if status == OFPPC_PORT_DOWN:
-                expected_status = 0
-            self.wait_port_status(long(dpid), port_no, expected_status) # pytype: disable=name-error
+            self.wait_port_status(long(dpid), port_no, status, expected_status) # pytype: disable=name-error
 
     def set_port_down(self, port_no, dpid=None, wait=True):
         self.set_port_status(dpid, port_no, OFPPC_PORT_DOWN, wait)
