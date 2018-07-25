@@ -253,16 +253,19 @@ class VLAN(Conf):
                 'Must be as many BGP neighbor addresses as BGP server addresses'))
 
         if self.routes:
+            test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
             try:
                 self.routes = [route['route'] for route in self.routes]
             except TypeError:
                 raise InvalidConfigError('%s is not a valid routes value' % self.routes)
+            except KeyError:
+                pass
             for route in self.routes:
-                try:
-                    ip_gw = self._check_ip_str(route['ip_gw'])
-                    ip_dst = self._check_ip_str(route['ip_dst'], ip_method=ipaddress.ip_network)
-                except KeyError as err:
-                    raise InvalidConfigError('missing route config %s' % err)
+                test_config_condition(not isinstance(route, dict), 'invalid VLAN route format')
+                test_config_condition('ip_gw' not in route, 'missing ip_gw in VLAN route')
+                test_config_condition('ip_dst' not in route, 'missing ip_dst in VLAN route')
+                ip_gw = self._check_ip_str(route['ip_gw'])
+                ip_dst = self._check_ip_str(route['ip_dst'], ip_method=ipaddress.ip_network)
                 test_config_condition(
                     ip_gw.version != ip_dst.version,
                     'ip_gw version does not match the ip_dst version')
