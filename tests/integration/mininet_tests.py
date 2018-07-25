@@ -1268,7 +1268,7 @@ class FaucetZodiacUntaggedTest(FaucetUntaggedTest):
         self.ping_all_when_learned()
 
 
-class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
+class FaucetTaggedAndUntaggedSameVlanTest(FaucetTest):
     """Test mixture of tagged and untagged hosts on the same VLAN."""
 
     N_TAGGED = 1
@@ -1297,7 +1297,7 @@ vlans:
 """
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
+        super(FaucetTaggedAndUntaggedSameVlanTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=1, n_untagged=3, links_per_host=self.LINKS_PER_HOST,
@@ -1315,7 +1315,7 @@ vlans:
             self.verify_no_bcast_to_self(host)
 
 
-class FaucetTaggedAndUntaggedVlanGroupTest(FaucetTaggedAndUntaggedVlanTest):
+class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTest):
 
     CONFIG = """
         group_table: True
@@ -1335,7 +1335,7 @@ class FaucetTaggedAndUntaggedVlanGroupTest(FaucetTaggedAndUntaggedVlanTest):
 """
 
 
-class FaucetZodiacTaggedAndUntaggedVlanTest(FaucetUntaggedTest):
+class FaucetZodiacTaggedAndUntaggedSameVlanTest(FaucetUntaggedTest):
 
     RUN_GAUGE = False
     N_TAGGED = 1
@@ -3071,7 +3071,7 @@ vlans:
         self.verify_controller_fping(first_host, self.FAUCET_VIPV6)
 
 
-class FaucetTaggedAndUntaggedTest(FaucetTest):
+class FaucetTaggedAndUntaggedDiffVlanTest(FaucetTest):
 
     N_TAGGED = 2
     N_UNTAGGED = 4
@@ -3101,7 +3101,7 @@ vlans:
 """
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetTaggedAndUntaggedTest, self).setUp()
+        super(FaucetTaggedAndUntaggedDiffVlanTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=2, n_untagged=2, links_per_host=self.LINKS_PER_HOST,
