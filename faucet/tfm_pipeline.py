@@ -19,15 +19,15 @@ class LoadRyuTables:
         self.ryu_table_translator = OpenflowToRyuTranslator(
             cfgpath, pipeline_conf)
 
-    def load_tables(self, active_table_ids, tables_by_id):
+    def load_tables(self, active_table_ids, dp):
         try:
             tables = self.ryu_table_translator.create_ryu_structure()
-            return self._create_tables(tables, active_table_ids, tables_by_id)
+            return self._create_tables(tables, active_table_ids, dp)
         except (ValueError, IOError) as err:
             print(err)
         return []
 
-    def _create_tables(self, tables_information, active_table_ids, tables_by_id):
+    def _create_tables(self, tables_information, active_table_ids, dp):
         table_array = []
         for table in tables_information:
             for table_class_name, table_attr in list(table.items()):
@@ -35,7 +35,7 @@ class LoadRyuTables:
                 new_table = table_class(**table_attr)
                 if new_table.table_id not in active_table_ids:
                     continue
-                valve_table = tables_by_id[new_table.table_id]
+                valve_table = dp.table_by_id(new_table.table_id)
                 dynamic_features = set(['OFPTFPT_NEXT_TABLES'])
                 if valve_table.restricted_match_types is not None:
                     for feature in (

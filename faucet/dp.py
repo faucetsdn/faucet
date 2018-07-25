@@ -82,7 +82,6 @@ configuration.
     pipeline_config_dir = None
     use_idle_timeout = None
     tables = {} # type: dict
-    tables_by_id = {} # type: dict
     meters = {} # type: dict
     timeout = None
     arp_neighbor_timeout = None
@@ -289,7 +288,6 @@ configuration.
             self.tables[table_name] = ValveTable(
                 table_id, table_name, restricted_match_types,
                 self.cookie, notify_flow_removed=self.use_idle_timeout)
-            self.tables_by_id[table_id] = self.tables[table_name]
 
     def set_defaults(self):
         super(DP, self).set_defaults()
@@ -302,10 +300,16 @@ configuration.
         self._set_default('description', self.name)
         self._configure_tables()
 
+    def table_by_id(self, table_id):
+        tables = [table for table in list(self.tables.values()) if table_id == table.table_id]
+        if tables:
+            return tables[0]
+        return None
+
     def match_tables(self, match_type):
         """Return list of tables with matches of a specific match type."""
         match_tables = []
-        for table in list(self.tables_by_id.values()):
+        for table in list(self.tables.values()):
             if table.restricted_match_types is not None:
                 if match_type in table.restricted_match_types:
                     match_tables.append(table)
@@ -323,7 +327,7 @@ configuration.
 
     def all_valve_tables(self):
         """Return list of all Valve tables."""
-        return list(self.tables_by_id.values())
+        return list(self.tables.values())
 
     def add_acl(self, acl_ident, acl):
         """Add an ACL to this DP."""
@@ -732,12 +736,8 @@ configuration.
         resolve_vlan_names_in_routers()
         resolve_acls()
 
-        port_acl_table = self.tables['port_acl']
-        port_acl_table.restricted_match_types = self.port_acl_matches
-        vlan_acl_table = self.tables['vlan_acl']
-        vlan_acl_table.restricted_match_types = self.vlan_acl_matches
-        for table in (port_acl_table, vlan_acl_table):
-            self.tables_by_id[table.table_id] = table
+        self.tables['port_acl'].restricted_match_types = self.port_acl_matches
+        self.tables['vlan_acl'].restricted_match_types = self.vlan_acl_matches
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:

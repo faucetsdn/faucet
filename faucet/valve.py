@@ -158,7 +158,8 @@ class Valve:
             for vlan in list(self.dp.vlans.values()):
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
                     route_manager.active = True
-                    self.logger.info('IPv%u routing is active on %s' % (route_manager.IPV, vlan))
+                    self.logger.info('IPv%u routing is active on %s with VIPs %s' % (
+                        route_manager.IPV, vlan, vlan.faucet_vips_by_ipv(route_manager.IPV)))
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         if self.dp.stack:
@@ -187,6 +188,8 @@ class Valve:
                 self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
                 self.dp.low_priority, self.dp.highest_priority)
+        self.logger.info('DP/port ACL matches/has mask: %s' % str(self.dp.port_acl_matches))
+        self.logger.info('VLAN ACL matches/has mask: %s' % str(self.dp.vlan_acl_matches))
 
     def _notify(self, event_dict):
         """Send an event notification."""
@@ -1155,7 +1158,8 @@ class Valve:
     def update_config_metrics(self):
         """Update gauge/metrics for configuration."""
         self.metrics.reset_dpid(self.base_prom_labels)
-        for table_id, table in list(self.dp.tables_by_id.items()):
+        for table in list(self.dp.tables.values()):
+            table_id = table.table_id
             self.metrics.faucet_config_table_names.labels(
                 **dict(self.base_prom_labels, table_name=table.name)).set(table_id)
 
@@ -1513,7 +1517,7 @@ class TfmValve(Valve):
         active_table_ids = self._active_table_ids()
         self.logger.info('loading pipeline configuration (table IDs %s)' % str(active_table_ids))
         ofmsgs = [valve_of.table_features(
-            ryu_table_loader.load_tables(active_table_ids, self.dp.tables_by_id))]
+            ryu_table_loader.load_tables(active_table_ids, self.dp))]
         ofmsgs.extend(super(TfmValve, self)._add_default_flows())
         return ofmsgs
 
