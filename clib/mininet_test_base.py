@@ -463,10 +463,13 @@ class FaucetTestBase(unittest2.TestCase):
         return []
 
     def _portmod(self, int_dpid, port_no, config, mask):
-        return requests.post(
+        result = requests.post(
             self._ofctl_rest_url('stats/portdesc/modify'),
             json={'dpid': str(int_dpid), 'port_no': str(port_no),
                   'config': str(config), 'mask': str(mask)})
+        # ofctl doesn't use barriers, so cause port_mod to be sent.
+        self.get_port_stats_from_dpid(int_dpid, port_no)
+        return result
 
     @staticmethod
     def _signal_proc_on_port(host, port, signal):
