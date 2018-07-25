@@ -660,14 +660,14 @@ dbs:
         """Return port stats for a port."""
         int_dpid = mininet_test_util.str_int_dpid(dpid)
         port_stats = self._ofctl_get(
-            int_dpid, 'stats/port/%s' % port, timeout)
+            int_dpid, 'stats/port/%s/%s' % (int_dpid, port), timeout)
         return self._port_stat(port_stats, port)
 
     def get_port_desc_from_dpid(self, dpid, port, timeout=2):
         """Return port desc for a port."""
         int_dpid = mininet_test_util.str_int_dpid(dpid)
         port_stats = self._ofctl_get(
-            int_dpid, 'stats/portdesc/%s' % int_dpid, timeout)
+            int_dpid, 'stats/portdesc/%s/%s' % (int_dpid, port), timeout)
         return self._port_stat(port_stats, port)
 
     def wait_matching_in_group_table(self, action, group_id, timeout=10):
@@ -1554,8 +1554,8 @@ dbs:
         for host, switch_port in hosts_switch_ports:
             if host not in port_stats:
                 port_stats[host] = {}
-            port_stats[host][switch_port] = self.get_port_stats_from_dpid(
-               self.dpid, switch_port)
+            port_stats[host].update(self.get_port_stats_from_dpid(
+               self.dpid, switch_port))
         return port_stats
 
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
