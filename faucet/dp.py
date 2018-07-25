@@ -638,13 +638,14 @@ configuration.
                             ofmsg.datapath = NullRyuDatapath()
                             ofmsg.set_xid(0)
                             ofmsg.serialize()
-                            for match, value in list(ofmsg.match.items()):
-                                has_mask = isinstance(value, tuple)
-                                if match in matches:
-                                    if has_mask:
+                            if valve_of.is_flowmod(ofmsg):
+                                for match, value in list(ofmsg.match.items()):
+                                    has_mask = isinstance(value, tuple)
+                                    if match in matches:
+                                        if has_mask:
+                                            matches[match] = has_mask
+                                    else:
                                         matches[match] = has_mask
-                                else:
-                                    matches[match] = has_mask
                     except (AddrFormatError, KeyError, ValueError) as err:
                         raise InvalidConfigError(err)
                     for port_no in mirror_destinations:
@@ -676,6 +677,7 @@ configuration.
         def resolve_acls():
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
+            self.port_acl_matches.update({'in_port': False})
 
             for vlan in list(self.vlans.values()):
                 if vlan.acls_in:
@@ -689,7 +691,6 @@ configuration.
                 if port.acls_in:
                     test_config_condition(self.dp_acls, (
                         'dataplane ACLs cannot be used with port ACLs.'))
-                    self.port_acl_matches.update({'in_port': False})
                     acls = []
                     for acl in port.acls_in:
                         self.port_acl_matches.update(resolve_acl(acl))
@@ -960,6 +961,9 @@ configuration.
         """
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
+        if (self.vlan_acl_matches != new_dp.vlan_acl_matches or
+                self.port_acl_matches != new_dp.port_acl_matches):
+            logger.info('ACL matches changed')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
         else:
