@@ -633,7 +633,7 @@ configuration.
                             valve_of.goto_table(self.wildcard_table),
                             2**16-1, self.meters, acl.exact_match,
                             vlan_vid=vid)
-                        test_config_condition(not ofmsgs, 'of messages is empty')
+                        test_config_condition(not ofmsgs, 'OF messages is empty')
                         for ofmsg in ofmsgs:
                             ofmsg.datapath = NullRyuDatapath()
                             ofmsg.set_xid(0)
