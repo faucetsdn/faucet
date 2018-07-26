@@ -252,7 +252,8 @@ class Valve:
                 match=table.match(in_port=port.number)))
         return ofmsgs
 
-    def _pipeline_flows(self):
+    @staticmethod
+    def _pipeline_flows():
         return []
 
     def _add_default_drop_flows(self):
@@ -515,13 +516,15 @@ class Valve:
 
     def _lldp_beacon_ports(self, now):
         """Return list of ports to send LLDP packets; stacked ports always send LLDP."""
-        priority_ports = set([port for port in self.dp.stack_ports if port.running() and port.lldp_beacon_enabled()])
+        priority_ports = {
+            port for port in self.dp.stack_ports
+            if port.running() and port.lldp_beacon_enabled()}
         cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
-        nonpriority_ports = set([
+        nonpriority_ports = {
             port for port in self.dp.lldp_beacon_ports
             if port.running() and (
                 port.dyn_last_lldp_beacon_time is None or
-                port.dyn_last_lldp_beacon_time < cutoff_beacon_time)])
+                port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
         nonpriority_ports -= priority_ports
         send_ports = list(priority_ports)
         send_ports.extend(list(nonpriority_ports)[:self.dp.lldp_beacon['max_per_interval']])
@@ -1310,6 +1313,19 @@ class Valve:
                 self._lacp_state_expire(vlan, now)
         return ofmsgs
 
+    def _pipeline_change(self):
+        def table_msgs(tfm_flow):
+            return {str(x) for x in tfm_flow.body}
+
+        if self._last_pipeline_flows:
+            _last_pipeline_flows = table_msgs(self._last_pipeline_flows[0])
+            _pipeline_flows = table_msgs(self._pipeline_flows()[0])
+            if _last_pipeline_flows != _pipeline_flows:
+                self.logger.info('pipeline change: %s' % str(
+                    _last_pipeline_flows.difference(_pipeline_flows)))
+                return True
+        return False
+
     def _apply_config_changes(self, new_dp, changes):
         """Apply any detected configuration changes.
 
@@ -1331,13 +1347,7 @@ class Valve:
         (deleted_ports, changed_ports, changed_acl_ports,
          deleted_vlans, changed_vlans, all_ports_changed) = changes
 
-        _last_pipeline_flows = set()
-        _pipeline_flows = set()
-        if self._last_pipeline_flows:
-            _last_pipeline_flows = set([str(x) for x in self._last_pipeline_flows[0].body])
-            _pipeline_flows = set([str(x) for x in self._pipeline_flows()[0].body])
-        if _last_pipeline_flows != _pipeline_flows:
-            self.logger.info('pipeline change: %s' % str(_last_pipeline_flows.difference(_pipeline_flows)))
+        if self._pipeline_change():
             self.dp = new_dp
             self.dp_init()
             return True, []
