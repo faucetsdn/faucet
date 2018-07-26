@@ -19,7 +19,7 @@ class LoadRyuTables:
         self.ryu_table_translator = OpenflowToRyuTranslator(
             cfgpath, pipeline_conf)
 
-    def load_tables(self, active_table_ids, dp):
+    def load_tables(self, active_table_ids, dp): # pylint: disable=invalid-name
         try:
             tables = self.ryu_table_translator.create_ryu_structure()
             return self._create_tables(tables, active_table_ids, dp)
@@ -27,7 +27,7 @@ class LoadRyuTables:
             print(err)
         return []
 
-    def _create_tables(self, tables_information, active_table_ids, dp):
+    def _create_tables(self, tables_information, active_table_ids, dp): # pylint: disable=invalid-name
         table_array = []
         for table in tables_information:
             for table_class_name, table_attr in list(table.items()):
