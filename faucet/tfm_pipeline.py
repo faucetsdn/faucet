@@ -59,11 +59,15 @@ class LoadRyuTables:
                     oxm_ids = [
                         valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
                         for match_type, hasmask in list(valve_table.restricted_match_types.items())]
-                    # OFPTFPT_MATCH, OFPTFPT_WILDCARDS
-                    for type_ in (8, 10):
+                    # OFPTFPT_MATCH
+                    new_table.properties.append(
+                        valve_of.parser.OFPTableFeaturePropOxm(
+                            oxm_ids=oxm_ids, type_=8))
+                    # OFPTFPT_WILDCARDS
+                    if not valve_table.exact_match:
                         new_table.properties.append(
                             valve_of.parser.OFPTableFeaturePropOxm(
-                                oxm_ids=oxm_ids, type_=type_))
+                                oxm_ids=oxm_ids, type_=10))
                     # Add instructions.
                     insts = [('OFPIT_APPLY_ACTIONS', 4)]
                     if next_tables:
