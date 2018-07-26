@@ -63,7 +63,7 @@ class LoadRyuTables:
                     for type_ in (8, 10):
                         new_table.properties.append(
                             valve_of.parser.OFPTableFeaturePropOxm(
-                                oxm_ids=oxm_ids, type_=8))
+                                oxm_ids=oxm_ids, type_=type_))
                     # Add instructions.
                     insts = [('OFPIT_APPLY_ACTIONS', 4)]
                     if next_tables:

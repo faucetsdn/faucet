@@ -1744,8 +1744,8 @@ acls:
             rules_yaml = []
             for rule in range(rules):
                 host_ip = host_ips[rule]
-                ip_match = '%s' % str(host_ip)
                 port = (rule + 1) % 2**16
+                ip_match = str(host_ip)
                 rule_yaml = {
                     'eth_type': eth_type,
                     'ip_proto': 6,
