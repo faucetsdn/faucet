@@ -26,10 +26,12 @@ class ValveTable:
     """Wrapper for an OpenFlow table."""
 
     def __init__(self, table_id, name, restricted_match_types,
-                 flow_cookie, notify_flow_removed=False):
+                 flow_cookie, notify_flow_removed=False,
+                 exact_match=False):
         self.table_id = table_id
         self.name = name
         self.restricted_match_types = None
+        self.exact_match = exact_match
         if restricted_match_types:
             self.restricted_match_types = {}
             for field, mask in restricted_match_types:
