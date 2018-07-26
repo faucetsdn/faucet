@@ -9,6 +9,13 @@ from faucet import valve_of
 class LoadRyuTables:
     """Serialize table features messages from JSON."""
 
+    _DYNAMIC_FEATURES = {
+        'OFPTFPT_NEXT_TABLES',
+        'OFPTFPT_MATCH',
+        'OFPTFPT_WILDCARDS',
+        'OFPTFPT_INSTRUCTIONS'
+    }
+
     _CLASS_NAME_TO_NAME_IDS = {
         'OFPTableFeaturePropInstructions': 'instruction_ids',
         'OFPTableFeaturePropNextTables': 'table_ids',
@@ -36,15 +43,8 @@ class LoadRyuTables:
                 if new_table.table_id not in active_table_ids:
                     continue
                 valve_table = dp.table_by_id(new_table.table_id)
-                dynamic_features = set(['OFPTFPT_NEXT_TABLES'])
-                if valve_table.restricted_match_types is not None:
-                    for feature in (
-                            ('OFPTFPT_MATCH',
-                             'OFPTFPT_WILDCARDS',
-                             'OFPTFPT_INSTRUCTIONS')):
-                        dynamic_features.add(feature)
                 properties = self._create_features(
-                    table_attr['properties'], dynamic_features)
+                    table_attr['properties'], self._DYNAMIC_FEATURES)
                 table_attr['properties'] = properties
                 table_attr['name'] = valve_table.name.encode('utf-8')
                 new_table = table_class(**table_attr)
@@ -54,29 +54,27 @@ class LoadRyuTables:
                     new_table.properties.append(
                         valve_of.parser.OFPTableFeaturePropNextTables(
                             table_ids=next_tables, type_=2))
-                if valve_table.restricted_match_types is not None:
-                    # TODO: optimize for exact match
-                    oxm_ids = [
-                        valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
-                        for match_type, hasmask in list(valve_table.restricted_match_types.items())]
-                    # OFPTFPT_MATCH
+                oxm_ids = [
+                    valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
+                    for match_type, hasmask in list(valve_table.restricted_match_types.items())]
+                # OFPTFPT_MATCH
+                new_table.properties.append(
+                    valve_of.parser.OFPTableFeaturePropOxm(
+                        oxm_ids=oxm_ids, type_=8))
+                # OFPTFPT_WILDCARDS
+                if not valve_table.exact_match:
                     new_table.properties.append(
                         valve_of.parser.OFPTableFeaturePropOxm(
-                            oxm_ids=oxm_ids, type_=8))
-                    # OFPTFPT_WILDCARDS
-                    if not valve_table.exact_match:
-                        new_table.properties.append(
-                            valve_of.parser.OFPTableFeaturePropOxm(
-                                oxm_ids=oxm_ids, type_=10))
-                    # Add instructions.
-                    insts = [('OFPIT_APPLY_ACTIONS', 4)]
-                    if next_tables:
-                        insts.append(('OFPIT_GOTO_TABLE', 1))
-                    inst_ids = [
-                        valve_of.parser.OFPInstructionId(type_) for _, type_ in insts]
-                    new_table.properties.append(
-                        valve_of.parser.OFPTableFeaturePropInstructions(
-                            type_=0, instruction_ids=inst_ids))
+                            oxm_ids=oxm_ids, type_=10))
+                # Add instructions.
+                insts = [('OFPIT_APPLY_ACTIONS', 4)]
+                if next_tables:
+                    insts.append(('OFPIT_GOTO_TABLE', 1))
+                inst_ids = [
+                    valve_of.parser.OFPInstructionId(type_) for _, type_ in insts]
+                new_table.properties.append(
+                    valve_of.parser.OFPTableFeaturePropInstructions(
+                        type_=0, instruction_ids=inst_ids))
                 table_array.append(new_table)
         return table_array
 
