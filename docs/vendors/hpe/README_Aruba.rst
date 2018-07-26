@@ -379,7 +379,10 @@ Scale
 
 Most tables in the current FAUCET pipeline need wildcards and hence use TCAMs in hardware.
 There are 2000 entries available globally for the whole pipeline. Currently, it has been
-distributed amongst the 9 tables as follows:
+distributed amongst the 9 tables as follows (note, FAUCET will automatically provision
+match fields as requested and will not provision unused tables - for example, if
+IPv4 routing is not configured there will be no IPv4 FIB so those entries can be
+used in other table):
 
 +----------------+------------------+
 | Table          | Maximum Entries  |
