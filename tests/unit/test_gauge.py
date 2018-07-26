@@ -326,6 +326,7 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
 
             self.assertEqual(stats_found, set(gauge_prom.PROM_PORT_STATE_VARS))
 
+    @unittest.skip('TODO: re-enable without mocks')
     def test_flow_stats(self):
         """Check the update method of the GaugeFlowTablePrometheusPoller class"""
 
