@@ -1720,9 +1720,9 @@ vlans:
 """
     EMPTY_ACL_CONFIG = """
 acls:
-    1:
-       exact_match: True
-       rules: []
+  1:
+    exact_match: true
+    rules: []
 """
 
     def setUp(self): # pylint: disable=invalid-name
@@ -1744,7 +1744,7 @@ acls:
             rules_yaml = []
             for rule in range(rules):
                 host_ip = host_ips[rule]
-                ip_match = '%s/%u' % (str(host_ip), host_ip.max_prefixlen)
+                ip_match = '%s' % str(host_ip)
                 port = (rule + 1) % 2**16
                 rule_yaml = {
                     'eth_type': eth_type,
