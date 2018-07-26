@@ -1727,8 +1727,8 @@ acls:
         actions: {allow: 1}
         eth_type: 2048
         ip_proto: 6
-        ipv6_dst: 127.0.0.1
-        ipv6_src: 127.0.0.1
+        ipv4_dst: 127.0.0.1
+        ipv4_src: 127.0.0.1
         tcp_dst: 65535
         tcp_src: 65535
 """
