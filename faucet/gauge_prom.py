@@ -133,7 +133,7 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
             # Work around this by unregistering/registering the entire variable.
             for var, tags, count in self._parse_flow_stats(stats):
                 table_id = int(tags['table_id'])
-                table_name = self.dp.tables_by_id[table_id].name
+                table_name = self.dp.table_by_id(table_id).name
                 table_prom_var = PROM_PREFIX_DELIM.join((var, table_name))
                 tags_keys = set(tags.keys())
                 if tags_keys != self.table_tags[table_id]:

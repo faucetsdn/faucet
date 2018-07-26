@@ -44,7 +44,7 @@ def make_wsgi_app(registry):
     return prometheus_app
 
 
-class PromClient(object): # pylint: disable=too-few-public-methods
+class PromClient: # pylint: disable=too-few-public-methods
     """Prometheus client."""
 
     REQUIRED_LABELS = ['dp_id', 'dp_name']

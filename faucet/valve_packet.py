@@ -586,7 +586,7 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
     return pkt
 
 
-class PacketMeta(object):
+class PacketMeta:
     """Original, and parsed Ethernet packet metadata."""
 
     ETH_TYPES_PARSERS = {

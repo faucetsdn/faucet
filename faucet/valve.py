@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import logging
 import random
 
@@ -80,6 +81,7 @@ class Valve:
     ofchannel_logger = None
     host_manager = None
     flood_manager = None
+    _last_pipeline_flows = []
     _route_manager_by_ipv = None
     _last_advertise_sec = None
     _port_highwater = {} # type: dict
@@ -94,7 +96,7 @@ class Valve:
         self.notifier = notifier
         self.dp_init()
 
-    def _skip_tables(self):
+    def _skip_table_ids(self):
         tables = []
         any_routing = False
         for route_manager in list(self._route_manager_by_ipv.values()):
@@ -104,13 +106,14 @@ class Valve:
                 tables.append(route_manager.fib_table)
         if not any_routing:
             tables.append(self.dp.tables['vip'])
-        return tables
-
-    def _active_tables(self):
-        return set(self.dp.all_valve_tables()) - set(self._skip_tables())
+        # TODO: handle no port ACL case as well.
+        if not self.dp.vlan_acl_matches:
+            tables.append(self.dp.tables['vlan_acl'])
+        return [table.table_id for table in tables]
 
     def _active_table_ids(self):
-        return sorted([table.table_id for table in self._active_tables()])
+        all_table_ids = [table.table_id for table in self.dp.all_valve_tables()]
+        return set(all_table_ids) - set(self._skip_table_ids())
 
     def close_logs(self):
         """Explicitly close any active loggers."""
@@ -155,7 +158,8 @@ class Valve:
             for vlan in list(self.dp.vlans.values()):
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
                     route_manager.active = True
-                    self.logger.info('IPv%u routing is active on %s' % (route_manager.IPV, vlan))
+                    self.logger.info('IPv%u routing is active on %s with VIPs %s' % (
+                        route_manager.IPV, vlan, vlan.faucet_vips_by_ipv(route_manager.IPV)))
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         if self.dp.stack:
@@ -184,6 +188,8 @@ class Valve:
                 self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
                 self.dp.low_priority, self.dp.highest_priority)
+        self.logger.info('DP/port ACL matches/has mask: %s' % str(self.dp.port_acl_matches))
+        self.logger.info('VLAN ACL matches/has mask: %s' % str(self.dp.vlan_acl_matches))
 
     def _notify(self, event_dict):
         """Send an event notification."""
@@ -246,6 +252,10 @@ class Valve:
                 match=table.match(in_port=port.number)))
         return ofmsgs
 
+    @staticmethod
+    def _pipeline_flows():
+        return []
+
     def _add_default_drop_flows(self):
         """Add default drop rules on all FAUCET tables."""
         eth_src_table = self.dp.tables['eth_src']
@@ -253,8 +263,10 @@ class Valve:
 
         # default drop on all tables.
         ofmsgs = []
-        for table in self._active_tables():
-            ofmsgs.append(table.flowdrop(priority=self.dp.lowest_priority))
+        active_table_ids = self._active_table_ids()
+        for table in list(self.dp.tables.values()):
+            if table.table_id in active_table_ids:
+                ofmsgs.append(table.flowdrop(priority=self.dp.lowest_priority))
 
         # drop broadcast sources
         if self.dp.drop_broadcast_source_address:
@@ -504,13 +516,15 @@ class Valve:
 
     def _lldp_beacon_ports(self, now):
         """Return list of ports to send LLDP packets; stacked ports always send LLDP."""
-        priority_ports = set([port for port in self.dp.stack_ports if port.running() and port.lldp_beacon_enabled()])
+        priority_ports = {
+            port for port in self.dp.stack_ports
+            if port.running() and port.lldp_beacon_enabled()}
         cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
-        nonpriority_ports = set([
+        nonpriority_ports = {
             port for port in self.dp.lldp_beacon_ports
             if port.running() and (
                 port.dyn_last_lldp_beacon_time is None or
-                port.dyn_last_lldp_beacon_time < cutoff_beacon_time)])
+                port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
         nonpriority_ports -= priority_ports
         send_ports = list(priority_ports)
         send_ports.extend(list(nonpriority_ports)[:self.dp.lldp_beacon['max_per_interval']])
@@ -1152,7 +1166,8 @@ class Valve:
     def update_config_metrics(self):
         """Update gauge/metrics for configuration."""
         self.metrics.reset_dpid(self.base_prom_labels)
-        for table_id, table in list(self.dp.tables_by_id.items()):
+        for table in list(self.dp.tables.values()):
+            table_id = table.table_id
             self.metrics.faucet_config_table_names.labels(
                 **dict(self.base_prom_labels, table_name=table.name)).set(table_id)
 
@@ -1298,6 +1313,19 @@ class Valve:
                 self._lacp_state_expire(vlan, now)
         return ofmsgs
 
+    def _pipeline_change(self):
+        def table_msgs(tfm_flow):
+            return {str(x) for x in tfm_flow.body}
+
+        if self._last_pipeline_flows:
+            _last_pipeline_flows = table_msgs(self._last_pipeline_flows[0])
+            _pipeline_flows = table_msgs(self._pipeline_flows()[0])
+            if _last_pipeline_flows != _pipeline_flows:
+                self.logger.info('pipeline change: %s' % str(
+                    _last_pipeline_flows.difference(_pipeline_flows)))
+                return True
+        return False
+
     def _apply_config_changes(self, new_dp, changes):
         """Apply any detected configuration changes.
 
@@ -1318,6 +1346,11 @@ class Valve:
         new_dp.running = True
         (deleted_ports, changed_ports, changed_acl_ports,
          deleted_vlans, changed_vlans, all_ports_changed) = changes
+
+        if self._pipeline_change():
+            self.dp = new_dp
+            self.dp_init()
+            return True, []
 
         if all_ports_changed:
             self.logger.info('all ports changed')
@@ -1504,13 +1537,17 @@ class TfmValve(Valve):
 
     PIPELINE_CONF = 'tfm_pipeline.json'
 
-    def _add_default_flows(self):
+    def _pipeline_flows(self):
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         active_table_ids = self._active_table_ids()
         self.logger.info('loading pipeline configuration (table IDs %s)' % str(active_table_ids))
-        ofmsgs = [valve_of.table_features(
-            ryu_table_loader.load_tables(active_table_ids, self.dp.tables_by_id))]
+        return [valve_of.table_features(
+            ryu_table_loader.load_tables(active_table_ids, self.dp))]
+
+    def _add_default_flows(self):
+        ofmsgs = self._pipeline_flows()
+        self._last_pipeline_flows = copy.deepcopy(ofmsgs)
         ofmsgs.extend(super(TfmValve, self)._add_default_flows())
         return ofmsgs
 

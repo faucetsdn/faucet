@@ -1793,7 +1793,7 @@ dbs:
             'echo hello | nc -l %s %u &' % (host.IP(), port), 10))
         self.wait_for_tcp_listen(host, port)
 
-    def wait_nonzero_packet_count_flow(self, match, timeout=10, table_id=None, actions=None, dpid=None):
+    def wait_nonzero_packet_count_flow(self, match, timeout=15, table_id=None, actions=None, dpid=None):
         """Wait for a flow to be present and have a non-zero packet_count."""
         if dpid is None:
             dpid = self.dpid

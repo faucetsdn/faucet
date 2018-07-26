@@ -213,7 +213,7 @@ class Port(Conf):
             self.acl_in = None
         if self.acls_in:
             for acl in self.acls_in:
-                test_config_condition(not isinstance(acl, (int, str)), 'acl names must be int or')
+                test_config_condition(not isinstance(acl, (int, str)), 'ACL names must be int or str')
 
     def finalize(self):
         test_config_condition(not (self.vlans() or self.stack or self.output_only), (

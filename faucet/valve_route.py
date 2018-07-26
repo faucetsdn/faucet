@@ -28,7 +28,7 @@ from faucet import valve_packet
 from faucet.valve_util import btos
 
 
-class NextHop(object):
+class NextHop:
     """Describes a directly connected (at layer 2) nexthop."""
 
     def __init__(self, eth_src, port, now):
@@ -47,7 +47,7 @@ class NextHop(object):
         return self.resolve_retries >= max_fib_retries
 
 
-class ValveRouteManager(object):
+class ValveRouteManager:
     """Base class to implement RIB/FIB."""
 
     IPV = 0

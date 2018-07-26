@@ -28,7 +28,7 @@ from ryu.lib import hub # pylint: disable=wrong-import-position
 from beka.beka import Beka # pylint: disable=wrong-import-position
 
 
-class BgpSpeakerKey(object):
+class BgpSpeakerKey:
     """Uniquely describe a BGP speaker."""
 
     def __init__(self, dp_id, vlan_vid, ipv):
@@ -50,7 +50,7 @@ class BgpSpeakerKey(object):
         return self.__hash__() == other.__hash__()
 
 
-class FaucetBgp(object):
+class FaucetBgp:
     """Wrapper for Ryu BGP speaker."""
 
     def __init__(self, logger, metrics, send_flow_msgs):

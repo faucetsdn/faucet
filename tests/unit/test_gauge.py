@@ -33,7 +33,14 @@ class QuietHandler(BaseHTTPRequestHandler):
     """Don't log requests."""
 
     def log_message(self, _format, *_args):
-        return
+        pass
+
+
+def table_by_id(i):
+    table = mock.Mock()
+    table_name = mock.PropertyMock(return_value='table' + str(i))
+    type(table).name = table_name
+    return table
 
 
 def create_mock_datapath(num_ports):
@@ -44,16 +51,12 @@ def create_mock_datapath(num_ports):
         port_name = mock.PropertyMock(return_value='port' + str(i))
         type(port).name = port_name
         ports[i] = port
-    tables_by_id = {}
-    for i in range(0, 10):
-        table = mock.Mock()
-        table_name = mock.PropertyMock(return_value='table' + str(i))
-        type(table).name = table_name
-        tables_by_id[i] = table
-    datapath = mock.Mock(ports=ports, dp_id=random.randint(1, 5000), tables_by_id=tables_by_id)
+    datapath = mock.Mock(ports=ports, dp_id=random.randint(1, 5000))
+    datapath.table_by_id = table_by_id
     dp_name = mock.PropertyMock(return_value='datapath')
     type(datapath).name = dp_name
     return datapath
+
 
 def start_server(handler):
     """ Starts a HTTPServer and runs it as a daemon thread """
@@ -197,7 +200,7 @@ def compare_flow_msg(flow_msg, flow_dict, test):
 class PretendInflux(QuietHandler):
     """An HTTP Handler that receives InfluxDB messages."""
 
-    def do_POST(self):
+    def do_POST(self): # pylint: disable=invalid-name
         """ Write request contents to the HTTP server,
         if there is an output file to write to. """
 
@@ -554,7 +557,8 @@ class GaugeInfluxUpdateTest(unittest.TestCase): # pytype: disable=module-attr
             # get the number at the end of the port_name
             port_num = int(influx_data['port_name'][-1]) # pytype: disable=unsupported-operands
             # get the original port stat value
-            port_stat_val = logger_to_ofp(msg.body[port_num - 1])[measurement] # pytype: disable=unsupported-operands
+            port_stat_val = logger_to_ofp(
+                msg.body[port_num - 1])[measurement] # pytype: disable=unsupported-operands
 
             self.assertEqual(port_stat_val, influx_data['value'])
             self.assertEqual(conf.dp.name, influx_data['dp_name'])
@@ -845,7 +849,8 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
         os.environ['GAUGE_LOG'] = '/dev/null'
         os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
 
-    def _fake_dp(self):
+    @staticmethod
+    def _fake_dp():
         datapath = namedtuple('datapath', ['id', 'close'])(0, lambda: None)
         return datapath
 

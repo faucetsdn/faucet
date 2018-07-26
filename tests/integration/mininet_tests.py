@@ -1718,11 +1718,19 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
-    EMPTY_ACL_CONFIG = """
+    START_ACL_CONFIG = """
 acls:
-    1:
-       exact_match: True
-       rules: []
+  1:
+    exact_match: true
+    rules:
+    - rule:
+        actions: {allow: 1}
+        eth_type: 2048
+        ip_proto: 6
+        ipv4_dst: 127.0.0.1
+        ipv4_src: 127.0.0.1
+        tcp_dst: 65535
+        tcp_src: 65535
 """
 
     def setUp(self): # pylint: disable=invalid-name
@@ -1730,7 +1738,7 @@ acls:
         self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
         self.CONFIG = '\n'.join(
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
-        open(self.acl_config_file, 'w').write(self.EMPTY_ACL_CONFIG)
+        open(self.acl_config_file, 'w').write(self.START_ACL_CONFIG)
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
@@ -1744,8 +1752,8 @@ acls:
             rules_yaml = []
             for rule in range(rules):
                 host_ip = host_ips[rule]
-                ip_match = '%s/%u' % (str(host_ip), host_ip.max_prefixlen)
                 port = (rule + 1) % 2**16
+                ip_match = str(host_ip)
                 rule_yaml = {
                     'eth_type': eth_type,
                     'ip_proto': 6,
@@ -1777,6 +1785,21 @@ class FaucetIPv6TupleTest(FaucetIPv4TupleTest):
     MAX_RULES = 1024
     ETH_TYPE = 0x86DD
     NET_BASE = ipaddress.IPv6Network(u'fc00::00/64')
+    START_ACL_CONFIG = """
+acls:
+  1:
+    exact_match: true
+    rules:
+    - rule:
+        actions: {allow: 1}
+        eth_type: 34525
+        ip_proto: 6
+        ipv6_dst: ::1
+        ipv6_src: ::1
+        tcp_dst: 65535
+        tcp_src: 65535
+"""
+
 
 
 class FaucetConfigReloadTestBase(FaucetTest):

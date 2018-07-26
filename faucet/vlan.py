@@ -28,14 +28,14 @@ from faucet.valve_util import btos
 from faucet.valve_packet import FAUCET_MAC
 
 
-class NullVLAN(object):
+class NullVLAN:
     """Placeholder null VLAN."""
 
     name = 'Null VLAN'
     vid = valve_of.ofp.OFPVID_NONE
 
 
-class HostCacheEntry(object):
+class HostCacheEntry:
     """Association of a host with a port."""
 
     def __init__(self, eth_src, port, cache_time):

@@ -80,6 +80,10 @@ For Prometheus:
     dp = None # pylint: disable=invalid-name
     all_dps = None
     prom_client = None
+    type = None
+    interval = None
+    db_type = None
+    dps = None
 
     defaults = {
         'name': None,

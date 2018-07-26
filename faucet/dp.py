@@ -33,7 +33,7 @@ from faucet.valve_util import get_setting
 from faucet.valve_packet import FAUCET_MAC
 
 
-class NullRyuDatapath(object):
+class NullRyuDatapath:
     """Placeholder Ryu Datapath."""
 
     ofproto = valve_of.ofp
@@ -82,7 +82,6 @@ configuration.
     pipeline_config_dir = None
     use_idle_timeout = None
     tables = {} # type: dict
-    tables_by_id = {} # type: dict
     meters = {} # type: dict
     timeout = None
     arp_neighbor_timeout = None
@@ -93,6 +92,8 @@ configuration.
     lacp_timeout = None
     dp_acls = None
     dot1x = None
+    vlan_acl_matches = {}
+    port_acl_matches = {}
 
     dyn_last_coldstart_time = None
     dyn_up_ports = set() # type: ignore
@@ -287,7 +288,6 @@ configuration.
             self.tables[table_name] = ValveTable(
                 table_id, table_name, restricted_match_types,
                 self.cookie, notify_flow_removed=self.use_idle_timeout)
-            self.tables_by_id[table_id] = self.tables[table_name]
 
     def set_defaults(self):
         super(DP, self).set_defaults()
@@ -300,10 +300,16 @@ configuration.
         self._set_default('description', self.name)
         self._configure_tables()
 
+    def table_by_id(self, table_id):
+        tables = [table for table in list(self.tables.values()) if table_id == table.table_id]
+        if tables:
+            return tables[0]
+        return None
+
     def match_tables(self, match_type):
         """Return list of tables with matches of a specific match type."""
         match_tables = []
-        for table in list(self.tables_by_id.values()):
+        for table in list(self.tables.values()):
             if table.restricted_match_types is not None:
                 if match_type in table.restricted_match_types:
                     match_tables.append(table)
@@ -321,7 +327,7 @@ configuration.
 
     def all_valve_tables(self):
         """Return list of all Valve tables."""
-        return list(self.tables_by_id.values())
+        return list(self.tables.values())
 
     def add_acl(self, acl_ident, acl):
         """Add an ACL to this DP."""
@@ -622,6 +628,7 @@ configuration.
 
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config and mark mirror destinations."""
+                matches = {}
                 if acl.rules:
                     try:
                         ofmsgs = valve_acl.build_acl_ofmsgs(
@@ -630,16 +637,25 @@ configuration.
                             valve_of.goto_table(self.wildcard_table),
                             2**16-1, self.meters, acl.exact_match,
                             vlan_vid=vid)
-                        test_config_condition(not ofmsgs, 'of messages is empty')
+                        test_config_condition(not ofmsgs, 'OF messages is empty')
                         for ofmsg in ofmsgs:
                             ofmsg.datapath = NullRyuDatapath()
                             ofmsg.set_xid(0)
                             ofmsg.serialize()
+                            if valve_of.is_flowmod(ofmsg):
+                                for match, value in list(ofmsg.match.items()):
+                                    has_mask = isinstance(value, tuple)
+                                    if match in matches:
+                                        if has_mask:
+                                            matches[match] = has_mask
+                                    else:
+                                        matches[match] = has_mask
                     except (AddrFormatError, KeyError, ValueError) as err:
                         raise InvalidConfigError(err)
                     for port_no in mirror_destinations:
                         port = self.ports[port_no]
                         port.output_only = True
+                return matches
 
             for rule_conf in acl.rules:
                 for attrib, attrib_value in list(rule_conf.items()):
@@ -655,7 +671,7 @@ configuration.
                             resolved_actions[action_name] = resolved_action_conf
                         rule_conf[attrib] = resolved_actions
 
-            build_acl(acl, vid=1)
+            return build_acl(acl, vid=1)
 
         def verify_acl_exact_match(acls):
             for acl in acls:
@@ -665,12 +681,13 @@ configuration.
         def resolve_acls():
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
+            self.port_acl_matches.update({'in_port': False})
 
             for vlan in list(self.vlans.values()):
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
-                        resolve_acl(acl)
+                        self.vlan_acl_matches.update(resolve_acl(acl))
                         acls.append(self.acls[acl])
                     vlan.acls_in = acls
                     verify_acl_exact_match(acls)
@@ -680,14 +697,14 @@ configuration.
                         'dataplane ACLs cannot be used with port ACLs.'))
                     acls = []
                     for acl in port.acls_in:
-                        resolve_acl(acl)
+                        self.port_acl_matches.update(resolve_acl(acl))
                         acls.append(self.acls[acl])
                     port.acls_in = acls
                     verify_acl_exact_match(acls)
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
-                    resolve_acl(acl)
+                    self.port_acl_matches.update(resolve_acl(acl))
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
 
@@ -718,6 +735,9 @@ configuration.
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
         resolve_acls()
+
+        self.tables['port_acl'].restricted_match_types = self.port_acl_matches
+        self.tables['vlan_acl'].restricted_match_types = self.vlan_acl_matches
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:
@@ -941,6 +961,9 @@ configuration.
         """
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
+        elif (self.vlan_acl_matches != new_dp.vlan_acl_matches or
+                 self.port_acl_matches != new_dp.port_acl_matches):
+            logger.info('ACL matches changed')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
         else:
