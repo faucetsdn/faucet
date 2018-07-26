@@ -1331,8 +1331,11 @@ class Valve:
         (deleted_ports, changed_ports, changed_acl_ports,
          deleted_vlans, changed_vlans, all_ports_changed) = changes
 
-        _last_pipeline_flows = set([str(x) for x in self._last_pipeline_flows[0].body])
-        _pipeline_flows = set([str(x) for x in self._pipeline_flows()[0].body])
+        _last_pipeline_flows = set()
+        _pipeline_flows = set()
+        if self._last_pipeline_flows:
+            _last_pipeline_flows = set([str(x) for x in self._last_pipeline_flows[0].body])
+            _pipeline_flows = set([str(x) for x in self._pipeline_flows()[0].body])
         if _last_pipeline_flows != _pipeline_flows:
             self.logger.info('pipeline change: %s' % str(_last_pipeline_flows.difference(_pipeline_flows)))
             self.dp = new_dp
