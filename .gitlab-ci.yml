@@ -63,3 +63,5 @@ build-rpi-image:
     paths:
       - raspbian-image/pi-gen/deploy/*
     expire_in: 1 week
+  only:
+    - tags
