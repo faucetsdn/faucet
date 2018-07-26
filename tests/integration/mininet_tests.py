@@ -1708,15 +1708,6 @@ vlans:
                 native_vlan: 100
                 description: "b1"
                 acl_in: 1
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
 """
     START_ACL_CONFIG = """
 acls:

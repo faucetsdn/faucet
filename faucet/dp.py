@@ -94,6 +94,8 @@ configuration.
     dot1x = None
     vlan_acl_matches = {}
     port_acl_matches = {}
+    vlan_acl_exact_match = False
+    port_acl_exact_match = False
 
     dyn_last_coldstart_time = None
     dyn_up_ports = set() # type: ignore
@@ -677,6 +679,7 @@ configuration.
             for acl in acls:
                 test_config_condition(acl.exact_match != acls[0].exact_match, (
                     'ACLs when used together must have consistent exact_match'))
+            return acls[0].exact_match
 
         def resolve_acls():
             """Resolve config references in ACLs."""
@@ -690,7 +693,7 @@ configuration.
                         self.vlan_acl_matches.update(resolve_acl(acl))
                         acls.append(self.acls[acl])
                     vlan.acls_in = acls
-                    verify_acl_exact_match(acls)
+                    self.vlan_acl_exact_match = verify_acl_exact_match(acls)
             for port in list(self.ports.values()):
                 if port.acls_in:
                     test_config_condition(self.dp_acls, (
@@ -700,7 +703,7 @@ configuration.
                         self.port_acl_matches.update(resolve_acl(acl))
                         acls.append(self.acls[acl])
                     port.acls_in = acls
-                    verify_acl_exact_match(acls)
+                    self.port_acl_exact_match = verify_acl_exact_match(acls)
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
@@ -736,8 +739,12 @@ configuration.
         resolve_vlan_names_in_routers()
         resolve_acls()
 
-        self.tables['port_acl'].restricted_match_types = self.port_acl_matches
-        self.tables['vlan_acl'].restricted_match_types = self.vlan_acl_matches
+        port_acl_table = self.tables['port_acl']
+        port_acl_table.restricted_match_types = self.port_acl_matches
+        port_acl_table.exact_match = self.port_acl_exact_match
+        vlan_acl_table = self.tables['vlan_acl']
+        vlan_acl_table.restricted_match_types = self.vlan_acl_matches
+        vlan_acl_table.exact_match = self.vlan_acl_exact_match
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:
