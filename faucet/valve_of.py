@@ -580,7 +580,7 @@ def meterdel(datapath=None, meter_id=ofp.OFPM_ALL):
 def meteradd(meter_conf):
     """Add a meter based on YAML configuration."""
 
-    class NoopDP(object):
+    class NoopDP:
         """Fake DP to be able to use ofctl to parse meter config."""
 
         id = 0

@@ -22,7 +22,7 @@ import random
 from faucet import valve_of
 
 
-class ValveHostManager(object):
+class ValveHostManager:
     """Manage host learning on VLANs."""
 
     # don't update host cache more often than this many seconds

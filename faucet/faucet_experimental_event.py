@@ -38,7 +38,7 @@ from ryu.lib import hub
 from ryu.lib.hub import StreamServer
 
 
-class NonBlockLock(object):
+class NonBlockLock:
     """Non blocking lock that can be used as a context manager."""
 
     def __init__(self):
@@ -57,7 +57,7 @@ class NonBlockLock(object):
         self._lock.release()
 
 
-class FaucetExperimentalEventNotifier(object):
+class FaucetExperimentalEventNotifier:
     """Event notification, via Unix domain socket."""
 
     def __init__(self, socket_path, metrics, logger):

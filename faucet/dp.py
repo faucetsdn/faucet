@@ -33,7 +33,7 @@ from faucet.valve_util import get_setting
 from faucet.valve_packet import FAUCET_MAC
 
 
-class NullRyuDatapath(object):
+class NullRyuDatapath:
     """Placeholder Ryu Datapath."""
 
     ofproto = valve_of.ofp
