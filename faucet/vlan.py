@@ -287,8 +287,8 @@ class VLAN(Conf):
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
 
     def reset_ports(self, ports):
-        self.tagged = [port for port in ports if self in port.tagged_vlans]
-        self.untagged = [port for port in ports if self == port.native_vlan]
+        self.tagged = tuple([port for port in ports if self in port.tagged_vlans])
+        self.untagged = tuple([port for port in ports if self == port.native_vlan])
 
     def add_cache_host(self, eth_src, port, cache_time):
         existing_entry = self.cached_host(eth_src)
@@ -420,7 +420,7 @@ class VLAN(Conf):
         return len(self.dyn_host_cache)
 
     def __str__(self):
-        port_list = [str(x) for x in self.get_ports()]
+        port_list = tuple([str(x) for x in self.get_ports()])
         ports = ','.join(port_list)
         return 'VLAN %s vid:%s ports:%s' % (self.name, self.vid, ports)
 
@@ -429,19 +429,19 @@ class VLAN(Conf):
 
     def get_ports(self):
         """Return all ports on this VLAN."""
-        return list(self.tagged) + list(self.untagged)
+        return self.tagged + self.untagged
 
     def hairpin_ports(self):
         """Return all ports with hairpin enabled."""
-        return [port for port in self.get_ports() if port.hairpin]
+        return tuple([port for port in self.get_ports() if port.hairpin])
 
     def mirrored_ports(self):
         """Return list of ports that are mirrored on this VLAN."""
-        return [port for port in self.get_ports() if port.mirror]
+        return tuple([port for port in self.get_ports() if port.mirror])
 
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
-        lacp_ports = [port for port in self.get_ports() if port.lacp]
+        lacp_ports = tuple([port for port in self.get_ports() if port.lacp])
         lags = collections.defaultdict(list)
         for port in lacp_ports:
             lags[port.lacp].append(port)
@@ -449,7 +449,7 @@ class VLAN(Conf):
 
     def flood_ports(self, configured_ports, exclude_unicast):
         if exclude_unicast:
-            return [port for port in configured_ports if port.unicast_flood]
+            return tuple([port for port in configured_ports if port.unicast_flood])
         return configured_ports
 
     def tagged_flood_ports(self, exclude_unicast):
