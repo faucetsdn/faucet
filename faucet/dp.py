@@ -48,6 +48,7 @@ class DP(Conf):
 configuration.
 """
 
+    # TODO: shouldn't be any mutable attrs
     mutable_attrs = frozenset(['stack', 'vlans'])
     acls = None
     vlans = None
