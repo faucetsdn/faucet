@@ -66,6 +66,7 @@ class VLAN(Conf):
 # Note: while vlans are configured once for each datapath, there will be a
 # separate vlan object created for each datapath that the vlan appears on
 
+    mutable_attrs = frozenset(['tagged', 'untagged'])
     name = None
     dp_id = None
     tagged = None

@@ -616,7 +616,7 @@ class Valve:
                 port_status=True,
                 notify_flow_removed=self.dp.use_idle_timeout))
         self.dp.dyn_last_coldstart_time = now
-        self.dp.running = True
+        self.dp.dyn_running = True
         self.metrics.of_dp_connections.labels( # pylint: disable=no-member
             **self.base_prom_labels).inc()
         self.metrics.dp_status.labels( # pylint: disable=no-member
@@ -629,7 +629,7 @@ class Valve:
         self._notify(
             {'DP_CHANGE': {
                 'reason': 'disconnect'}})
-        self.dp.running = False
+        self.dp.dyn_running = False
         self.metrics.of_dp_disconnections.labels( # pylint: disable=no-member
             **self.base_prom_labels).inc()
         self.metrics.dp_status.labels( # pylint: disable=no-member
@@ -1118,7 +1118,7 @@ class Valve:
 
     def parse_pkt_meta(self, msg):
         """Parse OF packet-in message to PacketMeta."""
-        if not self.dp.running:
+        if not self.dp.dyn_running:
             return None
         if self.dp.cookie != msg.cookie:
             return None
@@ -1303,7 +1303,7 @@ class Valve:
             list: OpenFlow messages, if any.
         """
         ofmsgs = []
-        if self.dp.running:
+        if self.dp.dyn_running:
             for vlan in list(self.dp.vlans.values()):
                 expired_hosts = self.host_manager.expire_hosts_from_vlan(vlan, now)
                 for entry in expired_hosts:
@@ -1345,7 +1345,7 @@ class Valve:
                 cold_start (bool): whether cold starting.
                 ofmsgs (list): OpenFlow messages.
         """
-        new_dp.running = True
+        new_dp.dyn_running = True
         (deleted_ports, changed_ports, changed_acl_ports,
          deleted_vlans, changed_vlans, all_ports_changed) = changes
 
@@ -1410,13 +1410,13 @@ class Valve:
         Returns:
             ofmsgs (list): OpenFlow messages.
         """
-        dp_running = self.dp.running
+        dp_running = self.dp.dyn_running
         up_ports = self.dp.dyn_up_ports
         cold_start, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
-        self.dp.running = dp_running
+        self.dp.dyn_running = dp_running
         restart_type = 'none'
-        if self.dp.running:
+        if self.dp.dyn_running:
             if cold_start:
                 # Need to reprovision pipeline on cold start.
                 ofmsgs = self.datapath_connect(now, up_ports)
@@ -1470,7 +1470,7 @@ class Valve:
         Returns:
             list: OpenFlow messages, if any.
         """
-        if not self.dp.running:
+        if not self.dp.dyn_running:
             return []
         ofmsgs = []
         for vlan in list(self.dp.vlans.values()):

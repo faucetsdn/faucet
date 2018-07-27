@@ -48,13 +48,13 @@ class DP(Conf):
 configuration.
 """
 
+    mutable_attrs = frozenset(['stack', 'vlans'])
     acls = None
     vlans = None
     interfaces = None # config
     interface_ranges = None
     ports = None
     routers = None
-    running = False
     name = None
     dp_id = None
     cookie = None
@@ -93,6 +93,7 @@ configuration.
     dp_acls = None
     dot1x = None
 
+    dyn_running = False
     dyn_last_coldstart_time = None
     dyn_up_ports = set() # type: ignore
 
