@@ -217,30 +217,30 @@ class VLAN(Conf):
                 self.proactive_nd_limit = 2 * self.max_hosts
 
         if self.faucet_vips:
-            self.faucet_vips = [
-                self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips]
+            self.faucet_vips = frozenset([
+                self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips])
             for faucet_vip in self.faucet_vips:
                 self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(faucet_vip)
             self.dyn_ipvs = list(self.dyn_faucet_vips_by_ipv.keys())
 
         if self.bgp_neighbor_addresses or self.bgp_neighbour_addresses:
-            neigh_addresses = set(self.bgp_neighbor_addresses + self.bgp_neighbour_addresses)
-            self.bgp_neighbor_addresses = [
-                self._check_ip_str(ip_str) for ip_str in neigh_addresses]
+            neigh_addresses = frozenset(self.bgp_neighbor_addresses + self.bgp_neighbour_addresses)
+            self.bgp_neighbor_addresses = frozenset([
+                self._check_ip_str(ip_str) for ip_str in neigh_addresses])
             for bgp_neighbor_address in self.bgp_neighbor_addresses:
                 self.dyn_bgp_neighbor_addresses_by_ipv[bgp_neighbor_address.version].append(
                     bgp_neighbor_address)
 
         if self.bgp_server_addresses:
-            self.bgp_server_addresses = [
-                self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses]
+            self.bgp_server_addresses = frozenset([
+                self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses])
             for bgp_server_address in self.bgp_server_addresses:
                 self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version].append(
                     bgp_server_address)
                 test_config_condition(
                     len(self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version]) != 1,
                     'Only one BGP server address per IP version supported')
-            self.dyn_bgp_ipvs = list(self.dyn_bgp_server_addresses_by_ipv.keys())
+            self.dyn_bgp_ipvs = frozenset(self.dyn_bgp_server_addresses_by_ipv.keys())
 
         if self.bgp_as:
             test_config_condition(not isinstance(self.bgp_port, int), (
@@ -257,7 +257,7 @@ class VLAN(Conf):
         if self.routes:
             test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
             try:
-                self.routes = [route['route'] for route in self.routes]
+                self.routes = tuple([route['route'] for route in self.routes])
             except TypeError:
                 raise InvalidConfigError('%s is not a valid routes value' % self.routes)
             except KeyError:
@@ -428,7 +428,7 @@ class VLAN(Conf):
         return self.__str__()
 
     def get_ports(self):
-        """Return list of all ports on this VLAN."""
+        """Return all ports on this VLAN."""
         return list(self.tagged) + list(self.untagged)
 
     def hairpin_ports(self):
