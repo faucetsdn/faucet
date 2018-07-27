@@ -766,6 +766,10 @@ configuration.
                     bgp_vlans[0].bgp_server_addresses), (
                         'BGP server addresses must all be the same'))
 
+        self.stack_ports = tuple(self.stack_ports)
+        self.output_only_ports = tuple(self.output_only_ports)
+        self.lldp_beacon_ports = tuple(self.lldp_beacon_ports)
+
         for port in list(self.ports.values()):
             port.finalize()
         for vlan in list(self.vlans.values()):
