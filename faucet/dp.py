@@ -19,9 +19,9 @@
 from collections import defaultdict
 import copy
 import netaddr
+from netaddr.core import AddrFormatError
 
 from datadiff import diff
-from netaddr.core import AddrFormatError
 import networkx
 
 from faucet import faucet_pipeline
@@ -92,10 +92,6 @@ configuration.
     lacp_timeout = None
     dp_acls = None
     dot1x = None
-    vlan_acl_matches = {}
-    port_acl_matches = {}
-    vlan_acl_exact_match = False
-    port_acl_exact_match = False
 
     dyn_last_coldstart_time = None
     dyn_up_ports = set() # type: ignore
@@ -513,7 +509,7 @@ configuration.
                 'VLAN must be type %s or %s not %s' % (str, int, type(vlan_name))))
             if vlan_name in vlan_by_name:
                 return vlan_by_name[vlan_name]
-            elif vlan_name in self.vlans:
+            if vlan_name in self.vlans:
                 return self.vlans[vlan_name]
             return None
 
@@ -684,32 +680,38 @@ configuration.
         def resolve_acls():
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
-            self.port_acl_matches.update({'in_port': False})
+            vlan_acl_matches = {}
+            port_acl_matches = {}
+            vlan_acl_exact_match = False
+            port_acl_exact_match = False
+            port_acl_matches.update({'in_port': False})
 
             for vlan in list(self.vlans.values()):
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
-                        self.vlan_acl_matches.update(resolve_acl(acl))
+                        vlan_acl_matches.update(resolve_acl(acl))
                         acls.append(self.acls[acl])
                     vlan.acls_in = acls
-                    self.vlan_acl_exact_match = verify_acl_exact_match(acls)
+                    vlan_acl_exact_match = verify_acl_exact_match(acls)
             for port in list(self.ports.values()):
                 if port.acls_in:
                     test_config_condition(self.dp_acls, (
                         'dataplane ACLs cannot be used with port ACLs.'))
                     acls = []
                     for acl in port.acls_in:
-                        self.port_acl_matches.update(resolve_acl(acl))
+                        port_acl_matches.update(resolve_acl(acl))
                         acls.append(self.acls[acl])
                     port.acls_in = acls
-                    self.port_acl_exact_match = verify_acl_exact_match(acls)
+                    port_acl_exact_match = verify_acl_exact_match(acls)
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
-                    self.port_acl_matches.update(resolve_acl(acl))
+                    port_acl_matches.update(resolve_acl(acl))
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
+            return (port_acl_matches, port_acl_exact_match,
+                    vlan_acl_matches, vlan_acl_exact_match)
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
@@ -737,14 +739,15 @@ configuration.
         resolve_mirror_destinations()
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
-        resolve_acls()
+        (port_acl_matches, port_acl_exact_match,
+         vlan_acl_matches, vlan_acl_exact_match) = resolve_acls()
 
         port_acl_table = self.tables['port_acl']
-        port_acl_table.restricted_match_types = self.port_acl_matches
-        port_acl_table.exact_match = self.port_acl_exact_match
+        port_acl_table.restricted_match_types = port_acl_matches
+        port_acl_table.exact_match = port_acl_exact_match
         vlan_acl_table = self.tables['vlan_acl']
-        vlan_acl_table.restricted_match_types = self.vlan_acl_matches
-        vlan_acl_table.exact_match = self.vlan_acl_exact_match
+        vlan_acl_table.restricted_match_types = vlan_acl_matches
+        vlan_acl_table.exact_match = vlan_acl_exact_match
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:
@@ -752,9 +755,9 @@ configuration.
                 vlan_dps = [dp for dp in dps if vlan.vid in dp.vlans]
                 test_config_condition(len(vlan_dps) != 1, (
                     'DPs %s sharing a BGP speaker VLAN is unsupported'))
-            router_ids = set([vlan.bgp_routerid for vlan in bgp_vlans])
+            router_ids = {vlan.bgp_routerid for vlan in bgp_vlans}
             test_config_condition(len(router_ids) != 1, 'BGP router IDs must all be the same')
-            bgp_ports = set([vlan.bgp_port for vlan in bgp_vlans])
+            bgp_ports = {vlan.bgp_port for vlan in bgp_vlans}
             test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same')
             for vlan in bgp_vlans:
                 test_config_condition(vlan.bgp_server_addresses != (
@@ -966,10 +969,15 @@ configuration.
                 changed_vlans (set): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
         """
+        def _table_match_compare(dp_x, dp_y, table_name):
+            return (
+                dp_x.tables[table_name].restricted_match_types ==
+                dp_y.tables[table_name].restricted_match_types)
+
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
-        elif (self.vlan_acl_matches != new_dp.vlan_acl_matches or
-                 self.port_acl_matches != new_dp.port_acl_matches):
+        if (not _table_match_compare(self, new_dp, 'port_acl') or
+                not _table_match_compare(self, new_dp, 'vlan_acl')):
             logger.info('ACL matches changed')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
