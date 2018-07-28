@@ -421,6 +421,7 @@ class ValveTestBases:
             """Call DP connect and set all ports to up."""
             discovered_up_ports = [port_no for port_no in range(1, self.NUM_PORTS + 1)]
             self.table.apply_ofmsgs(
+                self.valve.switch_features(None) +
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
             for port_no in discovered_up_ports:
                 self.set_port_up(port_no)
