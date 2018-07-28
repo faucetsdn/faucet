@@ -788,11 +788,11 @@ configuration.
 
     def bgp_vlans(self):
         """Return list of VLANs with BGP enabled."""
-        return [vlan for vlan in list(self.vlans.values()) if vlan.bgp_as]
+        return tuple([vlan for vlan in list(self.vlans.values()) if vlan.bgp_as])
 
     def dot1x_ports(self):
         """Return list of ports with 802.1x enabled."""
-        return [port for port in list(self.ports.values()) if port.dot1x]
+        return tuple([port for port in list(self.ports.values()) if port.dot1x])
 
     def to_conf(self):
         """Return DP config as dict."""
@@ -982,7 +982,7 @@ configuration.
 
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
-        if (not _table_match_compare(self, new_dp, 'port_acl') or
+        elif (not _table_match_compare(self, new_dp, 'port_acl') or
                 not _table_match_compare(self, new_dp, 'vlan_acl')):
             logger.info('ACL matches changed')
         elif new_dp.routers != self.routers:
