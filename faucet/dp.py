@@ -320,10 +320,6 @@ configuration.
         """Return list of tables that specify in_port as a match."""
         return self.match_tables('in_port')
 
-    def vlan_match_tables(self):
-        """Return list of tables that specify vlan_vid as a match."""
-        return self.match_tables('vlan_vid')
-
     def all_valve_tables(self):
         """Return list of all Valve tables."""
         return list(self.tables.values())
