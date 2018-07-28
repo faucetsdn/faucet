@@ -420,7 +420,8 @@ class ValveTestBases:
         def connect_dp(self):
             """Call DP connect and set all ports to up."""
             discovered_up_ports = [port_no for port_no in range(1, self.NUM_PORTS + 1)]
-            self.table.apply_ofmsgs(self.valve.datapath_connect(time.time(), discovered_up_ports))
+            self.table.apply_ofmsgs(
+                self.valve.datapath_connect(time.time(), discovered_up_ports))
             for port_no in discovered_up_ports:
                 self.set_port_up(port_no)
             self.assertTrue(self.valve.dp.to_conf())
@@ -508,10 +509,10 @@ class ValveTestBases:
                 else:
                     valve_vlan = in_port.native_vlan
 
-                all_ports = set(
-                    [port for port in self.valve.dp.ports.values() if port.running()])
-                remaining_ports = all_ports - set(
-                    [port for port in valve_vlan.get_ports() if port.running])
+                all_ports = {
+                    port for port in self.valve.dp.ports.values() if port.running()}
+                remaining_ports = all_ports - {
+                    port for port in valve_vlan.get_ports() if port.running}
 
                 hairpin_output = _verify_flood_to_port(
                     match, in_port, valve_vlan, ofp.OFPP_IN_PORT)

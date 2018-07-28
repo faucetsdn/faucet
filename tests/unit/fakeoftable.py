@@ -24,7 +24,7 @@ class FakeOFTableException(Exception):
     pass
 
 
-class FakeOFTable(object):
+class FakeOFTable:
     """Fake OFTable is a virtual openflow pipeline used for testing openflow controllers.
 
     The tables are populated using apply_ofmsgs and can be queried with
@@ -290,7 +290,7 @@ class FakeOFTable(object):
         self.tables = [sorted(table, reverse=True) for table in self.tables]
 
 
-class FlowMod(object):
+class FlowMod:
     """Represents a flow modification message and its corresponding entry in
     the flow table.
     """
@@ -350,10 +350,9 @@ class FlowMod(object):
         for key, val in self.match_values.items():
             if key not in pkt_dict:
                 return False
-            else:
-                val_bits = self.match_to_bits(key, pkt_dict[key])
-                if val_bits != (val & self.match_masks[key]):
-                    return False
+            val_bits = self.match_to_bits(key, pkt_dict[key])
+            if val_bits != (val & self.match_masks[key]):
+                return False
         return True
 
     def _matches_match(self, other):
@@ -379,9 +378,8 @@ class FlowMod(object):
         for key, val in self.match_values.items():
             if key not in other.match_values:
                 return False
-            else:
-                if other.match_values[key] & self.match_masks[key] != val:
-                    return False
+            if other.match_values[key] & self.match_masks[key] != val:
+                return False
         return True
 
     def overlaps(self, other):
@@ -415,9 +413,9 @@ class FlowMod(object):
 
         if key in self.MAC_MATCH_FIELDS:
             return _val_to_bits(addrconv.mac.text_to_bin, val, 48)
-        elif key in self.IPV4_MATCH_FIELDS:
+        if key in self.IPV4_MATCH_FIELDS:
             return _val_to_bits(addrconv.ipv4.text_to_bin, val, 32)
-        elif key in self.IPV6_MATCH_FIELDS:
+        if key in self.IPV6_MATCH_FIELDS:
             return _val_to_bits(addrconv.ipv6.text_to_bin, val, 128)
         return Bits(int=int(val), length=64)
 

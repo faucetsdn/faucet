@@ -56,7 +56,7 @@ class LoadRyuTables:
                             table_ids=next_tables, type_=2))
                 oxm_ids = [
                     valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
-                    for match_type, hasmask in list(valve_table.restricted_match_types.items())]
+                    for match_type, hasmask in list(valve_table.match_types.items())]
                 # OFPTFPT_MATCH
                 new_table.properties.append(
                     valve_of.parser.OFPTableFeaturePropOxm(

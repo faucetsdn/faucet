@@ -25,17 +25,17 @@ from faucet import valve_of
 class ValveTable:
     """Wrapper for an OpenFlow table."""
 
-    def __init__(self, table_id, name, restricted_match_types,
+    def __init__(self, table_id, name, match_types,
                  flow_cookie, notify_flow_removed=False,
                  exact_match=False):
         self.table_id = table_id
         self.name = name
-        self.restricted_match_types = None
+        self.match_types = None
         self.exact_match = exact_match
-        if restricted_match_types:
-            self.restricted_match_types = {}
-            for field, mask in restricted_match_types:
-                self.restricted_match_types[field] = mask
+        if match_types:
+            self.match_types = {}
+            for field, mask in match_types:
+                self.match_types[field] = mask
         self.flow_cookie = flow_cookie
         self.notify_flow_removed = notify_flow_removed
 
@@ -50,11 +50,11 @@ class ValveTable:
             eth_dst, eth_dst_mask, icmpv6_type,
             nw_proto, nw_dst)
         match = valve_of.match(match_dict)
-        if self.restricted_match_types is not None:
+        if self.match_types is not None:
             for match_type, match_field in list(match_dict.items()):
-                assert match_type in self.restricted_match_types, (
+                assert match_type in self.match_types, (
                     '%s match in table %s' % (match_type, self.name))
-                config_mask = self.restricted_match_types[match_type]
+                config_mask = self.match_types[match_type]
                 flow_mask = isinstance(match_field, tuple)
                 assert config_mask or (not config_mask and not flow_mask), (
                     '%s configured mask %s but flow mask %s in table %s' % (

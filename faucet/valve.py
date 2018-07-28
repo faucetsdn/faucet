@@ -107,7 +107,7 @@ class Valve:
         if not any_routing:
             tables.append(self.dp.tables['vip'])
         # TODO: handle no port ACL case as well.
-        if not self.dp.tables['vlan_acl'].restricted_match_types:
+        if not self.dp.tables['vlan_acl'].match_types:
             tables.append(self.dp.tables['vlan_acl'])
         return [table.table_id for table in tables]
 
@@ -189,9 +189,9 @@ class Valve:
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
                 self.dp.low_priority, self.dp.highest_priority)
         self.logger.info('DP/port ACL matches/has mask: %s' % str(
-            self.dp.tables['port_acl'].restricted_match_types))
+            self.dp.tables['port_acl'].match_types))
         self.logger.info('VLAN ACL matches/has mask: %s' % str(
-            self.dp.tables['vlan_acl'].restricted_match_types))
+            self.dp.tables['vlan_acl'].match_types))
 
     def _notify(self, event_dict):
         """Send an event notification."""
