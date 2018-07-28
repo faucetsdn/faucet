@@ -1143,6 +1143,7 @@ meters:
                 'eth_type': 0x800,
                 'ipv4_dst': '224.0.0.5'}
             self.update_config(acl_config)
+            self.flap_port(2)
             self.assertFalse(
                 self.table.is_output(drop_match),
                 msg='packet not blocked by ACL')
