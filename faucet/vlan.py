@@ -66,6 +66,8 @@ class VLAN(Conf):
 # Note: while vlans are configured once for each datapath, there will be a
 # separate vlan object created for each datapath that the vlan appears on
 
+    # TODO: shouldn't be any mutable attrs
+    mutable_attrs = frozenset(['tagged', 'untagged'])
     name = None
     dp_id = None
     tagged = None
@@ -215,30 +217,30 @@ class VLAN(Conf):
                 self.proactive_nd_limit = 2 * self.max_hosts
 
         if self.faucet_vips:
-            self.faucet_vips = [
-                self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips]
+            self.faucet_vips = frozenset([
+                self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips])
             for faucet_vip in self.faucet_vips:
                 self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(faucet_vip)
             self.dyn_ipvs = list(self.dyn_faucet_vips_by_ipv.keys())
 
         if self.bgp_neighbor_addresses or self.bgp_neighbour_addresses:
-            neigh_addresses = set(self.bgp_neighbor_addresses + self.bgp_neighbour_addresses)
-            self.bgp_neighbor_addresses = [
-                self._check_ip_str(ip_str) for ip_str in neigh_addresses]
+            neigh_addresses = frozenset(self.bgp_neighbor_addresses + self.bgp_neighbour_addresses)
+            self.bgp_neighbor_addresses = frozenset([
+                self._check_ip_str(ip_str) for ip_str in neigh_addresses])
             for bgp_neighbor_address in self.bgp_neighbor_addresses:
                 self.dyn_bgp_neighbor_addresses_by_ipv[bgp_neighbor_address.version].append(
                     bgp_neighbor_address)
 
         if self.bgp_server_addresses:
-            self.bgp_server_addresses = [
-                self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses]
+            self.bgp_server_addresses = frozenset([
+                self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses])
             for bgp_server_address in self.bgp_server_addresses:
                 self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version].append(
                     bgp_server_address)
                 test_config_condition(
                     len(self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version]) != 1,
                     'Only one BGP server address per IP version supported')
-            self.dyn_bgp_ipvs = list(self.dyn_bgp_server_addresses_by_ipv.keys())
+            self.dyn_bgp_ipvs = frozenset(self.dyn_bgp_server_addresses_by_ipv.keys())
 
         if self.bgp_as:
             test_config_condition(not isinstance(self.bgp_port, int), (
@@ -255,7 +257,7 @@ class VLAN(Conf):
         if self.routes:
             test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
             try:
-                self.routes = [route['route'] for route in self.routes]
+                self.routes = tuple([route['route'] for route in self.routes])
             except TypeError:
                 raise InvalidConfigError('%s is not a valid routes value' % self.routes)
             except KeyError:
@@ -285,8 +287,8 @@ class VLAN(Conf):
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
 
     def reset_ports(self, ports):
-        self.tagged = [port for port in ports if self in port.tagged_vlans]
-        self.untagged = [port for port in ports if self == port.native_vlan]
+        self.tagged = tuple([port for port in ports if self in port.tagged_vlans])
+        self.untagged = tuple([port for port in ports if self == port.native_vlan])
 
     def add_cache_host(self, eth_src, port, cache_time):
         existing_entry = self.cached_host(eth_src)
@@ -418,7 +420,7 @@ class VLAN(Conf):
         return len(self.dyn_host_cache)
 
     def __str__(self):
-        port_list = [str(x) for x in self.get_ports()]
+        port_list = tuple([str(x) for x in self.get_ports()])
         ports = ','.join(port_list)
         return 'VLAN %s vid:%s ports:%s' % (self.name, self.vid, ports)
 
@@ -426,20 +428,20 @@ class VLAN(Conf):
         return self.__str__()
 
     def get_ports(self):
-        """Return list of all ports on this VLAN."""
-        return list(self.tagged) + list(self.untagged)
+        """Return all ports on this VLAN."""
+        return self.tagged + self.untagged
 
     def hairpin_ports(self):
         """Return all ports with hairpin enabled."""
-        return [port for port in self.get_ports() if port.hairpin]
+        return tuple([port for port in self.get_ports() if port.hairpin])
 
     def mirrored_ports(self):
         """Return list of ports that are mirrored on this VLAN."""
-        return [port for port in self.get_ports() if port.mirror]
+        return tuple([port for port in self.get_ports() if port.mirror])
 
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
-        lacp_ports = [port for port in self.get_ports() if port.lacp]
+        lacp_ports = tuple([port for port in self.get_ports() if port.lacp])
         lags = collections.defaultdict(list)
         for port in lacp_ports:
             lags[port.lacp].append(port)
@@ -447,7 +449,7 @@ class VLAN(Conf):
 
     def flood_ports(self, configured_ports, exclude_unicast):
         if exclude_unicast:
-            return [port for port in configured_ports if port.unicast_flood]
+            return tuple([port for port in configured_ports if port.unicast_flood])
         return configured_ports
 
     def tagged_flood_ports(self, exclude_unicast):

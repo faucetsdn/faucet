@@ -51,7 +51,7 @@ class ValveFloodManager:
     @staticmethod
     def _vlan_all_ports(vlan, exclude_unicast):
         """Return list of all ports that should be flooded to on a VLAN."""
-        return vlan.flood_ports(vlan.get_ports(), exclude_unicast)
+        return list(vlan.flood_ports(vlan.get_ports(), exclude_unicast))
 
     @staticmethod
     def _build_flood_local_rule_actions(vlan, exclude_unicast, in_port):

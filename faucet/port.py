@@ -223,6 +223,7 @@ class Port(Conf):
         if self.native_vlan:
             test_config_condition(self.native_vlan in self.tagged_vlans, (
                 'cannot have same native and tagged VLAN on same port'))
+        self.tagged_vlans = tuple(self.tagged_vlans)
         super(Port, self).finalize()
 
     def running(self):
@@ -242,10 +243,10 @@ class Port(Conf):
         return result
 
     def vlans(self):
-        """Return list of all VLANs this port is in."""
+        """Return all VLANs this port is in."""
         if self.native_vlan is not None:
-            return [self.native_vlan] + self.tagged_vlans
-        return self.tagged_vlans
+            return (self.native_vlan,) + tuple(self.tagged_vlans)
+        return tuple(self.tagged_vlans)
 
     def hosts(self, vlans=None):
         """Return all host cache entries this port has learned (on all or specified VLANs)."""

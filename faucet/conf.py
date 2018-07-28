@@ -31,6 +31,7 @@ def test_config_condition(cond, msg):
 class Conf:
     """Base class for FAUCET configuration."""
 
+    mutable_attrs = frozenset()
     defaults = {} # type: dict
     defaults_types = {} # type: dict
     dyn_finalized = False
@@ -46,6 +47,12 @@ class Conf:
             self.update(conf)
             self.set_defaults()
         self.check_config()
+
+    def __setattr__(self, name, value):
+        if not self.dyn_finalized or name.startswith('dyn') or name in self.mutable_attrs:
+            super(Conf, self).__setattr__(name, value)
+        else:
+            raise ValueError('cannot update %s on finalized Conf object' % name)
 
     def set_defaults(self):
         """Set default values and run any basic sanity checks."""

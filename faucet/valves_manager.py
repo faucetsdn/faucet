@@ -155,7 +155,7 @@ class ValvesManager:
 
     def _other_running_valves(self, valve):
         return [other_valve for other_valve in list(self.valves.values())
-                if valve != other_valve and other_valve.dp.running]
+                if valve != other_valve and other_valve.dp.dyn_running]
 
     def valve_packet_in(self, now, valve, msg):
         """Time a call to Valve packet in handler."""
@@ -176,5 +176,5 @@ class ValvesManager:
     def stack_topo_change(self, _now, valve):
         """Update stack topo of all other Valves affected by the event on this Valve."""
         for other_valve in self._other_running_valves(valve):
-            other_valve.flood_manager.update_stack_topo(valve.dp.running, valve)
+            other_valve.flood_manager.update_stack_topo(valve.dp.dyn_running, valve)
             # TODO: rebuild flood rules

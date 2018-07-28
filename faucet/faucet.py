@@ -184,7 +184,7 @@ class Faucet(RyuAppBase):
         if valve:
             if msg:
                 valve.ofchannel_log([msg])
-            if require_running and not valve.dp.running:
+            if require_running and not valve.dp.dyn_running:
                 valve = None
         return (valve, ryu_dp, msg)
 

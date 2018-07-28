@@ -48,13 +48,14 @@ class DP(Conf):
 configuration.
 """
 
+    # TODO: shouldn't be any mutable attrs
+    mutable_attrs = frozenset(['stack', 'vlans'])
     acls = None
     vlans = None
     interfaces = None # config
     interface_ranges = None
     ports = None
     routers = None
-    running = False
     name = None
     dp_id = None
     cookie = None
@@ -93,6 +94,7 @@ configuration.
     dp_acls = None
     dot1x = None
 
+    dyn_running = False
     dyn_last_coldstart_time = None
     dyn_up_ports = set() # type: ignore
 
@@ -764,6 +766,10 @@ configuration.
                     bgp_vlans[0].bgp_server_addresses), (
                         'BGP server addresses must all be the same'))
 
+        self.stack_ports = tuple(self.stack_ports)
+        self.output_only_ports = tuple(self.output_only_ports)
+        self.lldp_beacon_ports = tuple(self.lldp_beacon_ports)
+
         for port in list(self.ports.values()):
             port.finalize()
         for vlan in list(self.vlans.values()):
@@ -782,11 +788,11 @@ configuration.
 
     def bgp_vlans(self):
         """Return list of VLANs with BGP enabled."""
-        return [vlan for vlan in list(self.vlans.values()) if vlan.bgp_as]
+        return tuple([vlan for vlan in list(self.vlans.values()) if vlan.bgp_as])
 
     def dot1x_ports(self):
         """Return list of ports with 802.1x enabled."""
-        return [port for port in list(self.ports.values()) if port.dot1x]
+        return tuple([port for port in list(self.ports.values()) if port.dot1x])
 
     def to_conf(self):
         """Return DP config as dict."""
@@ -976,7 +982,7 @@ configuration.
 
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
-        if (not _table_match_compare(self, new_dp, 'port_acl') or
+        elif (not _table_match_compare(self, new_dp, 'port_acl') or
                 not _table_match_compare(self, new_dp, 'vlan_acl')):
             logger.info('ACL matches changed')
         elif new_dp.routers != self.routers:
