@@ -284,9 +284,8 @@ configuration.
         """Configure FAUCET pipeline of tables with matches."""
         self.groups = ValveGroupTable()
         for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
-            table_name, restricted_match_types = table_config
-            self.tables[table_name] = ValveTable(
-                table_id, table_name, restricted_match_types,
+            self.tables[table_] = ValveTable(
+                table_id, table_config.name, table_config.match_types,
                 self.cookie, notify_flow_removed=self.use_idle_timeout)
 
     def set_defaults(self):
@@ -310,8 +309,8 @@ configuration.
         """Return list of tables with matches of a specific match type."""
         match_tables = []
         for table in list(self.tables.values()):
-            if table.restricted_match_types is not None:
-                if match_type in table.restricted_match_types:
+            if table.match_types is not None:
+                if match_type in table.match_types:
                     match_tables.append(table)
             else:
                 match_tables.append(table)
@@ -745,10 +744,10 @@ configuration.
          vlan_acl_matches, vlan_acl_exact_match) = resolve_acls()
 
         port_acl_table = self.tables['port_acl']
-        port_acl_table.restricted_match_types = port_acl_matches
+        port_acl_table.match_types = port_acl_matches
         port_acl_table.exact_match = port_acl_exact_match
         vlan_acl_table = self.tables['vlan_acl']
-        vlan_acl_table.restricted_match_types = vlan_acl_matches
+        vlan_acl_table.match_types = vlan_acl_matches
         vlan_acl_table.exact_match = vlan_acl_exact_match
 
         bgp_vlans = self.bgp_vlans()
@@ -977,8 +976,8 @@ configuration.
         """
         def _table_match_compare(dp_x, dp_y, table_name):
             return (
-                dp_x.tables[table_name].restricted_match_types ==
-                dp_y.tables[table_name].restricted_match_types)
+                dp_x.tables[table_name].match_types ==
+                dp_y.tables[table_name].match_types)
 
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
