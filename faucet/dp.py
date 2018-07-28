@@ -284,7 +284,7 @@ configuration.
         """Configure FAUCET pipeline of tables with matches."""
         self.groups = ValveGroupTable()
         for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
-            self.tables[table_] = ValveTable(
+            self.tables[table_config.name] = ValveTable(
                 table_id, table_config.name, table_config.match_types,
                 self.cookie, notify_flow_removed=self.use_idle_timeout)
 
