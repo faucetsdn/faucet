@@ -983,7 +983,7 @@ configuration.
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
         elif (not _table_match_compare(self, new_dp, 'port_acl') or
-                not _table_match_compare(self, new_dp, 'vlan_acl')):
+              not _table_match_compare(self, new_dp, 'vlan_acl')):
             logger.info('ACL matches changed')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')

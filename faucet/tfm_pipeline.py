@@ -9,12 +9,12 @@ from faucet import valve_of
 class LoadRyuTables:
     """Serialize table features messages from JSON."""
 
-    _DYNAMIC_FEATURES = {
+    _DYNAMIC_FEATURES = frozenset([
         'OFPTFPT_NEXT_TABLES',
         'OFPTFPT_MATCH',
         'OFPTFPT_WILDCARDS',
         'OFPTFPT_INSTRUCTIONS'
-    }
+    ])
 
     _CLASS_NAME_TO_NAME_IDS = {
         'OFPTableFeaturePropInstructions': 'instruction_ids',
@@ -79,8 +79,6 @@ class LoadRyuTables:
         return table_array
 
     def _create_features(self, table_features_information, dynamic_features):
-        if dynamic_features is None:
-            dynamic_features = set()
         features_array = []
         for feature in table_features_information:
             for feature_class_name, feature_attr in list(feature.items()):

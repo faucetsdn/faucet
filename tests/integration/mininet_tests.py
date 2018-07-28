@@ -1792,7 +1792,6 @@ acls:
 """
 
 
-
 class FaucetConfigReloadTestBase(FaucetTest):
     """Test handling HUP signal with config change."""
 
@@ -1811,6 +1810,7 @@ vlans:
             %(port_1)d:
                 native_vlan: 100
                 description: "b1"
+                acl_in: allow
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
@@ -1889,13 +1889,27 @@ acls:
     deny:
         - rule:
             cookie: COOKIE
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 65535
+            actions:
+                allow: 0
+        - rule:
+            cookie: COOKIE
             actions:
                 allow: 0
     allow:
         - rule:
             cookie: COOKIE
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 65535
             actions:
-               allow: 1
+                allow: 1
+        - rule:
+            cookie: COOKIE
+            actions:
+                allow: 1
 """
     ACL_COOKIE = None
 
@@ -1965,7 +1979,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             self.port_map['port_1'], 'acl_in', 1,
             cold_start=False)
         self.wait_until_matching_flow(
-            {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
+            {u'in_port': int(self.port_map['port_1']),
+             u'eth_type': 0x800, u'tcp_dst': 5001, u'ip_proto': 6},
             table_id=self._PORT_ACL_TABLE, cookie=self.ACL_COOKIE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
