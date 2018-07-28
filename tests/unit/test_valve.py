@@ -1158,35 +1158,19 @@ dps:
         hardware: 'Open vSwitch'
 %s
         interfaces:
-            p1:
-                number: 1
-                native_vlan: v100
             p2:
                 number: 2
                 native_vlan: v200
-                tagged_vlans: [v100]
                 acl_in: drop_non_ospf_ipv4
             p3:
                 number: 3
-                tagged_vlans: [v100, v200]
-            p4:
-                number: 4
                 tagged_vlans: [v200]
-            p5:
-                number: 5
-                native_vlan: v300
 vlans:
-    v100:
-        vid: 0x100
     v200:
         vid: 0x200
-    v300:
-        vid: 0x300
 acls:
     drop_non_ospf_ipv4:
         - rule:
-            cookie: 0x1234
-            description: 'a description'
             nw_dst: '224.0.0.5'
             dl_type: 0x800
             actions:
