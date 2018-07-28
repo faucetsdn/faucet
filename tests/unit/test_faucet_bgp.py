@@ -7,7 +7,8 @@ from ipaddress import ip_address, ip_interface
 
 from faucet.faucet_bgp import FaucetBgp
 
-class FakeVLAN(object):
+
+class FakeVLAN:
     """Fakes a VLAN object"""
 
     def __init__(self, vlan_config):
@@ -34,7 +35,8 @@ class FakeVLAN(object):
     def bgp_neighbor_addresses_by_ipv(self, ipv): # pylint: disable=missing-docstring
         return self.vlan_config['bgp_neighbor_addresses_by_ipv'][ipv]
 
-class FakeDP(object): # pylint: disable=too-few-public-methods
+
+class FakeDP: # pylint: disable=too-few-public-methods
     """Fakes a DP object"""
 
     def __init__(self, vlans):
@@ -43,13 +45,15 @@ class FakeDP(object): # pylint: disable=too-few-public-methods
     def bgp_vlans(self): # pylint: disable=missing-docstring
         return self.vlans
 
-class FakeValve(object): # pylint: disable=too-few-public-methods
+
+class FakeValve: # pylint: disable=too-few-public-methods
     """Fakes a Valve object"""
 
     def __init__(self, dp):
         self.dp = dp # pylint: disable=invalid-name
 
-class FakeLogger(object): # pylint: disable=too-few-public-methods
+
+class FakeLogger: # pylint: disable=too-few-public-methods
     """Fakes a Ryu logger object"""
 
     def __init__(self):

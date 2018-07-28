@@ -508,10 +508,10 @@ class ValveTestBases:
                 else:
                     valve_vlan = in_port.native_vlan
 
-                all_ports = set(
-                    [port for port in self.valve.dp.ports.values() if port.running()])
-                remaining_ports = all_ports - set(
-                    [port for port in valve_vlan.get_ports() if port.running])
+                all_ports = {
+                    port for port in self.valve.dp.ports.values() if port.running()}
+                remaining_ports = all_ports - {
+                    port for port in valve_vlan.get_ports() if port.running}
 
                 hairpin_output = _verify_flood_to_port(
                     match, in_port, valve_vlan, ofp.OFPP_IN_PORT)
