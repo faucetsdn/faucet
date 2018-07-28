@@ -1792,7 +1792,6 @@ acls:
 """
 
 
-
 class FaucetConfigReloadTestBase(FaucetTest):
     """Test handling HUP signal with config change."""
 
@@ -1889,13 +1888,27 @@ acls:
     deny:
         - rule:
             cookie: COOKIE
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 65535
+            actions:
+                allow: 0
+        - rule:
+            cookie: COOKIE
             actions:
                 allow: 0
     allow:
         - rule:
             cookie: COOKIE
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 65535
             actions:
-               allow: 1
+                allow: 1
+        - rule:
+            cookie: COOKIE
+            actions:
+                allow: 1
 """
     ACL_COOKIE = None
 
