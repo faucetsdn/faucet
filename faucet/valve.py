@@ -574,7 +574,7 @@ class Valve:
             next_state = port.stack_init
             self.logger.info('Stack %s INIT' % port)
         elif (port.is_stack_init() and
-              remote_port_state in set([STACK_STATE_UP, STACK_STATE_INIT])):
+              remote_port_state in frozenset([STACK_STATE_UP, STACK_STATE_INIT])):
             next_state = port.stack_up
             self.logger.info('Stack %s UP' % port)
         elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
