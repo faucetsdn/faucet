@@ -282,10 +282,14 @@ configuration.
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
 
-    def _configure_tables(self):
+    def _configure_tables(self, override_table_config=None):
         """Configure FAUCET pipeline with tables."""
+        if override_table_config is None:
+            override_table_config = {}
         self.groups = ValveGroupTable()
         for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
+            if table_config.name in override_table_config:
+                table_config = override_table_config[table_config.name]
             self.tables[table_config.name] = ValveTable(
                 table_id, table_config.name, table_config, self.cookie,
                 notify_flow_removed=self.use_idle_timeout)
@@ -725,8 +729,10 @@ configuration.
                     acls.append(self.acls[acl])
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
-            return (port_acl_matches, port_acl_set_fields, port_acl_exact_match,
-                    vlan_acl_matches, port_acl_set_fields, vlan_acl_exact_match)
+            port_acl_matches = {(field, mask) for field, mask in list(port_acl_matches.items())}
+            vlan_acl_matches = {(field, mask) for field, mask in list(vlan_acl_matches.items())}
+            return (port_acl_exact_match, port_acl_matches, port_acl_set_fields,
+                    vlan_acl_exact_match, vlan_acl_matches, port_acl_set_fields)
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
@@ -754,19 +760,17 @@ configuration.
         resolve_mirror_destinations()
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
-        (port_acl_matches, port_acl_set_fields, port_acl_exact_match,
-         vlan_acl_matches, vlan_acl_set_fields, vlan_acl_exact_match) = resolve_acls()
+        (port_acl_exact_match, port_acl_matches, port_acl_set_fields,
+         vlan_acl_exact_match, vlan_acl_matches, vlan_acl_set_fields) = resolve_acls()
 
         # TODO: skip port_acl table if not configured.
-        self._configure_tables()
-        port_acl_table = self.tables['port_acl']
-        port_acl_table.match_types = port_acl_matches
-        port_acl_table.set_fields = tuple(port_acl_set_fields)
-        port_acl_table.exact_match = port_acl_exact_match
-        vlan_acl_table = self.tables['vlan_acl']
-        vlan_acl_table.match_types = vlan_acl_matches
-        vlan_acl_table.set_fields = tuple(vlan_acl_set_fields)
-        vlan_acl_table.exact_match = vlan_acl_exact_match
+        override_table_config = {
+            'port_acl': ValveTableConfig(
+                'port_acl', port_acl_exact_match, port_acl_matches, tuple(port_acl_set_fields)),
+            'vlan_acl': ValveTableConfig(
+                'vlan_acl', vlan_acl_exact_match, vlan_acl_matches, tuple(vlan_acl_set_fields)),
+        }
+        self._configure_tables(override_table_config)
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:
