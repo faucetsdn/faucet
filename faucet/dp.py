@@ -28,6 +28,7 @@ from faucet import faucet_pipeline
 from faucet import valve_acl
 from faucet import valve_of
 from faucet.conf import Conf, InvalidConfigError, test_config_condition
+from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve_table import ValveTable, ValveGroupTable
 from faucet.valve_util import get_setting
 from faucet.valve_packet import FAUCET_MAC
@@ -234,7 +235,8 @@ configuration.
     }
 
     wildcard_table = ValveTable(
-        valve_of.ofp.OFPTT_ALL, 'all', None, None, flow_cookie=0)
+        valve_of.ofp.OFPTT_ALL, 'all',
+        ValveTableConfig('all', None, None, None), flow_cookie=0)
 
 
     def __init__(self, _id, dp_id, conf):
@@ -281,12 +283,12 @@ configuration.
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
 
     def _configure_tables(self):
-        """Configure FAUCET pipeline of tables with matches."""
+        """Configure FAUCET pipeline with tables."""
         self.groups = ValveGroupTable()
         for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
             self.tables[table_config.name] = ValveTable(
-                table_id, table_config.name, table_config.match_types,
-                table_config.set_fields, self.cookie, notify_flow_removed=self.use_idle_timeout)
+                table_id, table_config.name, table_config, self.cookie,
+                notify_flow_removed=self.use_idle_timeout)
 
     def set_defaults(self):
         super(DP, self).set_defaults()
@@ -297,7 +299,6 @@ configuration.
         self._set_default('high_priority', self.low_priority + 1)
         self._set_default('highest_priority', self.high_priority + 98)
         self._set_default('description', self.name)
-        self._configure_tables()
 
     def table_by_id(self, table_id):
         tables = [table for table in list(self.tables.values()) if table_id == table.table_id]
@@ -756,6 +757,8 @@ configuration.
         (port_acl_matches, port_acl_set_fields, port_acl_exact_match,
          vlan_acl_matches, vlan_acl_set_fields, vlan_acl_exact_match) = resolve_acls()
 
+        # TODO: skip port_acl table if not configured.
+        self._configure_tables()
         port_acl_table = self.tables['port_acl']
         port_acl_table.match_types = port_acl_matches
         port_acl_table.set_fields = tuple(port_acl_set_fields)
@@ -991,8 +994,8 @@ configuration.
         """
         def _table_match_compare(dp_x, dp_y, table_name):
             return (
-                dp_x.tables[table_name].match_types ==
-                dp_y.tables[table_name].match_types)
+                dp_x.tables[table_name].table_config ==
+                dp_y.tables[table_name].table_config)
 
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
