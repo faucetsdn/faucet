@@ -81,7 +81,7 @@ class Valve:
     ofchannel_logger = None
     host_manager = None
     flood_manager = None
-    _last_pipeline_flows = []
+    _last_pipeline_flows = [] # type: list
     _route_manager_by_ipv = None
     _last_advertise_sec = None
     _port_highwater = {} # type: dict

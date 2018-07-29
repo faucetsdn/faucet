@@ -40,7 +40,7 @@ class FctlTestCaseBase(unittest.TestCase): # pytype: disable=module-attr
         'value': 180725257428205.0
     }
 
-    SRC_DIR = '../faucet'
+    SRC_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../faucet')
 
     FCTL_BASE_ARGS = [
         '--metrics={metrics}'.format(**DEFAULT_VALUES),
