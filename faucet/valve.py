@@ -106,9 +106,6 @@ class Valve:
                 tables.append(route_manager.fib_table)
         if not any_routing:
             tables.append(self.dp.tables['vip'])
-        # TODO: handle no port ACL case as well.
-        if not self.dp.tables['vlan_acl'].match_types:
-            tables.append(self.dp.tables['vlan_acl'])
         return [table.table_id for table in tables]
 
     def _active_table_ids(self):
@@ -188,10 +185,10 @@ class Valve:
                 self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
                 self.dp.low_priority, self.dp.highest_priority)
-        self.logger.info('DP/port ACL config: %s' % str(
-            self.dp.tables['port_acl'].table_config))
-        self.logger.info('VLAN ACL config: %s' % str(
-            self.dp.tables['vlan_acl'].table_config))
+        table_configs = sorted([
+            (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
+        for _, table_config in table_configs:
+            self.logger.info(table_config)
 
     def _notify(self, event_dict):
         """Send an event notification."""

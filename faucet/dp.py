@@ -290,9 +290,10 @@ configuration.
         for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
             if table_config.name in override_table_config:
                 table_config = override_table_config[table_config.name]
-            self.tables[table_config.name] = ValveTable(
-                table_id, table_config.name, table_config, self.cookie,
-                notify_flow_removed=self.use_idle_timeout)
+            if table_config.match_types:
+                self.tables[table_config.name] = ValveTable(
+                    table_id, table_config.name, table_config, self.cookie,
+                    notify_flow_removed=self.use_idle_timeout)
 
     def set_defaults(self):
         super(DP, self).set_defaults()
@@ -995,16 +996,14 @@ configuration.
                 changed_vlans (set): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
         """
-        def _table_match_compare(dp_x, dp_y, table_name):
-            return (
-                dp_x.tables[table_name].table_config ==
-                dp_y.tables[table_name].table_config)
+        def _table_configs(dp):
+            return frozenset([
+                table.table_config for table in list(dp.dp.tables.values())])
 
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
-        elif (not _table_match_compare(self, new_dp, 'port_acl') or
-              not _table_match_compare(self, new_dp, 'vlan_acl')):
-            logger.info('ACL matches changed')
+        elif _table_configs(self) != _table_configs(new_dp):
+            logger.info('pipeline table config change - requires cold start')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
         else:
