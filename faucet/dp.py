@@ -997,7 +997,7 @@ configuration.
         """
         def _table_configs(dp):
             return frozenset([
-                table.table_config for table in list(dp.dp.tables.values())])
+                table.table_config for table in list(dp.tables.values())])
 
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
