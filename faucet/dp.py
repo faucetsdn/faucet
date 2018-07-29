@@ -727,7 +727,6 @@ configuration.
                     port_acl_matches.update(matches)
                     port_acl_set_fields = port_acl_set_fields.union(set_fields)
                     acls.append(self.acls[acl])
-                    acls.append(self.acls[acl])
                 self.dp_acls = acls
             port_acl_matches = {(field, mask) for field, mask in list(port_acl_matches.items())}
             vlan_acl_matches = {(field, mask) for field, mask in list(vlan_acl_matches.items())}
