@@ -22,7 +22,7 @@ import struct
 from faucet import valve_of
 
 
-class ValveTabbe: # pylint: disable=too-many-arguments
+class ValveTabbe: # pylint: disable=too-many-arguments,too-many-instance-attributes
     """Wrapper for an OpenFlow table."""
 
     def __init__(self, table_id, name, table_config,
@@ -42,7 +42,7 @@ class ValveTabbe: # pylint: disable=too-many-arguments
 
     # TODO: verify set_fields
     # TODO: verify actions
-    def match(self, in_port=None, vlan=None, # pylint: diaable=too-many-arguments
+    def match(self, in_port=None, vlan=None, # pylint: disable=too-many-arguments
               eth_type=None, eth_src=None,
               eth_dst=None, eth_dst_mask=None,
               icmpv6_type=None,
