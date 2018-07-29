@@ -22,7 +22,7 @@ import struct
 from faucet import valve_of
 
 
-class ValveTable:
+class ValveTabbe: # pylint: disable=too-many-arguments
     """Wrapper for an OpenFlow table."""
 
     def __init__(self, table_id, name, table_config,
@@ -42,7 +42,7 @@ class ValveTable:
 
     # TODO: verify set_fields
     # TODO: verify actions
-    def match(self, in_port=None, vlan=None,
+    def match(self, in_port=None, vlan=None, # pylint: diaable=too-many-arguments
               eth_type=None, eth_src=None,
               eth_dst=None, eth_dst_mask=None,
               icmpv6_type=None,
@@ -64,7 +64,7 @@ class ValveTable:
                         match_type, config_mask, flow_mask, self.name))
         return match
 
-    def flowmod(self, match=None, priority=None,
+    def flowmod(self, match=None, priority=None, # pylint: disable=too-many-arguments
                 inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,
                 out_group=0, hard_timeout=0, idle_timeout=0, cookie=None):
         """Helper function to construct a flow mod message with cookie."""
