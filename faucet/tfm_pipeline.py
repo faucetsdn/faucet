@@ -13,7 +13,8 @@ class LoadRyuTables:
         'OFPTFPT_NEXT_TABLES',
         'OFPTFPT_MATCH',
         'OFPTFPT_WILDCARDS',
-        'OFPTFPT_INSTRUCTIONS'
+        'OFPTFPT_INSTRUCTIONS',
+        'OFPTFPT_APPLY_SETFIELD',
     ])
 
     _CLASS_NAME_TO_NAME_IDS = {
@@ -54,18 +55,26 @@ class LoadRyuTables:
                     new_table.properties.append(
                         valve_of.parser.OFPTableFeaturePropNextTables(
                             table_ids=next_tables, type_=2))
-                oxm_ids = [
-                    valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
-                    for match_type, hasmask in list(valve_table.match_types.items())]
-                # OFPTFPT_MATCH
-                new_table.properties.append(
-                    valve_of.parser.OFPTableFeaturePropOxm(
-                        oxm_ids=oxm_ids, type_=8))
-                # OFPTFPT_WILDCARDS
-                if not valve_table.exact_match:
+                if valve_table.set_fields:
+                    oxm_ids = [
+                        valve_of.parser.OFPOxmId(type_=field, hasmask=False)
+                        for field in valve_table.set_fields]
                     new_table.properties.append(
                         valve_of.parser.OFPTableFeaturePropOxm(
-                            oxm_ids=oxm_ids, type_=10))
+                            oxm_ids=oxm_ids, type_=14))
+                if valve_table.match_types:
+                    oxm_ids = [
+                        valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
+                        for match_type, hasmask in list(valve_table.match_types.items())]
+                    # OFPTFPT_MATCH
+                    new_table.properties.append(
+                        valve_of.parser.OFPTableFeaturePropOxm(
+                            oxm_ids=oxm_ids, type_=8))
+                    # OFPTFPT_WILDCARDS
+                    if not valve_table.exact_match:
+                        new_table.properties.append(
+                            valve_of.parser.OFPTableFeaturePropOxm(
+                                oxm_ids=oxm_ids, type_=10))
                 # Add instructions.
                 insts = [('OFPIT_APPLY_ACTIONS', 4)]
                 if next_tables:

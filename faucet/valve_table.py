@@ -25,12 +25,13 @@ from faucet import valve_of
 class ValveTable:
     """Wrapper for an OpenFlow table."""
 
-    def __init__(self, table_id, name, match_types,
+    def __init__(self, table_id, name, match_types, set_fields,
                  flow_cookie, notify_flow_removed=False,
                  exact_match=False):
         self.table_id = table_id
         self.name = name
-        self.match_types = None
+        self.match_types = match_types
+        self.set_fields = set_fields
         self.exact_match = exact_match
         if match_types:
             self.match_types = {}

@@ -1117,6 +1117,9 @@ acls:
         - rule:
             dl_type: 0x800
             actions:
+                output:
+                    set_fields:
+                        - eth_dst: 00:00:00:00:00:01
                 allow: 0
 meters:
     testmeter:

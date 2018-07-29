@@ -234,7 +234,7 @@ configuration.
     }
 
     wildcard_table = ValveTable(
-        valve_of.ofp.OFPTT_ALL, 'all', None, flow_cookie=0)
+        valve_of.ofp.OFPTT_ALL, 'all', None, None, flow_cookie=0)
 
 
     def __init__(self, _id, dp_id, conf):
@@ -286,7 +286,7 @@ configuration.
         for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
             self.tables[table_config.name] = ValveTable(
                 table_id, table_config.name, table_config.match_types,
-                self.cookie, notify_flow_removed=self.use_idle_timeout)
+                table_config.set_fields, self.cookie, notify_flow_removed=self.use_idle_timeout)
 
     def set_defaults(self):
         super(DP, self).set_defaults()
@@ -624,6 +624,7 @@ configuration.
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config and mark mirror destinations."""
                 matches = {}
+                set_fields = []
                 if acl.rules:
                     try:
                         ofmsgs = valve_acl.build_acl_ofmsgs(
@@ -638,6 +639,13 @@ configuration.
                             ofmsg.set_xid(0)
                             ofmsg.serialize()
                             if valve_of.is_flowmod(ofmsg):
+                                apply_actions = []
+                                for inst in ofmsg.instructions:
+                                    if valve_of.is_apply_actions(inst):
+                                        apply_actions.extend(inst.actions)
+                                for action in apply_actions:
+                                    if valve_of.is_set_field(action):
+                                        set_fields.append(action.key)
                                 for match, value in list(ofmsg.match.items()):
                                     has_mask = isinstance(value, tuple)
                                     if match in matches:
@@ -650,7 +658,7 @@ configuration.
                     for port_no in mirror_destinations:
                         port = self.ports[port_no]
                         port.output_only = True
-                return matches
+                return (matches, set_fields)
 
             for rule_conf in acl.rules:
                 for attrib, attrib_value in list(rule_conf.items()):
@@ -677,17 +685,21 @@ configuration.
         def resolve_acls():
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
-            vlan_acl_matches = {}
             port_acl_matches = {}
-            vlan_acl_exact_match = False
+            port_acl_set_fields = set()
             port_acl_exact_match = False
             port_acl_matches.update({'in_port': False})
+            vlan_acl_matches = {}
+            vlan_acl_exact_match = False
+            vlan_acl_set_fields = set()
 
             for vlan in list(self.vlans.values()):
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
-                        vlan_acl_matches.update(resolve_acl(acl))
+                        matches, set_fields = resolve_acl(acl)
+                        vlan_acl_matches.update(matches)
+                        vlan_acl_set_fields = vlan_acl_set_fields.union(set_fields)
                         acls.append(self.acls[acl])
                     vlan.acls_in = acls
                     vlan_acl_exact_match = verify_acl_exact_match(acls)
@@ -697,18 +709,23 @@ configuration.
                         'dataplane ACLs cannot be used with port ACLs.'))
                     acls = []
                     for acl in port.acls_in:
-                        port_acl_matches.update(resolve_acl(acl))
+                        matches, set_fields = (resolve_acl(acl))
+                        port_acl_matches.update(matches)
+                        port_acl_set_fields = port_acl_set_fields.union(set_fields)
                         acls.append(self.acls[acl])
                     port.acls_in = acls
                     port_acl_exact_match = verify_acl_exact_match(acls)
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
-                    port_acl_matches.update(resolve_acl(acl))
+                    matches, set_fields = (resolve_acl(acl))
+                    port_acl_matches.update(matches)
+                    port_acl_set_fields = port_acl_set_fields.union(set_fields)
+                    acls.append(self.acls[acl])
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
-            return (port_acl_matches, port_acl_exact_match,
-                    vlan_acl_matches, vlan_acl_exact_match)
+            return (port_acl_matches, port_acl_set_fields, port_acl_exact_match,
+                    vlan_acl_matches, port_acl_set_fields, vlan_acl_exact_match)
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
@@ -736,14 +753,16 @@ configuration.
         resolve_mirror_destinations()
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
-        (port_acl_matches, port_acl_exact_match,
-         vlan_acl_matches, vlan_acl_exact_match) = resolve_acls()
+        (port_acl_matches, port_acl_set_fields, port_acl_exact_match,
+         vlan_acl_matches, vlan_acl_set_fields, vlan_acl_exact_match) = resolve_acls()
 
         port_acl_table = self.tables['port_acl']
         port_acl_table.match_types = port_acl_matches
+        port_acl_table.set_fields = tuple(port_acl_set_fields)
         port_acl_table.exact_match = port_acl_exact_match
         vlan_acl_table = self.tables['vlan_acl']
         vlan_acl_table.match_types = vlan_acl_matches
+        vlan_acl_table.set_fields = tuple(vlan_acl_set_fields)
         vlan_acl_table.exact_match = vlan_acl_exact_match
 
         bgp_vlans = self.bgp_vlans()
