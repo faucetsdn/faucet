@@ -235,8 +235,7 @@ configuration.
     }
 
     wildcard_table = ValveTable(
-        valve_of.ofp.OFPTT_ALL, 'all',
-        ValveTableConfig('all', None, None, None), flow_cookie=0)
+        valve_of.ofp.OFPTT_ALL, 'all', ValveTableConfig('all'), flow_cookie=0)
 
 
     def __init__(self, _id, dp_id, conf):
