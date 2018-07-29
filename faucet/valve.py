@@ -188,10 +188,10 @@ class Valve:
                 self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
                 self.dp.low_priority, self.dp.highest_priority)
-        self.logger.info('DP/port ACL matches/has mask: %s' % str(
-            self.dp.tables['port_acl'].match_types))
-        self.logger.info('VLAN ACL matches/has mask: %s' % str(
-            self.dp.tables['vlan_acl'].match_types))
+        self.logger.info('DP/port ACL config: %s' % str(
+            self.dp.tables['port_acl'].table_config))
+        self.logger.info('VLAN ACL config: %s' % str(
+            self.dp.tables['vlan_acl'].table_config))
 
     def _notify(self, event_dict):
         """Send an event notification."""

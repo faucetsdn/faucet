@@ -46,52 +46,6 @@
                         "type": 25
                     }
                 ]
-            },
-            {
-                "name": "OFPTFPT_APPLY_SETFIELD",
-                "type": 14,
-                "oxm_ids": [
-                    {
-                        "name": "eth_dst",
-                        "type": "eth_dst"
-                    },
-                    {
-                        "name": "eth_src",
-                        "type": "eth_src"
-                    },
-                    {
-                        "name": "vlan_vid",
-                        "type": "vlan_vid"
-                    },
-                    {
-                        "name": "ip_dscp",
-                        "type": "ip_dscp"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src"
-                    },
-                    {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst"
-                    },
-                    {
-                        "name": "tcp_src",
-                        "type": "tcp_src"
-                    },
-                    {
-                        "name": "tcp_dst",
-                        "type": "tcp_dst"
-                    },
-                    {
-                        "name": "udp_src",
-                        "type": "udp_src"
-                    },
-                    {
-                        "name": "udp_dst",
-                        "type": "udp_dst"
-                    }
-                ]
             }
         ]
     },
@@ -114,16 +68,6 @@
                     {
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
-                    }
-                ]
-            },
-            {
-                "name": "OFPTFPT_APPLY_SETFIELD",
-                "type": 14,
-                "oxm_ids": [
-                    {
-                        "name": "vlan_vid",
-                        "type": "vlan_vid"
                     }
                 ]
             }
@@ -174,24 +118,6 @@
                     {
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
-                    }
-                ]
-            },
-            {
-                "name": "OFPTFPT_APPLY_SETFIELD",
-                "type": 14,
-                "oxm_ids": [
-                    {
-                        "name": "eth_dst",
-                        "type": "eth_dst"
-                    },
-                    {
-                        "name": "eth_src",
-                        "type": "eth_src"
-                    },
-                    {
-                        "name": "vlan_vid",
-                        "type": "vlan_vid"
                     }
                 ]
             }
@@ -251,24 +177,6 @@
                         "type": 25
                     }
                 ]
-            },
-            {
-                "name": "OFPTFPT_APPLY_SETFIELD",
-                "type": 14,
-                "oxm_ids": [
-                    {
-                        "name": "eth_dst",
-                        "type": "eth_dst"
-                    },
-                    {
-                        "name": "eth_src",
-                        "type": "eth_src"
-                    },
-                    {
-                        "name": "vlan_vid",
-                        "type": "vlan_vid"
-                    }
-                ]
             }
         ]
     },
@@ -291,24 +199,6 @@
                     {
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
-                    }
-                ]
-            },
-            {
-                "name": "OFPTFPT_APPLY_SETFIELD",
-                "type": 14,
-                "oxm_ids": [
-                    {
-                        "name": "eth_dst",
-                        "type": "eth_dst"
-                    },
-                    {
-                        "name": "eth_src",
-                        "type": "eth_src"
-                    },
-                    {
-                        "name": "vlan_vid",
-                        "type": "vlan_vid"
                     }
                 ]
             }

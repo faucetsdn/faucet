@@ -13,7 +13,8 @@ class LoadRyuTables:
         'OFPTFPT_NEXT_TABLES',
         'OFPTFPT_MATCH',
         'OFPTFPT_WILDCARDS',
-        'OFPTFPT_INSTRUCTIONS'
+        'OFPTFPT_INSTRUCTIONS',
+        'OFPTFPT_APPLY_SETFIELD',
     ])
 
     _CLASS_NAME_TO_NAME_IDS = {
@@ -48,33 +49,43 @@ class LoadRyuTables:
                 table_attr['properties'] = properties
                 table_attr['name'] = valve_table.name.encode('utf-8')
                 new_table = table_class(**table_attr)
+                # Match types
+                if valve_table.match_types:
+                    oxm_ids = [
+                        valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
+                        for match_type, hasmask in list(valve_table.match_types.items())]
+                    new_table.properties.append(
+                        valve_of.parser.OFPTableFeaturePropOxm(
+                            oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_MATCH))
+                    # Not an exact match table, assume all fields wildcarded.
+                    if not valve_table.exact_match:
+                        new_table.properties.append(
+                            valve_of.parser.OFPTableFeaturePropOxm(
+                                oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_WILDCARDS))
+                # Set fields
+                if valve_table.set_fields:
+                    oxm_ids = [
+                        valve_of.parser.OFPOxmId(type_=field, hasmask=False)
+                        for field in valve_table.set_fields]
+                    new_table.properties.append(
+                        valve_of.parser.OFPTableFeaturePropOxm(
+                            oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_APPLY_SETFIELD))
+                # Next tables
                 next_tables = sorted(
                     [table_id for table_id in active_table_ids if table_id > new_table.table_id])
                 if next_tables:
                     new_table.properties.append(
                         valve_of.parser.OFPTableFeaturePropNextTables(
-                            table_ids=next_tables, type_=2))
-                oxm_ids = [
-                    valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
-                    for match_type, hasmask in list(valve_table.match_types.items())]
-                # OFPTFPT_MATCH
-                new_table.properties.append(
-                    valve_of.parser.OFPTableFeaturePropOxm(
-                        oxm_ids=oxm_ids, type_=8))
-                # OFPTFPT_WILDCARDS
-                if not valve_table.exact_match:
-                    new_table.properties.append(
-                        valve_of.parser.OFPTableFeaturePropOxm(
-                            oxm_ids=oxm_ids, type_=10))
-                # Add instructions.
-                insts = [('OFPIT_APPLY_ACTIONS', 4)]
+                            table_ids=next_tables, type_=valve_of.ofp.OFPTFPT_NEXT_TABLES))
+                # Instructions
+                insts = set([valve_of.ofp.OFPIT_APPLY_ACTIONS])
                 if next_tables:
-                    insts.append(('OFPIT_GOTO_TABLE', 1))
+                    insts.add(valve_of.ofp.OFPIT_GOTO_TABLE)
                 inst_ids = [
-                    valve_of.parser.OFPInstructionId(type_) for _, type_ in insts]
+                    valve_of.parser.OFPInstructionId(type_) for type_ in insts]
                 new_table.properties.append(
                     valve_of.parser.OFPTableFeaturePropInstructions(
-                        type_=0, instruction_ids=inst_ids))
+                        type_=valve_of.ofp.OFPTFPT_INSTRUCTIONS, instruction_ids=inst_ids))
                 table_array.append(new_table)
         return table_array
 

@@ -174,6 +174,22 @@ def is_meteradd(ofmsg):
     return False
 
 
+def is_apply_actions(instruction):
+    """Return True if an apply action.
+
+    Args:
+        instructions (list): list of OpenFlow instructions.
+    Returns:
+        bool: True if an apply action.
+    """
+    return (isinstance(instruction, parser.OFPInstructionActions) and
+            instruction.type == ofp.OFPIT_APPLY_ACTIONS)
+
+
+def is_set_field(action):
+    return isinstance(action, parser.OFPActionSetField)
+
+
 def apply_meter(meter_id):
     """Return instruction to apply a meter."""
     return parser.OFPInstructionMeter(meter_id, ofp.OFPIT_METER)
