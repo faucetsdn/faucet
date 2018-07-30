@@ -65,25 +65,6 @@ class TestConfig(unittest.TestCase): # pytype: disable=module-attr
         self.assertEqual(
             self.run_function_with_config(config, function, before_function), True)
 
-    def test_dupe_vid(self):
-        """Test that VLANs cannot have same VID."""
-        config = """
-vlans:
-    office:
-        vid: 100
-    guest:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: office
-            2:
-                native_vlan: guest
-"""
-        self.check_config_failure(config, cp.dp_parser)
-
     def test_unhashable_key(self):
         config = """
 vlans:
