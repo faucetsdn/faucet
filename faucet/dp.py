@@ -286,7 +286,7 @@ configuration.
         if override_table_config is None:
             override_table_config = {}
         self.groups = ValveGroupTable()
-        for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
+        for table_id, table_config in enumerate(copy.deepcopy(faucet_pipeline.FAUCET_PIPELINE)):
             if table_config.name in override_table_config:
                 table_config = override_table_config[table_config.name]
             if table_config.match_types:
