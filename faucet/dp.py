@@ -281,18 +281,19 @@ configuration.
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
 
-    def _configure_tables(self, override_table_config=None):
+    def _configure_tables(self, override_table_config):
         """Configure FAUCET pipeline with tables."""
-        if override_table_config is None:
-            override_table_config = {}
+        tables = {}
         self.groups = ValveGroupTable()
-        for table_id, table_config in enumerate(copy.deepcopy(faucet_pipeline.FAUCET_PIPELINE)):
-            if table_config.name in override_table_config:
-                table_config = override_table_config[table_config.name]
+        for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
+            table_name = table_config.name
+            if table_name in override_table_config:
+                table_config = override_table_config[table_name]
             if table_config.match_types:
-                self.tables[table_config.name] = ValveTable(
-                    table_id, table_config.name, table_config, self.cookie,
+                tables[table_name] = ValveTable(
+                    table_id, table_name, table_config, self.cookie,
                     notify_flow_removed=self.use_idle_timeout)
+        self.tables = copy.deepcopy(tables)
 
     def set_defaults(self):
         super(DP, self).set_defaults()
@@ -714,7 +715,7 @@ configuration.
                         'dataplane ACLs cannot be used with port ACLs.'))
                     acls = []
                     for acl in port.acls_in:
-                        matches, set_fields = (resolve_acl(acl))
+                        matches, set_fields = resolve_acl(acl)
                         port_acl_matches.update(matches)
                         port_acl_set_fields = port_acl_set_fields.union(set_fields)
                         acls.append(self.acls[acl])
@@ -723,7 +724,7 @@ configuration.
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
-                    matches, set_fields = (resolve_acl(acl))
+                    matches, set_fields = resolve_acl(acl)
                     port_acl_matches.update(matches)
                     port_acl_set_fields = port_acl_set_fields.union(set_fields)
                     acls.append(self.acls[acl])
