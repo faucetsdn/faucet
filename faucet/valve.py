@@ -81,7 +81,7 @@ class Valve:
     ofchannel_logger = None
     host_manager = None
     flood_manager = None
-    _last_pipeline_flows = []
+    _last_pipeline_flows = [] # type: list
     _route_manager_by_ipv = None
     _last_advertise_sec = None
     _port_highwater = {} # type: dict
@@ -95,25 +95,6 @@ class Valve:
         self.metrics = metrics
         self.notifier = notifier
         self.dp_init()
-
-    def _skip_table_ids(self):
-        tables = []
-        any_routing = False
-        for route_manager in list(self._route_manager_by_ipv.values()):
-            if route_manager.active:
-                any_routing = True
-            else:
-                tables.append(route_manager.fib_table)
-        if not any_routing:
-            tables.append(self.dp.tables['vip'])
-        # TODO: handle no port ACL case as well.
-        if not self.dp.tables['vlan_acl'].match_types:
-            tables.append(self.dp.tables['vlan_acl'])
-        return [table.table_id for table in tables]
-
-    def _active_table_ids(self):
-        all_table_ids = [table.table_id for table in self.dp.all_valve_tables()]
-        return set(all_table_ids) - set(self._skip_table_ids())
 
     def close_logs(self):
         """Explicitly close any active loggers."""
@@ -143,9 +124,13 @@ class Valve:
             self._port_highwater[vlan_vid] = {}
             for port_number in list(self.dp.ports.keys()):
                 self._port_highwater[vlan_vid][port_number] = 0
-        for fib_table, route_manager_class in (
-                (self.dp.tables['ipv4_fib'], valve_route.ValveIPv4RouteManager),
-                (self.dp.tables['ipv6_fib'], valve_route.ValveIPv6RouteManager)):
+        for ipv, route_manager_class in (
+                (4, valve_route.ValveIPv4RouteManager),
+                (6, valve_route.ValveIPv6RouteManager)):
+            fib_table_name = 'ipv%u_fib' % ipv
+            if not fib_table_name in self.dp.tables:
+                continue
+            fib_table = self.dp.tables[fib_table_name]
             route_manager = route_manager_class(
                 self.logger, self.dp.arp_neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
@@ -188,10 +173,10 @@ class Valve:
                 self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
                 self.dp.low_priority, self.dp.highest_priority)
-        self.logger.info('DP/port ACL config: %s' % str(
-            self.dp.tables['port_acl'].table_config))
-        self.logger.info('VLAN ACL config: %s' % str(
-            self.dp.tables['vlan_acl'].table_config))
+        table_configs = sorted([
+            (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
+        for _, table_config in table_configs:
+            self.logger.info(table_config)
 
     def _notify(self, event_dict):
         """Send an event notification."""
@@ -265,10 +250,8 @@ class Valve:
 
         # default drop on all tables.
         ofmsgs = []
-        active_table_ids = self._active_table_ids()
         for table in list(self.dp.tables.values()):
-            if table.table_id in active_table_ids:
-                ofmsgs.append(table.flowdrop(priority=self.dp.lowest_priority))
+            ofmsgs.append(table.flowdrop(priority=self.dp.lowest_priority))
 
         # drop broadcast sources
         if self.dp.drop_broadcast_source_address:
@@ -1542,10 +1525,8 @@ class TfmValve(Valve):
     def _pipeline_flows(self):
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
-        active_table_ids = self._active_table_ids()
-        self.logger.info('loading pipeline configuration (table IDs %s)' % str(active_table_ids))
         return [valve_of.table_features(
-            ryu_table_loader.load_tables(active_table_ids, self.dp))]
+            ryu_table_loader.load_tables(self.dp))]
 
     def _add_default_flows(self):
         ofmsgs = self._pipeline_flows()

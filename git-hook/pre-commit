@@ -16,5 +16,4 @@ BASE=`pwd`
 for mypy_file in faucet/*.py ; do
     mypy --ignore-missing-imports $mypy_file || exit 1
 done
-cd tests
-./run_unit_tests.sh || exit 1
+./tests/run_unit_tests.sh || exit 1
