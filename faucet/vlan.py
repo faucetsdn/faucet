@@ -221,7 +221,7 @@ class VLAN(Conf):
                 self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips])
             for faucet_vip in self.faucet_vips:
                 self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(faucet_vip)
-            self.dyn_ipvs = list(self.dyn_faucet_vips_by_ipv.keys())
+            self.dyn_ipvs = frozenset(self.dyn_faucet_vips_by_ipv.keys())
 
         if self.bgp_neighbor_addresses or self.bgp_neighbour_addresses:
             neigh_addresses = frozenset(self.bgp_neighbor_addresses + self.bgp_neighbour_addresses)
@@ -355,7 +355,7 @@ class VLAN(Conf):
         return expired_hosts
 
     def ipvs(self):
-        """Return list of IP versions configured on this VLAN."""
+        """Return IP versions configured on this VLAN."""
         return self.dyn_ipvs
 
     def bgp_ipvs(self):

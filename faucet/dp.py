@@ -769,6 +769,18 @@ configuration.
             'vlan_acl': ValveTableConfig(
                 'vlan_acl', vlan_acl_exact_match, vlan_acl_matches, tuple(vlan_acl_set_fields)),
         }
+
+        # Only configure IP routing tables if enabled.
+        ipvs = set()
+        for vlan in list(self.vlans.values()):
+            ipvs = ipvs.union(vlan.ipvs())
+        for ipv in (4, 6):
+            if ipv not in ipvs:
+                table_name = 'ipv%u_fib' % ipv
+                override_table_config[table_name] = ValveTableConfig(table_name)
+        if not ipvs:
+            override_table_config['vip'] = ValveTableConfig('vip')
+
         self._configure_tables(override_table_config)
 
         bgp_vlans = self.bgp_vlans()
