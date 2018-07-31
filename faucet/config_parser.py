@@ -92,8 +92,8 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
         ports_conf = dp_conf.get('interfaces', {})
         port_ranges_conf = dp_conf.get('interface_ranges', {})
-        # as users can config port vlan by using vlan name, we store vid in
-        # Port instance instead of vlan name for data consistency
+        # as users can config port VLAN by using VLAN name, we store vid in
+        # Port instance instead of VLAN name for data consistency
         test_config_condition(not isinstance(ports_conf, dict), (
             'Invalid syntax in interface config'))
         test_config_condition(not isinstance(port_ranges_conf, dict), (
@@ -144,11 +144,15 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         dp_id = dp.dp_id
 
         vlans = {}
+        vids = set()
         for vlan_key, vlan_conf in list(vlans_conf.items()):
             vlan = VLAN(vlan_key, dp_id, vlan_conf)
-            vlans[vlan_key] = vlan
             test_config_condition(str(vlan_key) not in (str(vlan.vid), vlan.name), (
                 'VLAN %s key must match VLAN name or VLAN VID' % vlan_key))
+            test_config_condition(vlan.vid in vids, (
+                'VLAN VID %u multiply configured' % vlan.vid))
+            vlans[vlan_key] = vlan
+            vids.add(vlan.vid)
         for acl_key, acl_conf in list(acls_conf.items()):
             acl = ACL(acl_key, dp_id, acl_conf)
             dp.add_acl(acl_key, acl)
