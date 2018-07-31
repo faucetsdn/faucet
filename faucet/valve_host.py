@@ -147,7 +147,6 @@ class ValveHostManager:
                 priority=(self.host_priority - 2)))
         else:
             # Delete any existing entries for MAC.
-            # TODO: for LAGs, don't delete entries in the same LAG.
             if delete_existing:
                 ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
@@ -209,8 +208,11 @@ class ValveHostManager:
             cache_age = now - entry.cache_time
             cache_port = entry.port
 
-        if cache_port == port:
-            # skip delete if host didn't change ports.
+        same_lag = (
+            cache_port is not None and
+            cache_port.lacp and port.lacp and cache_port.lacp == port.lacp)
+        if cache_port == port or same_lag:
+            # skip delete if host didn't change ports or on same LAG.
             delete_existing = False
             # if we very very recently learned this host, don't do anything.
             if cache_age < self.CACHE_UPDATE_GUARD_TIME:
