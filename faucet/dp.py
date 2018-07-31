@@ -562,7 +562,7 @@ configuration.
         def resolve_acl(acl_in):
             """Resolve an individual ACL."""
             test_config_condition(acl_in not in self.acls, (
-                'missing ACL %s on %s' % (self.name, acl_in)))
+                'missing ACL %s in DP: %s' % (acl_in, self.name)))
             acl = self.acls[acl_in]
             mirror_destinations = set()
 
