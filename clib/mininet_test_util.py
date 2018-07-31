@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Standalone utility functions for Mininet tests."""
 
@@ -17,8 +17,8 @@ GETPORT = 'GETPORT'
 PUTPORTS = 'PUTPORTS'
 GETSERIAL = 'GETSERIAL'
 LISTPORTS = 'LISTPORTS'
-LOCALHOST = u'127.0.0.1'
-LOCALHOSTV6 = u'::1'
+LOCALHOST = '127.0.0.1'
+LOCALHOSTV6 = '::1'
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
 MIN_PORT_AGE = max(int(open(
@@ -61,7 +61,7 @@ def receive_sock_line(sock):
     """Receive a \n terminated line from a socket."""
     buf = ''
     while buf.find('\n') <= -1:
-        buf += str(sock.recv(2**10))
+        buf += sock.recv(2**10).decode()
     return buf.strip()
 
 
@@ -79,7 +79,7 @@ def test_server_request(ports_socket, name, command):
     assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
-    sock.sendall(b'%s,%s\n' % (command, name))
+    sock.sendall(('%s,%s\n' % (command, name)).encode())
     output('%s %s\n' % (name, command))
     buf = receive_sock_line(sock)
     responses = [int(i) for i in buf.split('\n')]
@@ -180,8 +180,8 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             response_str = ''
             if isinstance(response, int):
                 response = [response]
-            response_str = bytes(''.join(['%u\n' % i for i in response]))
-            connection.sendall(response_str) # pylint: disable=no-member
+            response_str = ''.join(['%u\n' % i for i in response])
+            connection.sendall(response_str.encode()) # pylint: disable=no-member
         connection.close()
 
 

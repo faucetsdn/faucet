@@ -33,6 +33,7 @@ if [ -d /var/tmp/pip-cache ] ; then
   cp -r /var/tmp/pip-cache /var/tmp/pip-cache-local || exit 1
 fi
 ./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache-local" || exit 1
+./docker/workarounds.sh || exit 1
 
 echo "========== checking IPv4/v6 localhost is up ====="
 ping6 -c 1 ::1 || exit 1
@@ -78,14 +79,14 @@ service docker start
 echo "========== Running faucet system tests =========="
 test_failures=
 export FAUCET_DIR=/faucet-src/faucet
-export PYTHONPATH=/faucet-src
+export PYTHONPATH=/faucet-src:/faucet-src/faucet:/faucet-src/clib
 
 cd /faucet-src/tests/integration
-python2 ./mininet_main.py -c
-http_proxy="" python2 ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
+./mininet_main.py -c
+http_proxy="" ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
 
 cd /faucet-src/clib
-http_proxy="" python2 ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
+http_proxy="" ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
 
 if [ -n "$test_failures" ]; then
     echo Test failures: $test_failures
