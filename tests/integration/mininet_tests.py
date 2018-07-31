@@ -4510,9 +4510,6 @@ vlans:
         vid: 200
         faucet_vips: ["10.200.0.254/24"]
         faucet_mac: "%s"
-    vlanc:
-        vid: 100
-        description: "not used"
 routers:
     router-1:
         vlans: [100, vlanb]
@@ -4571,9 +4568,6 @@ vlans:
         vid: 200
         faucet_vips: ["10.200.0.254/24"]
         faucet_mac: "%s"
-    vlanc:
-        vid: 100
-        description: "not used"
 routers:
     router-1:
         vlans: [100, vlanb]
@@ -4639,9 +4633,6 @@ vlans:
         vid: 200
         faucet_vips: ["fc01::1:254/112"]
         faucet_mac: "%s"
-    vlanc:
-        vid: 100
-        description: "not used"
 routers:
     router-1:
         vlans: [100, vlanb]
