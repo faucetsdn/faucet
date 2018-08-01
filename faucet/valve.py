@@ -259,6 +259,10 @@ class Valve:
                 eth_src_table.match(eth_src=valve_of.mac.BROADCAST_STR),
                 priority=self.dp.highest_priority))
 
+        ofmsgs.append(eth_src_table.flowdrop(
+            eth_src_table.match(eth_type=valve_of.ECTP_ETH_TYPE),
+            priority=self.dp.highest_priority))
+
         # antispoof for FAUCET's MAC address
         # TODO: antispoof for controller IPs on this VLAN, too.
         if self.dp.drop_spoofed_faucet_mac:
