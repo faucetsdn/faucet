@@ -1623,7 +1623,7 @@ class ValveStackGraphUpdateTestCase(ValveStackProbeTestCase):
     def test_update_stack_graph(self):
         def all_stack_up():
             for valve in self.valves_manager.valves.values():
-                valve.dp.running = True
+                valve.dp.dyn_running = True
                 for port in valve.dp.stack_ports:
                     port.stack_up()
 
