@@ -535,7 +535,7 @@ class Valve:
         ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
         return ofmsgs
 
-    def _update_stack_link_state(self, port, now):
+    def _update_stack_link_state(self, port, now, other_valves):
         if port.is_stack_admin_down():
             return
         stack_probe_info = port.dyn_stack_probe_info
@@ -575,14 +575,13 @@ class Valve:
             **port_labels).set(port.dyn_stack_current_state)
         if port.is_stack_up() or port.is_stack_down():
             port_stack_up = port.is_stack_up()
-            self.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
-            # mark the stack status to inform other DPs
-            self.dp.stack['has_changed'] = True
+            for valve in [ self ] + other_valves:
+                valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
 
-    def update_stack_link_states(self, now):
+    def update_stack_link_states(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""
         for port in self.dp.stack_ports:
-            self._update_stack_link_state(port, now)
+            self._update_stack_link_state(port, now, other_valves)
 
     def datapath_connect(self, now, discovered_up_ports):
         """Handle Ryu datapath connection event and provision pipeline.
@@ -949,7 +948,7 @@ class Valve:
                 pass
         return (remote_dp_id, remote_dp_name, remote_port_id, remote_port_state)
 
-    def lldp_handler(self, now, pkt_meta):
+    def lldp_handler(self, now, pkt_meta, other_valves):
         """Handle an LLDP packet.
 
         Args:
@@ -998,7 +997,7 @@ class Valve:
                     'remote_port_id': remote_port_id,
                     'remote_port_state': remote_port_state
                 }
-                self._update_stack_link_state(port, now)
+                self._update_stack_link_state(port, now, other_valves)
 
         self.logger.debug('LLDP from %s: %s' % (pkt_meta.port, str(lldp_pkt)))
 
@@ -1239,7 +1238,7 @@ class Valve:
                 lacp_ofmsgs = self.lacp_handler(now, pkt_meta)
                 if lacp_ofmsgs:
                     return lacp_ofmsgs
-            self.lldp_handler(now, pkt_meta)
+            self.lldp_handler(now, pkt_meta, other_valves)
             # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
             return ofmsgs
 
