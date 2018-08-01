@@ -1580,7 +1580,8 @@ vlans:
         stack_port = self.valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        self.valve.update_stack_link_states(time.time())
+        other_valves = self.valves_manager._other_running_valves(self.valve)
+        self.valve.update_stack_link_states(time.time(), other_valves)
         self.assertTrue(stack_port.is_stack_down())
         for change_func, check_func in [
                 ('stack_init', 'is_stack_init'),
@@ -1612,7 +1613,8 @@ vlans:
         other_port = other_dp.ports[1]
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_init())
-        self.valve.update_stack_link_states(time.time() + 300) # simulate packet loss
+        other_valves = self.valves_manager._other_running_valves(self.valve)
+        self.valve.update_stack_link_states(time.time() + 300, other_valves) # simulate packet loss
         self.assertTrue(stack_port.is_stack_down())
 
 
@@ -1638,7 +1640,10 @@ class ValveStackGraphUpdateTestCase(ValveStackProbeTestCase):
             peer_dp = port.stack['dp']
             peer_port = port.stack['port']
             peer_port.stack_down()
-            self.valves_manager.valve_flow_services(time.time() + 600, 'update_stack_link_states')
+            self.valves_manager.valve_flow_services(
+                time.time() + 600,
+                'update_stack_link_states',
+                True)
             self.assertTrue(port.is_stack_down())
 
         def verify_stack_learn_edges(num_edges, edge=None, test_func=None):
