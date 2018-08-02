@@ -3490,6 +3490,46 @@ acls:
         self.verify_eapol_mirrored(first_host, second_host, mirror_host)
 
 
+class FaucetUntaggedACLOutputMirrorTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            actions:
+                allow: 1
+                output:
+                    ports: [mirrorport]
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+                acl_in: 1
+            mirrorport:
+                number: %(port_3)d
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        first_host, second_host, mirror_host = self.net.hosts[0:3]
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
+
+
 class FaucetZodiacUntaggedACLMirrorTest(FaucetUntaggedACLMirrorTest):
 
     RUN_GAUGE = False

@@ -130,7 +130,7 @@ def build_acl_entry(rule_conf, meters,
                 acl_ofmsgs.extend(output_ofmsgs)
 
                 # if port specified, output packet now and exit pipeline.
-                if output_port is not None:
+                if not allow and output_port is not None:
                     continue
 
             if allow:
