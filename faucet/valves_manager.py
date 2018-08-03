@@ -146,10 +146,14 @@ class ValvesManager:
             valve.update_metrics(now, rate_limited=False)
         self.bgp.update_metrics(now)
 
-    def valve_flow_services(self, now, valve_service):
+    def valve_flow_services(self, now, valve_service, need_valves=False):
         """Call a method on all Valves and send any resulting flows."""
         for valve in list(self.valves.values()):
-            ofmsgs = getattr(valve, valve_service)(now)
+            if need_valves:
+                other_valves = self._other_running_valves(valve)
+                ofmsgs = getattr(valve, valve_service)(now, other_valves)
+            else:
+                ofmsgs = getattr(valve, valve_service)(now)
             if ofmsgs:
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
 
@@ -172,9 +176,3 @@ class ValvesManager:
         if ofmsgs:
             self.send_flows_to_dp_by_id(valve, ofmsgs)
             valve.update_metrics(now, pkt_meta.port, rate_limited=True)
-
-    def stack_topo_change(self, _now, valve):
-        """Update stack topo of all other Valves affected by the event on this Valve."""
-        for other_valve in self._other_running_valves(valve):
-            other_valve.flood_manager.update_stack_topo(valve.dp.dyn_running, valve)
-            # TODO: rebuild flood rules

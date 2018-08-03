@@ -262,7 +262,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0,
               links_per_host=0, switch_to_switch_links=1,
-              hw_dpid=None):
+              hw_dpid=None, stack_ring=False):
         """
 
                                Hosts
@@ -288,6 +288,11 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
           with final two links being inter-switch
         """
+        def addLinks(src, dst):
+            for _ in range(self.switch_to_switch_links):
+                self.addLink(src, dst)
+
+        first_switch = None
         last_switch = None
         self.switch_to_switch_links = switch_to_switch_links
         for dpid in dpids:
@@ -308,12 +313,15 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 switch_cls = NoControllerFaucetSwitch
             switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type, switch_cls)
             self._add_links(switch, hosts, links_per_host)
+            if first_switch is None:
+                first_switch = switch
             if last_switch is not None:
                 # Add a switch-to-switch link with the previous switch,
                 # if this isn't the first switch in the topology.
-                for _ in range(self.switch_to_switch_links):
-                    self.addLink(last_switch, switch)
+                addLinks(last_switch, switch)
             last_switch = switch
+        if stack_ring:
+            addLinks(first_switch, last_switch)
 
 
 class BaseFAUCET(Controller):
