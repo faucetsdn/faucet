@@ -470,7 +470,7 @@ class Valve:
                 reason, state, port))
         return ofmsgs
 
-    def advertise(self, now):
+    def advertise(self, now, _other_values):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
         ofmsgs = []
         if (self.dp.advertise_interval and
@@ -520,7 +520,7 @@ class Valve:
         random.shuffle(send_ports)
         return send_ports
 
-    def send_lldp_beacons(self, now):
+    def send_lldp_beacons(self, now, _other_valves):
         """Called periodically to send LLDP beacon packets."""
         # TODO: the beacon service is specifically NOT to support conventional R/STP.
         # It is intended to facilitate physical troubleshooting (e.g.
@@ -535,19 +535,22 @@ class Valve:
         ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
         return ofmsgs
 
-    def _update_stack_link_state(self, port, now, other_valves):
+    def _next_stack_link_state(self, port, now):
         if port.is_stack_admin_down():
-            return
+            return None
+
         stack_probe_info = port.dyn_stack_probe_info
         last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
         if last_seen_lldp_time is None:
-            return
+            return None
+
         next_state = None
         remote_dp = port.stack['dp']
         stack_correct = stack_probe_info['stack_correct']
         remote_port_state = stack_probe_info['remote_port_state']
         send_interval = remote_dp.lldp_beacon['send_interval']
         num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
+
         if not stack_correct:
             if not port.is_stack_down():
                 next_state = port.stack_down
@@ -567,6 +570,11 @@ class Valve:
         elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
             next_state = port.stack_down
             self.logger.error('Stack %s DOWN, remote port is down' % port)
+
+        return next_state
+
+    def _update_stack_link_state(self, port, now, other_valves):
+        next_state = self._next_stack_link_state(port, now)
         if next_state is None:
             return
         next_state()
@@ -575,7 +583,7 @@ class Valve:
             **port_labels).set(port.dyn_stack_current_state)
         if port.is_stack_up() or port.is_stack_down():
             port_stack_up = port.is_stack_up()
-            for valve in [ self ] + other_valves:
+            for valve in [self] + other_valves:
                 valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
 
     def update_stack_link_states(self, now, other_valves):
@@ -1282,7 +1290,7 @@ class Valve:
                     ofmsgs.extend(self.lacp_down(port))
         return ofmsgs
 
-    def state_expire(self, now):
+    def state_expire(self, now, _other_valves):
         """Expire controller caches/state (e.g. hosts learned).
 
         Expire state from the host manager only; the switch does its own flow
@@ -1453,7 +1461,7 @@ class Valve:
         route_manager = self._route_manager_by_ipv[ip_dst.version]
         return route_manager.del_route(vlan, ip_dst)
 
-    def resolve_gateways(self, now):
+    def resolve_gateways(self, now, _other_valves):
         """Call route managers to re/resolve gateways.
 
         Returns:

@@ -146,14 +146,11 @@ class ValvesManager:
             valve.update_metrics(now, rate_limited=False)
         self.bgp.update_metrics(now)
 
-    def valve_flow_services(self, now, valve_service, need_valves=False):
+    def valve_flow_services(self, now, valve_service):
         """Call a method on all Valves and send any resulting flows."""
         for valve in list(self.valves.values()):
-            if need_valves:
-                other_valves = self._other_running_valves(valve)
-                ofmsgs = getattr(valve, valve_service)(now, other_valves)
-            else:
-                ofmsgs = getattr(valve, valve_service)(now)
+            other_valves = self._other_running_valves(valve)
+            ofmsgs = getattr(valve, valve_service)(now, other_valves)
             if ofmsgs:
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
 

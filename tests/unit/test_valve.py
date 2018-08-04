@@ -480,8 +480,8 @@ class ValveTestBases:
             now = time.time()
             for _ in range(self.valve.dp.max_host_fib_retry_count + 1):
                 now += (self.valve.dp.timeout * 2)
-                self.valve.state_expire(now)
-                self.valve.resolve_gateways(now)
+                self.valve.state_expire(now, None)
+                self.valve.resolve_gateways(now, None)
             # TODO: verify state expired
 
         def verify_flooding(self, matches):
@@ -1225,7 +1225,7 @@ meters:
         def test_lldp_beacon(self):
             """Test LLDP beacon service."""
             # TODO: verify LLDP packet content.
-            self.assertTrue(self.valve.send_lldp_beacons(time.time()))
+            self.assertTrue(self.valve.send_lldp_beacons(time.time(), None))
 
         def test_unknown_port(self):
             """Test port status change for unknown port handled."""
@@ -1637,17 +1637,15 @@ class ValveStackGraphUpdateTestCase(ValveStackProbeTestCase):
 
         def down_stack_port(port):
             up_stack_port(port)
-            peer_dp = port.stack['dp']
             peer_port = port.stack['port']
             peer_port.stack_down()
             self.valves_manager.valve_flow_services(
                 time.time() + 600,
-                'update_stack_link_states',
-                True)
+                'update_stack_link_states')
             self.assertTrue(port.is_stack_down())
 
         def verify_stack_learn_edges(num_edges, edge=None, test_func=None):
-            for dpid in [1,2,3]:
+            for dpid in (1, 2, 3):
                 valve = self.valves_manager.valves[dpid]
                 if not valve.dp.stack:
                     continue

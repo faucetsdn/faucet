@@ -444,8 +444,11 @@ configuration.
                 self.stack['graph'] = graph
                 longest_path_to_root_len = 0
                 for dp in graph.nodes():
+                    path_to_root_len = len(self.shortest_path(root_dp.name, src_dp=dp))
+                    test_config_condition(
+                        path_to_root_len == 0, '%s not connected to stack' % dp)
                     longest_path_to_root_len = max(
-                        len(self.shortest_path(root_dp.name, src_dp=dp)), longest_path_to_root_len)
+                        path_to_root_len, longest_path_to_root_len)
                 self.stack['longest_path_to_root_len'] = longest_path_to_root_len
 
     def shortest_path(self, dest_dp, src_dp=None):
@@ -453,8 +456,11 @@ configuration.
         if src_dp is None:
             src_dp = self.name
         if self.stack is not None and 'root_dp' in self.stack:
-            return networkx.shortest_path(
-                self.stack['graph'], src_dp, dest_dp)
+            try:
+                return networkx.shortest_path(
+                    self.stack['graph'], src_dp, dest_dp)
+            except networkx.exception.NetworkXNoPath:
+                pass
         return []
 
     def shortest_path_to_root(self):
