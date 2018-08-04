@@ -930,6 +930,16 @@ class Valve:
             lldp_pkt, valve_packet.lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC)
                 if tlv.oui == valve_packet.faucet_oui(self.dp.faucet_dp_mac)]
 
+    @staticmethod
+    def _tlv_cast(tlvs, tlv_attr, cast_func):
+        tlv_val = None
+        if tlvs:
+            try:
+                tlv_val = cast_func(getattr(tlvs[0], tlv_attr))
+            except (AttributeError, ValueError, TypeError):
+                pass
+        return tlv_val
+
     def _parse_faucet_lldp(self, lldp_pkt):
         remote_dp_id = None
         remote_dp_name = None
@@ -946,14 +956,14 @@ class Valve:
                 lldp_pkt, valve_packet.lldp.LLDP_TLV_PORT_ID)
             port_state_tlvs = self._tlvs_by_subtype(
                 faucet_tlvs, valve_packet.LLDP_FAUCET_STACK_STATE)
-            try:
-                remote_dp_id = int(dp_id_tlvs[0].info)
-                remote_port_id = int(port_id_tlvs[0].port_id)
-                remote_port_state = int(port_state_tlvs[0].info)
-                remote_dp_name = valve_util.utf8_decode(
-                    dp_name_tlvs[0].system_name)
-            except ValueError:
-                pass
+            remote_dp_id = self._tlv_cast(
+                dp_id_tlvs, 'info', int)
+            remote_port_id = self._tlv_cast(
+                port_id_tlvs, 'port_id', int)
+            remote_port_state = self._tlv_cast(
+                port_state_tlvs, 'info', int)
+            remote_dp_name = self._tlv_cast(
+                dp_name_tlvs, 'system_name', valve_util.utf8_decode)
         return (remote_dp_id, remote_dp_name, remote_port_id, remote_port_state)
 
     def lldp_handler(self, now, pkt_meta, other_valves):
