@@ -207,8 +207,7 @@ class Faucet(RyuAppBase):
         """Call a method on all Valves and send any resulting flows."""
         self.valves_manager.valve_flow_services(
             time.time(),
-            self._VALVE_SERVICES[type(ryu_event)][0],
-            isinstance(ryu_event, EventFaucetStackLinkStates))
+            self._VALVE_SERVICES[type(ryu_event)][0])
 
     def get_config(self):
         """FAUCET experimental API: return config for all Valves."""
