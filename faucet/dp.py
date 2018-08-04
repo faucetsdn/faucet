@@ -579,7 +579,7 @@ configuration.
                         'override_output_port port not defined'))
                     self.ports[port_no] = port
 
-        def resolve_acl(acl_in):
+        def resolve_acl(acl_in, vid):
             """Resolve an individual ACL."""
             test_config_condition(acl_in not in self.acls, (
                 'missing ACL %s in DP: %s' % (acl_in, self.name)))
@@ -647,7 +647,7 @@ configuration.
                 'force_port_vlan': resolve_noop,
             }
 
-            def build_acl(acl, vid=None):
+            def build_acl(acl, vid):
                 """Check that ACL can be built from config and mark mirror destinations."""
                 matches = {}
                 set_fields = []
@@ -700,7 +700,7 @@ configuration.
                             resolved_actions[action_name] = resolved_action_conf
                         rule_conf[attrib] = resolved_actions
 
-            return build_acl(acl, vid=1)
+            return build_acl(acl, vid)
 
         def verify_acl_exact_match(acls):
             for acl in acls:
@@ -723,7 +723,7 @@ configuration.
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
-                        matches, set_fields = resolve_acl(acl)
+                        matches, set_fields = resolve_acl(acl, vlan.vid)
                         vlan_acl_matches.update(matches)
                         vlan_acl_set_fields = vlan_acl_set_fields.union(set_fields)
                         acls.append(self.acls[acl])
@@ -735,7 +735,7 @@ configuration.
                         'dataplane ACLs cannot be used with port ACLs.'))
                     acls = []
                     for acl in port.acls_in:
-                        matches, set_fields = resolve_acl(acl)
+                        matches, set_fields = resolve_acl(acl, None)
                         port_acl_matches.update(matches)
                         port_acl_set_fields = port_acl_set_fields.union(set_fields)
                         acls.append(self.acls[acl])
@@ -744,7 +744,7 @@ configuration.
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
-                    matches, set_fields = resolve_acl(acl)
+                    matches, set_fields = resolve_acl(acl, None)
                     port_acl_matches.update(matches)
                     port_acl_set_fields = port_acl_set_fields.union(set_fields)
                     acls.append(self.acls[acl])
