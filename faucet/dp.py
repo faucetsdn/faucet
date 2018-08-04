@@ -752,7 +752,7 @@ configuration.
             port_acl_matches = {(field, mask) for field, mask in list(port_acl_matches.items())}
             vlan_acl_matches = {(field, mask) for field, mask in list(vlan_acl_matches.items())}
             return (port_acl_exact_match, port_acl_matches, port_acl_set_fields,
-                    vlan_acl_exact_match, vlan_acl_matches, port_acl_set_fields)
+                    vlan_acl_exact_match, vlan_acl_matches, vlan_acl_set_fields)
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
