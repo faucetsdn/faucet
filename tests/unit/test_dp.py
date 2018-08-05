@@ -38,7 +38,6 @@ class FaucetDPConfigTest(unittest.TestCase): # pytype: disable=module-attr
             'metrics_rate_limit_sec': 0,
             'ofchannel_log': None,
             'packetin_pps': None,
-            'pipeline_config_dir': '/etc/faucet',
             'priority_offset': 0,
             'proactive_learn': True,
             'stack': None,

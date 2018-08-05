@@ -66,12 +66,11 @@ DP1_CONFIG = """
         ignore_learn_ins: 100
         combinatorial_port_flood: True
         ofchannel_log: '/dev/null'
-        pipeline_config_dir: '%s/../../etc/faucet'
         packetin_pps: 99
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
-""" % os.path.dirname(os.path.realpath(__file__))
+"""
 
 IDLE_DP1_CONFIG = """
         use_idle_timeout: True

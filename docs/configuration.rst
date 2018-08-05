@@ -308,6 +308,10 @@ string names given to the datapath, or the OFP datapath id.
       - boolean
       - False
       - Turn on/off the use of idle timeout for src_table, default OFF.
+    * - table_sizes
+      - dictionary
+      - {}
+      - For TFM based switches, size of each FAUCET table (all must be specified)
 
 
 Stacking (DP)

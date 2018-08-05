@@ -79,7 +79,6 @@ DEFAULTS = {
     'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/faucet/faucet_exception.log',
     'FAUCET_PROMETHEUS_PORT': '9302',
     'FAUCET_PROMETHEUS_ADDR': '0.0.0.0',
-    'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/faucet' + ':' + _PREFIX + '/etc/ryu/faucet',
     'GAUGE_CONFIG': ''.join((
         _PREFIX,
         '/etc/faucet/gauge.yaml',

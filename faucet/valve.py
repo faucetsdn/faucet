@@ -1482,11 +1482,8 @@ class Valve:
 class TfmValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
-    PIPELINE_CONF = 'tfm_pipeline.json'
-
     def _pipeline_flows(self):
-        ryu_table_loader = tfm_pipeline.LoadRyuTables(
-            self.dp.pipeline_config_dir, self.PIPELINE_CONF)
+        ryu_table_loader = tfm_pipeline.LoadRyuTables()
         return [valve_of.table_features(
             ryu_table_loader.load_tables(self.dp))]
 
@@ -1497,23 +1494,22 @@ class TfmValve(Valve):
         return ofmsgs
 
 
+class OVSValve(Valve):
+    """Valve implementation for OVS."""
+
+    USE_BARRIERS = True
+
+
 class ArubaValve(TfmValve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
-    PIPELINE_CONF = 'aruba_pipeline.json'
     DEC_TTL = False
 
 
 class CiscoC9KValve(TfmValve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
-    PIPELINE_CONF = 'cisco_c9k_pipeline.json'
-
-
-class OVSValve(Valve):
-    """Valve implementation for OVS."""
-
-    USE_BARRIERS = True
+    pass
 
 
 class AlliedTelesis(OVSValve):
