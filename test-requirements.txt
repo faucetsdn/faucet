@@ -14,5 +14,5 @@ pytest-cov
 pytype==2018.6.19
 pyyaml
 requests
-ryu==4.26
+ryu==4.27
 beka==0.3.3
