@@ -3,7 +3,7 @@
 MINCOVERAGE=92
 SCRIPTPATH=$(readlink -f "$0")
 TESTDIR=`dirname $SCRIPTPATH`
-BASEDIR=$TESTDIR/..
+BASEDIR=`readlink -f $TESTDIR/..`
 cd $BASEDIR || exit 1
 
 coverage erase || exit 1
