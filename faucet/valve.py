@@ -535,15 +535,14 @@ class Valve:
         if port.is_stack_admin_down():
             return None
 
-        stack_probe_info = port.dyn_stack_probe_info
-        last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
+        last_seen_lldp_time = port.dyn_stack_probe_info.get('last_seen_lldp_time', None)
         if last_seen_lldp_time is None:
             return None
 
         next_state = None
         remote_dp = port.stack['dp']
-        stack_correct = stack_probe_info['stack_correct']
-        remote_port_state = stack_probe_info['remote_port_state']
+        stack_correct = port.dyn_stack_probe_info['stack_correct']
+        remote_port_state = port.dyn_stack_probe_info['remote_port_state']
         send_interval = remote_dp.lldp_beacon['send_interval']
         num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
 

@@ -52,9 +52,14 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             in_port, vlan, eth_type, eth_src,
             eth_dst, eth_dst_mask, icmpv6_type,
             nw_proto, nw_dst)
-        match = valve_of.match(match_dict)
-        if self.match_types is not None:
-            for match_type, match_field in list(match_dict.items()):
+        return valve_of.match(match_dict)
+
+    def _verify_match(self, match, priority):
+        assert not (priority == 0 and match.items()), (
+            'default flow cannot have matches')
+        if self.match_types:
+            match_fields = list(match.items())
+            for match_type, match_field in match_fields:
                 assert match_type in self.match_types, (
                     '%s match in table %s' % (match_type, self.name))
                 config_mask = self.match_types[match_type]
@@ -62,16 +67,19 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
                 assert config_mask or (not config_mask and not flow_mask), (
                     '%s configured mask %s but flow mask %s in table %s' % (
                         match_type, config_mask, flow_mask, self.name))
-        return match
+            if self.exact_match:
+                assert len(self.match_types) == len(match_fields), (
+                    'exact match table matches %s do not match flow matches %s' % (
+                        self.match_types, match_fields))
 
     def flowmod(self, match=None, priority=None, # pylint: disable=too-many-arguments
                 inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,
                 out_group=0, hard_timeout=0, idle_timeout=0, cookie=None):
         """Helper function to construct a flow mod message with cookie."""
-        if match is None:
-            match = self.match()
         if priority is None:
             priority = 0 # self.dp.lowest_priority
+        if not match:
+            match = self.match()
         if inst is None:
             inst = []
         if cookie is None:
@@ -79,7 +87,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         flags = 0
         if self.notify_flow_removed:
             flags = valve_of.ofp.OFPFF_SEND_FLOW_REM
-        return valve_of.flowmod(
+        flowmod = valve_of.flowmod(
             cookie,
             command,
             self.table_id,
@@ -91,6 +99,9 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             hard_timeout,
             idle_timeout,
             flags)
+        if not valve_of.is_flowdel(flowmod):
+            self._verify_match(match, priority)
+        return flowmod
 
     def flowdel(self, match=None, priority=None, out_port=valve_of.ofp.OFPP_ANY, strict=False):
         """Delete matching flows from a table."""
