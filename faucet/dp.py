@@ -326,10 +326,6 @@ configuration.
         """Return list of tables that specify in_port as a match."""
         return self.match_tables('in_port')
 
-    def all_valve_tables(self):
-        """Return list of all Valve tables."""
-        return list(self.tables.values())
-
     def add_acl(self, acl_ident, acl):
         """Add an ACL to this DP."""
         self.acls[acl_ident] = acl
