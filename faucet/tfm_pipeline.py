@@ -82,6 +82,8 @@ class LoadRyuTables:
                 insts = set([valve_of.ofp.OFPIT_APPLY_ACTIONS])
                 if next_tables:
                     insts.add(valve_of.ofp.OFPIT_GOTO_TABLE)
+                if valve_table.table_config.meter:
+                    insts.add(valve_of.ofp.OFPIT_METER)
                 inst_ids = [
                     valve_of.parser.OFPInstructionId(type_) for type_ in insts]
                 new_table.properties.append(

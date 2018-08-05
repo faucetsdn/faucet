@@ -21,7 +21,8 @@ import ipaddress
 
 from ryu.lib import mac
 from ryu.lib import ofctl_v1_3 as ofctl
-from ryu.lib.ofctl_utils import str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil
+from ryu.lib.ofctl_utils import (
+    str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil)
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -179,12 +180,23 @@ def is_apply_actions(instruction):
     """Return True if an apply action.
 
     Args:
-        instructions (list): list of OpenFlow instructions.
+        instruction: OpenFlow instruction.
     Returns:
         bool: True if an apply action.
     """
     return (isinstance(instruction, parser.OFPInstructionActions) and
             instruction.type == ofp.OFPIT_APPLY_ACTIONS)
+
+
+def is_meter(instruction):
+    """Return True if a meter.
+
+    Args:
+        instruction: OpenFlow instruction.
+    Returns:
+        bool: True if a meter.
+    """
+    return isinstance(instruction, parser.OFPInstructionMeter)
 
 
 def is_set_field(action):
@@ -336,7 +348,7 @@ def dedupe_output_port_acts(output_port_acts):
     Returns:
         list of ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: output to port actions.
     """
-    output_ports = set([output_port_act.port for output_port_act in output_port_acts])
+    output_ports = {output_port_act.port for output_port_act in output_port_acts}
     return [output_port(port) for port in sorted(output_ports)]
 
 
@@ -754,7 +766,7 @@ def faucet_async(datapath=None, notify_flow_removed=False, packet_in=True, port_
     port_status_mask = 0
     if port_status:
         port_status_mask = (
-             1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
+            1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
     flow_removed_mask = 0
     if notify_flow_removed:
         flow_removed_mask = (

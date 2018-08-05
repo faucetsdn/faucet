@@ -20,15 +20,16 @@
 class ValveTableConfig: # pylint: disable=too-few-public-methods
     """Configuration for a single table."""
 
-    def __init__(self, name, exact_match=None, match_types=None, set_fields=None):
+    def __init__(self, name, exact_match=None, meter=None, match_types=None, set_fields=None):
         self.name = name
         self.exact_match = exact_match
+        self.meter = meter
         self.match_types = match_types
         self.set_fields = set_fields
 
     def __str__(self):
-        return 'table config: %s exact match: %s match types: %s set_fields: %s' % (
-            self.name, self.exact_match, self.match_types, self.set_fields)
+        return 'table config: %s exact match: %s meter: %s match types: %s set_fields: %s' % (
+            self.name, self.exact_match, self.meter, self.match_types, self.set_fields)
 
     def __repr__(self):
         return self.__str__()
@@ -43,40 +44,37 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods
         return self.__hash__() < other.__hash__()
 
 
+def _fib_table(ipv):
+    return ValveTableConfig(
+        'ipv%u_fib' % ipv,
+        match_types=(('eth_type', False), ('ipv%u_dst' % ipv, True), ('vlan_vid', False)),
+        set_fields=('eth_dst', 'eth_src', 'vlan_vid'))
+
+
 FAUCET_PIPELINE = (
     ValveTableConfig(
         'port_acl'),
     ValveTableConfig(
-        'vlan', False,
-        (('eth_dst', True), ('eth_type', False),
-         ('in_port', False), ('vlan_vid', False)),
-        ('vlan_vid',)),
+        'vlan',
+        match_types=(('eth_dst', True), ('eth_type', False),
+                     ('in_port', False), ('vlan_vid', False)),
+        set_fields=('vlan_vid',)),
     ValveTableConfig(
         'vlan_acl'),
     ValveTableConfig(
-        'eth_src', False,
-        (('eth_dst', True), ('eth_src', False), ('eth_type', False),
-         ('in_port', False), ('vlan_vid', False)),
-        None),
+        'eth_src',
+        match_types=(('eth_dst', True), ('eth_src', False), ('eth_type', False),
+                     ('in_port', False), ('vlan_vid', False))),
+    _fib_table(4),
+    _fib_table(6),
     ValveTableConfig(
-        'ipv4_fib', False,
-        (('eth_type', False), ('ipv4_dst', True), ('vlan_vid', False)),
-        ('eth_dst', 'eth_src', 'vlan_vid')),
+        'vip',
+        match_types=(('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
+                     ('icmpv6_type', False), ('ip_proto', False))),
     ValveTableConfig(
-        'ipv6_fib', False,
-        (('eth_type', False), ('ipv6_dst', True), ('vlan_vid', False)),
-        ('eth_dst', 'eth_src', 'vlan_vid')),
+        'eth_dst',
+        match_types=(('eth_dst', False), ('in_port', False), ('vlan_vid', False))),
     ValveTableConfig(
-        'vip', False,
-        (('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
-         ('icmpv6_type', False), ('ip_proto', False)),
-        None),
-    ValveTableConfig(
-        'eth_dst', False,
-        (('eth_dst', False), ('in_port', False), ('vlan_vid', False)),
-        None),
-    ValveTableConfig(
-        'flood', False,
-        (('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
-        None),
+        'flood',
+        match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False))),
 )

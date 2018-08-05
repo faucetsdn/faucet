@@ -4,24 +4,6 @@
         "max_entries": 50,
         "properties": [
             {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    },
-                    {
-                        "name": "OFPIT_METER",
-                        "type": 6
-                    }
-                ]
-            },
-            {
                 "name": "OFPTFPT_APPLY_ACTIONS",
                 "type": 6,
                 "action_ids": [
@@ -77,24 +59,6 @@
         "table_id": 2,
         "max_entries": 50,
         "properties": [
-            {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    },
-                    {
-                        "name": "OFPIT_METER",
-                        "type": 6
-                    }
-                ]
-            },
             {
                 "name": "OFPTFPT_APPLY_ACTIONS",
                 "type": 6,
