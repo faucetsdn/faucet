@@ -456,7 +456,7 @@ class FaucetTestBase(unittest2.TestCase):
             try:
                 ofmsgs = json.loads(ofctl_result)[int_dpid]
                 return [json.dumps(ofmsg) for ofmsg in ofmsgs]
-            except ValueError:
+            except ValueError, TypeError:
                 # Didn't get valid JSON, try again
                 time.sleep(1)
                 continue
