@@ -78,7 +78,7 @@ FAUCET_PIPELINE = (
     ValveTableConfig(
         'eth_dst',
         miss_goto='flood',
-        match_types=(('eth_dst', False), ('in_port', False), ('vlan_vid', False))),
+        match_types=(('eth_dst', False), ('vlan_vid', False))),
     ValveTableConfig(
         'flood',
         match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False))),

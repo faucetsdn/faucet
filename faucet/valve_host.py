@@ -178,10 +178,11 @@ class ValveHostManager:
         # port they came in (e.g. multiple hosts on same WiFi AP,
         # and FAUCET is switching between them on the same port).
         if port.hairpin:
-            ofmsgs.append(self.eth_dst_table.flowmod(
-                self.eth_dst_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
+            ofmsgs.append(self.eth_src_table.flowmod(
+                self.eth_src_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
                 priority=(self.host_priority + 1),
                 inst=[valve_of.apply_actions(vlan.output_port(port, hairpin=True))],
+                hard_timeout=src_rule_hard_timeout,
                 idle_timeout=dst_rule_idle_timeout))
 
         return ofmsgs
