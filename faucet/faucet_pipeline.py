@@ -77,6 +77,7 @@ FAUCET_PIPELINE = (
                      ('icmpv6_type', False), ('ip_proto', False))),
     ValveTableConfig(
         'eth_dst',
+        exact_match=True,
         miss_goto='flood',
         match_types=(('eth_dst', False), ('vlan_vid', False))),
     ValveTableConfig(
