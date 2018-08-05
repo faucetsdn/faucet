@@ -56,6 +56,8 @@ def _fib_table(ipv):
         set_fields=('eth_dst', 'eth_src', 'vlan_vid'))
 
 
+# TODO: implement an eth_type table before VLAN. This would enable interception
+# of control protocols and simplify matches in vlan/eth_src, enabling use of exact_match.
 FAUCET_PIPELINE = (
     ValveTableConfig(
         'port_acl'),
