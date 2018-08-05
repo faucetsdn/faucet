@@ -367,52 +367,6 @@ On the FAUCET configuration file (``/etc/faucet/faucet.yaml``), add the datapath
 	                name: "port2"
 
 
-You will also need to install pipeline configuration files (these files instruct FAUCET to configure the switch with the right OpenFlow tables - these files and FAUCET's pipeline must match).
-
-.. code:: console
-
-       $ sudo cp etc/faucet/aruba_pipeline.json /etc/faucet
-
-
-Scale
------
-
-Most tables in the current FAUCET pipeline need wildcards and hence use TCAMs in hardware.
-There are 2000 entries available globally for the whole pipeline. Currently, it has been
-distributed amongst the 9 tables as follows (note, FAUCET will automatically provision
-match fields as requested and will not provision unused tables - for example, if
-IPv4 routing is not configured there will be no IPv4 FIB so those entries can be
-used in other table):
-
-+----------------+------------------+
-| Table          | Maximum Entries  |
-+================+==================+
-| Port ACL       | 50               |
-+----------------+------------------+
-| VLAN           | 300              |
-+----------------+------------------+
-| VLAN ACL       | 50               |
-+----------------+------------------+
-| ETH_SRC        | 500              |
-+----------------+------------------+
-| IPv4 FIB       | 300              |
-+----------------+------------------+
-| IPv6 FIB       | 10               |
-+----------------+------------------+
-| VIP            | 10               |
-+----------------+------------------+
-| ETH_DST        | 500              |
-+----------------+------------------+
-| FLOOD          | 300              |
-+----------------+------------------+
-
-Based on one's deployment needs, these numbers can be updated for each table (update max_entries in ``$(REPO_ROOT)/faucet/aruba/aruba_pipeline.json``).
-
-.. note::
-
-    The summation of max entries across all 9 tables cannot cross 2000 and the minimum size of a given table has to be 2.
-    You need to restart FAUCET for the new numbers to reflect on the switch.
-
 Limitations
 -----------
 

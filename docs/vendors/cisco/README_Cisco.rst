@@ -97,12 +97,6 @@ On the FAUCET configuration file (``/etc/faucet/faucet.yaml``), add the datapath
 	                name: "port2"
 
 
-You will also need to install pipeline configuration files (these files instruct FAUCET to configure the switch with the right OpenFlow tables - these files and FAUCET's pipeline must match).
-
-.. code:: console
-
-       $ sudo cp etc/faucet/cisco_c9k_pipeline.json /etc/faucet
-
 Troubleshooting
 ^^^^^^^^^^^^^^^
 

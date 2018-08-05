@@ -17,22 +17,24 @@
 # limitations under the License.
 
 
-class ValveTableConfig: # pylint: disable=too-few-public-methods
+class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Configuration for a single table."""
 
-    def __init__(self, name, exact_match=None, meter=None, output=True,
-                 miss_goto=None, match_types=None, set_fields=None):
+    def __init__(self, name, exact_match=None, meter=None, output=True, # pylint: disable=too-many-arguments
+                 miss_goto=None, size=None, match_types=None, set_fields=None):
         self.name = name
         self.exact_match = exact_match
         self.meter = meter
         self.output = output
         self.miss_goto = miss_goto
+        self.size = size
         self.match_types = match_types
         self.set_fields = set_fields
 
     def __str__(self):
-        return 'table config: %s exact match: %s meter: %s match types: %s set_fields: %s' % (
-            self.name, self.exact_match, self.meter, self.match_types, self.set_fields)
+        field_strs = ' '.join([
+            '%s: %s' % (key, val) for key, val in sorted(self.__dict__.items())])
+        return 'table config %s' % field_strs
 
     def __repr__(self):
         return self.__str__()
@@ -54,6 +56,8 @@ def _fib_table(ipv):
         set_fields=('eth_dst', 'eth_src', 'vlan_vid'))
 
 
+# TODO: implement an eth_type table before VLAN. This would enable interception
+# of control protocols and simplify matches in vlan/eth_src, enabling use of exact_match.
 FAUCET_PIPELINE = (
     ValveTableConfig(
         'port_acl'),

@@ -30,7 +30,6 @@ from faucet import valve_of
 from faucet.conf import Conf, InvalidConfigError, test_config_condition
 from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve_table import ValveTable, ValveGroupTable
-from faucet.valve_util import get_setting
 from faucet.valve_packet import FAUCET_MAC
 
 
@@ -81,7 +80,6 @@ configuration.
     learn_ban_timeout = None
     advertise_interval = None
     proactive_learn = None
-    pipeline_config_dir = None
     use_idle_timeout = None
     tables = {} # type: dict
     meters = {} # type: dict
@@ -94,6 +92,7 @@ configuration.
     lacp_timeout = None
     dp_acls = None
     dot1x = None
+    table_sizes = {} # type: dict
 
     dyn_running = False
     dyn_last_coldstart_time = None
@@ -158,8 +157,6 @@ configuration.
         # How often to advertise (eg. IPv6 RAs)
         'proactive_learn': True,
         # whether proactive learning is enabled for IP nexthops
-        'pipeline_config_dir': get_setting('FAUCET_PIPELINE_DIR', True),
-        # where config files for pipeline are stored (if any).
         'use_idle_timeout': False,
         # Turn on/off the use of idle timeout for src_table, default OFF.
         'lldp_beacon': {},
@@ -176,6 +173,8 @@ configuration.
         # List of dataplane ACLs (overriding per port ACLs).
         'dot1x': None,
         # Experimental dot1x configuration.
+        'table_sizes': {'port_acl': 1100, 'vlan': 100, 'vlan_acl': 50, 'eth_src': 400, 'ipv4_fib': 50, 'ipv6_fib': 50, 'vip': 20, 'eth_dst': 300, 'flood': 100},
+        # Table sizes for TFM switches.
         }
 
     defaults_types = {
@@ -210,7 +209,6 @@ configuration.
         'learn_ban_timeout': int,
         'advertise_interval': int,
         'proactive_learn': bool,
-        'pipeline_config_dir': str,
         'use_idle_timeout': bool,
         'lldp_beacon': dict,
         'metrics_rate_limit_sec': int,
@@ -218,6 +216,19 @@ configuration.
         'combinatorial_port_flood': bool,
         'dp_acls': list,
         'dot1x': dict,
+        'table_sizes': dict,
+    }
+
+    table_sizes_types = {
+        'port_acl': int,
+        'vlan': int,
+        'vlan_acl': int,
+        'eth_src': int,
+        'ipv4_fib': int,
+        'ipv6_fib': int,
+        'vip': int,
+        'eth_dst': int,
+        'flood': int,
     }
 
     stack_defaults_types = {
@@ -280,6 +291,8 @@ configuration.
             self._check_conf_types(self.stack, self.stack_defaults_types)
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
+        if self.table_sizes:
+            self._check_conf_types(self.table_sizes, self.table_sizes_types)
 
     def _configure_tables(self, override_table_config):
         """Configure FAUCET pipeline with tables."""
@@ -289,6 +302,8 @@ configuration.
             table_name = table_config.name
             if table_name in override_table_config:
                 table_config = override_table_config[table_name]
+            # TODO: automatically calculate
+            table_config.size = self.table_sizes.get(table_name, 128)
             if table_config.match_types:
                 tables[table_name] = ValveTable(
                     table_id, table_name, table_config, self.cookie,
