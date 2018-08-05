@@ -150,31 +150,28 @@ class ValveHostManager:
             if delete_existing:
                 ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
-        # Associate this MAC with source port.
-        src_match = self.eth_src_table.match(
-            in_port=port.number, vlan=vlan, eth_src=eth_src)
-        if port.override_output_port:
-            ofmsgs.append(self.eth_src_table.flowmod(
-                match=src_match,
-                priority=(self.host_priority - 1),
-                inst=[valve_of.apply_actions([
-                    valve_of.output_port(port.override_output_port.number)])],
-                hard_timeout=src_rule_hard_timeout,
-                idle_timeout=src_rule_idle_timeout))
-        else:
-            ofmsgs.append(self.eth_src_table.flowmod(
-                match=src_match,
-                priority=(self.host_priority - 1),
-                inst=[valve_of.goto_table(self.eth_dst_table)],
-                hard_timeout=src_rule_hard_timeout,
-                idle_timeout=src_rule_idle_timeout))
-
         # Output packets for this MAC to specified port.
         ofmsgs.append(self.eth_dst_table.flowmod(
             self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
             priority=self.host_priority,
             inst=[valve_of.apply_actions(vlan.output_port(port))],
             idle_timeout=dst_rule_idle_timeout))
+
+        # Associate this MAC with source port.
+        src_match = self.eth_src_table.match(
+            in_port=port.number, vlan=vlan, eth_src=eth_src)
+        src_priority = self.host_priority - 1
+        inst = valve_of.goto_table(self.eth_dst_table)
+
+        if port.override_output_port:
+            inst = valve_of.apply_actions([
+                valve_of.output_port(port.override_output_port.number)])
+        ofmsgs.append(self.eth_src_table.flowmod(
+            match=src_match,
+            priority=src_priority,
+            inst=[inst],
+            hard_timeout=src_rule_hard_timeout,
+            idle_timeout=src_rule_idle_timeout))
 
         # If port is in hairpin mode, install a special rule
         # that outputs packets destined to this MAC back out the same
