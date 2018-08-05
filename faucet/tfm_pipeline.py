@@ -14,6 +14,7 @@ class LoadRyuTables:
         'OFPTFPT_MATCH',
         'OFPTFPT_WILDCARDS',
         'OFPTFPT_INSTRUCTIONS',
+        'OFPTFPT_APPLY_ACTIONS',
         'OFPTFPT_APPLY_SETFIELD',
     ])
 
@@ -63,14 +64,6 @@ class LoadRyuTables:
                         new_table.properties.append(
                             valve_of.parser.OFPTableFeaturePropOxm(
                                 oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_WILDCARDS))
-                # Set fields
-                if valve_table.set_fields:
-                    oxm_ids = [
-                        valve_of.parser.OFPOxmId(type_=field, hasmask=False)
-                        for field in valve_table.set_fields]
-                    new_table.properties.append(
-                        valve_of.parser.OFPTableFeaturePropOxm(
-                            oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_APPLY_SETFIELD))
                 # Next tables
                 next_tables = sorted(
                     [table_id for table_id in active_table_ids if table_id > new_table.table_id])
@@ -89,6 +82,30 @@ class LoadRyuTables:
                 new_table.properties.append(
                     valve_of.parser.OFPTableFeaturePropInstructions(
                         type_=valve_of.ofp.OFPTFPT_INSTRUCTIONS, instruction_ids=inst_ids))
+                apply_actions = set()
+                # Set fields and apply actions
+                if valve_table.set_fields:
+                    apply_actions.add(valve_of.ofp.OFPAT_SET_FIELD)
+                    # TODO: only select push_vlan when VLAN VID in set_fields.
+                    apply_actions.add(valve_of.ofp.OFPAT_PUSH_VLAN)
+                    oxm_ids = [
+                        valve_of.parser.OFPOxmId(type_=field, hasmask=False)
+                        for field in valve_table.set_fields]
+                    new_table.properties.append(
+                        valve_of.parser.OFPTableFeaturePropOxm(
+                            oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_APPLY_SETFIELD))
+                if valve_table.table_config.output:
+                    apply_actions.add(valve_of.ofp.OFPAT_OUTPUT)
+                    apply_actions.add(valve_of.ofp.OFPAT_POP_VLAN)
+                    if dp.group_table or dp.group_table_routing:
+                        apply_actions.add(valve_of.ofp.OFPAT_GROUP)
+                if apply_actions:
+                    action_ids = [
+                        valve_of.parser.OFPActionId(type_) for type_ in apply_actions]
+                    new_table.properties.append(
+                        valve_of.parser.OFPTableFeaturePropActions(
+                            type_=valve_of.ofp.OFPTFPT_APPLY_ACTIONS, action_ids=action_ids))
+
                 table_array.append(new_table)
         return table_array
 

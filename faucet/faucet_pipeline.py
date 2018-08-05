@@ -20,10 +20,12 @@
 class ValveTableConfig: # pylint: disable=too-few-public-methods
     """Configuration for a single table."""
 
-    def __init__(self, name, exact_match=None, meter=None, match_types=None, set_fields=None):
+    def __init__(self, name, exact_match=None, meter=None, output=True,
+                 match_types=None, set_fields=None):
         self.name = name
         self.exact_match = exact_match
         self.meter = meter
+        self.output = output
         self.match_types = match_types
         self.set_fields = set_fields
 

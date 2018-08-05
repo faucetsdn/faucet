@@ -789,17 +789,20 @@ configuration.
             vlan_acl_matches = {(field, mask) for field, mask in list(vlan_acl_matches.items())}
 
             # TODO: skip port_acl table if not configured.
+            # TODO: dynamically configure output attribue
             override_table_config = {
                 'port_acl': ValveTableConfig(
                     'port_acl',
                     exact_match=port_acl_exact_match,
                     meter=port_acl_meter,
+                    output=True,
                     match_types=port_acl_matches,
                     set_fields=tuple(port_acl_set_fields)),
                 'vlan_acl': ValveTableConfig(
                     'vlan_acl',
                     exact_match=vlan_acl_exact_match,
                     meter=vlan_acl_meter,
+                    output=True,
                     match_types=vlan_acl_matches,
                     set_fields=tuple(vlan_acl_set_fields)),
             }
