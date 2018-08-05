@@ -1,259 +1,38 @@
 [
     {
         "table_id": 0,
-        "max_entries": 1100,
-        "properties": [
-            {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    }
-                ]
-            },
-            {
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6,
-                "action_ids": [
-                    {
-                        "name": "OFPAT_OUTPUT",
-                        "type": 0
-                    },
-                    {
-                        "name": "OFPAT_PUSH_VLAN",
-                        "type": 17
-                    },
-                    {
-                        "name": "OFPAT_POP_VLAN",
-                        "type": 18
-                    },
-                    {
-                        "name": "OFPAT_GROUP",
-                        "type": 22
-                    },
-                    {
-                        "name": "OFPAT_SET_FIELD",
-                        "type": 25
-                    }
-                ]
-            }
-        ]
+        "max_entries": 1100
     },
     {
         "table_id": 1,
-        "max_entries": 300,
-        "properties": [
-            {
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6,
-                "action_ids": [
-                    {
-                        "name": "OFPAT_OUTPUT",
-                        "type": 0
-                    },
-                    {
-                        "name": "OFPAT_PUSH_VLAN",
-                        "type": 17
-                    },
-                    {
-                        "name": "OFPAT_SET_FIELD",
-                        "type": 25
-                    }
-                ]
-            }
-        ]
+        "max_entries": 300
     },
     {
         "table_id": 2,
-        "max_entries": 50,
-        "properties": [
-            {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    }
-                ]
-            },
-            {
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6,
-                "action_ids": [
-                    {
-                        "name": "OFPAT_OUTPUT",
-                        "type": 0
-                    },
-                    {
-                        "name": "OFPAT_PUSH_VLAN",
-                        "type": 17
-                    },
-                    {
-                        "name": "OFPAT_POP_VLAN",
-                        "type": 18
-                    },
-                    {
-                        "name": "OFPAT_GROUP",
-                        "type": 22
-                    },
-                    {
-                        "name": "OFPAT_SET_FIELD",
-                        "type": 25
-                    }
-                ]
-            }
-        ]
+        "max_entries": 50
     },
     {
         "table_id": 3,
-        "max_entries": 400,
-        "properties": [
-            {
-                "name": "OFPTFPT_INSTRUCTIONS_MISS",
-                "type": 1,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    }
-                ]
-            },
-            {
-                "name": "OFPTFPT_NEXT_TABLES_MISS",
-                "type": 3,
-                "table_ids": [
-                    7
-                ]
-            },
-            {
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6,
-                "action_ids": [
-                    {
-                        "name": "OFPAT_OUTPUT",
-                        "type": 0
-                    }
-                ]
-            }
-        ]
+        "max_entries": 400
     },
     {
         "table_id": 4,
-        "max_entries": 100,
-        "properties": [
-            {
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6,
-                "action_ids": [
-                    {
-                        "name": "OFPAT_GROUP",
-                        "type": 22
-                    },
-                    {
-                        "name": "OFPAT_DEC_NW_TTL",
-                        "type": 24
-                    },
-                    {
-                        "name": "OFPAT_SET_FIELD",
-                        "type": 25
-                    }
-                ]
-            }
-        ]
+        "max_entries": 100
     },
     {
         "table_id": 5,
-        "max_entries": 100,
-        "properties": [
-            {
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6,
-                "action_ids": [
-                    {
-                        "name": "OFPAT_GROUP",
-                        "type": 22
-                    },
-                    {
-                        "name": "OFPAT_DEC_NW_TTL",
-                        "type": 24
-                    },
-                    {
-                        "name": "OFPAT_SET_FIELD",
-                        "type": 25
-                    }
-                ]
-            }
-        ]
+        "max_entries": 100
     },
     {
         "table_id": 6,
-        "max_entries": 20,
-        "properties": [
-            {
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6,
-                "action_ids": [
-                    {
-                        "name": "OFPAT_OUTPUT",
-                        "type": 0
-                    }
-                ]
-            }
-        ]
+        "max_entries": 20
     },
     {
         "table_id": 7,
-        "max_entries": 300,
-        "properties": [
-            {
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6,
-                "action_ids": [
-                    {
-                        "name": "OFPAT_OUTPUT",
-                        "type": 0
-                    },
-                    {
-                        "name": "OFPAT_POP_VLAN",
-                        "type": 18
-                    }
-                ]
-            }
-        ]
+        "max_entries": 300
     },
     {
         "table_id": 8,
-        "max_entries": 400,
-        "properties": [
-            {
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6,
-                "action_ids": [
-                    {
-                        "name": "OFPAT_OUTPUT",
-                        "type": 0
-                    },
-                    {
-                        "name": "OFPAT_POP_VLAN",
-                        "type": 18
-                    },
-                    {
-                        "name": "OFPAT_GROUP",
-                        "type": 22
-                    }
-                ]
-            }
-        ]
+        "max_entries": 400
     }
 ]

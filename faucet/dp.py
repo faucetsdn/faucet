@@ -435,7 +435,7 @@ configuration.
                     test_config_condition(root_dp is not None, 'cannot have multiple stack roots')
                     root_dp = dp
                     for vlan in list(dp.vlans.values()):
-                        test_config_condition(vlan.faucet_vips != [], (
+                        test_config_condition(vlan.faucet_vips, (
                             'routing + stacking not supported'))
 
         if root_dp is None:
@@ -676,6 +676,7 @@ configuration.
                 """Check that ACL can be built from config and mark mirror destinations."""
                 matches = {}
                 set_fields = []
+                meter = False
                 if acl.rules:
                     try:
                         ofmsgs = valve_acl.build_acl_ofmsgs(
@@ -694,6 +695,8 @@ configuration.
                                 for inst in ofmsg.instructions:
                                     if valve_of.is_apply_actions(inst):
                                         apply_actions.extend(inst.actions)
+                                    elif valve_of.is_meter(inst):
+                                        meter = True
                                 for action in apply_actions:
                                     if valve_of.is_set_field(action):
                                         set_fields.append(action.key)
@@ -709,7 +712,7 @@ configuration.
                     for port_no in mirror_destinations:
                         port = self.ports[port_no]
                         port.output_only = True
-                return (matches, set_fields)
+                return (matches, set_fields, meter)
 
             for rule_conf in acl.rules:
                 for attrib, attrib_value in list(rule_conf.items()):
@@ -740,17 +743,21 @@ configuration.
             port_acl_set_fields = set()
             port_acl_exact_match = False
             port_acl_matches.update({'in_port': False})
+            port_acl_meter = False
             vlan_acl_matches = {}
             vlan_acl_exact_match = False
             vlan_acl_set_fields = set()
+            vlan_acl_meter = False
 
             for vlan in list(self.vlans.values()):
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
-                        matches, set_fields = resolve_acl(acl, vlan.vid)
+                        matches, set_fields, meter = resolve_acl(acl, vlan.vid)
                         vlan_acl_matches.update(matches)
                         vlan_acl_set_fields = vlan_acl_set_fields.union(set_fields)
+                        if meter:
+                            vlan_acl_meter = True
                         acls.append(self.acls[acl])
                     vlan.acls_in = acls
                     vlan_acl_exact_match = verify_acl_exact_match(acls)
@@ -760,24 +767,46 @@ configuration.
                         'dataplane ACLs cannot be used with port ACLs.'))
                     acls = []
                     for acl in port.acls_in:
-                        matches, set_fields = resolve_acl(acl, None)
+                        matches, set_fields, meter = resolve_acl(acl, None)
                         port_acl_matches.update(matches)
                         port_acl_set_fields = port_acl_set_fields.union(set_fields)
+                        if meter:
+                            port_acl_meter = True
                         acls.append(self.acls[acl])
                     port.acls_in = acls
                     port_acl_exact_match = verify_acl_exact_match(acls)
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
-                    matches, set_fields = resolve_acl(acl, None)
+                    matches, set_fields, meter = resolve_acl(acl, None)
                     port_acl_matches.update(matches)
                     port_acl_set_fields = port_acl_set_fields.union(set_fields)
+                    if meter:
+                        port_acl_meter = True
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
             port_acl_matches = {(field, mask) for field, mask in list(port_acl_matches.items())}
             vlan_acl_matches = {(field, mask) for field, mask in list(vlan_acl_matches.items())}
-            return (port_acl_exact_match, port_acl_matches, port_acl_set_fields,
-                    vlan_acl_exact_match, vlan_acl_matches, vlan_acl_set_fields)
+
+            # TODO: skip port_acl table if not configured.
+            # TODO: dynamically configure output attribue
+            override_table_config = {
+                'port_acl': ValveTableConfig(
+                    'port_acl',
+                    exact_match=port_acl_exact_match,
+                    meter=port_acl_meter,
+                    output=True,
+                    match_types=port_acl_matches,
+                    set_fields=tuple(port_acl_set_fields)),
+                'vlan_acl': ValveTableConfig(
+                    'vlan_acl',
+                    exact_match=vlan_acl_exact_match,
+                    meter=vlan_acl_meter,
+                    output=True,
+                    match_types=vlan_acl_matches,
+                    set_fields=tuple(vlan_acl_set_fields)),
+            }
+            return override_table_config
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
@@ -805,16 +834,7 @@ configuration.
         resolve_mirror_destinations()
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
-        (port_acl_exact_match, port_acl_matches, port_acl_set_fields,
-         vlan_acl_exact_match, vlan_acl_matches, vlan_acl_set_fields) = resolve_acls()
-
-        # TODO: skip port_acl table if not configured.
-        override_table_config = {
-            'port_acl': ValveTableConfig(
-                'port_acl', port_acl_exact_match, port_acl_matches, tuple(port_acl_set_fields)),
-            'vlan_acl': ValveTableConfig(
-                'vlan_acl', vlan_acl_exact_match, vlan_acl_matches, tuple(vlan_acl_set_fields)),
-        }
+        override_table_config = resolve_acls()
 
         # Only configure IP routing tables if enabled.
         ipvs = set()
@@ -843,10 +863,6 @@ configuration.
                 test_config_condition(vlan.bgp_server_addresses != (
                     bgp_vlans[0].bgp_server_addresses), (
                         'BGP server addresses must all be the same'))
-
-        self.stack_ports = tuple(self.stack_ports)
-        self.output_only_ports = tuple(self.output_only_ports)
-        self.lldp_beacon_ports = tuple(self.lldp_beacon_ports)
 
         for port in list(self.ports.values()):
             port.finalize()

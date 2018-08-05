@@ -456,7 +456,7 @@ class FaucetTestBase(unittest2.TestCase):
             try:
                 ofmsgs = json.loads(ofctl_result)[int_dpid]
                 return [json.dumps(ofmsg) for ofmsg in ofmsgs]
-            except ValueError:
+            except (ValueError, TypeError):
                 # Didn't get valid JSON, try again
                 time.sleep(1)
                 continue
@@ -1555,7 +1555,7 @@ dbs:
             if host not in port_stats:
                 port_stats[host] = {}
             port_stats[host].update(self.get_port_stats_from_dpid(
-               self.dpid, switch_port))
+                self.dpid, switch_port))
         return port_stats
 
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):

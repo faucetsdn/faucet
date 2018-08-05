@@ -145,6 +145,14 @@ class Conf:
 
     def finalize(self):
         """Configuration parsing marked complete."""
+        for key, val in list(self.__dict__.items()):
+            if key.startswith('dyn'):
+                continue
+            if isinstance(val, list):
+                val = tuple(val)
+            elif isinstance(val, set):
+                val = fronzenset(val)
+            self.__dict__[key] = val
         self.dyn_finalized = True
 
     def ignore_subconf(self, other, ignore_keys=None):
