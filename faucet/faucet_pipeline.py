@@ -21,11 +21,12 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods
     """Configuration for a single table."""
 
     def __init__(self, name, exact_match=None, meter=None, output=True,
-                 match_types=None, set_fields=None):
+                 miss_goto=None, match_types=None, set_fields=None):
         self.name = name
         self.exact_match = exact_match
         self.meter = meter
         self.output = output
+        self.miss_goto = miss_goto
         self.match_types = match_types
         self.set_fields = set_fields
 
@@ -65,6 +66,7 @@ FAUCET_PIPELINE = (
         'vlan_acl'),
     ValveTableConfig(
         'eth_src',
+        miss_goto='eth_dst',
         match_types=(('eth_dst', True), ('eth_src', False), ('eth_type', False),
                      ('in_port', False), ('vlan_vid', False))),
     _fib_table(4),

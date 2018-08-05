@@ -1,73 +1,38 @@
 [
     {
         "table_id": 0,
-        "max_entries": 50,
-        "properties": [
-        ]
+        "max_entries": 50
     },
     {
         "table_id": 1,
-        "max_entries": 100,
-        "properties": [
-        ]
+        "max_entries": 100
     },
     {
         "table_id": 2,
-        "max_entries": 50,
-        "properties": [
-        ]
+        "max_entries": 50
     },
     {
         "table_id": 3,
-        "max_entries": 100,
-        "properties": [
-            {
-                "name": "OFPTFPT_INSTRUCTIONS_MISS",
-                "type": 1,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    }
-                ]
-            },
-            {
-                "name": "OFPTFPT_NEXT_TABLES_MISS",
-                "type": 3,
-                "table_ids": [
-                    7
-                ]
-            }
-        ]
+        "max_entries": 100
     },
     {
         "table_id": 4,
-        "max_entries": 100,
-        "properties": [
-        ]
+        "max_entries": 100
     },
     {
         "table_id": 5,
-        "max_entries": 100,
-        "properties": [
-        ]
+        "max_entries": 100
     },
     {
         "table_id": 6,
-        "max_entries": 20,
-        "properties": [
-        ]
+        "max_entries": 20
     },
     {
         "table_id": 7,
-        "max_entries": 100,
-        "properties": [
-        ]
+        "max_entries": 100
     },
     {
         "table_id": 8,
-        "max_entries": 300,
-        "properties": [
-        ]
+        "max_entries": 300
     }
 ]

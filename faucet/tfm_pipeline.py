@@ -9,15 +9,6 @@ from faucet import valve_of
 class LoadRyuTables:
     """Serialize table features messages from JSON."""
 
-    _DYNAMIC_FEATURES = frozenset([
-        'OFPTFPT_NEXT_TABLES',
-        'OFPTFPT_MATCH',
-        'OFPTFPT_WILDCARDS',
-        'OFPTFPT_INSTRUCTIONS',
-        'OFPTFPT_APPLY_ACTIONS',
-        'OFPTFPT_APPLY_SETFIELD',
-    ])
-
     _CLASS_NAME_TO_NAME_IDS = {
         'OFPTableFeaturePropInstructions': 'instruction_ids',
         'OFPTableFeaturePropNextTables': 'table_ids',
@@ -46,9 +37,7 @@ class LoadRyuTables:
                 if new_table.table_id not in active_table_ids:
                     continue
                 valve_table = dp.table_by_id(new_table.table_id)
-                properties = self._create_features(
-                    table_attr['properties'], self._DYNAMIC_FEATURES)
-                table_attr['properties'] = properties
+                table_attr['properties'] = []
                 table_attr['name'] = valve_table.name.encode('utf-8')
                 new_table = table_class(**table_attr)
                 # Match types
@@ -105,39 +94,19 @@ class LoadRyuTables:
                     new_table.properties.append(
                         valve_of.parser.OFPTableFeaturePropActions(
                             type_=valve_of.ofp.OFPTFPT_APPLY_ACTIONS, action_ids=action_ids))
+                # Miss goto table option.
+                if valve_table.table_config.miss_goto:
+                    miss_table_id = dp.tables[valve_table.table_config.miss_goto].table_id
+                    new_table.properties.append(
+                        valve_of.parser.OFPTableFeaturePropNextTables(
+                            table_ids=[miss_table_id], type_=valve_of.ofp.OFPTFPT_NEXT_TABLES_MISS))
+                    inst_ids = [valve_of.parser.OFPInstructionId(valve_of.ofp.OFPIT_GOTO_TABLE)]
+                    new_table.properties.append(
+                        valve_of.parser.OFPTableFeaturePropInstructions(
+                            type_=valve_of.ofp.OFPTFPT_INSTRUCTIONS_MISS, instruction_ids=inst_ids))
 
                 table_array.append(new_table)
         return table_array
-
-    def _create_features(self, table_features_information, dynamic_features):
-        features_array = []
-        for feature in table_features_information:
-            for feature_class_name, feature_attr in list(feature.items()):
-                if feature_class_name in dynamic_features:
-                    continue
-                name_id = self._CLASS_NAME_TO_NAME_IDS[feature_class_name]
-                feature_class = getattr(valve_of.parser, feature_class_name)
-                instruction_ids = self._create_instructions(feature_attr[name_id])
-                feature_attr[name_id] = instruction_ids
-                feature_attr['type_'] = feature_attr.pop('type')
-                new_feature = feature_class(**feature_attr)
-                features_array.append(new_feature)
-        return features_array
-
-    @staticmethod
-    def _create_instructions(instruction_ids_information):
-        instruction_array = []
-        for instruction in instruction_ids_information:
-            if isinstance(instruction, dict):
-                for instruction_class_name, instruction_attr in list(instruction.items()):
-                    instruction_class = getattr(valve_of.parser, instruction_class_name)
-                    instruction_attr['type_'] = instruction_attr.pop('type')
-                    new_instruction = instruction_class(**instruction_attr)
-                    instruction_array.append(new_instruction)
-            else:
-                instruction_array = instruction_ids_information
-                break
-        return instruction_array
 
 
 class OpenflowToRyuTranslator:
@@ -220,15 +189,6 @@ class OpenflowToRyuTranslator:
     def create_ryu_structure(self):
         tables = []
         for openflow_table in self.pipeline_conf:
-            table_properties = []
-            for property_item in openflow_table['properties']:
-                fields_tag = self.openflow_to_ryu['tables'][property_item['name']]['action_tag']
-                actions_ids = property_item[fields_tag]
-                table_properties.append(
-                    self._create_table_feature(
-                        property_item['name'],
-                        actions_ids,
-                        property_item['type']))
             tables.append(
                 self._create_table(
                     table_id=openflow_table['table_id'],
@@ -237,7 +197,7 @@ class OpenflowToRyuTranslator:
                     max_entries=openflow_table['max_entries'],
                     metadata_match=0,
                     metadata_write=0,
-                    properties=table_properties))
+                    properties=[]))
         return tables
 
     def _create_table(self, table_id, name, config, max_entries,
@@ -251,24 +211,3 @@ class OpenflowToRyuTranslator:
                 'name': name,
                 'properties': properties,
                 'table_id': table_id}}
-
-    def _create_table_feature(self, name, actions, type_id):
-        table_feature_name = self.openflow_to_ryu['tables'][name]['name']
-        instruction_id_name = self.openflow_to_ryu['tables'][name]['action_tag']
-        action_id_name = self.openflow_to_ryu['content'][instruction_id_name]
-
-        if action_id_name:
-            new_array_instructions = []
-            for action in actions:
-                if 'name' in action:
-                    action.pop('name')
-                new_array_instructions.append({action_id_name: action})
-        else:
-            new_array_instructions = actions
-
-        new_table_feature = {
-            table_feature_name: {
-                instruction_id_name: new_array_instructions,
-                'type': type_id}}
-
-        return new_table_feature
