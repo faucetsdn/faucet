@@ -97,9 +97,6 @@ class VLAN(Conf):
     # configuration
     dyn_host_cache = None
     dyn_host_cache_by_port = None
-    dyn_faucet_vips_by_ipv = None
-    dyn_bgp_server_addresses_by_ipv = None
-    dyn_bgp_neighbor_addresses_by_ipv = None
     dyn_routes_by_ipv = None
     dyn_gws_by_ipv = None
     dyn_neigh_cache_by_ipv = None
@@ -170,13 +167,8 @@ class VLAN(Conf):
     def __init__(self, _id, dp_id, conf=None):
         self.tagged = []
         self.untagged = []
-        self.dyn_faucet_vips_by_ipv = collections.defaultdict(set)
-        self.dyn_bgp_server_addresses_by_ipv = collections.defaultdict(set)
-        self.dyn_bgp_neighbor_addresses_by_ipv = collections.defaultdict(set)
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
         self.dyn_gws_by_ipv = collections.defaultdict(dict)
-        self.dyn_ipvs = []
-        self.dyn_bgp_ipvs = []
         self.reset_caches()
         super(VLAN, self).__init__(_id, dp_id, conf)
 
@@ -219,28 +211,19 @@ class VLAN(Conf):
         if self.faucet_vips:
             self.faucet_vips = frozenset([
                 self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips])
-            for faucet_vip in self.faucet_vips:
-                self.dyn_faucet_vips_by_ipv[faucet_vip.version].add(faucet_vip)
-            self.dyn_ipvs = frozenset(self.dyn_faucet_vips_by_ipv.keys())
 
         if self.bgp_neighbor_addresses or self.bgp_neighbour_addresses:
             neigh_addresses = frozenset(self.bgp_neighbor_addresses + self.bgp_neighbour_addresses)
             self.bgp_neighbor_addresses = frozenset([
                 self._check_ip_str(ip_str) for ip_str in neigh_addresses])
-            for bgp_neighbor_address in self.bgp_neighbor_addresses:
-                self.dyn_bgp_neighbor_addresses_by_ipv[bgp_neighbor_address.version].add(
-                    bgp_neighbor_address)
 
         if self.bgp_server_addresses:
             self.bgp_server_addresses = frozenset([
                 self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses])
-            for bgp_server_address in self.bgp_server_addresses:
-                self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version].add(
-                    bgp_server_address)
+            for ipv in self.bgp_ipvs():
                 test_config_condition(
-                    len(self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version]) != 1,
+                    len(self.bgp_server_addresses_by_ipv(ipv)) != 1,
                     'Only one BGP server address per IP version supported')
-            self.dyn_bgp_ipvs = frozenset(self.dyn_bgp_server_addresses_by_ipv.keys())
 
         if self.bgp_as:
             test_config_condition(not isinstance(self.bgp_port, int), (
@@ -354,25 +337,33 @@ class VLAN(Conf):
                 self.expire_cache_host(entry.eth_src)
         return expired_hosts
 
+    @staticmethod
+    def _ipvs(ipas):
+        return frozenset([ipa.version for ipa in ipas])
+
+    @staticmethod
+    def _by_ipv(ipas, ipv):
+        return frozenset([ipa for ipa in ipas if ipa.version == ipv])
+
+    def faucet_vips_by_ipv(self, ipv):
+        """Return VIPs with specified IP version on this VLAN."""
+        return self._by_ipv(self.faucet_vips, ipv)
+
+    def bgp_neighbor_addresses_by_ipv(self, ipv):
+        """Return BGP neighbor addresses with specified IP version on this VLAN."""
+        return self._by_ipv(self.bgp_neighbor_addresses, ipv)
+
+    def bgp_server_addresses_by_ipv(self, ipv):
+        """Return BGP server addresses with specified IP version on this VLAN."""
+        return self._by_ipv(self.bgp_server_addresses, ipv)
+
     def ipvs(self):
         """Return IP versions configured on this VLAN."""
-        return self.dyn_ipvs
+        return self._ipvs(self.faucet_vips)
 
     def bgp_ipvs(self):
         """Return list of IP versions for BGP configured on this VLAN."""
-        return self.dyn_bgp_ipvs
-
-    def faucet_vips_by_ipv(self, ipv):
-        """Return list of VIPs with specified IP version on this VLAN."""
-        return self.dyn_faucet_vips_by_ipv[ipv]
-
-    def bgp_neighbor_addresses_by_ipv(self, ipv):
-        """Return list of BGP neighbor addresses with specified IP version on this VLAN."""
-        return self.dyn_bgp_neighbor_addresses_by_ipv[ipv]
-
-    def bgp_server_addresses_by_ipv(self, ipv):
-        """Return list of BGP server addresses with specified IP version on this VLAN."""
-        return self.dyn_bgp_server_addresses_by_ipv[ipv]
+        return self._ipvs(self.bgp_server_addresses)
 
     def routes_by_ipv(self, ipv):
         """Return route table for specified IP version on this VLAN."""
@@ -447,7 +438,8 @@ class VLAN(Conf):
             lags[port.lacp].append(port)
         return lags
 
-    def flood_ports(self, configured_ports, exclude_unicast):
+    @staticmethod
+    def flood_ports(configured_ports, exclude_unicast):
         if exclude_unicast:
             return tuple([port for port in configured_ports if port.unicast_flood])
         return configured_ports
