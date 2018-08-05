@@ -170,9 +170,9 @@ class VLAN(Conf):
     def __init__(self, _id, dp_id, conf=None):
         self.tagged = []
         self.untagged = []
-        self.dyn_faucet_vips_by_ipv = collections.defaultdict(list)
-        self.dyn_bgp_server_addresses_by_ipv = collections.defaultdict(list)
-        self.dyn_bgp_neighbor_addresses_by_ipv = collections.defaultdict(list)
+        self.dyn_faucet_vips_by_ipv = collections.defaultdict(set)
+        self.dyn_bgp_server_addresses_by_ipv = collections.defaultdict(set)
+        self.dyn_bgp_neighbor_addresses_by_ipv = collections.defaultdict(set)
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
         self.dyn_gws_by_ipv = collections.defaultdict(dict)
         self.dyn_ipvs = []
@@ -220,7 +220,7 @@ class VLAN(Conf):
             self.faucet_vips = frozenset([
                 self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips])
             for faucet_vip in self.faucet_vips:
-                self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(faucet_vip)
+                self.dyn_faucet_vips_by_ipv[faucet_vip.version].add(faucet_vip)
             self.dyn_ipvs = frozenset(self.dyn_faucet_vips_by_ipv.keys())
 
         if self.bgp_neighbor_addresses or self.bgp_neighbour_addresses:
@@ -228,14 +228,14 @@ class VLAN(Conf):
             self.bgp_neighbor_addresses = frozenset([
                 self._check_ip_str(ip_str) for ip_str in neigh_addresses])
             for bgp_neighbor_address in self.bgp_neighbor_addresses:
-                self.dyn_bgp_neighbor_addresses_by_ipv[bgp_neighbor_address.version].append(
+                self.dyn_bgp_neighbor_addresses_by_ipv[bgp_neighbor_address.version].add(
                     bgp_neighbor_address)
 
         if self.bgp_server_addresses:
             self.bgp_server_addresses = frozenset([
                 self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses])
             for bgp_server_address in self.bgp_server_addresses:
-                self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version].append(
+                self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version].add(
                     bgp_server_address)
                 test_config_condition(
                     len(self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version]) != 1,
@@ -257,7 +257,7 @@ class VLAN(Conf):
         if self.routes:
             test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
             try:
-                self.routes = tuple([route['route'] for route in self.routes])
+                self.routes = [route['route'] for route in self.routes]
             except TypeError:
                 raise InvalidConfigError('%s is not a valid routes value' % self.routes)
             except KeyError:

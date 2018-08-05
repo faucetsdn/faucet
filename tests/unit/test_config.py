@@ -42,7 +42,7 @@ class TestConfig(unittest.TestCase): # pytype: disable=module-attr
         return conf_file_name
 
     def run_function_with_config(self, config, function, before_function=None):
-        """Return False if provided function raises InvalidConfigError."""
+        """Return False with error if provided function raises InvalidConfigError."""
         # TODO: Check acls_in work now acl_in is deprecated
         if isinstance(config, str) and 'acl_in' in config and not 'acls_in':
             config = re.sub('(acl_in: )(.*)', 'acls_in: [\\2]', config)
@@ -51,19 +51,21 @@ class TestConfig(unittest.TestCase): # pytype: disable=module-attr
             before_function()
         try:
             function(conf_file, LOGNAME)
-        except cp.InvalidConfigError as _err:
-            return False
-        return True
+        except cp.InvalidConfigError as err:
+            return (False, err)
+        return (True, None)
 
     def check_config_failure(self, config, function, before_function=None):
         """Ensure config parsing reported as failed."""
-        self.assertEqual(
-            self.run_function_with_config(config, function, before_function), False)
+        config_success, config_err = self.run_function_with_config(
+            config, function, before_function)
+        self.assertEqual(config_success, False, config_err)
 
     def check_config_success(self, config, function, before_function=None):
         """Ensure config parsing reported succeeded."""
-        self.assertEqual(
-            self.run_function_with_config(config, function, before_function), True)
+        config_success, config_err = self.run_function_with_config(
+            config, function, before_function)
+        self.assertEqual(config_success, True, config_err)
 
     def test_dupe_vid(self):
         """Test that VLANs cannot have same VID."""

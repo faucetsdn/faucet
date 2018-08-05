@@ -435,7 +435,7 @@ configuration.
                     test_config_condition(root_dp is not None, 'cannot have multiple stack roots')
                     root_dp = dp
                     for vlan in list(dp.vlans.values()):
-                        test_config_condition(vlan.faucet_vips != [], (
+                        test_config_condition(vlan.faucet_vips, (
                             'routing + stacking not supported'))
 
         if root_dp is None:
@@ -843,10 +843,6 @@ configuration.
                 test_config_condition(vlan.bgp_server_addresses != (
                     bgp_vlans[0].bgp_server_addresses), (
                         'BGP server addresses must all be the same'))
-
-        self.stack_ports = tuple(self.stack_ports)
-        self.output_only_ports = tuple(self.output_only_ports)
-        self.lldp_beacon_ports = tuple(self.lldp_beacon_ports)
 
         for port in list(self.ports.values()):
             port.finalize()
