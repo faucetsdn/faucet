@@ -316,7 +316,7 @@ class Valve:
     def _add_vlan_flood_flow(self):
         """Add a flow to flood packets for unknown destinations."""
         return [self.dp.tables['eth_dst'].flowmod(
-            priority=self.dp.low_priority,
+            priority=self.dp.lowest_priority,
             inst=[valve_of.goto_table(self.dp.tables['flood'])])]
 
     def _add_packetin_meter(self):

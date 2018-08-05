@@ -612,7 +612,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
             table_id=self._FLOOD_TABLE, actions=[u'OUTPUT:IN_PORT'])
         self.wait_nonzero_packet_count_flow(
             {u'in_port': self.port_map['port_1'], u'dl_dst': macvlan2_mac},
-            table_id=self._ETH_DST_TABLE, actions=[u'OUTPUT:IN_PORT'])
+            table_id=self._ETH_SRC_TABLE, actions=[u'OUTPUT:IN_PORT'])
 
 
 class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):

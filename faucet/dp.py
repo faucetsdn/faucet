@@ -326,10 +326,6 @@ configuration.
         """Return list of tables that specify in_port as a match."""
         return self.match_tables('in_port')
 
-    def all_valve_tables(self):
-        """Return list of all Valve tables."""
-        return list(self.tables.values())
-
     def add_acl(self, acl_ident, acl):
         """Add an ACL to this DP."""
         self.acls[acl_ident] = acl
@@ -912,18 +908,16 @@ configuration.
 
     def get_config_dict(self):
         """Return DP config as a dict for API call."""
-        if self.name:
-            vlans_dict = {}
-            for vlan in list(self.vlans.values()):
-                vlans_dict[vlan.name] = vlan.to_conf()
-            acls_dict = {}
-            for acl_id, acl in list(self.acls.items()):
-                acls_dict[acl_id] = acl.to_conf()
-            return {
-                'dps': {self.name: self.to_conf()},
-                'vlans': vlans_dict,
-                'acls': acls_dict}
-        return {}
+        vlans_dict = {}
+        for vlan in list(self.vlans.values()):
+            vlans_dict[vlan.name] = vlan.to_conf()
+        acls_dict = {}
+        for acl_id, acl in list(self.acls.items()):
+            acls_dict[acl_id] = acl.to_conf()
+        return {
+            'dps': {self.name: self.to_conf()},
+            'vlans': vlans_dict,
+            'acls': acls_dict}
 
     def _get_acl_config_changes(self, logger, new_dp):
         """Detect any config changes to ACLs.
