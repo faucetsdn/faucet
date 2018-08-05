@@ -422,21 +422,23 @@ class ValveRouteManager:
 
     def _proactive_resolve_neighbor(self, now, vlans, dst_ip):
         ofmsgs = []
-        if not self.proactive_learn:
-            return ofmsgs
-        for vlan in vlans:
-            faucet_vip = vlan.ip_in_vip_subnet(dst_ip)
-            if faucet_vip and not vlan.is_faucet_vip(dst_ip):
-                limit = self._vlan_nexthop_cache_limit(vlan)
-                if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
-                    resolution_in_progress = self._is_host_fib_route(vlan, dst_ip)
-                    ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
-                    nexthop_cache_entry = self._update_nexthop_cache(now, vlan, None, None, dst_ip)
-                    if not resolution_in_progress:
-                        resolve_flows = self._resolve_gateway_flows(
-                            dst_ip, nexthop_cache_entry, vlan, faucet_vip, nexthop_cache_entry.cache_time)
-                        ofmsgs.extend(resolve_flows)
-                break
+        if self.proactive_learn:
+            faucet_vip_vlans = [
+                vlan for vlan in vlans if vlan.is_faucet_vip(dst_ip)]
+            if not faucet_vip_vlans:
+                faucet_vips = [
+                    (vlan, vlan.ip_in_vip_subnet(dst_ip)) for vlan in vlans  if vlan.ip_in_vip_subnet(dst_ip)]
+                if faucet_vips:
+                    vlan, faucet_vip = faucet_vips[0]
+                    limit = self._vlan_nexthop_cache_limit(vlan)
+                    if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
+                        resolution_in_progress = self._is_host_fib_route(vlan, dst_ip)
+                        ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
+                        nexthop_cache_entry = self._update_nexthop_cache(now, vlan, None, None, dst_ip)
+                        if not resolution_in_progress:
+                            resolve_flows = self._resolve_gateway_flows(
+                                dst_ip, nexthop_cache_entry, vlan, faucet_vip, nexthop_cache_entry.cache_time)
+                            ofmsgs.extend(resolve_flows)
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
@@ -702,16 +704,14 @@ class ValveIPv4RouteManager(ValveRouteManager):
         ipv4_pkt = pkt_meta.pkt.get_protocol(ipv4.ipv4)
         if ipv4_pkt is None:
             return self._control_plane_arp_handler(now, pkt_meta)
-        else:
-            icmp_replies = self._control_plane_icmp_handler(
-                pkt_meta, ipv4_pkt)
-            if icmp_replies:
-                return icmp_replies
-            dst_ip = ipaddress.IPv4Address(btos(ipv4_pkt.dst))
-            vlan = pkt_meta.vlan
-            return self._proactive_resolve_neighbor(
-                now, self._routed_vlans(vlan), dst_ip)
-        return []
+        icmp_replies = self._control_plane_icmp_handler(
+            pkt_meta, ipv4_pkt)
+        if icmp_replies:
+            return icmp_replies
+        dst_ip = ipaddress.IPv4Address(btos(ipv4_pkt.dst))
+        vlan = pkt_meta.vlan
+        return self._proactive_resolve_neighbor(
+            now, self._routed_vlans(vlan), dst_ip)
 
 
 class ValveIPv6RouteManager(ValveRouteManager):
