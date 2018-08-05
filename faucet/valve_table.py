@@ -54,10 +54,11 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             nw_proto, nw_dst)
         return valve_of.match(match_dict)
 
-    def _verify_match(self, match, priority):
-        assert not (priority == 0 and match.items()), (
-            'default flow cannot have matches')
-        if self.match_types:
+    def _verify_match(self, match, priority, flow):
+        if priority == 0:
+            assert not match.items(), (
+                'default flow cannot have matches')
+        elif self.match_types:
             match_fields = list(match.items())
             for match_type, match_field in match_fields:
                 assert match_type in self.match_types, (
@@ -69,8 +70,8 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
                         match_type, config_mask, flow_mask, self.name))
             if self.exact_match:
                 assert len(self.match_types) == len(match_fields), (
-                    'exact match table matches %s do not match flow matches %s' % (
-                        self.match_types, match_fields))
+                    'exact match table matches %s do not match flow matches %s (%s)' % (
+                        self.match_types, match_fields, flow))
 
     def flowmod(self, match=None, priority=None, # pylint: disable=too-many-arguments
                 inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,
@@ -100,7 +101,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             idle_timeout,
             flags)
         if not valve_of.is_flowdel(flowmod):
-            self._verify_match(match, priority)
+            self._verify_match(match, priority, flowmod)
         return flowmod
 
     def flowdel(self, match=None, priority=None, out_port=valve_of.ofp.OFPP_ANY, strict=False):
