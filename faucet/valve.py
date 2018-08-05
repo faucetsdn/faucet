@@ -19,7 +19,6 @@
 
 import copy
 import logging
-import random
 
 from collections import defaultdict, deque
 
@@ -485,7 +484,6 @@ class Valve:
         chassis_id = str(self.dp.faucet_dp_mac)
         ttl = self.dp.lldp_beacon['send_interval'] * 3
         lldp_beacon = port.lldp_beacon
-        chassis_id = str(self.dp.faucet_dp_mac)
         org_tlvs = [
             (tlv['oui'], tlv['subtype'], tlv['info'])
             for tlv in lldp_beacon['org_tlvs']]
@@ -503,23 +501,6 @@ class Valve:
         port.dyn_last_lldp_beacon_time = now
         return valve_of.packetout(port.number, lldp_beacon_pkt.data)
 
-    def _lldp_beacon_ports(self, now):
-        """Return list of ports to send LLDP packets; stacked ports always send LLDP."""
-        priority_ports = {
-            port for port in self.dp.stack_ports
-            if port.running() and port.lldp_beacon_enabled()}
-        cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
-        nonpriority_ports = {
-            port for port in self.dp.lldp_beacon_ports
-            if port.running() and (
-                port.dyn_last_lldp_beacon_time is None or
-                port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
-        nonpriority_ports -= priority_ports
-        send_ports = list(priority_ports)
-        send_ports.extend(list(nonpriority_ports)[:self.dp.lldp_beacon['max_per_interval']])
-        random.shuffle(send_ports)
-        return send_ports
-
     def send_lldp_beacons(self, now, _other_valves):
         """Called periodically to send LLDP beacon packets."""
         # TODO: the beacon service is specifically NOT to support conventional R/STP.
@@ -528,11 +509,11 @@ class Valve:
         # It is used also by stacking to verify stacking links.
         # TODO: in the stacking case, provide an authentication scheme for the probes
         # so they cannot be forged.
-        if not self.dp.lldp_beacon:
-            return []
-        send_ports = self._lldp_beacon_ports(now)
-        self.logger.debug('sending LLDP beacons on ports %s' % send_ports)
-        ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
+        ofmsgs = []
+        ports = self.dp.lldp_beacon_send_ports(now)
+        if ports:
+            self.logger.debug('sending LLDP beacons on %s' % ports)
+            ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in ports]
         return ofmsgs
 
     def _next_stack_link_state(self, port, now):
@@ -917,54 +898,40 @@ class Valve:
                 ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
         return ofmsgs
 
-    @staticmethod
-    def _get_tlvs_by_type(lldp_pkt, tlv_type):
-        return [tlv for tlv in lldp_pkt.tlvs if tlv.tlv_type == tlv_type]
-
-    @staticmethod
-    def _tlvs_by_subtype(tlvs, subtype):
-        return [tlv for tlv in tlvs if tlv.subtype == subtype]
-
-    def _get_faucet_tlvs(self, lldp_pkt):
-        return [tlv for tlv in self._get_tlvs_by_type(
-            lldp_pkt, valve_packet.lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC)
-                if tlv.oui == valve_packet.faucet_oui(self.dp.faucet_dp_mac)]
-
-    @staticmethod
-    def _tlv_cast(tlvs, tlv_attr, cast_func):
-        tlv_val = None
-        if tlvs:
-            try:
-                tlv_val = cast_func(getattr(tlvs[0], tlv_attr))
-            except (AttributeError, ValueError, TypeError):
-                pass
-        return tlv_val
-
-    def _parse_faucet_lldp(self, lldp_pkt):
-        remote_dp_id = None
-        remote_dp_name = None
-        remote_port_id = None
-        remote_port_state = None
-
-        faucet_tlvs = self._get_faucet_tlvs(lldp_pkt)
-        if faucet_tlvs:
-            dp_id_tlvs = self._tlvs_by_subtype(
-                faucet_tlvs, valve_packet.LLDP_FAUCET_DP_ID)
-            dp_name_tlvs = self._get_tlvs_by_type(
-                lldp_pkt, valve_packet.lldp.LLDP_TLV_SYSTEM_NAME)
-            port_id_tlvs = self._get_tlvs_by_type(
-                lldp_pkt, valve_packet.lldp.LLDP_TLV_PORT_ID)
-            port_state_tlvs = self._tlvs_by_subtype(
-                faucet_tlvs, valve_packet.LLDP_FAUCET_STACK_STATE)
-            remote_dp_id = self._tlv_cast(
-                dp_id_tlvs, 'info', int)
-            remote_port_id = self._tlv_cast(
-                port_id_tlvs, 'port_id', int)
-            remote_port_state = self._tlv_cast(
-                port_state_tlvs, 'info', int)
-            remote_dp_name = self._tlv_cast(
-                dp_name_tlvs, 'system_name', valve_util.utf8_decode)
-        return (remote_dp_id, remote_dp_name, remote_port_id, remote_port_state)
+    def _verify_stack_lldp(self, port, now, other_valves,
+                           remote_dp_id, remote_dp_name,
+                           remote_port_id, remote_port_state):
+        if not port.stack:
+            return
+        remote_dp = port.stack['dp']
+        remote_port = port.stack['port']
+        stack_correct = True
+        self.metrics.stack_probes_received.labels( # pylint: disable=no-member
+            **self.base_prom_labels).inc()
+        if (remote_dp_id != remote_dp.dp_id or
+                remote_dp_name != remote_dp.name or
+                remote_port_id != remote_port.number):
+            self.logger.error(
+                'Stack %s cabling incorrect, expected %s:%s:%u, actual %s:%s:%u' % (
+                    port,
+                    valve_util.dpid_log(remote_dp.dp_id),
+                    remote_dp.name,
+                    remote_port.number,
+                    valve_util.dpid_log(remote_dp_id),
+                    remote_dp_name,
+                    remote_port_id))
+            stack_correct = False
+            self.metrics.stack_cabling_errors.labels( # pylint: disable=no-member
+                **self.base_prom_labels).inc()
+        port.dyn_stack_probe_info = {
+            'last_seen_lldp_time': now,
+            'stack_correct': stack_correct,
+            'remote_dp_id': remote_dp_id,
+            'remote_dp_name': remote_dp_name,
+            'remote_port_id': remote_port_id,
+            'remote_port_state': remote_port_state
+        }
+        self._update_stack_link_state(port, now, other_valves)
 
     def lldp_handler(self, now, pkt_meta, other_valves):
         """Handle an LLDP packet.
@@ -981,42 +948,16 @@ class Valve:
 
         port = pkt_meta.port
         (remote_dp_id, remote_dp_name,
-         remote_port_id, remote_port_state) = self._parse_faucet_lldp(lldp_pkt)
+         remote_port_id, remote_port_state) = valve_packet.parse_faucet_lldp(
+             lldp_pkt, self.dp.faucet_dp_mac)
 
         if remote_dp_id and remote_port_id:
             self.logger.info('FAUCET LLDP from %s (remote %s, port %u)' % (
                 pkt_meta.port, valve_util.dpid_log(remote_dp_id), remote_port_id))
-            if port.stack:
-                remote_dp = port.stack['dp']
-                remote_port = port.stack['port']
-                stack_correct = True
-                self.metrics.stack_probes_received.labels( # pylint: disable=no-member
-                    **self.base_prom_labels).inc()
-                if (remote_dp_id != remote_dp.dp_id or
-                        remote_dp_name != remote_dp.name or
-                        remote_port_id != remote_port.number):
-                    self.logger.error(
-                        'Stack %s cabling incorrect, expected %s:%s:%u, actual %s:%s:%u' % (
-                            port,
-                            valve_util.dpid_log(remote_dp.dp_id),
-                            remote_dp.name,
-                            remote_port.number,
-                            valve_util.dpid_log(remote_dp_id),
-                            remote_dp_name,
-                            remote_port_id))
-                    stack_correct = False
-                    self.metrics.stack_cabling_errors.labels( # pylint: disable=no-member
-                        **self.base_prom_labels).inc()
-                port.dyn_stack_probe_info = {
-                    'last_seen_lldp_time': now,
-                    'stack_correct': stack_correct,
-                    'remote_dp_id': remote_dp_id,
-                    'remote_dp_name': remote_dp_name,
-                    'remote_port_id': remote_port_id,
-                    'remote_port_state': remote_port_state
-                }
-                self._update_stack_link_state(port, now, other_valves)
-
+            self._verify_stack_lldp(
+                port, now, other_valves,
+                remote_dp_id, remote_dp_name,
+                remote_port_id, remote_port_state)
         self.logger.debug('LLDP from %s: %s' % (pkt_meta.port, str(lldp_pkt)))
 
     @staticmethod

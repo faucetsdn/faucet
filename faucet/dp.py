@@ -18,8 +18,8 @@
 
 from collections import defaultdict
 import copy
+import random
 import netaddr
-from netaddr.core import AddrFormatError
 
 from datadiff import diff
 import networkx
@@ -348,6 +348,25 @@ configuration.
             self.stack_ports.append(port)
         if port.lldp_beacon_enabled():
             self.lldp_beacon_ports.append(port)
+
+    def lldp_beacon_send_ports(self, now):
+        """Return list of ports to send LLDP packets; stacked ports always send LLDP."""
+        send_ports = []
+        if self.lldp_beacon:
+            priority_ports = {
+                port for port in self.stack_ports
+                if port.running() and port.lldp_beacon_enabled()}
+            cutoff_beacon_time = now - self.lldp_beacon['send_interval']
+            nonpriority_ports = {
+                port for port in self.lldp_beacon_ports
+                if port.running() and (
+                    port.dyn_last_lldp_beacon_time is None or
+                    port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
+            nonpriority_ports -= priority_ports
+            send_ports.extend(list(priority_ports))
+            send_ports.extend(list(nonpriority_ports)[:self.lldp_beacon['max_per_interval']])
+            random.shuffle(send_ports)
+        return send_ports
 
     @staticmethod
     def modify_stack_topology(graph, dp, port, add=True):
@@ -685,7 +704,7 @@ configuration.
                                             matches[match] = has_mask
                                     else:
                                         matches[match] = has_mask
-                    except (AddrFormatError, KeyError, ValueError) as err:
+                    except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
                         raise InvalidConfigError(err)
                     for port_no in mirror_destinations:
                         port = self.ports[port_no]
