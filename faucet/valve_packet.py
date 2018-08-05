@@ -29,7 +29,7 @@ from ryu.lib.packet import (
     lldp, slow, packet, vlan)
 from ryu.lib.packet.stream_parser import StreamParser
 
-from faucet.valve_util import btos
+from faucet import valve_util
 from faucet import valve_of
 
 FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
@@ -47,8 +47,8 @@ LLDP_MAC_NEAREST_BRIDGE = lldp.LLDP_MAC_NEAREST_BRIDGE
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
-IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
-IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
+IPV6_LINK_LOCAL = ipaddress.IPv6Network(valve_util.btos('fe80::/10'))
+IPV6_ALL_NODES = ipaddress.IPv6Address(valve_util.btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
 
 LLDP_FAUCET_DP_ID = 1
@@ -278,6 +278,54 @@ def faucet_lldp_stack_state_tlvs(dp, port):
     return tlvs
 
 
+def tlvs_by_type(tlvs, tlv_type):
+    """Return list of TLVs with matching type."""
+    return [tlv for tlv in tlvs if tlv.tlv_type == tlv_type]
+
+
+def tlvs_by_subtype(tlvs, subtype):
+    """Return list of TLVs with matching type."""
+    return [tlv for tlv in tlvs if tlv.subtype == subtype]
+
+
+def tlv_cast(tlvs, tlv_attr, cast_func):
+    """Return cast'd attribute of first TLV or None."""
+    tlv_val = None
+    if tlvs:
+        try:
+            tlv_val = cast_func(getattr(tlvs[0], tlv_attr))
+        except (AttributeError, ValueError, TypeError):
+            pass
+    return tlv_val
+
+
+def faucet_tlvs(lldp_pkt, faucet_dp_mac):
+    """Return list of TLVs with FAUCET OUI."""
+    return [tlv for tlv in tlvs_by_type(
+        lldp_pkt.tlvs, lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC)
+            if tlv.oui == faucet_oui(faucet_dp_mac)]
+
+
+def parse_faucet_lldp(lldp_pkt, faucet_dp_mac):
+    """Parse and return FAUCET TLVs from LLDP packet."""
+    remote_dp_id = None
+    remote_dp_name = None
+    remote_port_id = None
+    remote_port_state = None
+
+    tlvs = faucet_tlvs(lldp_pkt, faucet_dp_mac)
+    if tlvs:
+        dp_id_tlvs = tlvs_by_subtype(tlvs, LLDP_FAUCET_DP_ID)
+        dp_name_tlvs = tlvs_by_type(lldp_pkt.tlvs, lldp.LLDP_TLV_SYSTEM_NAME)
+        port_id_tlvs = tlvs_by_type(lldp_pkt.tlvs, lldp.LLDP_TLV_PORT_ID)
+        port_state_tlvs = tlvs_by_subtype(tlvs, LLDP_FAUCET_STACK_STATE)
+        remote_dp_id = tlv_cast(dp_id_tlvs, 'info', int)
+        remote_port_id = tlv_cast(port_id_tlvs, 'port_id', int)
+        remote_port_state = tlv_cast(port_state_tlvs, 'info', int)
+        remote_dp_name = tlv_cast(dp_name_tlvs, 'system_name', valve_util.utf8_decode)
+    return (remote_dp_id, remote_dp_name, remote_port_id, remote_port_state)
+
+
 def lacp_reqreply(eth_src,
                   actor_system, actor_key, actor_port,
                   partner_system, partner_key, partner_port,
@@ -445,7 +493,7 @@ def ipv6_solicited_node_from_ucast(ucast):
     Returns:
        ipaddress.IPv6Address: IPv6 solicited node multicast address.
     """
-    link_mcast_prefix = ipaddress.ip_interface(btos('ff02::1:ff00:0/104'))
+    link_mcast_prefix = ipaddress.ip_interface(valve_util.btos('ff02::1:ff00:0/104'))
     mcast_bytes = link_mcast_prefix.packed[:13] + ucast.packed[-3:]
     link_mcast = ipaddress.IPv6Address(mcast_bytes)
     return link_mcast
