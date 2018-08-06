@@ -55,6 +55,7 @@ class ValveRouteManager:
     ICMP_TYPE = None
     MAX_LEN = valve_of.MAX_PACKET_IN_BYTES
     CONTROL_ETH_TYPES = () # type: ignore
+    LINK_LOCAL = None # type: ignore
     active = False
 
     def __init__(self, logger, arp_neighbor_timeout,
@@ -148,7 +149,7 @@ class ValveRouteManager:
             inst=[valve_of.goto_table(self.vip_table)]))
         if self.proactive_learn:
             for routed_vlan in self._routed_vlans(vlan):
-                if (faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL and
+                if (faucet_vip.ip in self.LINK_LOCAL and
                         not routed_vlan.is_faucet_vip(faucet_vip.ip)):
                     continue
                 ofmsgs.append(self.fib_table.flowmod(
@@ -599,6 +600,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
     ETH_TYPE = valve_of.ether.ETH_TYPE_IP
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMP
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP) # type: ignore
+    LINK_LOCAL = valve_packet.IPV4_LINK_LOCAL # type: ignore
 
     def advertise(self, _vlan):
         return []
@@ -729,6 +731,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
     ETH_TYPE = valve_of.ether.ETH_TYPE_IPV6
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,) # type: ignore
+    LINK_LOCAL = valve_packet.IPV6_LINK_LOCAL # type: ignore
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
@@ -782,7 +785,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
             priority=priority,
             max_len=self.MAX_LEN))
-        if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
+        if faucet_vip.ip in self.LINK_LOCAL:
             ofmsgs.append(self.eth_src_table.flowmod(
                 self.eth_src_table.match(
                     eth_type=self.ETH_TYPE,
@@ -929,7 +932,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         link_local_vips = []
         other_vips = []
         for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
-            if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
+            if faucet_vip.ip in self.LINK_LOCAL:
                 link_local_vips.append(faucet_vip)
             else:
                 other_vips.append(faucet_vip)
