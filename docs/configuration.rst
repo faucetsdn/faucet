@@ -932,10 +932,6 @@ such as paths for configuration files and port numbers.
       - IP address
       - 0.0.0.0
       - IP address to listen on for faucet prometheus client
-    * - FAUCET_PIPELINE_DIR
-      - Colon-separated list of file paths
-      - /etc/faucet:/etc/ryu/faucet
-      - Faucet will load pipeline definitions from the first valid directory in list
     * - GAUGE_CONFIG
       - Colon-separated list of file paths
       - /etc/faucet/gauge.yaml:/etc/ryu/faucet/gauge.yaml
