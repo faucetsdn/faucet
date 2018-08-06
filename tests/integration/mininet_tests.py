@@ -5608,6 +5608,11 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         """All untagged hosts in stack topology can reach each other."""
         self.verify_stack_hosts()
         self.verify_no_cable_errors()
+        first_host = self.net.hosts[0]
+        last_host = self.net.hosts[-1]
+        for _ in range(3):
+            self.retry_net_ping(hosts=(first_host, last_host))
+            self.swap_host_macs(first_host, last_host)
 
 
 class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
