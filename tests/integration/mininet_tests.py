@@ -4668,10 +4668,10 @@ class FaucetUntaggedIPv6InterVLANRouteTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
     100:
-        faucet_vips: ["fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112", "fe80::1:254/112"]
     vlanb:
         vid: 200
-        faucet_vips: ["fc01::1:254/112"]
+        faucet_vips: ["fc01::1:254/112", "fe80::2:254/112"]
         faucet_mac: "%s"
 routers:
     router-1:

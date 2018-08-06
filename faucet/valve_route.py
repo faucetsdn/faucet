@@ -148,6 +148,9 @@ class ValveRouteManager:
             inst=[valve_of.goto_table(self.vip_table)]))
         if self.proactive_learn:
             for routed_vlan in self._routed_vlans(vlan):
+                if (faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL and
+                        not routed_vlan.is_faucet_vip(faucet_vip.ip)):
+                    continue
                 ofmsgs.append(self.fib_table.flowmod(
                     self.fib_table.match(
                         eth_type=self.ETH_TYPE,
@@ -292,7 +295,8 @@ class ValveRouteManager:
         ip_gws_never_tried = []
         ip_gws_with_retry_time = []
         not_fresh_nexthops = [
-            (ip_gw, faucet_vip) for ip_gw, faucet_vip in ip_gws if not self._nexthop_fresh(vlan, ip_gw, now)]
+            (ip_gw, faucet_vip) for ip_gw, faucet_vip in ip_gws
+            if not self._nexthop_fresh(vlan, ip_gw, now)]
         for ip_gw, faucet_vip in not_fresh_nexthops:
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             if nexthop_cache_entry is None:
@@ -366,12 +370,13 @@ class ValveRouteManager:
             expire_flows = []
         return expire_flows
 
-    def _resolve_and_expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, faucet_vip, now):
+    def _resolve_expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, faucet_vip, now):
         if self.nexthop_dead(nexthop_cache_entry):
             return self._expire_gateway_flows(ip_gw, nexthop_cache_entry, vlan, now)
         return self._resolve_gateway_flows(ip_gw, nexthop_cache_entry, vlan, faucet_vip, now)
 
-    def _resolve_gateways_flows(self, resolve_handler, vlan, now, unresolved_nexthops, remaining_attempts):
+    def _resolve_gateways_flows(self, resolve_handler, vlan, now,
+                                unresolved_nexthops, remaining_attempts):
         ofmsgs = []
         for ip_gw, faucet_vip, nexthop_cache_entry in unresolved_nexthops:
             if remaining_attempts == 0:
@@ -396,7 +401,7 @@ class ValveRouteManager:
         route_ip_gws, host_ip_gws = self._vlan_ip_gws(vlan)
         for ip_gws, resolve_handler in (
                 (route_ip_gws, self._resolve_gateway_flows),
-                (host_ip_gws, self._resolve_and_expire_gateway_flows)):
+                (host_ip_gws, self._resolve_expire_gateway_flows)):
             unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, ip_gws, now)
             remaining_attempts, resolve_ofmsgs = self._resolve_gateways_flows(
                 resolve_handler, vlan, now, unresolved_nexthops, remaining_attempts)
@@ -427,17 +432,20 @@ class ValveRouteManager:
                 vlan for vlan in vlans if vlan.is_faucet_vip(dst_ip)]
             if not faucet_vip_vlans:
                 faucet_vips = [
-                    (vlan, vlan.ip_in_vip_subnet(dst_ip)) for vlan in vlans  if vlan.ip_in_vip_subnet(dst_ip)]
+                    (vlan, vlan.ip_in_vip_subnet(dst_ip))
+                    for vlan in vlans if vlan.ip_in_vip_subnet(dst_ip)]
                 if faucet_vips:
                     vlan, faucet_vip = faucet_vips[0]
                     limit = self._vlan_nexthop_cache_limit(vlan)
                     if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
                         resolution_in_progress = self._is_host_fib_route(vlan, dst_ip)
                         ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
-                        nexthop_cache_entry = self._update_nexthop_cache(now, vlan, None, None, dst_ip)
+                        nexthop_cache_entry = self._update_nexthop_cache(
+                            now, vlan, None, None, dst_ip)
                         if not resolution_in_progress:
                             resolve_flows = self._resolve_gateway_flows(
-                                dst_ip, nexthop_cache_entry, vlan, faucet_vip, nexthop_cache_entry.cache_time)
+                                dst_ip, nexthop_cache_entry, vlan, faucet_vip,
+                                nexthop_cache_entry.cache_time)
                             ofmsgs.extend(resolve_flows)
         return ofmsgs
 
