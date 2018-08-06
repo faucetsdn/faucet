@@ -841,15 +841,15 @@ configuration.
                 for vlan in vlans:
                     for vip in vlan.faucet_vips:
                         if (vip.ip in valve_packet.IPV4_LINK_LOCAL or
-                                vip.ip in  valve_packet.IPV6_LINK_LOCAL):
+                                vip.ip in valve_packet.IPV6_LINK_LOCAL):
                             continue
                         vips.add(vip)
                 for vip in vips:
                     for other_vip in vips - set([vip]):
-                         test_config_condition(
-                             vip.ip in other_vip.network,
-                             'VIPs %s and %s overlap in router %s' % (
-                                 vip, other_vip, router_name))
+                        test_config_condition(
+                            vip.ip in other_vip.network,
+                            'VIPs %s and %s overlap in router %s' % (
+                                vip, other_vip, router_name))
             self.routers = dp_routers
 
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
