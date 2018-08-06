@@ -1837,6 +1837,30 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_routers_overlapping_vips(self):
+        """Test with unreferenced router config."""
+        config = """
+routers:
+    router-1:
+        vlans: [office, guest]
+vlans:
+    office:
+        vid: 100
+        faucet_vips: ["10.0.0.1/24"]
+    guest:
+        vid: 200
+        faucet_vips: ["10.0.0.2/24"]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+            2:
+                native_vlan: guest
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
     def test_same_vlan_tagged_untagged(self):
         """Test cannot have the same VLAN tagged and untagged on same port."""
         config = """
