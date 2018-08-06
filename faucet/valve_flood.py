@@ -460,38 +460,6 @@ class ValveFloodStackManager(ValveFloodManager):
                         return other_valve.dp
         return None
 
-    def update_stack_topo(self, event, dp, port=None):
-        """Update the stack topo according to the event."""
-
-        def _stack_topo_up_dp(_dp): # pylint: disable=invalid-name
-            for port in [port for port in _dp.stack_ports]:
-                if port.is_stack_up():
-                    _stack_topo_up_port(_dp, port)
-                else:
-                    _stack_topo_down_port(_dp, port)
-
-        def _stack_topo_down_dp(_dp): # pylint: disable=invalid-name
-            for port in [port for port in _dp.stack_ports]:
-                _stack_topo_down_port(_dp, port)
-
-        def _stack_topo_up_port(_dp, _port): # pylint: disable=invalid-name
-            _dp.add_stack_link(self.stack['graph'], _dp, _port)
-
-        def _stack_topo_down_port(_dp, _port): # pylint: disable=invalid-name
-            _dp.remove_stack_link(self.stack['graph'], _dp, _port)
-
-        if port:
-            if event:
-                _stack_topo_up_port(dp, port)
-            else:
-                _stack_topo_down_port(dp, port)
-        else:
-            if event:
-                _stack_topo_up_dp(dp)
-            else:
-                _stack_topo_down_dp(dp)
-        return True
-
     def edge_learn_port(self, other_valves, pkt_meta):
         """Possibly learn a host on a port.
 
