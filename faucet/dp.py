@@ -30,7 +30,7 @@ from faucet import valve_of
 from faucet.conf import Conf, InvalidConfigError, test_config_condition
 from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve_table import ValveTable, ValveGroupTable
-from faucet.valve_packet import FAUCET_MAC
+from faucet import valve_packet
 
 
 class NullRyuDatapath:
@@ -163,7 +163,7 @@ configuration.
         # Config for LLDP beacon service.
         'metrics_rate_limit_sec': 0,
         # Rate limit metric updates - don't update metrics if last update was less than this many seconds ago.
-        'faucet_dp_mac': FAUCET_MAC,
+        'faucet_dp_mac': valve_packet.FAUCET_MAC,
         # MAC address of packets sent by FAUCET, not associated with any VLAN.
         'combinatorial_port_flood': False,
         # if True, use a seperate output flow for each input port on this VLAN.
@@ -837,6 +837,19 @@ configuration.
                     dp_router = copy.copy(router)
                     dp_router.vlans = vlans
                     dp_routers[router_name] = dp_router
+                vips = set()
+                for vlan in vlans:
+                    for vip in vlan.faucet_vips:
+                        if (vip.ip in valve_packet.IPV4_LINK_LOCAL or
+                                vip.ip in  valve_packet.IPV6_LINK_LOCAL):
+                            continue
+                        vips.add(vip)
+                for vip in vips:
+                    for other_vip in vips - set([vip]):
+                         test_config_condition(
+                             vip.ip in other_vip.network,
+                             'VIPs %s and %s overlap in router %s' % (
+                                 vip, other_vip, router_name))
             self.routers = dp_routers
 
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
