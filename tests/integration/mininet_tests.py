@@ -4545,10 +4545,10 @@ class FaucetUntaggedIPv4InterVLANRouteTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
     100:
-        faucet_vips: ["10.100.0.254/24"]
+        faucet_vips: ["10.100.0.254/24", "169.254.1.1/24"]
     vlanb:
         vid: 200
-        faucet_vips: ["10.200.0.254/24"]
+        faucet_vips: ["10.200.0.254/24", "169.254.2.1/24"]
         faucet_mac: "%s"
 routers:
     router-1:
