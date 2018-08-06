@@ -686,7 +686,7 @@ configuration.
             def build_acl(acl, vid):
                 """Check that ACL can be built from config and mark mirror destinations."""
                 matches = {}
-                set_fields = []
+                set_fields = set()
                 meter = False
                 if acl.rules:
                     try:
@@ -696,30 +696,30 @@ configuration.
                             valve_of.goto_table(self.wildcard_table),
                             2**16-1, self.meters, acl.exact_match,
                             vlan_vid=vid)
-                        test_config_condition(not ofmsgs, 'OF messages is empty')
-                        for ofmsg in ofmsgs:
-                            ofmsg.datapath = NullRyuDatapath()
-                            ofmsg.set_xid(0)
-                            ofmsg.serialize()
-                            if valve_of.is_flowmod(ofmsg):
-                                apply_actions = []
-                                for inst in ofmsg.instructions:
-                                    if valve_of.is_apply_actions(inst):
-                                        apply_actions.extend(inst.actions)
-                                    elif valve_of.is_meter(inst):
-                                        meter = True
-                                for action in apply_actions:
-                                    if valve_of.is_set_field(action):
-                                        set_fields.append(action.key)
-                                for match, value in list(ofmsg.match.items()):
-                                    has_mask = isinstance(value, tuple)
-                                    if match in matches:
-                                        if has_mask:
-                                            matches[match] = has_mask
-                                    else:
-                                        matches[match] = has_mask
                     except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
                         raise InvalidConfigError(err)
+                    test_config_condition(not ofmsgs, 'OF messages is empty')
+                    for ofmsg in ofmsgs:
+                        ofmsg.datapath = NullRyuDatapath()
+                        ofmsg.set_xid(0)
+                        try:
+                            ofmsg.serialize()
+                        except (KeyError, ValueError) as err:
+                            raise InvalidConfigError(err)
+                        if valve_of.is_flowmod(ofmsg):
+                            apply_actions = []
+                            for inst in ofmsg.instructions:
+                                if valve_of.is_apply_actions(inst):
+                                    apply_actions.extend(inst.actions)
+                                elif valve_of.is_meter(inst):
+                                    meter = True
+                            for action in apply_actions:
+                                if valve_of.is_set_field(action):
+                                    set_fields.add(action.key)
+                            for match, value in list(ofmsg.match.items()):
+                                has_mask = isinstance(value, (tuple, list))
+                                if has_mask or match not in matches:
+                                    matches[match] = has_mask
                     for port_no in mirror_destinations:
                         port = self.ports[port_no]
                         port.output_only = True
@@ -760,12 +760,17 @@ configuration.
             vlan_acl_set_fields = set()
             vlan_acl_meter = False
 
+            def merge_matches(matches, new_matches):
+                for field, has_mask in list(new_matches.items()):
+                    if has_mask or field not in matches:
+                        matches[field] = has_mask
+
             for vlan in list(self.vlans.values()):
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
                         matches, set_fields, meter = resolve_acl(acl, vlan.vid)
-                        vlan_acl_matches.update(matches)
+                        merge_matches(vlan_acl_matches, matches)
                         vlan_acl_set_fields = vlan_acl_set_fields.union(set_fields)
                         if meter:
                             vlan_acl_meter = True
@@ -779,7 +784,7 @@ configuration.
                     acls = []
                     for acl in port.acls_in:
                         matches, set_fields, meter = resolve_acl(acl, None)
-                        port_acl_matches.update(matches)
+                        merge_matches(port_acl_matches, matches)
                         port_acl_set_fields = port_acl_set_fields.union(set_fields)
                         if meter:
                             port_acl_meter = True
@@ -790,7 +795,7 @@ configuration.
                 acls = []
                 for acl in self.acls:
                     matches, set_fields, meter = resolve_acl(acl, None)
-                    port_acl_matches.update(matches)
+                    merge_matches(port_acl_matches, matches)
                     port_acl_set_fields = port_acl_set_fields.union(set_fields)
                     if meter:
                         port_acl_meter = True
