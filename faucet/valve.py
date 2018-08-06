@@ -474,11 +474,20 @@ class Valve:
             port = self.dp.ports[port_no]
             if port.opstatus_reconf:
                 if reason in port_status_codes:
-                    handler = self.port_delete
+                    self.logger.info('%s up status %s reason %s state %s' % (
+                        port, port_status, _decode_port_status(reason), state))
+                    new_port_status = False
                     if (reason == valve_of.ofp.OFPPR_ADD or
                             (reason == valve_of.ofp.OFPPR_MODIFY and port_status)):
-                        handler = self.port_add
-                    ofmsgs = handler(port_no)
+                        new_port_status = True
+                    if new_port_status:
+                        if port.dyn_phys_up:
+                            self.logger.info(
+                                '%s already up, assuming flap as missing down event' % port)
+                            ofmsgs.extend(self.port_delete(port_no))
+                        ofmsgs.extend(self.port_add(port_no))
+                    else:
+                        ofmsgs.extend(self.port_delete(port_no))
                 else:
                     self.logger.warning('Unhandled port status %s/state %s for %s' % (
                         reason, state, port))
