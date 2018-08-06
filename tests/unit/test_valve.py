@@ -1643,27 +1643,14 @@ class ValveStackGraphUpdateTestCase(ValveStackProbeTestCase):
                 'update_stack_link_states')
             self.assertTrue(port.is_stack_down())
 
-        def verify_stack_learn_edges(num_edges, edge=None, test_func=None):
-            for dpid in (1, 2, 3):
-                valve = self.valves_manager.valves[dpid]
-                if not valve.dp.stack:
-                    continue
-                graph = valve.dp.stack['graph']
-                self.assertEqual(num_edges, len(graph.edges()))
-                if test_func and edge:
-                    test_func(edge in graph.edges(keys=True))
-
         num_edges = 3
         all_stack_up()
-        verify_stack_learn_edges(num_edges)
         ports = [self.valve.dp.ports[1], self.valve.dp.ports[2]]
         edges = [('s1', 's2', 's1:1-s2:1'), ('s1', 's2', 's1:2-s2:2')]
         for port, edge in zip(ports, edges):
             num_edges -= 1
             down_stack_port(port)
-            verify_stack_learn_edges(num_edges, edge, self.assertFalse)
         up_stack_port(ports[0])
-        verify_stack_learn_edges(2, edges[0], self.assertTrue)
 
 
 class ValveGroupRoutingTestCase(ValveTestBases.ValveTestSmall):
