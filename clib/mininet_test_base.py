@@ -558,6 +558,17 @@ class FaucetTestBase(unittest2.TestCase):
     def tcpdump_helper(self, *args, **kwargs):
         return TcpdumpHelper(*args, **kwargs).execute()
 
+    def scapy_template(self, packet, iface):
+        return ('python -c \"from scapy.all import * ; sendp(%s, iface=\'%s\')"' % (
+            packet, iface))
+
+    def scapy_dhcp(self, mac, iface):
+        return self.scapy_template(
+            ('Ether(dst=\'ff:ff:ff:ff:ff:ff\', src=\'%s\', type=0x0800) / '
+             'IP(src=\'0.0.0.0\', dst=\'255.255.255.255\') / UDP(dport=67,sport=68) / '
+             'BOOTP(op=1) / DHCP(options=[(\'message-type\', \'discover\'), (\'end\')])') % mac,
+            iface)
+
     @staticmethod
     def pre_start_net():
         """Hook called after Mininet initializtion, before Mininet started."""
@@ -1677,11 +1688,15 @@ dbs:
                 'head -1',
                 'xargs echo -n'))).lower()
 
-    def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24):
+    def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24, mac=None):
+        if mac is None:
+            mac = ''
+        else:
+            mac = 'address %s' % mac
         self.assertEqual(
             '',
-            host.cmd('ip link add link %s %s type macvlan' % (
-                host.defaultIntf(), macvlan_intf)))
+            host.cmd('ip link add link %s %s %s type macvlan' % (
+                host.defaultIntf(), mac, macvlan_intf)))
         self.assertEqual(
             '',
             host.cmd('ip link set dev %s up' % macvlan_intf))
