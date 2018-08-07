@@ -1155,9 +1155,7 @@ dbs:
         locations = set()
         for host in self.net.hosts:
             for _ in range(3):
-                self.assertEqual(
-                    '.\r\nSent 1 packets.\r\n',
-                    host.cmd(self.scapy_dhcp(mac, host.defaultIntf())))
+                host.cmd(self.scapy_dhcp(mac, host.defaultIntf()))
                 new_locations = set()
                 for line in self.scrape_prometheus(var='learned_macs'):
                     location, mac_float = line.split(' ')
