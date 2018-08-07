@@ -489,18 +489,19 @@ class ValveRouteManager:
             list: OpenFlow messages.
         """
         ofmsgs = []
-        if blackhole:
-            priority = self._route_priority(host_ip)
-            host_int = self._host_ip_to_host_int(host_ip)
-            timeout = (
-                self.max_resolve_backoff_time * self.max_host_fib_retry_count +
-                random.randint(0, self.max_resolve_backoff_time * 2))
-            for routed_vlan in self._routed_vlans(vlan):
-                in_match = self._route_match(routed_vlan, host_int)
-                ofmsgs.append(self.fib_table.flowmod(
-                    in_match, priority=priority, hard_timeout=timeout))
-        host_route = ipaddress.ip_network(host_ip.exploded)
-        ofmsgs.extend(self.add_route(vlan, host_ip, host_route))
+        if host_ip not in self.LINK_LOCAL:
+            if blackhole:
+                priority = self._route_priority(host_ip)
+                host_int = self._host_ip_to_host_int(host_ip)
+                timeout = (
+                    self.max_resolve_backoff_time * self.max_host_fib_retry_count +
+                    random.randint(0, self.max_resolve_backoff_time * 2))
+                for routed_vlan in self._routed_vlans(vlan):
+                    in_match = self._route_match(routed_vlan, host_int)
+                    ofmsgs.append(self.fib_table.flowmod(
+                        in_match, priority=priority, hard_timeout=timeout))
+            host_route = ipaddress.ip_network(host_ip.exploded)
+            ofmsgs.extend(self.add_route(vlan, host_ip, host_route))
         return ofmsgs
 
     def _del_host_fib_route(self, vlan, host_ip):
