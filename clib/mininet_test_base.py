@@ -1165,6 +1165,7 @@ dbs:
                         new_locations.add(location)
                 if locations != new_locations:
                     break
+            # TODO: verify port/host association, not just that host moved.
             self.assertNotEqual(locations, new_locations)
             locations = new_locations
 
