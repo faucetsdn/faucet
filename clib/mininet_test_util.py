@@ -80,12 +80,13 @@ def test_server_request(ports_socket, name, command):
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
     sock.sendall(b'%s,%s\n' % (command, name))
+    output('%s %s\n' % (name, command))
     buf = receive_sock_line(sock)
     responses = [int(i) for i in buf.split('\n')]
     sock.close()
     if len(responses) == 1:
         responses = responses[0]
-    output('%s %s: %u' % (name, command, responses))
+    output('%s %s: %u\n' % (name, command, responses))
     return responses
 
 
@@ -138,13 +139,13 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             port = get_port()
             ports_q.append(port)
             port_age[port] = time.time()
-            time.sleep(0.1)
 
     queue_free_ports(start_free_ports)
     ports_by_name = collections.defaultdict(set)
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(ports_socket)
     sock.listen(1)
+    cold_start = True
 
     while True:
         connection, _ = sock.accept()
@@ -161,15 +162,18 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
                 port_age[port] = time.time()
             del ports_by_name[name]
             response = ports_returned
+            if ports_returned:
+                cold_start = False
         elif command == GETPORT:
             while True:
                 port = ports_q.popleft()
-                if time.time() - port_age[port] > MIN_PORT_AGE:
+                if time.time() - port_age[port] > MIN_PORT_AGE or cold_start:
                     break
                 ports_q.append(port)
                 time.sleep(1)
             ports_by_name[name].add(port)
             response = port
+            queue_free_ports(min_free_ports)
         elif command == LISTPORTS:
             response = list(ports_by_name[name])
         if response is not None:
@@ -179,8 +183,6 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             response_str = bytes(''.join(['%u\n' % i for i in response]))
             connection.sendall(response_str) # pylint: disable=no-member
         connection.close()
-        if len(ports_q) < min_free_ports:
-            queue_free_ports(len(ports_q) + 1)
 
 
 def timeout_cmd(cmd, timeout):
