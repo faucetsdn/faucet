@@ -141,6 +141,7 @@ vlans:
             'nc -U %s > %s &' % (sock, event_log), 120))
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
+        self.verify_traveling_dhcp_mac()
         self.gauge_smoke_test()
         self.prometheus_smoke_test()
         self.assertGreater(os.path.getsize(event_log), 0)
@@ -323,25 +324,27 @@ class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
     UNICAST_MAC2 = '0e:00:00:00:00:03'
 
     def verify_unicast_not_looped(self, host):
-        scapy_template = (
+        hello_template = (
             'python -c \"from scapy.all import * ; '
             'sendp(Ether(src=\'%s\', dst=\'%s\')/'
             'IP(src=\'10.0.0.100\', dst=\'10.0.0.255\')/'
             'UDP(dport=9)/'
-            'b\'hello\','
-            'iface=\'%s\')\"')
+            'b\'hello\'')
         host.cmd(
-            scapy_template % (
-                self.UNICAST_MAC1, 'ff:ff:ff:ff:ff:ff', host.defaultIntf()))
+            self.scapy_template(
+                hello_template % (self.UNICAST_MAC1, 'ff:ff:ff:ff:ff:ff'),
+                host.defaultIntf()))
         host.cmd(
-            scapy_template % (
-                self.UNICAST_MAC2, 'ff:ff:ff:ff:ff:ff', host.defaultIntf()))
+            self.scapy_template(
+                hello_template % (self.UNICAST_MAC2, 'ff:ff:ff:ff:ff:ff'),
+                host.defaultIntf()))
         tcpdump_filter = '-Q in ether src %s' % self.UNICAST_MAC1
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
                 lambda: host.cmd(
-                    scapy_template % (
-                        self.UNICAST_MAC1, self.UNICAST_MAC2, host.defaultIntf()))],
+                    self.scapy_template(
+                        hello_template % (self.UNICAST_MAC1, self.UNICAST_MAC2),
+                        host.defaultIntf()))],
             timeout=5, vflags='-vv', packets=1)
         self.assertTrue(
             re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
@@ -2323,6 +2326,7 @@ vlans:
         self.verify_ipv4_routing_mesh()
         for host in first_host, second_host:
             self.one_ipv4_controller_ping(host)
+        self.verify_traveling_dhcp_mac()
 
 
 class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
@@ -5038,6 +5042,7 @@ vlans:
         self.verify_ipv6_routing_mesh()
         for host in first_host, second_host:
             self.one_ipv6_controller_ping(host)
+        self.verify_traveling_dhcp_mac()
 
 
 class FaucetUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):
@@ -5355,7 +5360,7 @@ class FaucetStringOfDPTest(FaucetTest):
                         'priority': 1
                     }
                 for peer_dp in peer_dps:
-                    if (dpid_count <=2 or (first_dp and peer_dp != dpid_count - 1) or second_dp
+                    if (dpid_count <= 2 or (first_dp and peer_dp != dpid_count - 1) or second_dp
                             or (not end_dp and peer_dp > i)):
                         peer_stack_port_base = first_stack_port
                     else:
@@ -5640,7 +5645,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         count = 0
         for _ in range(timeout):
             count = int(controller.cmd('grep -c "%s. Stack Port %s.%s" %s' % (
-                        dpid, port_no, status, self.env['faucet']['FAUCET_LOG'])))
+                dpid, port_no, status, self.env['faucet']['FAUCET_LOG'])))
             if count:
                 break
             time.sleep(1)
