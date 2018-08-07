@@ -581,6 +581,9 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
     print('Logging test results in %s' % root_tmpdir)
     start_free_ports = 10
     min_free_ports = 200
+    if serial:
+        start_free_ports = 5
+        min_free_ports = 5
     ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
     print('test ports server started')
     sanity_tests, single_tests, parallel_tests = expand_tests(
