@@ -377,6 +377,8 @@ class ValveFloodStackManager(ValveFloodManager):
             command = valve_of.ofp.OFPFC_MODIFY_STRICT
         # TODO: group tables for stacking
         ofmsgs = self._build_multiout_flood_rules(vlan, command)
+        if self._dp_is_root():
+            return ofmsgs
         # Because stacking uses reflected broadcasts from the root,
         # don't try to learn broadcast sources from stacking ports.
         for port in self.stack_ports:

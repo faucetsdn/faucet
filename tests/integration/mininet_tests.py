@@ -5528,6 +5528,7 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
     def test_untagged(self):
         """All untagged hosts in multi switch topology can reach one another."""
         self.verify_stack_hosts()
+        self.verify_traveling_dhcp_mac()
 
 
 class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
@@ -5543,6 +5544,7 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
     def test_tagged(self):
         """All tagged hosts in multi switch topology can reach one another."""
         self.verify_stack_hosts(verify_bridge_local_rule=False)
+        self.verify_traveling_dhcp_mac()
 
 
 class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
@@ -5613,11 +5615,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         """All untagged hosts in stack topology can reach each other."""
         self.verify_stack_hosts()
         self.verify_no_cable_errors()
-        first_host = self.net.hosts[0]
-        last_host = self.net.hosts[-1]
-        for _ in range(3):
-            self.retry_net_ping(hosts=(first_host, last_host))
-            self.swap_host_macs(first_host, last_host)
+        self.verify_traveling_dhcp_mac()
 
 
 class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
@@ -5680,6 +5678,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.verify_all_stack_up()
         self.verify_stack_has_no_loop()
         self.retry_net_ping()
+        self.verify_traveling_dhcp_mac()
 
     def test_stack_down(self):
         """Verify if a link down is reflected on stack-topology."""
