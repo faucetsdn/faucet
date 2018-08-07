@@ -141,6 +141,7 @@ vlans:
             'nc -U %s > %s &' % (sock, event_log), 120))
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
+        self.verify_traveling_dhcp_mac()
         self.gauge_smoke_test()
         self.prometheus_smoke_test()
         self.assertGreater(os.path.getsize(event_log), 0)
@@ -2325,6 +2326,7 @@ vlans:
         self.verify_ipv4_routing_mesh()
         for host in first_host, second_host:
             self.one_ipv4_controller_ping(host)
+        self.verify_traveling_dhcp_mac()
 
 
 class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
@@ -5040,6 +5042,7 @@ vlans:
         self.verify_ipv6_routing_mesh()
         for host in first_host, second_host:
             self.one_ipv6_controller_ping(host)
+        self.verify_traveling_dhcp_mac()
 
 
 class FaucetUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):

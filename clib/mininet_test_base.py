@@ -1150,6 +1150,24 @@ dbs:
     def ipv4_vip_bcast(self):
         return self.FAUCET_VIPV4.network.broadcast_address
 
+    def verify_traveling_dhcp_mac(self):
+        mac = '0e:00:00:00:00:ff'
+        locations = set()
+        for host in self.net.hosts:
+            for _ in range(3):
+                self.assertEqual(
+                    '.\r\nSent 1 packets.\r\n',
+                    host.cmd(self.scapy_dhcp(mac, host.defaultIntf())))
+                new_locations = set()
+                for line in self.scrape_prometheus(var='learned_macs'):
+                    location, mac_float = line.split(' ')
+                    if self.mac_from_int(long(float(mac_float))) == mac:
+                        new_locations.add(location)
+                if locations != new_locations:
+                    break
+            self.assertNotEqual(locations, new_locations)
+            locations = new_locations
+
     def verify_broadcast(self):
         first_host = self.net.hosts[0]
         last_host = self.net.hosts[-1]
