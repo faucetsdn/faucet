@@ -451,13 +451,14 @@ class Valve:
     def port_status_handler(self, port_no, reason, state):
         """Return OpenFlow messages responding to port operational status change."""
 
+        port_status_codes = {
+            valve_of.ofp.OFPPR_ADD: 'ADD',
+            valve_of.ofp.OFPPR_DELETE: 'DELETE',
+            valve_of.ofp.OFPPR_MODIFY: 'MODIFY'
+        }
+
         def _decode_port_status(reason):
             """Humanize the port status reason code."""
-            port_status_codes = {
-                valve_of.ofp.OFPPR_ADD: 'ADD',
-                valve_of.ofp.OFPPR_DELETE: 'DELETE',
-                valve_of.ofp.OFPPR_MODIFY: 'MODIFY'
-            }
             return port_status_codes.get(reason, 'UNKNOWN')
 
         port_status = valve_of.port_status_from_state(state)
@@ -472,14 +473,21 @@ class Valve:
         if self.port_no_valid(port_no):
             port = self.dp.ports[port_no]
             if port.opstatus_reconf:
-                if reason == valve_of.ofp.OFPPR_ADD:
-                    ofmsgs = self.port_add(port_no)
-                elif reason == valve_of.ofp.OFPPR_DELETE:
-                    ofmsgs = self.port_delete(port_no)
-                elif reason == valve_of.ofp.OFPPR_MODIFY:
-                    ofmsgs.extend(self.port_delete(port_no))
-                    if port_status:
+                if reason in port_status_codes:
+                    self.logger.info('%s up status %s reason %s state %s' % (
+                        port, port_status, _decode_port_status(reason), state))
+                    new_port_status = False
+                    if (reason == valve_of.ofp.OFPPR_ADD or
+                            (reason == valve_of.ofp.OFPPR_MODIFY and port_status)):
+                        new_port_status = True
+                    if new_port_status:
+                        if port.dyn_phys_up:
+                            self.logger.info(
+                                '%s already up, assuming flap as missing down event' % port)
+                            ofmsgs.extend(self.port_delete(port_no))
                         ofmsgs.extend(self.port_add(port_no))
+                    else:
+                        ofmsgs.extend(self.port_delete(port_no))
                 else:
                     self.logger.warning('Unhandled port status %s/state %s for %s' % (
                         reason, state, port))
@@ -721,7 +729,7 @@ class Valve:
 
             port = self.dp.ports[port_num]
             port.dyn_phys_up = True
-            self.logger.info('%s %s' % (port, log_msg))
+            self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
 
             if not port.running():
                 continue
@@ -813,7 +821,7 @@ class Valve:
                 continue
             port = self.dp.ports[port_num]
             port.dyn_phys_up = False
-            self.logger.info('%s %s' % (port, log_msg))
+            self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
 
             if not port.output_only:
                 if port.lacp:
