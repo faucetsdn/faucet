@@ -147,11 +147,8 @@ class ValveRouteManager:
             self.fib_table.match(eth_type=self.ETH_TYPE, vlan=vlan, nw_dst=faucet_vip_host),
             priority=priority,
             inst=[valve_of.goto_table(self.vip_table)]))
-        if self.proactive_learn:
+        if self.proactive_learn and faucet_vip.ip not in self.LINK_LOCAL:
             for routed_vlan in self._routed_vlans(vlan):
-                if (faucet_vip.ip in self.LINK_LOCAL and
-                        not routed_vlan.is_faucet_vip(faucet_vip.ip)):
-                    continue
                 ofmsgs.append(self.fib_table.flowmod(
                     self.fib_table.match(
                         eth_type=self.ETH_TYPE,
@@ -812,15 +809,19 @@ class ValveIPv6RouteManager(ValveRouteManager):
             inst=[valve_of.goto_table(self.vip_table)]))
         return ofmsgs
 
+    def _stateful_gw(self, vlan, dst_ip):
+        return vlan.ip_dsts_for_ip_gw(dst_ip) or dst_ip not in self.LINK_LOCAL
+
     def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, src_ip, _dst_ip):
         ofmsgs = []
-        solicited_ip = btos(icmpv6_pkt.data.dst)
+        solicited_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
         vlan = pkt_meta.vlan
-        if vlan.is_faucet_vip(ipaddress.ip_address(solicited_ip)):
-            ofmsgs.extend(
-                self._add_host_fib_route(vlan, src_ip, blackhole=False))
-            ofmsgs.extend(self._update_nexthop(
-                now, vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
+        if vlan.is_faucet_vip(solicited_ip):
+            if self._stateful_gw(vlan, solicited_ip):
+                ofmsgs.extend(
+                    self._add_host_fib_route(vlan, src_ip, blackhole=False))
+                ofmsgs.extend(self._update_nexthop(
+                    now, vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
             ofmsgs.append(
                 vlan.pkt_out_port(
                     valve_packet.nd_advert, pkt_meta.port,
@@ -836,8 +837,9 @@ class ValveIPv6RouteManager(ValveRouteManager):
         target_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
         vlan = pkt_meta.vlan
         if vlan.ip_in_vip_subnet(target_ip):
-            ofmsgs.extend(self._update_nexthop(
-                now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
+            if self._stateful_gw(vlan, target_ip):
+                ofmsgs.extend(self._update_nexthop(
+                    now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
             self.logger.info(
                 'ND advert %s (%s) on VLAN %u' % (
                     target_ip, pkt_meta.eth_src, vlan.vid))
@@ -849,10 +851,11 @@ class ValveIPv6RouteManager(ValveRouteManager):
         link_local_vips, other_vips = self._link_and_other_vips(vlan)
         for vip in link_local_vips:
             if src_ip in vip.network:
-                ofmsgs.extend(
-                    self._add_host_fib_route(vlan, src_ip, blackhole=False))
-                ofmsgs.extend(self._update_nexthop(
-                    now, vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
+                if self._stateful_gw(vlan, src_ip):
+                    ofmsgs.extend(
+                        self._add_host_fib_route(vlan, src_ip, blackhole=False))
+                    ofmsgs.extend(self._update_nexthop(
+                        now, vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
                 ofmsgs.append(
                     vlan.pkt_out_port(
                         valve_packet.router_advert, pkt_meta.port,
