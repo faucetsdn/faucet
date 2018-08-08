@@ -1178,15 +1178,17 @@ dbs:
         self.assertTrue(re.search(
             '%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt))
 
-    def verify_no_bcast_to_self(self, timeout=5):
+    def verify_no_bcast_to_self(self, timeout=3):
         for host in self.net.hosts:
             tcpdump_filter = '-Q in ether src %s' % host.MAC()
-            tcpdump_txt = self.tcpdump_helper(
-                host, tcpdump_filter, [
-                     lambda: host.cmd('ping -b -i0.1 -c3 %s' % self.ipv4_vip_bcast())],
-                timeout=timeout, vflags='-vv', packets=1)
-            self.assertTrue(
-                re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
+            for bcast_cmd in (
+                    ('ndisc6 -w1 fe80::1 %s' % host.defaultIntf()),
+                    ('ping -b -i0.1 -c3 %s' % self.ipv4_vip_bcast())):
+                tcpdump_txt = self.tcpdump_helper(
+                    host, tcpdump_filter, [lambda: host.cmd(bcast_cmd)],
+                    timeout=timeout, vflags='-vv', packets=1)
+                self.assertTrue(
+                    re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
 
     def verify_unicast_not_looped(self):
         unicast_mac1 = '0e:00:00:00:00:02'
