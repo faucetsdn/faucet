@@ -1178,14 +1178,15 @@ dbs:
         self.assertTrue(re.search(
             '%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt))
 
-    def verify_no_bcast_to_self(self, host, timeout=5):
-        tcpdump_filter = '-Q in ether src %s' % host.MAC()
-        tcpdump_txt = self.tcpdump_helper(
-            host, tcpdump_filter, [
-                lambda: host.cmd('ping -b -c3 %s' % self.ipv4_vip_bcast())],
-            timeout=timeout, vflags='-vv', packets=1)
-        self.assertTrue(
-            re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
+    def verify_no_bcast_to_self(self, timeout=5):
+        for host in self.net.hosts:
+            tcpdump_filter = '-Q in ether src %s' % host.MAC()
+            tcpdump_txt = self.tcpdump_helper(
+                host, tcpdump_filter, [
+                     lambda: host.cmd('ping -b -i0.1 -c3 %s' % self.ipv4_vip_bcast())],
+                timeout=timeout, vflags='-vv', packets=1)
+            self.assertTrue(
+                re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):

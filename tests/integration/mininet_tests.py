@@ -323,38 +323,38 @@ class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
     UNICAST_MAC1 = '0e:00:00:00:00:02'
     UNICAST_MAC2 = '0e:00:00:00:00:03'
 
-    def verify_unicast_not_looped(self, host):
+    def verify_unicast_not_looped(self):
         hello_template = (
             'python -c \"from scapy.all import * ; '
             'sendp(Ether(src=\'%s\', dst=\'%s\')/'
             'IP(src=\'10.0.0.100\', dst=\'10.0.0.255\')/'
             'UDP(dport=9)/'
             'b\'hello\'')
-        host.cmd(
-            self.scapy_template(
-                hello_template % (self.UNICAST_MAC1, 'ff:ff:ff:ff:ff:ff'),
-                host.defaultIntf()))
-        host.cmd(
-            self.scapy_template(
-                hello_template % (self.UNICAST_MAC2, 'ff:ff:ff:ff:ff:ff'),
-                host.defaultIntf()))
         tcpdump_filter = '-Q in ether src %s' % self.UNICAST_MAC1
-        tcpdump_txt = self.tcpdump_helper(
-            host, tcpdump_filter, [
-                lambda: host.cmd(
-                    self.scapy_template(
-                        hello_template % (self.UNICAST_MAC1, self.UNICAST_MAC2),
-                        host.defaultIntf()))],
-            timeout=5, vflags='-vv', packets=1)
-        self.assertTrue(
-            re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
+        for host in self.net.hosts:
+            host.cmd(
+                self.scapy_template(
+                    hello_template % (self.UNICAST_MAC1, 'ff:ff:ff:ff:ff:ff'),
+                    host.defaultIntf()))
+            host.cmd(
+                self.scapy_template(
+                    hello_template % (self.UNICAST_MAC2, 'ff:ff:ff:ff:ff:ff'),
+                    host.defaultIntf()))
+            tcpdump_txt = self.tcpdump_helper(
+                host, tcpdump_filter, [
+                    lambda: host.cmd(
+                        self.scapy_template(
+                            hello_template % (self.UNICAST_MAC1, self.UNICAST_MAC2),
+                            host.defaultIntf()))],
+                timeout=5, vflags='-vv', packets=1)
+            self.assertTrue(
+                re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
 
     def test_untagged(self):
         super(FaucetUntaggedBroadcastTest, self).test_untagged()
         self.verify_broadcast()
-        first_host = self.net.hosts[0]
-        self.verify_no_bcast_to_self(first_host)
-        self.verify_unicast_not_looped(first_host)
+        self.verify_no_bcast_to_self()
+        self.verify_unicast_not_looped()
 
 
 class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
@@ -1313,9 +1313,7 @@ vlans:
         self.flap_all_switch_ports()
         self.ping_all_when_learned()
         self.verify_broadcast()
-        # test tagged and untagged hosts
-        for host in self.net.hosts[:2]:
-            self.verify_no_bcast_to_self(host)
+        self.verify_no_bcast_to_self()
 
 
 class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTest):
@@ -4041,7 +4039,7 @@ class FaucetTaggedBroadcastTest(FaucetTaggedTest):
     def test_tagged(self):
         super(FaucetTaggedBroadcastTest, self).test_tagged()
         self.verify_broadcast()
-        self.verify_no_bcast_to_self(self.net.hosts[0])
+        self.verify_no_bcast_to_self()
 
 
 class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):
