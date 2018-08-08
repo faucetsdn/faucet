@@ -558,9 +558,9 @@ class FaucetTestBase(unittest2.TestCase):
     def tcpdump_helper(self, *args, **kwargs):
         return TcpdumpHelper(*args, **kwargs).execute()
 
-    def scapy_template(self, packet, iface):
-        return ('python -c \"from scapy.all import * ; sendp(%s, iface=\'%s\')"' % (
-            packet, iface))
+    def scapy_template(self, packet, iface, count=1):
+        return ('python -c \"from scapy.all import * ; sendp(%s, iface=\'%s\', count=%u)"' % (
+            packet, iface, count))
 
     def scapy_dhcp(self, mac, iface):
         return self.scapy_template(
@@ -1178,14 +1178,47 @@ dbs:
         self.assertTrue(re.search(
             '%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt))
 
-    def verify_no_bcast_to_self(self, host, timeout=5):
-        tcpdump_filter = '-Q in ether src %s' % host.MAC()
-        tcpdump_txt = self.tcpdump_helper(
-            host, tcpdump_filter, [
-                lambda: host.cmd('ping -b -c3 %s' % self.ipv4_vip_bcast())],
-            timeout=timeout, vflags='-vv', packets=1)
-        self.assertTrue(
-            re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
+    def verify_no_bcast_to_self(self, timeout=3):
+        for host in self.net.hosts:
+            tcpdump_filter = '-Q in ether src %s' % host.MAC()
+            for bcast_cmd in (
+                    ('ndisc6 -w1 fe80::1 %s' % host.defaultIntf()),
+                    ('ping -b -i0.1 -c3 %s' % self.ipv4_vip_bcast())):
+                tcpdump_txt = self.tcpdump_helper(
+                    host, tcpdump_filter, [lambda: host.cmd(bcast_cmd)],
+                    timeout=timeout, vflags='-vv', packets=1)
+                self.assertTrue(
+                    re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
+
+    def verify_unicast_not_looped(self):
+        unicast_mac1 = '0e:00:00:00:00:02'
+        unicast_mac2 = '0e:00:00:00:00:03'
+        hello_template = (
+            'python -c \"from scapy.all import * ; '
+            'sendp(Ether(src=\'%s\', dst=\'%s\')/'
+            'IP(src=\'10.0.0.100\', dst=\'10.0.0.255\')/'
+            'UDP(dport=9)/'
+            'b\'hello\'')
+        tcpdump_filter = '-Q in ether src %s' % unicast_mac1
+        for host in self.net.hosts:
+            host.cmd(
+                self.scapy_template(
+                    hello_template % (unicast_mac1, 'ff:ff:ff:ff:ff:ff'),
+                    host.defaultIntf()))
+            host.cmd(
+                self.scapy_template(
+                    hello_template % (unicast_mac2, 'ff:ff:ff:ff:ff:ff'),
+                    host.defaultIntf()))
+            tcpdump_txt = self.tcpdump_helper(
+                host, tcpdump_filter, [
+                    lambda: host.cmd(
+                        self.scapy_template(
+                            hello_template % (unicast_mac1, unicast_mac2),
+                            host.defaultIntf(),
+                            count=3))],
+                timeout=5, vflags='-vv', packets=1)
+            self.assertTrue(
+                re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
