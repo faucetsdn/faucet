@@ -2774,6 +2774,7 @@ details partner lacp pdu:
                     'port_lacp_status', {'port': str(lacp_port)})
             return lacp_up_ports
 
+        self.assertEqual(0, prom_lag_status())
         orig_ip = first_host.IP()
         switch = self.net.switches[0]
         bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
@@ -2792,26 +2793,21 @@ details partner lacp pdu:
         for bond_member in bond_members:
             self.quiet_commands(first_host, (
                 'ip link set dev %s master %s' % (bond_member, bond),))
-        for _flaps in range(2):
-            for port in lag_ports:
-                self.set_port_down(port)
-            self.assertEqual(0, prom_lag_status())
-            for port in lag_ports:
-                self.set_port_up(port)
-            for _retries in range(10):
-                result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
-                result = '\n'.join([line.rstrip() for line in result.splitlines()])
-                with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
-                    state_file.write(result)
-                if re.search(synced_state_txt, result):
-                    break
-                time.sleep(1)
-            self.assertTrue(
-                re.search(synced_state_txt, result),
-                msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
-                    result, synced_state_txt))
-            self.assertEqual(2, prom_lag_status())
-            self.one_ipv4_ping(first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+        for _retries in range(10):
+            result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
+            result = '\n'.join([line.rstrip() for line in result.splitlines()])
+            with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
+                state_file.write(result)
+            if re.search(synced_state_txt, result):
+                break
+            time.sleep(1)
+        self.assertTrue(
+            re.search(synced_state_txt, result),
+            msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
+                result, synced_state_txt))
+        self.assertEqual(2, prom_lag_status())
+        self.one_ipv4_ping(
+            first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
 
 
 class FaucetUntaggedIPv4ControlPlaneFuzzTest(FaucetUntaggedTest):
