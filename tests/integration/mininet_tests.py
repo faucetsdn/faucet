@@ -2793,7 +2793,11 @@ details partner lacp pdu:
             self.quiet_commands(first_host, (
                 'ip link set dev %s master %s' % (bond_member, bond),))
         for _flaps in range(2):
+            for port in lag_ports:
+                self.set_port_down(port)
             self.assertEqual(0, prom_lag_status())
+            for port in lag_ports:
+                self.set_port_up(port)
             for _retries in range(10):
                 result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
                 result = '\n'.join([line.rstrip() for line in result.splitlines()])
@@ -2808,8 +2812,6 @@ details partner lacp pdu:
                     result, synced_state_txt))
             self.assertEqual(2, prom_lag_status())
             self.one_ipv4_ping(first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
-            self.flap_all_switch_ports()
-            self.assertEqual(0, prom_lag_status())
 
 
 class FaucetUntaggedIPv4ControlPlaneFuzzTest(FaucetUntaggedTest):

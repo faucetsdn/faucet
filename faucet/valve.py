@@ -894,7 +894,7 @@ class Valve:
                 pkt_meta.port.dyn_lacp_up = lacp_pkt.actor_state_synchronization
                 pkt_meta.port.dyn_lacp_updated_time = now
                 if last_lacp_up != pkt_meta.port.dyn_lacp_up:
-                    self.logger.info('LACP state change from %s to %s on %s to %s LAG %u' % (
+                    self.logger.info('remote LACP state change from %s to %s on %s to %s LAG %u' % (
                         last_lacp_up, pkt_meta.port.dyn_lacp_up, pkt_meta.port,
                         lacp_pkt.actor_system, pkt_meta.port.lacp))
                     if pkt_meta.port.dyn_lacp_up:
