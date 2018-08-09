@@ -867,7 +867,7 @@ class Valve:
         ofmsgs.extend(vlan_table.flowdel(
             match=vlan_table.match(in_port=port.number),
             priority=self.dp.high_priority, strict=True))
-        self._set_var('port_lacp_status', 0, labels=self._port_labels(port))
+        self._set_var('port_lacp_status', 1, labels=self._port_labels(port))
         return ofmsgs
 
     def lacp_handler(self, now, pkt_meta):

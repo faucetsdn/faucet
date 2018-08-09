@@ -2795,16 +2795,17 @@ details partner lacp pdu:
             result = '\n'.join([line.rstrip() for line in result.splitlines()])
             open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w').write(result)
             if re.search(synced_state_txt, result):
-                self.one_ipv4_ping(first_host, '10.0.0.254', require_host_learned=False, intf=bond)
-                return
+                break
             time.sleep(1)
+        self.assertTrue(
+            re.search(synced_state_txt, result),
+            msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
+                result, synced_state_txt))
         for lacp_port in (self.port_map['port_1'], self.port_map['port_2']):
             self.assertEqual(
                 1,
                 self.scrape_prometheus_var('port_lacp_status', {'port': str(lacp_port)}))
-        self.fail('LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
-            result, synced_state_txt))
-        self.one_ipv4_ping(first_host, second_host.IP())
+        self.one_ipv4_ping(first_host, '10.0.0.254', require_host_learned=False, intf=bond)
 
 
 class FaucetUntaggedIPv4ControlPlaneFuzzTest(FaucetUntaggedTest):
