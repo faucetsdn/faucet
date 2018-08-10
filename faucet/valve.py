@@ -1072,17 +1072,26 @@ class Valve:
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
         vlan = None
-        if vlan_vid is not None:
+        if vlan_vid in self.dp.vlans:
             vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
-        return valve_packet.PacketMeta(
+        pkt_meta = valve_packet.PacketMeta(
             data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
+        if vlan is None:
+            pkt_meta.reparse_ip()
+            if pkt_meta.l3_src:
+                for vlan in list(self.dp.vlans.values()):
+                    if vlan.ip_in_vip_subnet(pkt_meta.l3_src):
+                        pkt_meta.vlan = vlan
+                        break
+        return pkt_meta
 
     def parse_pkt_meta(self, msg):
         """Parse OF packet-in message to PacketMeta."""
         if not self.dp.dyn_running:
             return None
         if self.dp.cookie != msg.cookie:
+            self.logger.info('got packet in with unknown cookie %s' % msg.cookie)
             return None
         # Drop any packet we didn't specifically ask for
         if msg.reason != valve_of.ofp.OFPR_ACTION:
@@ -1105,12 +1114,12 @@ class Valve:
             self.logger.info(
                 'unparseable packet from port %u' % in_port)
             return None
-        if vlan_vid is not None and vlan_vid not in self.dp.vlans:
+        pkt_meta = self.parse_rcv_packet(
+            in_port, vlan_vid, eth_type, data, msg.total_len, pkt, eth_pkt)
+        if pkt_meta.vlan is None:
             self.logger.info(
                 'packet for unknown VLAN %u' % vlan_vid)
             return None
-        pkt_meta = self.parse_rcv_packet(
-            in_port, vlan_vid, eth_type, data, msg.total_len, pkt, eth_pkt)
         if not valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.info(
                 'packet with non-unicast eth_src %s port %u' % (

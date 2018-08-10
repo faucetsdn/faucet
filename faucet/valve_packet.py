@@ -692,7 +692,7 @@ class PacketMeta:
             if ip_ver is not None:
                 if ip_ver != self.ip_ver():
                     return
-                if self.vlan.minimum_ip_size_check:
+                if self.vlan is not None and self.vlan.minimum_ip_size_check:
                     if len(self.data) < header_size:
                         return
                 ip_header_data = self.data[ETH_VLAN_HEADER_SIZE:]
@@ -708,6 +708,8 @@ class PacketMeta:
                 elif hasattr(self.l3_pkt, 'src_ip'):
                     self.l3_src = self.l3_pkt.src_ip
                     self.l3_dst = self.l3_pkt.dst_ip
+                self.l3_src = ipaddress.ip_address(valve_util.btos(self.l3_src))
+                self.l3_dst = ipaddress.ip_address(valve_util.btos(self.l3_dst))
 
     def packet_complete(self):
         """True if we have the complete packet."""

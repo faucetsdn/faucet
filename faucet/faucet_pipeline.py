@@ -72,7 +72,8 @@ FAUCET_PIPELINE = (
         'eth_src',
         miss_goto='eth_dst',
         match_types=(('eth_dst', True), ('eth_src', False), ('eth_type', False),
-                     ('in_port', False), ('vlan_vid', False))),
+                     ('in_port', False), ('vlan_vid', False)),
+        set_fields=('vlan_vid',)),
     _fib_table(4),
     _fib_table(6),
     ValveTableConfig(
