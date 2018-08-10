@@ -1077,7 +1077,7 @@ class Valve:
         port = self.dp.ports[in_port]
         pkt_meta = valve_packet.PacketMeta(
             data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
-        if vlan is None:
+        if vlan_vid == self.dp.global_vlan:
             pkt_meta.reparse_ip()
             if pkt_meta.l3_src:
                 for vlan in list(self.dp.vlans.values()):
