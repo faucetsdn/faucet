@@ -1114,7 +1114,9 @@ class Valve:
             self.logger.info(
                 'unparseable packet from port %u' % in_port)
             return None
-        if vlan_vid is not None and vlan_vid not in self.dp.vlans and vlan_vid != self.dp.global_vlan.vid:
+        if (vlan_vid is not None and
+                vlan_vid not in self.dp.vlans and
+                vlan_vid != self.dp.global_vlan):
             self.logger.info(
                 'packet for unknown VLAN %u' % vlan_vid)
             return None
