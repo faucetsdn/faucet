@@ -157,7 +157,7 @@ configuration.
         # When banning/limiting learning, wait this many seconds before learning can be retried
         'advertise_interval': 30,
         # How often to advertise (eg. IPv6 RAs)
-        'proactive_learn_v4': False,
+        'proactive_learn_v4': True,
         # whether proactive learning is enabled for IPv4 nexthops
         'proactive_learn_v6': True,
         # whether proactive learning is enabled for IPv6 nexthops
