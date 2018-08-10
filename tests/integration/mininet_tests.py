@@ -4434,7 +4434,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        proactive_learn: true
+        proactive_learn_v4: true
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
@@ -4477,7 +4477,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        proactive_learn: true
+        proactive_learn_v6: true
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
@@ -4533,7 +4533,7 @@ routers:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        proactive_learn: True
+        proactive_learn_v4: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -4592,7 +4592,7 @@ routers:
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         max_host_fib_retry_count: 2
-        proactive_learn: True
+        proactive_learn_v4: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -4656,7 +4656,7 @@ routers:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        proactive_learn: True
+        proactive_learn_v6: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
