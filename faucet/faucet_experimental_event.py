@@ -33,6 +33,7 @@ import time
 from contextlib import contextmanager
 
 import eventlet
+eventlet.monkey_patch()
 
 from ryu.lib import hub
 from ryu.lib.hub import StreamServer

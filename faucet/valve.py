@@ -149,7 +149,7 @@ class Valve:
                 continue
             fib_table = self.dp.tables[fib_table_name]
             route_manager = route_manager_class(
-                self.logger, self.dp.arp_neighbor_timeout,
+                self.logger, self.dp.global_vlan, self.dp.arp_neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, self.dp.proactive_learn, self.DEC_TTL,
                 fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
@@ -1041,8 +1041,8 @@ class Valve:
                         'vid': pkt_meta.vlan.vid,
                         'eth_src': pkt_meta.eth_src,
                         'eth_type': pkt_meta.eth_type,
-                        'l3_src_ip': pkt_meta.l3_src,
-                        'l3_dst_ip': pkt_meta.l3_dst}})
+                        'l3_src_ip': str(pkt_meta.l3_src),
+                        'l3_dst_ip': str(pkt_meta.l3_dst)}})
                 return learn_flows
         return []
 
@@ -1072,17 +1072,26 @@ class Valve:
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
         vlan = None
-        if vlan_vid is not None:
+        if vlan_vid in self.dp.vlans:
             vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
-        return valve_packet.PacketMeta(
+        pkt_meta = valve_packet.PacketMeta(
             data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
+        if vlan is None:
+            pkt_meta.reparse_ip()
+            if pkt_meta.l3_src:
+                for vlan in list(self.dp.vlans.values()):
+                    if vlan.ip_in_vip_subnet(pkt_meta.l3_src):
+                        pkt_meta.vlan = vlan
+                        break
+        return pkt_meta
 
     def parse_pkt_meta(self, msg):
         """Parse OF packet-in message to PacketMeta."""
         if not self.dp.dyn_running:
             return None
         if self.dp.cookie != msg.cookie:
+            self.logger.info('got packet in with unknown cookie %s' % msg.cookie)
             return None
         # Drop any packet we didn't specifically ask for
         if msg.reason != valve_of.ofp.OFPR_ACTION:
@@ -1105,7 +1114,9 @@ class Valve:
             self.logger.info(
                 'unparseable packet from port %u' % in_port)
             return None
-        if vlan_vid is not None and vlan_vid not in self.dp.vlans:
+        if (vlan_vid is not None and
+                vlan_vid not in self.dp.vlans and
+                vlan_vid != self.dp.global_vlan):
             self.logger.info(
                 'packet for unknown VLAN %u' % vlan_vid)
             return None

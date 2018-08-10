@@ -35,6 +35,14 @@ class NullVLAN:
     vid = valve_of.ofp.OFPVID_NONE
 
 
+# TODO: not well supported by any hardware, so not used.
+class AnyVLAN:
+    """Placeholder any tagged VLAN."""
+
+    name = 'Any VLAN'
+    vid = valve_of.ofp.OFPVID_PRESENT
+
+
 class HostCacheEntry:
     """Association of a host with a port."""
 
