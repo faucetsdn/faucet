@@ -1041,8 +1041,8 @@ class Valve:
                         'vid': pkt_meta.vlan.vid,
                         'eth_src': pkt_meta.eth_src,
                         'eth_type': pkt_meta.eth_type,
-                        'l3_src_ip': pkt_meta.l3_src,
-                        'l3_dst_ip': pkt_meta.l3_dst}})
+                        'l3_src_ip': str(pkt_meta.l3_src),
+                        'l3_dst_ip': str(pkt_meta.l3_dst)}})
                 return learn_flows
         return []
 
