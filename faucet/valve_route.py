@@ -840,7 +840,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         solicited_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
         vlan = pkt_meta.vlan
         if vlan.is_faucet_vip(solicited_ip):
-            if self._stateful_gw(vlan, solicited_ip):
+            if self._stateful_gw(vlan, src_ip):
                 ofmsgs.extend(
                     self._add_host_fib_route(vlan, src_ip, blackhole=False))
                 ofmsgs.extend(self._update_nexthop(
