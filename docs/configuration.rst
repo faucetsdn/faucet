@@ -291,10 +291,14 @@ string names given to the datapath, or the OFP datapath id.
       - integer
       - 0
       - Shift all priority values by this number.
-    * - proactive_learn
+    * - proactive_learn_v4
       - boolean
       - True
-      - Whether proactive learning is enabled for IP nexthops
+      - Whether proactive learning is enabled for IPv4 nexthops
+    * - proactive_learn_v6
+      - boolean
+      - True
+      - Whether proactive learning is enabled for IPv6 nexthops
     * - stack
       - dictionary
       - {}
@@ -312,6 +316,10 @@ string names given to the datapath, or the OFP datapath id.
       - dictionary
       - {}
       - For TFM based switches, size of each FAUCET table (all must be specified)
+    * - global_vlan
+      - int
+      - 2**11-1
+      - When global routing is enabled, FIB VID used internally
 
 
 Stacking (DP)

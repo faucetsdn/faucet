@@ -79,7 +79,8 @@ configuration.
     learn_jitter = None
     learn_ban_timeout = None
     advertise_interval = None
-    proactive_learn = None
+    proactive_learn_v4 = None
+    proactive_learn_v6 = None
     use_idle_timeout = None
     tables = {} # type: dict
     meters = {} # type: dict
@@ -156,8 +157,10 @@ configuration.
         # When banning/limiting learning, wait this many seconds before learning can be retried
         'advertise_interval': 30,
         # How often to advertise (eg. IPv6 RAs)
-        'proactive_learn': True,
-        # whether proactive learning is enabled for IP nexthops
+        'proactive_learn_v4': False,
+        # whether proactive learning is enabled for IPv4 nexthops
+        'proactive_learn_v6': True,
+        # whether proactive learning is enabled for IPv6 nexthops
         'use_idle_timeout': False,
         # Turn on/off the use of idle timeout for src_table, default OFF.
         'lldp_beacon': {},
@@ -211,7 +214,8 @@ configuration.
         'learn_jitter': int,
         'learn_ban_timeout': int,
         'advertise_interval': int,
-        'proactive_learn': bool,
+        'proactive_learn_v4': bool,
+        'proactive_learn_v6': bool,
         'use_idle_timeout': bool,
         'lldp_beacon': dict,
         'metrics_rate_limit_sec': int,

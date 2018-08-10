@@ -144,6 +144,7 @@ class Valve:
         for ipv, route_manager_class in (
                 (4, valve_route.ValveIPv4RouteManager),
                 (6, valve_route.ValveIPv6RouteManager)):
+            proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
             fib_table_name = 'ipv%u_fib' % ipv
             if not fib_table_name in self.dp.tables:
                 continue
@@ -151,7 +152,7 @@ class Valve:
             route_manager = route_manager_class(
                 self.logger, self.dp.global_vlan, self.dp.arp_neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-                self.dp.max_resolve_backoff_time, self.dp.proactive_learn, self.DEC_TTL,
+                self.dp.max_resolve_backoff_time, proactive_learn, self.DEC_TTL,
                 fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
                 self.dp.tables['eth_dst'], self.dp.tables['flood'],
                 self.dp.highest_priority, self.dp.routers,

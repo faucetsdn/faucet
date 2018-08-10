@@ -86,6 +86,8 @@ class ValveRouteManager:
         self.routers = routers
         self.use_group_table = use_group_table
         self.groups = groups
+        if self._global_routing():
+            self.logger.info('global routing enabled')
 
     def nexthop_dead(self, nexthop_cache_entry):
         return nexthop_cache_entry.dead(self.max_host_fib_retry_count)
