@@ -28,6 +28,12 @@ from faucet import valve_packet
 from faucet.valve_util import btos
 
 
+class AnonVLAN:
+
+    def __init__(self, vid):
+        self.vid = vid
+
+
 class NextHop:
     """Describes a directly connected (at layer 2) nexthop."""
 
@@ -47,12 +53,6 @@ class NextHop:
         return self.resolve_retries >= max_fib_retries
 
 
-class GlobalVLAN:
-    """TODO: make configurable."""
-
-    vid = 0x99
-
-
 class ValveRouteManager:
     """Base class to implement RIB/FIB."""
 
@@ -64,12 +64,13 @@ class ValveRouteManager:
     LINK_LOCAL = None # type: ignore
     active = False
 
-    def __init__(self, logger, arp_neighbor_timeout,
+    def __init__(self, logger, global_vlan, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl,
                  fib_table, vip_table, eth_src_table, eth_dst_table, flood_table,
                  route_priority, routers, use_group_table, groups):
         self.logger = logger
+        self.global_vlan = AnonVLAN(global_vlan)
         self.arp_neighbor_timeout = arp_neighbor_timeout
         self.max_hosts_per_resolve_cycle = max_hosts_per_resolve_cycle
         self.max_host_fib_retry_count = max_host_fib_retry_count
@@ -152,7 +153,7 @@ class ValveRouteManager:
         faucet_mac = vlan.faucet_mac
         insts = [valve_of.goto_table(self.fib_table)]
         if self._global_routing():
-            insts = [valve_of.apply_actions([valve_of.set_vlan_vid(GlobalVLAN.vid)])] + insts
+            insts = [valve_of.apply_actions([valve_of.set_vlan_vid(self.global_vlan.vid)])] + insts
         ofmsgs = []
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(eth_type=self.ETH_TYPE, eth_dst=faucet_mac, vlan=vlan),
@@ -160,7 +161,7 @@ class ValveRouteManager:
             inst=insts))
         routed_vlans = self._routed_vlans(vlan)
         if self._global_routing():
-            vlan = GlobalVLAN()
+            vlan = self.global_vlan
             routed_vlans = [vlan]
         ofmsgs.append(self.fib_table.flowmod(
             self._route_match(vlan, faucet_vip_host),
@@ -211,7 +212,7 @@ class ValveRouteManager:
                     valve_of.goto_table(self.eth_dst_table)]
         routed_vlans = self._routed_vlans(vlan)
         if self._global_routing():
-            routed_vlans = [GlobalVLAN()]
+            routed_vlans = [self.global_vlan]
         for routed_vlan in routed_vlans:
             in_match = self._route_match(routed_vlan, ip_dst)
             ofmsgs.append(self.fib_table.flowmod(
@@ -513,7 +514,7 @@ class ValveRouteManager:
                 random.randint(0, self.max_resolve_backoff_time * 2))
             routed_vlans = self._routed_vlans(vlan)
             if self._global_routing():
-                routed_vlans = [GlobalVLAN()]
+                routed_vlans = [self.global_vlan]
             for routed_vlan in routed_vlans:
                 in_match = self._route_match(routed_vlan, host_int)
                 ofmsgs.append(self.fib_table.flowmod(
@@ -578,7 +579,7 @@ class ValveRouteManager:
         ofmsgs = []
         routed_vlans = self._routed_vlans(vlan)
         if self._global_routing():
-            routed_vlans = [GlobalVLAN()]
+            routed_vlans = [self.global_vlan]
         for routed_vlan in routed_vlans:
             route_match = self._route_match(routed_vlan, ip_dst)
             ofmsgs.extend(self.fib_table.flowdel(
@@ -824,7 +825,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             vlan, priority, faucet_vip, faucet_vip_host)
         faucet_vip_broadcast = ipaddress.IPv6Interface(faucet_vip.network.broadcast_address)
         if self._global_routing():
-            vlan = GlobalVLAN()
+            vlan = self.global_vlan
         ofmsgs.append(self.fib_table.flowmod(
             self._route_match(vlan, faucet_vip_broadcast),
             priority=priority,

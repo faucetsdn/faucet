@@ -149,7 +149,7 @@ class Valve:
                 continue
             fib_table = self.dp.tables[fib_table_name]
             route_manager = route_manager_class(
-                self.logger, self.dp.arp_neighbor_timeout,
+                self.logger, self.dp.global_vlan, self.dp.arp_neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, self.dp.proactive_learn, self.DEC_TTL,
                 fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
@@ -1114,12 +1114,12 @@ class Valve:
             self.logger.info(
                 'unparseable packet from port %u' % in_port)
             return None
-        pkt_meta = self.parse_rcv_packet(
-            in_port, vlan_vid, eth_type, data, msg.total_len, pkt, eth_pkt)
-        if pkt_meta.vlan is None:
+        if vlan_vid is not None and vlan_vid not in self.dp.vlans and vlan_vid != self.dp.global_vlan.vid:
             self.logger.info(
                 'packet for unknown VLAN %u' % vlan_vid)
             return None
+        pkt_meta = self.parse_rcv_packet(
+            in_port, vlan_vid, eth_type, data, msg.total_len, pkt, eth_pkt)
         if not valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.info(
                 'packet with non-unicast eth_src %s port %u' % (

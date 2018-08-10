@@ -93,6 +93,7 @@ configuration.
     dp_acls = None
     dot1x = None
     table_sizes = {} # type: dict
+    global_vlan = None
 
     dyn_running = False
     dyn_last_coldstart_time = None
@@ -175,6 +176,8 @@ configuration.
         # Experimental dot1x configuration.
         'table_sizes': {'port_acl': 1100, 'vlan': 100, 'vlan_acl': 50, 'eth_src': 400, 'ipv4_fib': 50, 'ipv6_fib': 50, 'vip': 20, 'eth_dst': 300, 'flood': 100},
         # Table sizes for TFM switches.
+        'global_vlan': 0x99,
+        # Reserved VID for internal global router VLAN.
         }
 
     defaults_types = {
@@ -217,6 +220,7 @@ configuration.
         'dp_acls': list,
         'dot1x': dict,
         'table_sizes': dict,
+        'global_vlan': int,
     }
 
     table_sizes_types = {
@@ -858,6 +862,8 @@ configuration.
             dp_by_name[dp.name] = dp
         for vlan in list(self.vlans.values()):
             vlan_by_name[vlan.name] = vlan
+            test_config_condition(
+                self.global_vlan == vlan.vid, 'VLAN %u is reserved by global_vlan')
 
         resolve_stack_dps()
         resolve_mirror_destinations()
