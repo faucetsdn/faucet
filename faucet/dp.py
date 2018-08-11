@@ -28,6 +28,7 @@ from faucet import faucet_pipeline
 from faucet import valve_acl
 from faucet import valve_of
 from faucet.conf import Conf, InvalidConfigError, test_config_condition
+from faucet.valve import SUPPORTED_HARDWARE
 from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve_table import ValveTable, ValveGroupTable
 from faucet import valve_packet
@@ -302,10 +303,11 @@ configuration.
         if self.table_sizes:
             self._check_conf_types(self.table_sizes, self.table_sizes_types)
 
-    def _configure_tables(self, override_table_config):
+    def _configure_tables(self, override_table_config, valve_cl):
         """Configure FAUCET pipeline with tables."""
         tables = {}
         self.groups = ValveGroupTable()
+        relative_table_id = 0
         for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
             table_name = table_config.name
             if table_name in override_table_config:
@@ -313,9 +315,12 @@ configuration.
             # TODO: automatically calculate
             table_config.size = self.table_sizes.get(table_name, 128)
             if table_config.match_types:
+                if not valve_cl.STATIC_TABLE_IDS:
+                    table_id = relative_table_id
                 tables[table_name] = ValveTable(
                     table_id, table_name, table_config, self.cookie,
                     notify_flow_removed=self.use_idle_timeout)
+                relative_table_id += 1
         self.tables = copy.deepcopy(tables)
 
     def set_defaults(self):
@@ -755,7 +760,7 @@ configuration.
                     'ACLs when used together must have consistent exact_match'))
             return acls[0].exact_match
 
-        def resolve_acls():
+        def resolve_acls(valve_cl):
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
             port_acl_matches = {}
@@ -808,7 +813,8 @@ configuration.
                         port_acl_meter = True
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
-            port_acl_matches.update({'in_port': False})
+            if valve_cl.STATIC_TABLE_IDS or port_acl_matches:
+                port_acl_matches.update({'in_port': False})
             port_acl_matches = {(field, mask) for field, mask in list(port_acl_matches.items())}
             vlan_acl_matches = {(field, mask) for field, mask in list(vlan_acl_matches.items())}
 
@@ -861,6 +867,9 @@ configuration.
             self.routers = dp_routers
 
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
+        valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
+        test_config_condition(
+            not valve_cl, 'hardware %s must be in %s' % (self.hardware, list(SUPPORTED_HARDWARE.keys())))
 
         for dp in dps:
             dp_by_name[dp.name] = dp
@@ -873,7 +882,7 @@ configuration.
         resolve_mirror_destinations()
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
-        override_table_config = resolve_acls()
+        override_table_config = resolve_acls(valve_cl)
 
         # Only configure IP routing tables if enabled.
         ipvs = set()
@@ -886,7 +895,7 @@ configuration.
         if not ipvs:
             override_table_config['vip'] = ValveTableConfig('vip')
 
-        self._configure_tables(override_table_config)
+        self._configure_tables(override_table_config, valve_cl)
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:

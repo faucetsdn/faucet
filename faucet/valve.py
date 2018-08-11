@@ -74,6 +74,7 @@ class Valve:
 
     DEC_TTL = True
     USE_BARRIERS = True
+    STATIC_TABLE_IDS = False
     base_prom_labels = None
     recent_ofmsgs = deque(maxlen=32) # type: ignore
     logger = None
@@ -635,7 +636,7 @@ class Valve:
 
     def _port_add_acl(self, port, cold_start=False):
         ofmsgs = []
-        if 'port_acl' in self.dp.tables:
+        if 'port_acl' not in self.dp.tables:
             return ofmsgs
         acl_table = self.dp.tables['port_acl']
         in_port_match = acl_table.match(in_port=port.number)
@@ -1538,6 +1539,11 @@ class AlliedTelesis(OVSValve):
     """Valve implementation for AT."""
 
     DEC_TTL = False
+
+
+class NoviFlowValve(OVSValve):
+
+    STATIC_TABLE_IDS = True
 
 
 SUPPORTED_HARDWARE = {
