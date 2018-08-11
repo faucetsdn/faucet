@@ -9,3 +9,4 @@ Tutorials
     vlans
     routing
     nfv_services
+    raspbian_image

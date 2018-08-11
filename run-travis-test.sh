@@ -11,7 +11,7 @@ if [ "${MATRIX_SHARD}" = "sanity" ] ; then
   ./tests/run_unit_tests.sh || exit 1
   codecov || true
 else
-  ALLTESTFILES="tests/integration/mininet_tests.py clib/clib_mininet_test_unit.py"
+  ALLTESTFILES="tests/integration/mininet_tests.py clib/clib_mininet_tests.py"
   ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" ${ALLTESTFILES}|cut -f2 -d" "|sort`
   declare -A sharded
 
