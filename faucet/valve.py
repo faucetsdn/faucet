@@ -635,12 +635,14 @@ class Valve:
 
     def _port_add_acl(self, port, cold_start=False):
         ofmsgs = []
+        if 'port_acl' in self.dp.tables:
+            return ofmsgs
         acl_table = self.dp.tables['port_acl']
         in_port_match = acl_table.match(in_port=port.number)
-        if cold_start:
-            ofmsgs.extend(acl_table.flowdel(in_port_match))
         acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
         acl_force_port_vlan_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
+        if cold_start:
+            ofmsgs.extend(acl_table.flowdel(in_port_match))
         if port.acls_in:
             ofmsgs.extend(valve_acl.build_acl_ofmsgs(
                 port.acls_in, acl_table,
