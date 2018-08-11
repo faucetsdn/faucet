@@ -1683,7 +1683,7 @@ vlans:
     START_ACL_CONFIG = """
 acls:
   1:
-    exact_match: true
+    exact_match: True
     rules:
     - rule:
         actions: {allow: 1}
@@ -1750,7 +1750,7 @@ class FaucetIPv6TupleTest(FaucetIPv4TupleTest):
     START_ACL_CONFIG = """
 acls:
   1:
-    exact_match: true
+    exact_match: True
     rules:
     - rule:
         actions: {allow: 1}
@@ -4434,7 +4434,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        proactive_learn_v4: true
+        proactive_learn_v4: True
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
@@ -4477,7 +4477,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        proactive_learn_v6: true
+        proactive_learn_v6: True
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
@@ -6188,7 +6188,7 @@ vlans:
 """
     CONFIG = """
         timeout: 1
-        use_idle_timeout: true
+        use_idle_timeout: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
