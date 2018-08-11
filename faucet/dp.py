@@ -96,6 +96,7 @@ configuration.
     dot1x = None
     table_sizes = {} # type: dict
     global_vlan = None
+    hardware = None
 
     dyn_running = False
     dyn_last_coldstart_time = None
@@ -763,6 +764,7 @@ configuration.
         def resolve_acls(valve_cl):
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
+            port_acl_enabled = valve_cl.STATIC_TABLE_IDS
             port_acl_matches = {}
             port_acl_set_fields = set()
             port_acl_exact_match = False
@@ -803,6 +805,7 @@ configuration.
                         acls.append(self.acls[acl])
                     port.acls_in = acls
                     port_acl_exact_match = verify_acl_exact_match(acls)
+                    port_acl_enabled = True
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
@@ -813,7 +816,8 @@ configuration.
                         port_acl_meter = True
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
-            if valve_cl.STATIC_TABLE_IDS or port_acl_matches:
+                port_acl_enabled = True
+            if port_acl_enabled:
                 port_acl_matches.update({'in_port': False})
             port_acl_matches = {(field, mask) for field, mask in list(port_acl_matches.items())}
             vlan_acl_matches = {(field, mask) for field, mask in list(vlan_acl_matches.items())}
@@ -869,7 +873,8 @@ configuration.
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
         valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
         test_config_condition(
-            not valve_cl, 'hardware %s must be in %s' % (self.hardware, list(SUPPORTED_HARDWARE.keys())))
+            not valve_cl, 'hardware %s must be in %s' % (
+                self.hardware, list(SUPPORTED_HARDWARE.keys())))
 
         for dp in dps:
             dp_by_name[dp.name] = dp
