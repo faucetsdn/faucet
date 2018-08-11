@@ -761,7 +761,6 @@ configuration.
             port_acl_matches = {}
             port_acl_set_fields = set()
             port_acl_exact_match = False
-            port_acl_matches.update({'in_port': False})
             port_acl_meter = False
             vlan_acl_matches = {}
             vlan_acl_exact_match = False
@@ -809,6 +808,7 @@ configuration.
                         port_acl_meter = True
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
+            port_acl_matches.update({'in_port': False})
             port_acl_matches = {(field, mask) for field, mask in list(port_acl_matches.items())}
             vlan_acl_matches = {(field, mask) for field, mask in list(vlan_acl_matches.items())}
 
@@ -867,7 +867,7 @@ configuration.
         for vlan in list(self.vlans.values()):
             vlan_by_name[vlan.name] = vlan
             test_config_condition(
-                self.global_vlan == vlan.vid, 'VLAN %u is reserved by global_vlan')
+                self.global_vlan == vlan.vid, 'VLAN %u is reserved by global_vlan' % vlan.vid)
 
         resolve_stack_dps()
         resolve_mirror_destinations()
