@@ -1084,6 +1084,7 @@ class Valve:
         if vlan_vid == self.dp.global_vlan:
             pkt_meta.reparse_ip()
             if pkt_meta.l3_src:
+                # TODO: optimize for many VLANs.
                 for vlan in list(self.dp.vlans.values()):
                     if vlan.ip_in_vip_subnet(pkt_meta.l3_src):
                         pkt_meta.vlan = vlan
