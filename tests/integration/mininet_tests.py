@@ -3946,6 +3946,63 @@ vlans:
         self.ping_all_when_learned()
 
 
+class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
+
+    def _vids():
+        return [i for i in range(100, 164)]
+
+    VIDS = _vids()
+    STR_VIDS = [str(i) for i in _vids()]
+    NEW_VIDS = VIDS[1:]
+
+    CONFIG_GLOBAL = """
+routers:
+    global:
+        vlans: [%s]
+vlans:
+%s
+""" % (
+    ','.join(STR_VIDS),
+    '\n'.join(['\n'.join(
+        ('    %u:',
+         '        description: "tagged"',
+         '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
+    CONFIG = """
+        interfaces:
+            %s:
+                tagged_vlans: [%s]
+                description: "b1"
+            %s:
+                tagged_vlans: [%s]
+                description: "b2"
+            %s:
+                tagged_vlans: [%s]
+                description: "b3"
+            %s:
+                tagged_vlans: [%s]
+                description: "b4"
+""" % ('%(port_1)d', ','.join(STR_VIDS),
+       '%(port_2)d', ','.join(STR_VIDS),
+       '%(port_3)d', ','.join(STR_VIDS),
+       '%(port_4)d', ','.join(STR_VIDS))
+
+    def test_tagged(self):
+        for host in self.net.hosts:
+            setup_commands = []
+            for vid in self.NEW_VIDS:
+                vlan_int = '%s.%u' % (host.intf_root_name, vid)
+                setup_commands.extend([
+                    'ip link add link %s name %s type vlan id %u' % (
+                        host.intf_root_name, vlan_int, vid),
+                    'ip link set dev %s up' % vlan_int])
+            self.quiet_commands(host, setup_commands)
+        for i, host in enumerate(self.net.hosts[:2]):
+            for vid in self.NEW_VIDS:
+                vlan_int = '%s.%u' % (host.intf_root_name, vid)
+                ipa = '192.168.%u.%u' % (vid, i)
+                self.quiet_commands(host, ['ip address add %s/24 brd + dev %s' % (ipa, vlan_int)])
+
+
 class FaucetTaggedScaleTest(FaucetTaggedTest):
 
     def _vids():
@@ -3957,8 +4014,9 @@ class FaucetTaggedScaleTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
-""" + '\n'.join(['\n'.join(('    %s:', '        description: "tagged"')) %
-                 i for i in STR_VIDS])
+""" + '\n'.join(['\n'.join(
+    ('    %u:',
+     '        description: "tagged"')) % i for i in VIDS])
     CONFIG = """
         interfaces:
             %s:
@@ -3983,22 +4041,22 @@ vlans:
         self.ping_all_when_learned()
         for host in self.net.hosts:
             setup_commands = []
-            for i in self.NEW_VIDS:
-                vlan_int = '%s.%u' % (host.intf_root_name, i)
+            for vid in self.NEW_VIDS:
+                vlan_int = '%s.%u' % (host.intf_root_name, vid)
                 setup_commands.extend([
                     'ip link add link %s name %s type vlan id %u' % (
-                        host.intf_root_name, vlan_int, i),
+                        host.intf_root_name, vlan_int, vid),
                     'ip link set dev %s up' % vlan_int])
             self.quiet_commands(host, setup_commands)
         for host in self.net.hosts:
             rdisc6_commands = []
-            for i in self.NEW_VIDS:
-                vlan_int = '%s.%u' % (host.intf_root_name, i)
+            for vid in self.NEW_VIDS:
+                vlan_int = '%s.%u' % (host.intf_root_name, vid)
                 rdisc6_commands.append(
                     'rdisc6 -r2 -w1 -q %s 2> /dev/null' % vlan_int)
             self.quiet_commands(host, rdisc6_commands)
         for vlan in self.NEW_VIDS:
-            vlan_int = '%s.%u' % (host.intf_root_name, i)
+            vlan_int = '%s.%u' % (host.intf_root_name, vid)
             for _ in range(3):
                 for host in self.net.hosts:
                     self.quiet_commands(
