@@ -530,7 +530,7 @@ configuration.
     def shortest_path_port(self, dest_dp):
         """Return first port on our DP, that is the shortest path towards dest DP."""
         shortest_path = self.shortest_path(dest_dp)
-        if shortest_path is not None:
+        if len(shortest_path) > 1:
             peer_dp = shortest_path[1]
             peer_dp_ports = self.peer_stack_up_ports(peer_dp)
             if peer_dp_ports:
