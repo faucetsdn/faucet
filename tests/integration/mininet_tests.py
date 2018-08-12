@@ -3949,7 +3949,7 @@ vlans:
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
     def _vids():
-        return [i for i in range(100, 8)]
+        return [i for i in range(100, 108)]
 
     VIDS = _vids()
     STR_VIDS = [str(i) for i in _vids()]
