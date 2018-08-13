@@ -46,6 +46,13 @@ class AnyVLAN:
 class HostCacheEntry:
     """Association of a host with a port."""
 
+    __slots__ = [
+        'cache_time',
+        'eth_src',
+        'eth_src_int',
+        'port',
+    ]
+
     def __init__(self, eth_src, port, cache_time):
         self.eth_src = eth_src
         self.port = port
