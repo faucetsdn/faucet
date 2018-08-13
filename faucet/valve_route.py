@@ -148,7 +148,7 @@ class ValveRouteManager:
         return vlans
 
     def _global_routing(self):
-        return self.routers and len(self.routers) == 1
+        return self.global_vlan.vid and self.routers and len(self.routers) == 1
 
     def _add_faucet_fib_to_vip(self, vlan, priority, faucet_vip, faucet_vip_host):
         learn_connected_priority = self.route_priority + faucet_vip.network.prefixlen
@@ -866,7 +866,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 ofmsgs.extend(self._update_nexthop(
                     now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
             self.logger.info(
-                'ND advert %s (%s) on VLAN %u' % (
+                'Received ND advert for %s (%s) on VLAN %u' % (
                     target_ip, pkt_meta.eth_src, vlan.vid))
         return ofmsgs
 

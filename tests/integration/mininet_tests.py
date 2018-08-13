@@ -3968,6 +3968,7 @@ vlans:
          '        description: "tagged"',
          '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
+        global_vlan: 2047
         interfaces:
             %s:
                 tagged_vlans: [%s]
