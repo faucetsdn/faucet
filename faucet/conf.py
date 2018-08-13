@@ -151,7 +151,7 @@ class Conf:
             if isinstance(val, list):
                 val = tuple(val)
             elif isinstance(val, set):
-                val = fronzenset(val)
+                val = frozenset(val)
             self.__dict__[key] = val
         self.dyn_finalized = True
 
