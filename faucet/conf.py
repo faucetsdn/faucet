@@ -32,8 +32,8 @@ class Conf:
     """Base class for FAUCET configuration."""
 
     mutable_attrs = frozenset() # type: frozenset
-    defaults = {} # type: dict
-    defaults_types = {} # type: dict
+    defaults = None # type: dict
+    defaults_types = None # type: dict
     dyn_finalized = False
     dyn_hash = None
 

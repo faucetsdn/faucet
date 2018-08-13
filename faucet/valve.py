@@ -76,15 +76,15 @@ class Valve:
     USE_BARRIERS = True
     STATIC_TABLE_IDS = False
     base_prom_labels = None
-    recent_ofmsgs = deque(maxlen=32) # type: ignore
+    recent_ofmsgs = None # type: ignore
     logger = None
     ofchannel_logger = None
     host_manager = None
     flood_manager = None
-    _last_pipeline_flows = [] # type: list
+    _last_pipeline_flows = None # type: list
     _route_manager_by_ipv = None
     _last_advertise_sec = None
-    _port_highwater = {} # type: dict
+    _port_highwater = None # type: dict
     _last_update_metrics_sec = None
     _last_packet_in_sec = 0
     _packet_in_count_sec = 0
@@ -94,6 +94,9 @@ class Valve:
         self.logname = logname
         self.metrics = metrics
         self.notifier = notifier
+        self.recent_ofmsgs = deque(maxlen=32)
+        self._last_pipeline_flows = []
+        self._port_highwater = {}
         self.dp_init()
 
     def _port_labels(self, port):
@@ -1319,11 +1322,11 @@ class Valve:
                 cold_start (bool): whether cold starting.
                 ofmsgs (list): OpenFlow messages.
         """
-        new_dp.dyn_running = True
         (deleted_ports, changed_ports, changed_acl_ports,
          deleted_vlans, changed_vlans, all_ports_changed) = changes
 
         if self._pipeline_change():
+            self.logger.info('pipeline change')
             self.dp = new_dp
             self.dp_init()
             return True, []
@@ -1333,6 +1336,10 @@ class Valve:
             self.dp = new_dp
             self.dp_init()
             return True, []
+
+        all_up_port_nos = [
+            port for port in changed_ports
+            if port in self.dp.dyn_up_ports]
 
         ofmsgs = []
 
@@ -1358,7 +1365,7 @@ class Valve:
                 ofmsgs.extend(self._del_vlan(vlan))
                 ofmsgs.extend(self._add_vlan(vlan))
         if changed_ports:
-            ofmsgs.extend(self.ports_add(changed_ports))
+            ofmsgs.extend(self.ports_add(all_up_port_nos))
         if changed_acl_ports:
             self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
             for port_num in changed_acl_ports:
@@ -1386,9 +1393,12 @@ class Valve:
         """
         dp_running = self.dp.dyn_running
         up_ports = self.dp.dyn_up_ports
+        coldstart_time = self.dp.dyn_last_coldstart_time
         cold_start, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
         self.dp.dyn_running = dp_running
+        self.dp.dyn_up_ports = up_ports
+        self.dp.dyn_last_coldstart_time = coldstart_time
         restart_type = 'none'
         if self.dp.dyn_running:
             if cold_start:

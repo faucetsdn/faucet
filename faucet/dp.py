@@ -49,7 +49,6 @@ class DP(Conf):
 configuration.
 """
 
-    # TODO: shouldn't be any mutable attrs
     mutable_attrs = frozenset(['stack', 'vlans'])
     acls = None
     vlans = None
@@ -83,24 +82,24 @@ configuration.
     proactive_learn_v4 = None
     proactive_learn_v6 = None
     use_idle_timeout = None
-    tables = {} # type: dict
-    meters = {} # type: dict
+    tables = None # type: dict
+    meters = None # type: dict
     timeout = None
     arp_neighbor_timeout = None
-    lldp_beacon = {} # type: dict
+    lldp_beacon = None # type: dict
     metrics_rate_limit_sec = None
     faucet_dp_mac = None
     combinatorial_port_flood = None
     lacp_timeout = None
     dp_acls = None
     dot1x = None
-    table_sizes = {} # type: dict
+    table_sizes = None # type: dict
     global_vlan = None
     hardware = None
 
     dyn_running = False
     dyn_last_coldstart_time = None
-    dyn_up_ports = set() # type: ignore
+    dyn_up_ports = None # type: ignore
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -261,7 +260,6 @@ configuration.
 
     def __init__(self, _id, dp_id, conf):
         """Constructs a new DP object"""
-        super(DP, self).__init__(_id, dp_id, conf)
         self.acls = {}
         self.vlans = {}
         self.ports = {}
@@ -269,6 +267,12 @@ configuration.
         self.stack_ports = []
         self.output_only_ports = []
         self.lldp_beacon_ports = []
+        self.tables = {}
+        self.meters = {}
+        self.lldp_beacon = {}
+        self.table_sizes = {}
+        self.dyn_up_ports = set()
+        super(DP, self).__init__(_id, dp_id, conf)
 
     def __str__(self):
         return self.name

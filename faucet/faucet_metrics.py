@@ -27,11 +27,13 @@ from faucet.prom_client import PromClient
 class FaucetMetrics(PromClient):
     """Container class for objects that can be exported to Prometheus."""
 
-    _dpid_counters = {} # type: dict
-    _dpid_gauges = {} # type: dict
+    _dpid_counters = None # type: dict
+    _dpid_gauges = None # type: dict
 
     def __init__(self, reg=None):
         super(FaucetMetrics, self).__init__(reg=reg)
+        self._dpid_counters = {}
+        self._dpid_gauges = {}
         self.faucet_config_reload_requests = self._counter(
             'faucet_config_reload_requests',
             'number of config reload requests', [])

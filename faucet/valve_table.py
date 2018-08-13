@@ -174,7 +174,12 @@ class ValveGroupEntry:
 class ValveGroupTable:
     """Wrap access to group table."""
 
-    entries = {} # type: dict
+    entries = None # type: dict
+
+
+    def __init__(self):
+        """Constructs a new object"""
+        self.entries = {}
 
     @staticmethod
     def group_id_from_str(key_str):

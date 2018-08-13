@@ -74,7 +74,6 @@ class VLAN(Conf):
 # Note: while vlans are configured once for each datapath, there will be a
 # separate vlan object created for each datapath that the vlan appears on
 
-    # TODO: shouldn't be any mutable attrs
     mutable_attrs = frozenset(['tagged', 'untagged'])
     name = None
     dp_id = None
@@ -86,11 +85,11 @@ class VLAN(Conf):
     bgp_as = None
     bgp_connect_mode = None
     bgp_local_address = None
-    bgp_server_addresses = [] # type: list
+    bgp_server_addresses = None # type: list
     bgp_port = None
     bgp_routerid = None
-    bgp_neighbor_addresses = [] # type: list
-    bgp_neighbour_addresses = [] # type: list
+    bgp_neighbor_addresses = None # type: list
+    bgp_neighbour_addresses = None # type: list
     bgp_neighbor_as = None
     bgp_neighbour_as = None
     routes = None
@@ -178,6 +177,9 @@ class VLAN(Conf):
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
         self.dyn_gws_by_ipv = collections.defaultdict(dict)
         self.reset_caches()
+        self.bgp_server_addresses = []
+        self.bgp_neighbour_addresses = []
+        self.bgp_neighbor_addresses = []
         super(VLAN, self).__init__(_id, dp_id, conf)
 
     def set_defaults(self):
