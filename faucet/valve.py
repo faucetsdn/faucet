@@ -1082,13 +1082,11 @@ class Valve:
         pkt_meta = valve_packet.PacketMeta(
             data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
         if vlan_vid == self.dp.global_vlan:
-            pkt_meta.reparse_ip()
-            if pkt_meta.l3_src:
-                # TODO: optimize for many VLANs.
-                for vlan in list(self.dp.vlans.values()):
-                    if vlan.ip_in_vip_subnet(pkt_meta.l3_src):
-                        pkt_meta.vlan = vlan
-                        break
+            vlan_mac = [int(i, 16) for i in pkt_meta.eth_dst.split(':')[-2:]]
+            vlan_vid = (vlan_mac[0] << 8) + vlan_mac[1]
+            vlan = self.dp.vlans[vlan_vid]
+            pkt_meta.vlan = vlan
+            pkt_meta.eth_dst = vlan.faucet_mac
         return pkt_meta
 
     def parse_pkt_meta(self, msg):
