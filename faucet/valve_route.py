@@ -155,7 +155,12 @@ class ValveRouteManager:
         faucet_mac = vlan.faucet_mac
         insts = [valve_of.goto_table(self.fib_table)]
         if self._global_routing():
-            insts = [valve_of.apply_actions([valve_of.set_vlan_vid(self.global_vlan.vid)])] + insts
+            vlan_mac = faucet_mac.split(':')[:4] + [
+                '%x' % (vlan.vid >> 8), '%x' % (vlan.vid & 0xff)]
+            vlan_mac = ':'.join(vlan_mac)
+            insts = [valve_of.apply_actions([
+                valve_of.set_eth_dst(vlan_mac),
+                valve_of.set_vlan_vid(self.global_vlan.vid)])] + insts
         ofmsgs = []
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(eth_type=self.ETH_TYPE, eth_dst=faucet_mac, vlan=vlan),
@@ -866,8 +871,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 ofmsgs.extend(self._update_nexthop(
                     now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
             self.logger.info(
-                'Received ND advert for %s (%s) on VLAN %u' % (
-                    target_ip, pkt_meta.eth_src, vlan.vid))
+                'Received ND advert for %s (%s) on VLAN %u %s' % (
+                    target_ip, pkt_meta.eth_src, vlan.vid, pkt_meta.port))
         return ofmsgs
 
     def _router_solicit_handler(self, now, pkt_meta, _ipv6_pkt, _icmpv6_pkt, src_ip, _dst_ip):
