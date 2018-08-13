@@ -930,7 +930,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         influx_port = self.config_ports['gauge_influx_port']
         try:
             self.server = QuietHTTPServer(
-                (mininet_test_util.LOCALHOST, influx_port), self.handler)
+                (str(mininet_test_util.LOCALHOST), influx_port), self.handler)
             self.server.timeout = self.DB_TIMEOUT
             self.server_thread = threading.Thread(
                 target=self.server.serve_forever)
