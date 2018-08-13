@@ -64,13 +64,33 @@ class NextHop:
 class ValveRouteManager:
     """Base class to implement RIB/FIB."""
 
+    __slots__ = [
+        'active',
+        'arp_neighbor_timeout',
+        'dec_ttl',
+        'eth_dst_table',
+        'eth_src_table',
+        'fib_table',
+        'flood_table',
+        'global_vlan',
+        'groups',
+        'logger',
+        'max_host_fib_retry_count',
+        'max_hosts_per_resolve_cycle',
+        'max_resolve_backoff_time',
+        'proactive_learn',
+        'route_priority',
+        'routers',
+        'use_group_table',
+        'vip_table',
+    ]
+
     IPV = 0
     ETH_TYPE = None
     ICMP_TYPE = None
     MAX_LEN = valve_of.MAX_PACKET_IN_BYTES
     CONTROL_ETH_TYPES = () # type: ignore
     LINK_LOCAL = None # type: ignore
-    active = False
 
     def __init__(self, logger, global_vlan, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
@@ -94,6 +114,7 @@ class ValveRouteManager:
         self.routers = routers
         self.use_group_table = use_group_table
         self.groups = groups
+        self.active = False
         if self._global_routing():
             self.logger.info('global routing enabled')
 
