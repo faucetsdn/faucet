@@ -72,22 +72,26 @@ class Valve:
     function switch_features.
     """
 
+
+    __slots__ = [
+        'base_prom_labels',
+        'recent_ofmsgs',
+        'logger',
+        'ofchannel_logger',
+        'host_manager',
+        'flood_manager',
+        '_last_pipeline_flows',
+        '_route_manager_by_ipv',
+        '_last_advertise_sec',
+        '_port_highwater',
+        '_last_update_metrics_sec',
+        '_last_packet_in_sec',
+        '_packet_in_count_sec'
+    ]
+
     DEC_TTL = True
     USE_BARRIERS = True
     STATIC_TABLE_IDS = False
-    base_prom_labels = None
-    recent_ofmsgs = None # type: ignore
-    logger = None
-    ofchannel_logger = None
-    host_manager = None
-    flood_manager = None
-    _last_pipeline_flows = None # type: list
-    _route_manager_by_ipv = None
-    _last_advertise_sec = None
-    _port_highwater = None # type: dict
-    _last_update_metrics_sec = None
-    _last_packet_in_sec = 0
-    _packet_in_count_sec = 0
 
     def __init__(self, dp, logname, metrics, notifier):
         self.dp = dp
@@ -97,6 +101,11 @@ class Valve:
         self.recent_ofmsgs = deque(maxlen=32)
         self._last_pipeline_flows = []
         self._port_highwater = {}
+        self._last_packet_in_sec = 0
+        self._packet_in_count_sec = 0
+        self._last_update_metrics_sec = 0
+        self.ofchannel_logger = None
+        self.logger = None
         self.dp_init()
 
     def _port_labels(self, port):
