@@ -866,7 +866,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 ofmsgs.extend(self._update_nexthop(
                     now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
             self.logger.info(
-                'ND advert %s (%s) on VLAN %u' % (
+                'Received ND advert for %s (%s) on VLAN %u' % (
                     target_ip, pkt_meta.eth_src, vlan.vid))
         return ofmsgs
 
