@@ -36,15 +36,15 @@ class Port(Conf):
     unicast_flood = None
     mirror = None
     native_vlan = None
-    tagged_vlans = [] # type: list
+    tagged_vlans = None # type: list
     acl_in = None
     acls_in = None
-    stack = {} # type: dict
+    stack = None # type: dict
     max_hosts = None
     hairpin = None
     loop_protect = None
     output_only = None
-    lldp_beacon = {} # type: dict
+    lldp_beacon = None # type: dict
     op_status_reconf = None
     receive_lldp = None
     override_output_port = None
@@ -58,7 +58,7 @@ class Port(Conf):
     dyn_last_ban_time = None
     dyn_last_lldp_beacon_time = None
     dyn_stack_current_state = STACK_STATE_DOWN
-    dyn_stack_probe_info = None
+    dyn_stack_probe_info = None # type: dict
 
     defaults = {
         'number': None,
@@ -148,9 +148,11 @@ class Port(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
-        super(Port, self).__init__(_id, dp_id, conf)
         self.dyn_phys_up = False
         self.dyn_stack_probe_info = {}
+        self.tagged_vlans = []
+        self.lldp_beacon = {}
+        super(Port, self).__init__(_id, dp_id, conf)
 
         # If the port is mirrored convert single attributes to a array
         if self.mirror and not isinstance(self.mirror, list):
@@ -213,7 +215,8 @@ class Port(Conf):
             self.acl_in = None
         if self.acls_in:
             for acl in self.acls_in:
-                test_config_condition(not isinstance(acl, (int, str)), 'ACL names must be int or str')
+                test_config_condition(not isinstance(acl, (int, str)),
+                                      'ACL names must be int or str')
 
     def finalize(self):
         test_config_condition(not (self.vlans() or self.stack or self.output_only), (

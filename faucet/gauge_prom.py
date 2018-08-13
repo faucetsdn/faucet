@@ -49,10 +49,11 @@ PROM_FLOW_VARS = (
 class GaugePrometheusClient(PromClient):
     """Wrapper for Prometheus client that is shared between all pollers."""
 
-    metrics = {} # type: dict
+    metrics = None # type: dict
 
     def __init__(self, reg=None):
         super(GaugePrometheusClient, self).__init__(reg=reg)
+        self.metrics = {}
         self.dp_status = Gauge( # pylint: disable=unexpected-keyword-arg
             'dp_status',
             'status of datapaths',
@@ -66,6 +67,7 @@ class GaugePrometheusClient(PromClient):
                 registry=self._reg)
 
     def reregister_flow_vars(self, table_name, table_tags):
+        """Register the flow variables needed for this client"""
         for prom_var in PROM_FLOW_VARS:
             table_prom_var = PROM_PREFIX_DELIM.join((prom_var, table_name))
             try:
@@ -122,7 +124,12 @@ class GaugePortStatePrometheusPoller(GaugePortStatePoller):
 class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
     """Export flow table entries to Prometheus."""
 
-    table_tags = collections.defaultdict(set) # type: dict
+    table_tags = None # type: dict
+
+
+    def __init__(self, conf, logname, prom_client):
+        self.table_tags = collections.defaultdict(set)
+        super(GaugeFlowTablePrometheusPoller, self).__init__(conf, logname, prom_client)
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugeFlowTablePrometheusPoller, self).update(rcv_time, dp_id, msg)
@@ -138,8 +145,8 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                 tags_keys = set(tags.keys())
                 if tags_keys != self.table_tags[table_id]:
                     if not tags_keys.issubset(self.table_tags[table_id]):
-                        self.logger.info('re-initializing tags for table_id %u from %s to %s' % (
-                            table_id, self.table_tags[table_id], tags_keys))
+                        self.logger.info('re-initializing tags for table_id %u from %s to %s',
+                                         table_id, self.table_tags[table_id], tags_keys)
                         self.table_tags[table_id] = self.table_tags[table_id].union(tags_keys)
                         self.prom_client.reregister_flow_vars(
                             table_name, self.table_tags[table_id])
