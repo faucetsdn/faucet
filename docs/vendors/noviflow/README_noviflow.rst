@@ -44,7 +44,7 @@ Different FAUCET releases may also use different match fields in the other table
    set config table tableid 4 matchfields 5 6 12
    set config table tableid 5 matchfields 5 6 27
    set config table tableid 6 matchfields 3 5 10 23 29
-   set config table tableid 7 matchfields 0 3 6
+   set config table tableid 7 matchfields 3 6
    set config table tableid 8 matchfields 0 3 6
 
 Note that this table configuration will allow most of the automated test cases to pass, except FaucetIPv6TupleTest
