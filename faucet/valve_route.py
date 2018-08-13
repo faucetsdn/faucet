@@ -148,7 +148,7 @@ class ValveRouteManager:
         return vlans
 
     def _global_routing(self):
-        return self.routers and len(self.routers) == 1
+        return self.global_vlan.vid and self.routers and len(self.routers) == 1
 
     def _add_faucet_fib_to_vip(self, vlan, priority, faucet_vip, faucet_vip_host):
         learn_connected_priority = self.route_priority + faucet_vip.network.prefixlen

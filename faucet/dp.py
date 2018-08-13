@@ -181,7 +181,7 @@ configuration.
         # Experimental dot1x configuration.
         'table_sizes': {'port_acl': 1100, 'vlan': 100, 'vlan_acl': 50, 'eth_src': 400, 'ipv4_fib': 50, 'ipv6_fib': 50, 'vip': 20, 'eth_dst': 300, 'flood': 100},
         # Table sizes for TFM switches.
-        'global_vlan': 2**11-1,
+        'global_vlan': 0,
         # Reserved VID for internal global router VLAN.
         }
 
@@ -880,8 +880,9 @@ configuration.
             dp_by_name[dp.name] = dp
         for vlan in list(self.vlans.values()):
             vlan_by_name[vlan.name] = vlan
-            test_config_condition(
-                self.global_vlan == vlan.vid, 'VLAN %u is reserved by global_vlan' % vlan.vid)
+            if self.global_vlan:
+                test_config_condition(
+                    self.global_vlan == vlan.vid, 'VLAN %u is reserved by global_vlan' % vlan.vid)
 
         resolve_stack_dps()
         resolve_mirror_destinations()
