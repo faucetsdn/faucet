@@ -58,7 +58,7 @@ class ConfigWatcher:
 class ValvesManager:
     """Manage a collection of Valves."""
 
-    valves = {} # type: dict
+    valves = None # type: dict
 
     def __init__(self, logname, logger, metrics, notifier, bgp,
                  dot1x, send_flows_to_dp_by_id):
@@ -79,6 +79,7 @@ class ValvesManager:
         self.bgp = bgp
         self.dot1x = dot1x
         self.send_flows_to_dp_by_id = send_flows_to_dp_by_id
+        self.valves = {}
         self.config_watcher = ConfigWatcher()
 
     def parse_configs(self, new_config_file):
