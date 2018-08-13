@@ -194,8 +194,8 @@ class Valve:
                 self.dp.low_priority, self.dp.highest_priority)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
-        for _, table_config in table_configs:
-            self.logger.info(table_config)
+        for table_id, table_config in table_configs:
+            self.logger.info('table ID %u %s' % (table_id, table_config))
 
     def _notify(self, event_dict):
         """Send an event notification."""
@@ -1521,17 +1521,17 @@ class TfmValve(Valve):
 class OVSValve(Valve):
     """Valve implementation for OVS."""
 
-    USE_BARRIERS = True
+    USE_BARRIERS = False
 
 
 class ArubaValve(TfmValve):
-    """Valve implementation that uses OpenFlow send table features messages."""
+    """Valve implementation for Aruba."""
 
     DEC_TTL = False
 
 
 class CiscoC9KValve(TfmValve):
-    """Valve implementation that uses OpenFlow send table features messages."""
+    """Valve implementation for C9K."""
 
     pass
 
@@ -1543,6 +1543,7 @@ class AlliedTelesis(OVSValve):
 
 
 class NoviFlowValve(OVSValve):
+    """Valve implementation for NoviFlow with static pipeline."""
 
     STATIC_TABLE_IDS = True
 
@@ -1552,11 +1553,11 @@ SUPPORTED_HARDWARE = {
     'Aruba': ArubaValve,
     'CiscoC9K': CiscoC9KValve,
     'GenericTFM': TfmValve,
-    'Lagopus': Valve,
-    'Netronome': Valve,
-    'NoviFlow': Valve,
+    'Lagopus': OVSValve,
+    'Netronome': OVSValve,
+    'NoviFlow': NoviFlowValve,
     'Open vSwitch': OVSValve,
-    'ZodiacFX': Valve,
+    'ZodiacFX': OVSValve,
 }
 
 
