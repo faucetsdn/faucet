@@ -125,7 +125,7 @@ class Conf:
     def to_conf(self):
         """Return configuration as a dict."""
         result = {}
-        for key in self.defaults:
+        for key in self.defaults.keys():
             if key != 'name':
                 result[key] = self.__dict__[str(key)]
         return result
