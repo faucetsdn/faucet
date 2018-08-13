@@ -80,8 +80,8 @@ class FaucetTestBase(unittest2.TestCase):
     _IPV4_FIB_TABLE = 4
     _IPV6_FIB_TABLE = 5
     _VIP_TABLE = 6
-    _FLOOD_TABLE = 8
     _ETH_DST_TABLE = 7
+    _FLOOD_TABLE = 8
 
     config = None
     dpid = None

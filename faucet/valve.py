@@ -758,8 +758,8 @@ class Valve:
                 ofmsgs.extend(self.lacp_down(port))
 
             if port.override_output_port:
-                ofmsgs.append(self.dp.tables['eth_src'].flowmod(
-                    match=self.dp.tables['eth_src'].match(
+                ofmsgs.append(eth_src_table.flowmod(
+                    match=eth_src_table.match(
                         in_port=port_num),
                     priority=self.dp.low_priority + 1,
                     inst=[valve_of.apply_actions([
