@@ -37,6 +37,14 @@ class AnonVLAN:
 class NextHop:
     """Describes a directly connected (at layer 2) nexthop."""
 
+    __slots__ = [
+        'cache_time',
+        'eth_src',
+        'last_retry_time',
+        'resolve_retries',
+        'port',
+    ]
+
     def __init__(self, eth_src, port, now):
         self.eth_src = eth_src
         self.port = port
