@@ -72,21 +72,25 @@ class Valve:
     function switch_features.
     """
 
-
     __slots__ = [
         'base_prom_labels',
-        'recent_ofmsgs',
-        'logger',
-        'ofchannel_logger',
-        'host_manager',
+        'dp',
         'flood_manager',
-        '_last_pipeline_flows',
-        '_route_manager_by_ipv',
+        'host_manager',
+        'logger',
+        'logname',
+        'metrics',
+        'notifier',
+        'ofchannel_logger',
+        'recent_ofmsgs',
         '_last_advertise_sec',
-        '_port_highwater',
-        '_last_update_metrics_sec',
         '_last_packet_in_sec',
-        '_packet_in_count_sec'
+        '_last_pipeline_flows',
+        '_last_update_metrics_sec',
+        '_packet_in_count_sec',
+        '_port_highwater',
+        '_route_manager_by_eth_type',
+        '_route_manager_by_ipv',
     ]
 
     DEC_TTL = True
@@ -98,14 +102,15 @@ class Valve:
         self.logname = logname
         self.metrics = metrics
         self.notifier = notifier
-        self.recent_ofmsgs = deque(maxlen=32)
-        self._last_pipeline_flows = []
-        self._port_highwater = {}
-        self._last_packet_in_sec = 0
-        self._packet_in_count_sec = 0
-        self._last_update_metrics_sec = 0
         self.ofchannel_logger = None
         self.logger = None
+        self.recent_ofmsgs = deque(maxlen=32)
+        self._last_advertise_sec = 0
+        self._last_pipeline_flows = []
+        self._last_packet_in_sec = 0
+        self._last_update_metrics_sec = 0
+        self._packet_in_count_sec = 0
+        self._port_highwater = {}
         self.dp_init()
 
     def _port_labels(self, port):
