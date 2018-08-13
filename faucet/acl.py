@@ -93,6 +93,8 @@ The output action contains a dictionary with the following elements:
     }
 
     def __init__(self, _id, dp_id, conf):
+        self.rules = None
+        self.exact_match = None
         super(ACL, self).__init__(_id, dp_id, conf)
         rules = conf
         if isinstance(conf, dict):

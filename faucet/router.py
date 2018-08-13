@@ -22,8 +22,6 @@ from faucet.conf import Conf, test_config_condition
 class Router(Conf):
     """Implement FAUCET configuration for a router."""
 
-    vlans = None
-
     defaults = {
         'vlans': None,
     }
@@ -31,6 +29,10 @@ class Router(Conf):
     defaults_types = {
         'vlans': list,
     }
+
+    def __init__(self, _id, dp_id, conf):
+        self.vlans = None
+        super(Router, self).__init__(_id, dp_id, conf)
 
     def __str__(self):
         return self._id

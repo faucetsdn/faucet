@@ -119,7 +119,8 @@ class Conf:
             self.__dict__[key] = value
 
     def _set_default(self, key, value):
-        if key not in self.__dict__ or self.__dict__[key] is None:
+        assert key in self.__dict__, key
+        if self.__dict__[key] is None:
             self.__dict__[key] = value
 
     def to_conf(self):

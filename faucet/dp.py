@@ -50,56 +50,6 @@ configuration.
 """
 
     mutable_attrs = frozenset(['stack', 'vlans'])
-    acls = None
-    vlans = None
-    interfaces = None # config
-    interface_ranges = None
-    ports = None
-    routers = None
-    name = None
-    dp_id = None
-    cookie = None
-    configured = False
-    priority_offset = None
-    low_priority = None
-    high_priority = None
-    stack = None
-    stack_ports = None
-    output_only_ports = None
-    ignore_learn_ins = None
-    drop_broadcast_source_address = None
-    drop_spoofed_faucet_mac = None
-    groups = None
-    group_table = False
-    group_table_routing = False
-    max_hosts_per_resolve_cycle = None
-    max_host_fib_retry_count = None
-    max_resolve_backoff_time = None
-    packetin_pps = None
-    learn_jitter = None
-    learn_ban_timeout = None
-    advertise_interval = None
-    proactive_learn_v4 = None
-    proactive_learn_v6 = None
-    use_idle_timeout = None
-    tables = None # type: dict
-    meters = None # type: dict
-    timeout = None
-    arp_neighbor_timeout = None
-    lldp_beacon = None # type: dict
-    metrics_rate_limit_sec = None
-    faucet_dp_mac = None
-    combinatorial_port_flood = None
-    lacp_timeout = None
-    dp_acls = None
-    dot1x = None
-    table_sizes = None # type: dict
-    global_vlan = None
-    hardware = None
-
-    dyn_running = False
-    dyn_last_coldstart_time = None
-    dyn_up_ports = None # type: ignore
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -260,6 +210,66 @@ configuration.
 
     def __init__(self, _id, dp_id, conf):
         """Constructs a new DP object"""
+        self.acls = None
+        self.acls_in = None
+        self.advertise_interval = None
+        self.arp_neighbor_timeout = None
+        self.bgp_local_address = None
+        self.bgp_neighbor_as = None
+        self.bgp_routerid = None
+        self.combinatorial_port_flood = None
+        self.configured = False
+        self.cookie = None
+        self.description = None
+        self.dot1x = None
+        self.dp_acls = None
+        self.dp_id = None
+        self.drop_broadcast_source_address = None
+        self.drop_spoofed_faucet_mac = None
+        self.dyn_last_coldstart_time = None
+        self.dyn_running = False
+        self.dyn_up_ports = None
+        self.faucet_dp_mac = None
+        self.global_vlan = None
+        self.groups = None
+        self.group_table = False
+        self.group_table_routing = False
+        self.hardware = None
+        self.high_priority = None
+        self.highest_priority = None
+        self.ignore_learn_ins = None
+        self.interface_ranges = None
+        self.interfaces = None
+        self.lacp_timeout = None
+        self.learn_ban_timeout = None
+        self.learn_jitter = None
+        self.lldp_beacon = None
+        self.low_priority = None
+        self.lowest_priority = None
+        self.max_host_fib_retry_count = None
+        self.max_hosts_per_resolve_cycle = None
+        self.max_resolve_backoff_time = None
+        self.meters = None
+        self.metrics_rate_limit_sec = None
+        self.name = None
+        self.ofchannel_log = None
+        self.output_only_ports = None
+        self.packetin_pps = None
+        self.ports = None
+        self.priority_offset = None
+        self.proactive_learn_v4 = None
+        self.proactive_learn_v6 = None
+        self.proactive_nd_limit = None
+        self.routers = None
+        self.stack = None
+        self.stack_ports = None
+        self.table_sizes = None
+        self.tables = None
+        self.timeout = None
+        self.unicast_flood = None
+        self.use_idle_timeout = None
+        self.vlans = None
+
         self.acls = {}
         self.vlans = {}
         self.ports = {}

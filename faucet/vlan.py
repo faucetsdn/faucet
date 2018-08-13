@@ -82,41 +82,6 @@ class VLAN(Conf):
 # separate vlan object created for each datapath that the vlan appears on
 
     mutable_attrs = frozenset(['tagged', 'untagged'])
-    name = None
-    dp_id = None
-    tagged = None
-    untagged = None
-    vid = None
-    faucet_vips = None
-    faucet_mac = None
-    bgp_as = None
-    bgp_connect_mode = None
-    bgp_local_address = None
-    bgp_server_addresses = None # type: list
-    bgp_port = None
-    bgp_routerid = None
-    bgp_neighbor_addresses = None # type: list
-    bgp_neighbour_addresses = None # type: list
-    bgp_neighbor_as = None
-    bgp_neighbour_as = None
-    routes = None
-    max_hosts = None
-    unicast_flood = None
-    acl_in = None
-    acls_in = None
-    targeted_gw_resolution = None
-    proactive_arp_limit = None
-    proactive_nd_limit = None
-    # Define dynamic variables with prefix dyn_ to distinguish from variables set
-    # configuration
-    dyn_host_cache = None
-    dyn_host_cache_by_port = None
-    dyn_routes_by_ipv = None
-    dyn_gws_by_ipv = None
-    dyn_neigh_cache_by_ipv = None
-    dyn_learn_ban_count = 0
-    dyn_last_time_hosts_expired = None
-    dyn_oldest_host_time = None
 
     defaults = {
         'name': None,
@@ -179,6 +144,44 @@ class VLAN(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
+        self.acl_in = None
+        self.acls_in = None
+        self.bgp_as = None
+        self.bgp_connect_mode = None
+        self.bgp_local_address = None
+        self.bgp_neighbor_addresses = None
+        self.bgp_neighbor_as = None
+        self.bgp_neighbour_addresses = None
+        self.bgp_neighbour_as = None
+        self.bgp_port = None
+        self.bgp_routerid = None
+        self.bgp_server_addresses = None
+        self.description = None
+        self.dp_id = None
+        self.faucet_mac = None
+        self.faucet_vips = None
+        self.max_hosts = None
+        self.minimum_ip_size_check = None
+        self.name = None
+        self.proactive_arp_limit = None
+        self.proactive_nd_limit = None
+        self.routes = None
+        self.tagged = None
+        self.targeted_gw_resolution = None
+        self.unicast_flood = None
+        self.untagged = None
+        self.vid = None
+
+        self.dyn_gws_by_ipv = None
+        self.dyn_host_cache = None
+        self.dyn_host_cache_by_port = None
+        self.dyn_last_time_hosts_expired = None
+        self.dyn_learn_ban_count = 0
+        self.dyn_neigh_cache_by_ipv = None
+        self.dyn_oldest_host_time = None
+        self.dyn_routes_by_ipv = None
+
+        self.acls = {}
         self.tagged = []
         self.untagged = []
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
