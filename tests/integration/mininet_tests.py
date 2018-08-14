@@ -4000,7 +4000,8 @@ vlans:
                     'ip link add link %s name %s type vlan id %u' % (
                         host.intf_root_name, vlan_int, vid),
                     'ip link set dev %s up' % vlan_int,
-                    'ip address add %s/24 brd + dev %s' % (ipa, vlan_int)])
+                    'ip address add %s/24 brd + dev %s' % (ipa, vlan_int),
+                    'ping -c1 -i0.1 -I%s %s > /dev/null' % (vlan_int, ipg)])
                 for j, _ in enumerate(hosts, start=1):
                     if j != i:
                         other_ip = '192.168.%u.%u/32' % (vid, j)
