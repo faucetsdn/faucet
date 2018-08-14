@@ -1,13 +1,14 @@
-"""Parse JSON for TFM based table config."""
+"""Configure switch tables with TFM messages."""
 
 from faucet import valve_of
 
 
 class LoadRyuTables:
-    """Serialize table features messages from JSON."""
+    """Configure switch tables with TFM messages."""
 
     @staticmethod
     def load_tables(dp, valve_cl): # pylint: disable=invalid-name
+        """Configure switch tables with TFM messages."""
         table_array = []
         active_table_ids = sorted([valve_table.table_id for valve_table in dp.tables.values()])
         for table_id in active_table_ids:

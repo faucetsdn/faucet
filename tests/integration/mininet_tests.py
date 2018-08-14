@@ -4009,6 +4009,12 @@ vlans:
                             'ip -4 route add %s via %s' % (other_ip, ipg))
             self.quiet_commands(host, setup_commands)
         host, other_host = hosts
+        host_ip = ipaddress.ip_address(unicode(host.IP())) # pytype: disable=name-error
+        other_host_ip = ipaddress.ip_address(unicode(other_host.IP())) # pytype: disable=name-error
+        self.verify_iperf_min(
+            ((host, self.port_map['port_1']),
+             (other_host, self.port_map['port_2'])),
+            1, host_ip, other_host_ip)
         for vid in self.NEW_VIDS:
             other_ip = '192.168.%u.%u' % (vid, 2)
             vlan_int = '%s.%u' % (host.intf_root_name, vid)
@@ -5532,7 +5538,7 @@ class FaucetStringOfDPTest(FaucetTest):
         for dpid in self.dpids:
             i += 1
             labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': 'faucet-%u' % i}
-            self.assertEquals(
+            self.assertEqual(
                 0, self.scrape_prometheus_var(var='stack_cabling_errors', labels=labels, default=0))
             self.assertGreater(
                 self.scrape_prometheus_var(var='stack_probes_received', labels=labels), 0)
