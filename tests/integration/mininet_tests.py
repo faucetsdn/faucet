@@ -4008,13 +4008,21 @@ vlans:
                         setup_commands.append(
                             'ip -4 route add %s via %s' % (other_ip, ipg))
             self.quiet_commands(host, setup_commands)
+
+        # Verify switching performance
         host, other_host = hosts
-        host_ip = ipaddress.ip_address(unicode(host.IP())) # pytype: disable=name-error
-        other_host_ip = ipaddress.ip_address(unicode(other_host.IP())) # pytype: disable=name-error
-        self.verify_iperf_min(
-            ((host, self.port_map['port_1']),
-             (other_host, self.port_map['port_2'])),
-            1, host_ip, other_host_ip)
+        for ip_pair in (
+                (host.IP(), other_host.IP()), # non-routed
+                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[0])): # non-routed
+            host_ip_str, other_ip_str = ip_pair
+            host_ip = ipaddress.ip_address(unicode(host_ip_str))
+            other_ip = ipaddress.ip_address(unicode(other_ip_str))
+            self.verify_iperf_min(
+                ((host, self.port_map['port_1']),
+                 (other_host, self.port_map['port_2'])),
+                1, host_ip, other_ip)
+
+        # Verify routed connectivity
         for vid in self.NEW_VIDS:
             other_ip = '192.168.%u.%u' % (vid, 2)
             vlan_int = '%s.%u' % (host.intf_root_name, vid)
