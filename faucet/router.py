@@ -48,7 +48,9 @@ class Router(Conf):
     def vip_map(self, ipa):
         """Return VIP for IP address, if any."""
         if ipa.version in self.vip_map_by_ipv:
-            return self.vip_map_by_ipv[ipa.version].get(ipa)
+            result = self.vip_map_by_ipv[ipa.version].get(ipa)
+            if result:
+                return result
         return (None, None)
 
     def finalize(self):
