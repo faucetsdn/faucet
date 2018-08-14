@@ -21,6 +21,7 @@ import ipaddress
 import random
 
 import netaddr
+import pytricia
 
 from faucet import valve_of
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
@@ -144,6 +145,7 @@ class VLAN(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
+        self.vip_map = None
         self.acl_in = None
         self.acls_in = None
         self.bgp_as = None
@@ -510,19 +512,17 @@ class VLAN(Conf):
 
     def is_faucet_vip(self, ipa):
         """Return True if IP is a VIP on this VLAN."""
-        for faucet_vip in self.faucet_vips_by_ipv(ipa.version):
-            if ipa == faucet_vip.ip:
-                return True
-        return False
+        faucet_vip = self.vip_map.get(ipa)
+        return faucet_vip and ipa == faucet_vip.ip
 
     def ip_in_vip_subnet(self, ipa):
         """Return faucet_vip if IP in same IP network as a VIP on this VLAN."""
-        for faucet_vip in self.faucet_vips_by_ipv(ipa.version):
-            if ipa in faucet_vip.network:
-                if ipa not in (
-                        faucet_vip.network.network_address,
-                        faucet_vip.network.broadcast_address):
-                    return faucet_vip
+        faucet_vip = self.vip_map.get(ipa)
+        if faucet_vip:
+            if ipa not in (
+                    faucet_vip.network.network_address,
+                    faucet_vip.network.broadcast_address):
+                return faucet_vip
         return None
 
     def from_connected_to_vip(self, src_ip, dst_ip):
@@ -554,3 +554,9 @@ class VLAN(Conf):
             if 'bgp_neighbor_addresses' in result:
                 del result['bgp_neighbor_addresses']
         return result
+
+    def finalize(self):
+        self.vip_map = pytricia.PyTricia(128)
+        for faucet_vip in self.faucet_vips:
+            self.vip_map[faucet_vip.network] = faucet_vip
+        super(VLAN, self).finalize()
