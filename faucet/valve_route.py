@@ -176,9 +176,10 @@ class ValveRouteManager:
 
     def _routed_vlans(self, vlan):
         vlans = set([vlan])
-        router = self._router_for_vlan(vlan)
-        if router:
-            return router.vlans
+        if self.routers:
+            for router in list(self.routers.values()):
+                if vlan in router.vlans:
+                    vlans = vlans.union(router.vlans)
         return vlans
 
     def _global_routing(self):
@@ -749,15 +750,14 @@ class ValveIPv4RouteManager(ValveRouteManager):
         ofmsgs = []
         if not pkt_meta.packet_complete():
             return ofmsgs
-
+        if ipv4_pkt.proto != valve_of.inet.IPPROTO_ICMP:
+            return ofmsgs
+        vlan = pkt_meta.vlan
+        if pkt_meta.eth_dst != vlan.faucet_mac:
+            return ofmsgs
         src_ip = pkt_meta.l3_src
         dst_ip = pkt_meta.l3_dst
-        vlan = pkt_meta.vlan
         if vlan.from_connected_to_vip(src_ip, dst_ip):
-            if pkt_meta.eth_dst != vlan.faucet_mac:
-                return ofmsgs
-            if ipv4_pkt.proto != valve_of.inet.IPPROTO_ICMP:
-                return ofmsgs
             pkt_meta.reparse_all()
             icmp_pkt = pkt_meta.pkt.get_protocol(icmp.icmp)
             if icmp_pkt is None:
@@ -773,15 +773,14 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def control_plane_handler(self, now, pkt_meta):
         ipv4_pkt = pkt_meta.pkt.get_protocol(ipv4.ipv4)
-        if ipv4_pkt is None:
-            return self._control_plane_arp_handler(now, pkt_meta)
-        icmp_replies = self._control_plane_icmp_handler(
-            pkt_meta, ipv4_pkt)
-        if icmp_replies:
-            return icmp_replies
-        dst_ip = pkt_meta.l3_dst
-        vlan = pkt_meta.vlan
-        return self._proactive_resolve_neighbor(now, vlan, dst_ip)
+        if ipv4_pkt is not None:
+            icmp_replies = self._control_plane_icmp_handler(
+                pkt_meta, ipv4_pkt)
+            if icmp_replies:
+                return icmp_replies
+            return self._proactive_resolve_neighbor(
+                now, pkt_meta.vlan, pkt_meta.l3_dst)
+        return self._control_plane_arp_handler(now, pkt_meta)
 
 
 class ValveIPv6RouteManager(ValveRouteManager):
@@ -991,8 +990,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 now, pkt_meta, ipv6_pkt)
             if icmp_replies:
                 return icmp_replies
-            dst_ip = pkt_meta.l3_dst
-            return self._proactive_resolve_neighbor(now, pkt_meta.vlan, dst_ip)
+            return self._proactive_resolve_neighbor(
+                now, pkt_meta.vlan, dst_ip, pkt_meta.l3_dst)
         return []
 
     def _link_and_other_vips(self, vlan):
