@@ -1251,16 +1251,17 @@ class Valve:
         if ban_rules:
             return ban_rules
 
-        if pkt_meta.eth_type in self._route_manager_by_eth_type:
-            route_manager = self._route_manager_by_eth_type[pkt_meta.eth_type]
-            if route_manager.active:
-                pkt_meta.reparse_ip()
-                if pkt_meta.l3_pkt:
-                    control_plane_ofmsgs = self._control_plane_handler(now, pkt_meta, route_manager)
-                    if control_plane_ofmsgs:
-                        ofmsgs.extend(control_plane_ofmsgs)
-                    else:
-                        ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
+        if pkt_meta.vlan.faucet_vips:
+            if pkt_meta.eth_type in self._route_manager_by_eth_type:
+                route_manager = self._route_manager_by_eth_type[pkt_meta.eth_type]
+                if route_manager.active:
+                    pkt_meta.reparse_ip()
+                    if pkt_meta.l3_pkt:
+                        control_plane_ofmsgs = self._control_plane_handler(now, pkt_meta, route_manager)
+                        if control_plane_ofmsgs:
+                            ofmsgs.extend(control_plane_ofmsgs)
+                        else:
+                            ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
 
         ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
         return ofmsgs
