@@ -714,13 +714,18 @@ class ValveIPv4RouteManager(ValveRouteManager):
         ofmsgs = []
         if not pkt_meta.packet_complete():
             return ofmsgs
+        if not pkt_meta.eth_type == valve_of.ether.ETH_TYPE_ARP:
+            return ofmsgs
+        vlan = pkt_meta.vlan
+        if pkt_meta.eth_dst not in (
+                valve_of.mac.BROADCAST_STR, vlan.faucet_mac):
+            return ofmsgs
         pkt_meta.reparse_ip()
         arp_pkt = pkt_meta.pkt.get_protocol(arp.arp)
         if arp_pkt is None:
             return ofmsgs
         src_ip = ipaddress.IPv4Address(btos(arp_pkt.src_ip))
         dst_ip = ipaddress.IPv4Address(btos(arp_pkt.dst_ip))
-        vlan = pkt_meta.vlan
         if vlan.from_connected_to_vip(src_ip, dst_ip):
             opcode = arp_pkt.opcode
             port = pkt_meta.port

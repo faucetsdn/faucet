@@ -638,6 +638,21 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
 class PacketMeta:
     """Original, and parsed Ethernet packet metadata."""
 
+    __slots__ = [
+        'data',
+        'orig_len',
+        'pkt',
+        'eth_pkt',
+        'port',
+        'vlan',
+        'eth_src',
+        'eth_dst',
+        'eth_type',
+        'l3_pkt',
+        'l3_src',
+        'l3_dst',
+    ]
+
     ETH_TYPES_PARSERS = {
         valve_of.ether.ETH_TYPE_IP: (4, ipv4_parseable, ipv4.ipv4),
         valve_of.ether.ETH_TYPE_ARP: (None, None, arp.arp),
