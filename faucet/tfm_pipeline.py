@@ -7,7 +7,7 @@ class LoadRyuTables:
     """Serialize table features messages from JSON."""
 
     @staticmethod
-    def load_tables(dp): # pylint: disable=invalid-name
+    def load_tables(dp, valve_cl): # pylint: disable=invalid-name
         table_array = []
         active_table_ids = sorted([valve_table.table_id for valve_table in dp.tables.values()])
         for table_id in active_table_ids:
@@ -54,6 +54,8 @@ class LoadRyuTables:
                 valve_of.parser.OFPTableFeaturePropInstructions(
                     type_=valve_of.ofp.OFPTFPT_INSTRUCTIONS, instruction_ids=inst_ids))
             apply_actions = set()
+            if valve_table.table_config.dec_ttl and valve_cl.DEC_TTL:
+                apply_actions.add(valve_of.ofp.OFPAT_DEC_NW_TTL)
             # Set fields and apply actions
             if valve_table.set_fields:
                 apply_actions.add(valve_of.ofp.OFPAT_SET_FIELD)

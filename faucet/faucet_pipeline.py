@@ -21,7 +21,7 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
     """Configuration for a single table."""
 
     def __init__(self, name, exact_match=None, meter=None, output=True, # pylint: disable=too-many-arguments
-                 miss_goto=None, size=None, match_types=None, set_fields=None):
+                 miss_goto=None, size=None, match_types=None, set_fields=None, dec_ttl=None):
         self.name = name
         self.exact_match = exact_match
         self.meter = meter
@@ -30,6 +30,7 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
         self.size = size
         self.match_types = match_types
         self.set_fields = set_fields
+        self.dec_ttl = dec_ttl
 
     def __str__(self):
         field_strs = ' '.join([
@@ -53,7 +54,8 @@ def _fib_table(ipv):
     return ValveTableConfig(
         'ipv%u_fib' % ipv,
         match_types=(('eth_type', False), ('ipv%u_dst' % ipv, True), ('vlan_vid', False)),
-        set_fields=('eth_dst', 'eth_src', 'vlan_vid'))
+        set_fields=('eth_dst', 'eth_src', 'vlan_vid'),
+        dec_ttl=True)
 
 
 # TODO: implement an eth_type table before VLAN. This would enable interception
