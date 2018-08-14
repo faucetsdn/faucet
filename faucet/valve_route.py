@@ -490,7 +490,7 @@ class ValveRouteManager:
                 faucet_vip = vlan.vip_map(dst_ip)
             else:
                 vlan, faucet_vip = router.vip_map(dst_ip)
-            if vlan and faucet_vip.ip != dst_ip:
+            if vlan and faucet_vip and faucet_vip.ip != dst_ip:
                 limit = self._vlan_nexthop_cache_limit(vlan)
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
                     resolution_in_progress = self._is_host_fib_route(vlan, dst_ip)
