@@ -93,6 +93,8 @@ The output action contains a dictionary with the following elements:
     }
 
     def __init__(self, _id, dp_id, conf):
+        self.rules = None
+        self.exact_match = None
         super(ACL, self).__init__(_id, dp_id, conf)
         rules = conf
         if isinstance(conf, dict):
@@ -102,24 +104,24 @@ The output action contains a dictionary with the following elements:
             rules = conf['rules']
         self.rules = []
         test_config_condition(not isinstance(rules, list), (
-            "ACL rules is %s not %s" % (type(rules), dict)))
+            'ACL rules is %s not %s' % (type(rules), dict)))
         for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
             for match in list(match_fields.keys()):
                 self.rule_types[match] = (str, int)
         for rule in rules:
             test_config_condition(not isinstance(rule, dict), (
-                "ACL rule is %s not %s" % (type(rule), dict)))
+                'ACL rule is %s not %s' % (type(rule), dict)))
             for rule_key, rule_content in list(rule.items()):
-                test_config_condition(rule_key != 'rule', "Incorrect ACL rule key")
+                test_config_condition(rule_key != 'rule', 'Incorrect ACL rule key')
                 test_config_condition(not isinstance(rule_content, dict), (
-                    "ACL rule content is %s not %s") % (type(rule_content), dict))
+                    'ACL rule content is %s not %s') % (type(rule_content), dict))
                 self._check_conf_types(rule_content, self.rule_types)
                 for rule_field, rule_conf in list(rule_content.items()):
                     if rule_field == 'cookie':
                         test_config_condition(rule_conf < 0 or rule_conf > 2**16, (
                             'rule cookie value must be 0-2**16'))
                     elif rule_field == 'actions':
-                        test_config_condition(not rule_conf, "Missing rule actions in ACL %s" % _id)
+                        test_config_condition(not rule_conf, 'Missing rule actions in ACL %s' % _id)
                         self._check_conf_types(rule_conf, self.actions_types)
                         for action_name, action_conf in list(rule_conf.items()):
                             if action_name == 'output':

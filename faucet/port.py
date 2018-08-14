@@ -28,39 +28,6 @@ STACK_STATE_UP = 3
 class Port(Conf):
     """Stores state for ports, including the configuration."""
 
-    name = None
-    number = None
-    dp_id = None
-    description = None
-    enabled = None
-    permanent_learn = None
-    unicast_flood = None
-    mirror = None
-    native_vlan = None
-    tagged_vlans = None # type: list
-    acl_in = None
-    acls_in = None
-    stack = None # type: dict
-    max_hosts = None
-    hairpin = None
-    loop_protect = None
-    output_only = None
-    lldp_beacon = None # type: dict
-    op_status_reconf = None
-    receive_lldp = None
-    override_output_port = None
-    max_lldp_lost = None
-
-    dyn_learn_ban_count = 0
-    dyn_phys_up = False
-    dyn_last_lacp_pkt = None
-    dyn_lacp_up = None
-    dyn_lacp_updated_time = None
-    dyn_last_ban_time = None
-    dyn_last_lldp_beacon_time = None
-    dyn_stack_current_state = STACK_STATE_DOWN
-    dyn_stack_probe_info = None # type: dict
-
     defaults = {
         'number': None,
         'name': None,
@@ -149,8 +116,42 @@ class Port(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
+        self.acl_in = None
+        self.acls_in = None
+        self.description = None
+        self.dot1x = None
+        self.dp_id = None
+        self.enabled = None
+        self.hairpin = None
+        self.lacp = None
+        self.loop_protect = None
+        self.max_hosts = None
+        self.max_lldp_lost = None
+        self.mirror = None
+        self.name = None
+        self.native_vlan = None
+        self.number = None
+        self.op_status_reconf = None
+        self.opstatus_reconf = None
+        self.output_only = None
+        self.override_output_port = None
+        self.permanent_learn = None
+        self.receive_lldp = None
+        self.stack = None
+        self.unicast_flood = None
+
+        self.dyn_lacp_up = None
+        self.dyn_lacp_updated_time = None
+        self.dyn_last_ban_time = None
+        self.dyn_last_lacp_pkt = None
+        self.dyn_last_lldp_beacon_time = None
+        self.dyn_learn_ban_count = 0
         self.dyn_phys_up = False
+        self.dyn_phys_up = False
+        self.dyn_stack_current_state = STACK_STATE_DOWN
+        self.dyn_stack_probe_info = None
         self.dyn_stack_probe_info = {}
+
         self.tagged_vlans = []
         self.lldp_beacon = {}
         super(Port, self).__init__(_id, dp_id, conf)
