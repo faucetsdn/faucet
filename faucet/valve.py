@@ -915,9 +915,11 @@ class Valve:
                 pkt_meta.port.dyn_lacp_up = lacp_pkt.actor_state_synchronization
                 pkt_meta.port.dyn_lacp_updated_time = now
                 if last_lacp_up != pkt_meta.port.dyn_lacp_up:
-                    self.logger.info('remote LACP state change from %s to %s on %s to %s LAG %u' % (
-                        last_lacp_up, pkt_meta.port.dyn_lacp_up, pkt_meta.port,
-                        lacp_pkt.actor_system, pkt_meta.port.lacp))
+                    self.logger.info(
+                        'remote LACP state change from %s to %s from %s LAG %u (%s)' % (
+                            last_lacp_up, pkt_meta.port.dyn_lacp_up,
+                            lacp_pkt.actor_system, pkt_meta.port.lacp,
+                            pkt_meta.log()))
                     if pkt_meta.port.dyn_lacp_up:
                         ofmsgs.extend(self.lacp_up(pkt_meta.port))
                 pkt = valve_packet.lacp_reqreply(
@@ -989,12 +991,12 @@ class Valve:
 
         if remote_dp_id and remote_port_id:
             self.logger.info('FAUCET LLDP from %s (remote %s, port %u)' % (
-                pkt_meta.port, valve_util.dpid_log(remote_dp_id), remote_port_id))
+                pkt_meta.log(), valve_util.dpid_log(remote_dp_id), remote_port_id))
             self._verify_stack_lldp(
                 port, now, other_valves,
                 remote_dp_id, remote_dp_name,
                 remote_port_id, remote_port_state)
-        self.logger.debug('LLDP from %s: %s' % (pkt_meta.port, str(lldp_pkt)))
+        self.logger.debug('LLDP from %s: %s' % (pkt_meta.log(), str(lldp_pkt)))
 
     @staticmethod
     def _control_plane_handler(now, pkt_meta, route_manager):
@@ -1050,11 +1052,8 @@ class Valve:
                     if pkt_meta.port.number != previous_port_no:
                         port_move_text = ', moved from port %u' % previous_port_no
                 self.logger.info(
-                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) '
-                    'on %s%s on VLAN %u (%u hosts total)' % (
-                        pkt_meta.eth_src, pkt_meta.eth_type,
-                        pkt_meta.l3_src, pkt_meta.l3_dst, pkt_meta.port, port_move_text,
-                        pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
+                    'L2 learned %s %s (%u hosts total)' % (
+                        pkt_meta.log(), port_move_text, pkt_meta.vlan.hosts_count()))
                 self._notify(
                     {'L2_LEARN': {
                         'port_no': pkt_meta.port.number,
@@ -1252,16 +1251,18 @@ class Valve:
             return ban_rules
 
         if pkt_meta.vlan.faucet_vips:
-            if pkt_meta.eth_type in self._route_manager_by_eth_type:
-                route_manager = self._route_manager_by_eth_type[pkt_meta.eth_type]
-                if route_manager.active:
-                    pkt_meta.reparse_ip()
-                    if pkt_meta.l3_pkt:
-                        control_plane_ofmsgs = self._control_plane_handler(now, pkt_meta, route_manager)
-                        if control_plane_ofmsgs:
-                            ofmsgs.extend(control_plane_ofmsgs)
-                        else:
-                            ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
+            route_manager = self._route_manager_by_eth_type.get(
+                pkt_meta.eth_type, None)
+            if route_manager and route_manager.active:
+                pkt_meta.reparse_ip()
+                if pkt_meta.l3_pkt:
+                    control_plane_ofmsgs = self._control_plane_handler(
+                        now, pkt_meta, route_manager)
+                    if control_plane_ofmsgs:
+                        ofmsgs.extend(control_plane_ofmsgs)
+                    else:
+                        ofmsgs.extend(
+                            route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
 
         ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
         return ofmsgs
@@ -1531,7 +1532,7 @@ class TfmValve(Valve):
     def _pipeline_flows(self):
         ryu_table_loader = tfm_pipeline.LoadRyuTables()
         return [valve_of.table_features(
-            ryu_table_loader.load_tables(self.dp))]
+            ryu_table_loader.load_tables(self.dp, self))]
 
     def _add_default_flows(self):
         ofmsgs = self._pipeline_flows()

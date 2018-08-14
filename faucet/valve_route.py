@@ -729,15 +729,15 @@ class ValveIPv4RouteManager(ValveRouteManager):
                         valve_packet.arp_reply, port,
                         vlan.faucet_mac, eth_src, dst_ip, src_ip))
                 self.logger.info(
-                    'Responded to ARP request for %s from %s (%s) on VLAN %u' % (
-                        dst_ip, src_ip, eth_src, vlan.vid))
+                    'Responded to ARP request for %s from %s' % (
+                        dst_ip, pkt_meta.log()))
             elif (opcode == arp.ARP_REPLY and
                   pkt_meta.eth_dst == vlan.faucet_mac):
                 ofmsgs.extend(
                     self._update_nexthop(now, vlan, port, eth_src, src_ip))
                 self.logger.info(
-                    'ARP response %s (%s) on VLAN %u' % (
-                        src_ip, eth_src, vlan.vid))
+                    'Received ARP response %s from %s' % (
+                        src_ip, pkt_meta.log()))
         return ofmsgs
 
     def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt):
@@ -886,8 +886,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     vlan.faucet_mac, pkt_meta.eth_src,
                     solicited_ip, src_ip))
             self.logger.info(
-                'Responded to ND solicit for %s to %s (%s) on VLAN %u' % (
-                    solicited_ip, src_ip, pkt_meta.eth_src, vlan.vid))
+                'Responded to ND solicit for %s from %s' % (
+                    solicited_ip, pkt_meta.log()))
         return ofmsgs
 
     def _nd_advert_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, _src_ip, _dst_ip):
@@ -899,8 +899,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 ofmsgs.extend(self._update_nexthop(
                     now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
             self.logger.info(
-                'Received ND advert for %s (%s) on VLAN %u %s' % (
-                    target_ip, pkt_meta.eth_src, vlan.vid, pkt_meta.port))
+                'Received ND advert for %s from %s' % (
+                    target_ip, pkt_meta.log()))
         return ofmsgs
 
     def _router_solicit_handler(self, now, pkt_meta, _ipv6_pkt, _icmpv6_pkt, src_ip, _dst_ip):
@@ -920,8 +920,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                         vlan.faucet_mac, pkt_meta.eth_src,
                         vip.ip, src_ip, other_vips))
                 self.logger.info(
-                    'Responded to RS solicit from %s (%s) to VIP %s on VLAN %u' % (
-                        src_ip, pkt_meta. eth_src, vip, vlan.vid))
+                    'Responded to RS solicit from %s (%s)' % (
+                        src_ip, pkt_meta.log()))
                 break
         return ofmsgs
 
