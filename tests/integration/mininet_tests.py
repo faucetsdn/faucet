@@ -5678,6 +5678,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
     NUM_HOSTS = 2
+    SOFTWARE_ONLY = True
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStackRingOfDPTest, self).setUp()

@@ -69,6 +69,7 @@ class FaucetTestBase(unittest2.TestCase):
     EXTENDED_CLS = None
     NUM_DPS = 1
     LINKS_PER_HOST = 1
+    SOFTWARE_ONLY = False
 
     RUN_GAUGE = True
     REQUIRES_METERS = False

@@ -328,6 +328,8 @@ def filter_test_hardware(test_obj, hw_config):
     test_links = test_hosts * test_obj.LINKS_PER_HOST
     if hw_config is not None:
         test_hardware = hw_config['hardware']
+        if test_obj.SOFTWARE_ONLY:
+            return False
         if test_obj.NUM_DPS > 1:
             # TODO: test other stacking combinations.
             if test_obj.NUM_HOSTS > 2:
