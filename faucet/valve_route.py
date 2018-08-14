@@ -167,13 +167,18 @@ class ValveRouteManager:
         prefixlen = ipaddress.ip_network(ip_dst).prefixlen
         return self.route_priority + prefixlen
 
-    def _routed_vlans(self, vlan):
-        vlans = set([vlan])
+    def _router_for_vlan(self, vlan):
         if self.routers:
             for router in list(self.routers.values()):
                 if vlan in router.vlans:
-                    vlans = router.vlans
-                    break
+                    return router
+        return None
+
+    def _routed_vlans(self, vlan):
+        vlans = set([vlan])
+        router = self._router_for_vlan(vlan)
+        if router:
+            return router.vlans
         return vlans
 
     def _global_routing(self):
@@ -481,28 +486,24 @@ class ValveRouteManager:
     def _vlan_nexthop_cache_limit(self, vlan):
         raise NotImplementedError # pragma: no cover
 
-    def _proactive_resolve_neighbor(self, now, vlans, dst_ip):
+    def _proactive_resolve_neighbor(self, now, vlan, dst_ip):
         ofmsgs = []
         if self.proactive_learn:
-            faucet_vip_vlans = [
-                vlan for vlan in vlans if vlan.is_faucet_vip(dst_ip)]
-            if not faucet_vip_vlans:
-                faucet_vips = [
-                    (vlan, vlan.ip_in_vip_subnet(dst_ip))
-                    for vlan in vlans if vlan.ip_in_vip_subnet(dst_ip)]
-                if faucet_vips:
-                    vlan, faucet_vip = faucet_vips[0]
-                    limit = self._vlan_nexthop_cache_limit(vlan)
-                    if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
-                        resolution_in_progress = self._is_host_fib_route(vlan, dst_ip)
-                        ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
-                        nexthop_cache_entry = self._update_nexthop_cache(
-                            now, vlan, None, None, dst_ip)
-                        if not resolution_in_progress:
-                            resolve_flows = self._resolve_gateway_flows(
-                                dst_ip, nexthop_cache_entry, vlan, faucet_vip,
-                                nexthop_cache_entry.cache_time)
-                            ofmsgs.extend(resolve_flows)
+            router = self._router_for_vlan(vlan)
+            if router is not None:
+                vlan, faucet_vip = router.vip_map.get(dst_ip)
+            if vlan and faucet_vip.ip != dst_ip:
+                limit = self._vlan_nexthop_cache_limit(vlan)
+                if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
+                    resolution_in_progress = self._is_host_fib_route(vlan, dst_ip)
+                    ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
+                    nexthop_cache_entry = self._update_nexthop_cache(
+                        now, vlan, None, None, dst_ip)
+                    if not resolution_in_progress:
+                        resolve_flows = self._resolve_gateway_flows(
+                            dst_ip, nexthop_cache_entry, vlan, faucet_vip,
+                            nexthop_cache_entry.cache_time)
+                        ofmsgs.extend(resolve_flows)
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
@@ -778,8 +779,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
             return icmp_replies
         dst_ip = pkt_meta.l3_dst
         vlan = pkt_meta.vlan
-        return self._proactive_resolve_neighbor(
-            now, self._routed_vlans(vlan), dst_ip)
+        return self._proactive_resolve_neighbor(now, vlan, dst_ip)
 
 
 class ValveIPv6RouteManager(ValveRouteManager):
@@ -990,8 +990,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             if icmp_replies:
                 return icmp_replies
             dst_ip = pkt_meta.l3_dst
-            return self._proactive_resolve_neighbor(
-                now, self._routed_vlans(pkt_meta.vlan), dst_ip)
+            return self._proactive_resolve_neighbor(now, pkt_meta.vlan, dst_ip)
         return []
 
     def _link_and_other_vips(self, vlan):

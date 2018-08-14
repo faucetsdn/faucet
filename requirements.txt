@@ -11,3 +11,4 @@ prometheus_client
 pyyaml
 ryu==4.27
 beka==0.3.3
+pytricia
