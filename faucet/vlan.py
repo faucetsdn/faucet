@@ -508,21 +508,25 @@ class VLAN(Conf):
         """Return True if port number is an untagged port on this VLAN."""
         return port in self.untagged
 
+    def vip_map(self, ipa):
+        for faucet_vip in self.faucet_vips:
+            if ipa in faucet_vip.network:
+                return faucet_vip
+        return None
+
     def is_faucet_vip(self, ipa):
         """Return True if IP is a VIP on this VLAN."""
-        for faucet_vip in self.faucet_vips_by_ipv(ipa.version):
-            if ipa == faucet_vip.ip:
-                return True
-        return False
+        faucet_vip = self.vip_map(ipa)
+        return faucet_vip and ipa == faucet_vip.ip
 
     def ip_in_vip_subnet(self, ipa):
         """Return faucet_vip if IP in same IP network as a VIP on this VLAN."""
-        for faucet_vip in self.faucet_vips_by_ipv(ipa.version):
-            if ipa in faucet_vip.network:
-                if ipa not in (
-                        faucet_vip.network.network_address,
-                        faucet_vip.network.broadcast_address):
-                    return faucet_vip
+        faucet_vip = self.vip_map(ipa)
+        if faucet_vip:
+            if ipa not in (
+                    faucet_vip.network.network_address,
+                    faucet_vip.network.broadcast_address):
+                return faucet_vip
         return None
 
     def from_connected_to_vip(self, src_ip, dst_ip):

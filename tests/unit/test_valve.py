@@ -389,7 +389,10 @@ class ValveTestBases:
             labels.update({
                 'dp_name': self.DP,
                 'dp_id': '0x%x' % self.DP_ID})
-            return self.registry.get_sample_value(var, labels)
+            val = self.registry.get_sample_value(var, labels)
+            if val is None:
+                val = 0
+            return val
 
         def prom_inc(self, func, var, labels=None):
             """Check Prometheus variable increments by 1 after calling a function."""
@@ -550,7 +553,7 @@ class ValveTestBases:
                     if port.stack:
                         self.assertTrue(
                             self.table.is_output(match, port=port.number),
-                            msg=('Uknown eth_dst not flooded to stack port %s' % port))
+                            msg=('Unknown eth_dst not flooded to stack port %s' % port))
                     elif not port.mirror:
                         self.assertFalse(
                             self.table.is_output(match, port=port.number),
@@ -611,7 +614,7 @@ class ValveTestBases:
         def test_disconnect(self):
             """Test disconnection of DP from controller."""
             self.assertEqual(1, int(self.get_prom('dp_status')))
-            self.valve.datapath_disconnect()
+            self.prom_inc(partial(self.valve.datapath_disconnect), 'of_dp_disconnections')
             self.assertEqual(0, int(self.get_prom('dp_status')))
 
         def test_oferror(self):
@@ -1454,17 +1457,23 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
 
     def test_stack_learn(self):
         """Test host learning on stack root."""
-        self.rcv_packet(1, 0x300, {
-            'eth_src': self.P1_V300_MAC,
-            'eth_dst': self.UNKNOWN_MAC,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.2'})
-        self.rcv_packet(5, 0x300, {
-            'eth_src': self.P1_V300_MAC,
-            'eth_dst': self.UNKNOWN_MAC,
-            'vid': 0x300,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.2'})
+        self.prom_inc(
+            partial(self.rcv_packet, 1, 0x300, {
+                'eth_src': self.P1_V300_MAC,
+                'eth_dst': self.UNKNOWN_MAC,
+                'ipv4_src': '10.0.0.1',
+                'ipv4_dst': '10.0.0.2'}),
+            'vlan_hosts_learned',
+            labels={'vlan': str(int(0x300))})
+        self.prom_inc(
+            partial(self.rcv_packet, 5, 0x300, {
+                'eth_src': self.P1_V300_MAC,
+                'eth_dst': self.UNKNOWN_MAC,
+                'vid': 0x300,
+                'ipv4_src': '10.0.0.1',
+                'ipv4_dst': '10.0.0.2'}),
+            'vlan_hosts_learned',
+            labels={'vlan': str(int(0x300))})
 
     def test_stack_flood(self):
         """Test packet flooding when stacking."""

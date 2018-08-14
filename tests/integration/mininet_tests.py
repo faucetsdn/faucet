@@ -3949,7 +3949,7 @@ vlans:
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
     def _vids():
-        return [i for i in range(100, 108)]
+        return [i for i in range(100, 116)]
 
     VIDS = _vids()
     STR_VIDS = [str(i) for i in _vids()]
@@ -3969,6 +3969,7 @@ vlans:
          '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: 2047
+        proactive_learn_v4: True
         interfaces:
             %s:
                 tagged_vlans: [%s]
@@ -3988,30 +3989,28 @@ vlans:
        '%(port_4)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
-        for host in self.net.hosts:
+        hosts = self.net.hosts[:2]
+        for i, host in enumerate(hosts, start=1):
             setup_commands = []
-            for vid in self.NEW_VIDS:
-                vlan_int = '%s.%u' % (host.intf_root_name, vid)
-                setup_commands.extend([
-                    'ip link add link %s name %s type vlan id %u' % (
-                        host.intf_root_name, vlan_int, vid),
-                    'ip link set dev %s up' % vlan_int])
-            self.quiet_commands(host, setup_commands)
-        for i, host in enumerate(self.net.hosts[:2], start=1):
             for vid in self.NEW_VIDS:
                 vlan_int = '%s.%u' % (host.intf_root_name, vid)
                 ipa = '192.168.%u.%u' % (vid, i)
                 ipg = '192.168.%u.254' % vid
-                self.quiet_commands(host, [
+                setup_commands.extend([
+                    'ip link add link %s name %s type vlan id %u' % (
+                        host.intf_root_name, vlan_int, vid),
+                    'ip link set dev %s up' % vlan_int,
                     'ip address add %s/24 brd + dev %s' % (ipa, vlan_int)])
-        host = self.net.hosts[0]
+                for j, _ in enumerate(hosts, start=1):
+                    if j != i:
+                        other_ip = '192.168.%u.%u/32' % (vid, j)
+                        setup_commands.append(
+                            'ip -4 route add %s via %s' % (other_ip, ipg))
+            self.quiet_commands(host, setup_commands)
+        host, other_host = hosts
         for vid in self.NEW_VIDS:
             other_ip = '192.168.%u.%u' % (vid, 2)
-            ipg = '192.168.%u.254' % vid
             vlan_int = '%s.%u' % (host.intf_root_name, vid)
-            output('.')
-            self.quiet_commands(host, [
-                'ip -4 route add %s via %s' % (other_ip, ipg)])
             self.one_ipv4_ping(host, other_ip, intf=vlan_int)
 
 
