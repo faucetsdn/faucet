@@ -911,11 +911,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
         link_local_vips, other_vips = self._link_and_other_vips(vlan)
         for vip in link_local_vips:
             if src_ip in vip.network:
-                if self._stateful_gw(vlan, src_ip):
-                    ofmsgs.extend(
-                        self._add_host_fib_route(vlan, src_ip, blackhole=False))
-                    ofmsgs.extend(self._update_nexthop(
-                        now, vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
                 ofmsgs.append(
                     vlan.pkt_out_port(
                         valve_packet.router_advert, pkt_meta.port,
