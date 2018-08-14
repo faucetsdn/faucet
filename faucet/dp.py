@@ -16,8 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict
 import copy
+from collections import defaultdict
 import random
 import netaddr
 
@@ -336,7 +336,7 @@ configuration.
                     table_id, table_name, table_config, self.cookie,
                     notify_flow_removed=self.use_idle_timeout)
                 relative_table_id += 1
-        self.tables = copy.deepcopy(tables)
+        self.tables = tables
 
     def set_defaults(self):
         super(DP, self).set_defaults()
