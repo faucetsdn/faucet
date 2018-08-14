@@ -757,24 +757,26 @@ class ValveIPv4RouteManager(ValveRouteManager):
             if icmp_pkt is None:
                 return ofmsgs
             if icmp_pkt.type == icmp.ICMP_ECHO_REQUEST:
-                port = pkt_meta.port
                 ofmsgs.append(
                     vlan.pkt_out_port(
-                        valve_packet.echo_reply, port,
+                        valve_packet.echo_reply, pkt_meta.port,
                         vlan.faucet_mac, pkt_meta.eth_src,
                         dst_ip, src_ip, icmp_pkt.data))
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
+        arp_replies = self._control_plane_arp_handler(now, pkt_meta)
+        if arp_replies:
+            return arp_replies
         ipv4_pkt = pkt_meta.pkt.get_protocol(ipv4.ipv4)
-        if ipv4_pkt is not None:
-            icmp_replies = self._control_plane_icmp_handler(
-                pkt_meta, ipv4_pkt)
-            if icmp_replies:
-                return icmp_replies
-            return self._proactive_resolve_neighbor(
-                now, pkt_meta.vlan, pkt_meta.l3_dst)
-        return self._control_plane_arp_handler(now, pkt_meta)
+        if ipv4_pkt is None:
+            return []
+        icmp_replies = self._control_plane_icmp_handler(
+            pkt_meta, ipv4_pkt)
+        if icmp_replies:
+            return icmp_replies
+        return self._proactive_resolve_neighbor(
+            now, pkt_meta.vlan, pkt_meta.l3_dst)
 
 
 class ValveIPv6RouteManager(ValveRouteManager):
