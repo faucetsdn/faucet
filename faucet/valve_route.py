@@ -996,7 +996,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             if icmp_replies:
                 return icmp_replies
             return self._proactive_resolve_neighbor(
-                now, pkt_meta.vlan, dst_ip, pkt_meta.l3_dst)
+                now, pkt_meta.vlan, pkt_meta.l3_dst)
         return []
 
     def _link_and_other_vips(self, vlan):
