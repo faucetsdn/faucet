@@ -21,7 +21,6 @@ import ipaddress
 import random
 
 import netaddr
-import pytricia
 
 from faucet import valve_of
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
@@ -145,7 +144,6 @@ class VLAN(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
-        self.vip_map_by_ipv = None
         self.acl_in = None
         self.acls_in = None
         self.bgp_as = None
@@ -511,8 +509,9 @@ class VLAN(Conf):
         return port in self.untagged
 
     def vip_map(self, ipa):
-        if ipa.version in self.vip_map_by_ipv:
-            return self.vip_map_by_ipv[ipa.version].get(ipa)
+        for faucet_vip in self.faucet_vips:
+            if ipa in faucet_vip.network:
+                return faucet_vip
         return None
 
     def is_faucet_vip(self, ipa):
@@ -559,12 +558,3 @@ class VLAN(Conf):
             if 'bgp_neighbor_addresses' in result:
                 del result['bgp_neighbor_addresses']
         return result
-
-    def finalize(self):
-        self.vip_map_by_ipv = {}
-        for faucet_vip in self.faucet_vips:
-            ipv = faucet_vip.version
-            if ipv not in self.vip_map_by_ipv:
-                self.vip_map_by_ipv[ipv] = pytricia.PyTricia(faucet_vip.ip.max_prefixlen)
-            self.vip_map_by_ipv[ipv][faucet_vip.network] = faucet_vip
-        super(VLAN, self).finalize()
