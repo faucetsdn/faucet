@@ -175,6 +175,8 @@ class ValveRouteManager:
         return None
 
     def _routed_vlans(self, vlan):
+        if self._global_routing():
+            return set([self.global_vlan])
         vlans = set([vlan])
         if self.routers:
             for router in list(self.routers.values()):
@@ -201,11 +203,7 @@ class ValveRouteManager:
             self.eth_src_table.match(eth_type=self.ETH_TYPE, eth_dst=faucet_mac, vlan=vlan),
             priority=self.route_priority,
             inst=insts))
-        if self._global_routing():
-            vlan = self.global_vlan
-            routed_vlans = [vlan]
-        else:
-            routed_vlans = self._routed_vlans(vlan)
+        routed_vlans = self._routed_vlans(vlan)
         ofmsgs.append(self.fib_table.flowmod(
             self._route_match(vlan, faucet_vip_host),
             priority=priority,
@@ -253,10 +251,7 @@ class ValveRouteManager:
         else:
             inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst, vlan)),
                     valve_of.goto_table(self.eth_dst_table)]
-        if self._global_routing():
-            routed_vlans = [self.global_vlan]
-        else:
-            routed_vlans = self._routed_vlans(vlan)
+        routed_vlans = self._routed_vlans(vlan)
         for routed_vlan in routed_vlans:
             in_match = self._route_match(routed_vlan, ip_dst)
             ofmsgs.append(self.fib_table.flowmod(
@@ -408,15 +403,15 @@ class ValveRouteManager:
                     vlan, nexthop_cache_entry.port, faucet_vip, ip_gw)]
         if last_retry_time is None:
             self.logger.info(
-                'resolving %s (%u flows) on %s' % (ip_gw, len(resolve_flows), vlan))
+                'resolving %s (%u flows) on VLAN %u' % (ip_gw, len(resolve_flows), vlan.vid))
         else:
             self.logger.info(
-                'resolving %s retry %u (last attempt was %us ago; %u flows) on %s' % (
+                'resolving %s retry %u (last attempt was %us ago; %u flows) on VLAN %u' % (
                     ip_gw,
                     nexthop_cache_entry.resolve_retries,
                     now - last_retry_time,
                     len(resolve_flows),
-                    vlan))
+                    vlan.vid))
         return resolve_flows
 
     def _expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
@@ -554,10 +549,7 @@ class ValveRouteManager:
             timeout = (
                 self.max_resolve_backoff_time * self.max_host_fib_retry_count +
                 random.randint(0, self.max_resolve_backoff_time * 2))
-            if self._global_routing():
-                routed_vlans = [self.global_vlan]
-            else:
-                routed_vlans = self._routed_vlans(vlan)
+            routed_vlans = self._routed_vlans(vlan)
             for routed_vlan in routed_vlans:
                 in_match = self._route_match(routed_vlan, host_int)
                 ofmsgs.append(self.fib_table.flowmod(
@@ -620,10 +612,7 @@ class ValveRouteManager:
 
     def _del_route_flows(self, vlan, ip_dst):
         ofmsgs = []
-        if self._global_routing():
-            routed_vlans = [self.global_vlan]
-        else:
-            routed_vlans = self._routed_vlans(vlan)
+        routed_vlans = self._routed_vlans(vlan)
         for routed_vlan in routed_vlans:
             route_match = self._route_match(routed_vlan, ip_dst)
             ofmsgs.extend(self.fib_table.flowdel(
