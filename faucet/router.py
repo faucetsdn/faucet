@@ -33,7 +33,7 @@ class Router(Conf):
     }
 
     def __init__(self, _id, dp_id, conf):
-        self.vlans = None
+        self.vlans = []
         self.vip_map_by_ipv = {}
         super(Router, self).__init__(_id, dp_id, conf)
 
@@ -46,6 +46,7 @@ class Router(Conf):
             'router %s must have at least 2 VLANs configured' % self))
 
     def vip_map(self, ipa):
+        """Return VIP for IP address, if any."""
         if ipa.version in self.vip_map_by_ipv:
             return self.vip_map_by_ipv[ipa.version].get(ipa)
         return None
