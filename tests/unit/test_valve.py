@@ -353,7 +353,6 @@ class ValveTestBases:
             logfile = os.path.join(self.tmpdir, 'faucet.log')
             self.logger = valve_util.get_logger(self.LOGNAME, logfile, logging.DEBUG, 0)
             self.registry = CollectorRegistry()
-            # TODO: verify Prometheus variables
             self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
             # TODO: verify events
             self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
@@ -425,6 +424,7 @@ class ValveTestBases:
             self.table.apply_ofmsgs(
                 self.valve.switch_features(None) +
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
+            self.assertEqual(1, int(self.get_prom('dp_status')))
             for port_no in discovered_up_ports:
                 self.set_port_up(port_no)
             self.assertTrue(self.valve.dp.to_conf())
@@ -433,11 +433,15 @@ class ValveTestBases:
             """Set port status of port to down."""
             self.table.apply_ofmsgs(self.valve.port_status_handler(
                 port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN))
+            self.assertEqual(
+                0, int(self.get_prom('port_status', labels={'port': str(port_no)})))
 
         def set_port_up(self, port_no):
             """Set port status of port to up."""
             self.table.apply_ofmsgs(self.valve.port_status_handler(
                 port_no, ofp.OFPPR_ADD, 0))
+            self.assertEqual(
+                1, int(self.get_prom('port_status', labels={'port': str(port_no)})))
 
         def flap_port(self, port_no):
             """Flap op status on a port."""
@@ -606,8 +610,9 @@ class ValveTestBases:
 
         def test_disconnect(self):
             """Test disconnection of DP from controller."""
-            # TODO: verify DP state change.
+            self.assertEqual(1, int(self.get_prom('dp_status')))
             self.valve.datapath_disconnect()
+            self.assertEqual(0, int(self.get_prom('dp_status')))
 
         def test_oferror(self):
             """Test OFError handler."""
