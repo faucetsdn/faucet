@@ -15,6 +15,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import copy
 
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
 from faucet.conf import Conf, test_config_condition
@@ -96,12 +97,12 @@ The output action contains a dictionary with the following elements:
         self.rules = None
         self.exact_match = None
         super(ACL, self).__init__(_id, dp_id, conf)
-        rules = conf
+        rules = copy.deepcopy(conf)
         if isinstance(conf, dict):
             if 'exact_match' in conf and conf['exact_match']:
                 self.exact_match = True
             test_config_condition('rules' not in conf, 'no rules found for ACL %s' % _id)
-            rules = conf['rules']
+            rules = copy.deepcopy(conf['rules'])
         self.rules = []
         test_config_condition(not isinstance(rules, list), (
             'ACL rules is %s not %s' % (type(rules), dict)))

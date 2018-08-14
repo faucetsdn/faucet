@@ -772,6 +772,59 @@ acls:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_acl_multi_dp_output_rule(self):
+        """Verify that an acl can output to different ports with the same name
+        on different DPs'
+        """
+        config = """
+vlans:
+    v100:
+        vid: 100
+        acls_in: [test]
+acls:
+    test:
+        - rule:
+            dl_type: 0x800      # ipv4
+            actions:
+                output:
+                    port: 'target'
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: 'v100'
+            2:
+                name: 'target'
+                native_vlan: 'v100'
+    s2:
+        dp_id: 0x2
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: 'v100'
+            3:
+                name: 'target'
+                native_vlan: 'v100'
+"""
+        conf_file = self.create_config_file(config)
+        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        outputs = {
+            's1': 2,
+            's2': 3
+            }
+        for dp in dps:
+            v100 = dp.vlans[100]
+            for acl in v100.acls_in:
+                for rule in acl.rules:
+                    port = rule['actions']['output']['port']
+                    self.assertEqual(
+                        outputs[dp.name],
+                        port,
+                        msg='acl output port resolved incorrectly'
+                        )
+
     def test_port_range_valid_config(self):
         """Test if port range config applied correctly"""
         config = """
