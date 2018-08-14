@@ -325,21 +325,24 @@ class ValveTestBases:
         V200 = 0x200|ofp.OFPVID_PRESENT
         V300 = 0x300|ofp.OFPVID_PRESENT
         LOGNAME = 'faucet'
-        dot1x = None
-        last_flows_to_dp = {}
-        valve = None
-        valves_manager = None
-        metrics = None
-        bgp = None
-        table = None
-        logger = None
-        tmpdir = None
-        faucet_event_sock = None
-        registry = None
-        sock = None
-        notifier = None
-        config_file = None
-        _icmp_payload = bytes('A'*8, encoding='UTF-8') # pytype: disable=wrong-keyword-args
+        ICMP_PAYLOAD = bytes('A'*8, encoding='UTF-8')
+
+        def __init__(self, *args, **kwargs):
+            self.dot1x = None
+            self.last_flows_to_dp = {}
+            self.valve = None
+            self.valves_manager = None
+            self.metrics = None
+            self.bgp = None
+            self.table = None
+            self.logger = None
+            self.tmpdir = None
+            self.faucet_event_sock = None
+            self.registry = None
+            self.sock = None
+            self.notifier = None
+            self.config_file = None
+            super(ValveTestBases.ValveTestSmall, self).__init__(*args, **kwargs)
 
         def setup_valve(self, config):
             """Set up test DP with config."""
@@ -350,7 +353,6 @@ class ValveTestBases:
             logfile = os.path.join(self.tmpdir, 'faucet.log')
             self.logger = valve_util.get_logger(self.LOGNAME, logfile, logging.DEBUG, 0)
             self.registry = CollectorRegistry()
-            # TODO: verify Prometheus variables
             self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
             # TODO: verify events
             self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
@@ -422,6 +424,7 @@ class ValveTestBases:
             self.table.apply_ofmsgs(
                 self.valve.switch_features(None) +
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
+            self.assertEqual(1, int(self.get_prom('dp_status')))
             for port_no in discovered_up_ports:
                 self.set_port_up(port_no)
             self.assertTrue(self.valve.dp.to_conf())
@@ -430,11 +433,15 @@ class ValveTestBases:
             """Set port status of port to down."""
             self.table.apply_ofmsgs(self.valve.port_status_handler(
                 port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN))
+            self.assertEqual(
+                0, int(self.get_prom('port_status', labels={'port': str(port_no)})))
 
         def set_port_up(self, port_no):
             """Set port status of port to up."""
             self.table.apply_ofmsgs(self.valve.port_status_handler(
                 port_no, ofp.OFPPR_ADD, 0))
+            self.assertEqual(
+                1, int(self.get_prom('port_status', labels={'port': str(port_no)})))
 
         def flap_port(self, port_no):
             """Flap op status on a port."""
@@ -603,8 +610,9 @@ class ValveTestBases:
 
         def test_disconnect(self):
             """Test disconnection of DP from controller."""
-            # TODO: verify DP state change.
+            self.assertEqual(1, int(self.get_prom('dp_status')))
             self.valve.datapath_disconnect()
+            self.assertEqual(0, int(self.get_prom('dp_status')))
 
         def test_oferror(self):
             """Test OFError handler."""
@@ -784,7 +792,7 @@ class ValveTestBases:
                 'vid': 0x200,
                 'ipv6_src': 'fc00::1:2',
                 'ipv6_dst': 'fc00::1:4',
-                'echo_request_data': self._icmp_payload})
+                'echo_request_data': self.ICMP_PAYLOAD})
             # TODO: verify learning rule contents
             # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
@@ -799,7 +807,7 @@ class ValveTestBases:
                 'vid': 0x100,
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.99',
-                'echo_request_data': self._icmp_payload})
+                'echo_request_data': self.ICMP_PAYLOAD})
             # TODO: check proactive neighbor resolution
             self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
@@ -811,7 +819,7 @@ class ValveTestBases:
                 'vid': 0x200,
                 'ipv6_src': 'fc00::1:2',
                 'ipv6_dst': 'fc00::1:4',
-                'echo_request_data': self._icmp_payload})
+                'echo_request_data': self.ICMP_PAYLOAD})
             # TODO: check proactive neighbor resolution
             self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
@@ -823,7 +831,7 @@ class ValveTestBases:
                 'vid': 0x200,
                 'ipv6_src': 'fc00::1:1',
                 'ipv6_dst': 'fc00::1:254',
-                'echo_request_data': self._icmp_payload})
+                'echo_request_data': self.ICMP_PAYLOAD})
             # TODO: check ping response
             self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
@@ -1719,7 +1727,7 @@ vlans:
             'vid': 0x100,
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.4',
-            'echo_request_data': self._icmp_payload})
+            'echo_request_data': self.ICMP_PAYLOAD})
         # TODO: verify learning rule contents
         # We want to know this host was learned we did not get packet outs.
         self.assertTrue(fib_route_replies)
@@ -1885,12 +1893,15 @@ vlans:
 
     def test_lacp(self):
         """Test LACP comes up."""
-        # TODO: verify LACP state
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_status', labels={'port': '1'})))
         self.rcv_packet(1, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
             'eth_src': '0e:00:00:00:00:02'})
+        self.assertEqual(
+            1, int(self.get_prom('port_lacp_status', labels={'port': '1'})))
         self.learn_hosts()
         self.verify_expiry()
 
