@@ -517,8 +517,8 @@ class Valve:
         ofmsgs = []
         if (self.dp.advertise_interval and
                 now - self._last_advertise_sec > self.dp.advertise_interval):
-            for vlan in list(self.dp.vlans.values()):
-                for route_manager in list(self._route_manager_by_ipv.values()):
+            for route_manager in list(self._route_manager_by_ipv.values()):
+                for vlan in list(self.dp.vlans.values()):
                     ofmsgs.extend(route_manager.advertise(vlan))
             self._last_advertise_sec = now
         return ofmsgs
@@ -1463,12 +1463,11 @@ class Valve:
         Returns:
             list: OpenFlow messages, if any.
         """
-        if not self.dp.dyn_running:
-            return []
         ofmsgs = []
-        for vlan in list(self.dp.vlans.values()):
+        if self.dp.dyn_running:
             for route_manager in list(self._route_manager_by_ipv.values()):
-                ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
+                for vlan in list(self.dp.vlans.values()):
+                    ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
         return ofmsgs
 
     def oferror(self, msg):
