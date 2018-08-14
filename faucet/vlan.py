@@ -145,7 +145,7 @@ class VLAN(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
-        self.vip_map = None
+        self.vip_map_by_ipv = None
         self.acl_in = None
         self.acls_in = None
         self.bgp_as = None
@@ -510,14 +510,19 @@ class VLAN(Conf):
         """Return True if port number is an untagged port on this VLAN."""
         return port in self.untagged
 
+    def vip_map(self, ipa):
+        if ipa.version in self.vip_map_by_ipv:
+            return self.vip_map_by_ipv[ipa.version].get(ipa)
+        return None
+
     def is_faucet_vip(self, ipa):
         """Return True if IP is a VIP on this VLAN."""
-        faucet_vip = self.vip_map.get(ipa)
+        faucet_vip = self.vip_map(ipa)
         return faucet_vip and ipa == faucet_vip.ip
 
     def ip_in_vip_subnet(self, ipa):
         """Return faucet_vip if IP in same IP network as a VIP on this VLAN."""
-        faucet_vip = self.vip_map.get(ipa)
+        faucet_vip = self.vip_map(ipa)
         if faucet_vip:
             if ipa not in (
                     faucet_vip.network.network_address,
@@ -556,7 +561,10 @@ class VLAN(Conf):
         return result
 
     def finalize(self):
-        self.vip_map = pytricia.PyTricia(128)
+        self.vip_map_by_ipv = {}
         for faucet_vip in self.faucet_vips:
-            self.vip_map[faucet_vip.network] = faucet_vip
+            ipv = faucet_vip.version
+            if ipv not in self.vip_map_by_ipv:
+                self.vip_map_by_ipv[ipv] = pytricia.PyTricia(faucet_vip.ip.max_prefixlen)
+            self.vip_map_by_ipv[ipv][faucet_vip.network] = faucet_vip
         super(VLAN, self).finalize()

@@ -34,7 +34,7 @@ class Router(Conf):
 
     def __init__(self, _id, dp_id, conf):
         self.vlans = None
-        self.vip_map = None
+        self.vip_map_by_ipv = {}
         super(Router, self).__init__(_id, dp_id, conf)
 
     def __str__(self):
@@ -45,9 +45,18 @@ class Router(Conf):
         test_config_condition(not (isinstance(self.vlans, list) and len(self.vlans) > 1), (
             'router %s must have at least 2 VLANs configured' % self))
 
+    def vip_map(self, ipa):
+        if ipa.version in self.vip_map_by_ipv:
+            return self.vip_map_by_ipv[ipa.version].get(ipa)
+        return None
+
     def finalize(self):
-        self.vip_map = pytricia.PyTricia(128)
         for vlan in self.vlans:
             for faucet_vip in vlan.faucet_vips:
-                self.vip_map[faucet_vip.network] = (vlan, faucet_vip)
+                ipv = faucet_vip.version
+                if ipv not in self.vip_map_by_ipv:
+                    self.vip_map_by_ipv[ipv] = pytricia.PyTricia(
+                        faucet_vip.ip.max_prefixlen)
+                self.vip_map_by_ipv[ipv][faucet_vip.network] = (
+                    vlan, faucet_vip)
         super(Router, self).finalize()

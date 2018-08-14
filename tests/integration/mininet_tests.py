@@ -3969,6 +3969,7 @@ vlans:
          '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: 2047
+        proactive_learn_v4: True
         interfaces:
             %s:
                 tagged_vlans: [%s]
@@ -4004,12 +4005,15 @@ vlans:
                 ipg = '192.168.%u.254' % vid
                 self.quiet_commands(host, [
                     'ip address add %s/24 brd + dev %s' % (ipa, vlan_int)])
-        host = self.net.hosts[0]
+        host, other_host = self.net.hosts[:2]
         for vid in self.NEW_VIDS:
+            host_ip = '192.168.%u.%u' % (vid, 1)
             other_ip = '192.168.%u.%u' % (vid, 2)
             ipg = '192.168.%u.254' % vid
             vlan_int = '%s.%u' % (host.intf_root_name, vid)
             output('.')
+            self.quiet_commands(other_host, [
+                'ip -4 route add %s via %s' % (host_ip, ipg)])
             self.quiet_commands(host, [
                 'ip -4 route add %s via %s' % (other_ip, ipg)])
             self.one_ipv4_ping(host, other_ip, intf=vlan_int)

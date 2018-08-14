@@ -490,8 +490,10 @@ class ValveRouteManager:
         ofmsgs = []
         if self.proactive_learn:
             router = self._router_for_vlan(vlan)
-            if router is not None:
-                vlan, faucet_vip = router.vip_map.get(dst_ip)
+            if router is None:
+                faucet_vip = vlan.vip_map(dst_ip)
+            else:
+                vlan, faucet_vip = router.vip_map(dst_ip)
             if vlan and faucet_vip.ip != dst_ip:
                 limit = self._vlan_nexthop_cache_limit(vlan)
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
