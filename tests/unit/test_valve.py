@@ -1888,12 +1888,15 @@ vlans:
 
     def test_lacp(self):
         """Test LACP comes up."""
-        # TODO: verify LACP state
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_status', labels={'port': '1'})))
         self.rcv_packet(1, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
             'eth_src': '0e:00:00:00:00:02'})
+        self.assertEqual(
+            1, int(self.get_prom('port_lacp_status', labels={'port': '1'})))
         self.learn_hosts()
         self.verify_expiry()
 
