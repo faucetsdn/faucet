@@ -679,6 +679,14 @@ class PacketMeta:
         self.l3_src = None
         self.l3_dst = None
 
+    def log(self):
+        vlan_msg = ''
+        if self.vlan:
+            vlan_msg = 'VLAN %u' % self.vlan.vid
+        return '%s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) %s %s' % (
+            self.eth_src, self.eth_type, self.l3_src, self.l3_dst,
+            self.port, vlan_msg)
+
     def reparse(self, max_len):
         """Reparse packet using data up to the specified maximum length."""
         pkt, eth_pkt, eth_type, _ = parse_packet_in_pkt(
