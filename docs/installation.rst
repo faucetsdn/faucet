@@ -243,6 +243,18 @@ Openstack's `diskimage-builder <https://docs.openstack.org/diskimage-builder/lat
 
 Pre-built images are available on our build host `<https://builder.faucet.nz>`_.
 
+Installing on Raspberry Pi
+--------------------------
+
+We already provide a Raspberry Pi image running FAUCET which can be retrieved from the `latest faucet Raspbian image download <https://github.com/faucetsdn/faucet/releases/latest>`_.
+
+The image can then be copied onto an SD card following the same steps from the official `Raspberry Pi installation guide <https://www.raspberrypi.org/documentation/installation/installing-images/linux.md>`_.
+
+Once you have booted up the Raspberry Pi and logged in using the default credentials you can follow through the :doc:`../tutorials/first_time` tutorial starting from :ref:`tutorial-configure-prometheus` to properly configure each component.
+
+.. note::
+	It is strongly recommended to use a Raspberry Pi 3 or better.
+
 Building the images
 ~~~~~~~~~~~~~~~~~~~
 
