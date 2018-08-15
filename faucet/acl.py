@@ -98,11 +98,16 @@ The output action contains a dictionary with the following elements:
         conf = copy.deepcopy(conf)
         if isinstance(conf, dict):
             rules = conf.get('rules', [])
-        else:
+        elif isinstance(conf, list):
             rules = conf
             conf = {}
+        else:
+            raise InvalidConfigError(
+                'ACL conf is an invalid type %s' % self._id)
         conf['rules'] = []
         for rule in rules:
+            test_config_condition(not isinstance(rule, dict), (
+                'ACL rule is %s not %s' % (type(rule), dict)))
             if 'rule' in rule:
                 conf['rules'].append(rule['rule'])
             else:
@@ -111,15 +116,11 @@ The output action contains a dictionary with the following elements:
 
     def check_config(self):
         test_config_condition(
-            self.rules is None, 'no rules found for ACL %s' % self._id)
-        test_config_condition(not isinstance(self.rules, list), (
-            'ACL rules is %s not %s' % (type(self.rules), dict)))
+            not self.rules, 'no rules found for ACL %s' % self._id)
         for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
             for match in list(match_fields.keys()):
                 self.rule_types[match] = (str, int)
         for rule in self.rules:
-            test_config_condition(not isinstance(rule, dict), (
-                'ACL rule is %s not %s' % (type(rule), dict)))
             self._check_conf_types(rule, self.rule_types)
             for rule_field, rule_conf in list(rule.items()):
                 if rule_field == 'cookie':
