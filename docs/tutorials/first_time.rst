@@ -39,6 +39,8 @@ Package installation
 
            sudo apt-get install faucet-all-in-one
 
+.. _tutorial-configure-prometheus:
+
 Configure prometheus
 ^^^^^^^^^^^^^^^^^^^^
 
