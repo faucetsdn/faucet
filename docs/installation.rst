@@ -232,17 +232,6 @@ Systemd can be used to start Faucet and Gauge at boot automatically:
   :caption: gauge.service
   :name: gauge.service
 
-Virtual Machine Image
----------------------
-
-We provide a VM image for running FAUCET for development and learning purposes.
-The VM comes pre-installed with FAUCET, GAUGE, prometheus and grafana.
-
-Openstack's `diskimage-builder <https://docs.openstack.org/diskimage-builder/latest/>`_
-(DIB) is used to build the VM images in many formats (qcow2,tgz,squashfs,vhd,raw).
-
-Pre-built images are available on our build host `<https://builder.faucet.nz>`_.
-
 Installing on Raspberry Pi
 --------------------------
 
@@ -254,6 +243,17 @@ Once you have booted up the Raspberry Pi and logged in using the default credent
 
 .. note::
 	It is strongly recommended to use a Raspberry Pi 3 or better.
+
+Virtual Machine Image
+---------------------
+
+We provide a VM image for running FAUCET for development and learning purposes.
+The VM comes pre-installed with FAUCET, GAUGE, prometheus and grafana.
+
+Openstack's `diskimage-builder <https://docs.openstack.org/diskimage-builder/latest/>`_
+(DIB) is used to build the VM images in many formats (qcow2,tgz,squashfs,vhd,raw).
+
+Pre-built images are available on our build host `<https://builder.faucet.nz>`_.
 
 Building the images
 ~~~~~~~~~~~~~~~~~~~
