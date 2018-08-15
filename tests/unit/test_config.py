@@ -772,6 +772,29 @@ acls:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_acl_dictionary_valid(self):
+        """test acl config is valid when not using 'rule' key"""
+        config = """
+acls:
+    office-vlan-protect:
+        -
+            dl_type: 0x800
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+
     def test_acl_multi_dp_output_rule(self):
         """Verify that an acl can output to different ports with the same name
         on different DPs'
