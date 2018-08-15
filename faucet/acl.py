@@ -17,7 +17,6 @@
 # limitations under the License.
 import copy
 
-from faucet import valve_of
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
 from faucet.conf import Conf, test_config_condition
 
@@ -93,7 +92,7 @@ The output action contains a dictionary with the following elements:
     }
 
     def __init__(self, _id, dp_id, conf):
-        self.rules = None
+        self.rules = []
         self.exact_match = None
         conf = copy.deepcopy(conf)
         if isinstance(conf, dict):
