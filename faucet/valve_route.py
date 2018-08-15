@@ -204,6 +204,8 @@ class ValveRouteManager:
             priority=self.route_priority,
             inst=insts))
         routed_vlans = self._routed_vlans(vlan)
+        if self._global_routing():
+            vlan = self.global_vlan
         ofmsgs.append(self.fib_table.flowmod(
             self._route_match(vlan, faucet_vip_host),
             priority=priority,
@@ -401,17 +403,18 @@ class ValveRouteManager:
             if last_retry_time is None and nexthop_cache_entry.port is not None:
                 resolve_flows = [self.resolve_gw_on_port(
                     vlan, nexthop_cache_entry.port, faucet_vip, ip_gw)]
-        if last_retry_time is None:
-            self.logger.info(
-                'resolving %s (%u flows) on VLAN %u' % (ip_gw, len(resolve_flows), vlan.vid))
-        else:
-            self.logger.info(
-                'resolving %s retry %u (last attempt was %us ago; %u flows) on VLAN %u' % (
-                    ip_gw,
-                    nexthop_cache_entry.resolve_retries,
-                    now - last_retry_time,
-                    len(resolve_flows),
-                    vlan.vid))
+        if resolve_flows:
+            if last_retry_time is None:
+                self.logger.info(
+                    'resolving %s (%u flows) on VLAN %u' % (ip_gw, len(resolve_flows), vlan.vid))
+            else:
+                self.logger.info(
+                    'resolving %s retry %u (last attempt was %us ago; %u flows) on VLAN %u' % (
+                        ip_gw,
+                        nexthop_cache_entry.resolve_retries,
+                         now - last_retry_time,
+                        len(resolve_flows),
+                        vlan.vid))
         return resolve_flows
 
     def _expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
@@ -490,7 +493,7 @@ class ValveRouteManager:
                 faucet_vip = vlan.vip_map(dst_ip)
             else:
                 vlan, faucet_vip = router.vip_map(dst_ip)
-            if vlan and faucet_vip and faucet_vip.ip != dst_ip:
+            if vlan and vlan.ip_in_vip_subnet(dst_ip, faucet_vip) and faucet_vip.ip != dst_ip:
                 limit = self._vlan_nexthop_cache_limit(vlan)
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
                     resolution_in_progress = self._is_host_fib_route(vlan, dst_ip)

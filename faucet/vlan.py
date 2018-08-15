@@ -514,14 +514,16 @@ class VLAN(Conf):
                 return faucet_vip
         return None
 
-    def is_faucet_vip(self, ipa):
+    def is_faucet_vip(self, ipa, faucet_vip=None):
         """Return True if IP is a VIP on this VLAN."""
-        faucet_vip = self.vip_map(ipa)
+        if faucet_vip is None:
+            faucet_vip = self.vip_map(ipa)
         return faucet_vip and ipa == faucet_vip.ip
 
-    def ip_in_vip_subnet(self, ipa):
+    def ip_in_vip_subnet(self, ipa, faucet_vip=None):
         """Return faucet_vip if IP in same IP network as a VIP on this VLAN."""
-        faucet_vip = self.vip_map(ipa)
+        if faucet_vip is None:
+            faucet_vip = self.vip_map(ipa)
         if faucet_vip:
             if ipa not in (
                     faucet_vip.network.network_address,
