@@ -18,7 +18,7 @@
 import copy
 
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
-from faucet.conf import Conf, test_config_condition
+from faucet.conf import Conf, test_config_condition, InvalidConfigError
 
 
 class ACL(Conf):
