@@ -204,6 +204,8 @@ class ValveRouteManager:
             priority=self.route_priority,
             inst=insts))
         routed_vlans = self._routed_vlans(vlan)
+        if self._global_routing():
+            vlan = self.global_vlan
         ofmsgs.append(self.fib_table.flowmod(
             self._route_match(vlan, faucet_vip_host),
             priority=priority,
