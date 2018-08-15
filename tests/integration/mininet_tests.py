@@ -4024,9 +4024,12 @@ vlans:
 
         # Verify routed connectivity
         for vid in self.NEW_VIDS:
+            host_vlan_int = '%s.%u' % (host.intf_root_name, vid)
+            other_vlan_int = '%s.%u' % (other_host.intf_root_name, vid)
+            host_ip = '192.168.%u.%u' % (vid, 1)
             other_ip = '192.168.%u.%u' % (vid, 2)
-            vlan_int = '%s.%u' % (host.intf_root_name, vid)
-            self.one_ipv4_ping(host, other_ip, intf=vlan_int)
+            self.one_ipv4_ping(host, other_ip, intf=host_vlan_int)
+            self.one_ipv4_ping(other_host, host_ip, intf=other_vlan_int)
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
