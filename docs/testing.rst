@@ -11,6 +11,12 @@ First, get yourself setup with docker based on our :ref:`docker-install` documen
 Software switch testing with docker
 -----------------------------------
 
+First prime the pip cache with the following command (re-run this when upgrading FAUCET also).
+
+.. code:: console
+
+  sudo ./docker/pip_deps.sh
+
 Then you can build and run the mininet tests from the docker entry-point:
 
 .. code:: console
@@ -18,10 +24,17 @@ Then you can build and run the mininet tests from the docker entry-point:
   sudo docker build --pull -t faucet/tests -f Dockerfile.tests .
   sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
   sudo modprobe openvswitch
-  sudo docker run --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged -ti faucet/tests
+  sudo docker run --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged -v $HOME/.cache/pip:/var/tmp/pip-cache -ti faucet/tests
 
 The apparmor command is currently required on Ubuntu hosts to allow the use of
 tcpdump inside the container.
+
+If you need to use a proxy, the following to your docker run command.
+
+.. code:: console
+
+  --build-arg http_proxy=http://your.proxy:port
+
 
 .. _docker-hw-testing:
 
@@ -147,6 +160,7 @@ Running the tests
   apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
   modprobe openvswitch
   sudo docker run --privileged --net=host \
+      -v $HOME/.cache/pip:/var/tmp/pip-cache \
       -v /etc/faucet:/etc/faucet \
       -v /var/tmp:/var/tmp \
       -ti faucet/tests
@@ -157,9 +171,10 @@ Running a single test including pytype, linting, and documentation
 .. code:: console
 
   sudo docker run --privileged --net=host \
-      -e FAUCET_TESTS="FaucetUntaggedTest" \
+      -v $HOME/.cache/pip:/var/tmp/pip-cache \
       -v /etc/faucet:/etc/faucet \
       -v /var/tmp:/var/tmp \
+      -e FAUCET_TESTS="FaucetUntaggedTest" \
       -ti faucet/tests
 
 Running only the integration tests
