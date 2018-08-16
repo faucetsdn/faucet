@@ -13,6 +13,8 @@ import netifaces
 
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
+# pylint: disable=too-many-arguments
+
 from mininet.log import error, output
 from mininet.topo import Topo
 from mininet.node import Controller

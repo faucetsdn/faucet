@@ -648,126 +648,20 @@ configuration.
             test_config_condition(acl_in not in self.acls, (
                 'missing ACL %s in DP: %s' % (acl_in, self.name)))
             acl = self.acls[acl_in]
-            mirror_destinations = set()
-
-            def resolve_meter(_acl, action_conf):
-                meter_name = action_conf
+            def resolve_port_cb(port_name):
+                port = self.resolve_port(port_name)
+                if port:
+                    return port.number
+                else:
+                    return port
+            acl.resolve_ports(resolve_port_cb)
+            for meter_name in acl.get_meters():
                 test_config_condition(meter_name not in self.meters, (
                     'meter %s is not configured' % meter_name))
-                return action_conf
-
-            def resolve_mirror(_acl, action_conf):
-                port_name = action_conf
-                port = self.resolve_port(port_name)
-                # If this DP does not have this port, do nothing.
-                if port is not None:
-                    action_conf = port.number
-                    mirror_destinations.add(port.number)
-                    return action_conf
-                return None
-
-            def resolve_output(_acl, action_conf):
-                resolved_action_conf = {}
-                test_config_condition(not isinstance(action_conf, dict), (
-                    'action conf is not a dictionary'))
-                for output_action, output_action_values in list(action_conf.items()):
-                    if output_action == 'port':
-                        port_name = output_action_values
-                        port = self.resolve_port(port_name)
-                        test_config_condition(not port, (
-                            'output port not defined in DP: %s' % self.name))
-                        resolved_action_conf[output_action] = port.number # pytype: disable=attribute-error
-                    elif output_action == 'ports':
-                        resolved_ports = resolve_port_numbers(output_action_values)
-                        test_config_condition(len(resolved_ports) != len(output_action_values), (
-                            'output port(s) not defined in DP: %s' % self.name))
-                        resolved_action_conf[output_action] = resolved_ports
-                    elif output_action == 'failover':
-                        failover = output_action_values
-                        test_config_condition(not isinstance(failover, dict), (
-                            'failover is not a dictionary'))
-                        resolved_action_conf[output_action] = {}
-                        for failover_name, failover_values in list(failover.items()):
-                            if failover_name == 'ports':
-                                resolved_failover_values = resolve_port_numbers(failover_values)
-                                test_config_condition(len(resolved_failover_values) != len(failover_values), (
-                                    'failover port(s) not defined in DP: %s' % self.name))
-                                failover_values = resolved_failover_values
-                            resolved_action_conf[output_action][failover_name] = failover_values
-                    else:
-                        resolved_action_conf[output_action] = output_action_values
-                if resolved_action_conf:
-                    return resolved_action_conf
-                return None
-
-            def resolve_noop(_acl, action_conf):
-                return action_conf
-
-            action_resolvers = {
-                'meter': resolve_meter,
-                'mirror': resolve_mirror,
-                'output': resolve_output,
-                'allow': resolve_noop,
-                'force_port_vlan': resolve_noop,
-            }
-
-            def build_acl(acl, vid):
-                """Check that ACL can be built from config and mark mirror destinations."""
-                matches = {}
-                set_fields = set()
-                meter = False
-                if acl.rules:
-                    try:
-                        ofmsgs = valve_acl.build_acl_ofmsgs(
-                            [acl], self.wildcard_table,
-                            valve_of.goto_table(self.wildcard_table),
-                            valve_of.goto_table(self.wildcard_table),
-                            2**16-1, self.meters, acl.exact_match,
-                            vlan_vid=vid)
-                    except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
-                        raise InvalidConfigError(err)
-                    test_config_condition(not ofmsgs, 'OF messages is empty')
-                    for ofmsg in ofmsgs:
-                        ofmsg.datapath = NullRyuDatapath()
-                        ofmsg.set_xid(0)
-                        try:
-                            ofmsg.serialize()
-                        except (KeyError, ValueError) as err:
-                            raise InvalidConfigError(err)
-                        if valve_of.is_flowmod(ofmsg):
-                            apply_actions = []
-                            for inst in ofmsg.instructions:
-                                if valve_of.is_apply_actions(inst):
-                                    apply_actions.extend(inst.actions)
-                                elif valve_of.is_meter(inst):
-                                    meter = True
-                            for action in apply_actions:
-                                if valve_of.is_set_field(action):
-                                    set_fields.add(action.key)
-                            for match, value in list(ofmsg.match.items()):
-                                has_mask = isinstance(value, (tuple, list))
-                                if has_mask or match not in matches:
-                                    matches[match] = has_mask
-                    for port_no in mirror_destinations:
-                        port = self.ports[port_no]
-                        port.output_only = True
-                return (matches, set_fields, meter)
-
-            for rule_conf in acl.rules:
-                if 'actions' in rule_conf:
-                    actions_conf = rule_conf['actions']
-                    resolved_actions = {}
-                    test_config_condition(not isinstance(actions_conf, dict), (
-                        'actions value is not a dictionary'))
-                    for action_name, action_conf in list(actions_conf.items()):
-                        resolved_action_conf = action_resolvers[action_name](
-                            acl, action_conf)
-                        test_config_condition(resolved_action_conf is None, (
-                            'cannot resolve ACL rule %s' % rule_conf))
-                        resolved_actions[action_name] = resolved_action_conf
-                    rule_conf['actions'] = resolved_actions
-
-            return build_acl(acl, vid)
+            for port_no in acl.get_mirror_destinations():
+                port = self.ports[port_no]
+                port.output_only = True
+            return acl.build(vid, self.meters)
 
         def verify_acl_exact_match(acls):
             for acl in acls:
