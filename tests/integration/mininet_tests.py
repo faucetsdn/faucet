@@ -4,6 +4,7 @@
 
 # pylint: disable=missing-docstring
 # pylint: disable=too-many-arguments
+# pylint: disable=unbalanced-tuple-unpacking
 
 import binascii
 import itertools
