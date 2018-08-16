@@ -26,7 +26,7 @@ class FaucetPortMethodTest(unittest.TestCase): # pytype: disable=module-attr
 
         port = Port(1, 1, {})
         port.native_vlan = native_vlan
-        self.assertEqual(port.vlans(), [native_vlan])
+        self.assertIn(native_vlan, port.vlans())
         port.tagged_vlans = tagged_vlans
         self.assertEqual(set(port.vlans()), set([native_vlan] + tagged_vlans))
         port.native_vlan = None
