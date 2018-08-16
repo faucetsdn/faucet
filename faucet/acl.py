@@ -16,8 +16,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import copy
+import netaddr
 
+from faucet import valve_of
+from faucet import valve_acl
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
+from faucet.faucet_pipeline import ValveTableConfig
+from faucet.valve_table import ValveTable, ValveGroupTable
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
 
 
@@ -91,6 +96,9 @@ The output action contains a dictionary with the following elements:
         'vlan_vids': list,
     }
 
+    wildcard_table = ValveTable(
+        valve_of.ofp.OFPTT_ALL, 'all', ValveTableConfig('all'), flow_cookie=0)
+
     def __init__(self, _id, dp_id, conf):
         self.rules = []
         self.exact_match = None
@@ -138,3 +146,128 @@ The output action contains a dictionary with the following elements:
 
     def to_conf(self):
         return [{'rule': rule} for rule in self.rules]
+
+    def build(self, vid, meters):
+        """Check that ACL can be built from config."""
+
+        class NullRyuDatapath:
+            """Placeholder Ryu Datapath."""
+            ofproto = valve_of.ofp
+
+        matches = {}
+        set_fields = set()
+        meter = False
+        if self.rules:
+            try:
+                ofmsgs = valve_acl.build_acl_ofmsgs(
+                    [self], self.wildcard_table,
+                    valve_of.goto_table(self.wildcard_table),
+                    valve_of.goto_table(self.wildcard_table),
+                    2**16-1, meters, self.exact_match,
+                    vlan_vid=vid)
+            except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
+                raise InvalidConfigError(err)
+            test_config_condition(not ofmsgs, 'OF messages is empty')
+            for ofmsg in ofmsgs:
+                ofmsg.datapath = NullRyuDatapath()
+                ofmsg.set_xid(0)
+                try:
+                    ofmsg.serialize()
+                except (KeyError, ValueError) as err:
+                    raise InvalidConfigError(err)
+                except Exception as err:
+                    print(ofmsg)
+                    raise err
+                if valve_of.is_flowmod(ofmsg):
+                    apply_actions = []
+                    for inst in ofmsg.instructions:
+                        if valve_of.is_apply_actions(inst):
+                            apply_actions.extend(inst.actions)
+                        elif valve_of.is_meter(inst):
+                            meter = True
+                    for action in apply_actions:
+                        if valve_of.is_set_field(action):
+                            set_fields.add(action.key)
+                    for match, value in list(ofmsg.match.items()):
+                        has_mask = isinstance(value, (tuple, list))
+                        if has_mask or match not in matches:
+                            matches[match] = has_mask
+        return (matches, set_fields, meter)
+
+    def get_meters(self):
+        for rule in self.rules:
+            if 'actions' not in rule or 'meter' not in rule['actions']:
+                continue
+            yield rule['actions']['meter']
+
+    def get_mirror_destinations(self):
+        for rule in self.rules:
+            if 'actions' not in rule or 'mirror' not in rule['actions']:
+                continue
+            yield rule['actions']['mirror']
+
+    def _resolve_output_ports(self, action_conf, resolve_port_cb):
+        result = {}
+        for output_action, output_action_values in list(action_conf.items()):
+            if output_action == 'port':
+                port_name = output_action_values
+                port = resolve_port_cb(port_name)
+                test_config_condition(
+                    not port,
+                    ('ACL (%s) output port undefined in DP: %s'\
+                    % (self._id, self.dp_id))
+                    )
+                result[output_action] = port
+            elif output_action == 'ports':
+                resolved_ports = [
+                    resolve_port_cb(p) for p in output_action_values]
+                test_config_condition(
+                    None in resolved_ports,
+                    ('ACL (%s) output port(s) not defined in DP: %s'\
+                    % (self._id, self.dp_id))
+                    )
+                result[output_action] = resolved_ports
+            elif output_action == 'failover':
+                failover = output_action_values
+                test_config_condition(not isinstance(failover, dict), (
+                    'failover is not a dictionary'))
+                result[output_action] = {}
+                for failover_name, failover_values in list(failover.items()):
+                    if failover_name == 'ports':
+                        resolved_ports = [
+                            resolve_port_cb(p) for p in failover_values]
+                        test_config_condition(
+                            None in resolved_ports,
+                            ('ACL (%s) failover port(s) not defined in DP: %s'\
+                            % (self._id, self.dp_id))
+                            )
+                        result[output_action][failover_name] = resolved_ports
+                    else:
+                        result[output_action][failover_name] = failover_values
+            else:
+                result[output_action] = output_action_values
+        return result
+
+    def resolve_ports(self, resolve_port_cb):
+        for rule_conf in self.rules:
+            if 'actions' in rule_conf:
+                actions_conf = rule_conf['actions']
+                resolved_actions = {}
+                test_config_condition(not isinstance(actions_conf, dict), (
+                    'actions value is not a dictionary'))
+                for action_name, action_conf in list(actions_conf.items()):
+                    if action_name == 'mirror':
+                        resolved_port = resolve_port_cb(action_conf)
+                        test_config_condition(
+                            resolved_port is None,
+                            ('ACL (%s) mirror port is not defined in DP: %s'\
+                            % (self._id, self.dp_id))
+                            )
+                        resolved_actions[action_name] = resolved_port
+                    elif action_name == 'output':
+                        resolved_action = self._resolve_output_ports(
+                            action_conf, resolve_port_cb)
+                        resolved_actions[action_name] = resolved_action
+                    else:
+                        resolved_actions[action_name] = action_conf
+                rule_conf['actions'] = resolved_actions
