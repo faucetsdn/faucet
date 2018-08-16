@@ -161,3 +161,7 @@ class FaucetBgpTest(unittest.TestCase): # pytype: disable=module-attr
             faucet_bgp.reset(valves)
 
         self.assertEqual(beka.call_count, 2)
+
+
+if __name__ == "__main__":
+    unittest.main() # pytype: disable=module-attr

@@ -88,3 +88,7 @@ class FaucetDPConfigTest(unittest.TestCase): # pytype: disable=module-attr
             dict_keys.remove(exception)
 
         self.assertEqual(dict_keys, conf_keys)
+
+
+if __name__ == "__main__":
+    unittest.main() # pytype: disable=module-attr

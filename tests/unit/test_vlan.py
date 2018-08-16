@@ -376,3 +376,7 @@ class FaucetVLANMethodTest(FaucetVLANBaseTest):
         self.assertEqual(vlan.routes_by_ipv(6), {
             ip_network('fc00::30:0/112'): ip_address('fc00::1:99')
         })
+
+
+if __name__ == "__main__":
+    unittest.main() # pytype: disable=module-attr

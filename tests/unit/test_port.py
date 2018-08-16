@@ -155,3 +155,7 @@ class FaucetPortMethodTest(unittest.TestCase): # pytype: disable=module-attr
         self.assertEqual(set(port.vlans()), set([native_vlan] + tagged_vlans))
         port.native_vlan = None
         self.assertEqual(set(port.vlans()), set(tagged_vlans))
+
+
+if __name__ == "__main__":
+    unittest.main() # pytype: disable=module-attr
