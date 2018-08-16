@@ -4,28 +4,29 @@ UNITTESTS=1
 DEPCHECK=1
 MINCOVERAGE=85
 
-cd /faucet-src
-
-if [ -d /var/tmp/pip-cache ] ; then
-  cp -r /var/tmp/pip-cache /var/tmp/pip-cache-local || exit 1
-fi
-./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache-local" || exit 1
-
 # if -n passed, don't check dependencies/lint/type/documentation.
-# wrapper script only cares about -n, others passed to test suite.
-while getopts "cdjknsxi" o $FAUCET_TESTS; do
+# wrapper script only cares about -in, others passed to test suite.
+while getopts "cdijknsx" o $FAUCET_TESTS; do
   case "${o}" in
-        n)
-            DEPCHECK=0
-            ;;
         i)
             UNITTESTS=0
+            DEPCHECK=0
+            ;;
+        n)
             DEPCHECK=0
             ;;
         *)
             ;;
     esac
 done
+
+cd /faucet-src
+
+if [ -d /var/tmp/pip-cache ] ; then
+  echo Using pip cache
+  cp -r /var/tmp/pip-cache /var/tmp/pip-cache-local || exit 1
+fi
+./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache-local" || exit 1
 
 echo "========== checking IPv4/v6 localhost is up ====="
 ping6 -c 1 ::1 || exit 1
