@@ -754,18 +754,18 @@ configuration.
                 return (matches, set_fields, meter)
 
             for rule_conf in acl.rules:
-                for attrib, attrib_value in list(rule_conf.items()):
-                    if attrib == 'actions':
-                        resolved_actions = {}
-                        test_config_condition(not isinstance(attrib_value, dict), (
-                            'attrib_value is not a dictionary'))
-                        for action_name, action_conf in list(attrib_value.items()):
-                            resolved_action_conf = action_resolvers[action_name](
-                                acl, action_conf)
-                            test_config_condition(resolved_action_conf is None, (
-                                'cannot resolve ACL rule %s' % rule_conf))
-                            resolved_actions[action_name] = resolved_action_conf
-                        rule_conf[attrib] = resolved_actions
+                if 'actions' in rule_conf:
+                    actions_conf = rule_conf['actions']
+                    resolved_actions = {}
+                    test_config_condition(not isinstance(actions_conf, dict), (
+                        'actions value is not a dictionary'))
+                    for action_name, action_conf in list(actions_conf.items()):
+                        resolved_action_conf = action_resolvers[action_name](
+                            acl, action_conf)
+                        test_config_condition(resolved_action_conf is None, (
+                            'cannot resolve ACL rule %s' % rule_conf))
+                        resolved_actions[action_name] = resolved_action_conf
+                    rule_conf['actions'] = resolved_actions
 
             return build_acl(acl, vid)
 
