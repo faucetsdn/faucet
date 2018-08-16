@@ -83,6 +83,22 @@ def is_flowmod(ofmsg):
     return isinstance(ofmsg, parser.OFPFlowMod)
 
 
+def is_tablemiss(ofmsg):
+    """Return True if flow message is a FlowMod for a Table Miss entry
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a Table Miss flow
+    """
+    is_table_miss = False
+    if is_flowmod(ofmsg):
+        match_length = len(ofmsg.match.to_jsondict().get('OFPMatch', {}).get('oxm_fields', {}))
+        if ofmsg.priority == 0 and match_length == 0:
+            is_table_miss = True
+    return is_table_miss
+
+
 def is_groupmod(ofmsg):
     """Return True if OF message is a GroupMod.
 
@@ -664,6 +680,9 @@ def _msg_kind(ofmsg):
         return 'groupadd'
     if is_meteradd(ofmsg):
         return 'meteradd'
+    if is_tablemiss(ofmsg):
+       return 'tablemiss'
+
     return 'other'
 
 
@@ -691,6 +710,14 @@ def dedupe_ofmsgs(input_ofmsgs):
     return deduped_input_ofmsgs
 
 
+def remove_duplicate_tablemiss(input_ofmsgs):
+    """Keep only one table miss flow_mod for each table"""
+    tablemiss_per_table = {}
+    for ofmsg in input_ofmsgs:
+        tablemiss_per_table[ofmsg.table_id] = ofmsg
+    return tablemiss_per_table.values()
+
+
 def valve_flowreorder(input_ofmsgs, use_barriers=True):
     """Reorder flows for better OFA performance."""
     # Move all deletes to be first, and add one barrier,
@@ -706,6 +733,7 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     groupadd_ofmsgs = dedupe_ofmsgs(by_kind.get('groupadd', []))
     meteradd_ofmsgs = dedupe_ofmsgs(by_kind.get('meteradd', []))
     tfm_ofmsgs = dedupe_ofmsgs(by_kind.get('tfm', []))
+    tablemiss_ofmsgs = dedupe_ofmsgs(by_kind.get('tablemiss', []))
     other_ofmsgs = dedupe_ofmsgs(by_kind.get('other', []))
     output_ofmsgs = []
     for ofmsgs in (delete_ofmsgs, tfm_ofmsgs, groupadd_ofmsgs, meteradd_ofmsgs):
@@ -713,6 +741,7 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
             output_ofmsgs.extend(ofmsgs)
             if use_barriers:
                 output_ofmsgs.append(barrier())
+    output_ofmsgs.extend(remove_duplicate_tablemiss(tablemiss_ofmsgs))
     output_ofmsgs.extend(other_ofmsgs)
     return output_ofmsgs
 
