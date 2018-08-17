@@ -571,7 +571,8 @@ class Valve:
         stack_correct = port.dyn_stack_probe_info['stack_correct']
         remote_port_state = port.dyn_stack_probe_info['remote_port_state']
         send_interval = remote_dp.lldp_beacon['send_interval']
-        num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
+        time_since_lldp_seen = now - last_seen_lldp_time
+        num_lost_lldp = round(time_since_lldp_seen / float(send_interval))
 
         if not stack_correct:
             if not port.is_stack_down():
@@ -581,7 +582,8 @@ class Valve:
             if not port.is_stack_down():
                 next_state = port.stack_down
                 self.logger.error(
-                    'Stack %s DOWN, too many (%u) packets lost' % (port, num_lost_lldp))
+                    'Stack %s DOWN, too many (%u) packets lost, last received %f ago' % (
+                        port, num_lost_lldp, time_since_lldp_seen))
         elif port.is_stack_down() and not port.is_stack_init():
             next_state = port.stack_init
             self.logger.info('Stack %s INIT' % port)
