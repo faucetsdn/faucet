@@ -6,8 +6,7 @@ docker rmi faucet/test-base
 docker images
 
 if [ "${MATRIX_SHARD}" = "sanity" ] ; then
-  FAUCET_TESTS="FaucetSanityTest"
-  # TODO: move to docker.
+  FAUCET_TESTS="-u FaucetSanityTest"
   ./tests/run_unit_tests.sh || exit 1
   codecov || true
 else
@@ -34,6 +33,5 @@ echo Shard $MATRIX_SHARD: $FAUCETTESTS
 sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   -v $HOME/.cache/pip:/var/tmp/pip-cache \
   -e FAUCET_TESTS="${FAUCET_TESTS}" \
-  -e CODECOV_TOKEN="${CODECOV_TOKEN}" \
   -t ${FAUCET_TEST_IMG} || exit 1
 exit 0

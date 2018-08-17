@@ -165,17 +165,30 @@ Running the tests
       -v /var/tmp:/var/tmp \
       -ti faucet/tests
 
-Running a single test including pytype, linting, and documentation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Test suite options
+------------------
+
+In both the software and hardware version of the test suite we can provide
+flags inside the ``FAUCET_TESTS`` environment variable to run specific parts of
+the test suite.
+
+  .. note::
+
+  Multiple flags can be added to FAUCET_TESTS, below are just some examples of
+  how individual flags work.
+
+Running specific integration tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If specific test names are listed in the ``FAUCET_TESTS`` environment then only
+these integration tests will be run and all others skipped.
+
+If we add the following to either of the previous docker run commands then only
+the ``FaucetUntaggedTest`` will be run.
 
 .. code:: console
 
-  sudo docker run --privileged --net=host \
-      -v $HOME/.cache/pip:/var/tmp/pip-cache \
-      -v /etc/faucet:/etc/faucet \
-      -v /var/tmp:/var/tmp \
-      -e FAUCET_TESTS="FaucetUntaggedTest" \
-      -ti faucet/tests
+      -e FAUCET_TESTS="FaucetUntaggedTest"
 
 Running only the integration tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -185,29 +198,43 @@ in order to complete a faucet test suite run against hardware quicker.
 
 .. code:: console
 
-  sudo docker run --privileged --net=host \
-      -e FAUCET_TESTS="-i" \
-      -v /etc/faucet:/etc/faucet \
-      -v /var/tmp:/var/tmp \
-      -ti faucet/tests
+      -e FAUCET_TESTS="-i"
 
-Running only a single integration test
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Skip code checks
+~~~~~~~~~~~~~~~~
 
-Sometimes you will want to skip the pytype, linting and documenation tests
-and simply run a single integration test. Optionally ``-k`` will also save
-the results.
+Sometimes you will want to skip the pytype, linting and documentation tests.
+
+This can be done with with the ``-n`` flag:
 
 .. code:: console
 
-  sudo docker run --privileged --net=host \
-      -e FAUCET_TESTS="-i -n -k FaucetUntaggedLLDPTest" \
-      -v /etc/faucet:/etc/faucet \
-      -v /var/tmp:/var/tmp \
-      -ti faucet/tests
+      -e FAUCET_TESTS="-n"
+
+Skip unit tests
+~~~~~~~~~~~~~~~
+
+Sometimes you will want to skip the unit tests which are small tests that verify
+small chunks of the code base return the correct values. If these are skipped
+the integration tests (which spin up virtual networks and tests faucet
+controllers under different configurations) will still be run.
+
+This can be done with with the ``-u`` flag:
+
+.. code:: console
+
+      -e FAUCET_TESTS="-u"
 
 Checking test results
 ~~~~~~~~~~~~~~~~~~~~~
 
-If a test fails, you can look in /tmp - there will be subdirectories created for each test, which
-will contain all the logs and debug information (including tcpdumps).
+If a test fails, you can look in /var/tmp - there will be subdirectories created
+for each test, which will contain all the logs and debug information
+(including tcpdumps).
+
+By default the test suite cleans up these files but if we use the ``-k`` flag
+the test suite will keep these files.
+
+.. code:: console
+
+      -e FAUCET_TESTS="-k"
