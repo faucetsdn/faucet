@@ -4,16 +4,22 @@ UNITTESTS=1
 DEPCHECK=1
 MINCOVERAGE=85
 
-# if -n passed, don't check dependencies/lint/type/documentation.
-# wrapper script only cares about -in, others passed to test suite.
-while getopts "cdijknsx" o $FAUCET_TESTS; do
+# allow user to skip parts of docker test
+# this wrapper script only cares about -n, -u, -i, others passed to test suite.
+while getopts "cdijknsux" o $FAUCET_TESTS; do
   case "${o}" in
         i)
+            # run only integration tests
             UNITTESTS=0
             DEPCHECK=0
             ;;
         n)
+            # skip code check
             DEPCHECK=0
+            ;;
+        u)
+            # skip unit tests
+            UNITTESTS=0
             ;;
         *)
             ;;
@@ -48,8 +54,6 @@ if [ "$UNITTESTS" == 1 ] ; then
     echo "========== Running faucet unit tests =========="
     cd /faucet-src/tests
     ./run_unit_tests.sh || exit 1
-    # TODO: enable under travis
-    # codecov || true
 fi
 
 if [ "$DEPCHECK" == 1 ] ; then
