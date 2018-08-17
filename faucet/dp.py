@@ -530,6 +530,10 @@ configuration.
                 return self.shortest_path(root_dp.name)
         return []
 
+    def is_stack_root(self):
+        """Return True if this DP is the root of the stack."""
+        return 'priority' in self.stack
+
     def is_stack_edge(self):
         """Return True if this DP is a stack edge."""
         if self.stack and 'longest_path_to_root_len' in self.stack:
