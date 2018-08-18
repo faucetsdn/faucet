@@ -286,7 +286,7 @@ class Valve:
 
         ofmsgs = []
         for table in list(self.dp.tables.values()):
-            miss_table_name = table.table_config.goto_miss
+            miss_table_name = table.table_config.miss_goto
             if miss_table_name:
                 miss_table = self.dp.tables[miss_table_name]
                 ofmsgs.append(table.flowdmod(
