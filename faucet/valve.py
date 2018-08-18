@@ -291,7 +291,7 @@ class Valve:
                 miss_table = self.dp.tables[miss_table_name]
                 ofmsgs.append(table.flowmod(
                     priority=self.dp.lowest_priority,
-                    inst=[valve_of.goto_table(miss_table_name)]))
+                    inst=[valve_of.goto_table(miss_table)]))
             else:
                 ofmsgs.append(table.flowdrop(
                     priority=self.dp.lowest_priority))
