@@ -448,11 +448,11 @@ class ValveFloodStackManager(ValveFloodManager):
         # shortest path via alternate DP).
         if pkt_meta.port.stack:
             peer_dp = pkt_meta.port.stack['dp']
-            if peer_dp.is_stack_edge():
+            if peer_dp.is_stack_edge() or peer_dp.is_stack_root():
                 return peer_dp
+        stacked_valves = [valve for valve in other_valves if valve.dp.stack is not None]
         eth_src = pkt_meta.eth_src
         vlan_vid = pkt_meta.vlan.vid
-        stacked_valves = [valve for valve in other_valves if valve.dp.stack is not None]
         for other_valve in stacked_valves:
             if vlan_vid in other_valve.dp.vlans:
                 other_dp_vlan = other_valve.dp.vlans[vlan_vid]
