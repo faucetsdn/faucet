@@ -284,10 +284,17 @@ class Valve:
         eth_src_table = self.dp.tables['eth_src']
         flood_table = self.dp.tables['flood']
 
-        # default drop on all tables.
         ofmsgs = []
         for table in list(self.dp.tables.values()):
-            ofmsgs.append(table.flowdrop(priority=self.dp.lowest_priority))
+            miss_table_name = table.table_config.goto_miss
+            if miss_table_name:
+                miss_table = self.dp.tables[miss_table_name]
+                ofmsgs.append(table.flowdmod(
+                    priority=self.dp.lowest_priority,
+                    inst=[valve_of.goto_table(miss_table_name)]))
+            else:
+                ofmsgs.append(table.flowdrop(
+                    priority=self.dp.lowest_priority))
 
         # drop broadcast sources
         if self.dp.drop_broadcast_source_address:
@@ -332,12 +339,6 @@ class Valve:
                 vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
         return ofmsgs
 
-    def _add_vlan_flood_flow(self):
-        """Add a flow to flood packets for unknown destinations."""
-        return [self.dp.tables['eth_dst'].flowmod(
-            priority=self.dp.lowest_priority,
-            inst=[valve_of.goto_table(self.dp.tables['flood'])])]
-
     def _add_packetin_meter(self):
         """Add rate limiting of packet in pps (not supported by many DPs)."""
         if self.dp.packetin_pps:
@@ -360,12 +361,6 @@ class Valve:
                 False)) # TODO: exact match support for DP ACLs.
         return ofmsgs
 
-    def _add_non_local_vlan_flow(self):
-        """Add flow to handle packets not destined to a local VLAN."""
-        return [self.dp.tables['eth_src'].flowmod(
-            priority=self.dp.lowest_priority,
-            inst=[valve_of.goto_table(self.dp.tables['eth_dst'])])]
-
     def _add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
         ofmsgs = []
@@ -375,8 +370,6 @@ class Valve:
             for meter in list(self.dp.meters.values()):
                 ofmsgs.append(meter.entry_msg)
         ofmsgs.extend(self._add_default_drop_flows())
-        ofmsgs.extend(self._add_vlan_flood_flow())
-        ofmsgs.extend(self._add_non_local_vlan_flow())
         ofmsgs.extend(self._add_dp_acls())
         return ofmsgs
 
