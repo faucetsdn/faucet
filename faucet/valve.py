@@ -289,7 +289,7 @@ class Valve:
             miss_table_name = table.table_config.miss_goto
             if miss_table_name:
                 miss_table = self.dp.tables[miss_table_name]
-                ofmsgs.append(table.flowdmod(
+                ofmsgs.append(table.flowmod(
                     priority=self.dp.lowest_priority,
                     inst=[valve_of.goto_table(miss_table_name)]))
             else:
