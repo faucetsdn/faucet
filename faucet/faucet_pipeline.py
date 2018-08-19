@@ -96,5 +96,5 @@ FAUCET_PIPELINE = (
     ValveTableConfig(
         'flood',
         match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
-        vlan_port_scale=1.1),
+        vlan_port_scale=2.1),
 )
