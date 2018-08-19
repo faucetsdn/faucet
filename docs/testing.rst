@@ -173,9 +173,8 @@ flags inside the ``FAUCET_TESTS`` environment variable to run specific parts of
 the test suite.
 
   .. note::
-
-  Multiple flags can be added to FAUCET_TESTS, below are just some examples of
-  how individual flags work.
+     Multiple flags can be added to FAUCET_TESTS, below are just some examples
+     of  how individual flags work.
 
 Running specific integration tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Test FAUCET main."""
+"""Test GAUGE main."""
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
@@ -35,9 +35,8 @@ class MainTestCase(unittest.TestCase): # pytype: disable=module-attr
 
     def test_build_ryu_args(self):
         """Test build_ryu_args()."""
-        self.assertTrue(build_ryu_args(['faucet', '--use-stderr', '--use-syslog', '--verbose']))
         self.assertTrue(build_ryu_args(['gauge', '--use-stderr', '--use-syslog', '--verbose']))
-        self.assertFalse(build_ryu_args(['faucet', '--version']))
+        self.assertFalse(build_ryu_args(['gauge', '--version']))
 
 
 if __name__ == "__main__":
