@@ -58,7 +58,7 @@ def _fib_table(ipv):
         match_types=(('eth_type', False), ('ipv%u_dst' % ipv, True), ('vlan_vid', False)),
         set_fields=('eth_dst', 'eth_src', 'vlan_vid'),
         dec_ttl=True,
-        vlan_port_scale=2.1)
+        vlan_port_scale=3.1)
 
 
 # TODO: implement an eth_type table before VLAN. This would enable interception
@@ -80,7 +80,7 @@ FAUCET_PIPELINE = (
         match_types=(('eth_dst', True), ('eth_src', False), ('eth_type', False),
                      ('in_port', False), ('vlan_vid', False)),
         set_fields=('vlan_vid', 'eth_dst'),
-        vlan_port_scale=2.1),
+        vlan_port_scale=4.1),
     _fib_table(4),
     _fib_table(6),
     ValveTableConfig(
@@ -92,7 +92,7 @@ FAUCET_PIPELINE = (
         exact_match=True,
         miss_goto='flood',
         match_types=(('eth_dst', False), ('vlan_vid', False)),
-        vlan_port_scale=2.1),
+        vlan_port_scale=4.1),
     ValveTableConfig(
         'flood',
         match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
