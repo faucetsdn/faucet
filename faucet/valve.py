@@ -96,6 +96,8 @@ class Valve:
     DEC_TTL = True
     USE_BARRIERS = True
     STATIC_TABLE_IDS = False
+    GROUPS = True
+
 
     def __init__(self, dp, logname, metrics, notifier):
         self.dp = dp

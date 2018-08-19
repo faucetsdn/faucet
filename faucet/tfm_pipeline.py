@@ -67,7 +67,7 @@ def load_tables(dp, valve_cl): # pylint: disable=invalid-name
         if valve_table.table_config.output:
             apply_actions.add(valve_of.ofp.OFPAT_OUTPUT)
             apply_actions.add(valve_of.ofp.OFPAT_POP_VLAN)
-            if dp.group_table or dp.group_table_routing:
+            if valve_cl.GROUPS:
                 apply_actions.add(valve_of.ofp.OFPAT_GROUP)
         if apply_actions:
             action_ids = [
