@@ -129,6 +129,10 @@ configuration.
         # Experimental dot1x configuration.
         'table_sizes': {},
         # Table sizes for TFM switches.
+        'min_wildcard_table_size': 32,
+        # Minimum table size for wildcard tables.
+        'max_wildcard_table_size': 1024 + 256,
+        # Maximum table size for wildcard tables.
         'global_vlan': 0,
         # Reserved VID for internal global router VLAN.
         }
@@ -174,6 +178,8 @@ configuration.
         'dp_acls': list,
         'dot1x': dict,
         'table_sizes': dict,
+        'min_wildcard_table_size': int,
+        'max_wildcard_table_size': int,
         'global_vlan': int,
     }
 
@@ -267,6 +273,8 @@ configuration.
         self.unicast_flood = None
         self.use_idle_timeout = None
         self.vlans = None
+        self.min_wildcard_table_size = None
+        self.max_wildcard_table_size = None
 
         self.acls = {}
         self.vlans = {}
@@ -325,9 +333,12 @@ configuration.
             table_name = table_config.name
             if table_name in override_table_config:
                 table_config = override_table_config[table_name]
-            size = self.table_sizes.get(table_name, 64)
+            size = self.table_sizes.get(table_name, self.min_wildcard_table_size)
             if table_config.vlan_port_scale:
                 size = max(size, int(vlan_port_factor * float(table_config.vlan_port_scale)))
+            if not table_config.exact_match:
+                size = min(size, self.max_wildcard_table_size)
+                size = int(size / self.min_wildcard_table_size) * self.min_wildcard_table_size
             table_config.size = size
             if table_config.match_types:
                 if not valve_cl.STATIC_TABLE_IDS:
