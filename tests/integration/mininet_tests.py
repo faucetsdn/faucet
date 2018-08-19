@@ -3952,7 +3952,7 @@ vlans:
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
     def _vids():
-        return [i for i in range(100, 116)]
+        return [i for i in range(100, 132)]
 
     VIDS = _vids()
     STR_VIDS = [str(i) for i in _vids()]
@@ -3973,6 +3973,9 @@ vlans:
     CONFIG = """
         global_vlan: 2047
         proactive_learn_v4: True
+        table_sizes:
+            vlan: 256
+            vip: 128
         interfaces:
             %s:
                 native_vlan: 99
