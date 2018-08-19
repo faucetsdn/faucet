@@ -22,7 +22,8 @@ $APK add -U git yaml-dev $BUILDDEPS && \
 if [ "$ARCH" == "armhf" ]; then
   echo "Skipping tests on $ARCH platform"
 else
-  python3 -m pytest $FROOT/tests/unit/test_valve.py
+  python3 -m pytest $FROOT/tests/unit/faucet/test_*.py
+  python3 -m pytest $FROOT/tests/unit/gauge/test_*.py
 fi
 
 for i in $BUILDDEPS ; do
