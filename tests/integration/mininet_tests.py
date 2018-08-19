@@ -1675,6 +1675,8 @@ vlans:
         description: "untagged"
 """
     CONFIG = """
+        table_sizes:
+            port_acl: 1100
         interfaces:
             %(port_1)d:
                 native_vlan: 100

@@ -21,7 +21,8 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
     """Configuration for a single table."""
 
     def __init__(self, name, exact_match=None, meter=None, output=True, # pylint: disable=too-many-arguments
-                 miss_goto=None, size=None, match_types=None, set_fields=None, dec_ttl=None):
+                 miss_goto=None, size=None, match_types=None, set_fields=None, dec_ttl=None,
+                 vlan_port_scale=None):
         self.name = name
         self.exact_match = exact_match
         self.meter = meter
@@ -31,6 +32,7 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
         self.match_types = match_types
         self.set_fields = set_fields
         self.dec_ttl = dec_ttl
+        self.vlan_port_scale = vlan_port_scale
 
     def __str__(self):
         field_strs = ' '.join([
@@ -55,7 +57,8 @@ def _fib_table(ipv):
         'ipv%u_fib' % ipv,
         match_types=(('eth_type', False), ('ipv%u_dst' % ipv, True), ('vlan_vid', False)),
         set_fields=('eth_dst', 'eth_src', 'vlan_vid'),
-        dec_ttl=True)
+        dec_ttl=True,
+        vlan_port_scale=3.1)
 
 
 # TODO: implement an eth_type table before VLAN. This would enable interception
@@ -67,7 +70,8 @@ FAUCET_PIPELINE = (
         'vlan',
         match_types=(('eth_dst', True), ('eth_type', False),
                      ('in_port', False), ('vlan_vid', False)),
-        set_fields=('vlan_vid',)),
+        set_fields=('vlan_vid',),
+        vlan_port_scale=1.1),
     ValveTableConfig(
         'vlan_acl'),
     ValveTableConfig(
@@ -75,7 +79,8 @@ FAUCET_PIPELINE = (
         miss_goto='eth_dst',
         match_types=(('eth_dst', True), ('eth_src', False), ('eth_type', False),
                      ('in_port', False), ('vlan_vid', False)),
-        set_fields=('vlan_vid', 'eth_dst')),
+        set_fields=('vlan_vid', 'eth_dst'),
+        vlan_port_scale=4.1),
     _fib_table(4),
     _fib_table(6),
     ValveTableConfig(
@@ -86,8 +91,10 @@ FAUCET_PIPELINE = (
         'eth_dst',
         exact_match=True,
         miss_goto='flood',
-        match_types=(('eth_dst', False), ('vlan_vid', False))),
+        match_types=(('eth_dst', False), ('vlan_vid', False)),
+        vlan_port_scale=4.1),
     ValveTableConfig(
         'flood',
-        match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False))),
+        match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
+        vlan_port_scale=2.1),
 )
