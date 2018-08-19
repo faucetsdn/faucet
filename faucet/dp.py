@@ -25,9 +25,8 @@ from datadiff import diff
 import networkx
 
 from faucet import faucet_pipeline
-from faucet import valve_acl
 from faucet import valve_of
-from faucet.conf import Conf, InvalidConfigError, test_config_condition
+from faucet.conf import Conf, test_config_condition
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve_table import ValveTable, ValveGroupTable
@@ -128,7 +127,7 @@ configuration.
         # List of dataplane ACLs (overriding per port ACLs).
         'dot1x': None,
         # Experimental dot1x configuration.
-        'table_sizes': {'port_acl': 1100, 'vlan': 100, 'vlan_acl': 50, 'eth_src': 400, 'ipv4_fib': 50, 'ipv6_fib': 50, 'vip': 20, 'eth_dst': 300, 'flood': 100},
+        'table_sizes': {},
         # Table sizes for TFM switches.
         'global_vlan': 0,
         # Reserved VID for internal global router VLAN.
@@ -178,7 +177,7 @@ configuration.
         'global_vlan': int,
     }
 
-    table_sizes_types = {
+    default_table_sizes_types = {
         'port_acl': int,
         'vlan': int,
         'vlan_acl': int,
@@ -263,7 +262,6 @@ configuration.
         self.routers = None
         self.stack = None
         self.stack_ports = None
-        self.table_sizes = None
         self.tables = None
         self.timeout = None
         self.unicast_flood = None
@@ -288,6 +286,7 @@ configuration.
         return self.name
 
     def check_config(self):
+        super(DP, self).check_config()
         test_config_condition(not isinstance(self.dp_id, int), (
             'dp_id must be %s not %s' % (int, type(self.dp_id))))
         test_config_condition(self.dp_id < 0 or self.dp_id > 2**64-1, (
@@ -315,10 +314,9 @@ configuration.
             self._check_conf_types(self.stack, self.stack_defaults_types)
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
-        if self.table_sizes:
-            self._check_conf_types(self.table_sizes, self.table_sizes_types)
+        self._check_conf_types(self.table_sizes, self.default_table_sizes_types)
 
-    def _configure_tables(self, override_table_config, valve_cl):
+    def _configure_tables(self, override_table_config, valve_cl, vlan_port_factor):
         """Configure FAUCET pipeline with tables."""
         tables = {}
         self.groups = ValveGroupTable()
@@ -327,8 +325,10 @@ configuration.
             table_name = table_config.name
             if table_name in override_table_config:
                 table_config = override_table_config[table_name]
-            # TODO: automatically calculate
-            table_config.size = self.table_sizes.get(table_name, 128)
+            size = self.table_sizes.get(table_name, 64)
+            if table_config.vlan_port_scale:
+                size = max(size, int(vlan_port_factor * float(table_config.vlan_port_scale)))
+            table_config.size = size
             if table_config.match_types:
                 if not valve_cl.STATIC_TABLE_IDS:
                     table_id = relative_table_id
@@ -590,10 +590,6 @@ configuration.
                     resolved_ports.append(port)
             return resolved_ports
 
-        def resolve_port_numbers(port_names):
-            """Resolve list of ports to numbers, by port by name or number."""
-            return [port.number for port in resolve_ports(port_names)]
-
         def resolve_vlan(vlan_name):
             """Resolve VLAN by name or VID."""
             test_config_condition(not isinstance(vlan_name, (str, int)), (
@@ -656,9 +652,10 @@ configuration.
                 port = self.resolve_port(port_name)
                 if port:
                     return port.number
-                else:
-                    return port
+                return port
+
             acl.resolve_ports(resolve_port_cb)
+
             for meter_name in acl.get_meters():
                 test_config_condition(meter_name not in self.meters, (
                     'meter %s is not configured' % meter_name))
@@ -813,7 +810,8 @@ configuration.
         if not ipvs:
             override_table_config['vip'] = ValveTableConfig('vip')
 
-        self._configure_tables(override_table_config, valve_cl)
+        vlan_port_factor = len(self.vlans) * len(self.ports)
+        self._configure_tables(override_table_config, valve_cl, vlan_port_factor)
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:
