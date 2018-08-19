@@ -1525,9 +1525,8 @@ class TfmValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
     def _pipeline_flows(self):
-        ryu_table_loader = tfm_pipeline.LoadRyuTables()
         return [valve_of.table_features(
-            ryu_table_loader.load_tables(self.dp, self))]
+            tfm_pipeline.load_tables(self.dp, self))]
 
     def _add_default_flows(self):
         ofmsgs = self._pipeline_flows()
