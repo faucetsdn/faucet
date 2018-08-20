@@ -703,38 +703,36 @@ class ValveIPv4RouteManager(ValveRouteManager):
         if not pkt_meta.eth_type == valve_of.ether.ETH_TYPE_ARP:
             return ofmsgs
         vlan = pkt_meta.vlan
-        if pkt_meta.eth_dst not in (
-                valve_of.mac.BROADCAST_STR, vlan.faucet_mac):
-            return ofmsgs
         pkt_meta.reparse_ip()
-        arp_pkt = pkt_meta.pkt.get_protocol(arp.arp)
-        if arp_pkt is None:
-            return ofmsgs
-        src_ip = ipaddress.IPv4Address(btos(arp_pkt.src_ip))
-        dst_ip = ipaddress.IPv4Address(btos(arp_pkt.dst_ip))
+        src_ip = pkt_meta.l3_src
+        dst_ip = pkt_meta.l3_dst
         if vlan.from_connected_to_vip(src_ip, dst_ip):
+            arp_pkt = pkt_meta.pkt.get_protocol(arp.arp)
+            if arp_pkt is None:
+                return ofmsgs
             opcode = arp_pkt.opcode
             port = pkt_meta.port
             eth_src = pkt_meta.eth_src
             if opcode == arp.ARP_REQUEST:
-                ofmsgs.extend(
-                    self._add_host_fib_route(vlan, src_ip, blackhole=False))
-                ofmsgs.extend(self._update_nexthop(
-                    now, vlan, port, eth_src, src_ip))
-                ofmsgs.append(
-                    vlan.pkt_out_port(
-                        valve_packet.arp_reply, port,
-                        vlan.faucet_mac, eth_src, dst_ip, src_ip))
-                self.logger.info(
-                    'Responded to ARP request for %s from %s' % (
-                        dst_ip, pkt_meta.log()))
-            elif (opcode == arp.ARP_REPLY and
-                  pkt_meta.eth_dst == vlan.faucet_mac):
-                ofmsgs.extend(
-                    self._update_nexthop(now, vlan, port, eth_src, src_ip))
-                self.logger.info(
-                    'Received ARP response %s from %s' % (
-                        src_ip, pkt_meta.log()))
+                if pkt_meta.eth_dst == valve_of.mac.BROADCAST_STR:
+                    ofmsgs.extend(
+                        self._add_host_fib_route(vlan, src_ip, blackhole=False))
+                    ofmsgs.extend(self._update_nexthop(
+                        now, vlan, port, eth_src, src_ip))
+                    ofmsgs.append(
+                        vlan.pkt_out_port(
+                            valve_packet.arp_reply, port,
+                            vlan.faucet_mac, eth_src, dst_ip, src_ip))
+                    self.logger.info(
+                        'Responded to ARP request for %s from %s' % (
+                            dst_ip, pkt_meta.log()))
+            elif opcode == arp.ARP_REPLY:
+                if pkt_meta.eth_dst == vlan.faucet_mac:
+                    ofmsgs.extend(
+                        self._update_nexthop(now, vlan, port, eth_src, src_ip))
+                    self.logger.info(
+                        'Received ARP response %s from %s' % (
+                            src_ip, pkt_meta.log()))
         return ofmsgs
 
     def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt):
