@@ -778,8 +778,7 @@ configuration.
                 vips = set()
                 for vlan in vlans:
                     for vip in vlan.faucet_vips:
-                        if (vip.ip in valve_packet.IPV4_LINK_LOCAL or
-                                vip.ip in valve_packet.IPV6_LINK_LOCAL):
+                        if vip.ip.is_link_local:
                             continue
                         vips.add(vip)
                 for vip in vips:

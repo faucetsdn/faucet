@@ -45,15 +45,24 @@ BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
 BRIDGE_GROUP_MASK = 'ff:ff:ff:ff:ff:f0'
 LLDP_MAC_NEAREST_BRIDGE = lldp.LLDP_MAC_NEAREST_BRIDGE
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
-IPV4_LINK_LOCAL = ipaddress.IPv4Network(valve_util.btos('169.254.0.0/16'))
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
-IPV6_LINK_LOCAL = ipaddress.IPv6Network(valve_util.btos('fe80::/10'))
 IPV6_ALL_NODES = ipaddress.IPv6Address(valve_util.btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
 
 LLDP_FAUCET_DP_ID = 1
 LLDP_FAUCET_STACK_STATE = 2
+
+
+def int_from_mac(mac):
+    int_hi, int_lo = [int(i, 16) for i in mac.split(':')[-2:]]
+    return (int_hi << 8) + int_lo
+
+
+def int_in_mac(mac, to_int):
+    int_mac = mac.split(':')[:4] + [
+        '%x' % (to_int >> 8), '%x' % (to_int & 0xff)]
+    return ':'.join(int_mac)
 
 
 def ipv4_parseable(ip_header_data):
@@ -655,7 +664,8 @@ class PacketMeta:
         valve_of.ether.ETH_TYPE_IPV6: ETH_VLAN_HEADER_SIZE + IPV6_HEADER_SIZE,
     }
 
-    def __init__(self, data, orig_len, pkt, eth_pkt, vlan_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
+    def __init__(self, data, orig_len, pkt, eth_pkt, vlan_pkt, port, valve_vlan,
+                 eth_src, eth_dst, eth_type):
         self.data = data
         self.orig_len = orig_len
         self.pkt = pkt
