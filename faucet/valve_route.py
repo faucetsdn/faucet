@@ -903,7 +903,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
     def _router_solicit_handler(self, _now, pkt_meta, _ipv6_pkt, _icmpv6_pkt, src_ip, _dst_ip):
         ofmsgs = []
         vlan = pkt_meta.vlan
-        link_local_vips, other_vips = self._link_and_other_vips(vlan)
+        link_local_vips, other_vips = vlan.link_and_other_vips(self.IPV)
         for vip in link_local_vips:
             if src_ip in vip.network:
                 ofmsgs.append(
@@ -978,19 +978,9 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     now, pkt_meta.vlan, pkt_meta.l3_dst)
         return []
 
-    def _link_and_other_vips(self, vlan):
-        link_local_vips = []
-        other_vips = []
-        for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
-            if faucet_vip.ip.is_link_local:
-                link_local_vips.append(faucet_vip)
-            else:
-                other_vips.append(faucet_vip)
-        return link_local_vips, other_vips
-
     def advertise(self, vlan):
         ofmsgs = []
-        link_local_vips, other_vips = self._link_and_other_vips(vlan)
+        link_local_vips, other_vips = vlan.link_and_other_vips(self.IPV)
         for link_local_vip in link_local_vips:
             # https://tools.ietf.org/html/rfc4861#section-6.1.2
             ofmsgs.extend(vlan.flood_pkt(
