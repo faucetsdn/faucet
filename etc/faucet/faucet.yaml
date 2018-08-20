@@ -26,7 +26,6 @@ dps:
     sw1:
         dp_id: 0x1
         hardware: "Open vSwitch"
-        proactive_learn: True
         interfaces:
             1:
                 name: "h1"
