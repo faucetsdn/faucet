@@ -76,9 +76,10 @@ Finally, click ``Ok`` again to get back to the main screen of PyCharm.
 Install requirements
 ~~~~~~~~~~~~~~~~~~~~
 
-Inside the PyCharm editor window we should now get a bar at the top of the
-window telling us of missing package requirements, click the
-``Install requirements`` option to install the dependencies for faucet.
+Inside the PyCharm editor window if we open one of the code files for faucet
+(e.g. faucet/faucet.py) we should now get a bar at the top of the window
+telling us of missing package requirements, click the ``Install requirements``
+option to install the dependencies for faucet.
 
 Create log and configuration directories
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -99,25 +100,28 @@ Copy the sample gauge configuration file from
 ``/Dev/faucet/etc/faucet/gauge.yaml`` to ``/Dev/faucet/venv/etc/faucet/`` and
 edit this configuration file as necessary.
 
-Configure PyCharm to run faucet
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Configure PyCharm to run faucet and gauge
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Now we need to configure PyCharm to run faucet, gauge and the unit tests.
 
 First, click the ``Run -> Run..`` menu, then select the
 ``Edit Configurations...`` option to get to the build settings dialog.
 
-We will edit the default ``faucet`` run configuration that has been created
-for us. First change the ``Script path`` to point to ryu-manager inside the
-virtualenv, for me this was ``../venv/bin/ryu-manager``. Then set the
-``Parameters`` to ``faucet.faucet``. Make sure the working directory is
+We will now add run configuration for starting ``faucet`` and ``gauge``.
+Click the ``+`` button in the top left hand corner of the window. First, change
+the name from ``Unnamed`` to ``faucet``. Change the ``Script path`` to point to
+ryu-manager inside the virtualenv, for me this was ``../venv/bin/ryu-manager``.
+Then set the ``Parameters`` to ``faucet.faucet``. Make sure the working
+directory is set to ``/Dev/faucet/faucet/``.
+
+We will use the same steps as above to add a run configuration for ``gauge``.
+Changing the ``Script path`` to ``../venv/bin/ryu-manager`` and setting the
+``Parameters`` this time to ``faucet.gauge``. Make sure the working directory is
 set to ``/Dev/faucet/faucet/``.
 
-We will also add a ``gauge`` run configuration for starting gauge.
-First change the ``Script path`` to point to ryu-manager inside the
-virtualenv, for me this was ``../venv/bin/ryu-manager``. Then set the
-``Parameters`` to ``faucet.gauge``. Make sure the working directory is
-set to ``/Dev/faucet/faucet/``.
+Configure PyCharm to run unit tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For running tests we need a few additional dependencies installed, I
 couldn't work out how to do this through PyCharm so run this command from a
@@ -127,11 +131,16 @@ terminal window to install the correct dependencies inside the virtualenv:
 
        /Dev/faucet/venv/bin/pip3 install -r /Dev/faucet/test-requirements.txt
 
-Click the green plus icon to add a new build configuration, select
-``Python tests -> Unittests``. You can provide a ``Name`` of
-``Faucet Unit Tests`` for the run configuration. For ``Target`` select
-``Script path`` and enter the path ``/Dev/faucet/tests/unit``. For ``Pattern``
-enter ``test_*.py``.
+To add the test run configuration we will again click the ``+`` button in the
+top left hand corner, select ``Python tests -> Unittests``.
+You can provide a ``Name`` of ``Faucet Unit Tests`` for the run configuration.
+For ``Target`` select ``Script path`` and enter the path
+``/Dev/faucet/tests/unit/faucet``. For ``Pattern`` enter ``test_*.py``.
+
+We will also add test run configuration for gauge using the same steps as above.
+Use ``Gauge Unit Tests`` as the ``Name`` and for ``Target`` select
+``Script path`` and enter the path ``/Dev/faucet/tests/unit/gauge``.
+For ``Pattern`` enter ``test_*.py``.
 
 You can click ``Apply`` and ``Close`` now that we've added all our new
 run configuration.
