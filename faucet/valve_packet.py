@@ -96,17 +96,6 @@ def parse_eth_pkt(pkt):
     return pkt.get_protocol(ethernet.ethernet)
 
 
-def parse_vlan_pkt(pkt):
-    """Return parsed VLAN header.
-
-    Args:
-        pkt (ryu.lib.packet.packet): packet received from dataplane.
-    Returns:
-        ryu.lib.packet.vlan: VLAN header.
-    """
-    return pkt.get_protocol(vlan.vlan)
-
-
 def parse_lacp_pkt(pkt):
     """Return parsed LACP packet.
 
@@ -129,7 +118,7 @@ def parse_lldp(pkt):
     return pkt.get_protocol(lldp.lldp)
 
 
-def parse_packet_in_pkt(data, max_len):
+def parse_packet_in_pkt(data, max_len, eth_pkt=None, vlan_pkt=None):
     """Parse a packet received via packet in from the dataplane.
 
     Args:
@@ -142,7 +131,6 @@ def parse_packet_in_pkt(data, max_len):
         int: VLAN VID (or None if no VLAN)
     """
     pkt = None
-    eth_pkt = None
     eth_type = None
     vlan_vid = None
 
@@ -152,21 +140,22 @@ def parse_packet_in_pkt(data, max_len):
     try:
         # Packet may or may not have a VLAN tag - whether it is user
         # traffic, or control like LACP/LLDP.
-        pkt = packet.Packet(data[:ETH_HEADER_SIZE])
-        eth_pkt = parse_eth_pkt(pkt)
-        eth_type = eth_pkt.ethertype
-        if eth_type == valve_of.ether.ETH_TYPE_8021Q:
-            pkt = packet.Packet(data[:ETH_VLAN_HEADER_SIZE])
-            vlan_pkt = parse_vlan_pkt(pkt)
-            if vlan_pkt:
-                vlan_vid = vlan_pkt.vid
-                eth_type = vlan_pkt.ethertype
+        if vlan_pkt is None:
+            if eth_pkt is None:
+                pkt = packet.Packet(data[:ETH_HEADER_SIZE])
+                eth_pkt = parse_eth_pkt(pkt)
+            eth_type = eth_pkt.ethertype
+            if eth_type == valve_of.ether.ETH_TYPE_8021Q:
+                pkt, vlan_pkt = packet.Packet(data[:ETH_VLAN_HEADER_SIZE])
+        if vlan_pkt:
+            vlan_vid = vlan_pkt.vid
+            eth_type = vlan_pkt.ethertype
         if len(data) > ETH_VLAN_HEADER_SIZE:
             pkt = packet.Packet(data)
     except (AttributeError, AssertionError, StreamParser.TooSmallException):
         pass
 
-    return (pkt, eth_pkt, eth_type, vlan_vid)
+    return (pkt, eth_pkt, eth_type, vlan_pkt, vlan_vid)
 
 
 def mac_addr_is_unicast(mac_addr):
@@ -643,6 +632,7 @@ class PacketMeta:
         'orig_len',
         'pkt',
         'eth_pkt',
+        'vlan_pkt',
         'port',
         'vlan',
         'eth_src',
@@ -665,11 +655,12 @@ class PacketMeta:
         valve_of.ether.ETH_TYPE_IPV6: ETH_VLAN_HEADER_SIZE + IPV6_HEADER_SIZE,
     }
 
-    def __init__(self, data, orig_len, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
+    def __init__(self, data, orig_len, pkt, eth_pkt, vlan_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
         self.data = data
         self.orig_len = orig_len
         self.pkt = pkt
         self.eth_pkt = eth_pkt
+        self.vlan_pkt = vlan_pkt
         self.port = port
         self.vlan = valve_vlan
         self.eth_src = eth_src
@@ -689,12 +680,13 @@ class PacketMeta:
 
     def reparse(self, max_len):
         """Reparse packet using data up to the specified maximum length."""
-        pkt, eth_pkt, eth_type, _ = parse_packet_in_pkt(
-            self.data, max_len)
+        pkt, eth_pkt, eth_type, vlan_pkt, _ = parse_packet_in_pkt(
+            self.data, max_len, eth_pkt=self.eth_pkt, vlan_pkt=self.vlan_pkt)
         if pkt is None or eth_type is None:
             return
         self.pkt = pkt
         self.eth_pkt = eth_pkt
+        self.vlan_pkt = vlan_pkt
 
     def reparse_all(self):
         """Reparse packet with all available data."""

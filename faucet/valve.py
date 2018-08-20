@@ -1072,7 +1072,7 @@ class Valve:
             return False
         return True
 
-    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt):
+    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt, vlan_pkt):
         """Parse a received packet into a PacketMeta instance.
 
         Args:
@@ -1083,6 +1083,7 @@ class Valve:
             orig_len (int): Original length of packet.
             pkt (ryu.lib.packet.packet): parsed packet received.
             ekt_pkt (ryu.lib.packet.ethernet): parsed Ethernet header.
+            vlan_pkt (ryu.lib.packet.vlan): parsed VLAN Ethernet header.
         Returns:
             PacketMeta instance.
         """
@@ -1093,7 +1094,7 @@ class Valve:
             vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
         pkt_meta = valve_packet.PacketMeta(
-            data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
+            data, orig_len, pkt, eth_pkt, vlan_pkt, port, vlan, eth_src, eth_dst, eth_type)
         if vlan_vid == self.dp.global_vlan:
             vlan_mac = [int(i, 16) for i in pkt_meta.eth_dst.split(':')[-2:]]
             vlan_vid = (vlan_mac[0] << 8) + vlan_mac[1]
@@ -1124,7 +1125,7 @@ class Valve:
         data = msg.data[:valve_of.MAX_PACKET_IN_BYTES]
 
         # eth/VLAN header only
-        pkt, eth_pkt, eth_type, vlan_vid = valve_packet.parse_packet_in_pkt(
+        pkt, eth_pkt, eth_type, vlan_pkt, vlan_vid = valve_packet.parse_packet_in_pkt(
             data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
         if pkt is None or eth_pkt is None:
             self.logger.info(
@@ -1137,7 +1138,7 @@ class Valve:
                 'packet for unknown VLAN %u' % vlan_vid)
             return None
         pkt_meta = self.parse_rcv_packet(
-            in_port, vlan_vid, eth_type, data, msg.total_len, pkt, eth_pkt)
+            in_port, vlan_vid, eth_type, data, msg.total_len, pkt, eth_pkt, vlan_pkt)
         if not valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.info(
                 'packet with non-unicast eth_src %s port %u' % (
@@ -1225,11 +1226,12 @@ class Valve:
         """
         ofmsgs = []
 
-        self.logger.debug(
-            'Packet_in src:%s in_port:%d VLAN:%s' % (
-                pkt_meta.eth_src,
-                pkt_meta.port.number,
-                pkt_meta.vlan))
+        # TODO: expensive, even at non-debug level.
+        # self.logger.debug(
+        #    'Packet_in src:%s in_port:%d VLAN:%s' % (
+        #        pkt_meta.eth_src,
+        #        pkt_meta.port.number,
+        #        pkt_meta.vlan))
 
         if pkt_meta.vlan is None:
             self._inc_var('of_non_vlan_packet_ins')
