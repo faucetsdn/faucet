@@ -96,17 +96,6 @@ def parse_eth_pkt(pkt):
     return pkt.get_protocol(ethernet.ethernet)
 
 
-def parse_vlan_pkt(pkt):
-    """Return parsed VLAN header.
-
-    Args:
-        pkt (ryu.lib.packet.packet): packet received from dataplane.
-    Returns:
-        ryu.lib.packet.vlan: VLAN header.
-    """
-    return pkt.get_protocol(vlan.vlan)
-
-
 def parse_lacp_pkt(pkt):
     """Return parsed LACP packet.
 
@@ -157,8 +146,7 @@ def parse_packet_in_pkt(data, max_len, eth_pkt=None, vlan_pkt=None):
                 eth_pkt = parse_eth_pkt(pkt)
             eth_type = eth_pkt.ethertype
             if eth_type == valve_of.ether.ETH_TYPE_8021Q:
-                pkt = packet.Packet(data[:ETH_VLAN_HEADER_SIZE])
-                vlan_pkt = parse_vlan_pkt(pkt)
+                pkt, vlan_pkt = packet.Packet(data[:ETH_VLAN_HEADER_SIZE])
         if vlan_pkt:
             vlan_vid = vlan_pkt.vid
             eth_type = vlan_pkt.ethertype
