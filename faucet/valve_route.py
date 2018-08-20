@@ -703,7 +703,6 @@ class ValveIPv4RouteManager(ValveRouteManager):
         if not pkt_meta.eth_type == valve_of.ether.ETH_TYPE_ARP:
             return ofmsgs
         vlan = pkt_meta.vlan
-        pkt_meta.reparse_ip()
         src_ip = pkt_meta.l3_src
         dst_ip = pkt_meta.l3_dst
         if vlan.from_connected_to_vip(src_ip, dst_ip):
