@@ -435,14 +435,14 @@ class FaucetTestBase(unittest2.TestCase):
     @staticmethod
     def _ofctl(req):
         try:
-            ofctl_result = requests.get(req).text
+            ofctl_result = requests.get(req).json()
         except requests.exceptions.ConnectionError:
             return None
         return ofctl_result
 
     def _ofctl_up(self):
         switches = self._ofctl(self._ofctl_rest_url('stats/switches'))
-        return switches is not None and re.search(r'^\[[^\]]+\]$', switches)
+        return isinstance(switches, list) and switches
 
     def _wait_ofctl_up(self, timeout=10):
         for _ in range(timeout):
@@ -455,7 +455,7 @@ class FaucetTestBase(unittest2.TestCase):
         for _ in range(timeout):
             ofctl_result = self._ofctl(self._ofctl_rest_url(req))
             try:
-                return json.loads(ofctl_result)[int_dpid]
+                return ofctl_result[int_dpid]
             except (ValueError, TypeError):
                 # Didn't get valid JSON, try again
                 time.sleep(1)
