@@ -479,7 +479,7 @@ class FaucetTestBase(unittest2.TestCase):
 
     def _get_ofchannel_logs(self):
         with open(self.env['faucet']['FAUCET_CONFIG']) as config_file:
-            config = yaml.load(config_file)
+            config = yaml.safe_load(config_file)
         ofchannel_logs = []
         for dp_name, dp_config in config['dps'].items():
             if 'ofchannel_log' in dp_config:
@@ -1099,7 +1099,7 @@ dbs:
 
     def coldstart_conf(self, hup=True):
         with open(self.faucet_config_path) as orig_conf_file:
-            orig_conf = yaml.load(orig_conf_file.read())
+            orig_conf = yaml.safe_load(orig_conf_file.read())
         cold_start_conf = copy.deepcopy(orig_conf)
         used_vids = set()
         for vlan_name, vlan_conf in cold_start_conf['vlans'].items():
@@ -1121,7 +1121,7 @@ dbs:
 
     def _get_conf(self):
         with open(self.faucet_config_path) as config_file:
-            config = yaml.load(config_file.read())
+            config = yaml.safe_load(config_file.read())
         return config
 
     def change_port_config(self, port, config_name, config_value,
