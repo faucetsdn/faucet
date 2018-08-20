@@ -20,14 +20,17 @@
 from collections import namedtuple
 from functools import partial
 
+import cProfile
+import io
 import ipaddress
 import logging
 import os
-import unittest
-import tempfile
+import pstats
 import shutil
 import socket
+import tempfile
 import time
+import unittest
 
 from ryu.controller import dpset
 from ryu.controller.ofp_event import EventOFPMsgBase
@@ -381,6 +384,17 @@ class ValveTestBases:
 
         def tearDown(self):
             self.teardown_valve()
+
+        def profile(self, func, sortby='cumulative', amount=20, count=1):
+            pr = cProfile.Profile()
+            pr.enable()
+            for _ in range(count):
+              func()
+            pr.disable()
+            pr_stream = io.StringIO()
+            ps = pstats.Stats(pr, stream=pr_stream).sort_stats(sortby)
+            ps.print_stats(amount)
+            print(pr_stream.getvalue())
 
         def get_prom(self, var, labels=None):
             """Return a Prometheus variable value."""
