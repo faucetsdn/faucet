@@ -433,9 +433,11 @@ class FaucetTestBase(unittest2.TestCase):
             mininet_test_util.LOCALHOSTV6, self._get_controller().ofctl_port, req)
 
     @staticmethod
-    def _ofctl(req):
+    def _ofctl(req, params=None):
+        if params is None:
+            params = {}
         try:
-            ofctl_result = requests.get(req).json()
+            ofctl_result = requests.get(req, params=params).json()
         except requests.exceptions.ConnectionError:
             return None
         return ofctl_result
@@ -451,9 +453,9 @@ class FaucetTestBase(unittest2.TestCase):
             time.sleep(1)
         return False
 
-    def _ofctl_get(self, int_dpid, req, timeout):
+    def _ofctl_get(self, int_dpid, req, timeout, params=None):
         for _ in range(timeout):
-            ofctl_result = self._ofctl(self._ofctl_rest_url(req))
+            ofctl_result = self._ofctl(self._ofctl_rest_url(req), params=params)
             try:
                 return ofctl_result[int_dpid]
             except (ValueError, TypeError):
@@ -652,11 +654,14 @@ dbs:
         return self._ofctl_get(
             int_dpid, 'stats/groupdesc/%s' % int_dpid, timeout)
 
-    def get_all_flows_from_dpid(self, dpid, timeout=10):
+    def get_all_flows_from_dpid(self, dpid, timeout=10, table_id=None):
         """Return all flows from DPID."""
         int_dpid = mininet_test_util.str_int_dpid(dpid)
+        params = {}
+        if table_id is not None:
+            params['table_id'] = str(table_id)
         return self._ofctl_get(
-            int_dpid, 'stats/flow/%s' % int_dpid, timeout)
+            int_dpid, 'stats/flow/%s' % int_dpid, timeout, params=params)
 
     @staticmethod
     def _port_stat(port_stats, port):
@@ -719,12 +724,9 @@ dbs:
         with open(flowdump, 'w') as flowdump_file:
             for _ in range(timeout):
                 flow_dicts = []
-                flow_dump = self.get_all_flows_from_dpid(dpid)
+                flow_dump = self.get_all_flows_from_dpid(dpid, table_id=table_id)
                 for flow_dict in flow_dump:
                     flowdump_file.write(str(flow_dict) + '\n')
-                    if (table_id is not None and
-                            flow_dict['table_id'] != table_id):
-                        continue
                     if (cookie is not None and
                             cookie != flow_dict['cookie']):
                         continue
