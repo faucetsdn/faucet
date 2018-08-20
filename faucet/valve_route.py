@@ -412,7 +412,7 @@ class ValveRouteManager:
                     'resolving %s retry %u (last attempt was %us ago; %u flows) on VLAN %u' % (
                         ip_gw,
                         nexthop_cache_entry.resolve_retries,
-                         now - last_retry_time,
+                        now - last_retry_time,
                         len(resolve_flows),
                         vlan.vid))
         return resolve_flows
@@ -704,8 +704,6 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _control_plane_arp_handler(self, now, pkt_meta):
         ofmsgs = []
-        if not pkt_meta.packet_complete():
-            return ofmsgs
         if not pkt_meta.eth_type == valve_of.ether.ETH_TYPE_ARP:
             return ofmsgs
         vlan = pkt_meta.vlan
@@ -745,8 +743,6 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt):
         ofmsgs = []
-        if not pkt_meta.packet_complete():
-            return ofmsgs
         if ipv4_pkt.proto != valve_of.inet.IPPROTO_ICMP:
             return ofmsgs
         vlan = pkt_meta.vlan
@@ -768,16 +764,17 @@ class ValveIPv4RouteManager(ValveRouteManager):
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
-        arp_replies = self._control_plane_arp_handler(now, pkt_meta)
-        if arp_replies:
-            return arp_replies
-        ipv4_pkt = pkt_meta.pkt.get_protocol(ipv4.ipv4)
-        if ipv4_pkt is None:
-            return []
-        icmp_replies = self._control_plane_icmp_handler(
-            pkt_meta, ipv4_pkt)
-        if icmp_replies:
-            return icmp_replies
+        if pkt_meta.packet_complete():
+            arp_replies = self._control_plane_arp_handler(now, pkt_meta)
+            if arp_replies:
+                return arp_replies
+            ipv4_pkt = pkt_meta.pkt.get_protocol(ipv4.ipv4)
+            if ipv4_pkt is None:
+                return []
+            icmp_replies = self._control_plane_icmp_handler(
+                pkt_meta, ipv4_pkt)
+            if icmp_replies:
+                return icmp_replies
         return self._proactive_resolve_neighbor(
             now, pkt_meta.vlan, pkt_meta.l3_dst)
 
@@ -908,7 +905,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     target_ip, pkt_meta.log()))
         return ofmsgs
 
-    def _router_solicit_handler(self, now, pkt_meta, _ipv6_pkt, _icmpv6_pkt, src_ip, _dst_ip):
+    def _router_solicit_handler(self, _now, pkt_meta, _ipv6_pkt, _icmpv6_pkt, src_ip, _dst_ip):
         ofmsgs = []
         vlan = pkt_meta.vlan
         link_local_vips, other_vips = self._link_and_other_vips(vlan)
@@ -948,8 +945,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _control_plane_icmpv6_handler(self, now, pkt_meta, ipv6_pkt):
         ofmsgs = []
-        if not pkt_meta.packet_complete():
-            return ofmsgs
         # Must be ICMPv6 and have no extended headers.
         if ipv6_pkt.nxt != valve_of.inet.IPPROTO_ICMPV6:
             return ofmsgs
@@ -977,15 +972,15 @@ class ValveIPv6RouteManager(ValveRouteManager):
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
-        pkt = pkt_meta.pkt
-        ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
-        if ipv6_pkt is not None:
-            icmp_replies = self._control_plane_icmpv6_handler(
-                now, pkt_meta, ipv6_pkt)
-            if icmp_replies:
-                return icmp_replies
-            return self._proactive_resolve_neighbor(
-                now, pkt_meta.vlan, pkt_meta.l3_dst)
+        if pkt_meta.packet_complete():
+            ipv6_pkt = pkt_meta.pkt.get_protocol(ipv6.ipv6)
+            if ipv6_pkt is not None:
+                icmp_replies = self._control_plane_icmpv6_handler(
+                    now, pkt_meta, ipv6_pkt)
+                if icmp_replies:
+                    return icmp_replies
+                return self._proactive_resolve_neighbor(
+                    now, pkt_meta.vlan, pkt_meta.l3_dst)
         return []
 
     def _link_and_other_vips(self, vlan):
