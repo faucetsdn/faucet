@@ -455,8 +455,7 @@ class FaucetTestBase(unittest2.TestCase):
         for _ in range(timeout):
             ofctl_result = self._ofctl(self._ofctl_rest_url(req))
             try:
-                ofmsgs = json.loads(ofctl_result)[int_dpid]
-                return [json.dumps(ofmsg) for ofmsg in ofmsgs]
+                return json.loads(ofctl_result)[int_dpid]
             except (ValueError, TypeError):
                 # Didn't get valid JSON, try again
                 time.sleep(1)
@@ -663,7 +662,6 @@ dbs:
     def _port_stat(port_stats, port):
         if port_stats:
             for port_stat in port_stats:
-                port_stat = json.loads(port_stat)
                 if port_stat['port_no'] == port:
                     return port_stat
         return None
@@ -687,8 +685,7 @@ dbs:
         for _ in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
             with open(groupdump, 'w') as groupdump_file:
-                for group_desc in group_dump:
-                    group_dict = json.loads(group_desc)
+                for group_dict in group_dump:
                     groupdump_file.write(str(group_dict) + '\n')
                     if group_dict['group_id'] == group_id:
                         actions = set(group_dict['buckets'][0]['actions'])
@@ -723,8 +720,7 @@ dbs:
             for _ in range(timeout):
                 flow_dicts = []
                 flow_dump = self.get_all_flows_from_dpid(dpid)
-                for flow in flow_dump:
-                    flow_dict = json.loads(flow)
+                for flow_dict in flow_dump:
                     flowdump_file.write(str(flow_dict) + '\n')
                     if (table_id is not None and
                             flow_dict['table_id'] != table_id):
