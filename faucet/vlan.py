@@ -172,24 +172,23 @@ class VLAN(Conf):
         self.untagged = None
         self.vid = None
 
-        self.dyn_gws_by_ipv = None
+        self.acls = {}
+        self.tagged = []
+        self.untagged = []
+        self.bgp_server_addresses = []
+        self.bgp_neighbour_addresses = []
+        self.bgp_neighbor_addresses = []
+
         self.dyn_host_cache = None
         self.dyn_host_cache_by_port = None
         self.dyn_last_time_hosts_expired = None
         self.dyn_learn_ban_count = 0
         self.dyn_neigh_cache_by_ipv = None
         self.dyn_oldest_host_time = None
-        self.dyn_routes_by_ipv = None
 
-        self.acls = {}
-        self.tagged = []
-        self.untagged = []
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
         self.dyn_gws_by_ipv = collections.defaultdict(dict)
         self.reset_caches()
-        self.bgp_server_addresses = []
-        self.bgp_neighbour_addresses = []
-        self.bgp_neighbor_addresses = []
         super(VLAN, self).__init__(_id, dp_id, conf)
 
     def set_defaults(self):
