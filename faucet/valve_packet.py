@@ -45,10 +45,8 @@ BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
 BRIDGE_GROUP_MASK = 'ff:ff:ff:ff:ff:f0'
 LLDP_MAC_NEAREST_BRIDGE = lldp.LLDP_MAC_NEAREST_BRIDGE
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
-IPV4_LINK_LOCAL = ipaddress.IPv4Network(valve_util.btos('169.254.0.0/16'))
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
-IPV6_LINK_LOCAL = ipaddress.IPv6Network(valve_util.btos('fe80::/10'))
 IPV6_ALL_NODES = ipaddress.IPv6Address(valve_util.btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
 

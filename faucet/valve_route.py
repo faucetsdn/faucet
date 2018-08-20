@@ -90,7 +90,6 @@ class ValveRouteManager:
     ICMP_TYPE = None
     MAX_LEN = valve_of.MAX_PACKET_IN_BYTES
     CONTROL_ETH_TYPES = () # type: ignore
-    LINK_LOCAL = None # type: ignore
 
     def __init__(self, logger, global_vlan, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
@@ -208,7 +207,7 @@ class ValveRouteManager:
             self._route_match(vlan, faucet_vip_host),
             priority=priority,
             inst=[valve_of.goto_table(self.vip_table)]))
-        if self.proactive_learn and faucet_vip.ip not in self.LINK_LOCAL:
+        if self.proactive_learn and not faucet_vip.ip.is_link_local:
             for routed_vlan in routed_vlans:
                 ofmsgs.append(self.fib_table.flowmod(
                     self._route_match(routed_vlan, faucet_vip),
@@ -652,7 +651,6 @@ class ValveIPv4RouteManager(ValveRouteManager):
     ETH_TYPE = valve_of.ether.ETH_TYPE_IP
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMP
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP) # type: ignore
-    LINK_LOCAL = valve_packet.IPV4_LINK_LOCAL # type: ignore
 
     def advertise(self, _vlan):
         return []
@@ -784,7 +782,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
     ETH_TYPE = valve_of.ether.ETH_TYPE_IPV6
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,) # type: ignore
-    LINK_LOCAL = valve_packet.IPV6_LINK_LOCAL # type: ignore
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
@@ -838,7 +835,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
             priority=priority,
             max_len=self.MAX_LEN))
-        if faucet_vip.ip in self.LINK_LOCAL:
+        if faucet_vip.ip.is_link_local:
             ofmsgs.append(self.eth_src_table.flowmod(
                 self.eth_src_table.match(
                     eth_type=self.ETH_TYPE,
@@ -868,7 +865,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         return ofmsgs
 
     def _stateful_gw(self, vlan, dst_ip):
-        return vlan.ip_dsts_for_ip_gw(dst_ip) or dst_ip not in self.LINK_LOCAL
+        return vlan.ip_dsts_for_ip_gw(dst_ip) or not dst_ip.is_link_local
 
     def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, src_ip, _dst_ip):
         ofmsgs = []
@@ -985,7 +982,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         link_local_vips = []
         other_vips = []
         for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
-            if faucet_vip.ip in self.LINK_LOCAL:
+            if faucet_vip.ip.is_link_local:
                 link_local_vips.append(faucet_vip)
             else:
                 other_vips.append(faucet_vip)
