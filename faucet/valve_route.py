@@ -192,9 +192,7 @@ class ValveRouteManager:
         faucet_mac = vlan.faucet_mac
         insts = [valve_of.goto_table(self.fib_table)]
         if self._global_routing():
-            vlan_mac = faucet_mac.split(':')[:4] + [
-                '%x' % (vlan.vid >> 8), '%x' % (vlan.vid & 0xff)]
-            vlan_mac = ':'.join(vlan_mac)
+            vlan_mac = valve_packet.int_in_mac(faucet_mac, vlan.vid)
             insts = [valve_of.apply_actions([
                 valve_of.set_eth_dst(vlan_mac),
                 valve_of.set_vlan_vid(self.global_vlan.vid)])] + insts

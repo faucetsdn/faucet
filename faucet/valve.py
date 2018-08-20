@@ -1096,8 +1096,7 @@ class Valve:
         pkt_meta = valve_packet.PacketMeta(
             data, orig_len, pkt, eth_pkt, vlan_pkt, port, vlan, eth_src, eth_dst, eth_type)
         if vlan_vid == self.dp.global_vlan:
-            vlan_mac = [int(i, 16) for i in pkt_meta.eth_dst.split(':')[-2:]]
-            vlan_vid = (vlan_mac[0] << 8) + vlan_mac[1]
+            vlan_vid = valve_packet.int_from_mac(pkt_meta.eth_dst)
             vlan = self.dp.vlans[vlan_vid]
             pkt_meta.vlan = vlan
             pkt_meta.eth_dst = vlan.faucet_mac

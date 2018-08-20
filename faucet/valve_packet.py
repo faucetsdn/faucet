@@ -56,6 +56,17 @@ LLDP_FAUCET_DP_ID = 1
 LLDP_FAUCET_STACK_STATE = 2
 
 
+def int_from_mac(mac):
+    int_hi, int_lo = [int(i, 16) for i in mac.split(':')[-2:]]
+    return (int_hi << 8) + int_lo
+
+
+def int_in_mac(mac, to_int):
+    int_mac = mac.split(':')[:4] + [
+        '%x' % (to_int >> 8), '%x' % (to_int & 0xff)]
+    return ':'.join(int_mac)
+
+
 def ipv4_parseable(ip_header_data):
     """Return True if an IPv4 packet we could parse."""
     # TODO: python library parsers are fragile
@@ -655,7 +666,8 @@ class PacketMeta:
         valve_of.ether.ETH_TYPE_IPV6: ETH_VLAN_HEADER_SIZE + IPV6_HEADER_SIZE,
     }
 
-    def __init__(self, data, orig_len, pkt, eth_pkt, vlan_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
+    def __init__(self, data, orig_len, pkt, eth_pkt, vlan_pkt, port, valve_vlan,
+                 eth_src, eth_dst, eth_type):
         self.data = data
         self.orig_len = orig_len
         self.pkt = pkt
