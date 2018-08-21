@@ -117,7 +117,7 @@ def import_hw_config():
         required_config = {
             'dp_ports': (dict,),
             'cpn_intf': (str,),
-            'dpid': (int),
+            'dpid': (int,),
             'of_port': (int,),
             'gauge_of_port': (int,),
         }
