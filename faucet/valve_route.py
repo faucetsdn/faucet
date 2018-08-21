@@ -568,7 +568,7 @@ class ValveRouteManager:
         """
         src_ip = pkt_meta.l3_src
         ofmsgs = []
-        if (src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip) and 
+        if (src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip) and
                 self._stateful_gw(pkt_meta.vlan, src_ip)):
             ip_pkt = self._ip_pkt(pkt_meta.pkt)
             if ip_pkt:
