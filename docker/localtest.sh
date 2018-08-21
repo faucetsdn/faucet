@@ -26,7 +26,7 @@ echo "try:"
 echo "  docker/runtests.sh"
 echo "or:"
 echo '  cd tests && ./run_integration_tests.sh $FAUCET_TESTS'
-echo '  cd clib && python2 ./clib_mininet_test.py $FAUCET_TESTS'
+echo '  cd clib && ./clib_mininet_test.py $FAUCET_TESTS'
 echo
 
 sudo docker run -ti -v $PWD:/faucet-src -e FAUCET_TESTS="$FAUCET_TESTS" \
