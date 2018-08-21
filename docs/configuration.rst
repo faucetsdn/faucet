@@ -191,6 +191,12 @@ string names given to the datapath, or the OFP datapath id.
       - If True, Faucet will use the OpenFlow Group tables to flood packets.
         This is an experimental feature that is not fully supported by all
         devices and may not interoperate with all features of faucet.
+    * - group_table_routing
+      - boolean
+      - False
+      - If True, Faucet will use the OpenFlow Group tables for routing (nexthops)
+        This is an experimental feature that is not fully supported by all
+        devices and may not interoperate with all features of faucet.
     * - hardware
       - string
       - "Open vSwitch"
