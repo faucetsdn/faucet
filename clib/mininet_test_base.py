@@ -716,7 +716,7 @@ dbs:
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                    actions=None, match_exact=False, hard_timeout=0,
-                                   cookie=None):
+                                   cookie=None, ofa_match=True):
 
         # TODO: Ryu ofctl serializes to old matches.
         def to_old_match(match):
@@ -745,7 +745,10 @@ dbs:
         with open(flowdump, 'w') as flowdump_file:
             for _ in range(timeout):
                 flow_dicts = []
-                flow_dump = self.get_all_flows_from_dpid(dpid, table_id=table_id, match=match)
+                if ofa_match:
+                    flow_dump = self.get_all_flows_from_dpid(dpid, table_id=table_id, match=match)
+                else:
+                    flow_dump = self.get_all_flows_from_dpid(dpid, table_id=table_id)
                 flowdump_file.write('\n'.join(str(flow_dump)))
                 for flow_dict in flow_dump:
                     if (cookie is not None and
@@ -765,9 +768,12 @@ dbs:
                             if flow_dict['actions']:
                                 continue
                     if match is not None:
+                        flow_match_set = frozenset(flow_dict['match'].items())
                         if match_exact:
-                            flow_match_set = frozenset(flow_dict['match'].items())
                             if match_set != flow_match_set:
+                                continue
+                        else:
+                            if not match_set.issubset(flow_match_set):
                                 continue
                     flow_dicts.append(flow_dict)
                 if flow_dicts:
@@ -777,22 +783,23 @@ dbs:
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                   actions=None, match_exact=None, hard_timeout=0,
-                                  cookie=None):
+                                  cookie=None, ofa_match=True):
         flow_dicts = self.get_matching_flows_on_dpid(
             dpid, match, timeout=timeout, table_id=table_id,
             actions=actions, match_exact=match_exact,
-            hard_timeout=hard_timeout, cookie=cookie)
+            hard_timeout=hard_timeout, cookie=cookie,
+            ofa_match=ofa_match)
         if flow_dicts:
             return flow_dicts[0]
         return []
 
     def get_matching_flow(self, match, timeout=10, table_id=None,
                           actions=None, match_exact=None, hard_timeout=0,
-                          cookie=None):
+                          cookie=None, ofa_match=True):
         return self.get_matching_flow_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
             actions=actions, match_exact=match_exact, hard_timeout=hard_timeout,
-            cookie=cookie)
+            cookie=cookie, ofa_match=True)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
         for _ in range(timeout):
@@ -1878,13 +1885,15 @@ dbs:
             'echo hello | nc -l %s %u &' % (host.IP(), port), 10))
         self.wait_for_tcp_listen(host, port)
 
-    def wait_nonzero_packet_count_flow(self, match, timeout=15, table_id=None, actions=None, dpid=None):
+    def wait_nonzero_packet_count_flow(self, match, timeout=15, table_id=None,
+                                       actions=None, dpid=None, ofa_match=True):
         """Wait for a flow to be present and have a non-zero packet_count."""
         if dpid is None:
             dpid = self.dpid
         for _ in range(timeout):
             flow = self.get_matching_flow_on_dpid(
-                dpid, match, timeout=1, table_id=table_id, actions=actions)
+                dpid, match, timeout=1, table_id=table_id,
+                actions=actions, ofa_match=ofa_match)
             if flow and flow['packet_count'] > 0:
                 return
             time.sleep(1)
@@ -1901,13 +1910,14 @@ dbs:
             (mininet_test_util.timeout_cmd(
                 'nc %s %u' % (second_host.IP(), port), 10), ))
         if table_id is not None:
-            if mask is None:
-                match_port = int(port)
-            else:
+            match = {
+                u'dl_type': 0x0800, u'ip_proto': 6
+            }
+            match_port = int(port)
+            if mask is not None:
                 match_port = '/'.join((str(port), str(mask)))
-            self.wait_nonzero_packet_count_flow(
-                {u'tp_dst': match_port, u'dl_type': 0x0800, u'ip_proto': 6},
-                table_id=table_id)
+            match[u'tp_dst'] = match_port
+            self.wait_nonzero_packet_count_flow(match, table_id=table_id, ofa_match=False)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
         """Verify that a TCP port on a host is NOT blocked from another host."""
