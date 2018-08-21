@@ -175,6 +175,9 @@ class ValveRouteManager:
                     vlans = vlans.union(router.vlans)
         return vlans
 
+    def _stateful_gw(self, vlan, dst_ip):
+        return vlan.ip_dsts_for_ip_gw(dst_ip) or not dst_ip.is_link_local
+
     def _global_routing(self):
         return self.global_vlan.vid and self.routers and len(self.routers) == 1
 
@@ -824,9 +827,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
             priority=priority,
             inst=[valve_of.goto_table(self.vip_table)]))
         return ofmsgs
-
-    def _stateful_gw(self, vlan, dst_ip):
-        return vlan.ip_dsts_for_ip_gw(dst_ip) or not dst_ip.is_link_local
 
     def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, src_ip, _dst_ip):
         ofmsgs = []
