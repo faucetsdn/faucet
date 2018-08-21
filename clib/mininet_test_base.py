@@ -759,7 +759,7 @@ dbs:
                     if actions is not None:
                         flow_actions_set = frozenset(flow_dict['actions'])
                         if actions:
-                            if not actions_set.issubset(flow_actions_set):
+                            if not actions_set.issubset(flow_actions_set): # pytype: disable=attribute-error
                                 continue
                         else:
                             if flow_dict['actions']:
