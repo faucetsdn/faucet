@@ -328,6 +328,50 @@ class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
         self.verify_unicast_not_looped()
 
 
+class FaucetUntaggedNSLoopTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+acls:
+    nsonly:
+        - rule:
+            dl_type: 0x86dd
+            ip_proto: 58
+            icmpv6_type: 135
+            actions:
+                allow: 1 
+        - rule:
+            actions:
+                allow: 0
+vlans:
+    100:
+        description: "untagged"
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: nsonly
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+                acl_in: nsonly
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+                acl_in: nsonly
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+                acl_in: nsonly
+    """
+
+    def test_untagged(self):
+        self.verify_no_bcast_to_self()
+
+
+
 class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
 
     CONFIG = """
