@@ -453,6 +453,19 @@ class FaucetTestBase(unittest2.TestCase):
             time.sleep(1)
         return False
 
+    def _ofctl_post(self, int_dpid, req, timeout, params=None):
+        for _ in range(timeout):
+            try:
+                ofctl_result = requests.post(
+                    self._ofctl_rest_url(req),
+                    json=params).json()
+                return ofctl_result[int_dpid]
+            except (ValueError, TypeError, requests.exceptions.ConnectionError):
+                # Didn't get valid JSON, try again
+                time.sleep(1)
+                continue
+        return []
+
     def _ofctl_get(self, int_dpid, req, timeout, params=None):
         for _ in range(timeout):
             ofctl_result = self._ofctl(self._ofctl_rest_url(req), params=params)
@@ -654,13 +667,15 @@ dbs:
         return self._ofctl_get(
             int_dpid, 'stats/groupdesc/%s' % int_dpid, timeout)
 
-    def get_all_flows_from_dpid(self, dpid, timeout=10, table_id=None):
+    def get_all_flows_from_dpid(self, dpid, timeout=10, table_id=None, match=None):
         """Return all flows from DPID."""
         int_dpid = mininet_test_util.str_int_dpid(dpid)
         params = {}
         if table_id is not None:
-            params['table_id'] = str(table_id)
-        return self._ofctl_get(
+            params[u'table_id'] = table_id
+        if match is not None:
+            params[u'match'] = match
+        return self._ofctl_post(
             int_dpid, 'stats/flow/%s' % int_dpid, timeout, params=params)
 
     @staticmethod
@@ -720,13 +735,19 @@ dbs:
 
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
         match = to_old_match(match)
+        match_set = None
+        if match:
+            match_set = frozenset(match.items())
+        actions_set = None
+        if actions:
+            actions_set = frozenset(actions)
 
         with open(flowdump, 'w') as flowdump_file:
             for _ in range(timeout):
                 flow_dicts = []
-                flow_dump = self.get_all_flows_from_dpid(dpid, table_id=table_id)
+                flow_dump = self.get_all_flows_from_dpid(dpid, table_id=table_id, match=match)
+                flowdump_file.write('\n'.join(str(flow_dump)))
                 for flow_dict in flow_dump:
-                    flowdump_file.write(str(flow_dict) + '\n')
                     if (cookie is not None and
                             cookie != flow_dict['cookie']):
                         continue
@@ -736,18 +757,18 @@ dbs:
                         if flow_dict['hard_timeout'] < hard_timeout:
                             continue
                     if actions is not None:
+                        flow_actions_set = frozenset(flow_dict['actions'])
                         if actions:
-                            if not set(actions).issubset(set(flow_dict['actions'])):
+                            if not actions_set.issubset(flow_actions_set):
                                 continue
                         else:
                             if flow_dict['actions']:
                                 continue
                     if match is not None:
                         if match_exact:
-                            if match.items() != flow_dict['match'].items():
+                            flow_match_set = frozenset(flow_dict['match'].items())
+                            if match_set != flow_match_set:
                                 continue
-                        elif not set(match.items()).issubset(set(flow_dict['match'].items())):
-                            continue
                     flow_dicts.append(flow_dict)
                 if flow_dicts:
                     return flow_dicts
