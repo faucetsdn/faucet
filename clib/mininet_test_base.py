@@ -773,7 +773,7 @@ dbs:
                             if match_set != flow_match_set:
                                 continue
                         else:
-                            if not match_set.issubset(flow_match_set):
+                            if not match_set.issubset(flow_match_set): # pytype: disable=attribute-error
                                 continue
                     flow_dicts.append(flow_dict)
                 if flow_dicts:
