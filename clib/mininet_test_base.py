@@ -2069,10 +2069,10 @@ dbs:
         exp_prefix = u'%s/%s' % (
             prefix.network_address, prefix.netmask)
         if prefix.version == 6:
-            nw_dst_match = {u'ipv6_dst': exp_prefix}
+            nw_dst_match = {u'ipv6_dst': exp_prefix, u'dl_type': 0x86DD}
             table_id = self._IPV6_FIB_TABLE
         else:
-            nw_dst_match = {u'nw_dst': exp_prefix}
+            nw_dst_match = {u'nw_dst': exp_prefix, u'dl_type': 0x0800}
             table_id = self._IPV4_FIB_TABLE
         nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
         if vlan_vid is not None:
