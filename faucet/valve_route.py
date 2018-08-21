@@ -453,7 +453,8 @@ class ValveRouteManager:
                 faucet_vip = vlan.vip_map(dst_ip)
             else:
                 vlan, faucet_vip = router.vip_map(dst_ip)
-            if vlan and vlan.ip_in_vip_subnet(dst_ip, faucet_vip) and faucet_vip.ip != dst_ip:
+            if (vlan and vlan.ip_in_vip_subnet(dst_ip, faucet_vip) and
+                    faucet_vip.ip != dst_ip and self._stateful_gw(vlan, dst_ip)):
                 limit = self._vlan_nexthop_cache_limit(vlan)
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
                     resolution_in_progress = self._is_host_fib_route(vlan, dst_ip)
@@ -562,11 +563,11 @@ class ValveRouteManager:
         Returns:
             list: OpenFlow messages.
         """
-        ip_pkt = self._ip_pkt(pkt_meta.pkt)
+        src_ip = pkt_meta.l3_src
         ofmsgs = []
-        if ip_pkt:
-            src_ip = pkt_meta.l3_src
-            if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
+        if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip) and self._stateful_gw(vlan, src_ip):
+            ip_pkt = self._ip_pkt(pkt_meta.pkt)
+            if ip_pkt:
                 ofmsgs.extend(
                     self._add_host_fib_route(pkt_meta.vlan, src_ip, blackhole=False))
                 ofmsgs.extend(self._update_nexthop(
@@ -676,10 +677,11 @@ class ValveIPv4RouteManager(ValveRouteManager):
             eth_src = pkt_meta.eth_src
             if opcode == arp.ARP_REQUEST:
                 if pkt_meta.eth_dst == valve_of.mac.BROADCAST_STR:
-                    ofmsgs.extend(
-                        self._add_host_fib_route(vlan, src_ip, blackhole=False))
-                    ofmsgs.extend(self._update_nexthop(
-                        now, vlan, port, eth_src, src_ip))
+                    if self._stateful_gw(vlan, src_ip):
+                        ofmsgs.extend(
+                            self._add_host_fib_route(vlan, src_ip, blackhole=False))
+                        ofmsgs.extend(self._update_nexthop(
+                            now, vlan, port, eth_src, src_ip))
                     ofmsgs.append(
                         vlan.pkt_out_port(
                             valve_packet.arp_reply, port,
