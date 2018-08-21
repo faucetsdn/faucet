@@ -4065,10 +4065,14 @@ vlans:
                             'ip -4 route add %s via %s' % (other_ip, ipg))
             self.quiet_commands(host, setup_commands)
 
-        # ensure learn ban present for down nexthop
-        self.wait_nonzero_packet_count_flow(
-            {'dl_type': 2048, 'dl_vlan': '2047', 'nw_dst': '192.168.101.253'},
-            table_id=self._IPV4_FIB_TABLE, actions=[])
+        drop_rules = self.get_matching_flows_on_dpid(
+            self.dpid, {'dl_type': 2048, 'dl_vlan': '2047'}, table_id=self._IPV4_FIB_TABLE, actions=[])
+        self.assertTrue(drop_rules)
+        drop_ip_re = re.compile(r'^192.168.\d+.253.*')
+        for drop_rule in drop_rules:
+            match = drop_rule['match']
+            self.assertTrue('nw_dst' in match, msg=drop_rule)
+            self.assertTrue(drop_ip_re.match(match['nw_dst']), msg=drop_rule)
 
         host, other_host = hosts
         for ip_pair in (
@@ -5592,14 +5596,12 @@ class FaucetStringOfDPTest(FaucetTest):
 
         return yaml.dump(config, default_flow_style=False)
 
-    def matching_flow_present(self, match, timeout=10, table_id=None,
-                              actions=None, match_exact=None):
+    def matching_flow_present(self, match, timeout=10, table_id=None, actions=None):
         """Find the first DP that has a flow that matches match."""
         for dpid in self.dpids:
             if self.matching_flow_present_on_dpid(
                     dpid, match, timeout=timeout,
-                    table_id=table_id, actions=actions,
-                    match_exact=match_exact):
+                    table_id=table_id, actions=actions):
                 return True
         return False
 
