@@ -1906,7 +1906,8 @@ dbs:
             else:
                 match_port = '/'.join((str(port), str(mask)))
             self.wait_nonzero_packet_count_flow(
-                {u'tp_dst': match_port}, table_id=table_id)
+                {u'tp_dst': match_port, u'dl_type': 0x0800, u'ip_proto': 6},
+                table_id=table_id)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
         """Verify that a TCP port on a host is NOT blocked from another host."""
@@ -1916,7 +1917,7 @@ dbs:
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
         if table_id is not None:
             self.wait_nonzero_packet_count_flow(
-                {u'tp_dst': int(port)}, table_id=table_id)
+                {u'tp_dst': int(port), u'dl_type': 0x0800, u'ip_proto': 6}, table_id=table_id)
 
     def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re, retries):
         tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
