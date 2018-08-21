@@ -3998,7 +3998,7 @@ vlans:
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
     def _vids():
-        return [i for i in range(100, 132)]
+        return [i for i in range(100, 164)]
 
     VIDS = _vids()
     STR_VIDS = [str(i) for i in _vids()]
@@ -4019,9 +4019,11 @@ vlans:
     CONFIG = """
         global_vlan: 2047
         proactive_learn_v4: True
+        max_wildcard_table_size: 512
         table_sizes:
             vlan: 256
             vip: 128
+            flood: 384
         interfaces:
             %s:
                 native_vlan: 99
@@ -4031,18 +4033,8 @@ vlans:
                 native_vlan: 99
                 tagged_vlans: [%s]
                 description: "b2"
-            %s:
-                native_vlan: 99
-                tagged_vlans: [%s]
-                description: "b3"
-            %s:
-                native_vlan: 99
-                tagged_vlans: [%s]
-                description: "b4"
 """ % ('%(port_1)d', ','.join(STR_VIDS),
-       '%(port_2)d', ','.join(STR_VIDS),
-       '%(port_3)d', ','.join(STR_VIDS),
-       '%(port_4)d', ','.join(STR_VIDS))
+       '%(port_2)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
         hosts = self.net.hosts[:2]
