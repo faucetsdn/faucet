@@ -4450,7 +4450,8 @@ vlans:
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         self.one_ipv6_ping(first_host, 'fc00::1:2')
         self.wait_nonzero_packet_count_flow(
-            {u'ipv6_nd_target': u'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
+            {u'dl_type': 0x86dd, u'ip_proto': 58, u'icmpv6_type': 135,
+                u'ipv6_nd_target': u'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
 
 
 class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
