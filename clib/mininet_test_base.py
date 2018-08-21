@@ -433,16 +433,18 @@ class FaucetTestBase(unittest2.TestCase):
             mininet_test_util.LOCALHOSTV6, self._get_controller().ofctl_port, req)
 
     @staticmethod
-    def _ofctl(req):
+    def _ofctl(req, params=None):
+        if params is None:
+            params = {}
         try:
-            ofctl_result = requests.get(req).text
+            ofctl_result = requests.get(req, params=params).json()
         except requests.exceptions.ConnectionError:
             return None
         return ofctl_result
 
     def _ofctl_up(self):
         switches = self._ofctl(self._ofctl_rest_url('stats/switches'))
-        return switches is not None and re.search(r'^\[[^\]]+\]$', switches)
+        return isinstance(switches, list) and switches
 
     def _wait_ofctl_up(self, timeout=10):
         for _ in range(timeout):
@@ -451,12 +453,24 @@ class FaucetTestBase(unittest2.TestCase):
             time.sleep(1)
         return False
 
-    def _ofctl_get(self, int_dpid, req, timeout):
+    def _ofctl_post(self, int_dpid, req, timeout, params=None):
         for _ in range(timeout):
-            ofctl_result = self._ofctl(self._ofctl_rest_url(req))
             try:
-                ofmsgs = json.loads(ofctl_result)[int_dpid]
-                return [json.dumps(ofmsg) for ofmsg in ofmsgs]
+                ofctl_result = requests.post(
+                    self._ofctl_rest_url(req),
+                    json=params).json()
+                return ofctl_result[int_dpid]
+            except (ValueError, TypeError, requests.exceptions.ConnectionError):
+                # Didn't get valid JSON, try again
+                time.sleep(1)
+                continue
+        return []
+
+    def _ofctl_get(self, int_dpid, req, timeout, params=None):
+        for _ in range(timeout):
+            ofctl_result = self._ofctl(self._ofctl_rest_url(req), params=params)
+            try:
+                return ofctl_result[int_dpid]
             except (ValueError, TypeError):
                 # Didn't get valid JSON, try again
                 time.sleep(1)
@@ -480,7 +494,7 @@ class FaucetTestBase(unittest2.TestCase):
 
     def _get_ofchannel_logs(self):
         with open(self.env['faucet']['FAUCET_CONFIG']) as config_file:
-            config = yaml.load(config_file)
+            config = yaml.safe_load(config_file)
         ofchannel_logs = []
         for dp_name, dp_config in config['dps'].items():
             if 'ofchannel_log' in dp_config:
@@ -653,17 +667,21 @@ dbs:
         return self._ofctl_get(
             int_dpid, 'stats/groupdesc/%s' % int_dpid, timeout)
 
-    def get_all_flows_from_dpid(self, dpid, timeout=10):
+    def get_all_flows_from_dpid(self, dpid, timeout=10, table_id=None, match=None):
         """Return all flows from DPID."""
         int_dpid = mininet_test_util.str_int_dpid(dpid)
-        return self._ofctl_get(
-            int_dpid, 'stats/flow/%s' % int_dpid, timeout)
+        params = {}
+        if table_id is not None:
+            params[u'table_id'] = table_id
+        if match is not None:
+            params[u'match'] = match
+        return self._ofctl_post(
+            int_dpid, 'stats/flow/%s' % int_dpid, timeout, params=params)
 
     @staticmethod
     def _port_stat(port_stats, port):
         if port_stats:
             for port_stat in port_stats:
-                port_stat = json.loads(port_stat)
                 if port_stat['port_no'] == port:
                     return port_stat
         return None
@@ -687,8 +705,7 @@ dbs:
         for _ in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
             with open(groupdump, 'w') as groupdump_file:
-                for group_desc in group_dump:
-                    group_dict = json.loads(group_desc)
+                for group_dict in group_dump:
                     groupdump_file.write(str(group_dict) + '\n')
                     if group_dict['group_id'] == group_id:
                         actions = set(group_dict['buckets'][0]['actions'])
@@ -699,7 +716,7 @@ dbs:
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                    actions=None, match_exact=False, hard_timeout=0,
-                                   cookie=None):
+                                   cookie=None, ofa_match=True):
 
         # TODO: Ryu ofctl serializes to old matches.
         def to_old_match(match):
@@ -718,17 +735,22 @@ dbs:
 
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
         match = to_old_match(match)
+        match_set = None
+        if match:
+            match_set = frozenset(match.items())
+        actions_set = None
+        if actions:
+            actions_set = frozenset(actions)
 
         with open(flowdump, 'w') as flowdump_file:
             for _ in range(timeout):
                 flow_dicts = []
-                flow_dump = self.get_all_flows_from_dpid(dpid)
-                for flow in flow_dump:
-                    flow_dict = json.loads(flow)
-                    flowdump_file.write(str(flow_dict) + '\n')
-                    if (table_id is not None and
-                            flow_dict['table_id'] != table_id):
-                        continue
+                if ofa_match:
+                    flow_dump = self.get_all_flows_from_dpid(dpid, table_id=table_id, match=match)
+                else:
+                    flow_dump = self.get_all_flows_from_dpid(dpid, table_id=table_id)
+                flowdump_file.write('\n'.join(str(flow_dump)))
+                for flow_dict in flow_dump:
                     if (cookie is not None and
                             cookie != flow_dict['cookie']):
                         continue
@@ -738,18 +760,21 @@ dbs:
                         if flow_dict['hard_timeout'] < hard_timeout:
                             continue
                     if actions is not None:
+                        flow_actions_set = frozenset(flow_dict['actions'])
                         if actions:
-                            if not set(actions).issubset(set(flow_dict['actions'])):
+                            if not actions_set.issubset(flow_actions_set): # pytype: disable=attribute-error
                                 continue
                         else:
                             if flow_dict['actions']:
                                 continue
                     if match is not None:
+                        flow_match_set = frozenset(flow_dict['match'].items())
                         if match_exact:
-                            if match.items() != flow_dict['match'].items():
+                            if match_set != flow_match_set:
                                 continue
-                        elif not set(match.items()).issubset(set(flow_dict['match'].items())):
-                            continue
+                        else:
+                            if not match_set.issubset(flow_match_set): # pytype: disable=attribute-error
+                                continue
                     flow_dicts.append(flow_dict)
                 if flow_dicts:
                     return flow_dicts
@@ -758,22 +783,23 @@ dbs:
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                   actions=None, match_exact=None, hard_timeout=0,
-                                  cookie=None):
+                                  cookie=None, ofa_match=True):
         flow_dicts = self.get_matching_flows_on_dpid(
             dpid, match, timeout=timeout, table_id=table_id,
             actions=actions, match_exact=match_exact,
-            hard_timeout=hard_timeout, cookie=cookie)
+            hard_timeout=hard_timeout, cookie=cookie,
+            ofa_match=ofa_match)
         if flow_dicts:
             return flow_dicts[0]
         return []
 
     def get_matching_flow(self, match, timeout=10, table_id=None,
                           actions=None, match_exact=None, hard_timeout=0,
-                          cookie=None):
+                          cookie=None, ofa_match=True):
         return self.get_matching_flow_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
             actions=actions, match_exact=match_exact, hard_timeout=hard_timeout,
-            cookie=cookie)
+            cookie=cookie, ofa_match=True)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
         for _ in range(timeout):
@@ -1103,7 +1129,7 @@ dbs:
 
     def coldstart_conf(self, hup=True):
         with open(self.faucet_config_path) as orig_conf_file:
-            orig_conf = yaml.load(orig_conf_file.read())
+            orig_conf = yaml.safe_load(orig_conf_file.read())
         cold_start_conf = copy.deepcopy(orig_conf)
         used_vids = set()
         for vlan_name, vlan_conf in cold_start_conf['vlans'].items():
@@ -1125,7 +1151,7 @@ dbs:
 
     def _get_conf(self):
         with open(self.faucet_config_path) as config_file:
-            config = yaml.load(config_file.read())
+            config = yaml.safe_load(config_file.read())
         return config
 
     def change_port_config(self, port, config_name, config_value,
@@ -1859,13 +1885,15 @@ dbs:
             'echo hello | nc -l %s %u &' % (host.IP(), port), 10))
         self.wait_for_tcp_listen(host, port)
 
-    def wait_nonzero_packet_count_flow(self, match, timeout=15, table_id=None, actions=None, dpid=None):
+    def wait_nonzero_packet_count_flow(self, match, timeout=15, table_id=None,
+                                       actions=None, dpid=None, ofa_match=True):
         """Wait for a flow to be present and have a non-zero packet_count."""
         if dpid is None:
             dpid = self.dpid
         for _ in range(timeout):
             flow = self.get_matching_flow_on_dpid(
-                dpid, match, timeout=1, table_id=table_id, actions=actions)
+                dpid, match, timeout=1, table_id=table_id,
+                actions=actions, ofa_match=ofa_match)
             if flow and flow['packet_count'] > 0:
                 return
             time.sleep(1)
@@ -1882,12 +1910,14 @@ dbs:
             (mininet_test_util.timeout_cmd(
                 'nc %s %u' % (second_host.IP(), port), 10), ))
         if table_id is not None:
-            if mask is None:
-                match_port = int(port)
-            else:
+            match = {
+                u'dl_type': 0x0800, u'ip_proto': 6
+            }
+            match_port = int(port)
+            if mask is not None:
                 match_port = '/'.join((str(port), str(mask)))
-            self.wait_nonzero_packet_count_flow(
-                {u'tp_dst': match_port}, table_id=table_id)
+            match[u'tp_dst'] = match_port
+            self.wait_nonzero_packet_count_flow(match, table_id=table_id, ofa_match=False)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
         """Verify that a TCP port on a host is NOT blocked from another host."""
@@ -1897,7 +1927,7 @@ dbs:
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
         if table_id is not None:
             self.wait_nonzero_packet_count_flow(
-                {u'tp_dst': int(port)}, table_id=table_id)
+                {u'tp_dst': int(port), u'dl_type': 0x0800, u'ip_proto': 6}, table_id=table_id)
 
     def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re, retries):
         tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
@@ -2050,10 +2080,10 @@ dbs:
         exp_prefix = u'%s/%s' % (
             prefix.network_address, prefix.netmask)
         if prefix.version == 6:
-            nw_dst_match = {u'ipv6_dst': exp_prefix}
+            nw_dst_match = {u'ipv6_dst': exp_prefix, u'dl_type': 0x86DD}
             table_id = self._IPV6_FIB_TABLE
         else:
-            nw_dst_match = {u'nw_dst': exp_prefix}
+            nw_dst_match = {u'nw_dst': exp_prefix, u'dl_type': 0x0800}
             table_id = self._IPV4_FIB_TABLE
         nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
         if vlan_vid is not None:

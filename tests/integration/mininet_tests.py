@@ -1736,7 +1736,8 @@ acls:
                 yaml_acl_conf, self.acl_config_file,
                 restart=True, cold_start=False)
             error('pushed %s' % tuple_txt)
-            self.wait_until_matching_flow({'tp_src': port}, table_id=0)
+            self.wait_until_matching_flow(
+                {'tp_src': port, 'ip_proto': 6, 'dl_type': eth_type}, table_id=0)
             rules *= 2
 
     def test_tuples(self):
@@ -1982,7 +1983,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             self.port_map['port_1'], 'acl_in', 1,
             restart=True, cold_start=False)
         self.wait_until_matching_flow(
-            {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
+            {u'in_port': int(self.port_map['port_1']),
+                u'eth_type': 0x800, u'tcp_dst': 5001, u'ip_proto': 6},
             table_id=self._PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
@@ -4448,7 +4450,8 @@ vlans:
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         self.one_ipv6_ping(first_host, 'fc00::1:2')
         self.wait_nonzero_packet_count_flow(
-            {u'ipv6_nd_target': u'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
+            {u'dl_type': 0x86dd, u'ip_proto': 58, u'icmpv6_type': 135,
+                u'ipv6_nd_target': u'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
 
 
 class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
