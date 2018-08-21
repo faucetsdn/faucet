@@ -91,8 +91,6 @@ configuration.
         # By default drop packets on datapath spoofing the FAUCET_MAC
         'group_table': False,
         # Use GROUP tables for VLAN flooding
-        'group_table_routing': False,
-        # Use GROUP tables for routing (nexthops)
         'max_hosts_per_resolve_cycle': 5,
         # Max hosts to try to resolve per gateway resolution cycle.
         'max_host_fib_retry_count': 10,
@@ -160,7 +158,6 @@ configuration.
         'drop_bpdu': bool,
         'drop_lldp': bool,
         'group_table': bool,
-        'group_table_routing': bool,
         'max_hosts_per_resolve_cycle': int,
         'max_host_fib_retry_count': int,
         'max_resolve_backoff_time': int,
@@ -238,7 +235,6 @@ configuration.
         self.global_vlan = None
         self.groups = None
         self.group_table = False
-        self.group_table_routing = False
         self.hardware = None
         self.high_priority = None
         self.highest_priority = None
@@ -301,8 +297,6 @@ configuration.
             'DP ID %s not in valid range' % self.dp_id))
         test_config_condition(not netaddr.valid_mac(self.faucet_dp_mac), (
             'invalid MAC address %s' % self.faucet_dp_mac))
-        test_config_condition(self.group_table and self.group_table_routing, (
-            'groups for routing and other functions simultaneously not supported'))
         test_config_condition(not (self.interfaces or self.interface_ranges), (
             'DP %s must have at least one interface' % self))
         # To prevent L2 learning from timing out before L3 can refresh
