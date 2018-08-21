@@ -514,13 +514,14 @@ def build_match_dict(in_port=None, vlan=None,
     if icmpv6_type is not None:
         match_dict['icmpv6_type'] = icmpv6_type
     if nw_dst is not None:
-        nw_dst_masked = _match_ip_masked(nw_dst)
         if eth_type == ether.ETH_TYPE_ARP:
-            match_dict['arp_tpa'] = str(nw_dst.ip)
-        elif eth_type == ether.ETH_TYPE_IP:
-            match_dict['ipv4_dst'] = nw_dst_masked
+            match_dict['arp_tpa'] = str(nw_dst)
         else:
-            match_dict['ipv6_dst'] = nw_dst_masked
+            nw_dst_masked = _match_ip_masked(nw_dst)
+            if eth_type == ether.ETH_TYPE_IP:
+                match_dict['ipv4_dst'] = nw_dst_masked
+            else:
+                match_dict['ipv6_dst'] = nw_dst_masked
     if eth_type is not None:
         match_dict['eth_type'] = eth_type
     return match_dict
