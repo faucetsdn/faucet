@@ -5592,14 +5592,12 @@ class FaucetStringOfDPTest(FaucetTest):
 
         return yaml.dump(config, default_flow_style=False)
 
-    def matching_flow_present(self, match, timeout=10, table_id=None,
-                              actions=None, match_exact=None):
+    def matching_flow_present(self, match, timeout=10, table_id=None, actions=None):
         """Find the first DP that has a flow that matches match."""
         for dpid in self.dpids:
             if self.matching_flow_present_on_dpid(
                     dpid, match, timeout=timeout,
-                    table_id=table_id, actions=actions,
-                    match_exact=match_exact):
+                    table_id=table_id, actions=actions):
                 return True
         return False
 

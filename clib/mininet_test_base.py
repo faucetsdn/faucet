@@ -715,8 +715,7 @@ dbs:
         return False
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                   actions=None, match_exact=False, hard_timeout=0,
-                                   cookie=None, ofa_match=True):
+                                   actions=None, hard_timeout=0, cookie=None, ofa_match=True):
 
         # TODO: Ryu ofctl serializes to old matches.
         def to_old_match(match):
@@ -767,14 +766,10 @@ dbs:
                         else:
                             if flow_dict['actions']:
                                 continue
-                    if match is not None:
+                    if not ofa_match and match is not None:
                         flow_match_set = frozenset(flow_dict['match'].items())
-                        if match_exact:
-                            if match_set != flow_match_set:
-                                continue
-                        else:
-                            if not match_set.issubset(flow_match_set): # pytype: disable=attribute-error
-                                continue
+                        if not match_set.issubset(flow_match_set): # pytype: disable=attribute-error
+                            continue
                     flow_dicts.append(flow_dict)
                 if flow_dicts:
                     return flow_dicts
@@ -782,23 +777,21 @@ dbs:
         return flow_dicts
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                  actions=None, match_exact=None, hard_timeout=0,
-                                  cookie=None, ofa_match=True):
+                                  actions=None, hard_timeout=0, cookie=None, ofa_match=True):
         flow_dicts = self.get_matching_flows_on_dpid(
             dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact,
-            hard_timeout=hard_timeout, cookie=cookie,
+            actions=actions, hard_timeout=hard_timeout, cookie=cookie,
             ofa_match=ofa_match)
         if flow_dicts:
             return flow_dicts[0]
         return []
 
     def get_matching_flow(self, match, timeout=10, table_id=None,
-                          actions=None, match_exact=None, hard_timeout=0,
+                          actions=None, hard_timeout=0,
                           cookie=None, ofa_match=True):
         return self.get_matching_flow_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout,
+            actions=actions, hard_timeout=hard_timeout,
             cookie=cookie, ofa_match=True)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
@@ -814,34 +807,28 @@ dbs:
         return None
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                      actions=None, match_exact=None, hard_timeout=0,
-                                      cookie=None):
+                                      actions=None, hard_timeout=0, cookie=None):
         """Return True if matching flow is present on a DPID."""
         if self.get_matching_flow_on_dpid(
                 dpid, match, timeout=timeout, table_id=table_id,
-                actions=actions, match_exact=match_exact,
-                hard_timeout=hard_timeout, cookie=cookie):
+                actions=actions, hard_timeout=hard_timeout, cookie=cookie):
             return True
         return False
 
     def matching_flow_present(self, match, timeout=10, table_id=None,
-                              actions=None, match_exact=None, hard_timeout=0,
-                              cookie=None):
+                              actions=None, hard_timeout=0, cookie=None):
         """Return True if matching flow is present on default DPID."""
         return self.matching_flow_present_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact,
-            hard_timeout=hard_timeout, cookie=cookie)
+            actions=actions, hard_timeout=hard_timeout, cookie=cookie)
 
     def wait_until_matching_flow(self, match, timeout=10, table_id=None,
-                                 actions=None, match_exact=False, hard_timeout=0,
-                                 cookie=None):
+                                 actions=None, hard_timeout=0, cookie=None):
         """Wait (require) for flow to be present on default DPID."""
         self.assertTrue(
             self.matching_flow_present(
                 match, timeout=timeout, table_id=table_id,
-                actions=actions, match_exact=match_exact,
-                hard_timeout=hard_timeout, cookie=cookie),
+                actions=actions, hard_timeout=hard_timeout, cookie=cookie),
             msg=match)
 
     def wait_until_controller_flow(self):
