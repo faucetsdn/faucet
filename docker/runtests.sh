@@ -61,7 +61,9 @@ if [ "$DEPCHECK" == 1 ] ; then
     cd /faucet-src/docs
     make html || exit 1
     rm -rf _build
+fi
 
+if [ "$CODECHECK" == 1 ] ; then
     cd /faucet-src/tests/codecheck
     echo "============ Running pytype analyzer ============"
     # TODO: need to force UTF-8 as POSIX causes pytype errors
