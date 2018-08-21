@@ -4003,7 +4003,7 @@ vlans:
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
     def _vids():
-        return [i for i in range(100, 132)]
+        return [i for i in range(100, 164)]
 
     VIDS = _vids()
     STR_VIDS = [str(i) for i in _vids()]
@@ -4024,9 +4024,11 @@ vlans:
     CONFIG = """
         global_vlan: 2047
         proactive_learn_v4: True
+        max_wildcard_table_size: 512
         table_sizes:
             vlan: 256
             vip: 128
+            flood: 384
         interfaces:
             %s:
                 native_vlan: 99
@@ -4036,18 +4038,8 @@ vlans:
                 native_vlan: 99
                 tagged_vlans: [%s]
                 description: "b2"
-            %s:
-                native_vlan: 99
-                tagged_vlans: [%s]
-                description: "b3"
-            %s:
-                native_vlan: 99
-                tagged_vlans: [%s]
-                description: "b4"
 """ % ('%(port_1)d', ','.join(STR_VIDS),
-       '%(port_2)d', ','.join(STR_VIDS),
-       '%(port_3)d', ','.join(STR_VIDS),
-       '%(port_4)d', ','.join(STR_VIDS))
+       '%(port_2)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
         hosts = self.net.hosts[:2]
@@ -6118,103 +6110,6 @@ class FaucetTaggedGroupTableTest(FaucetTaggedTest):
             self.get_group_id_for_matching_flow(
                 {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'},
                 table_id=self._FLOOD_TABLE))
-
-
-class FaucetGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
-
-    CONFIG_GLOBAL = """
-vlans:
-    100:
-        description: "untagged"
-        faucet_vips: ["10.0.0.254/24"]
-        routes:
-            - route:
-                ip_dst: "10.0.1.0/24"
-                ip_gw: "10.0.0.1"
-            - route:
-                ip_dst: "10.0.2.0/24"
-                ip_gw: "10.0.0.2"
-"""
-    CONFIG = """
-        arp_neighbor_timeout: 2
-        max_resolve_backoff_time: 1
-        group_table_routing: True
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
-
-    def test_untagged(self):
-        host_pair = self.net.hosts[:2]
-        first_host, second_host = host_pair
-        first_host_routed_ip = ipaddress.ip_interface('10.0.1.1/24')
-        second_host_routed_ip = ipaddress.ip_interface('10.0.2.1/24')
-        for _ in range(2):
-            self.verify_ipv4_routing(
-                first_host, first_host_routed_ip,
-                second_host, second_host_routed_ip,
-                with_group_table=True)
-            self.swap_host_macs(first_host, second_host)
-
-
-class FaucetGroupTableUntaggedIPv6RouteTest(FaucetUntaggedTest):
-
-    CONFIG_GLOBAL = """
-vlans:
-    100:
-        description: "untagged"
-        faucet_vips: ["fc00::1:254/112"]
-        routes:
-            - route:
-                ip_dst: "fc00::10:0/112"
-                ip_gw: "fc00::1:1"
-            - route:
-                ip_dst: "fc00::20:0/112"
-                ip_gw: "fc00::1:2"
-"""
-
-    CONFIG = """
-        arp_neighbor_timeout: 2
-        max_resolve_backoff_time: 1
-        group_table_routing: True
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
-
-    def test_untagged(self):
-        host_pair = self.net.hosts[:2]
-        first_host, second_host = host_pair
-        first_host_ip = ipaddress.ip_interface('fc00::1:1/112')
-        second_host_ip = ipaddress.ip_interface('fc00::1:2/112')
-        first_host_routed_ip = ipaddress.ip_interface('fc00::10:1/112')
-        second_host_routed_ip = ipaddress.ip_interface('fc00::20:1/112')
-        for _ in range(2):
-            self.verify_ipv6_routing_pair(
-                first_host, first_host_ip, first_host_routed_ip,
-                second_host, second_host_ip, second_host_routed_ip,
-                with_group_table=True)
-            self.swap_host_macs(first_host, second_host)
 
 
 class FaucetEthSrcMaskTest(FaucetUntaggedTest):

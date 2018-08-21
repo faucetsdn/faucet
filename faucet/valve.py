@@ -175,8 +175,7 @@ class Valve:
                 self.dp.max_resolve_backoff_time, proactive_learn, self.DEC_TTL,
                 fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
                 self.dp.tables['eth_dst'], self.dp.tables['flood'],
-                self.dp.highest_priority, self.dp.routers,
-                self.dp.group_table_routing, self.dp.groups)
+                self.dp.highest_priority, self.dp.routers)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
             for vlan in list(self.dp.vlans.values()):
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):

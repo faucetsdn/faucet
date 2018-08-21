@@ -73,7 +73,6 @@ class ValveRouteManager:
         'fib_table',
         'flood_table',
         'global_vlan',
-        'groups',
         'logger',
         'max_host_fib_retry_count',
         'max_hosts_per_resolve_cycle',
@@ -81,7 +80,6 @@ class ValveRouteManager:
         'proactive_learn',
         'route_priority',
         'routers',
-        'use_group_table',
         'vip_table',
     ]
 
@@ -95,7 +93,7 @@ class ValveRouteManager:
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl,
                  fib_table, vip_table, eth_src_table, eth_dst_table, flood_table,
-                 route_priority, routers, use_group_table, groups):
+                 route_priority, routers):
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
         self.arp_neighbor_timeout = arp_neighbor_timeout
@@ -111,8 +109,6 @@ class ValveRouteManager:
         self.flood_table = flood_table
         self.route_priority = route_priority
         self.routers = routers
-        self.use_group_table = use_group_table
-        self.groups = groups
         self.active = False
         if self._global_routing():
             self.logger.info('global routing enabled')
@@ -141,10 +137,6 @@ class ValveRouteManager:
     def _del_vlan_nexthop_cache_entry(self, vlan, ip_gw):
         nexthop_cache = self._vlan_nexthop_cache(vlan)
         del nexthop_cache[ip_gw]
-
-    def _group_id_from_ip_gw(self, vlan, resolved_ip_gw):
-        return self.groups.group_id_from_str(
-            ''.join((str(vlan), str(resolved_ip_gw))))
 
     def _nexthop_actions(self, eth_dst, vlan):
         ofmsgs = []
@@ -182,6 +174,9 @@ class ValveRouteManager:
                 if vlan in router.vlans:
                     vlans = vlans.union(router.vlans)
         return vlans
+
+    def _stateful_gw(self, vlan, dst_ip):
+        return vlan.ip_dsts_for_ip_gw(dst_ip) or not dst_ip.is_link_local
 
     def _global_routing(self):
         return self.global_vlan.vid and self.routers and len(self.routers) == 1
@@ -244,12 +239,8 @@ class ValveRouteManager:
             self.logger.info(
                 'Adding new route %s via %s (%s) on VLAN %u' % (
                     ip_dst, ip_gw, eth_dst, vlan.vid))
-        if self.use_group_table:
-            inst = [valve_of.apply_actions([valve_of.group_act(
-                group_id=self._group_id_from_ip_gw(vlan, ip_gw))])]
-        else:
-            inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst, vlan)),
-                    valve_of.goto_table(self.eth_dst_table)]
+        inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst, vlan)),
+                valve_of.goto_table(self.eth_dst_table)]
         routed_vlans = self._routed_vlans(vlan)
         for routed_vlan in routed_vlans:
             in_match = self._route_match(routed_vlan, ip_dst)
@@ -262,25 +253,6 @@ class ValveRouteManager:
         nexthop_cache = self._vlan_nexthop_cache(vlan)
         nexthop_cache[ip_gw] = nexthop
         return nexthop
-
-    def _nexthop_group_buckets(self, vlan, port, eth_src):
-        actions = self._nexthop_actions(eth_src, vlan)
-        actions.extend(vlan.output_port(port))
-        buckets = [valve_of.bucket(actions=actions)]
-        return buckets
-
-    def _update_nexthop_group(self, is_updated, resolved_ip_gw,
-                              vlan, port, eth_src):
-        group_id = self._group_id_from_ip_gw(vlan, resolved_ip_gw)
-        buckets = self._nexthop_group_buckets(vlan, port, eth_src)
-        nexthop_group = self.groups.get_entry(
-            group_id, buckets)
-        ofmsgs = []
-        if is_updated:
-            ofmsgs.append(nexthop_group.modify())
-        else:
-            ofmsgs.extend(nexthop_group.add())
-        return ofmsgs
 
     def _update_nexthop(self, now, vlan, port, eth_src, resolved_ip_gw):
         """Update routes where nexthop is newly resolved or changed.
@@ -299,12 +271,6 @@ class ValveRouteManager:
 
         if cached_eth_dst != eth_src:
             is_updated = cached_eth_dst is not None
-
-            if self.use_group_table:
-                ofmsgs.extend(
-                    self._update_nexthop_group(
-                        is_updated, resolved_ip_gw,
-                        vlan, port, eth_src))
             for ip_dst in vlan.ip_dsts_for_ip_gw(resolved_ip_gw):
                 ofmsgs.extend(self._add_resolved_route(
                     vlan, resolved_ip_gw, ip_dst, eth_src, is_updated))
@@ -490,7 +456,8 @@ class ValveRouteManager:
                 faucet_vip = vlan.vip_map(dst_ip)
             else:
                 vlan, faucet_vip = router.vip_map(dst_ip)
-            if vlan and vlan.ip_in_vip_subnet(dst_ip, faucet_vip) and faucet_vip.ip != dst_ip:
+            if (vlan and vlan.ip_in_vip_subnet(dst_ip, faucet_vip) and
+                    faucet_vip.ip != dst_ip and self._stateful_gw(vlan, dst_ip)):
                 limit = self._vlan_nexthop_cache_limit(vlan)
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
                     resolution_in_progress = self._is_host_fib_route(vlan, dst_ip)
@@ -599,11 +566,12 @@ class ValveRouteManager:
         Returns:
             list: OpenFlow messages.
         """
-        ip_pkt = self._ip_pkt(pkt_meta.pkt)
+        src_ip = pkt_meta.l3_src
         ofmsgs = []
-        if ip_pkt:
-            src_ip = pkt_meta.l3_src
-            if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
+        if (src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip) and
+                self._stateful_gw(pkt_meta.vlan, src_ip)):
+            ip_pkt = self._ip_pkt(pkt_meta.pkt)
+            if ip_pkt:
                 ofmsgs.extend(
                     self._add_host_fib_route(pkt_meta.vlan, src_ip, blackhole=False))
                 ofmsgs.extend(self._update_nexthop(
@@ -637,7 +605,6 @@ class ValveRouteManager:
         if ip_dst in routes:
             vlan.del_route(ip_dst)
             ofmsgs.extend(self._del_route_flows(vlan, ip_dst))
-            # TODO: need to delete nexthop group if groups are in use.
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
@@ -714,10 +681,11 @@ class ValveIPv4RouteManager(ValveRouteManager):
             eth_src = pkt_meta.eth_src
             if opcode == arp.ARP_REQUEST:
                 if pkt_meta.eth_dst == valve_of.mac.BROADCAST_STR:
-                    ofmsgs.extend(
-                        self._add_host_fib_route(vlan, src_ip, blackhole=False))
-                    ofmsgs.extend(self._update_nexthop(
-                        now, vlan, port, eth_src, src_ip))
+                    if self._stateful_gw(vlan, src_ip):
+                        ofmsgs.extend(
+                            self._add_host_fib_route(vlan, src_ip, blackhole=False))
+                        ofmsgs.extend(self._update_nexthop(
+                            now, vlan, port, eth_src, src_ip))
                     ofmsgs.append(
                         vlan.pkt_out_port(
                             valve_packet.arp_reply, port,
@@ -860,9 +828,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
             priority=priority,
             inst=[valve_of.goto_table(self.vip_table)]))
         return ofmsgs
-
-    def _stateful_gw(self, vlan, dst_ip):
-        return vlan.ip_dsts_for_ip_gw(dst_ip) or not dst_ip.is_link_local
 
     def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, src_ip, _dst_ip):
         ofmsgs = []
