@@ -110,7 +110,7 @@ class TcpdumpHelper(object):
         fileno = self.pipe.stdout.fileno()
         while '\n' not in self.readbuf:
             try:
-                read = str(os.read(fileno, 2**10))
+                read = os.read(fileno, 2**10)
             except OSError as err:
                 if err.errno != errno.EAGAIN or not self.blocking:
                     raise
@@ -119,7 +119,7 @@ class TcpdumpHelper(object):
                 line = self.readbuf
                 self.readbuf = ''
                 return line
-            self.readbuf += read
+            self.readbuf += read.decode()
         pos = self.readbuf.find('\n') + 1
         line = self.readbuf[0:pos]
         self.readbuf = self.readbuf[pos:]
@@ -132,7 +132,7 @@ class TcpdumpHelper(object):
                 line = self.readline()
             except OSError as err:
                 if err.errno == errno.EWOULDBLOCK or err.errno == errno.EAGAIN:
-                    return None
+                    return ''
                 raise
             assert line or self.started, 'tcpdump did not start: %s' % self.last_line.strip()
             if self.started:

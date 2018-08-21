@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Mininet test runner
 
@@ -28,7 +28,7 @@ import subprocess
 import tempfile
 import threading
 import time
-import unittest2
+import unittest
 
 import yaml
 
@@ -117,7 +117,7 @@ def import_hw_config():
         required_config = {
             'dp_ports': (dict,),
             'cpn_intf': (str,),
-            'dpid': (long, int), # pytype: disable=name-error
+            'dpid': (int),
             'of_port': (int,),
             'gauge_of_port': (int,),
         }
@@ -163,9 +163,9 @@ def check_dependencies():
                 stderr=subprocess.STDOUT,
                 close_fds=True)
             proc_out, proc_err = proc.communicate()
-            binary_output = proc_out
+            binary_output = proc_out.decode()
             if proc_err is not None:
-                binary_output += proc_err
+                binary_output += proc_err.decode()
         except subprocess.CalledProcessError:
             # Might have run successfully, need to parse output
             pass
@@ -198,9 +198,9 @@ def check_dependencies():
 
 def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load):
     """Compose test suite based on test class names."""
-    testloader = unittest2.TestLoader()
+    testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
-    suite = unittest2.TestSuite()
+    suite = unittest.TestSuite()
     for name in testnames:
         suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock, max_test_load))
     return suite
@@ -380,9 +380,9 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
                 else:
                     parallel_test_suites.append(test_suite)
 
-    sanity_tests = unittest2.TestSuite()
-    single_tests = unittest2.TestSuite()
-    parallel_tests = unittest2.TestSuite()
+    sanity_tests = unittest.TestSuite()
+    single_tests = unittest.TestSuite()
+    parallel_tests = unittest.TestSuite()
 
     if len(parallel_test_suites) == 1:
         single_test_suites.extend(parallel_test_suites)
@@ -402,7 +402,7 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class FaucetResult(unittest2.runner.TextTestResult):
+class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-attr
 
     root_tmpdir = None
 
@@ -424,7 +424,7 @@ class FaucetCleanupResult(FaucetResult):
 
 def test_runner(root_tmpdir, resultclass, failfast=False):
     resultclass.root_tmpdir = root_tmpdir
-    return unittest2.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
+    return unittest.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
 
 
 def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests):
@@ -513,7 +513,7 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
         args=(ports_sock, start_free_ports, min_free_ports))
     ports_server.setDaemon(True)
     ports_server.start()
-    for _ in range(min_free_ports / 2): # pytype: disable=wrong-arg-types
+    for _ in range(min_free_ports // 2):
         if os.path.exists(ports_sock):
             break
         time.sleep(1)

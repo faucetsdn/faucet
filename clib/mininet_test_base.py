@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Base class for all FAUCET unit tests."""
 
@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-import unittest2
+import unittest
 import yaml
 
 import requests
@@ -39,14 +39,14 @@ OFPPC_PORT_DOWN = 1 << 0 # TODO: avoid dependency on Python2 Ryu.
 PEER_BGP_AS = 2**16 + 1
 
 
-class FaucetTestBase(unittest2.TestCase):
+class FaucetTestBase(unittest.TestCase):
     """Base class for all FAUCET unit tests."""
 
     ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
-    FAUCET_VIPV4 = ipaddress.ip_interface(u'10.0.0.254/24')
-    FAUCET_VIPV4_2 = ipaddress.ip_interface(u'172.16.0.254/24')
-    FAUCET_VIPV6 = ipaddress.ip_interface(u'fc00::1:254/112')
-    FAUCET_VIPV6_2 = ipaddress.ip_interface(u'fc01::1:254/112')
+    FAUCET_VIPV4 = ipaddress.ip_interface('10.0.0.254/24')
+    FAUCET_VIPV4_2 = ipaddress.ip_interface('172.16.0.254/24')
+    FAUCET_VIPV6 = ipaddress.ip_interface('fc00::1:254/112')
+    FAUCET_VIPV6_2 = ipaddress.ip_interface('fc01::1:254/112')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     VSCTL = 'ovs-vsctl'
     OVS_TYPE = 'kernel'
@@ -574,7 +574,7 @@ class FaucetTestBase(unittest2.TestCase):
         return TcpdumpHelper(*args, **kwargs).execute()
 
     def scapy_template(self, packet, iface, count=1):
-        return ('python -c \"from scapy.all import * ; sendp(%s, iface=\'%s\', count=%u)"' % (
+        return ('python3 -c \"from scapy.all import * ; sendp(%s, iface=\'%s\', count=%u)"' % (
             packet, iface, count))
 
     def scapy_dhcp(self, mac, iface):
@@ -845,18 +845,18 @@ dbs:
             msg=match)
 
     def wait_until_controller_flow(self):
-        self.wait_until_matching_flow(None, actions=[u'OUTPUT:CONTROLLER'])
+        self.wait_until_matching_flow(None, actions=['OUTPUT:CONTROLLER'])
 
     def mac_learned(self, mac, timeout=10, in_port=None, hard_timeout=1):
         """Return True if a MAC has been learned on default DPID."""
         for eth_field, table_id in (
-                (u'dl_src', self._ETH_SRC_TABLE),
-                (u'dl_dst', self._ETH_DST_TABLE)):
-            match = {eth_field: u'%s' % mac}
+                ('dl_src', self._ETH_SRC_TABLE),
+                ('dl_dst', self._ETH_DST_TABLE)):
+            match = {eth_field: '%s' % mac}
             match_hard_timeout = 0
             if table_id == self._ETH_SRC_TABLE:
                 if in_port is not None:
-                    match[u'in_port'] = in_port
+                    match['in_port'] = in_port
                 match_hard_timeout = hard_timeout
             if not self.matching_flow_present(
                     match, timeout=timeout, table_id=table_id, hard_timeout=match_hard_timeout):
@@ -865,11 +865,11 @@ dbs:
 
     @staticmethod
     def mac_as_int(mac):
-        return long(mac.replace(':', ''), 16) # pytype: disable=name-error
+        return int(mac.replace(':', ''), 16)
 
     def mac_from_int(self, mac_int):
-        mac_int_str = '%012x' % long(mac_int) # pytype: disable=name-error
-        return ':'.join([x.encode('hex') for x in str(mac_int_str).decode('hex')]) # pytype: disable=attribute-error
+        mac_int_str = '%012x' % int(mac_int)
+        return ':'.join( mac_int_str[i:i+2] for i in range(0, len(mac_int_str), 2))
 
     def prom_macs_learned(self, port=None, vlan=None):
         labels = {
@@ -930,7 +930,7 @@ dbs:
         if not host_ip_net:
             host_ip_net = self.host_ipv6(host)
         broadcast = ipaddress.ip_interface(
-            unicode(host_ip_net)).network.broadcast_address # pytype: disable=name-error
+            host_ip_net).network.broadcast_address
         broadcast_str = str(broadcast)
 
         packets = 1
@@ -987,9 +987,9 @@ dbs:
                               dpid=True, multiple=False, controller='faucet', retries=3):
         if dpid:
             if dpid is True:
-                dpid = long(self.dpid) # pytype: disable=name-error
+                dpid = int(self.dpid)
             else:
-                dpid = long(dpid) # pytype: disable=name-error
+                dpid = int(dpid)
         label_values_re = r''
         if any_labels:
             label_values_re = r'\{[^\}]+\}'
@@ -1016,7 +1016,7 @@ dbs:
                 prom_var = prom_line_match.group(1)
                 value = prom_line_match.group(2)
                 if var_re.match(prom_var):
-                    value_int = long(float(value)) # pytype: disable=name-error
+                    value_int = int(float(value))
                     results.append((var, value_int))
                     if not multiple:
                         break
@@ -1094,7 +1094,7 @@ dbs:
                     prefix=os.path.basename(conf_path),
                     dir=os.path.dirname(conf_path),
                     delete=False)
-                config_file_tmp.write(yaml.dump(yaml_conf))
+                config_file_tmp.write(yaml.dump(yaml_conf).encode())
                 config_file_tmp.close()
                 os.rename(config_file_tmp.name, conf_path)
 
@@ -1186,7 +1186,7 @@ dbs:
                 new_locations = set()
                 for line in self.scrape_prometheus(var='learned_macs'):
                     location, mac_float = line.split(' ')
-                    if self.mac_from_int(long(float(mac_float))) == mac:
+                    if self.mac_from_int(int(float(mac_float))) == mac:
                         new_locations.add(location)
                 if locations != new_locations:
                     break
@@ -1221,7 +1221,7 @@ dbs:
         unicast_mac1 = '0e:00:00:00:00:02'
         unicast_mac2 = '0e:00:00:00:00:03'
         hello_template = (
-            'python -c \"from scapy.all import * ; '
+            'python3 -c \"from scapy.all import * ; '
             'sendp(Ether(src=\'%s\', dst=\'%s\')/'
             'IP(src=\'10.0.0.100\', dst=\'10.0.0.255\')/'
             'UDP(dport=9)/'
@@ -1705,7 +1705,7 @@ dbs:
             expected_status = 0
         self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
         if wait:
-            self.wait_port_status(long(dpid), port_no, status, expected_status) # pytype: disable=name-error
+            self.wait_port_status(int(dpid), port_no, status, expected_status)
 
     def set_port_down(self, port_no, dpid=None, wait=True):
         self.set_port_status(dpid, port_no, OFPPC_PORT_DOWN, wait)
@@ -1916,7 +1916,7 @@ dbs:
             match_port = int(port)
             if mask is not None:
                 match_port = '/'.join((str(port), str(mask)))
-            match[u'tp_dst'] = match_port
+            match['tp_dst'] = match_port
             self.wait_nonzero_packet_count_flow(match, table_id=table_id, ofa_match=False)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
@@ -1927,7 +1927,7 @@ dbs:
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
         if table_id is not None:
             self.wait_nonzero_packet_count_flow(
-                {u'tp_dst': int(port), u'dl_type': 0x0800, u'ip_proto': 6}, table_id=table_id)
+                {'tp_dst': int(port), 'dl_type': 0x0800, 'ip_proto': 6}, table_id=table_id)
 
     def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re, retries):
         tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
@@ -2077,17 +2077,17 @@ dbs:
     def wait_for_route_as_flow(self, nexthop, prefix, vlan_vid=None, timeout=10,
                                with_group_table=False, nonzero_packets=False):
         """Verify a route has been added as a flow."""
-        exp_prefix = u'%s/%s' % (
+        exp_prefix = '%s/%s' % (
             prefix.network_address, prefix.netmask)
         if prefix.version == 6:
-            nw_dst_match = {u'ipv6_dst': exp_prefix, u'dl_type': 0x86DD}
+            nw_dst_match = {'ipv6_dst': exp_prefix, 'dl_type': 0x86DD}
             table_id = self._IPV6_FIB_TABLE
         else:
-            nw_dst_match = {u'nw_dst': exp_prefix, u'dl_type': 0x0800}
+            nw_dst_match = {u'nw_dst': exp_prefix, 'dl_type': 0x0800}
             table_id = self._IPV4_FIB_TABLE
-        nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
+        nexthop_action = 'SET_FIELD: {eth_dst:%s}' % nexthop
         if vlan_vid is not None:
-            nw_dst_match[u'dl_vlan'] = unicode(vlan_vid) # pytype: disable=name-error
+            nw_dst_match['dl_vlan'] = str(vlan_vid)
         if with_group_table:
             group_id = self.get_group_id_for_matching_flow(
                 nw_dst_match)
@@ -2135,14 +2135,14 @@ dbs:
         self._verify_host_learned_mac(host, ipa, 4, mac, retries)
 
     def verify_ipv4_host_learned_host(self, host, learned_host):
-        learned_ip = ipaddress.ip_interface(unicode(self.host_ipv4(learned_host))) # pytype: disable=name-error
+        learned_ip = ipaddress.ip_interface(self.host_ipv4(learned_host))
         self.verify_ipv4_host_learned_mac(host, learned_ip.ip, learned_host.MAC())
 
     def verify_ipv6_host_learned_mac(self, host, ip6, mac, retries=3):
         self._verify_host_learned_mac(host, ip6, 6, mac, retries)
 
     def verify_ipv6_host_learned_host(self, host, learned_host):
-        learned_ip6 = ipaddress.ip_interface(unicode(self.host_ipv6(learned_host))) # pytype: disable=name-error
+        learned_ip6 = ipaddress.ip_interface(self.host_ipv6(learned_host))
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
     def iperf_client(self, client_host, iperf_client_cmd):
@@ -2236,9 +2236,9 @@ dbs:
         """Verify hosts can route to each other via FAUCET."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_routed_ip = ipaddress.ip_interface(u'10.0.1.1/24')
-        second_host_routed_ip = ipaddress.ip_interface(u'10.0.2.1/24')
-        second_host_routed_ip2 = ipaddress.ip_interface(u'10.0.3.1/24')
+        first_host_routed_ip = ipaddress.ip_interface('10.0.1.1/24')
+        second_host_routed_ip = ipaddress.ip_interface('10.0.2.1/24')
+        second_host_routed_ip2 = ipaddress.ip_interface('10.0.3.1/24')
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
@@ -2330,11 +2330,11 @@ dbs:
         """Verify IPv6 routing between hosts and multiple subnets."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_ip = ipaddress.ip_interface(u'fc00::1:1/112')
-        second_host_ip = ipaddress.ip_interface(u'fc00::1:2/112')
-        first_host_routed_ip = ipaddress.ip_interface(u'fc00::10:1/112')
-        second_host_routed_ip = ipaddress.ip_interface(u'fc00::20:1/112')
-        second_host_routed_ip2 = ipaddress.ip_interface(u'fc00::30:1/112')
+        first_host_ip = ipaddress.ip_interface('fc00::1:1/112')
+        second_host_ip = ipaddress.ip_interface('fc00::1:2/112')
+        first_host_routed_ip = ipaddress.ip_interface('fc00::10:1/112')
+        second_host_routed_ip = ipaddress.ip_interface('fc00::20:1/112')
+        second_host_routed_ip2 = ipaddress.ip_interface('fc00::30:1/112')
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,

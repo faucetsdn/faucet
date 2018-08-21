@@ -9,8 +9,6 @@ import shutil
 import subprocess
 import time
 
-import netifaces
-
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
 # pylint: disable=too-many-arguments
@@ -22,6 +20,8 @@ from mininet.node import CPULimitedHost
 from mininet.node import OVSSwitch
 
 import mininet_test_util
+
+import netifaces
 
 # TODO: mininet 2.2.2 leaks ptys (master slave assigned in startShell)
 # override as necessary close them. Transclude overridden methods
@@ -60,7 +60,7 @@ class FaucetHostCleanup(object):
         self.shell = self._popen( # pylint: disable=no-member; # pytype: disable=attribute-error
             cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
             close_fds=False)
-        self.stdin = os.fdopen(self.master, 'rw')
+        self.stdin = os.fdopen(self.master, 'r')
         self.stdout = self.stdin
         self.pid = self.shell.pid
         self.pollOut = select.poll() # pylint: disable=invalid-name
@@ -195,7 +195,7 @@ class FaucetSwitchTopo(Topo):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
         # pylint: disable=no-member
-        id_chars = string.letters + string.digits # pytype: disable=module-attr
+        id_chars = string.ascii_letters + string.digits # pytype: disable=module-attr
         id_a = int(ports_served / len(id_chars))
         id_b = ports_served - (id_a * len(id_chars))
         return '%s%s' % (
@@ -539,7 +539,7 @@ class FAUCET(BaseFAUCET):
         self.ofctl_port = mininet_test_util.find_free_port(
             ports_sock, test_name)
         cargs = ' '.join((
-            '--ryu-wsapi-host=%s' % str(mininet_test_util.LOCALHOSTV6),
+            '--ryu-wsapi-host=%s' % mininet_test_util.LOCALHOSTV6,
             '--ryu-wsapi-port=%u' % self.ofctl_port,
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         super(FAUCET, self).__init__(
