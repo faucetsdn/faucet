@@ -1736,7 +1736,8 @@ acls:
                 yaml_acl_conf, self.acl_config_file,
                 restart=True, cold_start=False)
             error('pushed %s' % tuple_txt)
-            self.wait_until_matching_flow({'tp_src': port}, table_id=0)
+            self.wait_until_matching_flow(
+                {'tp_src': port, 'ip_proto': 6, 'dl_type': eth_type}, table_id=0)
             rules *= 2
 
     def test_tuples(self):
