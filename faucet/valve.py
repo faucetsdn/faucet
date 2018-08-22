@@ -1301,8 +1301,7 @@ class Valve:
                             'eth_src': entry.eth_src}})
                 self._lacp_state_expire(vlan, now)
                 for route_manager in list(self._route_manager_by_ipv.values()):
-                    if route_manager.active:
-                        ofmsgs.extend(route_manager.resolve_expire_hosts(vlan, now))
+                    ofmsgs.extend(route_manager.resolve_expire_hosts(vlan, now))
         return ofmsgs
 
     def _pipeline_change(self):
