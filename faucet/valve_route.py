@@ -388,7 +388,7 @@ class ValveRouteManager:
             if resolve_flows:
                 ofmsgs.extend(resolve_flows)
                 remaining_attempts -= 1
-        return (remaining_attempts, ofmsgs)
+        return ofmsgs
 
     def resolve_gateways(self, vlan, now):
         """Re/resolve all gateways.
@@ -399,17 +399,26 @@ class ValveRouteManager:
         Returns:
             list: OpenFlow messages.
         """
-        ofmsgs = []
-        remaining_attempts = self.max_hosts_per_resolve_cycle
-        route_ip_gws, host_ip_gws = self._vlan_ip_gws(vlan)
-        for ip_gws, resolve_handler in (
-                (route_ip_gws, self._resolve_gateway_flows),
-                (host_ip_gws, self._resolve_expire_gateway_flows)):
-            unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, ip_gws, now)
-            remaining_attempts, resolve_ofmsgs = self._resolve_gateways_flows(
-                resolve_handler, vlan, now, unresolved_nexthops, remaining_attempts)
-            ofmsgs.extend(resolve_ofmsgs)
-        return ofmsgs
+        route_ip_gws, _ = self._vlan_ip_gws(vlan)
+        unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, route_ip_gws, now)
+        return self._resolve_gateways_flows(
+            self._resolve_gateway_flows, vlan, now, unresolved_nexthops,
+            self.max_hosts_per_resolve_cycle)
+
+    def resolve_expire_hosts(self, vlan, now):
+        """Re/resolve all hosts.
+
+        Args:
+            vlan (vlan): VLAN containing this RIB/FIB.
+            now (float): seconds since epoch.
+        Returns:
+            list: OpenFlow messages.
+        """
+        _, host_ip_gws = self._vlan_ip_gws(vlan)
+        unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, host_ip_gws, now)
+        return self._resolve_gateways_flows(
+            self._resolve_expire_gateway_flows, vlan, now, unresolved_nexthops,
+            self.max_hosts_per_resolve_cycle)
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):
         nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
