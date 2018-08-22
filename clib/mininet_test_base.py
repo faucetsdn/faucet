@@ -793,7 +793,7 @@ dbs:
         return self.get_matching_flow_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
             actions=actions, hard_timeout=hard_timeout,
-            cookie=cookie, ofa_match=ofam_match)
+            cookie=cookie, ofa_match=ofa_match)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
         for _ in range(timeout):

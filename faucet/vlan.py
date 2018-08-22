@@ -369,14 +369,9 @@ class VLAN(Conf):
         return self._by_ipv(self.faucet_vips, ipv)
 
     def link_and_other_vips(self, ipv):
-        link_local_vips = []
-        other_vips = []
-        for faucet_vip in self.faucet_vips_by_ipv(ipv):
-            if faucet_vip.ip.is_link_local:
-                link_local_vips.append(faucet_vip)
-            else:
-                other_vips.append(faucet_vip)
-        return link_local_vips, other_vips
+        vips = self.faucet_vips_by_ipv(ipv)
+        link_local_vips = frozenset([vip for vip in vips if vip.is_link_local])
+        other_vips = vips - link_local_vips
 
     def bgp_neighbor_addresses_by_ipv(self, ipv):
         """Return BGP neighbor addresses with specified IP version on this VLAN."""
