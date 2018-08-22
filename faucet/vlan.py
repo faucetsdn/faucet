@@ -402,7 +402,7 @@ class VLAN(Conf):
         """Return route table count for specified IP version on this VLAN."""
         return len(self.dyn_routes_by_ipv[ipv])
 
-    def is_host_fib_route(self, vlan, host_ip):
+    def is_host_fib_route(self, host_ip):
         """Return True if IP destination is a host FIB route.
 
         Args:
