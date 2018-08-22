@@ -284,15 +284,11 @@ class ValveRouteManager:
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
         Returns:
-            tuple: list, route gateways, host routes.
+            tuple: frozenset, route gateways, host routes.
         """
-        host_ip_gws = []
-        route_ip_gws = []
-        for ip_gw in vlan.all_ip_gws(self.IPV):
-            if vlan.is_host_fib_route(ip_gw):
-                host_ip_gws.append(ip_gw)
-            else:
-                route_ip_gws.append(ip_gw)
+        all_ip_gws = vlan.all_ip_gws(self.IPV)
+        host_ip_gws = frozenset([ip_gw for ip_gw in all_ip_gws if vlan.is_host_fib_route(ip_gw)])
+        route_ip_gws = frozenset(all_ip_gws - host_ip_gws)
         return (route_ip_gws, host_ip_gws)
 
     def _retry_backoff(self, now, resolve_retries, last_retry_time):
@@ -310,7 +306,7 @@ class ValveRouteManager:
            ip_gws (list): tuple, IP gateway and controller IP in same subnet.
            now (float): seconds since epoch.
         Returns:
-           list: tuple, gateway, controller IP in same subnet, cache entry.
+           list: prioritized list of gateways
         """
         ip_gws_never_tried = []
         ip_gws_with_retry_time = []
@@ -332,7 +328,7 @@ class ValveRouteManager:
         random.shuffle(ip_gws_never_tried)
         ip_gws_with_retry_time_sorted = list(
             sorted(ip_gws_with_retry_time, key=lambda x: x[-1].last_retry_time))
-        unresolved_nexthops = ip_gws_never_tried + ip_gws_with_retry_time_sorted
+        unresolved_nexthops = [ip_gw[0] for ip_gw in ip_gws_never_tried + ip_gws_with_retry_time_sorted]
         return unresolved_nexthops
 
     def advertise(self, vlan):
@@ -384,9 +380,10 @@ class ValveRouteManager:
     def _resolve_gateways_flows(self, resolve_handler, vlan, now,
                                 unresolved_nexthops, remaining_attempts):
         ofmsgs = []
-        for ip_gw, nexthop_cache_entry in unresolved_nexthops:
+        for ip_gw in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
+            nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             resolve_flows = resolve_handler(ip_gw, nexthop_cache_entry, vlan, now)
             if resolve_flows:
                 ofmsgs.extend(resolve_flows)

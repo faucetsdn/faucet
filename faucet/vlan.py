@@ -372,6 +372,7 @@ class VLAN(Conf):
         vips = self.faucet_vips_by_ipv(ipv)
         link_local_vips = frozenset([vip for vip in vips if vip.is_link_local])
         other_vips = vips - link_local_vips
+        return (link_local_vips, other_vips)
 
     def bgp_neighbor_addresses_by_ipv(self, ipv):
         """Return BGP neighbor addresses with specified IP version on this VLAN."""
@@ -434,8 +435,8 @@ class VLAN(Conf):
         return []
 
     def all_ip_gws(self, ipv):
-        """Return list of all IP gateways for specified IP version."""
-        return list(self.dyn_gws_by_ipv[ipv].keys())
+        """Return all IP gateways for specified IP version."""
+        return frozenset(self.dyn_gws_by_ipv[ipv].keys())
 
     def neigh_cache_by_ipv(self, ipv):
         """Return neighbor cache for specified IP version on this VLAN."""
