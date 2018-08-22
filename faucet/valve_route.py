@@ -284,17 +284,15 @@ class ValveRouteManager:
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
         Returns:
-            list: tuple, gateway, controller IP in same subnet.
+            tuple: list, route gateways, host routes.
         """
         host_ip_gws = []
         route_ip_gws = []
         for ip_gw in vlan.all_ip_gws(self.IPV):
-            for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
-                if ip_gw in faucet_vip.network:
-                    if self._is_host_fib_route(vlan, ip_gw):
-                        host_ip_gws.append((ip_gw, faucet_vip))
-                    else:
-                        route_ip_gws.append((ip_gw, faucet_vip))
+            if self._is_host_fib_route(vlan, ip_gw):
+                host_ip_gws.append(ip_gw)
+            else:
+                route_ip_gws.append(ip_gw)
         return (route_ip_gws, host_ip_gws)
 
     def _retry_backoff(self, now, resolve_retries, last_retry_time):
@@ -317,14 +315,14 @@ class ValveRouteManager:
         ip_gws_never_tried = []
         ip_gws_with_retry_time = []
         not_fresh_nexthops = [
-            (ip_gw, faucet_vip) for ip_gw, faucet_vip in ip_gws
+            ip_gw for ip_gw in ip_gws
             if not self._nexthop_fresh(vlan, ip_gw, now)]
-        for ip_gw, faucet_vip in not_fresh_nexthops:
+        for ip_gw in not_fresh_nexthops:
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             if nexthop_cache_entry is None:
                 nexthop_cache_entry = self._update_nexthop_cache(now, vlan, None, None, ip_gw)
             last_retry_time = nexthop_cache_entry.last_retry_time
-            ip_gw_with_retry_time = (ip_gw, faucet_vip, nexthop_cache_entry)
+            ip_gw_with_retry_time = (ip_gw, nexthop_cache_entry)
             if last_retry_time is None:
                 ip_gws_never_tried.append(ip_gw_with_retry_time)
             else:
@@ -356,11 +354,12 @@ class ValveRouteManager:
     def advertise(self, vlan):
         raise NotImplementedError # pragma: no cover
 
-    def _resolve_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, faucet_vip, now):
+    def _resolve_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
         resolve_flows = []
         last_retry_time = nexthop_cache_entry.last_retry_time
         nexthop_cache_entry.last_retry_time = now
         nexthop_cache_entry.resolve_retries += 1
+        faucet_vip = vlan.vip_map(ip_gw)
         resolve_flows = self.resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
         if vlan.targeted_gw_resolution:
             if last_retry_time is None and nexthop_cache_entry.port is not None:
@@ -393,18 +392,18 @@ class ValveRouteManager:
             expire_flows = []
         return expire_flows
 
-    def _resolve_expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, faucet_vip, now):
+    def _resolve_expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
         if self.nexthop_dead(nexthop_cache_entry):
             return self._expire_gateway_flows(ip_gw, nexthop_cache_entry, vlan, now)
-        return self._resolve_gateway_flows(ip_gw, nexthop_cache_entry, vlan, faucet_vip, now)
+        return self._resolve_gateway_flows(ip_gw, nexthop_cache_entry, vlan, now)
 
     def _resolve_gateways_flows(self, resolve_handler, vlan, now,
                                 unresolved_nexthops, remaining_attempts):
         ofmsgs = []
-        for ip_gw, faucet_vip, nexthop_cache_entry in unresolved_nexthops:
+        for ip_gw, nexthop_cache_entry in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
-            resolve_flows = resolve_handler(ip_gw, nexthop_cache_entry, vlan, faucet_vip, now)
+            resolve_flows = resolve_handler(ip_gw, nexthop_cache_entry, vlan, now)
             if resolve_flows:
                 ofmsgs.extend(resolve_flows)
                 remaining_attempts -= 1
@@ -466,7 +465,7 @@ class ValveRouteManager:
                         now, vlan, None, None, dst_ip)
                     if not resolution_in_progress:
                         resolve_flows = self._resolve_gateway_flows(
-                            dst_ip, nexthop_cache_entry, vlan, faucet_vip,
+                            dst_ip, nexthop_cache_entry, vlan,
                             nexthop_cache_entry.cache_time)
                         ofmsgs.extend(resolve_flows)
         return ofmsgs
