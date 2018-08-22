@@ -51,6 +51,9 @@ cd /faucet-src/tests
 
 ./sysctls_for_tests.sh
 
+# TODO: need to force UTF-8 as POSIX causes python3/pytype errors.
+locale-gen en_US.UTF-8 || exit 1
+
 if [ "$UNITTESTS" == 1 ] ; then
     echo "========== Running faucet unit tests =========="
     cd /faucet-src/tests
@@ -65,8 +68,6 @@ if [ "$DEPCHECK" == 1 ] ; then
 
     cd /faucet-src/tests/codecheck
     echo "============ Running pytype analyzer ============"
-    # TODO: need to force UTF-8 as POSIX causes pytype errors
-    locale-gen en_US.UTF-8 || exit 1
     LANG=en_US.UTF-8 LANGUAGE=en_US.en LC_ALL=en_US.UTF-8 ./pytype.sh || exit 1
 
     echo "============ Running pylint analyzer ============"
@@ -83,10 +84,10 @@ export PYTHONPATH=/faucet-src:/faucet-src/faucet:/faucet-src/clib
 
 cd /faucet-src/tests/integration
 ./mininet_main.py -c
-http_proxy="" ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
+LANG=en_US.UTF-8 LANGUAGE=en_US.en LC_ALL=en_US.UTF-8 http_proxy="" ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
 
 cd /faucet-src/clib
-http_proxy="" ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
+LANG=en_US.UTF-8 LANGUAGE=en_US.en LC_ALL=en_US.UTF-8 http_proxy="" ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
 
 if [ -n "$test_failures" ]; then
     echo Test failures: $test_failures
