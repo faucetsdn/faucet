@@ -289,7 +289,7 @@ class ValveRouteManager:
         host_ip_gws = []
         route_ip_gws = []
         for ip_gw in vlan.all_ip_gws(self.IPV):
-            if self._is_host_fib_route(vlan, ip_gw):
+            if vlan.is_host_fib_route(ip_gw):
                 host_ip_gws.append(ip_gw)
             else:
                 route_ip_gws.append(ip_gw)
@@ -334,22 +334,6 @@ class ValveRouteManager:
             sorted(ip_gws_with_retry_time, key=lambda x: x[-1].last_retry_time))
         unresolved_nexthops = ip_gws_never_tried + ip_gws_with_retry_time_sorted
         return unresolved_nexthops
-
-    def _is_host_fib_route(self, vlan, host_ip):
-        """Return True if IP destination is a host FIB route.
-
-        Args:
-            vlan (vlan): VLAN containing this RIB/FIB.
-            host_ip: (ipaddress.ip_address): potential host FIB route.
-        Returns:
-            True if a host FIB route (and not used as a gateway).
-        """
-        ip_dsts = vlan.ip_dsts_for_ip_gw(host_ip)
-        if (len(ip_dsts) == 1 and
-                ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen and
-                ip_dsts[0].network_address == host_ip):
-            return True
-        return False
 
     def advertise(self, vlan):
         raise NotImplementedError # pragma: no cover
@@ -459,7 +443,7 @@ class ValveRouteManager:
                     faucet_vip.ip != dst_ip and self._stateful_gw(vlan, dst_ip)):
                 limit = self._vlan_nexthop_cache_limit(vlan)
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
-                    resolution_in_progress = self._is_host_fib_route(vlan, dst_ip)
+                    resolution_in_progress = vlan.is_host_fib_route(dst_ip)
                     ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
                     nexthop_cache_entry = self._update_nexthop_cache(
                         now, vlan, None, None, dst_ip)

@@ -402,6 +402,21 @@ class VLAN(Conf):
         """Return route table count for specified IP version on this VLAN."""
         return len(self.dyn_routes_by_ipv[ipv])
 
+    def is_host_fib_route(self, vlan, host_ip):
+        """Return True if IP destination is a host FIB route.
+
+        Args:
+            host_ip: (ipaddress.ip_address): potential host FIB route.
+        Returns:
+            True if a host FIB route (and not used as a gateway).
+        """
+        ip_dsts = self.ip_dsts_for_ip_gw(host_ip)
+        if (len(ip_dsts) == 1 and
+                ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen and
+                ip_dsts[0].network_address == host_ip):
+            return True
+        return False
+
     def add_route(self, ip_dst, ip_gw):
         """Add an IP route."""
         self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
