@@ -777,7 +777,8 @@ dbs:
         return flow_dicts
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                  actions=None, hard_timeout=0, cookie=None, ofa_match=True):
+                                  actions=None, hard_timeout=0, cookie=None,
+                                  ofa_match=True):
         flow_dicts = self.get_matching_flows_on_dpid(
             dpid, match, timeout=timeout, table_id=table_id,
             actions=actions, hard_timeout=hard_timeout, cookie=cookie,
@@ -792,7 +793,7 @@ dbs:
         return self.get_matching_flow_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
             actions=actions, hard_timeout=hard_timeout,
-            cookie=cookie, ofa_match=True)
+            cookie=cookie, ofa_match=ofam_match)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
         for _ in range(timeout):
@@ -807,28 +808,34 @@ dbs:
         return None
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                      actions=None, hard_timeout=0, cookie=None):
+                                      actions=None, hard_timeout=0, cookie=None,
+                                      ofa_match=True):
         """Return True if matching flow is present on a DPID."""
         if self.get_matching_flow_on_dpid(
                 dpid, match, timeout=timeout, table_id=table_id,
-                actions=actions, hard_timeout=hard_timeout, cookie=cookie):
+                actions=actions, hard_timeout=hard_timeout, cookie=cookie,
+                ofa_match=ofa_match):
             return True
         return False
 
     def matching_flow_present(self, match, timeout=10, table_id=None,
-                              actions=None, hard_timeout=0, cookie=None):
+                              actions=None, hard_timeout=0, cookie=None,
+                              ofa_match=True):
         """Return True if matching flow is present on default DPID."""
         return self.matching_flow_present_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, hard_timeout=hard_timeout, cookie=cookie)
+            actions=actions, hard_timeout=hard_timeout, cookie=cookie,
+            ofa_match=ofa_match)
 
     def wait_until_matching_flow(self, match, timeout=10, table_id=None,
-                                 actions=None, hard_timeout=0, cookie=None):
+                                 actions=None, hard_timeout=0, cookie=None,
+                                 ofa_match=True):
         """Wait (require) for flow to be present on default DPID."""
         self.assertTrue(
             self.matching_flow_present(
                 match, timeout=timeout, table_id=table_id,
-                actions=actions, hard_timeout=hard_timeout, cookie=cookie),
+                actions=actions, hard_timeout=hard_timeout, cookie=cookie,
+                ofa_match=ofa_match),
             msg=match)
 
     def wait_until_controller_flow(self):
@@ -2062,7 +2069,7 @@ dbs:
         self.assertEqual(0, loss)
 
     def wait_for_route_as_flow(self, nexthop, prefix, vlan_vid=None, timeout=10,
-                               with_group_table=False, nonzero_packets=False):
+                               nonzero_packets=False):
         """Verify a route has been added as a flow."""
         exp_prefix = '%s/%s' % (
             prefix.network_address, prefix.netmask)
@@ -2075,21 +2082,14 @@ dbs:
         nexthop_action = 'SET_FIELD: {eth_dst:%s}' % nexthop
         if vlan_vid is not None:
             nw_dst_match['dl_vlan'] = str(vlan_vid)
-        if with_group_table:
-            group_id = self.get_group_id_for_matching_flow(
-                nw_dst_match)
-            self.assertTrue(group_id)
-            self.wait_matching_in_group_table(
-                nexthop_action, group_id, timeout)
+        if nonzero_packets:
+            self.wait_nonzero_packet_count_flow(
+                nw_dst_match, timeout=timeout, table_id=table_id,
+                actions=[nexthop_action], ofa_match=False)
         else:
-            if nonzero_packets:
-                self.wait_nonzero_packet_count_flow(
-                    nw_dst_match, timeout=timeout, table_id=table_id,
-                    actions=[nexthop_action])
-            else:
-                self.wait_until_matching_flow(
-                    nw_dst_match, timeout=timeout, table_id=table_id,
-                    actions=[nexthop_action])
+            self.wait_until_matching_flow(
+                nw_dst_match, timeout=timeout, table_id=table_id,
+                actions=[nexthop_action], ofa_match=False)
 
     def host_ipv4_alias(self, host, alias_ip, intf=None):
         """Add an IPv4 alias address to a host."""
@@ -2179,8 +2179,7 @@ dbs:
         self.fail('%s never started' % iperf_server_cmd)
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
-                            second_host, second_host_routed_ip,
-                            with_group_table=False):
+                            second_host, second_host_routed_ip):
         """Verify one host can IPV4 route to another via FAUCET."""
         self.host_ipv4_alias(first_host, first_host_routed_ip)
         self.host_ipv4_alias(second_host, second_host_routed_ip)
@@ -2190,11 +2189,9 @@ dbs:
             second_host, first_host_routed_ip, self.FAUCET_VIPV4.ip)
         self.net.ping(hosts=(first_host, second_host))
         self.wait_for_route_as_flow(
-            first_host.MAC(), first_host_routed_ip.network,
-            with_group_table=with_group_table)
+            first_host.MAC(), first_host_routed_ip.network)
         self.wait_for_route_as_flow(
-            second_host.MAC(), second_host_routed_ip.network,
-            with_group_table=with_group_table)
+            second_host.MAC(), second_host_routed_ip.network)
         self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
         self.verify_ipv4_host_learned_host(first_host, second_host)
@@ -2212,14 +2209,12 @@ dbs:
         # verify packets matched routing flows
         self.wait_for_route_as_flow(
             first_host.MAC(), first_host_routed_ip.network,
-            with_group_table=with_group_table,
             nonzero_packets=True)
         self.wait_for_route_as_flow(
             second_host.MAC(), second_host_routed_ip.network,
-            with_group_table=with_group_table,
             nonzero_packets=True)
 
-    def verify_ipv4_routing_mesh(self, with_group_table=False):
+    def verify_ipv4_routing_mesh(self):
         """Verify hosts can route to each other via FAUCET."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
@@ -2228,21 +2223,17 @@ dbs:
         second_host_routed_ip2 = ipaddress.ip_interface('10.0.3.1/24')
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip,
-            with_group_table=with_group_table)
+            second_host, second_host_routed_ip)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            second_host, second_host_routed_ip2)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip,
-            with_group_table=with_group_table)
+            second_host, second_host_routed_ip)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            second_host, second_host_routed_ip2)
 
     @staticmethod
     def host_drop_all_ips(host):
@@ -2265,8 +2256,7 @@ dbs:
 
     def verify_ipv6_routing(self, first_host, first_host_ip,
                             first_host_routed_ip, second_host,
-                            second_host_ip, second_host_routed_ip,
-                            with_group_table=False):
+                            second_host_ip, second_host_routed_ip):
         """Verify one host can IPV6 route to another via FAUCET."""
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
@@ -2275,11 +2265,9 @@ dbs:
         self.add_host_route(
             second_host, first_host_routed_ip, self.FAUCET_VIPV6.ip)
         self.wait_for_route_as_flow(
-            first_host.MAC(), first_host_routed_ip.network,
-            with_group_table=with_group_table)
+            first_host.MAC(), first_host_routed_ip.network)
         self.wait_for_route_as_flow(
-            second_host.MAC(), second_host_routed_ip.network,
-            with_group_table=with_group_table)
+            second_host.MAC(), second_host_routed_ip.network)
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
@@ -2302,18 +2290,16 @@ dbs:
 
     def verify_ipv6_routing_pair(self, first_host, first_host_ip,
                                  first_host_routed_ip, second_host,
-                                 second_host_ip, second_host_routed_ip,
-                                 with_group_table=False):
+                                 second_host_ip, second_host_routed_ip):
         """Verify hosts can route IPv6 to each other via FAUCET."""
         self.setup_ipv6_hosts_addresses(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=with_group_table)
+            second_host, second_host_ip, second_host_routed_ip)
 
-    def verify_ipv6_routing_mesh(self, with_group_table=False):
+    def verify_ipv6_routing_mesh(self):
         """Verify IPv6 routing between hosts and multiple subnets."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
@@ -2324,21 +2310,17 @@ dbs:
         second_host_routed_ip2 = ipaddress.ip_interface('fc00::30:1/112')
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=with_group_table)
+            second_host, second_host_ip, second_host_routed_ip)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            second_host, second_host_ip, second_host_routed_ip2)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=with_group_table)
+            second_host, second_host_ip, second_host_routed_ip)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            second_host, second_host_ip, second_host_routed_ip2)
 
     def verify_invalid_bgp_route(self, pattern):
         """Check if we see the pattern in Faucet's log."""
