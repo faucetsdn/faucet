@@ -26,6 +26,7 @@ import scapy.all
 
 from mininet.log import error, output
 from mininet.net import Mininet
+from mininet.util import pmonitor
 
 from clib import mininet_test_base
 from clib import mininet_test_util
@@ -338,7 +339,7 @@ acls:
             ip_proto: 58
             icmpv6_type: 135
             actions:
-                allow: 1 
+                allow: 1
         - rule:
             actions:
                 allow: 0
@@ -3073,27 +3074,47 @@ vlans:
                 self.one_ipv6_controller_ping(host)
             self.flap_all_switch_ports()
 
-    @unittest.skip('skipping ipv6 test_fuzz_controller due to travis hangs')
     def test_fuzz_controller(self):
         first_host = self.net.hosts[0]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.one_ipv6_controller_ping(first_host)
         fuzz_success = False
         packets = 1000
+        count = 0
+        abort = False
+        def note(*args):
+            "Add a message to the log"
+            error('%s:' % self._test_name(), *args + tuple('\n'))
+        # Some of these tests have been slowing down and timing out,
+        # So this code is intended to allow some debugging and analysis
         for fuzz_class in dir(scapy.all):
             if fuzz_class.startswith('ICMPv6'):
                 fuzz_cmd = ("from scapy.all import * ;"
                             "scapy.all.send(IPv6(dst='%s')/fuzz(%s()),count=%u)" %
                             (self.FAUCET_VIPV6.ip, fuzz_class, packets))
-                out, errout, _exitcode = first_host.pexec('python3', '-c', fuzz_cmd)
-                error('trying', fuzz_cmd, '\n')
+                out, start, too_long = '', time.time(), 30 # seconds
+                popen = first_host.popen('python3', '-c', fuzz_cmd )
+                for host, line in pmonitor({first_host: popen}):
+                    out += line
+                    if time.time() - start > too_long:
+                        note('stopping', fuzz_class, 'after >', too_long, 'seconds')
+                        note('output was:', out)
+                        popen.terminate()
+                        abort = True
+                        break
+                popen.wait()
                 if 'Sent %u packets' % packets in out:
-                    error(fuzz_class, '\n')
+                    count += packets
+                    elapsed = time.time() - start
+                    note('sent', packets, fuzz_class, 'packets in %.2fs' % elapsed)
                     fuzz_success = True
-                else:
-                    error('Error output:', errout, '\n')
+                if abort:
+                    break
+        note('successfully sent', count, 'packets')
         self.assertTrue(fuzz_success)
+        note('pinging', first_host)
         self.one_ipv6_controller_ping(first_host)
+        note('test_fuzz_controller() complete')
 
 
 class FaucetSingleUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
