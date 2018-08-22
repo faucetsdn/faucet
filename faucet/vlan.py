@@ -369,14 +369,10 @@ class VLAN(Conf):
         return self._by_ipv(self.faucet_vips, ipv)
 
     def link_and_other_vips(self, ipv):
-        link_local_vips = []
-        other_vips = []
-        for faucet_vip in self.faucet_vips_by_ipv(ipv):
-            if faucet_vip.ip.is_link_local:
-                link_local_vips.append(faucet_vip)
-            else:
-                other_vips.append(faucet_vip)
-        return link_local_vips, other_vips
+        vips = self.faucet_vips_by_ipv(ipv)
+        link_local_vips = frozenset([vip for vip in vips if vip.is_link_local])
+        other_vips = vips - link_local_vips
+        return (link_local_vips, other_vips)
 
     def bgp_neighbor_addresses_by_ipv(self, ipv):
         """Return BGP neighbor addresses with specified IP version on this VLAN."""
@@ -402,6 +398,21 @@ class VLAN(Conf):
         """Return route table count for specified IP version on this VLAN."""
         return len(self.dyn_routes_by_ipv[ipv])
 
+    def is_host_fib_route(self, host_ip):
+        """Return True if IP destination is a host FIB route.
+
+        Args:
+            host_ip: (ipaddress.ip_address): potential host FIB route.
+        Returns:
+            True if a host FIB route (and not used as a gateway).
+        """
+        ip_dsts = self.ip_dsts_for_ip_gw(host_ip)
+        if (len(ip_dsts) == 1 and
+                ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen and
+                ip_dsts[0].network_address == host_ip):
+            return True
+        return False
+
     def add_route(self, ip_dst, ip_gw):
         """Add an IP route."""
         self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
@@ -424,8 +435,8 @@ class VLAN(Conf):
         return []
 
     def all_ip_gws(self, ipv):
-        """Return list of all IP gateways for specified IP version."""
-        return list(self.dyn_gws_by_ipv[ipv].keys())
+        """Return all IP gateways for specified IP version."""
+        return frozenset(self.dyn_gws_by_ipv[ipv].keys())
 
     def neigh_cache_by_ipv(self, ipv):
         """Return neighbor cache for specified IP version on this VLAN."""

@@ -1286,9 +1286,6 @@ class Valve:
     def state_expire(self, now, _other_valves):
         """Expire controller caches/state (e.g. hosts learned).
 
-        Expire state from the host manager only; the switch does its own flow
-        expiry.
-
         Return:
             list: OpenFlow messages, if any.
         """
@@ -1303,6 +1300,8 @@ class Valve:
                             'vid': vlan.vid,
                             'eth_src': entry.eth_src}})
                 self._lacp_state_expire(vlan, now)
+                for route_manager in list(self._route_manager_by_ipv.values()):
+                    ofmsgs.extend(route_manager.resolve_expire_hosts(vlan, now))
         return ofmsgs
 
     def _pipeline_change(self):
