@@ -207,10 +207,10 @@ class FaucetSwitchTopo(Topo):
         return self.addHost(
             name=host_name, cls=VLANHost, vlan=tagged_vid, cpu=self.CPUF)
 
-    def _add_untagged_host(self, sid_prefix, host_n):
+    def _add_untagged_host(self, sid_prefix, host_n, inNamespace=True):
         """Add a single untagged test host."""
         host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(name=host_name, cls=FaucetHost, cpu=self.CPUF)
+        return self.addHost(name=host_name, cls=FaucetHost, cpu=self.CPUF, inNamespace=inNamespace)
 
     def _add_extended_host(self, sid_prefix, host_n, e_cls, tmpdir):
         """Add a single extended test host."""
@@ -234,7 +234,10 @@ class FaucetSwitchTopo(Topo):
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0,
-              n_extended=0, e_cls=None, tmpdir=None, hw_dpid=None):
+              n_extended=0, e_cls=None, tmpdir=None, hw_dpid=None, host_namespace=None):
+        if not host_namespace:
+            host_namespace = {}
+
         for dpid in dpids:
             serialno = mininet_test_util.get_serialno(
                 ports_sock, test_name)
@@ -242,7 +245,7 @@ class FaucetSwitchTopo(Topo):
             for host_n in range(n_tagged):
                 self._add_tagged_host(sid_prefix, tagged_vid, host_n)
             for host_n in range(n_untagged):
-                self._add_untagged_host(sid_prefix, host_n)
+                self._add_untagged_host(sid_prefix, host_n, host_namespace.get(host_n, True))
             for host_n in range(n_extended):
                 self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
             switch_cls = FaucetSwitch
