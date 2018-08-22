@@ -154,7 +154,7 @@ vlans:
         self.verify_events_log(event_log)
 
 
-class FaucetUntagged8021XTest(FaucetUntaggedTest):
+class FaucetUntagged8021XSuccessTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
@@ -242,10 +242,10 @@ network={
 
         self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
         self.CONFIG_GLOBAL = self.CONFIG_GLOBAL.replace("NFV_MAC", nfv_intf.MAC())
-        super(FaucetUntagged8021XTest, self)._write_faucet_config()
+        super(FaucetUntagged8021XSuccessTest, self)._write_faucet_config()
 
     def setUp(self):
-        super(FaucetUntagged8021XTest, self).setUp()
+        super(FaucetUntagged8021XSuccessTest, self).setUp()
         self.host_drop_all_ips(self.nfv_host)
 
     def test_untagged(self):
@@ -257,6 +257,30 @@ network={
             faucet_log_txt = log.read()
             print(faucet_log_txt)
         self.assertIn("Successful auth", faucet_log_txt)
+
+
+class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
+    """Failure due to incorrect identity/password"""
+
+    wpasupplicant_conf = """
+    ap_scan=0
+    network={
+        key_mgmt=IEEE8021X
+        eap=MD5
+        identity="user@example.com"
+        password="wrongpassword"
+    }
+    """
+
+    def test_untagged(self):
+        self.start_wpasupplicant(self.eapol_host, self.wpasupplicant_conf, timeout=5)
+        time.sleep(5)
+        faucet_log = self.env['faucet']['FAUCET_LOG']
+        with open(faucet_log, 'r') as log:
+            print('Faucet log')
+            faucet_log_txt = log.read()
+            print(faucet_log_txt)
+        self.assertNotIn("Successful auth", faucet_log_txt)
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
