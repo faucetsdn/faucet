@@ -1561,7 +1561,7 @@ class AlliedTelesis(OVSValve):
     DEC_TTL = False
 
 
-class NoviFlowValve(OVSValve):
+class NoviFlowValve(Valve):
     """Valve implementation for NoviFlow with static pipeline."""
 
     STATIC_TABLE_IDS = True
