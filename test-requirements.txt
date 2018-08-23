@@ -1,6 +1,7 @@
 bitstring
 codecov
 concurrencytest
+deb_pkg_tools
 eventlet==0.22.1 # pyup: ignore
 exabgp
 influxdb
