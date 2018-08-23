@@ -67,6 +67,677 @@ class TestConfig(unittest.TestCase): # pytype: disable=module-attr
             config, function, before_function)
         self.assertEqual(config_success, True, config_err)
 
+    def test_config_stack(self):
+        """Test valid stacking config."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_config_stack_and_non_stack(self):
+        """Test stack and non-stacking config."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+    sw3:
+        dp_id: 0x3
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: office
+            2:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_override_port(self):
+        """Test override port is valid."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+                override_output_port: output_port
+            output_port:
+                number: 2
+                output_only: True
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_one_port_dp(self):
+        """Test port number is valid."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_valid_mac(self):
+        """Test with valid MAC."""
+        config = """
+vlans:
+    office:
+        vid: 100
+        faucet_mac: '11:22:33:44:55:66'
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_resolved_mirror_port(self):
+        """Test can use name reference to mirrored port."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            mirrored_port:
+                number: 1
+                native_vlan: office
+            2:
+                mirror: mirrored_port
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_acl_dictionary_valid(self):
+        """test acl config is valid when not using 'rule' key"""
+        config = """
+acls:
+    office-vlan-protect:
+        -
+            dl_type: 0x800
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_acls_vlan_valid(self):
+        """Test ACLs can be combined on VLAN."""
+        config = """
+acls:
+    access-port-protect:
+        - rule:
+            udp_src: 80
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: 10.0.200.0/24
+vlans:
+    office:
+        vid: 100
+        acls_in: [access-port-protect, office-vlan-protect]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_acls_port_valid(self):
+        """Test ACLs can be combined on a port."""
+        config = """
+acls:
+    access-port-protect:
+        - rule:
+            udp_src: 80
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: 10.0.200.0/24
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [access-port-protect, office-vlan-protect]
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_good_set_fields(self):
+        """Test good set_fields."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        set_fields:
+                            - eth_dst: "0e:00:00:00:00:01"
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_push_pop_vlans_acl(self):
+        """Test push and pop VLAN ACL fields."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        pop_vlans: 1
+                        vlan_vids:
+                            - { vid: 200, eth_type: 0x8100 }
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_dp_acls(self):
+        """Test DP ACLs."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        port: 1
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        dp_acls: [good_acl]
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_force_port_vlan(self):
+        """Test push force_port_vlan."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    allow: 1
+                    force_port_vlan: 1
+                    output:
+                        swap_vid: 101
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                tagged_vlans: [100]
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_failover_acl(self):
+        """Test failover ACL fields."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        failover:
+                             group_id: 1
+                             ports: [1]
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_unreferenced_acl(self):
+        """Test an unresolveable port in an ACL that is not referenced is OK."""
+        config = """
+acls:
+    unreferenced_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        port: 99
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_multi_bgp(self):
+        """Test multiple BGP VLANs can be configured."""
+        config = """
+vlans:
+    routing1:
+        vid: 100
+        faucet_vips: ["10.0.0.254/24"]
+        bgp_server_addresses: ["127.0.0.1"]
+        bgp_as: 100
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_addresses: ["127.0.0.1"]
+        bgp_neighbor_as: 100
+    routing2:
+        vid: 200
+        faucet_vips: ["10.0.0.253/24"]
+        bgp_server_addresses: ["127.0.0.1"]
+        bgp_as: 200
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_addresses: ["127.0.0.2"]
+        bgp_neighbor_as: 200
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: routing1
+            2:
+                native_vlan: routing2
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_meter_config(self):
+        """Test valid meter config."""
+        config = """
+meters:
+    lossymeter:
+        meter_id: 1
+        entry:
+            flags: "KBPS"
+            bands:
+                [
+                    {
+                        type: "DROP",
+                        rate: 1000
+                    }
+                ]
+acls:
+    lossyacl:
+        - rule:
+            actions:
+                meter: lossymeter
+                allow: 1
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: lossyacl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_dp_lldp_minimal_valid(self):
+        """Test minimal valid DP config."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        lldp_beacon:
+            send_interval: 10
+            max_per_interval: 10
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_port_lldp_minimal_valid(self):
+        """Test minimal valid LLDP config."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        lldp_beacon:
+            send_interval: 10
+            max_per_interval: 10
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+                lldp_beacon:
+                    enable: true
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_all_lldp_valid(self):
+        """Test a fully specified valid LLDP config."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        lldp_beacon:
+            system_name: test_system
+            send_interval: 10
+            max_per_interval: 10
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+                lldp_beacon:
+                    enable: true
+                    system_name: port_system
+                    port_descr: port_description
+                    org_tlvs:
+                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_interface_ranges_lldp(self):
+        """Verify lldp config works when using interface ranges"""
+        config = """
+vlans:
+    office:
+        vid: 100
+    guest:
+        vid: 200
+dps:
+    sw1:
+        dp_id: 0x1
+        lldp_beacon:
+            send_interval: 10
+            max_per_interval: 10
+        interface_ranges:
+            '1-2':
+                lldp_beacon:
+                    enable: True
+                    system_name: port_system
+                    org_tlvs:
+                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
+        interfaces:
+            1:
+                native_vlan: office
+            2:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_multi_acl_dp(self):
+        """Test multiple ACLs with multiple DPs, where one ACL does mirroring."""
+        config = """
+dps:
+  SWPRI2:
+    dp_id: 0x223d5a07ff
+    interfaces:
+      11:
+        acl_in: non_mirroring_acl
+        native_vlan: 197
+  SWSEC0B:
+    dp_id: 0xe01aea107a69
+    interfaces:
+      30:
+        native_vlan: 197
+        acl_in: mirroring_acl
+      47:
+        native_vlan: 197
+vlans:
+  197:
+acls:
+  mirroring_acl:
+  - rule:
+      actions:
+        allow: 1
+        mirror: 47
+  non_mirroring_acl:
+  - rule:
+      actions:
+        allow: 1
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_vlan_route_dictionary_valid(self):
+        """Test new vlan route format as dictionary is valid"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        routes:
+            - {ip_gw: '10.0.0.1', ip_dst: '10.99.99.0/24'}
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_acl_multi_dp_output_rule(self):
+        """Verify that an acl can output to different ports with the same name
+        on different DPs'
+        """
+        config = """
+vlans:
+    v100:
+        vid: 100
+        acls_in: [test]
+acls:
+    test:
+        - rule:
+            dl_type: 0x800      # ipv4
+            actions:
+                output:
+                    port: 'target'
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: 'v100'
+            2:
+                name: 'target'
+                native_vlan: 'v100'
+    s2:
+        dp_id: 0x2
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: 'v100'
+            3:
+                name: 'target'
+                native_vlan: 'v100'
+"""
+        conf_file = self.create_config_file(config)
+        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        outputs = {
+            's1': 2,
+            's2': 3
+            }
+        for dp in dps:
+            v100 = dp.vlans[100]
+            for acl in v100.acls_in:
+                for rule in acl.rules:
+                    port = rule['actions']['output']['port']
+                    self.assertEqual(
+                        outputs[dp.name],
+                        port,
+                        msg='acl output port resolved incorrectly'
+                        )
+
+    def test_port_range_valid_config(self):
+        """Test if port range config applied correctly"""
+        config = """
+vlans:
+    office:
+        vid: 100
+    guest:
+        vid: 200
+dps:
+    sw1:
+        dp_id: 0x1
+        interface_ranges:
+            1-4,6,port8:
+                native_vlan: office
+                max_hosts: 2
+                permanent_learn: True
+            port10-11:
+                native_vlan: guest
+                max_hosts: 2
+        interfaces:
+            1:
+                max_hosts: 4
+                description: "video conf"
+"""
+        conf_file = self.create_config_file(config)
+        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        dp = dps[0]
+        self.assertEqual(len(dp.ports), 8)
+        self.assertTrue(all([p.permanent_learn for p in dp.ports.values() if p.number < 9]))
+        self.assertTrue(all([p.max_hosts == 2 for p in dp.ports.values() if p.number > 1]))
+        self.assertTrue(dp.ports[1].max_hosts == 4)
+        self.assertEqual(dp.ports[1].description, "video conf")
+
+    def test_single_range_valid_config(self):
+        """Test if port range with single port config applied correctly"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interface_ranges:
+            1:
+                native_vlan: office
+"""
+        conf_file = self.create_config_file(config)
+        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        dp = dps[0]
+        self.assertEqual(len(dp.ports), 1)
+
+    ###########################################
+    # Tests of Configuration Failure Handling #
+    ###########################################
+
     def test_dupe_vid(self):
         """Test that VLANs cannot have same VID."""
         config = """
@@ -334,78 +1005,6 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_config_stack(self):
-        """Test valid stacking config."""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        hardware: "Open vSwitch"
-        stack:
-            priority: 1
-        interfaces:
-            1:
-                stack:
-                    dp: sw2
-                    port: 1
-            2:
-                native_vlan: office
-    sw2:
-        dp_id: 0x2
-        hardware: "Open vSwitch"
-        interfaces:
-            1:
-                stack:
-                    dp: sw1
-                    port: 1
-            2:
-                native_vlan: office
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_config_stack_and_non_stack(self):
-        """Test stack and non-stacking config."""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        hardware: "Open vSwitch"
-        stack:
-            priority: 1
-        interfaces:
-            1:
-                stack:
-                    dp: sw2
-                    port: 1
-            2:
-                native_vlan: office
-    sw2:
-        dp_id: 0x2
-        hardware: "Open vSwitch"
-        interfaces:
-            1:
-                stack:
-                    dp: sw1
-                    port: 1
-            2:
-                native_vlan: office
-    sw3:
-        dp_id: 0x3
-        hardware: "Open vSwitch"
-        interfaces:
-            1:
-                native_vlan: office
-            2:
-                native_vlan: office
-"""
-        self.check_config_success(config, cp.dp_parser)
-
     def test_config_stack_islands(self):
         """Test that stack islands don't exist."""
         config = """
@@ -473,42 +1072,6 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_override_port(self):
-        """Test override port is valid."""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            testing:
-                number: 1
-                native_vlan: office
-                override_output_port: output_port
-            output_port:
-                number: 2
-                output_only: True
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_one_port_dp(self):
-        """Test port number is valid."""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            testing:
-                number: 1
-                native_vlan: office
-"""
-        self.check_config_success(config, cp.dp_parser)
-
     def test_dp_id_too_big(self):
         """Test DP ID is valid."""
         config = """
@@ -555,22 +1118,6 @@ dps:
                 native_vlan: office
 """
         self.check_config_failure(config, cp.dp_parser)
-
-    def test_valid_mac(self):
-        """Test with valid MAC."""
-        config = """
-vlans:
-    office:
-        vid: 100
-        faucet_mac: '11:22:33:44:55:66'
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: office
-"""
-        self.check_config_success(config, cp.dp_parser)
 
     def test_invalid_mac(self):
         """Test with invalid MAC."""
@@ -666,24 +1213,6 @@ acls:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_resolved_mirror_port(self):
-        """Test can use name reference to mirrored port."""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            mirrored_port:
-                number: 1
-                native_vlan: office
-            2:
-                mirror: mirrored_port
-"""
-        self.check_config_success(config, cp.dp_parser)
-
     def test_vlans_on_mirror_ports(self):
         """Test invalid VLANs configured on a mirror port."""
         config = """
@@ -771,133 +1300,6 @@ acls:
                 allow: 1
 """
         self.check_config_failure(config, cp.dp_parser)
-
-    def test_acl_dictionary_valid(self):
-        """test acl config is valid when not using 'rule' key"""
-        config = """
-acls:
-    office-vlan-protect:
-        -
-            dl_type: 0x800
-            actions:
-                allow: 0
-vlans:
-    office:
-        vid: 100
-        acl_in: office-vlan-protect
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: office
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-
-    def test_acl_multi_dp_output_rule(self):
-        """Verify that an acl can output to different ports with the same name
-        on different DPs'
-        """
-        config = """
-vlans:
-    v100:
-        vid: 100
-        acls_in: [test]
-acls:
-    test:
-        - rule:
-            dl_type: 0x800      # ipv4
-            actions:
-                output:
-                    port: 'target'
-dps:
-    s1:
-        dp_id: 0x1
-        hardware: "Open vSwitch"
-        interfaces:
-            1:
-                native_vlan: 'v100'
-            2:
-                name: 'target'
-                native_vlan: 'v100'
-    s2:
-        dp_id: 0x2
-        hardware: "Open vSwitch"
-        interfaces:
-            1:
-                native_vlan: 'v100'
-            3:
-                name: 'target'
-                native_vlan: 'v100'
-"""
-        conf_file = self.create_config_file(config)
-        _, dps = cp.dp_parser(conf_file, LOGNAME)
-        outputs = {
-            's1': 2,
-            's2': 3
-            }
-        for dp in dps:
-            v100 = dp.vlans[100]
-            for acl in v100.acls_in:
-                for rule in acl.rules:
-                    port = rule['actions']['output']['port']
-                    self.assertEqual(
-                        outputs[dp.name],
-                        port,
-                        msg='acl output port resolved incorrectly'
-                        )
-
-    def test_port_range_valid_config(self):
-        """Test if port range config applied correctly"""
-        config = """
-vlans:
-    office:
-        vid: 100
-    guest:
-        vid: 200
-dps:
-    sw1:
-        dp_id: 0x1
-        interface_ranges:
-            1-4,6,port8:
-                native_vlan: office
-                max_hosts: 2
-                permanent_learn: True
-            port10-11:
-                native_vlan: guest
-                max_hosts: 2
-        interfaces:
-            1:
-                max_hosts: 4
-                description: "video conf"
-"""
-        conf_file = self.create_config_file(config)
-        _, dps = cp.dp_parser(conf_file, LOGNAME)
-        dp = dps[0]
-        self.assertEqual(len(dp.ports), 8)
-        self.assertTrue(all([p.permanent_learn for p in dp.ports.values() if p.number < 9]))
-        self.assertTrue(all([p.max_hosts == 2 for p in dp.ports.values() if p.number > 1]))
-        self.assertTrue(dp.ports[1].max_hosts == 4)
-        self.assertEqual(dp.ports[1].description, "video conf")
-
-    def test_single_range_valid_config(self):
-        """Test if port range with single port config applied correctly"""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interface_ranges:
-            1:
-                native_vlan: office
-"""
-        conf_file = self.create_config_file(config)
-        _, dps = cp.dp_parser(conf_file, LOGNAME)
-        dp = dps[0]
-        self.assertEqual(len(dp.ports), 1)
 
     def test_port_range_invalid_config(self):
         """Test invalid characters used in interface_ranges."""
@@ -1119,54 +1521,6 @@ dps:
                 acls_in: [access-port-protect]
 """
         self.check_config_failure(config, cp.dp_parser)
-
-    def test_acls_vlan_valid(self):
-        """Test ACLs can be combined on VLAN."""
-        config = """
-acls:
-    access-port-protect:
-        - rule:
-            udp_src: 80
-    office-vlan-protect:
-        - rule:
-            dl_type: 0x800
-            ipv4_src: 10.0.200.0/24
-vlans:
-    office:
-        vid: 100
-        acls_in: [access-port-protect, office-vlan-protect]
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: office
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_acls_port_valid(self):
-        """Test ACLs can be combined on a port."""
-        config = """
-acls:
-    access-port-protect:
-        - rule:
-            udp_src: 80
-    office-vlan-protect:
-        - rule:
-            dl_type: 0x800
-            ipv4_src: 10.0.200.0/24
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: office
-                acls_in: [access-port-protect, office-vlan-protect]
-"""
-        self.check_config_success(config, cp.dp_parser)
 
     def test_invalid_char(self):
         """Test config file with invalid characters."""
@@ -1700,30 +2054,6 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_good_set_fields(self):
-        """Test good set_fields."""
-        config = """
-acls:
-    good_acl:
-        rules:
-            - rule:
-                actions:
-                    output:
-                        set_fields:
-                            - eth_dst: "0e:00:00:00:00:01"
-vlans:
-    guest:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: 100
-                acl_in: good_acl
-"""
-        self.check_config_success(config, cp.dp_parser)
-
     def test_bad_match_fields(self):
         """Test bad match fields."""
         config = """
@@ -1748,126 +2078,6 @@ dps:
                 acl_in: bad_acl
 """
         self.check_config_failure(config, cp.dp_parser)
-
-    def test_push_pop_vlans_acl(self):
-        """Test push and pop VLAN ACL fields."""
-        config = """
-acls:
-    good_acl:
-        rules:
-            - rule:
-                actions:
-                    output:
-                        pop_vlans: 1
-                        vlan_vids:
-                            - { vid: 200, eth_type: 0x8100 }
-vlans:
-    guest:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: 100
-                acl_in: good_acl
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_dp_acls(self):
-        """Test DP ACLs."""
-        config = """
-acls:
-    good_acl:
-        rules:
-            - rule:
-                actions:
-                    output:
-                        port: 1
-vlans:
-    guest:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        dp_acls: [good_acl]
-        interfaces:
-            1:
-                native_vlan: 100
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_force_port_vlan(self):
-        """Test push force_port_vlan."""
-        config = """
-acls:
-    good_acl:
-        rules:
-            - rule:
-                actions:
-                    allow: 1
-                    force_port_vlan: 1
-                    output:
-                        swap_vid: 101
-vlans:
-    guest:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                tagged_vlans: [100]
-                acl_in: good_acl
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_failover_acl(self):
-        """Test failover ACL fields."""
-        config = """
-acls:
-    good_acl:
-        rules:
-            - rule:
-                actions:
-                    output:
-                        failover:
-                             group_id: 1
-                             ports: [1]
-vlans:
-    guest:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: 100
-                acl_in: good_acl
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_unreferenced_acl(self):
-        """Test an unresolveable port in an ACL that is not referenced is OK."""
-        config = """
-acls:
-    unreferenced_acl:
-        rules:
-            - rule:
-                actions:
-                    output:
-                        port: 99
-vlans:
-    guest:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: 100
-"""
-        self.check_config_success(config, cp.dp_parser)
 
     def test_bad_cookie(self):
         """Test bad cookie value."""
@@ -1979,37 +2189,6 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_multi_bgp(self):
-        """Test multiple BGP VLANs can be configured."""
-        config = """
-vlans:
-    routing1:
-        vid: 100
-        faucet_vips: ["10.0.0.254/24"]
-        bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 100
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_neighbor_as: 100
-    routing2:
-        vid: 200
-        faucet_vips: ["10.0.0.253/24"]
-        bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 200
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["127.0.0.2"]
-        bgp_neighbor_as: 200
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: routing1
-            2:
-                native_vlan: routing2
-"""
-        self.check_config_success(config, cp.dp_parser)
-
     def test_bgp_server_invalid(self):
         """Test invalid BGP server address."""
         bgp_config = """
@@ -2097,37 +2276,6 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_meter_config(self):
-        """Test valid meter config."""
-        config = """
-meters:
-    lossymeter:
-        meter_id: 1
-        entry:
-            flags: "KBPS"
-            bands:
-                [
-                    {
-                        type: "DROP",
-                        rate: 1000
-                    }
-                ]
-acls:
-    lossyacl:
-        - rule:
-            actions:
-                meter: lossymeter
-                allow: 1
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: 100
-                acl_in: lossyacl
-"""
-        self.check_config_success(config, cp.dp_parser)
-
     def test_dp_lldp_minimal_invalid(self):
         """Test minimal invalid DP config."""
         config = """
@@ -2145,151 +2293,6 @@ dps:
                 native_vlan: office
 """
         self.check_config_failure(config, cp.dp_parser)
-
-    def test_dp_lldp_minimal_valid(self):
-        """Test minimal valid DP config."""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        lldp_beacon:
-            send_interval: 10
-            max_per_interval: 10
-        interfaces:
-            testing:
-                number: 1
-                native_vlan: office
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_port_lldp_minimal_valid(self):
-        """Test minimal valid LLDP config."""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        lldp_beacon:
-            send_interval: 10
-            max_per_interval: 10
-        interfaces:
-            testing:
-                number: 1
-                native_vlan: office
-                lldp_beacon:
-                    enable: true
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_all_lldp_valid(self):
-        """Test a fully specified valid LLDP config."""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        lldp_beacon:
-            system_name: test_system
-            send_interval: 10
-            max_per_interval: 10
-        interfaces:
-            testing:
-                number: 1
-                native_vlan: office
-                lldp_beacon:
-                    enable: true
-                    system_name: port_system
-                    port_descr: port_description
-                    org_tlvs:
-                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_interface_ranges_lldp(self):
-        """Verify lldp config works when using interface ranges"""
-        config = """
-vlans:
-    office:
-        vid: 100
-    guest:
-        vid: 200
-dps:
-    sw1:
-        dp_id: 0x1
-        lldp_beacon:
-            send_interval: 10
-            max_per_interval: 10
-        interface_ranges:
-            '1-2':
-                lldp_beacon:
-                    enable: True
-                    system_name: port_system
-                    org_tlvs:
-                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
-        interfaces:
-            1:
-                native_vlan: office
-            2:
-                native_vlan: office
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_multi_acl_dp(self):
-        """Test multiple ACLs with multiple DPs, where one ACL does mirroring."""
-        config = """
-dps:
-  SWPRI2:
-    dp_id: 0x223d5a07ff
-    interfaces:
-      11:
-        acl_in: non_mirroring_acl
-        native_vlan: 197
-  SWSEC0B:
-    dp_id: 0xe01aea107a69
-    interfaces:
-      30:
-        native_vlan: 197
-        acl_in: mirroring_acl
-      47:
-        native_vlan: 197
-vlans:
-  197:
-acls:
-  mirroring_acl:
-  - rule:
-      actions:
-        allow: 1
-        mirror: 47
-  non_mirroring_acl:
-  - rule:
-      actions:
-        allow: 1
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_vlan_route_dictionary_valid(self):
-        """Test new vlan route format as dictionary is valid"""
-        config = """
-vlans:
-    office:
-        vid: 100
-        routes:
-            - {ip_gw: '10.0.0.1', ip_dst: '10.99.99.0/24'}
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: office
-"""
-        self.check_config_success(config, cp.dp_parser)
 
     def test_vlan_route_missing_value_invalid(self):
         """Test new vlan route format fails when missing value"""
