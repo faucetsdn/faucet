@@ -525,21 +525,24 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
 
 def dump_failed_test_file(test_file, only_exts):
     dump_file = False
-    test_file_content = open(test_file).read()
-    if test_file_content:
-        if only_exts:
-            for ext in only_exts:
-                if test_file.endswith(ext):
-                    dump_file = True
-                    break
-        else:
-            dump_file = True
+    if only_exts:
+        for ext in only_exts:
+            if test_file.endswith(ext):
+                dump_file = True
+                break
+    else:
+        dump_file = True
 
     if dump_file:
-        print(test_file)
-        print('=' * len(test_file))
-        print('\n')
-        print(test_file_content)
+        try:
+            test_file_content = open(test_file).read()
+            if test_file_content:
+                print(test_file)
+                print('=' * len(test_file))
+                print('\n')
+                print(test_file_content)
+        except UnicodeDecodeError:
+            pass
     return dump_file
 
 
