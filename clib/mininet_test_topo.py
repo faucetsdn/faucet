@@ -82,7 +82,10 @@ class FaucetHostCleanup(object):
     def terminate(self):
         """Override Mininet terminate() to partially avoid pty leak."""
         if self.shell is not None:
-            os.close(self.slave)
+            try:
+                os.close(self.slave)
+            except OSError:
+                pass
             self.stdin.close()
             if self.shell.returncode is None:
                 self.shell.kill()
