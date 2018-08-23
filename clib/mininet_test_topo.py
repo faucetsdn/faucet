@@ -87,7 +87,10 @@ class FaucetHostCleanup(object):
             if self.shell.returncode is None:
                 self.shell.kill()
                 self.shell.poll()
-        self.cleanup() # pylint: disable=no-member; # pytype: disable=attribute-error
+        try:
+            self.cleanup() # pylint: disable=no-member; # pytype: disable=attribute-error
+        except OSError:
+            pass
 
 
 class FaucetHost(FaucetHostCleanup, CPULimitedHost):
