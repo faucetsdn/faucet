@@ -2,7 +2,6 @@ chewie==0.0.2
 datadiff
 eventlet==0.22.1 # pyup: ignore
 influxdb
-ipaddress
 msgpack
 msgpack-python
 networkx

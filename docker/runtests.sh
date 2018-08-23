@@ -57,7 +57,7 @@ locale-gen en_US.UTF-8 || exit 1
 if [ "$UNITTESTS" == 1 ] ; then
     echo "========== Running faucet unit tests =========="
     cd /faucet-src/tests
-    ./run_unit_tests.sh || exit 1
+    LANG=en_US.UTF-8 LANGUAGE=en_US.en LC_ALL=en_US.UTF-8 ./run_unit_tests.sh || exit 1
 fi
 
 if [ "$DEPCHECK" == 1 ] ; then
