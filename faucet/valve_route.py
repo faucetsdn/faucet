@@ -820,35 +820,37 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, src_ip, _dst_ip):
         ofmsgs = []
-        solicited_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
-        vlan = pkt_meta.vlan
-        if vlan.is_faucet_vip(solicited_ip):
-            if self._stateful_gw(vlan, src_ip):
-                ofmsgs.extend(
-                    self._add_host_fib_route(vlan, src_ip, blackhole=False))
-                ofmsgs.extend(self._update_nexthop(
-                    now, vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
-            ofmsgs.append(
-                vlan.pkt_out_port(
-                    valve_packet.nd_advert, pkt_meta.port,
-                    vlan.faucet_mac, pkt_meta.eth_src,
-                    solicited_ip, src_ip))
-            self.logger.info(
-                'Responded to ND solicit for %s from %s' % (
-                    solicited_ip, pkt_meta.log()))
+        if isinstance(icmpv6_pkt.data, icmpv6.nd_neighbor):
+            solicited_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
+            vlan = pkt_meta.vlan
+            if vlan.is_faucet_vip(solicited_ip):
+                if self._stateful_gw(vlan, src_ip):
+                    ofmsgs.extend(
+                        self._add_host_fib_route(vlan, src_ip, blackhole=False))
+                    ofmsgs.extend(self._update_nexthop(
+                        now, vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
+                ofmsgs.append(
+                    vlan.pkt_out_port(
+                        valve_packet.nd_advert, pkt_meta.port,
+                        vlan.faucet_mac, pkt_meta.eth_src,
+                        solicited_ip, src_ip))
+                self.logger.info(
+                    'Responded to ND solicit for %s from %s' % (
+                        solicited_ip, pkt_meta.log()))
         return ofmsgs
 
     def _nd_advert_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, _src_ip, _dst_ip):
         ofmsgs = []
-        target_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
-        vlan = pkt_meta.vlan
-        if vlan.ip_in_vip_subnet(target_ip):
-            if self._stateful_gw(vlan, target_ip):
-                ofmsgs.extend(self._update_nexthop(
-                    now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
-            self.logger.info(
-                'Received ND advert for %s from %s' % (
-                    target_ip, pkt_meta.log()))
+        if isinstance(icmpv6_pkt.data, icmpv6.nd_neighbor):
+            target_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
+            vlan = pkt_meta.vlan
+            if vlan.ip_in_vip_subnet(target_ip):
+                if self._stateful_gw(vlan, target_ip):
+                    ofmsgs.extend(self._update_nexthop(
+                        now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
+                self.logger.info(
+                    'Received ND advert for %s from %s' % (
+                        target_ip, pkt_meta.log()))
         return ofmsgs
 
     def _router_solicit_handler(self, _now, pkt_meta, _ipv6_pkt, _icmpv6_pkt, src_ip, _dst_ip):
@@ -872,7 +874,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
         ofmsgs = []
         vlan = pkt_meta.vlan
         if (vlan.from_connected_to_vip(src_ip, dst_ip) and
-                pkt_meta.eth_dst == vlan.faucet_mac):
+                pkt_meta.eth_dst == vlan.faucet_mac and
+                isinstance(icmpv6_pkt.data, icmpv6.echo)):
             ofmsgs.append(
                 vlan.pkt_out_port(
                     valve_packet.icmpv6_echo_reply, pkt_meta.port,
