@@ -69,7 +69,7 @@ Description: This is a component the Faucet OpenFlow controller (Python 3)
  .
  This package installs the library for Python 3.
 
-package: faucet-all-in-one
+Package: faucet-all-in-one
 Architecture: all
 Depends: faucet (>= 1.7.0),
          gauge (>= 1.7.0),
