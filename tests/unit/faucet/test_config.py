@@ -67,6 +67,13 @@ class TestConfig(unittest.TestCase): # pytype: disable=module-attr
             config, function, before_function)
         self.assertEqual(config_success, True, config_err)
 
+    def _get_dps_as_dict(self, config):
+        result = {}
+        _, dps = cp.dp_parser(self.create_config_file(config), LOGNAME)
+        for dp in dps:
+            result[dp.dp_id] = dp
+        return result
+
     def test_one_port_dp(self):
         """Test basic port configuration."""
         config = """
@@ -82,11 +89,9 @@ dps:
                 native_vlan: office
 """
         self.check_config_success(config, cp.dp_parser)
-        conf_file = self.create_config_file(config)
-        _, dps = cp.dp_parser(conf_file, LOGNAME)
-        dp = dps[0]
-        self.assertEqual(
-            dp.dp_id, 1, 'datapath configured with incorrect dp_id')
+        dps = self._get_dps_as_dict(config)
+        self.assertTrue(1 in dps, 'datapath configured with incorrect dp_id')
+        dp = dps[1]
         self.assertEqual(
             dp.name, 'sw1', 'datapath configured with incorrect name')
         self.assertTrue(
@@ -147,6 +152,34 @@ dps:
                 native_vlan: office
 """
         self.check_config_success(config, cp.dp_parser)
+        dps = self._get_dps_as_dict(config)
+        for dp in dps.values():
+            self.assertTrue(
+                dp.stack is not None, 'stack not configured for DP')
+            self.assertEquals(
+                dp.stack['root_dp'].dp_id, 1, 'root_dp configured incorrectly')
+            self.assertEquals(
+                len(dp.stack['graph'].nodes),
+                2,
+                'stack graph has incorrect nodes'
+                )
+
+        for dp_id, remote_dp_id in ((1, 2), (2, 1)):
+            stack_port = dps[dp_id].stack_ports[0]
+            self.assertEquals(
+                stack_port.number, 1, 'incorrect stack port configured')
+            self.assertTrue(
+                stack_port.stack is not None, 'stack not configured for port')
+            self.assertEquals(
+                stack_port.stack['dp'].dp_id,
+                remote_dp_id,
+                'remote stack dp configured incorrectly'
+                )
+            self.assertEquals(
+                stack_port.stack['port'].number,
+                1,
+                'remote stack port configured incorrectly'
+                )
 
     def test_config_stack_and_non_stack(self):
         """Test stack and non-stacking config."""
