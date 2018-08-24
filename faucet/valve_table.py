@@ -20,6 +20,7 @@ import hashlib
 import struct
 
 from faucet import valve_of
+from faucet.faucet_pipeline import ValveTableConfig
 
 
 class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attributes
@@ -201,3 +202,6 @@ class ValveGroupTable:
         """Delete all groups."""
         self.entries = {}
         return valve_of.groupdel()
+
+wildcard_table = ValveTable(
+    valve_of.ofp.OFPTT_ALL, 'all', ValveTableConfig('all'), flow_cookie=0)
