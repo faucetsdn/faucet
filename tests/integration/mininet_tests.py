@@ -171,6 +171,10 @@ acls:
                         # - eth_dst: NFV_MAC
                     port: b4
         - rule:
+            eth_src: ff:ff:ff:ff:ff:ff
+            actions:
+                allow: 0
+        - rule:
             actions:
                 allow: 0
     eapol_from_nfv:
@@ -249,14 +253,20 @@ network={
         self.host_drop_all_ips(self.nfv_host)
 
     def test_untagged(self):
-        self.start_wpasupplicant(self.eapol_host, self.wpasupplicant_conf, timeout=5)
-        time.sleep(5)
+        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_txt = self.tcpdump_helper(
+            self.nfv_host, tcpdump_filter, [
+                lambda : print(self.start_wpasupplicant(
+                    self.eapol_host, self.wpasupplicant_conf, timeout=10))],
+            timeout=10, vflags='-v', packets=6)
+
         faucet_log = self.env['faucet']['FAUCET_LOG']
         with open(faucet_log, 'r') as log:
             print('Faucet log')
             faucet_log_txt = log.read()
             print(faucet_log_txt)
         self.assertIn("Successful auth", faucet_log_txt)
+        self.assertIn('Success', tcpdump_txt)
 
 
 class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
@@ -273,14 +283,22 @@ class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
     """
 
     def test_untagged(self):
-        self.start_wpasupplicant(self.eapol_host, self.wpasupplicant_conf, timeout=5)
-        time.sleep(5)
+        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_txt = self.tcpdump_helper(
+            self.nfv_host, tcpdump_filter, [
+                lambda: print(self.start_wpasupplicant(
+                    self.eapol_host, self.wpasupplicant_conf, timeout=10))],
+            timeout=10, vflags='-v', packets=6)
+
         faucet_log = self.env['faucet']['FAUCET_LOG']
         with open(faucet_log, 'r') as log:
             print('Faucet log')
             faucet_log_txt = log.read()
             print(faucet_log_txt)
         self.assertNotIn("Successful auth", faucet_log_txt)
+        print(tcpdump_txt)
+        self.assertIn('Failure', tcpdump_txt)
+
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
