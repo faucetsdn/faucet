@@ -157,10 +157,3 @@ class FaucetMetrics(PromClient):
         gauge = self._gauge(var, var_help, self.REQUIRED_LABELS)
         self._dpid_gauges[var] = gauge
         return gauge
-
-    def reset_dpid(self, dp_labels):
-        """Set all DPID-only counter/gauges to 0."""
-        for counter in list(self._dpid_counters.values()):
-            counter.labels(**dp_labels).inc(0)
-        for gauge in list(self._dpid_gauges.values()):
-            gauge.labels(**dp_labels).set(0)

@@ -418,6 +418,7 @@ class ValveTestBases:
 
         def update_config(self, config):
             """Update FAUCET config with config as text."""
+            before_dp_status = int(self.get_prom('dp_status'))
             self.assertFalse(self.valves_manager.config_watcher.files_changed())
             existing_config = os.path.exists(self.config_file)
             with open(self.config_file, 'w') as config_file:
@@ -430,6 +431,7 @@ class ValveTestBases:
             if self.DP_ID in self.last_flows_to_dp:
                 reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
                 self.table.apply_ofmsgs(reload_ofmsgs)
+            self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
 
         def connect_dp(self):
             """Call DP connect and set all ports to up."""

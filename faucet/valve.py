@@ -1154,8 +1154,7 @@ class Valve:
         return pkt_meta
 
     def update_config_metrics(self):
-        """Update gauge/metrics for configuration."""
-        self.metrics.reset_dpid(self.base_prom_labels)
+        """Update table names for configuration."""
         for table in list(self.dp.tables.values()):
             table_id = table.table_id
             self._set_var(
