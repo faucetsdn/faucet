@@ -21,10 +21,8 @@ import netaddr
 from faucet import valve_of
 from faucet import valve_acl
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
-from faucet.faucet_pipeline import ValveTableConfig
-from faucet.valve_table import ValveTable, ValveGroupTable
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
-
+from faucet.valve_table import wildcard_table
 
 class ACL(Conf):
     """Contains the state for an ACL, including the configuration.
@@ -96,9 +94,6 @@ The output action contains a dictionary with the following elements:
         'vlan_vids': list,
     }
 
-    wildcard_table = ValveTable(
-        valve_of.ofp.OFPTT_ALL, 'all', ValveTableConfig('all'), flow_cookie=0)
-
     def __init__(self, _id, dp_id, conf):
         self.rules = []
         self.exact_match = None
@@ -160,9 +155,9 @@ The output action contains a dictionary with the following elements:
         if self.rules:
             try:
                 ofmsgs = valve_acl.build_acl_ofmsgs(
-                    [self], self.wildcard_table,
-                    valve_of.goto_table(self.wildcard_table),
-                    valve_of.goto_table(self.wildcard_table),
+                    [self], wildcard_table,
+                    valve_of.goto_table(wildcard_table),
+                    valve_of.goto_table(wildcard_table),
                     2**16-1, meters, self.exact_match,
                     vlan_vid=vid)
             except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
