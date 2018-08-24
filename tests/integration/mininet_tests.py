@@ -82,6 +82,7 @@ class FaucetTest(mininet_test_base.FaucetTestBase):
 class FaucetUntaggedTest(FaucetTest):
     """Basic untagged VLAN test."""
 
+    HOST_NAMESPACE = {}
     N_UNTAGGED = 4
     N_TAGGED = 0
     LINKS_PER_HOST = 1
@@ -112,7 +113,8 @@ vlans:
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
-            links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid)
+            links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid,
+            host_namespace=self.HOST_NAMESPACE)
         self.start_net()
 
     def verify_events_log(self, event_log):
@@ -153,7 +155,7 @@ vlans:
         self.verify_events_log(event_log)
 
 
-class FaucetUntagged8021XTest(FaucetUntaggedTest):
+class FaucetUntagged8021XSuccessTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
@@ -166,20 +168,24 @@ acls:
             dl_type: 0x888e
             actions:
                 output:
-                    set_fields:
-                        - eth_dst: 00:00:00:00:00:01
+                    # set_fields:
+                        # - eth_dst: NFV_MAC
                     port: b4
         - rule:
+            eth_src: ff:ff:ff:ff:ff:ff
             actions:
-                allow: 1
+                allow: 0
+        - rule:
+            actions:
+                allow: 0
     eapol_from_nfv:
         - rule:
             dl_type: 0x888e
-            eth_dst: 00:00:00:00:00:01
+            # eth_dst: NFV_MAC
             actions:
                 output:
-                    set_fields:
-                        - eth_dst: 01:80:c2:00:00:03
+                    # set_fields:
+                        # - eth_dst: 01:80:c2:00:00:03
                     port: b1
         - rule:
             actions:
@@ -221,6 +227,8 @@ network={
 }
 """
 
+    HOST_NAMESPACE = {3: False}
+
     eapol_host = None
     ping_host = None
     nfv_host = None
@@ -232,17 +240,64 @@ network={
         self.nfv_host = self.net.hosts[-1]
         switch = self.net.switches[0]
         last_host_switch_link = switch.connectionsTo(self.nfv_host)[0]
-        self.nfv_intf = str([
-            intf for intf in last_host_switch_link if intf in switch.intfList()][0])
-        self.CONFIG = self.CONFIG.replace('NFV_INTF', self.nfv_intf)
-        super(FaucetUntagged8021XTest, self)._write_faucet_config()
+        nfv_intf = [
+            intf for intf in last_host_switch_link if intf in switch.intfList()][0]
+        self.nfv_intf = str(nfv_intf)
+        nfv_intf = self.nfv_host.intf()
+
+        self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
+        self.CONFIG_GLOBAL = self.CONFIG_GLOBAL.replace("NFV_MAC", nfv_intf.MAC())
+        super(FaucetUntagged8021XSuccessTest, self)._write_faucet_config()
 
     def setUp(self):
-        super(FaucetUntagged8021XTest, self).setUp()
+        super(FaucetUntagged8021XSuccessTest, self).setUp()
         self.host_drop_all_ips(self.nfv_host)
 
     def test_untagged(self):
-        return
+        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_txt = self.tcpdump_helper(
+            self.eapol_host, tcpdump_filter, [
+                lambda : print(self.start_wpasupplicant(
+                    self.eapol_host, self.wpasupplicant_conf, timeout=30))],
+            timeout=30, vflags='-v', packets=6)
+
+        faucet_log = self.env['faucet']['FAUCET_LOG']
+        with open(faucet_log, 'r') as log:
+            print('Faucet log')
+            faucet_log_txt = log.read()
+            print(faucet_log_txt)
+        self.assertIn("Successful auth", faucet_log_txt)
+        self.assertIn('Success', tcpdump_txt)
+
+
+class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
+    """Failure due to incorrect identity/password"""
+
+    wpasupplicant_conf = """
+    ap_scan=0
+    network={
+        key_mgmt=IEEE8021X
+        eap=MD5
+        identity="user@example.com"
+        password="wrongpassword"
+    }
+    """
+
+    def test_untagged(self):
+        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_txt = self.tcpdump_helper(
+            self.eapol_host, tcpdump_filter, [
+                lambda: print(self.start_wpasupplicant(
+                    self.eapol_host, self.wpasupplicant_conf, timeout=30))],
+            timeout=30, vflags='-v', packets=6)
+
+        faucet_log = self.env['faucet']['FAUCET_LOG']
+        with open(faucet_log, 'r') as log:
+            print('Faucet log')
+            faucet_log_txt = log.read()
+            print(faucet_log_txt)
+        self.assertNotIn("Successful auth", faucet_log_txt)
+        self.assertIn('Failure', tcpdump_txt)
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
