@@ -610,6 +610,12 @@ class Valve:
         for port in self.dp.stack_ports:
             self._update_stack_link_state(port, now, other_valves)
 
+    def _reset_dp_status(self):
+        if self.dp.dyn_running:
+            self._set_var('dp_status', 1)
+        else:
+            self._set_var('dp_status', 0)
+
     def datapath_connect(self, now, discovered_up_ports):
         """Handle Ryu datapath connection event and provision pipeline.
 
@@ -634,7 +640,7 @@ class Valve:
         self.dp.dyn_last_coldstart_time = now
         self.dp.dyn_running = True
         self._inc_var('of_dp_connections')
-        self._set_var('dp_status', 1)
+        self._reset_dp_status()
         return ofmsgs
 
     def datapath_disconnect(self):
@@ -645,7 +651,7 @@ class Valve:
                 'reason': 'disconnect'}})
         self.dp.dyn_running = False
         self._inc_var('of_dp_disconnections')
-        self._set_var('dp_status', 0)
+        self._reset_dp_status()
 
     def _port_add_acl(self, port, cold_start=False):
         ofmsgs = []
@@ -1154,8 +1160,9 @@ class Valve:
         return pkt_meta
 
     def update_config_metrics(self):
-        """Update gauge/metrics for configuration."""
+        """Update table names for configuration."""
         self.metrics.reset_dpid(self.base_prom_labels)
+        self._reset_dp_status()
         for table in list(self.dp.tables.values()):
             table_id = table.table_id
             self._set_var(
