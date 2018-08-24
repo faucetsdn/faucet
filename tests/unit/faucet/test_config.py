@@ -67,6 +67,55 @@ class TestConfig(unittest.TestCase): # pytype: disable=module-attr
             config, function, before_function)
         self.assertEqual(config_success, True, config_err)
 
+    def test_one_port_dp(self):
+        """Test basic port configuration."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+        conf_file = self.create_config_file(config)
+        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        dp = dps[0]
+        self.assertEqual(
+            dp.dp_id, 1, 'datapath configured with incorrect dp_id')
+        self.assertEqual(
+            dp.name, 'sw1', 'datapath configured with incorrect name')
+        self.assertTrue(
+            1 in dp.ports, 'interface not configured in datapath')
+        self.assertEqual(
+            len(dp.ports),
+            1,
+            'unexpected interface configured in datapath'
+            )
+        self.assertTrue(100 in dp.vlans, 'vlan not configured in datapath')
+        self.assertEqual(
+            len(dp.vlans),
+            1,
+            'unexpected vlan configured in datapath'
+            )
+        port = dp.ports[1]
+        self.assertEqual(port.number, 1, 'port number configured incorrectly')
+        self.assertEqual(
+            port.name, 'testing', 'port name configured incorrectly')
+        vlan = dp.vlans[100]
+        self.assertEqual(vlan.vid, 100, 'vlan vid configured incorrectly')
+        self.assertEqual(
+            vlan.name, 'office', 'vlan name configured incorrectly')
+        self.assertEqual(
+            port.native_vlan,
+            vlan,
+            'native vlan configured incorrectly in port'
+            )
+
     def test_config_stack(self):
         """Test valid stacking config."""
         config = """
@@ -156,22 +205,6 @@ dps:
             output_port:
                 number: 2
                 output_only: True
-"""
-        self.check_config_success(config, cp.dp_parser)
-
-    def test_one_port_dp(self):
-        """Test port number is valid."""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            testing:
-                number: 1
-                native_vlan: office
 """
         self.check_config_success(config, cp.dp_parser)
 
