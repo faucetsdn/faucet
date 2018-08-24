@@ -257,8 +257,8 @@ network={
         tcpdump_txt = self.tcpdump_helper(
             self.nfv_host, tcpdump_filter, [
                 lambda : print(self.start_wpasupplicant(
-                    self.eapol_host, self.wpasupplicant_conf, timeout=10))],
-            timeout=10, vflags='-v', packets=6)
+                    self.eapol_host, self.wpasupplicant_conf, timeout=30))],
+            timeout=30, vflags='-v', packets=6)
 
         faucet_log = self.env['faucet']['FAUCET_LOG']
         with open(faucet_log, 'r') as log:
@@ -287,8 +287,8 @@ class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
         tcpdump_txt = self.tcpdump_helper(
             self.nfv_host, tcpdump_filter, [
                 lambda: print(self.start_wpasupplicant(
-                    self.eapol_host, self.wpasupplicant_conf, timeout=10))],
-            timeout=10, vflags='-v', packets=6)
+                    self.eapol_host, self.wpasupplicant_conf, timeout=30))],
+            timeout=30, vflags='-v', packets=6)
 
         faucet_log = self.env['faucet']['FAUCET_LOG']
         with open(faucet_log, 'r') as log:
@@ -296,7 +296,6 @@ class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
             faucet_log_txt = log.read()
             print(faucet_log_txt)
         self.assertNotIn("Successful auth", faucet_log_txt)
-        print(tcpdump_txt)
         self.assertIn('Failure', tcpdump_txt)
 
 
