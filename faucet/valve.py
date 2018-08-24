@@ -1576,6 +1576,7 @@ SUPPORTED_HARDWARE = {
     'NoviFlow': NoviFlowValve,
     'Open vSwitch': OVSValve,
     'ZodiacFX': OVSValve,
+    'ZodiacGX': OVSValve,
 }
 
 
