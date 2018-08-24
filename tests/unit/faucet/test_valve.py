@@ -435,6 +435,7 @@ class ValveTestBases:
 
         def connect_dp(self):
             """Call DP connect and set all ports to up."""
+            self.assertEqual(0, int(self.get_prom('dp_status')))
             discovered_up_ports = [port_no for port_no in range(1, self.NUM_PORTS + 1)]
             self.table.apply_ofmsgs(
                 self.valve.switch_features(None) +
