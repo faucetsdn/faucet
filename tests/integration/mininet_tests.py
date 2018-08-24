@@ -255,7 +255,7 @@ network={
     def test_untagged(self):
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
-            self.nfv_host, tcpdump_filter, [
+            self.eapol_host, tcpdump_filter, [
                 lambda : print(self.start_wpasupplicant(
                     self.eapol_host, self.wpasupplicant_conf, timeout=30))],
             timeout=30, vflags='-v', packets=6)
@@ -285,7 +285,7 @@ class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
     def test_untagged(self):
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
-            self.nfv_host, tcpdump_filter, [
+            self.eapol_host, tcpdump_filter, [
                 lambda: print(self.start_wpasupplicant(
                     self.eapol_host, self.wpasupplicant_conf, timeout=30))],
             timeout=30, vflags='-v', packets=6)
@@ -297,7 +297,6 @@ class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
             print(faucet_log_txt)
         self.assertNotIn("Successful auth", faucet_log_txt)
         self.assertIn('Failure', tcpdump_txt)
-
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
