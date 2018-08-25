@@ -39,7 +39,7 @@ from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.log import setLogLevel
 from mininet.clean import Cleanup
 
-import mininet_test_util
+from clib import mininet_test_util
 
 # Only these hardware types will be tested with meters.
 SUPPORTS_METERS = (
