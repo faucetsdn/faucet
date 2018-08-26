@@ -1267,6 +1267,17 @@ class Valve:
                     else:
                         ofmsgs.extend(
                             route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
+                        vlan = pkt_meta.vlan
+                        if vlan.dyn_unresolved_ip_gws:
+                            ip_gw = vlan.dyn_unresolved_ip_gws.pop(0)
+                            ofmsgs.extend(
+                                route_manager.resolve_gateway_flows,
+                                vlan, now, ip_gw, 1)
+                        if vlan.dyn_unresolved_host_gws:
+                            ip_gw = vlan.dyn_unresolved_ip_gws.pop(0)
+                            ofmsgs.extend(
+                                route_manager.resolve_expire_gateway_flows,
+                                vlan, now, ip_gw, 1)
 
         ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
         return ofmsgs
