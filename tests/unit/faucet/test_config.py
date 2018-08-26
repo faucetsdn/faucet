@@ -163,7 +163,6 @@ dps:
                 2,
                 'stack graph has incorrect nodes'
                 )
-
         for dp_id, remote_dp_id in ((1, 2), (2, 1)):
             stack_port = dps[dp_id].stack_ports[0]
             self.assertEqual(
@@ -240,6 +239,25 @@ dps:
                 output_only: True
 """
         self.check_config_success(config, cp.dp_parser)
+        dps = self._get_dps_as_dict(config)
+        self.assertEqual(
+            dps[1].ports[1].override_output_port.number,
+            2,
+            'override output port not configured correctly'
+            )
+        self.assertTrue(
+            dps[1].ports[2].output_only,
+            'output only port configured incorrectly'
+            )
+        self.assertTrue(
+            bool(dps[1].output_only_ports),
+            'no output only ports configured for dp'
+            )
+        self.assertEqual(
+            dps[1].output_only_ports[0].number,
+            2,
+            'output only port configured incorrectly'
+            )
 
     def test_valid_mac(self):
         """Test with valid MAC."""
