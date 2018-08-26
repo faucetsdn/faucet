@@ -379,6 +379,8 @@ class ValveRouteManager:
             if remaining_attempts == 0:
                 break
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+            if nexthop_cache_entry is None:
+                continue
             if nexthop_cache_entry.cache_time > min_cache_time:
                 continue
             resolve_flows = resolve_handler(ip_gw, nexthop_cache_entry, vlan, now)
