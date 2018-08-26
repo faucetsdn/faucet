@@ -332,7 +332,7 @@ class ValveRouteManager:
     def advertise(self, vlan):
         raise NotImplementedError # pragma: no cover
 
-    def resolve_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
+    def _resolve_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
         resolve_flows = []
         last_retry_time = nexthop_cache_entry.last_retry_time
         nexthop_cache_entry.last_retry_time = now
@@ -370,10 +370,10 @@ class ValveRouteManager:
             expire_flows = []
         return expire_flows
 
-    def resolve_expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
+    def _resolve_expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
         if self.nexthop_dead(nexthop_cache_entry):
             return self._expire_gateway_flows(ip_gw, nexthop_cache_entry, vlan, now)
-        return self.resolve_gateway_flows(ip_gw, nexthop_cache_entry, vlan, now)
+        return self._resolve_gateway_flows(ip_gw, nexthop_cache_entry, vlan, now)
 
     def _resolve_gateways_flows(self, resolve_handler, vlan, now,
                                 unresolved_nexthops, remaining_attempts):
@@ -398,10 +398,9 @@ class ValveRouteManager:
             list: OpenFlow messages.
         """
         route_ip_gws, _ = self._vlan_ip_gws(vlan)
-        vlan.dyn_unresolved_ip_gws = self._vlan_unresolved_nexthops(vlan, route_ip_gws, now)
+        unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, route_ip_gws, now)
         return self._resolve_gateways_flows(
-            self.resolve_gateway_flows, vlan, now,
-            vlan.dyn_unresolved_ip_gws,
+            self._resolve_gateway_flows, vlan, now, unresolved_nexthops,
             self.max_hosts_per_resolve_cycle)
 
     def resolve_expire_hosts(self, vlan, now):
@@ -414,10 +413,9 @@ class ValveRouteManager:
             list: OpenFlow messages.
         """
         _, host_ip_gws = self._vlan_ip_gws(vlan)
-        vlan.dyn_unresolved_host_gws = self._vlan_unresolved_nexthops(vlan, host_ip_gws, now)
+        unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, host_ip_gws, now)
         return self._resolve_gateways_flows(
-            self.resolve_expire_gateway_flows, vlan, now,
-            vlan.dyn_unresolved_host_gws,
+            self._resolve_expire_gateway_flows, vlan, now, unresolved_nexthops,
             self.max_hosts_per_resolve_cycle)
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):
@@ -454,7 +452,7 @@ class ValveRouteManager:
                     nexthop_cache_entry = self._update_nexthop_cache(
                         now, vlan, None, None, dst_ip)
                     if not resolution_in_progress:
-                        resolve_flows = self.resolve_gateway_flows(
+                        resolve_flows = self._resolve_gateway_flows(
                             dst_ip, nexthop_cache_entry, vlan,
                             nexthop_cache_entry.cache_time)
                         ofmsgs.extend(resolve_flows)
