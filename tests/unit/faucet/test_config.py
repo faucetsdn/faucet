@@ -274,6 +274,12 @@ dps:
                 native_vlan: office
 """
         self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[1]
+        self.assertEqual(
+            dp.vlans[100].faucet_mac,
+            '11:22:33:44:55:66',
+            'faucet mac configured incorrectly'
+            )
 
     def test_resolved_mirror_port(self):
         """Test can use name reference to mirrored port."""
