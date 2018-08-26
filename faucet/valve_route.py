@@ -324,7 +324,7 @@ class ValveRouteManager:
                 if self._retry_backoff(now, entry.resolve_retries, last_retry_time):
                     unresolved_nexthops_by_retries[entry.resolve_retries].append(ip_gw)
         unresolved_nexthops = []
-        for resolve_retries, nexthops in sorted(unresolved_nexthops_by_retries.items()):
+        for _retries, nexthops in sorted(unresolved_nexthops_by_retries.items()):
             random.shuffle(nexthops)
             unresolved_nexthops.extend(nexthops)
         return unresolved_nexthops
@@ -398,9 +398,11 @@ class ValveRouteManager:
             list: OpenFlow messages.
         """
         route_ip_gws, _ = self._vlan_ip_gws(vlan)
-        unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, route_ip_gws, now)
+        vlan.dyn_unresolved_route_ip_gws = self._vlan_unresolved_nexthops(
+            vlan, route_ip_gws, now)
         return self._resolve_gateways_flows(
-            self._resolve_gateway_flows, vlan, now, unresolved_nexthops,
+            self._resolve_gateway_flows, vlan, now,
+            vlan.dyn_unresolved_route_ip_gws,
             self.max_hosts_per_resolve_cycle)
 
     def resolve_expire_hosts(self, vlan, now):
@@ -413,9 +415,11 @@ class ValveRouteManager:
             list: OpenFlow messages.
         """
         _, host_ip_gws = self._vlan_ip_gws(vlan)
-        unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, host_ip_gws, now)
+        vlan.dyn_unresolved_host_ip_gws = self._vlan_unresolved_nexthops(
+            vlan, host_ip_gws, now)
         return self._resolve_gateways_flows(
-            self._resolve_expire_gateway_flows, vlan, now, unresolved_nexthops,
+            self._resolve_expire_gateway_flows, vlan, now,
+            vlan.dyn_unresolved_host_ip_gws,
             self.max_hosts_per_resolve_cycle)
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):

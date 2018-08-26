@@ -287,6 +287,8 @@ class VLAN(Conf):
         self.dyn_host_cache = {}
         self.dyn_host_cache_by_port = {}
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
+        self.dyn_unresolved_route_ip_gws = []
+        self.dyn_unresolved_host_ip_gws = []
 
     def reset_ports(self, ports):
         self.tagged = tuple([port for port in ports if self in port.tagged_vlans])
