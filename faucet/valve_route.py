@@ -304,7 +304,6 @@ class ValveRouteManager:
         Returns:
            list: prioritized list of gateways.
         """
-        unresolved_nexthops_by_retries = defaultdict(list)
         vlan_nexthop_cache = self._vlan_nexthop_cache(vlan)
         nexthop_entries = [
             (ip_gw, vlan_nexthop_cache.get(ip_gw, None)) for ip_gw in ip_gws]
@@ -313,14 +312,11 @@ class ValveRouteManager:
             (ip_gw, entry) for ip_gw, entry in nexthop_entries
             if entry is None or entry.eth_src is None or (
                 entry.cache_time < min_cache_time and now > entry.next_retry_time)]
+        unresolved_nexthops_by_retries = defaultdict(list)
         for ip_gw, entry in not_fresh_nexthops:
             if entry is None:
                 entry = self._update_nexthop_cache(now, vlan, None, None, ip_gw)
-            last_retry_time = entry.last_retry_time
-            if last_retry_time is None:
-                unresolved_nexthops_by_retries[0].append(ip_gw)
-            else:
-                unresolved_nexthops_by_retries[entry.resolve_retries].append(ip_gw)
+            unresolved_nexthops_by_retries[entry.resolve_retries].append(ip_gw)
         unresolved_nexthops = []
         for _retries, nexthops in sorted(unresolved_nexthops_by_retries.items()):
             random.shuffle(nexthops)
@@ -378,10 +374,15 @@ class ValveRouteManager:
     def _resolve_gateways_flows(self, resolve_handler, vlan, now,
                                 unresolved_nexthops, remaining_attempts):
         ofmsgs = []
+        min_cache_time = now - self.arp_neighbor_timeout
         for ip_gw in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+            if nexthop_cache_entry is None:
+                continue
+            if nexthop_cache_entry.cache_time > min_cache_time:
+                continue
             resolve_flows = resolve_handler(ip_gw, nexthop_cache_entry, vlan, now)
             if resolve_flows:
                 ofmsgs.extend(resolve_flows)
