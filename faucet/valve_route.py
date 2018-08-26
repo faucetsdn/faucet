@@ -626,7 +626,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
-            valve_packet.arp_request, True, vlan.faucet_mac, faucet_vip.ip, ip_gw)
+            valve_packet.arp_request, vlan.faucet_mac, faucet_vip.ip, ip_gw)
 
     def resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
         return vlan.pkt_out_port(
@@ -752,7 +752,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
-            valve_packet.nd_request, True, vlan.faucet_mac, faucet_vip.ip, ip_gw)
+            valve_packet.nd_request, vlan.faucet_mac, faucet_vip.ip, ip_gw)
 
     def resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
         return vlan.pkt_out_port(
@@ -951,7 +951,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         for link_local_vip in link_local_vips:
             # https://tools.ietf.org/html/rfc4861#section-6.1.2
             ofmsgs.extend(vlan.flood_pkt(
-                valve_packet.router_advert, True, vlan.faucet_mac,
+                valve_packet.router_advert, vlan.faucet_mac,
                 valve_packet.IPV6_ALL_NODES_MCAST,
                 link_local_vip.ip, valve_packet.IPV6_ALL_NODES,
                 other_vips))
