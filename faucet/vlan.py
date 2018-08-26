@@ -343,17 +343,18 @@ class VLAN(Conf):
     def expire_cache_hosts(self, now, learn_timeout):
         """Expire stale host entries."""
         expired_hosts = []
+        min_cache_time = now - learn_timeout
 
-        if self.dyn_oldest_host_time is None or now - self.dyn_oldest_host_time > learn_timeout:
-            min_cache_time = now - learn_timeout
-            self.dyn_oldest_host_time = now
-            for entry in list(self.dyn_host_cache.values()):
-                if (not entry.port.permanent_learn and entry.cache_time < min_cache_time):
-                    expired_hosts.append(entry)
-                else:
-                    self.dyn_oldest_host_time = min(entry.cache_time, self.dyn_oldest_host_time)
+        if self.dyn_oldest_host_time is None or self.dyn_oldest_host_time < min_cache_time:
+            expired_hosts = [
+                entry for entry in self.dyn_host_cache.values()
+                if entry.cache_time < min_cache_time and not entry.port.permanent_learn]
             for entry in expired_hosts:
                 self.expire_cache_host(entry.eth_src)
+            self.dyn_oldest_host_time = now
+            if self.dyn_host_cache:
+                self.dyn_oldest_host_time = min(
+                    [entry.cache_time for entry in self.dyn_host_cache.values()])
         return expired_hosts
 
     @staticmethod

@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import defaultdict
 import random
 
 import ipaddress
@@ -306,29 +307,26 @@ class ValveRouteManager:
            ip_gws (list): tuple, IP gateway and controller IP in same subnet.
            now (float): seconds since epoch.
         Returns:
-           list: prioritized list of gateways
+           list: prioritized list of gateways.
         """
-        ip_gws_never_tried = []
-        ip_gws_with_retry_time = []
+        unresolved_nexthops_by_retries = defaultdict(list)
         not_fresh_nexthops = [
             ip_gw for ip_gw in ip_gws
             if not self._nexthop_fresh(vlan, ip_gw, now)]
         for ip_gw in not_fresh_nexthops:
-            nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
-            if nexthop_cache_entry is None:
-                nexthop_cache_entry = self._update_nexthop_cache(now, vlan, None, None, ip_gw)
-            last_retry_time = nexthop_cache_entry.last_retry_time
-            ip_gw_with_retry_time = (ip_gw, nexthop_cache_entry)
+            entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+            if entry is None:
+                entry = self._update_nexthop_cache(now, vlan, None, None, ip_gw)
+            last_retry_time = entry.last_retry_time
             if last_retry_time is None:
-                ip_gws_never_tried.append(ip_gw_with_retry_time)
+                unresolved_nexthops_by_retries[0].append(ip_gw)
             else:
-                if self._retry_backoff(
-                        now, nexthop_cache_entry.resolve_retries, last_retry_time):
-                    ip_gws_with_retry_time.append(ip_gw_with_retry_time)
-        random.shuffle(ip_gws_never_tried)
-        ip_gws_with_retry_time_sorted = list(
-            sorted(ip_gws_with_retry_time, key=lambda x: x[-1].last_retry_time))
-        unresolved_nexthops = [ip_gw[0] for ip_gw in ip_gws_never_tried + ip_gws_with_retry_time_sorted]
+                if self._retry_backoff(now, entry.resolve_retries, last_retry_time):
+                    unresolved_nexthops_by_retries[entry.resolve_retries].append(ip_gw)
+        unresolved_nexthops = []
+        for resolve_retries, nexthops in sorted(unresolved_nexthops_by_retries.items()):
+            random.shuffle(nexthops)
+            unresolved_nexthops.extend(nexthops)
         return unresolved_nexthops
 
     def advertise(self, vlan):
