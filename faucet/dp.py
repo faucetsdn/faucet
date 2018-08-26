@@ -32,13 +32,6 @@ from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve_table import ValveTable, ValveGroupTable
 from faucet import valve_packet
 
-
-class NullRyuDatapath:
-    """Placeholder Ryu Datapath."""
-
-    ofproto = valve_of.ofp
-
-
 # Documentation generated using documentation_generator.py
 # For attributues to be included in documentation they must
 # have a default value, and their descriptor must come
@@ -205,9 +198,6 @@ configuration.
     dot1x_defaults_types = {
         'nfv_intf': str,
     }
-
-    wildcard_table = ValveTable(
-        valve_of.ofp.OFPTT_ALL, 'all', ValveTableConfig('all'), flow_cookie=0)
 
 
     def __init__(self, _id, dp_id, conf):

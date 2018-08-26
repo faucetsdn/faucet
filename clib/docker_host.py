@@ -14,7 +14,7 @@ from mininet.log import error, debug
 from mininet.node import Host
 from mininet.util import quietRun, errRun
 
-from mininet_test_util import DEVNULL
+from clib.mininet_test_util import DEVNULL
 
 DEFAULT_NETWORK = 'none'
 DEFAULT_PREFIX = 'mininet'

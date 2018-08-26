@@ -29,6 +29,7 @@ from faucet import valve_host
 from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_route
+from faucet import valve_table
 from faucet import valve_util
 
 from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
@@ -256,7 +257,7 @@ class Valve:
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = []
-        ofmsgs.extend(self.dp.wildcard_table.flowdel())
+        ofmsgs.extend(valve_table.wildcard_table.flowdel())
         if self.dp.meters:
             ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
@@ -266,7 +267,7 @@ class Valve:
     def _delete_all_port_match_flows(self, port):
         """Delete all flows that match an input port from all FAUCET tables."""
         ofmsgs = []
-        tables = [self.dp.wildcard_table]
+        tables = [valve_table.wildcard_table]
         if self.dp.dp_acls:
             # DP ACL flows live forever.
             port_acl_table = self.dp.tables['port_acl']
@@ -397,7 +398,7 @@ class Valve:
 
     def _del_vlan(self, vlan):
         """Delete a configured VLAN."""
-        table = self.dp.wildcard_table
+        table = valve_table.wildcard_table
         ofmsgs = table.flowdel(match=table.match(vlan=vlan))
         self.logger.info('Delete VLAN %s' % vlan)
         return ofmsgs

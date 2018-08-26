@@ -6,7 +6,7 @@ import subprocess
 import os
 import re
 
-import mininet_test_util
+from clib import mininet_test_util
 
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
