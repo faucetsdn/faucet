@@ -1267,6 +1267,13 @@ class Valve:
                     else:
                         ofmsgs.extend(
                             route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
+                        # No CPN activity, run resolver.
+                        ofmsgs.extend(
+                            route_manager.resolve_gateways(
+                                pkt_meta.vlan, now, resolve_all=False))
+                        ofmsgs.extend(
+                            route_manager.resolve_expire_hosts(
+                                pkt_meta.vlan, now, resolve_all=False))
 
         ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
         return ofmsgs

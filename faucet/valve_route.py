@@ -388,39 +388,50 @@ class ValveRouteManager:
                 remaining_attempts -= 1
         return ofmsgs
 
-    def resolve_gateways(self, vlan, now):
-        """Re/resolve all gateways.
+    def resolve_gateways(self, vlan, now, resolve_all=True):
+        """Re/resolve gateways.
 
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
             now (float): seconds since epoch.
+            resolve_all (bool): attempt to resolve all unresolved gateways.
         Returns:
             list: OpenFlow messages.
         """
-        route_ip_gws, _ = self._vlan_ip_gws(vlan)
-        vlan.dyn_unresolved_route_ip_gws = self._vlan_unresolved_nexthops(
-            vlan, route_ip_gws, now)
+        unresolved_gateways = []
+        if resolve_all:
+            route_ip_gws, _ = self._vlan_ip_gws(vlan)
+            vlan.dyn_unresolved_route_ip_gws = self._vlan_unresolved_nexthops(
+                vlan, route_ip_gws, now)
+            unresolved_gateways = vlan.dyn_unresolved_route_ip_gws
+        else:
+            if vlan.dyn_unresolved_route_ip_gws:
+                unresolved_gateways = list(vlan.dyn_unresolved_route_ip_gws.pop(0))
         return self._resolve_gateways_flows(
             self._resolve_gateway_flows, vlan, now,
-            vlan.dyn_unresolved_route_ip_gws,
-            self.max_hosts_per_resolve_cycle)
+            unresolved_gateways, self.max_hosts_per_resolve_cycle)
 
-    def resolve_expire_hosts(self, vlan, now):
-        """Re/resolve all hosts.
+    def resolve_expire_hosts(self, vlan, now, resolve_all=True):
+        """Re/resolve hosts.
 
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
             now (float): seconds since epoch.
+            resolve_all (bool): attempt to resolve all unresolved gateways.
         Returns:
             list: OpenFlow messages.
         """
-        _, host_ip_gws = self._vlan_ip_gws(vlan)
-        vlan.dyn_unresolved_host_ip_gws = self._vlan_unresolved_nexthops(
-            vlan, host_ip_gws, now)
+        unresolved_gateways = []
+        if resolve_all:
+            _, host_ip_gws = self._vlan_ip_gws(vlan)
+            vlan.dyn_unresolved_host_ip_gws = self._vlan_unresolved_nexthops(
+                vlan, host_ip_gws, now)
+        else:
+            if vlan.dyn_unresolved_host_ip_gws:
+                unresolved_gateways = list(vlan.dyn_unresolved_host_ip_gws.pop(0))
         return self._resolve_gateways_flows(
             self._resolve_expire_gateway_flows, vlan, now,
-            vlan.dyn_unresolved_host_ip_gws,
-            self.max_hosts_per_resolve_cycle)
+            unresolved_gateways, self.max_hosts_per_resolve_cycle)
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):
         nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
