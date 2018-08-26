@@ -406,7 +406,7 @@ class ValveRouteManager:
             unresolved_gateways = vlan.dyn_unresolved_route_ip_gws
         else:
             if vlan.dyn_unresolved_route_ip_gws:
-                unresolved_gateways = list(vlan.dyn_unresolved_route_ip_gws.pop(0))
+                unresolved_gateways = [vlan.dyn_unresolved_route_ip_gws.pop(0)]
         return self._resolve_gateways_flows(
             self._resolve_gateway_flows, vlan, now,
             unresolved_gateways, self.max_hosts_per_resolve_cycle)
@@ -428,7 +428,7 @@ class ValveRouteManager:
                 vlan, host_ip_gws, now)
         else:
             if vlan.dyn_unresolved_host_ip_gws:
-                unresolved_gateways = list(vlan.dyn_unresolved_host_ip_gws.pop(0))
+                unresolved_gateways = [vlan.dyn_unresolved_host_ip_gws.pop(0)]
         return self._resolve_gateways_flows(
             self._resolve_expire_gateway_flows, vlan, now,
             unresolved_gateways, self.max_hosts_per_resolve_cycle)
