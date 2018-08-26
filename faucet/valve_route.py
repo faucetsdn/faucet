@@ -426,6 +426,7 @@ class ValveRouteManager:
             _, host_ip_gws = self._vlan_ip_gws(vlan)
             vlan.dyn_unresolved_host_ip_gws = self._vlan_unresolved_nexthops(
                 vlan, host_ip_gws, now)
+            unresolved_gateways = vlan.dyn_unresolved_host_ip_gws
         else:
             if vlan.dyn_unresolved_host_ip_gws:
                 unresolved_gateways = [vlan.dyn_unresolved_host_ip_gws.pop(0)]
