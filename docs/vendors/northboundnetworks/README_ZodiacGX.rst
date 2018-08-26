@@ -18,4 +18,4 @@ Caveats
 -------
 
 - The default OF port is 6633; it is recommended to use 6653.
-- Port speed is currently reported as 0 always.
+- Minium firmware required is v1.01

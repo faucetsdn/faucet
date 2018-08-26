@@ -18,7 +18,6 @@
 
 import collections
 import ipaddress
-import random
 
 import netaddr
 
@@ -287,6 +286,8 @@ class VLAN(Conf):
         self.dyn_host_cache = {}
         self.dyn_host_cache_by_port = {}
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
+        self.dyn_unresolved_route_ip_gws = []
+        self.dyn_unresolved_host_ip_gws = []
 
     def reset_ports(self, ports):
         self.tagged = tuple([port for port in ports if self in port.tagged_vlans])
@@ -508,7 +509,7 @@ class VLAN(Conf):
         pkt = packet_builder(vid, *args)
         return valve_of.packetout(port.number, pkt.data)
 
-    def flood_pkt(self, packet_builder, random_order, *args):
+    def flood_pkt(self, packet_builder, *args):
         ofmsgs = []
         for vid, ports in (
                 (self.vid, self.tagged_flood_ports(False)),
@@ -516,8 +517,6 @@ class VLAN(Conf):
             if ports:
                 pkt = packet_builder(vid, *args)
                 flood_ofmsgs = [valve_of.packetout(port.number, pkt.data) for port in ports if port.running()]
-                if random_order:
-                    random.shuffle(flood_ofmsgs)
                 ofmsgs.extend(flood_ofmsgs)
         return ofmsgs
 

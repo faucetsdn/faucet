@@ -18,8 +18,8 @@
 
 import copy
 from collections import defaultdict
-import random
 import netaddr
+import random
 
 from datadiff import diff
 import networkx
@@ -398,8 +398,10 @@ configuration.
                     port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
             nonpriority_ports -= priority_ports
             send_ports.extend(list(priority_ports))
-            send_ports.extend(list(nonpriority_ports)[:self.lldp_beacon['max_per_interval']])
-            random.shuffle(send_ports)
+            nonpriority_ports = list(nonpriority_ports)
+            random.shuffle(nonpriority_ports)
+            nonpriority_ports = nonpriority_ports[:self.lldp_beacon['max_per_interval']]
+            send_ports.extend(nonpriority_ports)
         return send_ports
 
     @staticmethod

@@ -324,7 +324,7 @@ class ValveRouteManager:
                 if self._retry_backoff(now, entry.resolve_retries, last_retry_time):
                     unresolved_nexthops_by_retries[entry.resolve_retries].append(ip_gw)
         unresolved_nexthops = []
-        for resolve_retries, nexthops in sorted(unresolved_nexthops_by_retries.items()):
+        for _retries, nexthops in sorted(unresolved_nexthops_by_retries.items()):
             random.shuffle(nexthops)
             unresolved_nexthops.extend(nexthops)
         return unresolved_nexthops
@@ -388,35 +388,51 @@ class ValveRouteManager:
                 remaining_attempts -= 1
         return ofmsgs
 
-    def resolve_gateways(self, vlan, now):
-        """Re/resolve all gateways.
+    def resolve_gateways(self, vlan, now, resolve_all=True):
+        """Re/resolve gateways.
 
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
             now (float): seconds since epoch.
+            resolve_all (bool): attempt to resolve all unresolved gateways.
         Returns:
             list: OpenFlow messages.
         """
-        route_ip_gws, _ = self._vlan_ip_gws(vlan)
-        unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, route_ip_gws, now)
+        unresolved_gateways = []
+        if resolve_all:
+            route_ip_gws, _ = self._vlan_ip_gws(vlan)
+            vlan.dyn_unresolved_route_ip_gws = self._vlan_unresolved_nexthops(
+                vlan, route_ip_gws, now)
+            unresolved_gateways = vlan.dyn_unresolved_route_ip_gws
+        else:
+            if vlan.dyn_unresolved_route_ip_gws:
+                unresolved_gateways = [vlan.dyn_unresolved_route_ip_gws.pop(0)]
         return self._resolve_gateways_flows(
-            self._resolve_gateway_flows, vlan, now, unresolved_nexthops,
-            self.max_hosts_per_resolve_cycle)
+            self._resolve_gateway_flows, vlan, now,
+            unresolved_gateways, self.max_hosts_per_resolve_cycle)
 
-    def resolve_expire_hosts(self, vlan, now):
-        """Re/resolve all hosts.
+    def resolve_expire_hosts(self, vlan, now, resolve_all=True):
+        """Re/resolve hosts.
 
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
             now (float): seconds since epoch.
+            resolve_all (bool): attempt to resolve all unresolved gateways.
         Returns:
             list: OpenFlow messages.
         """
-        _, host_ip_gws = self._vlan_ip_gws(vlan)
-        unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, host_ip_gws, now)
+        unresolved_gateways = []
+        if resolve_all:
+            _, host_ip_gws = self._vlan_ip_gws(vlan)
+            vlan.dyn_unresolved_host_ip_gws = self._vlan_unresolved_nexthops(
+                vlan, host_ip_gws, now)
+            unresolved_gateways = vlan.dyn_unresolved_host_ip_gws
+        else:
+            if vlan.dyn_unresolved_host_ip_gws:
+                unresolved_gateways = [vlan.dyn_unresolved_host_ip_gws.pop(0)]
         return self._resolve_gateways_flows(
-            self._resolve_expire_gateway_flows, vlan, now, unresolved_nexthops,
-            self.max_hosts_per_resolve_cycle)
+            self._resolve_expire_gateway_flows, vlan, now,
+            unresolved_gateways, self.max_hosts_per_resolve_cycle)
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):
         nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
@@ -611,7 +627,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
-            valve_packet.arp_request, True, vlan.faucet_mac, faucet_vip.ip, ip_gw)
+            valve_packet.arp_request, vlan.faucet_mac, faucet_vip.ip, ip_gw)
 
     def resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
         return vlan.pkt_out_port(
@@ -737,7 +753,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
-            valve_packet.nd_request, True, vlan.faucet_mac, faucet_vip.ip, ip_gw)
+            valve_packet.nd_request, vlan.faucet_mac, faucet_vip.ip, ip_gw)
 
     def resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
         return vlan.pkt_out_port(
@@ -936,7 +952,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         for link_local_vip in link_local_vips:
             # https://tools.ietf.org/html/rfc4861#section-6.1.2
             ofmsgs.extend(vlan.flood_pkt(
-                valve_packet.router_advert, True, vlan.faucet_mac,
+                valve_packet.router_advert, vlan.faucet_mac,
                 valve_packet.IPV6_ALL_NODES_MCAST,
                 link_local_vip.ip, valve_packet.IPV6_ALL_NODES,
                 other_vips))

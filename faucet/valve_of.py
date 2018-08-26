@@ -18,6 +18,7 @@
 # limitations under the License.
 
 import ipaddress
+import random
 
 from ryu.lib import mac
 from ryu.lib import ofctl_v1_3 as ofctl
@@ -103,6 +104,17 @@ def is_metermod(ofmsg):
         bool: True if is a MeterMod
     """
     return isinstance(ofmsg, parser.OFPMeterMod)
+
+
+def is_packetout(ofmsg):
+    """Return True if OF message is a PacketOut
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a PacketOut
+    """
+    return isinstance(ofmsg, parser.OFPPacketOut)
 
 
 def is_flowdel(ofmsg):
@@ -651,19 +663,24 @@ def controller_pps_meterdel(datapath=None):
         flags=ofp.OFPMF_PKTPS,
         meter_id=ofp.OFPM_CONTROLLER)
 
+
 def is_delete(ofmsg):
     return is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg)
 
 
+_MSG_KINDS = (
+    ('delete', is_delete),
+    ('packetout', is_packetout),
+    ('tfm', is_table_features_req),
+    ('groupadd', is_groupadd),
+    ('meteradd', is_meteradd),
+)
+
+
 def _msg_kind(ofmsg):
-    if is_table_features_req(ofmsg):
-        return 'tfm'
-    if is_delete(ofmsg):
-        return 'delete'
-    if is_groupadd(ofmsg):
-        return 'groupadd'
-    if is_meteradd(ofmsg):
-        return 'meteradd'
+    for kind, kind_func in _MSG_KINDS:
+        if kind_func(ofmsg):
+            return kind
     return 'other'
 
 
@@ -679,16 +696,25 @@ def dedupe_ofmsgs(input_ofmsgs):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
     deduped_input_ofmsgs = []
-    if input_ofmsgs:
-        input_ofmsgs_hashes = set()
-        for ofmsg in input_ofmsgs:
-            # Can't use dict or json comparison as may be nested
-            ofmsg_str = str(ofmsg)
-            if ofmsg_str in input_ofmsgs_hashes:
-                continue
-            deduped_input_ofmsgs.append(ofmsg)
-            input_ofmsgs_hashes.add(ofmsg_str)
+    input_ofmsgs_hashes = set()
+    for ofmsg in input_ofmsgs:
+        # Can't use dict or json comparison as may be nested
+        ofmsg_str = str(ofmsg)
+        if ofmsg_str in input_ofmsgs_hashes:
+            continue
+        deduped_input_ofmsgs.append(ofmsg)
+        input_ofmsgs_hashes.add(ofmsg_str)
     return deduped_input_ofmsgs
+
+
+_OFMSG_ORDER = (
+    ('delete', True),
+    ('tfm', True),
+    ('groupadd', True),
+    ('meteradd', True),
+    ('other', True),
+    ('packetout', False),
+)
 
 
 def valve_flowreorder(input_ofmsgs, use_barriers=True):
@@ -699,21 +725,16 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     # at most only one barrier to deal with.
     # TODO: further optimizations may be possible - for example,
     # reorder adds to be in priority order.
-    by_kind = _partition_ofmsgs(input_ofmsgs)
-    delete_ofmsgs = dedupe_ofmsgs(by_kind.get('delete', []))
-    if not delete_ofmsgs:
-        return input_ofmsgs
-    groupadd_ofmsgs = dedupe_ofmsgs(by_kind.get('groupadd', []))
-    meteradd_ofmsgs = dedupe_ofmsgs(by_kind.get('meteradd', []))
-    tfm_ofmsgs = dedupe_ofmsgs(by_kind.get('tfm', []))
-    other_ofmsgs = dedupe_ofmsgs(by_kind.get('other', []))
     output_ofmsgs = []
-    for ofmsgs in (delete_ofmsgs, tfm_ofmsgs, groupadd_ofmsgs, meteradd_ofmsgs):
+    by_kind = _partition_ofmsgs(dedupe_ofmsgs(input_ofmsgs))
+    for kind, in_order in _OFMSG_ORDER:
+        ofmsgs = by_kind.get(kind, [])
         if ofmsgs:
+            if not in_order:
+                random.shuffle(ofmsgs)
             output_ofmsgs.extend(ofmsgs)
             if use_barriers:
                 output_ofmsgs.append(barrier())
-    output_ofmsgs.extend(other_ofmsgs)
     return output_ofmsgs
 
 
