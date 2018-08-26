@@ -696,15 +696,14 @@ def dedupe_ofmsgs(input_ofmsgs):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
     deduped_input_ofmsgs = []
-    if input_ofmsgs:
-        input_ofmsgs_hashes = set()
-        for ofmsg in input_ofmsgs:
-            # Can't use dict or json comparison as may be nested
-            ofmsg_str = str(ofmsg)
-            if ofmsg_str in input_ofmsgs_hashes:
-                continue
-            deduped_input_ofmsgs.append(ofmsg)
-            input_ofmsgs_hashes.add(ofmsg_str)
+    input_ofmsgs_hashes = set()
+    for ofmsg in input_ofmsgs:
+        # Can't use dict or json comparison as may be nested
+        ofmsg_str = str(ofmsg)
+        if ofmsg_str in input_ofmsgs_hashes:
+            continue
+        deduped_input_ofmsgs.append(ofmsg)
+        input_ofmsgs_hashes.add(ofmsg_str)
     return deduped_input_ofmsgs
 
 
@@ -727,9 +726,9 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     # TODO: further optimizations may be possible - for example,
     # reorder adds to be in priority order.
     output_ofmsgs = []
-    by_kind = _partition_ofmsgs(input_ofmsgs)
+    by_kind = _partition_ofmsgs(dedupe_ofmsgs(input_ofmsgs))
     for kind, in_order in _OFMSG_ORDER:
-        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []))
+        ofmsgs = by_kind.get(kind, [])
         if ofmsgs:
             if not in_order:
                 random.shuffle(ofmsgs)
