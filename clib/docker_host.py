@@ -309,5 +309,6 @@ def make_docker_host(image, prefix=DEFAULT_PREFIX, network=DEFAULT_NETWORK,
                 env_val = os.environ['DOCKER_STARTUP_TIMEOUT_MS']
                 if env_val:
                     kwargs['startup_timeout_ms'] = int(env_val)
-            DockerHost.__init__(self, *args, **kwargs)
+            super(_ImageHost, self).__init__(*args, **kwargs)
+
     return _ImageHost

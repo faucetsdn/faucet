@@ -156,9 +156,9 @@ dps:
         for dp in dps.values():
             self.assertTrue(
                 dp.stack is not None, 'stack not configured for DP')
-            self.assertEquals(
+            self.assertEqual(
                 dp.stack['root_dp'].dp_id, 1, 'root_dp configured incorrectly')
-            self.assertEquals(
+            self.assertEqual(
                 len(dp.stack['graph'].nodes),
                 2,
                 'stack graph has incorrect nodes'
@@ -166,16 +166,16 @@ dps:
 
         for dp_id, remote_dp_id in ((1, 2), (2, 1)):
             stack_port = dps[dp_id].stack_ports[0]
-            self.assertEquals(
+            self.assertEqual(
                 stack_port.number, 1, 'incorrect stack port configured')
             self.assertTrue(
                 stack_port.stack is not None, 'stack not configured for port')
-            self.assertEquals(
+            self.assertEqual(
                 stack_port.stack['dp'].dp_id,
                 remote_dp_id,
                 'remote stack dp configured incorrectly'
                 )
-            self.assertEquals(
+            self.assertEqual(
                 stack_port.stack['port'].number,
                 1,
                 'remote stack port configured incorrectly'
