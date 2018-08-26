@@ -374,10 +374,13 @@ class ValveRouteManager:
     def _resolve_gateways_flows(self, resolve_handler, vlan, now,
                                 unresolved_nexthops, remaining_attempts):
         ofmsgs = []
+        min_cache_time = now - self.arp_neighbor_timeout
         for ip_gw in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+            if nexthop_cache_entry.cache_time > min_cache_time:
+                continue
             resolve_flows = resolve_handler(ip_gw, nexthop_cache_entry, vlan, now)
             if resolve_flows:
                 ofmsgs.extend(resolve_flows)
