@@ -7,10 +7,10 @@ import re
 # Required to prevent circular import cycle.  pylint: disable=unused-import
 from mininet.net import Mininet
 
-import mininet_test_base
+from clib import mininet_test_base
 
-from tcpdump_helper import TcpdumpHelper
-from docker_host import make_docker_host
+from clib.tcpdump_helper import TcpdumpHelper
+from clib.docker_host import make_docker_host
 
 
 class FaucetSimpleTest(mininet_test_base.FaucetTestBase):

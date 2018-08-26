@@ -19,7 +19,7 @@ from mininet.node import Controller
 from mininet.node import CPULimitedHost
 from mininet.node import OVSSwitch
 
-import mininet_test_util
+from clib import mininet_test_util
 
 import netifaces
 
