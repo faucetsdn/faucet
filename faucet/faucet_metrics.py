@@ -137,6 +137,10 @@ class FaucetMetrics(PromClient):
         self.stack_probes_received = self._dpid_counter(
             'stack_probes_received',
             'number of stacking messages received')
+        self.dot1x_success = self._dpid_counter('dot1x_success',
+                                           'number of successful authentications')
+        self.dot1x_failure = self._dpid_counter('dot1x_failure',
+                                           'number of authentications attempts failed')
 
 
     def _counter(self, var, var_help, labels):

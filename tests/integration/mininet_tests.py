@@ -261,12 +261,10 @@ network={
                     self.eapol_host, self.wpasupplicant_conf, timeout=30))],
             timeout=30, vflags='-v', packets=6)
 
-        faucet_log = self.env['faucet']['FAUCET_LOG']
-        with open(faucet_log, 'r') as log:
-            print('Faucet log')
-            faucet_log_txt = log.read()
-            print(faucet_log_txt)
-        self.assertIn("Successful auth", faucet_log_txt)
+        dot1x_success = self.scrape_prometheus_var('dot1x_success', any_labels=True)
+        self.assertEqual(dot1x_success, 1)
+        dot1x_failure = self.scrape_prometheus_var('dot1x_failure', any_labels=True)
+        self.assertEqual(dot1x_failure, 0)
         self.assertIn('Success', tcpdump_txt)
 
 
@@ -297,6 +295,8 @@ class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
             faucet_log_txt = log.read()
             print(faucet_log_txt)
         self.assertNotIn("Successful auth", faucet_log_txt)
+        dot1x_success = self.scrape_prometheus_var('dot1x_success', any_labels=True)
+        self.assertEqual(dot1x_success, 0)
         self.assertIn('Failure', tcpdump_txt)
 
 
