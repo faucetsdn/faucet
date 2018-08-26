@@ -24,6 +24,7 @@ import pip.req
 
 from deb_pkg_tools.control import deb822_from_string, parse_control_fields
 
+
 class CheckRequirementsTestCase(unittest.TestCase): # pytype: disable=module-attr
     """Test packaging requirements."""
 
@@ -46,7 +47,7 @@ class CheckRequirementsTestCase(unittest.TestCase): # pytype: disable=module-att
         for line in control.split("\n"):
             if line.startswith("Package: python3-faucet"):
                 faucet_dpkg += line
-            elif len(faucet_dpkg) > 0:
+            elif faucet_dpkg:
                 if not line:
                     break
                 faucet_dpkg += "{}\n".format(line)
