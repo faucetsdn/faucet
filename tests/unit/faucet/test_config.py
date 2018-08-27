@@ -163,7 +163,6 @@ dps:
                 2,
                 'stack graph has incorrect nodes'
                 )
-
         for dp_id, remote_dp_id in ((1, 2), (2, 1)):
             stack_port = dps[dp_id].stack_ports[0]
             self.assertEqual(
@@ -240,6 +239,25 @@ dps:
                 output_only: True
 """
         self.check_config_success(config, cp.dp_parser)
+        dps = self._get_dps_as_dict(config)
+        self.assertEqual(
+            dps[1].ports[1].override_output_port.number,
+            2,
+            'override output port not configured correctly'
+            )
+        self.assertTrue(
+            dps[1].ports[2].output_only,
+            'output only port configured incorrectly'
+            )
+        self.assertTrue(
+            bool(dps[1].output_only_ports),
+            'no output only ports configured for dp'
+            )
+        self.assertEqual(
+            dps[1].output_only_ports[0].number,
+            2,
+            'output only port configured incorrectly'
+            )
 
     def test_valid_mac(self):
         """Test with valid MAC."""
@@ -256,6 +274,12 @@ dps:
                 native_vlan: office
 """
         self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[0x1]
+        self.assertEqual(
+            dp.vlans[100].faucet_mac,
+            '11:22:33:44:55:66',
+            'faucet mac configured incorrectly'
+            )
 
     def test_resolved_mirror_port(self):
         """Test can use name reference to mirrored port."""
@@ -274,6 +298,15 @@ dps:
                 mirror: mirrored_port
 """
         self.check_config_success(config, cp.dp_parser)
+        sw1 = self._get_dps_as_dict(config)[0x1]
+        self.assertTrue(
+            sw1.ports[2].output_only,
+            'mirror port not set to output only'
+            )
+        self.assertTrue(
+            sw1.ports[1].mirror_actions() is not None,
+            'mirror port has no mirror actions'
+            )
 
     def test_acl_dictionary_valid(self):
         """test acl config is valid when not using 'rule' key"""
