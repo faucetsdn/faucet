@@ -763,6 +763,18 @@ class ValveTestBases:
             # TODO: check ping response
             self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
+        def test_unresolved_route(self):
+            """Test unresolved route tries to resolve."""
+            ip_dst = ipaddress.IPv4Network('10.100.100.0/24')
+            ip_gw = ipaddress.IPv4Address('10.0.0.1')
+            valve_vlan = self.valve.dp.vlans[0x100]
+            route_add_replies = self.valve.add_route(
+                valve_vlan, ip_gw, ip_dst)
+            self.assertFalse(route_add_replies)
+            resolve_replies = self.valve.resolve_gateways(
+                time.time(), None)
+            self.assertTrue(resolve_replies)
+
         def test_add_del_route(self):
             """IPv4 add/del of a route."""
             arp_replies = self.rcv_packet(1, 0x100, {
