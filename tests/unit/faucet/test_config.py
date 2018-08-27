@@ -298,6 +298,15 @@ dps:
                 mirror: mirrored_port
 """
         self.check_config_success(config, cp.dp_parser)
+        sw1 = self._get_dps_as_dict(config)[0x1]
+        self.assertTrue(
+            sw1.ports[2].output_only,
+            'mirror port not set to output only'
+            )
+        self.assertTrue(
+            sw1.ports[1].mirror_actions() is not None,
+            'mirror port has no mirror actions'
+            )
 
     def test_acl_dictionary_valid(self):
         """test acl config is valid when not using 'rule' key"""
