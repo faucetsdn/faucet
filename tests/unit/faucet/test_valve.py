@@ -797,6 +797,11 @@ class ValveTestBases:
             # TODO: verify learning rule contents
             # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
+            # Verify adding default route via 10.0.0.2
+            self.assertTrue((self.valve.add_route(
+                self.valve.dp.vlans[0x100],
+                ipaddress.IPv4Address('10.0.0.2'),
+                ipaddress.IPv4Network('0.0.0.0/0'))))
             self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
             self.verify_expiry()
 
