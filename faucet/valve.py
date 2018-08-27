@@ -116,7 +116,7 @@ class Valve:
         self._port_highwater = {}
         self.dp_init()
 
-    def _port_labels(self, port):
+    def port_labels(self, port):
         return dict(self.base_prom_labels, port=port.number)
 
     def _port_vlan_labels(self, port, vlan):
@@ -600,7 +600,7 @@ class Valve:
         self._set_var(
             'port_stack_state',
             port.dyn_stack_current_state,
-            labels=self._port_labels(port))
+            labels=self.port_labels(port))
         if port.is_stack_up() or port.is_stack_down():
             port_stack_up = port.is_stack_up()
             for valve in [self] + other_valves:
@@ -881,7 +881,7 @@ class Valve:
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
             priority=self.dp.highest_priority,
             max_len=128))
-        self._set_var('port_lacp_status', 0, labels=self._port_labels(port))
+        self._set_var('port_lacp_status', 0, labels=self.port_labels(port))
         return ofmsgs
 
     def lacp_up(self, port):
@@ -891,7 +891,7 @@ class Valve:
         ofmsgs.extend(vlan_table.flowdel(
             match=vlan_table.match(in_port=port.number),
             priority=self.dp.high_priority, strict=True))
-        self._set_var('port_lacp_status', 1, labels=self._port_labels(port))
+        self._set_var('port_lacp_status', 1, labels=self.port_labels(port))
         return ofmsgs
 
     def lacp_handler(self, now, pkt_meta):
@@ -1189,7 +1189,7 @@ class Valve:
                     labels=dict(vlan_labels, ipv=ipv))
 
         def _update_port(vlan, port):
-            port_labels = self._port_labels(port)
+            port_labels = self.port_labels(port)
             port_vlan_labels = self._port_vlan_labels(port, vlan)
             port_vlan_hosts_learned = port.hosts_count(vlans=[vlan])
             self._set_var(
