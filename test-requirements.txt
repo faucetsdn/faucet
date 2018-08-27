@@ -1,19 +1,12 @@
+-r requirements.txt
 bitstring
 codecov
 concurrencytest
 deb_pkg_tools
-eventlet==0.22.1 # pyup: ignore
 exabgp
-influxdb
-ipaddress
 netifaces
-networkx
 packaging
-prometheus_client
 pylint
 pytest-cov
 pytype==2018.8.10
-pyyaml
 requests
-ryu==4.27
-beka==0.3.3
