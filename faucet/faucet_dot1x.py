@@ -56,6 +56,7 @@ class FaucetDot1x:
         self.logger.info(
             'Successful auth from MAC %s on %s' % (
                 str(address), self.dot1x_port))
+        self._valve._inc_var('dot1x_success')
         flowmods = self._valve.add_authed_mac(
             self.dot1x_port.number, str(address))
         if flowmods:
