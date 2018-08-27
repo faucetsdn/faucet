@@ -122,6 +122,11 @@ class ValveRouteManager:
         return nexthop_cache_entry.dead(self.max_host_fib_retry_count)
 
     @staticmethod
+    def _unicast_to_vip(pkt_meta):
+        return (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac and
+                pkt_meta.vlan.from_connected_to_vip(pkt_meta.l3_src, pkt_meta.l3_dst))
+
+    @staticmethod
     def _gw_resolve_pkt():
         return None
 
@@ -717,27 +722,22 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 ofmsgs.extend(self._gw_advert(pkt_meta, pkt_meta.l3_src, now))
         return ofmsgs
 
-    @staticmethod
-    def _control_plane_icmp_handler(pkt_meta, ipv4_pkt):
+    def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt):
         ofmsgs = []
         if ipv4_pkt.proto != valve_of.inet.IPPROTO_ICMP:
             return ofmsgs
-        vlan = pkt_meta.vlan
-        if pkt_meta.eth_dst != vlan.faucet_mac:
-            return ofmsgs
-        src_ip = pkt_meta.l3_src
-        dst_ip = pkt_meta.l3_dst
-        if vlan.from_connected_to_vip(src_ip, dst_ip):
+        if self._unicast_to_vip(pkt_meta):
             pkt_meta.reparse_all()
             icmp_pkt = pkt_meta.pkt.get_protocol(icmp.icmp)
             if icmp_pkt is None:
                 return ofmsgs
             if icmp_pkt.type == icmp.ICMP_ECHO_REQUEST:
                 ofmsgs.append(
-                    vlan.pkt_out_port(
+                    pkt_meta.vlan.pkt_out_port(
                         valve_packet.echo_reply, pkt_meta.port,
-                        vlan.faucet_mac, pkt_meta.eth_src,
-                        dst_ip, src_ip, icmp_pkt.data))
+                        pkt_meta.vlan.faucet_mac, pkt_meta.eth_src,
+                        pkt_meta.l3_dst, pkt_meta.l3_src,
+                        icmp_pkt.data))
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
@@ -844,48 +844,45 @@ class ValveIPv6RouteManager(ValveRouteManager):
             inst=[valve_of.goto_table(self.vip_table)]))
         return ofmsgs
 
-    def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, _src_ip, _dst_ip):
+    def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt):
         ofmsgs = []
         if isinstance(icmpv6_pkt.data, icmpv6.nd_neighbor):
             solicited_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
             ofmsgs.extend(self._resolve_vip_response(pkt_meta, solicited_ip, now))
         return ofmsgs
 
-    def _nd_advert_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, _src_ip, _dst_ip):
+    def _nd_advert_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt):
         ofmsgs = []
         if isinstance(icmpv6_pkt.data, icmpv6.nd_neighbor):
             target_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
             ofmsgs.extend(self._gw_advert(pkt_meta, target_ip, now))
         return ofmsgs
 
-    def _router_solicit_handler(self, _now, pkt_meta, _ipv6_pkt, _icmpv6_pkt, src_ip, _dst_ip):
+    def _router_solicit_handler(self, _now, pkt_meta, _ipv6_pkt, _icmpv6_pkt):
         ofmsgs = []
         vlan = pkt_meta.vlan
         link_local_vips, other_vips = vlan.link_and_other_vips(self.IPV)
         for vip in link_local_vips:
-            if src_ip in vip.network:
+            if pkt_meta.l3_src in vip.network:
                 ofmsgs.append(
                     vlan.pkt_out_port(
                         valve_packet.router_advert, pkt_meta.port,
                         vlan.faucet_mac, pkt_meta.eth_src,
-                        vip.ip, src_ip, other_vips))
+                        vip.ip, pkt_meta.l3_src, other_vips))
                 self.logger.info(
                     'Responded to RS solicit from %s (%s)' % (
-                        src_ip, pkt_meta.log()))
+                        pkt_meta.l3_src, pkt_meta.log()))
                 break
         return ofmsgs
 
-    def _echo_request_handler(self, _now, pkt_meta, ipv6_pkt, icmpv6_pkt, src_ip, dst_ip):
+    def _echo_request_handler(self, _now, pkt_meta, ipv6_pkt, icmpv6_pkt):
         ofmsgs = []
-        vlan = pkt_meta.vlan
-        if (vlan.from_connected_to_vip(src_ip, dst_ip) and
-                pkt_meta.eth_dst == vlan.faucet_mac and
-                isinstance(icmpv6_pkt.data, icmpv6.echo)):
+        if self._unicast_to_vip(pkt_meta) and isinstance(icmpv6_pkt.data, icmpv6.echo):
             ofmsgs.append(
-                vlan.pkt_out_port(
+                pkt_meta.vlan.pkt_out_port(
                     valve_packet.icmpv6_echo_reply, pkt_meta.port,
-                    vlan.faucet_mac, pkt_meta.eth_src,
-                    dst_ip, src_ip, ipv6_pkt.hop_limit,
+                    pkt_meta.vlan.faucet_mac, pkt_meta.eth_src,
+                    pkt_meta.l3_dst, pkt_meta.l3_src, ipv6_pkt.hop_limit,
                     icmpv6_pkt.data.id, icmpv6_pkt.data.seq,
                     icmpv6_pkt.data.data))
         return ofmsgs
@@ -922,7 +919,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             return ofmsgs
         if icmpv6_type in self._icmpv6_handlers:
             ofmsgs = self._icmpv6_handlers[icmpv6_type](
-                self, now, pkt_meta, ipv6_pkt, icmpv6_pkt, src_ip, dst_ip)
+                self, now, pkt_meta, ipv6_pkt, icmpv6_pkt)
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
