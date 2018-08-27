@@ -133,9 +133,7 @@ class ValveRouteManager:
 
     def _vlan_nexthop_cache_entry(self, vlan, ip_gw):
         nexthop_cache = self._vlan_nexthop_cache(vlan)
-        if ip_gw in nexthop_cache:
-            return nexthop_cache[ip_gw]
-        return None
+        return nexthop_cache.get(ip_gw, None)
 
     def _del_vlan_nexthop_cache_entry(self, vlan, ip_gw):
         nexthop_cache = self._vlan_nexthop_cache(vlan)
@@ -436,10 +434,9 @@ class ValveRouteManager:
             unresolved_gateways, self.max_hosts_per_resolve_cycle)
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):
-        nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
-        if (nexthop_cache_entry is not None and
-                nexthop_cache_entry.eth_src is not None):
-            return nexthop_cache_entry.eth_src
+        entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+        if entry is not None and entry.eth_src is not None:
+            return entry.eth_src
         return None
 
     @staticmethod
