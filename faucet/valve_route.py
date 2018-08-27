@@ -378,12 +378,12 @@ class ValveRouteManager:
         for ip_gw in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
-            nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
-            if nexthop_cache_entry is None:
+            entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+            if entry is None:
                 continue
-            if nexthop_cache_entry.cache_time > min_cache_time:
+            if entry.eth_src is not None and entry.cache_time > min_cache_time:
                 continue
-            resolve_flows = resolve_handler(ip_gw, nexthop_cache_entry, vlan, now)
+            resolve_flows = resolve_handler(ip_gw, entry, vlan, now)
             if resolve_flows:
                 ofmsgs.extend(resolve_flows)
                 remaining_attempts -= 1
