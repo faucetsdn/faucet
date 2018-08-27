@@ -20,10 +20,14 @@
 
 import os
 import unittest
-import pip.req
 
 from deb_pkg_tools.control import deb822_from_string, parse_control_fields
 from deb_pkg_tools.deps import VersionedRelationship
+
+try:
+    from pip._internal.req import parse_requirements, InstallRequirement # for pip >= 10
+except ImportError:
+    from pip.req import parse_requirements, InstallRequirement # for pip <= 9.0.3
 
 
 class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-attr
@@ -62,9 +66,9 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
     def test_every_pip_requirement_in_debian_package(self):
         """Test pip requirements are listed as dependencies on debian package."""
 
-        for pip_req in pip.req.parse_requirements(self.requirements_file,
+        for pip_req in parse_requirements(self.requirements_file,
                                                   session="unittest"):
-            if isinstance(pip_req, pip.req.InstallRequirement):
+            if isinstance(pip_req, InstallRequirement):
                 if pip_req.name in self.dpkg_name:
                     dpkg_name = self.dpkg_name[pip_req.name]
                 else:
@@ -75,9 +79,9 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
     def test_every_pip_requirement_has_matching_version_in_debian_package(self):
         """Test pip requirements versions match debian package dependencies."""
 
-        for pip_req in pip.req.parse_requirements(self.requirements_file,
+        for pip_req in parse_requirements(self.requirements_file,
                                                   session="unittest"):
-            if isinstance(pip_req, pip.req.InstallRequirement):
+            if isinstance(pip_req, InstallRequirement):
                 if pip_req.name in self.dpkg_name:
                     dpkg_name = self.dpkg_name[pip_req.name]
                 else:
