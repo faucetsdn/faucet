@@ -157,6 +157,8 @@ vlans:
 
 class FaucetUntagged8021XSuccessTest(FaucetUntaggedTest):
 
+    SOFTWARE_ONLY = True
+
     CONFIG_GLOBAL = """
 vlans:
     100:
