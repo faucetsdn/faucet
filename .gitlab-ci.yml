@@ -34,8 +34,6 @@ deploy-package:
     - package_cloud push faucetsdn/faucet/raspbian/stretch *.deb || true
     - package_cloud push faucetsdn/faucet/raspbian/buster *.deb || true
     - package_cloud push faucetsdn/faucet/ubuntu/xenial *.deb || true
-    - package_cloud push faucetsdn/faucet/ubuntu/yakkety *.deb || true
-    - package_cloud push faucetsdn/faucet/ubuntu/zesty *.deb || true
     - package_cloud push faucetsdn/faucet/ubuntu/artful *.deb || true
     - package_cloud push faucetsdn/faucet/ubuntu/bionic *.deb || true
   only:
