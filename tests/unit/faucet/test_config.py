@@ -274,7 +274,7 @@ dps:
                 native_vlan: office
 """
         self.check_config_success(config, cp.dp_parser)
-        dp = self._get_dps_as_dict(config)[1]
+        dp = self._get_dps_as_dict(config)[0x1]
         self.assertEqual(
             dp.vlans[100].faucet_mac,
             '11:22:33:44:55:66',
