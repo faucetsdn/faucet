@@ -23,24 +23,23 @@ import unittest
 import pip.req
 
 from deb_pkg_tools.control import deb822_from_string, parse_control_fields
+from deb_pkg_tools.deps import VersionedRelationship
 
 
-class CheckRequirementsTestCase(unittest.TestCase): # pytype: disable=module-attr
-    """Test packaging requirements."""
+class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-attr
+    """Test debian packaging."""
 
-    def test_requirements_match(self):
-        """Test all requirements are listed as apt package dependencies."""
-
+    def setUp(self):
         SRC_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../')
-        control_file = os.path.join(SRC_DIR, 'debian/control')
-        requirements_file = os.path.join(SRC_DIR, 'requirements.txt')
+        self.control_file = os.path.join(SRC_DIR, 'debian/control')
+        self.requirements_file = os.path.join(SRC_DIR, 'requirements.txt')
 
-        real_name = {
+        self.dpkg_name = {
             'msgpack-python': 'python3-msgpack',
             'pyyaml': 'python3-yaml'
             }
 
-        with open(control_file) as handle:
+        with open(self.control_file) as handle:
             control = handle.read()
 
         faucet_dpkg = str()
@@ -53,15 +52,55 @@ class CheckRequirementsTestCase(unittest.TestCase): # pytype: disable=module-att
                 faucet_dpkg += "{}\n".format(line)
 
         faucet_dpkg = parse_control_fields(deb822_from_string(faucet_dpkg))
-        faucet_dpkg_deps = [x.name for x in faucet_dpkg['Depends']]
+        self.faucet_dpkg_deps = {}
+        for dep in faucet_dpkg['Depends']:
+            if isinstance(dep, VersionedRelationship):
+                if dep.name not in self.faucet_dpkg_deps:
+                    self.faucet_dpkg_deps[dep.name] = []
+                self.faucet_dpkg_deps[dep.name].append("{}{}".format(dep.operator, dep.version))
 
-        for item in pip.req.parse_requirements(requirements_file,
-                                               session="unittest"):
-            if isinstance(item, pip.req.InstallRequirement):
-                if item.name in real_name:
-                    self.assertIn(real_name[item.name], faucet_dpkg_deps)
+    def test_every_pip_requirement_in_debian_package(self):
+        """Test pip requirements are listed as dependencies on debian package."""
+
+        for pip_req in pip.req.parse_requirements(self.requirements_file,
+                                                  session="unittest"):
+            if isinstance(pip_req, pip.req.InstallRequirement):
+                if pip_req.name in self.dpkg_name:
+                    dpkg_name = self.dpkg_name[pip_req.name]
                 else:
-                    self.assertIn("python3-{}".format(item.name), faucet_dpkg_deps)
+                    dpkg_name = "python3-{}".format(pip_req.name)
+
+                self.assertIn(dpkg_name, self.faucet_dpkg_deps)
+
+    def test_every_pip_requirement_has_matching_version_in_debian_package(self):
+        """Test pip requirements versions match debian package dependencies."""
+
+        for pip_req in pip.req.parse_requirements(self.requirements_file,
+                                                  session="unittest"):
+            if isinstance(pip_req, pip.req.InstallRequirement):
+                if pip_req.name in self.dpkg_name:
+                    dpkg_name = self.dpkg_name[pip_req.name]
+                else:
+                    dpkg_name = "python3-{}".format(pip_req.name)
+
+                if pip_req.req.specifier:
+                    pip_req_version = str(pip_req.req.specifier)
+                    debian_package_dependencies = [
+                        pip_req.name+x for x in self.faucet_dpkg_deps[dpkg_name]
+                    ]
+                    if str(pip_req_version).startswith('=='):
+                        # debian/control is annoying about how it handles exact
+                        # versions, calculate the debian equivalent of the
+                        # pip requirements match and compare that
+                        lower_match = pip_req_version.replace('==', '>=')
+                        upper_match = pip_req_version.replace('==', '<<').split('.')
+                        upper_match[-1] = str(int(upper_match[-1]) + 1)
+                        upper_match = '.'.join(upper_match)
+
+                        self.assertIn(pip_req.name+lower_match, debian_package_dependencies)
+                        self.assertIn(pip_req.name+upper_match, debian_package_dependencies)
+                    else:
+                        self.assertIn(pip_req.name+pip_req_version, debian_package_dependencies)
 
 
 if __name__ == "__main__":
