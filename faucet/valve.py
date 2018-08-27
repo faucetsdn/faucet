@@ -125,8 +125,7 @@ class Valve:
     def _inc_var(self, var, labels=None, val=1):
         if labels is None:
             labels = self.base_prom_labels
-        metrics_var = getattr(self.metrics, var)
-        metrics_var.labels(**labels).inc(val)
+        self.metrics.inc_var(var, labels, val)
 
     def _set_var(self, var, val, labels=None):
         if labels is None:

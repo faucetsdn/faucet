@@ -184,3 +184,8 @@ class FaucetMetrics(PromClient):
             counter.labels(**dp_labels).inc(0)
         for gauge in list(self._dpid_gauges.values()):
             gauge.labels(**dp_labels).set(0)
+
+    def inc_var(self, var, labels, val=1):
+        assert labels is not None
+        metrics_var = getattr(self, var)
+        metrics_var.labels(**labels).inc(val)

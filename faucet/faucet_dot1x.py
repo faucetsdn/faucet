@@ -56,8 +56,9 @@ class FaucetDot1x:
         self.logger.info(
             'Successful auth from MAC %s on %s' % (
                 str(address), self.dot1x_port))
-        self.metrics.dp_dot1x_success.labels(**self._valve.base_prom_labels).inc()
-        self.metrics.port_dot1x_success.labels(**self._valve.port_labels(self.dot1x_port)).inc() # pylint: disable=protected-access
+        self.metrics.inc_var('dp_dot1x_success', self._valve.base_prom_labels)
+        self.metrics.inc_var('port_dot1x_success', self._valve.port_labels(self.dot1x_port))
+
         flowmods = self._valve.add_authed_mac(
             self.dot1x_port.number, str(address))
         if flowmods:
@@ -67,8 +68,8 @@ class FaucetDot1x:
         """Callback for when an EAP logoff happens."""
         self.logger.info('Logoff from MAC %s on %s',
                          str(address), self.dot1x_port)
-        self.metrics.dp_dot1x_logoff.labels(**self._valve.base_prom_labels).inc()
-        self.metrics.port_dot1x_logoff.labels(**self._valve.port_labels(self.dot1x_port)).inc() # pylint: disable=protected-access
+        self.metrics.inc_var('dp_dot1x_logoff', self._valve.base_prom_labels)
+        self.metrics.inc_var('port_dot1x_logoff', self._valve.port_labels(self.dot1x_port))
         flowmods = self._valve.del_authed_mac(self.dot1x_port.number, address)
         if flowmods:
             self._send_flow_msgs(self._valve, flowmods)
@@ -77,8 +78,8 @@ class FaucetDot1x:
         """Callback for when a EAP failure happens."""
         self.logger.info('Failure from MAC %s on %s',
                          str(address), self.dot1x_port)
-        self.metrics.dp_dot1x_failure.labels(**self._valve.base_prom_labels).inc()
-        self.metrics.port_dot1x_failure.labels(**self._valve.port_labels(self.dot1x_port)).inc() # pylint: disable=protected-access
+        self.metrics.inc_var('dp_dot1x_failure', self._valve.base_prom_labels)
+        self.metrics.inc_var('port_dot1x_failure', self._valve.port_labels(self.dot1x_port))
 
     def reset(self, valves):
         """Set up a dot1x speaker."""
