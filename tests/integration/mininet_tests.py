@@ -255,24 +255,53 @@ network={
         super(FaucetUntagged8021XSuccessTest, self).setUp()
         self.host_drop_all_ips(self.nfv_host)
 
-    def try_8021x(self):
+    def try_8021x(self, and_logff=False):
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
             self.eapol_host, tcpdump_filter, [
-                lambda : self.start_wpasupplicant(
-                    self.eapol_host, self.wpasupplicant_conf, timeout=10)],
+                lambda : self.wpa_supplicant_callback(and_logff)],
             timeout=10, vflags='-v', packets=10)
         return tcpdump_txt
 
     def test_untagged(self):
-        tcpdump_txt = self.try_8021x()
+        tcpdump_txt = self.try_8021x(and_logff=True)
         self.assertIn('Success', tcpdump_txt)
         self.assertEqual(
             1,
-             self.scrape_prometheus_var('dot1x_success', any_labels=True))
+            self.scrape_prometheus_var('dp_dot1x_success', any_labels=True, default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('dot1x_failure', any_labels=True))
+            self.scrape_prometheus_var('dp_dot1x_failure', any_labels=True, default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success', any_labels=True, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_failure', any_labels=True, default=0))
+        self.assertIn('Success', tcpdump_txt)
+        self.assertIn('logoff', tcpdump_txt)
+        # TODO check prometheus dp/port_dot1x_logoff once logoff_handler implemented on chewie side.
+
+    def wpa_supplicant_callback(self, and_logoff):
+        wpa_ctrl_path = os.path.join(
+            self.tmpdir, '%s%s-wpasupplicant' % (self.tmpdir, self.eapol_host.name))
+        self.start_wpasupplicant(
+            self.eapol_host, self.wpasupplicant_conf,
+            timeout=10, wpa_ctrl_socket_path=wpa_ctrl_path)
+        self.eapol_host.cmd('wpa_cli -p %s logon' % wpa_ctrl_path)
+        if and_logoff:
+            eap_state = ''
+            for i in range(5):
+                if eap_state == 'SUCCESS':
+                    break
+                status = self.eapol_host.cmdPrint('wpa_cli -p %s status' % wpa_ctrl_path)
+                for line in status.split("\n"):
+                    if line.startswith('EAP state'):
+                        eap_state = line.split('=')[1].strip()
+                        break
+                time.sleep(1)
+            self.assertEqual(eap_state, 'SUCCESS')
+            self.eapol_host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
 
 
 class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
@@ -289,15 +318,19 @@ class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
     """
 
     def test_untagged(self):
-        tcpdump_txt = self.try_8021x()
+        tcpdump_txt = self.try_8021x(and_logff=False)
         self.assertIn('Failure', tcpdump_txt)
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('dot1x_success', any_labels=True))
         faucet_log = self.env['faucet']['FAUCET_LOG']
         with open(faucet_log, 'r') as log:
             faucet_log_txt = log.read()
         self.assertNotIn('Successful auth', faucet_log_txt)
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('dp_dot1x_success', labels={'port': 1}, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_success', labels={'port': 1}, default=0))
+        # TODO add prometheus dp/port_dot1x_failure check once failure handler is implemented on chewie side.
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
