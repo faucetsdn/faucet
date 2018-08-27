@@ -133,7 +133,9 @@ class ValveRouteManager:
 
     def _vlan_nexthop_cache_entry(self, vlan, ip_gw):
         nexthop_cache = self._vlan_nexthop_cache(vlan)
-        return nexthop_cache.get(ip_gw, None)
+        if ip_gw in nexthop_cache:
+            return nexthop_cache[ip_gw]
+        return None
 
     def _del_vlan_nexthop_cache_entry(self, vlan, ip_gw):
         nexthop_cache = self._vlan_nexthop_cache(vlan)
