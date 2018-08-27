@@ -57,10 +57,6 @@ class FaucetDot1x:
             'Successful auth from MAC %s on %s' % (
                 str(address), self.dot1x_port))
         self._valve._inc_var('dot1x_success') # pylint: disable=protected-access
-        self._notify( # pylint: disable=protected-access
-            {'8021X_AUTH_SUCCESS': {
-                'port_no': self.dot1x_port.number,
-                'eth_src': address}})
         flowmods = self._valve.add_authed_mac(
             self.dot1x_port.number, str(address))
         if flowmods:
