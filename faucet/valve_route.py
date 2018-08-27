@@ -91,6 +91,8 @@ class ValveRouteManager:
     ICMP_TYPE = None
     MAX_LEN = valve_of.MAX_PACKET_IN_BYTES
     CONTROL_ETH_TYPES = () # type: ignore
+    IP_PKT = None
+
 
     def __init__(self, logger, global_vlan, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
@@ -546,7 +548,7 @@ class ValveRouteManager:
         Returns:
             IP ryu.lib.packet parsed from pkt.
         """
-        raise NotImplementedError # pragma: no cover
+        return pkt.get_protocol(self.IP_PKT)
 
     def add_host_fib_route_from_pkt(self, now, pkt_meta):
         """Add a host FIB route given packet from host.
@@ -609,6 +611,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
     ETH_TYPE = valve_of.ether.ETH_TYPE_IP
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMP
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP) # type: ignore
+    IP_PKT = ipv4.ipv4
+
 
     def advertise(self, _vlan):
         return []
@@ -623,9 +627,6 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _vlan_nexthop_cache_limit(self, vlan):
         return vlan.proactive_arp_limit
-
-    def _ip_pkt(self, pkt):
-        return pkt.get_protocol(ipv4.ipv4)
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         ofmsgs = []
@@ -738,6 +739,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
     ETH_TYPE = valve_of.ether.ETH_TYPE_IPV6
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,) # type: ignore
+    IP_PKT = ipv6.ipv6
+
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
@@ -749,9 +752,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _vlan_nexthop_cache_limit(self, vlan):
         return vlan.proactive_nd_limit
-
-    def _ip_pkt(self, pkt):
-        return pkt.get_protocol(ipv6.ipv6)
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         faucet_vip_host_nd_mcast = valve_packet.ipv6_link_eth_mcast(
