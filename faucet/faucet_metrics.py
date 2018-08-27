@@ -137,11 +137,27 @@ class FaucetMetrics(PromClient):
         self.stack_probes_received = self._dpid_counter(
             'stack_probes_received',
             'number of stacking messages received')
-        self.dot1x_success = self._dpid_counter('dot1x_success',
-                                           'number of successful authentications')
-        self.dot1x_failure = self._dpid_counter('dot1x_failure',
-                                           'number of authentications attempts failed')
-
+        self.dp_dot1x_success = self._dpid_counter(
+            'dp_dot1x_success',
+            'number of successful authentications on dp')
+        self.dp_dot1x_failure = self._dpid_counter(
+            'dp_dot1x_failure',
+            'number of authentications attempts failed on dp')
+        self.dp_dot1x_logoff = self._dpid_counter(
+            'dp_dot1x_logoff',
+            'number of eap-logoff events on dp')
+        self.port_dot1x_success = self._counter(
+            'port_dot1x_success',
+            'number of successful authentications on port',
+            self.REQUIRED_LABELS + ['port'])
+        self.port_dot1x_failure = self._counter(
+            'port_dot1x_failure',
+            'number of authentications attempts failed on port',
+            self.REQUIRED_LABELS + ['port'])
+        self.port_dot1x_logoff = self._counter(
+            'port_dot1x_logoff',
+            'number of eap-logoff events on port',
+            self.REQUIRED_LABELS + ['port'])
 
     def _counter(self, var, var_help, labels):
         return Counter(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg

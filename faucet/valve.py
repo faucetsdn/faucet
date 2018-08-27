@@ -1460,6 +1460,16 @@ class Valve:
             inst=[valve_of.goto_table(self.dp.tables['vlan'])])
         return [ofmsg]
 
+    def del_authed_mac(self, port_num, mac):
+        ofmsg = self.dp.tables['port_acl'].flowdel(
+            self.dp.tables['port_acl'].match(
+                in_port=port_num,
+                eth_src=mac),
+            priority=self.dp.highest_priority,
+            strict=True
+        )
+        return [ofmsg]
+
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
         route_manager = self._route_manager_by_ipv[ip_dst.version]
