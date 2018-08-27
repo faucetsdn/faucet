@@ -253,19 +253,24 @@ network={
         super(FaucetUntagged8021XSuccessTest, self).setUp()
         self.host_drop_all_ips(self.nfv_host)
 
-    def test_untagged(self):
+    def try_8021x(self):
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
             self.eapol_host, tcpdump_filter, [
-                lambda : print(self.start_wpasupplicant(
-                    self.eapol_host, self.wpasupplicant_conf, timeout=30))],
-            timeout=30, vflags='-v', packets=6)
+                lambda : self.start_wpasupplicant(
+                    self.eapol_host, self.wpasupplicant_conf, timeout=10)],
+            timeout=10, vflags='-v', packets=10)
+        return tcpdump_txt
 
-        dot1x_success = self.scrape_prometheus_var('dot1x_success', any_labels=True)
-        self.assertEqual(dot1x_success, 1)
-        dot1x_failure = self.scrape_prometheus_var('dot1x_failure', any_labels=True)
-        self.assertEqual(dot1x_failure, 0)
+    def test_untagged(self):
+        tcpdump_txt = self.try_8021x()
         self.assertIn('Success', tcpdump_txt)
+        self.assertEqual(
+            1,
+             self.scrape_prometheus_var('dot1x_success', any_labels=True))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('dot1x_failure', any_labels=True))
 
 
 class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
@@ -282,22 +287,15 @@ class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
     """
 
     def test_untagged(self):
-        tcpdump_filter = 'ether proto 0x888e'
-        tcpdump_txt = self.tcpdump_helper(
-            self.eapol_host, tcpdump_filter, [
-                lambda: print(self.start_wpasupplicant(
-                    self.eapol_host, self.wpasupplicant_conf, timeout=30))],
-            timeout=30, vflags='-v', packets=6)
-
+        tcpdump_txt = self.try_8021x()
+        self.assertIn('Failure', tcpdump_txt)
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('dot1x_success', any_labels=True))
         faucet_log = self.env['faucet']['FAUCET_LOG']
         with open(faucet_log, 'r') as log:
-            print('Faucet log')
             faucet_log_txt = log.read()
-            print(faucet_log_txt)
-        self.assertNotIn("Successful auth", faucet_log_txt)
-        dot1x_success = self.scrape_prometheus_var('dot1x_success', any_labels=True)
-        self.assertEqual(dot1x_success, 0)
-        self.assertIn('Failure', tcpdump_txt)
+        self.assertNotIn('Successful auth', faucet_log_txt)
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
