@@ -56,11 +56,30 @@ class FaucetDot1x:
         self.logger.info(
             'Successful auth from MAC %s on %s' % (
                 str(address), self.dot1x_port))
-        self._valve._inc_var('dot1x_success') # pylint: disable=protected-access
+        self.metrics.inc_var('dp_dot1x_success', self._valve.base_prom_labels)
+        self.metrics.inc_var('port_dot1x_success', self._valve.port_labels(self.dot1x_port))
+
         flowmods = self._valve.add_authed_mac(
             self.dot1x_port.number, str(address))
         if flowmods:
             self._send_flow_msgs(self._valve, flowmods)
+
+    def logoff_handler(self, address):
+        """Callback for when an EAP logoff happens."""
+        self.logger.info('Logoff from MAC %s on %s',
+                         str(address), self.dot1x_port)
+        self.metrics.inc_var('dp_dot1x_logoff', self._valve.base_prom_labels)
+        self.metrics.inc_var('port_dot1x_logoff', self._valve.port_labels(self.dot1x_port))
+        flowmods = self._valve.del_authed_mac(self.dot1x_port.number, address)
+        if flowmods:
+            self._send_flow_msgs(self._valve, flowmods)
+
+    def failure_handler(self, address):
+        """Callback for when a EAP failure happens."""
+        self.logger.info('Failure from MAC %s on %s',
+                         str(address), self.dot1x_port)
+        self.metrics.inc_var('dp_dot1x_failure', self._valve.base_prom_labels)
+        self.metrics.inc_var('port_dot1x_failure', self._valve.port_labels(self.dot1x_port))
 
     def reset(self, valves):
         """Set up a dot1x speaker."""

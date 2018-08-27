@@ -2034,7 +2034,8 @@ dbs:
             time.sleep(1)
         self.fail('exabgp did not send BGP updates')
 
-    def start_wpasupplicant(self, host, wpasupplicant_conf, timeout=10, log_prefix=''):
+    def start_wpasupplicant(self, host, wpasupplicant_conf, timeout=10, log_prefix='',
+                            wpa_ctrl_socket_path=''):
         """Start wpasupplicant process on Mininet host."""
         wpasupplicant_conf_file_name = os.path.join(
             self.tmpdir, '%swpasupplicant.conf' % log_prefix)
@@ -2042,10 +2043,13 @@ dbs:
             self.tmpdir, '%swpasupplicant.log' % log_prefix)
         with open(wpasupplicant_conf_file_name, 'w') as wpasupplicant_conf_file:
             wpasupplicant_conf_file.write(wpasupplicant_conf)
+        wpa_ctrl_socket = ''
+        if wpa_ctrl_socket_path:
+            wpa_ctrl_socket = '-C %s' % wpa_ctrl_socket_path
         wpasupplicant_cmd = mininet_test_util.timeout_cmd(
-            'wpa_supplicant -dd -t -c %s -i %s -D wired -f %s &' % (
-                wpasupplicant_conf_file_name, host.defaultIntf(), wpasupplicant_log),
-            timeout * 3)
+            'wpa_supplicant -dd -t -c %s -i %s -D wired -f %s %s &' % (
+                wpasupplicant_conf_file_name, host.defaultIntf(), wpasupplicant_log,
+                wpa_ctrl_socket), timeout * 3)
         host.cmd(wpasupplicant_cmd)
         for _ in range(timeout):
             if os.path.exists(wpasupplicant_log):
