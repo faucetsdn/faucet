@@ -159,6 +159,18 @@ class ValveRouteManager:
                     solicited_ip, pkt_meta.log()))
         return ofmsgs
 
+    def _gw_advert(self, pkt_meta, target_ip, now):
+        ofmsgs = []
+        vlan = pkt_meta.vlan
+        if vlan.ip_in_vip_subnet(target_ip):
+            if self._stateful_gw(vlan, target_ip):
+                ofmsgs.extend(self._update_nexthop(
+                    now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
+            self.logger.info(
+                'Received advert for %s from %s' % (
+                    target_ip, pkt_meta.log()))
+        return ofmsgs
+
     def _vlan_routes(self, vlan):
         return vlan.routes_by_ipv(self.IPV)
 
@@ -210,7 +222,8 @@ class ValveRouteManager:
                     vlans = vlans.union(router.vlans)
         return vlans
 
-    def _stateful_gw(self, vlan, dst_ip):
+    @staticmethod
+    def _stateful_gw(vlan, dst_ip):
         return vlan.ip_dsts_for_ip_gw(dst_ip) or not dst_ip.is_link_local
 
     def _global_routing(self):
@@ -692,27 +705,20 @@ class ValveIPv4RouteManager(ValveRouteManager):
         ofmsgs = []
         if not pkt_meta.eth_type == valve_of.ether.ETH_TYPE_ARP:
             return ofmsgs
-        vlan = pkt_meta.vlan
-        src_ip = pkt_meta.l3_src
-        dst_ip = pkt_meta.l3_dst
-        if vlan.from_connected_to_vip(src_ip, dst_ip):
-            arp_pkt = pkt_meta.pkt.get_protocol(arp.arp)
-            if arp_pkt is None:
-                return ofmsgs
-            opcode = arp_pkt.opcode
-            if opcode == arp.ARP_REQUEST:
-                if pkt_meta.eth_dst == valve_of.mac.BROADCAST_STR:
-                    ofmsgs.extend(self._resolve_vip_response(pkt_meta, dst_ip, now))
-            elif opcode == arp.ARP_REPLY:
-                if pkt_meta.eth_dst == vlan.faucet_mac:
-                    ofmsgs.extend(
-                        self._update_nexthop(now, vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
-                    self.logger.info(
-                        'Received ARP response %s from %s' % (
-                            src_ip, pkt_meta.log()))
+        arp_pkt = pkt_meta.pkt.get_protocol(arp.arp)
+        if arp_pkt is None:
+            return ofmsgs
+        opcode = arp_pkt.opcode
+        if opcode == arp.ARP_REQUEST:
+            if pkt_meta.eth_dst == valve_of.mac.BROADCAST_STR:
+                ofmsgs.extend(self._resolve_vip_response(pkt_meta, pkt_meta.l3_dst, now))
+        elif opcode == arp.ARP_REPLY:
+            if pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
+                ofmsgs.extend(self._gw_advert(pkt_meta, pkt_meta.l3_src, now))
         return ofmsgs
 
-    def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt):
+    @staticmethod
+    def _control_plane_icmp_handler(pkt_meta, ipv4_pkt):
         ofmsgs = []
         if ipv4_pkt.proto != valve_of.inet.IPPROTO_ICMP:
             return ofmsgs
@@ -838,7 +844,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             inst=[valve_of.goto_table(self.vip_table)]))
         return ofmsgs
 
-    def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, src_ip, _dst_ip):
+    def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt, _src_ip, _dst_ip):
         ofmsgs = []
         if isinstance(icmpv6_pkt.data, icmpv6.nd_neighbor):
             solicited_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
@@ -849,14 +855,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         ofmsgs = []
         if isinstance(icmpv6_pkt.data, icmpv6.nd_neighbor):
             target_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
-            vlan = pkt_meta.vlan
-            if vlan.ip_in_vip_subnet(target_ip):
-                if self._stateful_gw(vlan, target_ip):
-                    ofmsgs.extend(self._update_nexthop(
-                        now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
-                self.logger.info(
-                    'Received ND advert for %s from %s' % (
-                        target_ip, pkt_meta.log()))
+            ofmsgs.extend(self._gw_advert(pkt_meta, target_ip, now))
         return ofmsgs
 
     def _router_solicit_handler(self, _now, pkt_meta, _ipv6_pkt, _icmpv6_pkt, src_ip, _dst_ip):
