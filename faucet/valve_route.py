@@ -121,11 +121,17 @@ class ValveRouteManager:
     def nexthop_dead(self, nexthop_cache_entry):
         return nexthop_cache_entry.dead(self.max_host_fib_retry_count)
 
+    @staticmethod
+    def gw_resolve_pkt():
+        return None
+
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
-        raise NotImplementedError # pragma: no cover
+        return vlan.flood_pkt(
+            self.gw_resolve_pkt(), vlan.faucet_mac, faucet_vip.ip, ip_gw)
 
     def resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
-        raise NotImplementedError # pragma: no cover
+        return vlan.pkt_out_port(
+            self.gw_resolve_pkt(), port, vlan.faucet_mac, faucet_vip.ip, ip_gw)
 
     def _vlan_routes(self, vlan):
         return vlan.routes_by_ipv(self.IPV)
@@ -613,17 +619,12 @@ class ValveIPv4RouteManager(ValveRouteManager):
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP) # type: ignore
     IP_PKT = ipv4.ipv4
 
-
     def advertise(self, _vlan):
         return []
 
-    def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
-        return vlan.flood_pkt(
-            valve_packet.arp_request, vlan.faucet_mac, faucet_vip.ip, ip_gw)
-
-    def resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
-        return vlan.pkt_out_port(
-            valve_packet.arp_request, port, vlan.faucet_mac, faucet_vip.ip, ip_gw)
+    @staticmethod
+    def gw_resolve_pkt():
+        return valve_packet.arp_request
 
     def _vlan_nexthop_cache_limit(self, vlan):
         return vlan.proactive_arp_limit
@@ -742,13 +743,9 @@ class ValveIPv6RouteManager(ValveRouteManager):
     IP_PKT = ipv6.ipv6
 
 
-    def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
-        return vlan.flood_pkt(
-            valve_packet.nd_request, vlan.faucet_mac, faucet_vip.ip, ip_gw)
-
-    def resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
-        return vlan.pkt_out_port(
-            valve_packet.nd_request, port, vlan.faucet_mac, faucet_vip.ip, ip_gw)
+    @staticmethod
+    def gw_resolve_pkt():
+        return valve_packet.nd_request
 
     def _vlan_nexthop_cache_limit(self, vlan):
         return vlan.proactive_nd_limit
