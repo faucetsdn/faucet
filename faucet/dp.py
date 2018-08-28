@@ -313,7 +313,8 @@ configuration.
         tables = {}
         self.groups = ValveGroupTable()
         relative_table_id = 0
-        for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
+        for table_id, canonical_table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
+            table_config = copy.deepcopy(canonical_table_config)
             table_name = table_config.name
             if table_name in override_table_config:
                 table_config = override_table_config[table_name]
