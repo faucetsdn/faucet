@@ -308,11 +308,65 @@ configuration.
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
         self._check_conf_types(self.table_sizes, self.default_table_sizes_types)
 
-    def _configure_tables(self, override_table_config, valve_cl, vlan_port_factor):
+    def _generate_acl_tables(self, port_acl_enabled):
+        all_acls = {}
+        all_acls['vlan_acl'] = []
+        for vlan in self.vlans.values():
+            if vlan.acls_in:
+                all_acls['vlan_acl'].extend(vlan.acls_in)
+        if self.dp_acls:
+            for acl in self.dp_acls:
+                all_acls['port_acl'] = self.dp_acls
+        else:
+            all_acls['port_acl'] = []
+            for port in self.ports.values():
+                if port.acls_in:
+                    all_acls['port_acl'].extend(port.acls_in)
+
+        table_config = {}
+        for table_name, acls in all_acls.items():
+            matches = {}
+            set_fields = set()
+            meter = False
+            exact_match = False
+            for acl in acls:
+                for field, has_mask in acl.matches.items():
+                    if has_mask or field not in matches:
+                        matches[field] = has_mask
+                set_fields.update(acl.set_fields)
+                meter = meter or acl.meter
+                exact_match = acl.exact_match
+            if table_name == 'port_acl' and (acls or port_acl_enabled):
+                matches.update({'in_port': False})
+            matches = set(matches.items())
+            table_config[table_name] = ValveTableConfig(
+                    table_name,
+                    exact_match=exact_match,
+                    meter=meter,
+                    output=True,
+                    match_types=matches,
+                    set_fields=tuple(set_fields))
+        # TODO: skip port_acl table if not configured.
+        # TODO: dynamically configure output attribue
+        return table_config
+
+    def _configure_tables(self, valve_cl, vlan_port_factor):
         """Configure FAUCET pipeline with tables."""
         tables = {}
         self.groups = ValveGroupTable()
         relative_table_id = 0
+        override_table_config = self._generate_acl_tables(
+            valve_cl.STATIC_TABLE_IDS)
+        # Only configure IP routing tables if enabled.
+        ipvs = set()
+        for vlan in list(self.vlans.values()):
+            ipvs = ipvs.union(vlan.ipvs())
+        for ipv in (4, 6):
+            if ipv not in ipvs:
+                table_name = 'ipv%u_fib' % ipv
+                override_table_config[table_name] = ValveTableConfig(table_name)
+        if not ipvs:
+            override_table_config['vip'] = ValveTableConfig('vip')
         for table_id, canonical_table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
             table_config = copy.deepcopy(canonical_table_config)
             table_name = table_config.name
@@ -666,88 +720,34 @@ configuration.
             for acl in acls:
                 test_config_condition(acl.exact_match != acls[0].exact_match, (
                     'ACLs when used together must have consistent exact_match'))
-            return acls[0].exact_match
 
         def resolve_acls(valve_cl):
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
-            port_acl_enabled = valve_cl.STATIC_TABLE_IDS
-            port_acl_matches = {}
-            port_acl_set_fields = set()
-            port_acl_exact_match = False
-            port_acl_meter = False
-            vlan_acl_matches = {}
-            vlan_acl_exact_match = False
-            vlan_acl_set_fields = set()
-            vlan_acl_meter = False
-
-            def merge_matches(matches, new_matches):
-                for field, has_mask in list(new_matches.items()):
-                    if has_mask or field not in matches:
-                        matches[field] = has_mask
-
             for vlan in list(self.vlans.values()):
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
-                        matches, set_fields, meter = resolve_acl(acl, vlan.vid)
-                        merge_matches(vlan_acl_matches, matches)
-                        vlan_acl_set_fields = vlan_acl_set_fields.union(set_fields)
-                        if meter:
-                            vlan_acl_meter = True
+                        resolve_acl(acl, vlan.vid)
                         acls.append(self.acls[acl])
                     vlan.acls_in = acls
-                    vlan_acl_exact_match = verify_acl_exact_match(acls)
+                    verify_acl_exact_match(acls)
             for port in list(self.ports.values()):
                 if port.acls_in:
                     test_config_condition(self.dp_acls, (
                         'dataplane ACLs cannot be used with port ACLs.'))
                     acls = []
                     for acl in port.acls_in:
-                        matches, set_fields, meter = resolve_acl(acl, None)
-                        merge_matches(port_acl_matches, matches)
-                        port_acl_set_fields = port_acl_set_fields.union(set_fields)
-                        if meter:
-                            port_acl_meter = True
+                        resolve_acl(acl, None)
                         acls.append(self.acls[acl])
                     port.acls_in = acls
-                    port_acl_exact_match = verify_acl_exact_match(acls)
-                    port_acl_enabled = True
+                    verify_acl_exact_match(acls)
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
-                    matches, set_fields, meter = resolve_acl(acl, None)
-                    merge_matches(port_acl_matches, matches)
-                    port_acl_set_fields = port_acl_set_fields.union(set_fields)
-                    if meter:
-                        port_acl_meter = True
+                    resolve_acl(acl, None)
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
-                port_acl_enabled = True
-            if port_acl_enabled:
-                port_acl_matches.update({'in_port': False})
-            port_acl_matches = {(field, mask) for field, mask in list(port_acl_matches.items())}
-            vlan_acl_matches = {(field, mask) for field, mask in list(vlan_acl_matches.items())}
-
-            # TODO: skip port_acl table if not configured.
-            # TODO: dynamically configure output attribue
-            override_table_config = {
-                'port_acl': ValveTableConfig(
-                    'port_acl',
-                    exact_match=port_acl_exact_match,
-                    meter=port_acl_meter,
-                    output=True,
-                    match_types=port_acl_matches,
-                    set_fields=tuple(port_acl_set_fields)),
-                'vlan_acl': ValveTableConfig(
-                    'vlan_acl',
-                    exact_match=vlan_acl_exact_match,
-                    meter=vlan_acl_meter,
-                    output=True,
-                    match_types=vlan_acl_matches,
-                    set_fields=tuple(vlan_acl_set_fields)),
-            }
-            return override_table_config
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
@@ -794,21 +794,10 @@ configuration.
         resolve_mirror_destinations()
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
-        override_table_config = resolve_acls(valve_cl)
-
-        # Only configure IP routing tables if enabled.
-        ipvs = set()
-        for vlan in list(self.vlans.values()):
-            ipvs = ipvs.union(vlan.ipvs())
-        for ipv in (4, 6):
-            if ipv not in ipvs:
-                table_name = 'ipv%u_fib' % ipv
-                override_table_config[table_name] = ValveTableConfig(table_name)
-        if not ipvs:
-            override_table_config['vip'] = ValveTableConfig('vip')
+        resolve_acls(valve_cl)
 
         vlan_port_factor = len(self.vlans) * len(self.ports)
-        self._configure_tables(override_table_config, valve_cl, vlan_port_factor)
+        self._configure_tables(valve_cl, vlan_port_factor)
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:
