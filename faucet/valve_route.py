@@ -115,7 +115,8 @@ class ValveRouteManager:
         self.route_priority = route_priority
         self.routers = routers
         self.active = False
-        if self._global_routing():
+        self.global_routing = self._global_routing()
+        if self.global_routing:
             self.logger.info('global routing enabled')
 
     def nexthop_dead(self, nexthop_cache_entry):
@@ -220,7 +221,7 @@ class ValveRouteManager:
         return None
 
     def _routed_vlans(self, vlan):
-        if self._global_routing():
+        if self.global_routing:
             return set([self.global_vlan])
         vlans = set([vlan])
         if self.routers:
@@ -231,7 +232,7 @@ class ValveRouteManager:
 
     @staticmethod
     def _stateful_gw(vlan, dst_ip):
-        return vlan.ip_dsts_for_ip_gw(dst_ip) or not dst_ip.is_link_local
+        return not dst_ip.is_link_local or vlan.ip_dsts_for_ip_gw(dst_ip)
 
     def _global_routing(self):
         return self.global_vlan.vid and self.routers and len(self.routers) == 1
@@ -240,7 +241,7 @@ class ValveRouteManager:
         learn_connected_priority = self.route_priority + faucet_vip.network.prefixlen
         faucet_mac = vlan.faucet_mac
         insts = [valve_of.goto_table(self.fib_table)]
-        if self._global_routing():
+        if self.global_routing:
             vlan_mac = valve_packet.int_in_mac(faucet_mac, vlan.vid)
             insts = [valve_of.apply_actions([
                 valve_of.set_eth_dst(vlan_mac),
@@ -251,7 +252,7 @@ class ValveRouteManager:
             priority=self.route_priority,
             inst=insts))
         routed_vlans = self._routed_vlans(vlan)
-        if self._global_routing():
+        if self.global_routing:
             vlan = self.global_vlan
         ofmsgs.append(self.fib_table.flowmod(
             self._route_match(vlan, faucet_vip_host),
@@ -838,7 +839,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         ofmsgs = super(ValveIPv6RouteManager, self)._add_faucet_fib_to_vip(
             vlan, priority, faucet_vip, faucet_vip_host)
         faucet_vip_broadcast = ipaddress.IPv6Interface(faucet_vip.network.broadcast_address)
-        if self._global_routing():
+        if self.global_routing:
             vlan = self.global_vlan
         ofmsgs.append(self.fib_table.flowmod(
             self._route_match(vlan, faucet_vip_broadcast),
