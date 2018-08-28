@@ -76,6 +76,7 @@ class ValveRouteManager:
         'fib_table',
         'flood_table',
         'global_vlan',
+        'global_routing',
         'logger',
         'max_host_fib_retry_count',
         'max_hosts_per_resolve_cycle',
