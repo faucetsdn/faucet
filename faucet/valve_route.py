@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict
+from collections import defaultdict, deque
 import random
 
 import ipaddress
@@ -335,19 +335,6 @@ class ValveRouteManager:
         self._update_nexthop_cache(now, vlan, eth_src, port, resolved_ip_gw)
         return ofmsgs
 
-    def _vlan_ip_gws(self, vlan):
-        """Return IP gateways in VLAN.
-
-        Args:
-            vlan (vlan): VLAN containing this RIB/FIB.
-        Returns:
-            tuple: frozenset, route gateways, host routes.
-        """
-        all_ip_gws = vlan.all_ip_gws(self.IPV)
-        host_ip_gws = frozenset([ip_gw for ip_gw in all_ip_gws if vlan.is_host_fib_route(ip_gw)])
-        route_ip_gws = frozenset(all_ip_gws - host_ip_gws)
-        return (route_ip_gws, host_ip_gws)
-
     def _vlan_unresolved_nexthops(self, vlan, ip_gws, now):
         """Return unresolved or expired IP gateways, never tried/oldest first.
 
@@ -371,7 +358,7 @@ class ValveRouteManager:
             if entry is None:
                 entry = self._update_nexthop_cache(now, vlan, None, None, ip_gw)
             unresolved_nexthops_by_retries[entry.resolve_retries].append(ip_gw)
-        unresolved_nexthops = []
+        unresolved_nexthops = deque()
         for _retries, nexthops in sorted(unresolved_nexthops_by_retries.items()):
             random.shuffle(nexthops)
             unresolved_nexthops.extend(nexthops)
@@ -455,13 +442,12 @@ class ValveRouteManager:
         """
         unresolved_gateways = []
         if resolve_all:
-            route_ip_gws, _ = self._vlan_ip_gws(vlan)
-            vlan.dyn_unresolved_route_ip_gws = self._vlan_unresolved_nexthops(
-                vlan, route_ip_gws, now)
-            unresolved_gateways = vlan.dyn_unresolved_route_ip_gws
+            unresolved_gateways = self._vlan_unresolved_nexthops(
+                vlan, vlan.dyn_route_gws_by_ipv[self.IPV], now)
+            vlan.dyn_unresolved_route_ip_gws[self.IPV] = unresolved_gateways
         else:
-            if vlan.dyn_unresolved_route_ip_gws:
-                unresolved_gateways = [vlan.dyn_unresolved_route_ip_gws.pop(0)]
+            if vlan.dyn_unresolved_route_ip_gws[self.IPV]:
+                unresolved_gateways = [vlan.dyn_unresolved_route_ip_gws[self.IPV].popleft()]
         return self._resolve_gateways_flows(
             self._resolve_gateway_flows, vlan, now,
             unresolved_gateways, self.max_hosts_per_resolve_cycle)
@@ -478,13 +464,12 @@ class ValveRouteManager:
         """
         unresolved_gateways = []
         if resolve_all:
-            _, host_ip_gws = self._vlan_ip_gws(vlan)
-            vlan.dyn_unresolved_host_ip_gws = self._vlan_unresolved_nexthops(
-                vlan, host_ip_gws, now)
-            unresolved_gateways = vlan.dyn_unresolved_host_ip_gws
+            unresolved_gateways = self._vlan_unresolved_nexthops(
+                vlan, vlan.dyn_host_gws_by_ipv[self.IPV], now)
+            vlan.dyn_unresolved_host_ip_gws[self.IPV] = unresolved_gateways
         else:
-            if vlan.dyn_unresolved_host_ip_gws:
-                unresolved_gateways = [vlan.dyn_unresolved_host_ip_gws.pop(0)]
+            if vlan.dyn_unresolved_host_ip_gws[self.IPV]:
+                unresolved_gateways = [vlan.dyn_unresolved_host_ip_gws[self.IPV].popleft()]
         return self._resolve_gateways_flows(
             self._resolve_expire_gateway_flows, vlan, now,
             unresolved_gateways, self.max_hosts_per_resolve_cycle)
@@ -517,7 +502,7 @@ class ValveRouteManager:
                     faucet_vip.ip != dst_ip and self._stateful_gw(vlan, dst_ip)):
                 limit = self._vlan_nexthop_cache_limit(vlan)
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
-                    resolution_in_progress = vlan.is_host_fib_route(dst_ip)
+                    resolution_in_progress = dst_ip in vlan.dyn_host_gws_by_ipv[self.IPV]
                     ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
                     nexthop_cache_entry = self._update_nexthop_cache(
                         now, vlan, None, None, dst_ip)
@@ -666,6 +651,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMP
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP) # type: ignore
     IP_PKT = ipv4.ipv4
+
 
     def advertise(self, _vlan):
         return []
