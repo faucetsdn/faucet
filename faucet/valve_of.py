@@ -669,8 +669,8 @@ def is_delete(ofmsg):
 
 
 _MSG_KINDS = (
-    ('delete', is_delete),
     ('packetout', is_packetout),
+    ('delete', is_delete),
     ('tfm', is_table_features_req),
     ('groupadd', is_groupadd),
     ('meteradd', is_meteradd),
