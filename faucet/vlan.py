@@ -187,6 +187,8 @@ class VLAN(Conf):
 
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
         self.dyn_gws_by_ipv = collections.defaultdict(dict)
+        self.dyn_host_gws_by_ipv = collections.defaultdict(set)
+        self.dyn_route_gws_by_ipv = collections.defaultdict(set)
         self.reset_caches()
         super(VLAN, self).__init__(_id, dp_id, conf)
 
@@ -286,8 +288,8 @@ class VLAN(Conf):
         self.dyn_host_cache = {}
         self.dyn_host_cache_by_port = {}
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
-        self.dyn_unresolved_route_ip_gws = []
-        self.dyn_unresolved_host_ip_gws = []
+        self.dyn_unresolved_route_ip_gws = collections.defaultdict(list)
+        self.dyn_unresolved_host_ip_gws = collections.defaultdict(list)
 
     def reset_ports(self, ports):
         self.tagged = tuple([port for port in ports if self in port.tagged_vlans])
@@ -415,12 +417,21 @@ class VLAN(Conf):
             return True
         return False
 
+    def _update_gw_types(self, ip_gw):
+        if self.is_host_fib_route(ip_gw):
+            self.dyn_host_gws_by_ipv[ip_gw.version].add(ip_gw)
+            self.dyn_route_gws_by_ipv[ip_gw.version] -= set([ip_gw])
+        else:
+            self.dyn_route_gws_by_ipv[ip_gw.version].add(ip_gw)
+            self.dyn_host_gws_by_ipv[ip_gw.version] -= set([ip_gw])
+
     def add_route(self, ip_dst, ip_gw):
         """Add an IP route."""
         self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
         if ip_gw not in self.dyn_gws_by_ipv[ip_gw.version]:
             self.dyn_gws_by_ipv[ip_gw.version][ip_gw] = set()
         self.dyn_gws_by_ipv[ip_gw.version][ip_gw].add(ip_dst)
+        self._update_gw_types(ip_gw)
 
     def del_route(self, ip_dst):
         """Delete an IP route."""
@@ -429,6 +440,7 @@ class VLAN(Conf):
         self.dyn_gws_by_ipv[ip_gw.version][ip_gw].remove(ip_dst)
         if not self.dyn_gws_by_ipv[ip_gw.version][ip_gw]:
             del self.dyn_gws_by_ipv[ip_gw.version][ip_gw]
+        self._update_gw_types(ip_gw)
 
     def ip_dsts_for_ip_gw(self, ip_gw):
         """Return list of IP destinations, for specified gateway."""
@@ -516,7 +528,8 @@ class VLAN(Conf):
                 (None, self.untagged_flood_ports(False))):
             if ports:
                 pkt = packet_builder(vid, *args)
-                flood_ofmsgs = [valve_of.packetout(port.number, pkt.data) for port in ports if port.running()]
+                flood_ofmsgs = [
+                    valve_of.packetout(port.number, pkt.data) for port in ports if port.running()]
                 ofmsgs.extend(flood_ofmsgs)
         return ofmsgs
 
