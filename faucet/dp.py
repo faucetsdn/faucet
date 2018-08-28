@@ -695,7 +695,7 @@ configuration.
                         'override_output_port port not defined'))
                     self.ports[port_no] = port
 
-        def resolve_acl(acl_in, vid):
+        def resolve_acl(acl_in, vid=None, port_num=None):
             """Resolve an individual ACL."""
             test_config_condition(acl_in not in self.acls, (
                 'missing ACL %s in DP: %s' % (acl_in, self.name)))
@@ -714,7 +714,7 @@ configuration.
             for port_no in acl.get_mirror_destinations():
                 port = self.ports[port_no]
                 port.output_only = True
-            return acl.build(vid, self.meters)
+            return acl.build(self.meters, vid, port_num)
 
         def verify_acl_exact_match(acls):
             for acl in acls:
@@ -738,7 +738,7 @@ configuration.
                         'dataplane ACLs cannot be used with port ACLs.'))
                     acls = []
                     for acl in port.acls_in:
-                        resolve_acl(acl, None)
+                        resolve_acl(acl, port_num=port.number)
                         acls.append(self.acls[acl])
                     port.acls_in = acls
                     verify_acl_exact_match(acls)

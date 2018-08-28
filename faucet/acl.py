@@ -145,7 +145,7 @@ The output action contains a dictionary with the following elements:
     def to_conf(self):
         return [{'rule': rule} for rule in self.rules]
 
-    def build(self, vid, meters):
+    def build(self, meters, vid, port_num):
         """Check that ACL can be built from config."""
 
         class NullRyuDatapath:
@@ -162,7 +162,7 @@ The output action contains a dictionary with the following elements:
                     valve_of.goto_table(wildcard_table),
                     valve_of.goto_table(wildcard_table),
                     2**16-1, meters, self.exact_match,
-                    vlan_vid=vid)
+                    vlan_vid=vid, port_num=port_num)
             except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
                 raise InvalidConfigError(err)
             test_config_condition(not ofmsgs, 'OF messages is empty')
