@@ -97,6 +97,9 @@ The output action contains a dictionary with the following elements:
     def __init__(self, _id, dp_id, conf):
         self.rules = []
         self.exact_match = None
+        self.meter = False
+        self.matches = {}
+        self.set_fields = set()
         conf = copy.deepcopy(conf)
         if isinstance(conf, dict):
             rules = conf.get('rules', [])
@@ -149,9 +152,9 @@ The output action contains a dictionary with the following elements:
             """Placeholder Ryu Datapath."""
             ofproto = valve_of.ofp
 
-        matches = {}
-        set_fields = set()
-        meter = False
+        self.matches = {}
+        self.set_fields = set()
+        self.meter = False
         if self.rules:
             try:
                 ofmsgs = valve_acl.build_acl_ofmsgs(
@@ -179,15 +182,15 @@ The output action contains a dictionary with the following elements:
                         if valve_of.is_apply_actions(inst):
                             apply_actions.extend(inst.actions)
                         elif valve_of.is_meter(inst):
-                            meter = True
+                            self.meter = True
                     for action in apply_actions:
                         if valve_of.is_set_field(action):
-                            set_fields.add(action.key)
+                            self.set_fields.add(action.key)
                     for match, value in list(ofmsg.match.items()):
                         has_mask = isinstance(value, (tuple, list))
-                        if has_mask or match not in matches:
-                            matches[match] = has_mask
-        return (matches, set_fields, meter)
+                        if has_mask or match not in self.matches:
+                            self.matches[match] = has_mask
+        return (self.matches, self.set_fields, self.meter)
 
     def get_meters(self):
         for rule in self.rules:
