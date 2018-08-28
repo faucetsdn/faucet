@@ -351,8 +351,7 @@ class ValveRouteManager:
         min_cache_time = now - self.arp_neighbor_timeout
         not_fresh_nexthops = [
             (ip_gw, entry) for ip_gw, entry in nexthop_entries
-            if entry is None or entry.eth_src is None or (
-                entry.cache_time < min_cache_time and now > entry.next_retry_time)]
+            if entry is None or now > entry.next_retry_time]
         unresolved_nexthops_by_retries = defaultdict(list)
         for ip_gw, entry in not_fresh_nexthops:
             if entry is None:
