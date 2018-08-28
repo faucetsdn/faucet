@@ -1467,7 +1467,7 @@ class Valve:
             priority=self.dp.highest_priority,
             strict=True
         )
-        return [ofmsg]
+        return ofmsg
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
