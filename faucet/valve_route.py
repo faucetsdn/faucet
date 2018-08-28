@@ -154,14 +154,15 @@ class ValveRouteManager:
                     self._add_host_fib_route(vlan, src_ip, blackhole=False))
                 ofmsgs.extend(self._update_nexthop(
                     now, vlan, port, eth_src, src_ip))
+                if ofmsgs:
+                    self.logger.info(
+                        'Resolve response to %s from %s' % (
+                            solicited_ip, pkt_meta.log()))
             ofmsgs.append(
                 vlan.pkt_out_port(
                     self._gw_respond_pkt(), port,
                     vlan.faucet_mac, eth_src,
                     solicited_ip, src_ip))
-            self.logger.info(
-                'Resolve response to %s from %s' % (
-                    solicited_ip, pkt_meta.log()))
         return ofmsgs
 
     def _gw_advert(self, pkt_meta, target_ip, now):
@@ -171,9 +172,10 @@ class ValveRouteManager:
             if self._stateful_gw(vlan, target_ip):
                 ofmsgs.extend(self._update_nexthop(
                     now, vlan, pkt_meta.port, pkt_meta.eth_src, target_ip))
-            self.logger.info(
-                'Received advert for %s from %s' % (
-                    target_ip, pkt_meta.log()))
+                if ofmsgs:
+                    self.logger.info(
+                        'Received advert for %s from %s' % (
+                            target_ip, pkt_meta.log()))
         return ofmsgs
 
     def _vlan_routes(self, vlan):
@@ -916,7 +918,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
             return ofmsgs
         handler, payload_type = self._icmpv6_handlers.get(
             icmpv6_type, (None, None))
-        if handler is not None and (payload_type is None or
+        if handler is not None and (
+                payload_type is None or
                 isinstance(icmpv6_pkt.data, payload_type)):
             ofmsgs = handler(self, now, pkt_meta, ipv6_pkt, icmpv6_pkt)
         return ofmsgs
