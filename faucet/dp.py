@@ -312,19 +312,20 @@ configuration.
         all_acls = {}
         for vlan in self.vlans.values():
             if vlan.acls_in:
-                all_acls.setdefault('vlan_acl', [])
-                all_acls['vlan_acl'].extend(vlan.acls_in)
+                all_acls.setdefault('vlan_acl', (2, []))
+                all_acls['vlan_acl'][1].extend(vlan.acls_in)
         if self.dp_acls:
             for acl in self.dp_acls:
-                all_acls['port_acl'] = self.dp_acls
+                all_acls['port_acl'] = (0, self.dp_acls)
         else:
             for port in self.ports.values():
                 if port.acls_in:
-                    all_acls.setdefault('port_acl', [])
-                    all_acls['port_acl'].extend(port.acls_in)
+                    all_acls.setdefault('port_acl', (0, []))
+                    all_acls['port_acl'][1].extend(port.acls_in)
 
         table_config = {}
-        for table_name, acls in all_acls.items():
+        for table_name, val in all_acls.items():
+            table_id, acls = val
             matches = {}
             set_fields = set()
             meter = False
@@ -362,7 +363,8 @@ configuration.
                 included_tables.add('vip')
         if valve_cl.STATIC_TABLE_IDS:
             included_tables.add('port_acl')
-        for table_id, canonical_table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
+        relative_table_id = 0
+        for canonical_table_config in faucet_pipeline.FAUCET_PIPELINE:
             table_name = canonical_table_config.name
             if table_name not in included_tables:
                 continue
@@ -378,7 +380,9 @@ configuration.
                 size = min(size, self.max_wildcard_table_size)
                 size = int(size / self.min_wildcard_table_size) * self.min_wildcard_table_size
             table_config.size = size
-            if not valve_cl.STATIC_TABLE_IDS:
+            if valve_cl.STATIC_TABLE_IDS:
+                table_id = table_config.table_id
+            else:
                 table_id = relative_table_id
             tables[table_name] = ValveTable(
                 table_id, table_name, table_config, self.cookie,
