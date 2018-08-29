@@ -65,7 +65,9 @@ def _fib_table(ipv):
 # of control protocols and simplify matches in vlan/eth_src, enabling use of exact_match.
 FAUCET_PIPELINE = (
     ValveTableConfig(
-        'port_acl'),
+        'port_acl',
+        match_types=(('in_port', False),)
+        ),
     ValveTableConfig(
         'vlan',
         match_types=(('eth_dst', True), ('eth_type', False),

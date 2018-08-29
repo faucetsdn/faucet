@@ -308,19 +308,19 @@ configuration.
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
         self._check_conf_types(self.table_sizes, self.default_table_sizes_types)
 
-    def _generate_acl_tables(self, port_acl_enabled):
+    def _generate_acl_tables(self):
         all_acls = {}
-        all_acls['vlan_acl'] = []
         for vlan in self.vlans.values():
             if vlan.acls_in:
+                all_acls.setdefault('vlan_acl', [])
                 all_acls['vlan_acl'].extend(vlan.acls_in)
         if self.dp_acls:
             for acl in self.dp_acls:
                 all_acls['port_acl'] = self.dp_acls
         else:
-            all_acls['port_acl'] = []
             for port in self.ports.values():
                 if port.acls_in:
+                    all_acls.setdefault('port_acl', [])
                     all_acls['port_acl'].extend(port.acls_in)
 
         table_config = {}
@@ -336,8 +336,6 @@ configuration.
                 set_fields.update(acl.set_fields)
                 meter = meter or acl.meter
                 exact_match = acl.exact_match
-            if table_name == 'port_acl' and (acls or port_acl_enabled):
-                matches.update({'in_port': False})
             matches = set(matches.items())
             table_config[table_name] = ValveTableConfig(
                     table_name,
@@ -346,7 +344,6 @@ configuration.
                     output=True,
                     match_types=matches,
                     set_fields=tuple(set_fields))
-        # TODO: skip port_acl table if not configured.
         # TODO: dynamically configure output attribue
         return table_config
 
@@ -355,23 +352,24 @@ configuration.
         tables = {}
         self.groups = ValveGroupTable()
         relative_table_id = 0
-        override_table_config = self._generate_acl_tables(
-            valve_cl.STATIC_TABLE_IDS)
+        included_tables = {'vlan', 'eth_src', 'eth_dst', 'flood'}
+        acl_tables = self._generate_acl_tables()
+        included_tables.update(acl_tables.keys())
         # Only configure IP routing tables if enabled.
-        ipvs = set()
-        for vlan in list(self.vlans.values()):
-            ipvs = ipvs.union(vlan.ipvs())
-        for ipv in (4, 6):
-            if ipv not in ipvs:
-                table_name = 'ipv%u_fib' % ipv
-                override_table_config[table_name] = ValveTableConfig(table_name)
-        if not ipvs:
-            override_table_config['vip'] = ValveTableConfig('vip')
+        for vlan in self.vlans.values():
+            for ipv in vlan.ipvs():
+                included_tables.add('ipv%u_fib' % ipv)
+                included_tables.add('vip')
+        if valve_cl.STATIC_TABLE_IDS:
+            included_tables.add('port_acl')
         for table_id, canonical_table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
-            table_config = copy.deepcopy(canonical_table_config)
-            table_name = table_config.name
-            if table_name in override_table_config:
-                table_config = override_table_config[table_name]
+            table_name = canonical_table_config.name
+            if table_name not in included_tables:
+                continue
+            if table_name in acl_tables:
+                table_config = acl_tables[table_name]
+            else:
+                table_config = copy.deepcopy(canonical_table_config)
             size = self.table_sizes.get(table_name, self.min_wildcard_table_size)
             if table_config.vlan_port_scale:
                 size = max(size, int(vlan_port_factor * float(table_config.vlan_port_scale)))
@@ -379,13 +377,12 @@ configuration.
                 size = min(size, self.max_wildcard_table_size)
                 size = int(size / self.min_wildcard_table_size) * self.min_wildcard_table_size
             table_config.size = size
-            if table_config.match_types:
-                if not valve_cl.STATIC_TABLE_IDS:
-                    table_id = relative_table_id
-                tables[table_name] = ValveTable(
-                    table_id, table_name, table_config, self.cookie,
-                    notify_flow_removed=self.use_idle_timeout)
-                relative_table_id += 1
+            if not valve_cl.STATIC_TABLE_IDS:
+                table_id = relative_table_id
+            tables[table_name] = ValveTable(
+                table_id, table_name, table_config, self.cookie,
+                notify_flow_removed=self.use_idle_timeout)
+            relative_table_id += 1
         self.tables = tables
 
     def set_defaults(self):
