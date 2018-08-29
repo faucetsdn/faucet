@@ -156,7 +156,7 @@ vlans:
         self.verify_events_log(event_log)
 
 
-class FaucetSingleUntagged8021XSuccessTest(FaucetUntaggedTest):
+class FaucetSingle8021XSuccessTest(FaucetUntaggedTest):
 
     SOFTWARE_ONLY = True
 
@@ -250,18 +250,19 @@ network={
 
         self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
         self.CONFIG_GLOBAL = self.CONFIG_GLOBAL.replace("NFV_MAC", nfv_intf.MAC())
-        super(FaucetUntagged8021XSuccessTest, self)._write_faucet_config()
+        super(FaucetSingle8021XSuccessTest, self)._write_faucet_config()
 
     def setUp(self):
-        super(FaucetUntagged8021XSuccessTest, self).setUp()
+        super(FaucetSingle8021XSuccessTest, self).setUp()
         self.host_drop_all_ips(self.nfv_host)
         self.radius_port = 1812
         # self.radius_port = mininet_test_util.find_free_port(
         #     self.ports_sock, self._test_name())
+        self.start_freeradius()
 
     def tearDown(self):
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
-        super(FaucetUntagged8021XSuccessTest, self).tearDown()
+        super(FaucetSingle8021XSuccessTest, self).tearDown()
 
     def try_8021x(self, and_logff=False):
         tcpdump_filter = 'ether proto 0x888e'
@@ -272,17 +273,7 @@ network={
         return tcpdump_txt
 
     def test_untagged(self):
-        radius_log_path = self.start_freeradius()
         tcpdump_txt = self.try_8021x(and_logff=True)
-
-        faucet_log = self.env['faucet']['FAUCET_LOG']
-        with open(faucet_log, 'r') as log:
-            faucet_log_txt = log.read()
-            print(faucet_log_txt)
-
-        with open(radius_log_path, 'r') as log:
-            radius_log_txt = log.read()
-            print(radius_log_txt)
 
         self.assertIn('Success', tcpdump_txt)
         self.assertEqual(
@@ -330,7 +321,7 @@ network={
 
             self.eapol_host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
 
-            for i in range(1):
+            for i in range(10):
                 if not self.matching_flow_present(
                     {'eth_src': self.eapol_host.MAC(), 'in_port': 1}, table_id=0):
                     break
@@ -385,7 +376,7 @@ network={
         return radius_log_path
 
 
-class FaucetSingleUntagged8021XFailureTest(FaucetSingleUntagged8021XSuccessTest):
+class FaucetSingle8021XFailureTest(FaucetSingle8021XSuccessTest):
     """Failure due to incorrect identity/password"""
 
     wpasupplicant_conf = """
@@ -399,7 +390,6 @@ class FaucetSingleUntagged8021XFailureTest(FaucetSingleUntagged8021XSuccessTest)
     """
 
     def test_untagged(self):
-        self.start_freeradius()
         tcpdump_txt = self.try_8021x(and_logff=False)
         self.assertIn('Failure', tcpdump_txt)
         self.assertEqual(
