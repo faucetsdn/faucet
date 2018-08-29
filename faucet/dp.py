@@ -347,7 +347,7 @@ configuration.
         # TODO: dynamically configure output attribue
         return table_config
 
-    def _configure_tables(self, valve_cl, vlan_port_factor):
+    def _configure_tables(self, valve_cl):
         """Configure FAUCET pipeline with tables."""
         tables = {}
         self.groups = ValveGroupTable()
@@ -372,6 +372,7 @@ configuration.
                 table_config = copy.deepcopy(canonical_table_config)
             size = self.table_sizes.get(table_name, self.min_wildcard_table_size)
             if table_config.vlan_port_scale:
+                vlan_port_factor = len(self.vlans) * len(self.ports)
                 size = max(size, int(vlan_port_factor * float(table_config.vlan_port_scale)))
             if not table_config.exact_match:
                 size = min(size, self.max_wildcard_table_size)
@@ -793,8 +794,7 @@ configuration.
         resolve_vlan_names_in_routers()
         resolve_acls(valve_cl)
 
-        vlan_port_factor = len(self.vlans) * len(self.ports)
-        self._configure_tables(valve_cl, vlan_port_factor)
+        self._configure_tables(valve_cl)
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:
