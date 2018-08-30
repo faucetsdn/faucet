@@ -1,0 +1,80 @@
+---
+version: 2
+dps:
+  C1_S1:
+    description: Switch-C1_S1
+    dp_id: 0x00000000C1001000
+    interfaces:
+      1: # -> Switch- C1_S2
+        description: Connection to C1_S2
+        tagged_vlans: [10]
+      2: # -> Switch- C1_S3
+        description: Connection to C1_S3
+        tagged_vlans: [10]
+  C1_S2:
+    description: Switch-C1_S2
+    dp_id: 0x00000000C1002000
+    interfaces:
+      1: # -> Switch- C1_S1
+        description: Connection to C1_S1
+        tagged_vlans: [10]
+      2: # -> Host- C1_S2_H1
+        description: Connection to C1_S2_H1
+        native_vlan: 10
+      3: # -> Host- C1_S2_H2
+        description: Connection to C1_S2_H2
+        native_vlan: 10
+      4: # -> Host- C1_S2_H3
+        description: Connection to C1_S2_H3
+        native_vlan: 10
+      5: # -> Host- C1_S2_H4
+        description: Connection to C1_S2_H4
+        native_vlan: 10
+      6: # -> Host- C1_S2_H5
+        description: Connection to C1_S2_H5
+        native_vlan: 10
+  C1_S3:
+    description: Switch-C1_S3
+    dp_id: 0x00000000C1003000
+    interfaces:
+      1: # -> Switch- C1_S4
+        description: Connection to C1_S4
+        tagged_vlans: [10]
+      2: # -> Switch- C1_S1
+        description: Connection to C1_S1
+        tagged_vlans: [10]
+  C1_S4:
+    description: Switch-C1_S4
+    dp_id: 0x00000000C1004000
+    interfaces:
+      1: # -> Switch- C1_S3
+        description: Connection to C1_S3
+        tagged_vlans: [10]
+      2: # -> Switch- C1_S5
+        description: Connection to C1_S5
+        tagged_vlans: [10]
+  C1_S5:
+    description: Switch-C1_S5
+    dp_id: 0x00000000C1005000
+    interfaces:
+      1: # -> Switch- C1_S4
+        description: Connection to C1_S4
+        tagged_vlans: [10]
+      2: # -> Host- C1_S5_H1
+        description: Connection to C1_S5_H1
+        native_vlan: 10
+      3: # -> Host- C1_S5_H2
+        description: Connection to C1_S5_H2
+        native_vlan: 10
+      4: # -> Host- C1_S5_H3
+        description: Connection to C1_S5_H3
+        native_vlan: 10
+      5: # -> Host- C1_S5_H4
+        description: Connection to C1_S5_H4
+        native_vlan: 10
+      6: # -> Host- C1_S5_H5
+        description: Connection to C1_S5_H5
+        native_vlan: 10
+vlans:
+  10:
+    name: VLAN 10
