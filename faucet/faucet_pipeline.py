@@ -85,7 +85,7 @@ VLAN_DEFAULT_CONFIG = ValveTableConfig(
     next_tables=('vlan_acl', 'eth_src'),
     )
 VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
-    'vlan_acl', 2, next_tables=('eth_src'))
+    'vlan_acl', 2, next_tables=('eth_src',))
 ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
     'eth_src',
     3,
@@ -111,7 +111,7 @@ ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     miss_goto='flood',
     match_types=(('eth_dst', False), ('vlan_vid', False)),
     vlan_port_scale=4.1,
-    next_tables=('flood'),
+    next_tables=('flood',),
     )
 FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
