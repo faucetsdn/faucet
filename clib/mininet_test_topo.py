@@ -23,86 +23,13 @@ from clib import mininet_test_util
 
 import netifaces
 
-# TODO: mininet 2.2.2 leaks ptys (master slave assigned in startShell)
-# override as necessary close them. Transclude overridden methods
-# to avoid multiple inheritance complexity.
-
-class FaucetHostCleanup(object):
-    """TODO: Mininet host implemenation leaks ptys."""
-
-    master = None
-    shell = None
-    slave = None
-    name = None
-    inNamespace = None
-    pollOut = None
-    stdout = None
-    execed = None
-    lastCmd = None # pylint: disable=invalid-name
-    readbuf = None
-    lastPid = None
-    pid = None
-    waiting = None
-    stdin = None
-
-
-    def startShell(self, mnopts=None): # pylint: disable=invalid-name
-        """Override Mininet startshell() to partially avoid pty leak."""
-        if self.shell:
-            error('%s: shell is already running\n' % self.name)
-            return
-        opts = '-cd' if mnopts is None else mnopts
-        if self.inNamespace:
-            opts += 'n'
-        cmd = ['mnexec', opts, 'env', 'PS1=' + chr(127),
-               'bash', '--norc', '-is', 'mininet:' + self.name]
-        self.master, self.slave = pty.openpty()
-        self.shell = self._popen( # pylint: disable=no-member; # pytype: disable=attribute-error
-            cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
-            close_fds=False)
-        self.stdin = os.fdopen(self.master, 'r')
-        self.stdout = self.stdin
-        self.pid = self.shell.pid
-        self.pollOut = select.poll() # pylint: disable=invalid-name
-        self.pollOut.register(self.stdout) # pylint: disable=no-member
-        self.outToNode[self.stdout.fileno()] = self # pylint: disable=no-member; # pytype: disable=attribute-error
-        self.inToNode[self.stdin.fileno()] = self # pylint: disable=no-member; # pytype: disable=attribute-error
-        self.execed = False
-        self.lastCmd = None # pylint: disable=invalid-typevar
-        self.lastPid = None # pylint: disable=invalid-name
-        self.readbuf = ''
-        while True:
-            data = self.read(1024) # pylint: disable=no-member; # pytype: disable=attribute-error
-            if data[-1] == chr(127):
-                break
-            self.pollOut.poll()
-        self.waiting = False
-        self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member; # pytype: disable=attribute-error
-
-    def terminate(self):
-        """Override Mininet terminate() to partially avoid pty leak."""
-        if self.shell is not None:
-            try:
-                os.close(self.slave)
-            except OSError:
-                pass
-            self.stdin.close()
-            if self.shell.returncode is None:
-                self.shell.kill()
-                self.shell.poll()
-        try:
-            self.cleanup() # pylint: disable=no-member; # pytype: disable=attribute-error
-        except OSError:
-            pass
-
-
-class FaucetHost(FaucetHostCleanup, CPULimitedHost):
+class FaucetHost(CPULimitedHost):
     """Base Mininet Host class, for Mininet-based tests."""
 
     pass
 
 
-class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
+class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (netdev based OVS)."""
 
     controller_params = {
