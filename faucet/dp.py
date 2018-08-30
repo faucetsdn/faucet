@@ -340,6 +340,7 @@ configuration.
             matches = set(matches.items())
             table_config[table_name] = ValveTableConfig(
                     table_name,
+                    table_id,
                     exact_match=exact_match,
                     meter=meter,
                     output=True,
@@ -364,6 +365,7 @@ configuration.
         if valve_cl.STATIC_TABLE_IDS:
             included_tables.add('port_acl')
         relative_table_id = 0
+        table_configs = {}
         for canonical_table_config in faucet_pipeline.FAUCET_PIPELINE:
             table_name = canonical_table_config.name
             if table_name not in included_tables:
@@ -372,6 +374,12 @@ configuration.
                 table_config = acl_tables[table_name]
             else:
                 table_config = copy.deepcopy(canonical_table_config)
+            if not valve_cl.STATIC_TABLE_IDS:
+                table_config.table_id = relative_table_id
+            relative_table_id += 1
+            table_configs[table_name] = table_config
+
+        for table_name, table_config in table_configs.items():
             size = self.table_sizes.get(table_name, self.min_wildcard_table_size)
             if table_config.vlan_port_scale:
                 vlan_port_factor = len(self.vlans) * len(self.ports)
@@ -380,14 +388,15 @@ configuration.
                 size = min(size, self.max_wildcard_table_size)
                 size = int(size / self.min_wildcard_table_size) * self.min_wildcard_table_size
             table_config.size = size
-            if valve_cl.STATIC_TABLE_IDS:
-                table_id = table_config.table_id
-            else:
-                table_id = relative_table_id
+            next_tables = []
+            for nt in table_config.next_tables:
+                if nt in table_configs:
+                    next_tables.append(table_configs[nt].table_id)
             tables[table_name] = ValveTable(
-                table_id, table_name, table_config, self.cookie,
-                notify_flow_removed=self.use_idle_timeout)
-            relative_table_id += 1
+                table_name, table_config, self.cookie,
+                notify_flow_removed=self.use_idle_timeout,
+                next_tables=next_tables
+                )
         self.tables = tables
 
     def set_defaults(self):

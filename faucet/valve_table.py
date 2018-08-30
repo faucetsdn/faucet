@@ -34,6 +34,10 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         self.set_fields = self.table_config.set_fields
         self.exact_match = self.table_config.exact_match
         self.match_types = None
+        if next_tables:
+            self.next_tables = next_tables
+        else:
+            self.next_tables = []
         if self.table_config.match_types:
             self.match_types = {}
             for field, mask in self.table_config.match_types:

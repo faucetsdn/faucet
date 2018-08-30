@@ -23,7 +23,7 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
     def __init__(self, name, table_id, # pylint: disable=too-many-arguments
                  exact_match=None, meter=None, output=True, miss_goto=None,
                  size=None, match_types=None, set_fields=None, dec_ttl=None,
-                 vlan_port_scale=None):
+                 vlan_port_scale=None, next_tables=None):
         self.name = name
         self.table_id = table_id
         self.exact_match = exact_match
@@ -35,6 +35,10 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
         self.set_fields = set_fields
         self.dec_ttl = dec_ttl
         self.vlan_port_scale = vlan_port_scale
+        if next_tables:
+            self.next_tables = next_tables
+        else:
+            self.next_tables = []
 
     def __str__(self):
         field_strs = ' '.join([
@@ -61,20 +65,29 @@ def _fib_table(ipv, table_id):
         match_types=(('eth_type', False), ('ipv%u_dst' % ipv, True), ('vlan_vid', False)),
         set_fields=('eth_dst', 'eth_src', 'vlan_vid'),
         dec_ttl=True,
-        vlan_port_scale=3.1)
+        vlan_port_scale=3.1,
+        next_tables=('vip', 'eth_dst')
+        )
 
 
 # TODO: implement an eth_type table before VLAN. This would enable interception
 # of control protocols and simplify matches in vlan/eth_src, enabling use of exact_match.
 FAUCET_PIPELINE = (
-    ValveTableConfig('port_acl', 0, match_types=(('in_port', False),)),
+    ValveTableConfig(
+        'port_acl',
+        0,
+        match_types=(('in_port', False),),
+        next_tables=('vlan',)
+        ),
     ValveTableConfig(
         'vlan',
         1,
         match_types=(('eth_dst', True), ('eth_type', False),
                      ('in_port', False), ('vlan_vid', False)),
         set_fields=('vlan_vid',),
-        vlan_port_scale=1.1),
+        vlan_port_scale=1.1,
+        next_tables=('vlan_acl', 'eth_src'),
+        ),
     ValveTableConfig('vlan_acl', table_id=2),
     ValveTableConfig(
         'eth_src',
@@ -83,24 +96,30 @@ FAUCET_PIPELINE = (
         match_types=(('eth_dst', True), ('eth_src', False), ('eth_type', False),
                      ('in_port', False), ('vlan_vid', False)),
         set_fields=('vlan_vid', 'eth_dst'),
-        vlan_port_scale=4.1),
+        vlan_port_scale=4.1,
+        next_tables=('ipv4_fib','ipv6_fib','vip','eth_dst')
+        ),
     _fib_table(4, 4),
     _fib_table(6, 5),
     ValveTableConfig(
         'vip',
         6,
         match_types=(('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
-                     ('icmpv6_type', False), ('ip_proto', False))),
+                     ('icmpv6_type', False), ('ip_proto', False)),
+        next_tables=None),
     ValveTableConfig(
         'eth_dst',
         7,
         exact_match=True,
         miss_goto='flood',
         match_types=(('eth_dst', False), ('vlan_vid', False)),
-        vlan_port_scale=4.1),
+        vlan_port_scale=4.1,
+        next_tables=('flood'),
+        ),
     ValveTableConfig(
         'flood',
         8,
         match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
-        vlan_port_scale=2.1),
+        vlan_port_scale=2.1,
+        next_tables=None),
 )
