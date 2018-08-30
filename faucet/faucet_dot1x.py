@@ -23,7 +23,6 @@ eventlet.monkey_patch()
 from ryu.lib import hub # pylint: disable=wrong-import-position
 
 from chewie.chewie import Chewie # pylint: disable=wrong-import-position
-from chewie.mac_address import MacAddress # pylint: disable=wrong-import-position
 
 
 class FaucetDot1x:
@@ -33,61 +32,79 @@ class FaucetDot1x:
         self.logger = logger
         self.metrics = metrics
         self._send_flow_msgs = send_flow_msgs
-        self._valve = None
+        self._valves = None
         self.dot1x_speaker = None
         self.dot1x_intf = None
-        self.dot1x_port = None
+        self.mac_to_port = {}  # {"00:00:00:00:00:02" : (valve_0, port_1)}
 
-    def _create_dot1x_speaker(self):
+    def _create_dot1x_speaker(self, dot1x_intf):
         chewie = Chewie(  # pylint: disable=too-many-function-args
-            self.dot1x_intf, self.logger,
+            dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
-            MacAddress.from_string('00:00:00:00:00:01'),
             '127.0.0.1')
         hub.spawn(chewie.run)
         return chewie
 
-    def auth_handler(self, address, _group_address):
+    def get_valve_and_port(self, port_id):
+        """Finds the valve and port that this address corresponds to
+        Args:
+            port_id: is a macaddress string"""
+        valve, port = self.mac_to_port.get(port_id)
+        return valve, port
+
+    def auth_handler(self, address, port_id):
         """Callback for when a successful auth happens."""
+        valve, dot1x_port = self.get_valve_and_port(port_id)
+
         self.logger.info(
             'Successful auth from MAC %s on %s' % (
-                str(address), self.dot1x_port))
-        self.metrics.inc_var('dp_dot1x_success', self._valve.base_prom_labels)
-        self.metrics.inc_var('port_dot1x_success', self._valve.port_labels(self.dot1x_port))
+                str(address), dot1x_port))
+        self.metrics.inc_var('dp_dot1x_success', valve.base_prom_labels)
+        self.metrics.inc_var('port_dot1x_success', valve.port_labels(dot1x_port))
 
-        flowmods = self._valve.add_authed_mac(
-            self.dot1x_port.number, str(address))
+        flowmods = valve.add_authed_mac(
+            dot1x_port.number, str(address))
         if flowmods:
-            self._send_flow_msgs(self._valve, flowmods)
+            self._send_flow_msgs(valve, flowmods)
 
-    def logoff_handler(self, address):
+    def logoff_handler(self, address, port_id):
         """Callback for when an EAP logoff happens."""
+        valve, dot1x_port = self.get_valve_and_port(port_id)
         self.logger.info('Logoff from MAC %s on %s',
-                         str(address), self.dot1x_port)
-        self.metrics.inc_var('dp_dot1x_logoff', self._valve.base_prom_labels)
-        self.metrics.inc_var('port_dot1x_logoff', self._valve.port_labels(self.dot1x_port))
-        flowmods = self._valve.del_authed_mac(self.dot1x_port.number, str(address))
+                         str(address), dot1x_port)
+        self.metrics.inc_var('dp_dot1x_logoff', valve.base_prom_labels)
+        self.metrics.inc_var('port_dot1x_logoff', valve.port_labels(dot1x_port))
+        flowmods = valve.del_authed_mac(dot1x_port.number, str(address))
         if flowmods:
-            self._send_flow_msgs(self._valve, flowmods)
+            self._send_flow_msgs(valve, flowmods)
 
-    def failure_handler(self, address):
+    def failure_handler(self, address, port_id):
         """Callback for when a EAP failure happens."""
+        valve, dot1x_port = self.get_valve_and_port(port_id)
         self.logger.info('Failure from MAC %s on %s',
-                         str(address), self.dot1x_port)
-        self.metrics.inc_var('dp_dot1x_failure', self._valve.base_prom_labels)
-        self.metrics.inc_var('port_dot1x_failure', self._valve.port_labels(self.dot1x_port))
+                         str(address), dot1x_port)
+        self.metrics.inc_var('dp_dot1x_failure', valve.base_prom_labels)
+        self.metrics.inc_var('port_dot1x_failure', valve.port_labels(dot1x_port))
 
     def reset(self, valves):
         """Set up a dot1x speaker."""
         # TODO: support multiple Valves and ports.
+        self._valves = valves
+        self.logger.info('%s %s', type(valves), valves)
         if self.dot1x_speaker is None:
+            dot1x_intf = list(valves.values())[0].dp.dot1x['nfv_intf']
+            self.dot1x_speaker = self._create_dot1x_speaker(dot1x_intf)
+            valve_id = -1
             for valve in list(valves.values()):
+                valve_id += 1
                 if valve.dp.dot1x and valve.dp.dot1x_ports():
-                    self._valve = valve
-                    self.dot1x_intf = self._valve.dp.dot1x['nfv_intf']
-                    self.dot1x_port = self._valve.dp.dot1x_ports()[0]
-                    self.dot1x_speaker = self._create_dot1x_speaker()
-                    self.logger.info(
-                        'dot1x enabled on %s %s, NFV interface %s' % (
-                            self._valve.dp, self.dot1x_port, self.dot1x_intf))
-                    break
+                    for dot1x_port in valve.dp.dot1x_ports():
+                        if dot1x_port.number > 255:
+                            self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
+                                             % (valve.dp, dot1x_port))
+                            continue
+                        mac_str = "00:00:00:00:%02x:%02x" % (valve_id, dot1x_port.number)
+                        self.mac_to_port[mac_str] = (valve, dot1x_port)
+                        self.logger.info(
+                            'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
+                                valve.dp, valve_id, dot1x_port, dot1x_intf))
