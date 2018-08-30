@@ -850,6 +850,12 @@ dps:
                 'Table not configured in dp'
                 )
 
+    def _check_next_tables(self, table, next_tables):
+        for nt in table.next_tables:
+            self.assertIn(nt, next_tables, 'incorrect next table configured')
+        for nt in next_tables:
+            self.assertIn(nt, table.next_tables, 'missing next table')
+
     def test_pipeline_config_no_acl(self):
         """Test pipelines are generated correctly with different configs"""
         config = """
@@ -872,6 +878,10 @@ dps:
             'flood': 3
             }
         self._check_table_names_numbers(dp, tables)
+        self._check_next_tables(dp.tables['vlan'], [1])
+        self._check_next_tables(dp.tables['eth_src'], [2])
+        self._check_next_tables(dp.tables['eth_dst'], [3])
+        self._check_next_tables(dp.tables['flood'], [])
 
     def test_pipeline_config_no_acl_static_ids(self):
         """Test pipelines are generated correctly with different configs"""
@@ -1022,6 +1032,16 @@ dps:
             'flood': 8
             }
         self._check_table_names_numbers(dp, tables)
+        self._check_next_tables(dp.tables['port_acl'], [1])
+        self._check_next_tables(dp.tables['vlan'], [2, 3])
+        self._check_next_tables(dp.tables['vlan_acl'], [3])
+        self._check_next_tables(dp.tables['eth_src'], [4, 5, 6, 7])
+        self._check_next_tables(dp.tables['ipv4_fib'], [6, 7])
+        self._check_next_tables(dp.tables['ipv6_fib'], [6, 7])
+        self._check_next_tables(dp.tables['vip'], [])
+        self._check_next_tables(dp.tables['eth_dst'], [8])
+        self._check_next_tables(dp.tables['flood'], [])
+
 
     ###########################################
     # Tests of Configuration Failure Handling #
