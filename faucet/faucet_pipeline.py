@@ -94,7 +94,7 @@ ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid', 'eth_dst'),
     vlan_port_scale=4.1,
-    next_tables=('ipv4_fib','ipv6_fib','vip','eth_dst')
+    next_tables=('ipv4_fib', 'ipv6_fib', 'vip', 'eth_dst')
     )
 IPV4_FIB_DEFAULT_CONFIG = _fib_table(4, 4)
 IPV6_FIB_DEFAULT_CONFIG = _fib_table(6, 5)
