@@ -84,7 +84,8 @@ VLAN_DEFAULT_CONFIG = ValveTableConfig(
     vlan_port_scale=1.1,
     next_tables=('vlan_acl', 'eth_src'),
     )
-VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig('vlan_acl', table_id=2)
+VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
+    'vlan_acl', 2, next_tables=('eth_src'))
 ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
     'eth_src',
     3,

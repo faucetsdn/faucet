@@ -312,24 +312,24 @@ configuration.
         all_acls = {}
         for vlan in self.vlans.values():
             if vlan.acls_in:
-                all_acls.setdefault('vlan_acl', (2, []))
-                all_acls['vlan_acl'][1].extend(vlan.acls_in)
+                all_acls.setdefault('vlan_acl', [])
+                all_acls['vlan_acl'].extend(vlan.acls_in)
         if self.dp_acls:
             for acl in self.dp_acls:
-                all_acls['port_acl'] = (0, self.dp_acls)
+                all_acls['port_acl'] = self.dp_acls
         else:
             for port in self.ports.values():
                 if port.acls_in:
-                    all_acls.setdefault('port_acl', (0, []))
-                    all_acls['port_acl'][1].extend(port.acls_in)
+                    all_acls.setdefault('port_acl', [])
+                    all_acls['port_acl'].extend(port.acls_in)
 
         table_config = {}
-        for table_name, val in all_acls.items():
-            table_id, acls = val
+        for table_name, acls in all_acls.items():
             matches = {}
             set_fields = set()
             meter = False
             exact_match = False
+            default = faucet_pipeline.DEFAULT_CONFIGS[table_name]
             for acl in acls:
                 for field, has_mask in acl.matches.items():
                     if has_mask or field not in matches:
@@ -340,12 +340,14 @@ configuration.
             matches = set(matches.items())
             table_config[table_name] = ValveTableConfig(
                     table_name,
-                    table_id,
+                    default.table_id,
                     exact_match=exact_match,
                     meter=meter,
                     output=True,
                     match_types=matches,
-                    set_fields=tuple(set_fields))
+                    set_fields=tuple(set_fields),
+                    next_tables=default.next_tables
+                    )
         # TODO: dynamically configure output attribue
         return table_config
 
