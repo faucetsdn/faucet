@@ -41,7 +41,7 @@ def load_tables(dp, valve_cl): # pylint: disable=invalid-name
             new_table.properties.append(nt_property)
         # Instructions
         insts = set([valve_of.ofp.OFPIT_APPLY_ACTIONS])
-        if next_tables:
+        if valve_table.next_tables:
             insts.add(valve_of.ofp.OFPIT_GOTO_TABLE)
         if valve_table.table_config.meter:
             insts.add(valve_of.ofp.OFPIT_METER)
