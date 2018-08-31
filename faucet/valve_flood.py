@@ -503,7 +503,7 @@ class ValveFloodStackManager(ValveFloodManager):
         Returns:
             port to learn host on, or None.
         """
-        if pkt_meta.port.stack is None:
+        if not pkt_meta.port.stack:
             return super(ValveFloodStackManager, self).edge_learn_port(
                 other_valves, pkt_meta)
         edge_dp = self._edge_dp_for_host(other_valves, pkt_meta)
