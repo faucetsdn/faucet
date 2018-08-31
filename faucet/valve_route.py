@@ -205,10 +205,8 @@ class ValveRouteManager:
             ofmsgs.append(valve_of.dec_ip_ttl())
         return ofmsgs
 
-    def _route_match(self, vlan, ip_dst=None):
-        if ip_dst is not None:
-            return self.fib_table.match(vlan=vlan, eth_type=self.ETH_TYPE, nw_dst=ip_dst)
-        return self.fib_table.match(vlan=vlan, eth_type=self.ETH_TYPE)
+    def _route_match(self, vlan, ip_dst):
+        return self.fib_table.match(vlan=vlan, eth_type=self.ETH_TYPE, nw_dst=ip_dst)
 
     def _route_priority(self, ip_dst):
         prefixlen = ipaddress.ip_network(ip_dst).prefixlen
@@ -348,7 +346,6 @@ class ValveRouteManager:
         vlan_nexthop_cache = self._vlan_nexthop_cache(vlan)
         nexthop_entries = [
             (ip_gw, vlan_nexthop_cache.get(ip_gw, None)) for ip_gw in ip_gws]
-        min_cache_time = now - self.arp_neighbor_timeout
         not_fresh_nexthops = [
             (ip_gw, entry) for ip_gw, entry in nexthop_entries
             if entry is None or now > entry.next_retry_time]
