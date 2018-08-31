@@ -704,7 +704,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
             return ofmsgs
         opcode = arp_pkt.opcode
         if opcode == arp.ARP_REQUEST:
-            if pkt_meta.eth_dst == valve_of.mac.BROADCAST_STR:
+            if pkt_meta.eth_dst in (valve_of.mac.BROADCAST_STR, pkt_meta.vlan.faucet_mac):
                 ofmsgs.extend(self._resolve_vip_response(pkt_meta, pkt_meta.l3_dst, now))
         elif opcode == arp.ARP_REPLY:
             if pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
