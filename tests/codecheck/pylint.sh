@@ -1,4 +1,6 @@
 #!/bin/bash
 
-./src_files.sh | shuf | parallel --bar ./min_pylint.sh || exit 1
+FAUCETHOME=`dirname $0`"/../.."
+SRCFILES="$FAUCETHOME/tests/codecheck/src_files.sh"
+$SRCFILES | shuf | parallel --bar ./min_pylint.sh || exit 1
 exit 0

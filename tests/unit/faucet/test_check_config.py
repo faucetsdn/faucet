@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Test that check config script handles various broken configs."""
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2018 The Contributors
@@ -38,6 +40,7 @@ class CheckConfigTestCase(unittest.TestCase): # pytype: disable=module-attr
         shutil.rmtree(self.tmpdir)
 
     def run_check_config(self, config, expected_ok):
+        """Try to parse config and return True if result fails or succeeds as expected."""
         conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
         with open(conf_file_name, 'w') as conf_file:
             conf_file.write(config)
@@ -53,14 +56,17 @@ class CheckConfigTestCase(unittest.TestCase): # pytype: disable=module-attr
             self.assertTrue(self.run_check_config(acls_cfg, success))
 
     def check_config_success(self, config):
+        """Try to parse config and expect success."""
         self.assertTrue(self.run_check_config(config, True))
         self._deprecated_acl_check(config, True)
 
     def check_config_failure(self, config):
+        """Try to parse config and expect failure."""
         self.assertTrue(self.run_check_config(config, False))
         self._deprecated_acl_check(config, False)
 
     def test_no_dps(self):
+        """Test bad config with no DPs."""
         no_dps_conf = """
 vlans:
     100:
