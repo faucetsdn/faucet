@@ -42,7 +42,6 @@ class FaucetDot1x:
         chewie = Chewie(  # pylint: disable=too-many-function-args
             self.dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
-            MacAddress.from_string('00:00:00:00:00:01'),
             '127.0.0.1')
         hub.spawn(chewie.run)
         return chewie
@@ -60,7 +59,7 @@ class FaucetDot1x:
         if flowmods:
             self._send_flow_msgs(self._valve, flowmods)
 
-    def logoff_handler(self, address):
+    def logoff_handler(self, address, _):
         """Callback for when an EAP logoff happens."""
         self.logger.info('Logoff from MAC %s on %s',
                          str(address), self.dot1x_port)
@@ -70,7 +69,7 @@ class FaucetDot1x:
         if flowmods:
             self._send_flow_msgs(self._valve, flowmods)
 
-    def failure_handler(self, address):
+    def failure_handler(self, address, _):
         """Callback for when a EAP failure happens."""
         self.logger.info('Failure from MAC %s on %s',
                          str(address), self.dot1x_port)
