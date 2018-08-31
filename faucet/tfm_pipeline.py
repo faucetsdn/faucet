@@ -33,12 +33,12 @@ def load_tables(dp, valve_cl): # pylint: disable=invalid-name
                     valve_of.parser.OFPTableFeaturePropOxm(
                         oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_WILDCARDS))
         # Next tables
-        next_tables = [
-            table_id for table_id in active_table_ids if table_id > new_table.table_id]
-        if next_tables:
-            new_table.properties.append(
-                valve_of.parser.OFPTableFeaturePropNextTables(
-                    table_ids=next_tables, type_=valve_of.ofp.OFPTFPT_NEXT_TABLES))
+        if valve_table.next_tables:
+            nt_property = valve_of.parser.OFPTableFeaturePropNextTables(
+                table_ids=valve_table.next_tables,
+                type_=valve_of.ofp.OFPTFPT_NEXT_TABLES
+                )
+            new_table.properties.append(nt_property)
         # Instructions
         insts = set([valve_of.ofp.OFPIT_APPLY_ACTIONS])
         if next_tables:
