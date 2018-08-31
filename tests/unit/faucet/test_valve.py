@@ -214,9 +214,7 @@ def build_pkt(pkt):
     ethertype = None
     if 'arp_source_ip' in pkt and 'arp_target_ip' in pkt:
         ethertype = ether.ETH_TYPE_ARP
-        arp_code = arp.ARP_REQUEST
-        if pkt['eth_dst'] == FAUCET_MAC:
-            arp_code = arp.ARP_REPLY
+        arp_code = pkt.get('arp_code', arp.ARP_REQUEST)
         layers.append(arp.arp(
             src_ip=pkt['arp_source_ip'], dst_ip=pkt['arp_target_ip'], opcode=arp_code))
     elif 'ipv6_src' in pkt and 'ipv6_dst' in pkt:
@@ -691,19 +689,23 @@ class ValveTestBases:
 
         def test_arp_for_controller(self):
             """ARP request for controller VIP."""
-            arp_replies = self.rcv_packet(1, 0x100, {
-                'eth_src': self.P1_V100_MAC,
-                'eth_dst': mac.BROADCAST_STR,
-                'arp_source_ip': '10.0.0.1',
-                'arp_target_ip': '10.0.0.254'})
-            # TODO: check ARP reply is valid
-            self.assertTrue(self.packet_outs_from_flows(arp_replies))
+            for _retries in range(3):
+                for arp_mac in (mac.BROADCAST_STR, self.valve.dp.vlans[0x100].faucet_mac):
+                    arp_replies = self.rcv_packet(1, 0x100, {
+                        'eth_src': self.P1_V100_MAC,
+                        'eth_dst': arp_mac,
+                        'arp_code': arp.ARP_REQUEST,
+                        'arp_source_ip': '10.0.0.1',
+                        'arp_target_ip': '10.0.0.254'})
+                    # TODO: check ARP reply is valid
+                    self.assertTrue(self.packet_outs_from_flows(arp_replies), msg=arp_mac)
 
         def test_arp_reply_from_host(self):
             """ARP reply for host."""
             arp_replies = self.rcv_packet(1, 0x100, {
                 'eth_src': self.P1_V100_MAC,
                 'eth_dst': FAUCET_MAC,
+                'arp_code': arp.ARP_REPLY,
                 'arp_source_ip': '10.0.0.1',
                 'arp_target_ip': '10.0.0.254'})
             # TODO: check ARP reply is valid
@@ -781,6 +783,7 @@ class ValveTestBases:
             arp_replies = self.rcv_packet(1, 0x100, {
                 'eth_src': self.P1_V100_MAC,
                 'eth_dst': mac.BROADCAST_STR,
+                'arp_code': arp.ARP_REQUEST,
                 'arp_source_ip': '10.0.0.1',
                 'arp_target_ip': '10.0.0.254'})
             # TODO: check ARP reply is valid
