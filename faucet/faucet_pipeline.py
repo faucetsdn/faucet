@@ -120,6 +120,9 @@ FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     vlan_port_scale=2.1,
     )
 
+MINIMUM_FAUCET_PIPELINE_TABLES = {
+    'vlan', 'eth_src', 'eth_dst', 'flood'}
+
 # TODO: implement an eth_type table before VLAN. This would enable interception
 # of control protocols and simplify matches in vlan/eth_src, enabling use of
 # exact_match.

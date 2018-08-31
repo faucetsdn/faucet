@@ -18,14 +18,13 @@
 
 import copy
 from collections import defaultdict
-import netaddr
 import random
+import netaddr
 
 from datadiff import diff
 import networkx
 
 from faucet import faucet_pipeline
-from faucet import valve_of
 from faucet.conf import Conf, test_config_condition
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.faucet_pipeline import ValveTableConfig
@@ -339,15 +338,14 @@ configuration.
                 exact_match = acl.exact_match
             matches = set(matches.items())
             table_config[table_name] = ValveTableConfig(
-                    table_name,
-                    default.table_id,
-                    exact_match=exact_match,
-                    meter=meter,
-                    output=True,
-                    match_types=matches,
-                    set_fields=tuple(set_fields),
-                    next_tables=default.next_tables
-                    )
+                table_name,
+                default.table_id,
+                exact_match=exact_match,
+                meter=meter,
+                output=True,
+                match_types=matches,
+                set_fields=tuple(set_fields),
+                next_tables=default.next_tables)
         # TODO: dynamically configure output attribue
         return table_config
 
@@ -356,7 +354,7 @@ configuration.
         tables = {}
         self.groups = ValveGroupTable()
         relative_table_id = 0
-        included_tables = {'vlan', 'eth_src', 'eth_dst', 'flood'}
+        included_tables = copy.deepcopy(faucet_pipeline.MINIMUM_FAUCET_PIPELINE_TABLES)
         acl_tables = self._generate_acl_tables()
         included_tables.update(acl_tables.keys())
         # Only configure IP routing tables if enabled.
@@ -372,10 +370,8 @@ configuration.
             table_name = canonical_table_config.name
             if table_name not in included_tables:
                 continue
-            if table_name in acl_tables:
-                table_config = acl_tables[table_name]
-            else:
-                table_config = copy.deepcopy(canonical_table_config)
+            table_config = acl_tables.get(
+                table_name, copy.deepcopy(canonical_table_config))
             if not valve_cl.STATIC_TABLE_IDS:
                 table_config.table_id = relative_table_id
             relative_table_id += 1
@@ -734,7 +730,7 @@ configuration.
                 test_config_condition(acl.exact_match != acls[0].exact_match, (
                     'ACLs when used together must have consistent exact_match'))
 
-        def resolve_acls(valve_cl):
+        def resolve_acls():
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
             for vlan in list(self.vlans.values()):
@@ -807,7 +803,7 @@ configuration.
         resolve_mirror_destinations()
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
-        resolve_acls(valve_cl)
+        resolve_acls()
 
         self._configure_tables(valve_cl)
 
