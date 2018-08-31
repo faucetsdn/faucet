@@ -137,7 +137,7 @@ class Port(Conf):
         self.override_output_port = None
         self.permanent_learn = None
         self.receive_lldp = None
-        self.stack = None
+        self.stack = {}
         self.unicast_flood = None
 
         self.dyn_lacp_up = None
