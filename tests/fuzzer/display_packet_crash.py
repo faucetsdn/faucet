@@ -11,8 +11,8 @@ import Fake
 
 
 def main():
-    # go through all files in directory
-    # read file and store in string
+    """Shows the crash in the FAUCET log produced by given input."""
+
     with open(sys.argv[1]) as pkt:
         packet_data = str(pkt.read())
 

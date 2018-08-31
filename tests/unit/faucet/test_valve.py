@@ -381,16 +381,17 @@ class ValveTestBases:
         def tearDown(self):
             self.teardown_valve()
 
-        def profile(self, func, sortby='cumulative', amount=20, count=1):
-            pr = cProfile.Profile()
-            pr.enable()
+        @staticmethod
+        def profile(func, sortby='cumulative', amount=20, count=1):
+            prof = cProfile.Profile()
+            prof.enable()
             for _ in range(count):
-              func()
-            pr.disable()
-            pr_stream = io.StringIO()
-            ps = pstats.Stats(pr, stream=pr_stream).sort_stats(sortby)
-            ps.print_stats(amount)
-            print(pr_stream.getvalue())
+                func()
+            prof.disable()
+            prof_stream = io.StringIO()
+            prof_stats = pstats.Stats(prof, stream=prof_stream).sort_stats(sortby)
+            prof_stats.print_stats(amount)
+            print(prof_stream.getvalue())
 
         def get_prom(self, var, labels=None):
             """Return a Prometheus variable value."""

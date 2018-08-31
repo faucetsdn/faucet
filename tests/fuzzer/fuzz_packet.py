@@ -15,6 +15,7 @@ logging.disable(logging.CRITICAL)
 
 
 def main():
+    """Run AFL repeatedly with externally supplied generated packet from STDIN."""
     application = faucet.Faucet(
         dpset=dpset.DPSet(),
         faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())

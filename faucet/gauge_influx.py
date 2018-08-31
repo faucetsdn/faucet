@@ -51,7 +51,7 @@ class InfluxShipper:
                     self.logger.warning('%s failed to update InfluxDB' % self.ship_error_prefix)
                     return False
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout,
-                       InfluxDBClientError, InfluxDBServerError) as err:
+                    InfluxDBClientError, InfluxDBServerError) as err:
                 self.logger.warning('%s %s' % (self.ship_error_prefix, err))
                 return False
             return True
