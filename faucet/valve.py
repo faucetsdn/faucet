@@ -1102,9 +1102,10 @@ class Valve:
             data, orig_len, pkt, eth_pkt, vlan_pkt, port, vlan, eth_src, eth_dst, eth_type)
         if vlan_vid == self.dp.global_vlan:
             vlan_vid = valve_packet.int_from_mac(pkt_meta.eth_dst)
-            vlan = self.dp.vlans[vlan_vid]
+            vlan = self.dp.vlans.get(vlan_vid, None)
             pkt_meta.vlan = vlan
-            pkt_meta.eth_dst = vlan.faucet_mac
+            if vlan is not None:
+                pkt_meta.eth_dst = vlan.faucet_mac
         return pkt_meta
 
     def parse_pkt_meta(self, msg):
