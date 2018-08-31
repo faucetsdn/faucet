@@ -792,7 +792,7 @@ class Valve:
             port_vlans = port.vlans()
 
             # If this is a stacking port, accept all VLANs (came from another FAUCET)
-            if port.stack is not None:
+            if port.stack:
                 # Actual stack traffic will have VLAN tags.
                 ofmsgs.append(vlan_table.flowdrop(
                     match=vlan_table.match(
