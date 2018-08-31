@@ -10,7 +10,6 @@ import collections
 import copy
 import glob
 import ipaddress
-import json
 import os
 import random
 import re
@@ -863,7 +862,7 @@ dbs:
 
     def mac_from_int(self, mac_int):
         mac_int_str = '%012x' % int(mac_int)
-        return ':'.join( mac_int_str[i:i+2] for i in range(0, len(mac_int_str), 2))
+        return ':'.join(mac_int_str[i:i+2] for i in range(0, len(mac_int_str), 2))
 
     def prom_macs_learned(self, port=None, vlan=None):
         labels = {
