@@ -252,7 +252,6 @@ configuration.
         self.proactive_nd_limit = None
         self.routers = None
         self.stack = None
-        self.stack_ports = None
         self.tables = None
         self.timeout = None
         self.unicast_flood = None
@@ -442,7 +441,7 @@ configuration.
         self.ports[port_num] = port
         if port.output_only:
             self.output_only_ports.append(port)
-        elif port.stack is not None:
+        elif port.stack:
             self.stack_ports.append(port)
         if port.lldp_beacon_enabled():
             self.lldp_beacon_ports.append(port)
