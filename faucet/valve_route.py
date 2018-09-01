@@ -69,7 +69,7 @@ class ValveRouteManager:
 
     __slots__ = [
         'active',
-        'arp_neighbor_timeout',
+        'neighbor_timeout',
         'dec_ttl',
         'eth_dst_table',
         'eth_src_table',
@@ -95,14 +95,14 @@ class ValveRouteManager:
     IP_PKT = None
 
 
-    def __init__(self, logger, global_vlan, arp_neighbor_timeout,
+    def __init__(self, logger, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl,
                  fib_table, vip_table, eth_src_table, eth_dst_table, flood_table,
                  route_priority, routers):
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
-        self.arp_neighbor_timeout = arp_neighbor_timeout
+        self.neighbor_timeout = neighbor_timeout
         self.max_hosts_per_resolve_cycle = max_hosts_per_resolve_cycle
         self.max_host_fib_retry_count = max_host_fib_retry_count
         self.max_resolve_backoff_time = max_resolve_backoff_time
@@ -411,7 +411,7 @@ class ValveRouteManager:
     def _resolve_gateways_flows(self, resolve_handler, vlan, now,
                                 unresolved_nexthops, remaining_attempts):
         ofmsgs = []
-        min_cache_time = now - self.arp_neighbor_timeout
+        min_cache_time = now - self.neighbor_timeout
         for ip_gw in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
