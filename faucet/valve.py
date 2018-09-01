@@ -210,7 +210,8 @@ class Valve:
                 self.logger, self.dp.ports, self.dp.vlans,
                 self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-                self.dp.low_priority, self.dp.highest_priority)
+                self.dp.low_priority, self.dp.highest_priority,
+                self.dp.cache_update_guard_time)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
