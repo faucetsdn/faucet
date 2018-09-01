@@ -885,7 +885,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         if ipv6_pkt.ext_hdrs:
             return ofmsgs
         dst_ip = pkt_meta.l3_dst
-        # Explicitly ignore messages to all notes.
+        # Explicitly ignore messages to all nodes.
         if dst_ip == valve_packet.IPV6_ALL_NODES:
             return ofmsgs
         src_ip = pkt_meta.l3_src
