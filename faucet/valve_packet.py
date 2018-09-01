@@ -49,6 +49,7 @@ IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_ALL_NODES = ipaddress.IPv6Address(valve_util.btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
+IPV6_RA_HOP_LIM = 64
 
 LLDP_FAUCET_DP_ID = 1
 LLDP_FAUCET_STACK_STATE = 2
@@ -543,7 +544,7 @@ def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip):
         src=src_ip,
         dst=dst_ip,
         nxt=valve_of.inet.IPPROTO_ICMPV6,
-        hop_limit=IPV6_MAX_HOP_LIM)
+        hop_limit=IPV6_RA_HOP_LIM)
     pkt.add_protocol(ipv6_icmp6)
     icmpv6_nd_advert = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_ADVERT,
