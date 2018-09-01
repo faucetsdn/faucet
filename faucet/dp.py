@@ -67,7 +67,7 @@ configuration.
         # The hardware maker (for chosing an openflow driver)
         'arp_neighbor_timeout': 250,
         # ARP neighbor timeout (seconds)
-        'nd_neighbor_timeout': 250,
+        'nd_neighbor_timeout': 30,
         # IPv6 ND neighbor timeout (seconds)
         'ofchannel_log': None,
         # OF channel log

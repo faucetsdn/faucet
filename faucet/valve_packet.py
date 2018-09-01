@@ -396,19 +396,20 @@ def lacp_reqreply(eth_src,
     return pkt
 
 
-def arp_request(vid, eth_src, src_ip, dst_ip):
+def arp_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return an ARP request packet.
 
     Args:
         vid (int or None): VLAN VID to use (or None).
         eth_src (str): Ethernet source address.
+        eth_dst (str): Ethernet destination address.
         src_ip (ipaddress.IPv4Address): source IPv4 address.
         dst_ip (ipaddress.IPv4Address): requested IPv4 address.
     Returns:
         ryu.lib.packet.arp: serialized ARP request packet.
     """
     pkt = build_pkt_header(
-        vid, eth_src, valve_of.mac.BROADCAST_STR, valve_of.ether.ETH_TYPE_ARP)
+        vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_ARP)
     arp_pkt = arp.arp(
         opcode=arp.ARP_REQUEST, src_mac=eth_src,
         src_ip=str(src_ip), dst_mac=valve_of.mac.DONTCARE_STR, dst_ip=str(dst_ip))
@@ -493,22 +494,27 @@ def ipv6_solicited_node_from_ucast(ucast):
     return link_mcast
 
 
-def nd_request(vid, eth_src, src_ip, dst_ip):
+def nd_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return IPv6 neighbor discovery request packet.
 
     Args:
         vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
+        eth_dst (str): Ethernet destination address.
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         dst_ip (ipaddress.IPv6Address): requested IPv6 address.
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 neighbor discovery packet.
     """
-    nd_mac = ipv6_link_eth_mcast(dst_ip)
-    ip_gw_mcast = ipv6_solicited_node_from_ucast(dst_ip)
+    if mac_addr_is_unicast(eth_dst):
+        nd_mac = eth_dst
+        nd_ip = dst_ip
+    else:
+        nd_mac = ipv6_link_eth_mcast(dst_ip)
+        nd_ip = ipv6_solicited_node_from_ucast(dst_ip)
     pkt = build_pkt_header(vid, eth_src, nd_mac, valve_of.ether.ETH_TYPE_IPV6)
     ipv6_pkt = ipv6.ipv6(
-        src=str(src_ip), dst=ip_gw_mcast, nxt=valve_of.inet.IPPROTO_ICMPV6)
+        src=str(src_ip), dst=nd_ip, nxt=valve_of.inet.IPPROTO_ICMPV6)
     pkt.add_protocol(ipv6_pkt)
     icmpv6_pkt = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_SOLICIT,
