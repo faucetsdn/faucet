@@ -29,11 +29,6 @@ from chewie.mac_address import MacAddress # pylint: disable=wrong-import-positio
 class FaucetDot1x:
     """Wrapper for experimental Chewie 802.1x authenticator."""
 
-    # TODO: support other credentials.
-    CREDENTIALS = {
-        'gary': 'microphone',
-    }
-
     def __init__(self, logger, metrics, send_flow_msgs):
         self.logger = logger
         self.metrics = metrics
@@ -44,10 +39,10 @@ class FaucetDot1x:
         self.dot1x_port = None
 
     def _create_dot1x_speaker(self):
-        chewie = Chewie(
-            self.dot1x_intf, self.CREDENTIALS,
-            self.logger, self.auth_handler,
-            MacAddress.from_string('00:00:00:00:00:01'))
+        chewie = Chewie(  # pylint: disable=too-many-function-args
+            self.dot1x_intf, self.logger,
+            self.auth_handler, self.failure_handler, self.logoff_handler,
+            '127.0.0.1')
         hub.spawn(chewie.run)
         return chewie
 
@@ -64,17 +59,17 @@ class FaucetDot1x:
         if flowmods:
             self._send_flow_msgs(self._valve, flowmods)
 
-    def logoff_handler(self, address):
+    def logoff_handler(self, address, _):
         """Callback for when an EAP logoff happens."""
         self.logger.info('Logoff from MAC %s on %s',
                          str(address), self.dot1x_port)
         self.metrics.inc_var('dp_dot1x_logoff', self._valve.base_prom_labels)
         self.metrics.inc_var('port_dot1x_logoff', self._valve.port_labels(self.dot1x_port))
-        flowmods = self._valve.del_authed_mac(self.dot1x_port.number, address)
+        flowmods = self._valve.del_authed_mac(self.dot1x_port.number, str(address))
         if flowmods:
             self._send_flow_msgs(self._valve, flowmods)
 
-    def failure_handler(self, address):
+    def failure_handler(self, address, _):
         """Callback for when a EAP failure happens."""
         self.logger.info('Failure from MAC %s on %s',
                          str(address), self.dot1x_port)
