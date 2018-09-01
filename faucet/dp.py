@@ -67,7 +67,7 @@ configuration.
         # The hardware maker (for chosing an openflow driver)
         'arp_neighbor_timeout': 250,
         # ARP neighbor timeout (seconds)
-        'nd_neighbor_timeout': 30,
+        'nd_neighbor_timeout': 250,
         # ND neighbor timeout (seconds)
         'ofchannel_log': None,
         # OF channel log
@@ -127,6 +127,8 @@ configuration.
         # Maximum table size for wildcard tables.
         'global_vlan': 0,
         # Reserved VID for internal global router VLAN.
+        'cache_update_guard_time': 5,
+        # Don't update L2 cache if port didn't change within this many seconds.
         }
 
     defaults_types = {
@@ -173,6 +175,7 @@ configuration.
         'min_wildcard_table_size': int,
         'max_wildcard_table_size': int,
         'global_vlan': int,
+        'cache_update_guard_time': int,
     }
 
     default_table_sizes_types = {
@@ -263,6 +266,7 @@ configuration.
         self.vlans = None
         self.min_wildcard_table_size = None
         self.max_wildcard_table_size = None
+        self.cache_update_guard_time = None
 
         self.acls = {}
         self.vlans = {}

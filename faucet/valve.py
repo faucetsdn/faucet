@@ -203,7 +203,8 @@ class Valve:
                 self.logger, self.dp.ports, self.dp.vlans,
                 self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-                self.dp.low_priority, self.dp.highest_priority)
+                self.dp.low_priority, self.dp.highest_priority,
+                self.dp.cache_update_guard_time)
         else:
             self.host_manager = valve_host.ValveHostManager(
                 self.logger, self.dp.ports, self.dp.vlans,
