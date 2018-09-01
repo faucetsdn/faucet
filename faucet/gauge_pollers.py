@@ -60,7 +60,7 @@ class GaugePoller:
         return self._running
 
     def is_active(self):
-        """Return True if the poller is controlling the requiest loop for its
+        """Return True if the poller is controlling the request loop for its
         stat"""
         return False
 
