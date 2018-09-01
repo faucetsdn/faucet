@@ -69,7 +69,7 @@ class ValveRouteManager:
 
     __slots__ = [
         'active',
-        'neighbor_timeout',
+        'arp_neighbor_timeout',
         'dec_ttl',
         'eth_dst_table',
         'eth_src_table',
@@ -95,14 +95,14 @@ class ValveRouteManager:
     IP_PKT = None
 
 
-    def __init__(self, logger, global_vlan, neighbor_timeout,
+    def __init__(self, logger, global_vlan, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl,
                  fib_table, vip_table, eth_src_table, eth_dst_table, flood_table,
                  route_priority, routers):
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
-        self.neighbor_timeout = neighbor_timeout
+        self.arp_neighbor_timeout = arp_neighbor_timeout
         self.max_hosts_per_resolve_cycle = max_hosts_per_resolve_cycle
         self.max_host_fib_retry_count = max_host_fib_retry_count
         self.max_resolve_backoff_time = max_resolve_backoff_time
@@ -346,7 +346,6 @@ class ValveRouteManager:
         vlan_nexthop_cache = self._vlan_nexthop_cache(vlan)
         nexthop_entries = [
             (ip_gw, vlan_nexthop_cache.get(ip_gw, None)) for ip_gw in ip_gws]
-        min_cache_time = now - self.neighbor_timeout
         not_fresh_nexthops = [
             (ip_gw, entry) for ip_gw, entry in nexthop_entries
             if entry is None or now > entry.next_retry_time]
@@ -412,7 +411,7 @@ class ValveRouteManager:
     def _resolve_gateways_flows(self, resolve_handler, vlan, now,
                                 unresolved_nexthops, remaining_attempts):
         ofmsgs = []
-        min_cache_time = now - self.neighbor_timeout
+        min_cache_time = now - self.arp_neighbor_timeout
         for ip_gw in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
@@ -501,9 +500,9 @@ class ValveRouteManager:
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
                     resolution_in_progress = dst_ip in vlan.dyn_host_gws_by_ipv[self.IPV]
                     ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
-                    nexthop_cache_entry = self._update_nexthop_cache(
-                        now, vlan, None, None, dst_ip)
                     if not resolution_in_progress:
+                        nexthop_cache_entry = self._update_nexthop_cache(
+                            now, vlan, None, None, dst_ip)
                         resolve_flows = self._resolve_gateway_flows(
                             dst_ip, nexthop_cache_entry, vlan,
                             nexthop_cache_entry.cache_time)
