@@ -544,7 +544,7 @@ def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip):
         src=src_ip,
         dst=dst_ip,
         nxt=valve_of.inet.IPPROTO_ICMPV6,
-        hop_limit=IPV6_RA_HOP_LIM)
+        hop_limit=IPV6_MAX_HOP_LIM)
     pkt.add_protocol(ipv6_icmp6)
     icmpv6_nd_advert = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_ADVERT,
@@ -609,7 +609,7 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
         src=src_ip,
         dst=dst_ip,
         nxt=valve_of.inet.IPPROTO_ICMPV6,
-        hop_limit=IPV6_MAX_HOP_LIM)
+        hop_limit=IPV6_RA_HOP_LIM)
     pkt.add_protocol(ipv6_pkt)
     options = []
     for vip in vips:
