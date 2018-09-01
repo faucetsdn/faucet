@@ -473,13 +473,7 @@ def ipv6_link_eth_mcast(dst_ip):
         str: Ethernet multicast address.
     """
     mcast_mac_bytes = b'\x33\x33\xff' + dst_ip.packed[-3:]
-    mcast_mac_octets = []
-    for i in mcast_mac_bytes:
-        if isinstance(i, int):
-            mcast_mac_octets.append(i)
-        else:
-            mcast_mac_octets.append(ord(i))
-    mcast_mac = ':'.join(['%02X' % x for x in mcast_mac_octets])
+    mcast_mac = ':'.join(['%02X' % x for x in mcast_mac_bytes])
     return mcast_mac
 
 

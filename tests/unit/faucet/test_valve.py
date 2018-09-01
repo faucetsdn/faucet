@@ -717,15 +717,16 @@ class ValveTestBases:
             dst_ip = ipaddress.IPv6Address('fc00::1:254')
             nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
             ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
-            nd_replies = self.rcv_packet(2, 0x200, {
-                'eth_src': self.P2_V200_MAC,
-                'eth_dst': nd_mac,
-                'vid': 0x200,
-                'ipv6_src': 'fc00::1:1',
-                'ipv6_dst': str(ip_gw_mcast),
-                'neighbor_solicit_ip': str(dst_ip)})
-            # TODO: check ND reply is valid
-            self.assertTrue(self.packet_outs_from_flows(nd_replies))
+            for _retries in range(3):
+                nd_replies = self.rcv_packet(2, 0x200, {
+                    'eth_src': self.P2_V200_MAC,
+                    'eth_dst': nd_mac,
+                    'vid': 0x200,
+                    'ipv6_src': 'fc00::1:1',
+                    'ipv6_dst': str(ip_gw_mcast),
+                    'neighbor_solicit_ip': str(dst_ip)})
+                # TODO: check ND reply is valid
+                self.assertTrue(self.packet_outs_from_flows(nd_replies))
 
         def test_nd_from_host(self):
             """IPv6 NA from host."""

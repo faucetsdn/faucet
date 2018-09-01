@@ -196,8 +196,6 @@ acls:
 """
 
     CONFIG = """
-        arp_neighbor_timeout: 2
-        max_resolve_backoff_time: 1
         dot1x:
             nfv_intf: NFV_INTF
         interfaces:
@@ -4777,7 +4775,7 @@ vlans:
 """
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         proactive_learn_v4: True
         interfaces:
@@ -4820,7 +4818,7 @@ vlans:
 """
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         proactive_learn_v6: True
         interfaces:
@@ -4999,7 +4997,7 @@ routers:
 """ % FAUCET_MAC2
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         proactive_learn_v6: True
         interfaces:
@@ -5185,7 +5183,7 @@ vlans:
 """
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
@@ -5237,7 +5235,7 @@ vlans:
 """ % PEER_BGP_AS
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
@@ -5308,7 +5306,7 @@ vlans:
 """ % PEER_BGP_AS
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
@@ -5378,7 +5376,7 @@ vlans:
 """
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
@@ -5445,7 +5443,7 @@ vlans:
 """ % PEER_BGP_AS
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
@@ -5508,7 +5506,7 @@ vlans:
 """
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:

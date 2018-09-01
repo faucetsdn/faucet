@@ -418,8 +418,12 @@ class ValveRouteManager:
             entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             if entry is None:
                 continue
-            if entry.eth_src is not None and entry.cache_time > min_cache_time:
-                continue
+            if entry.eth_src is None:
+                if now < entry.next_retry_time:
+                    continue
+            else:
+                if entry.cache_time > min_cache_time:
+                    continue
             resolve_flows = resolve_handler(ip_gw, entry, vlan, now)
             if resolve_flows:
                 ofmsgs.extend(resolve_flows)
