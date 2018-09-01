@@ -59,9 +59,9 @@ class GaugePoller:
         """Return True if the poller is running."""
         return self._running
 
-    def is_active(self):
-        """Return True if the poller is controlling the request loop for its
-        stat"""
+    @staticmethod
+    def is_active():
+        """Return True if the poller is controlling the request loop for its stat"""
         return False
 
     def send_req(self):
