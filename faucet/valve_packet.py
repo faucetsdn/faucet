@@ -591,7 +591,7 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
 
 def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
                   vips, pi_flags=0x6):
-    """Return IPv6 ICMP echo reply packet.
+    """Return IPv6 ICMP Router Advert.
 
     Args:
         vid (int or None): VLAN VID to use (or None).
@@ -609,7 +609,7 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
         src=src_ip,
         dst=dst_ip,
         nxt=valve_of.inet.IPPROTO_ICMPV6,
-        hop_limit=IPV6_RA_HOP_LIM)
+        hop_limit=IPV6_MAX_HOP_LIM)
     pkt.add_protocol(ipv6_pkt)
     options = []
     for vip in vips:
@@ -627,7 +627,7 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
         type_=icmpv6.ND_ROUTER_ADVERT,
         data=icmpv6.nd_router_advert(
             rou_l=1800,
-            ch_l=IPV6_MAX_HOP_LIM,
+            ch_l=IPV6_RA_HOP_LIM,
             options=options))
     pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()
