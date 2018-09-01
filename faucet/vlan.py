@@ -109,7 +109,7 @@ class VLAN(Conf):
         # Don't proactively ARP for hosts if over this limit (default 2*max_hosts)
         'proactive_nd_limit': 0,
         # Don't proactively ND for hosts if over this limit (default 2*max_hosts)
-        'targeted_gw_resolution': False,
+        'targeted_gw_resolution': True,
         # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
         'minimum_ip_size_check': True,
         # If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)

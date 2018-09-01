@@ -138,11 +138,13 @@ class ValveRouteManager:
 
     def _resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
-            self._gw_resolve_pkt(), vlan.faucet_mac, faucet_vip.ip, ip_gw)
+            self._gw_resolve_pkt(),
+            vlan.faucet_mac, valve_of.mac.BROADCAST_STR, faucet_vip.ip, ip_gw)
 
-    def _resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
+    def _resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw, eth_dst):
         return vlan.pkt_out_port(
-            self._gw_resolve_pkt(), port, vlan.faucet_mac, faucet_vip.ip, ip_gw)
+            self._gw_resolve_pkt(),
+            port, vlan.faucet_mac, eth_dst, faucet_vip.ip, ip_gw)
 
     def _resolve_vip_response(self, pkt_meta, solicited_ip, now):
         ofmsgs = []
@@ -371,11 +373,14 @@ class ValveRouteManager:
         nexthop_cache_entry.next_retry_time = now + min(
             2**nexthop_cache_entry.resolve_retries, self.max_resolve_backoff_time)
         faucet_vip = vlan.vip_map(ip_gw)
-        resolve_flows = self._resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
-        if vlan.targeted_gw_resolution:
-            if last_retry_time is None and nexthop_cache_entry.port is not None:
-                resolve_flows = [self._resolve_gw_on_port(
-                    vlan, nexthop_cache_entry.port, faucet_vip, ip_gw)]
+        if (vlan.targeted_gw_resolution and
+                last_retry_time is None and nexthop_cache_entry.port is not None):
+            port = nexthop_cache_entry.port
+            eth_dst = nexthop_cache_entry.eth_src
+            resolve_flows = [self._resolve_gw_on_port(
+                vlan, port, faucet_vip, ip_gw, eth_dst)]
+        else:
+            resolve_flows = self._resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
         if resolve_flows:
             if last_retry_time is None:
                 self.logger.info(
