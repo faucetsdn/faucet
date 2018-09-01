@@ -346,11 +346,9 @@ class ValveRouteManager:
         vlan_nexthop_cache = self._vlan_nexthop_cache(vlan)
         nexthop_entries = [
             (ip_gw, vlan_nexthop_cache.get(ip_gw, None)) for ip_gw in ip_gws]
-        min_cache_time = now - self.neighbor_timeout
         not_fresh_nexthops = [
             (ip_gw, entry) for ip_gw, entry in nexthop_entries
-            if entry is None or (
-                entry.cache_time < min_cache_time and now > entry.next_retry_time)]
+            if entry is None or now > entry.next_retry_time]
         unresolved_nexthops_by_retries = defaultdict(list)
         for ip_gw, entry in not_fresh_nexthops:
             if entry is None:
@@ -502,9 +500,9 @@ class ValveRouteManager:
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
                     resolution_in_progress = dst_ip in vlan.dyn_host_gws_by_ipv[self.IPV]
                     ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
-                    nexthop_cache_entry = self._update_nexthop_cache(
-                        now, vlan, None, None, dst_ip)
                     if not resolution_in_progress:
+                        nexthop_cache_entry = self._update_nexthop_cache(
+                            now, vlan, None, None, dst_ip)
                         resolve_flows = self._resolve_gateway_flows(
                             dst_ip, nexthop_cache_entry, vlan,
                             nexthop_cache_entry.cache_time)
