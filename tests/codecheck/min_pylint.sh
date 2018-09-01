@@ -3,7 +3,7 @@
 FAUCETHOME=`dirname $0`"/../.."
 PYTHONPATH=$FAUCETHOME:$FAUCETHOME/clib
 
-MINRATING=9.3
+MINRATING=9.4
 
 lintfile=`tempfile`.lint
 
