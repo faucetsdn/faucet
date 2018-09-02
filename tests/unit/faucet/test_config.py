@@ -833,6 +833,216 @@ dps:
         dp = dps[0]
         self.assertEqual(len(dp.ports), 1)
 
+    def _check_table_names_numbers(self, dp, tables):
+        for table_name, table in dp.tables.items():
+            self.assertTrue(
+                table_name in tables,
+                'Incorrect table configured in dp'
+                )
+            self.assertEqual(
+                tables[table_name],
+                table.table_id,
+                'Table configured with wrong table_id'
+                )
+        for table_name in tables:
+            self.assertTrue(
+                table_name in dp.tables,
+                'Table not configured in dp'
+                )
+
+    def _check_next_tables(self, table, next_tables):
+        for nt in table.next_tables:
+            self.assertIn(nt, next_tables, 'incorrect next table configured')
+        for nt in next_tables:
+            self.assertIn(nt, table.next_tables, 'missing next table')
+
+    def test_pipeline_config_no_acl(self):
+        """Test pipelines are generated correctly with different configs"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[0x1]
+        tables = {
+            'vlan': 0,
+            'eth_src': 1,
+            'eth_dst': 2,
+            'flood': 3
+            }
+        self._check_table_names_numbers(dp, tables)
+        self._check_next_tables(dp.tables['vlan'], [1])
+        self._check_next_tables(dp.tables['eth_src'], [2])
+        self._check_next_tables(dp.tables['eth_dst'], [3])
+        self._check_next_tables(dp.tables['flood'], [])
+
+    def test_pipeline_config_no_acl_static_ids(self):
+        """Test pipelines are generated correctly with different configs"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: NoviFlow
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[0x1]
+        tables = {
+            'port_acl': 0,
+            'vlan': 1,
+            'eth_src': 3,
+            'eth_dst': 7,
+            'flood': 8
+            }
+        self._check_table_names_numbers(dp, tables)
+
+    def test_pipeline_config_ipv4_no_acl(self):
+        """Test pipelines are generated correctly with different configs"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        faucet_vips: ['10.100.0.254/24']
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[0x1]
+        tables = {
+            'vlan': 0,
+            'eth_src': 1,
+            'ipv4_fib': 2,
+            'vip': 3,
+            'eth_dst': 4,
+            'flood': 5
+            }
+        self._check_table_names_numbers(dp, tables)
+
+    def test_pipeline_config_ipv6_4_no_acl(self):
+        """Test pipelines are generated correctly with different configs"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        faucet_vips: ["10.100.0.254/24", "fc00::1:254/112"]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[0x1]
+        tables = {
+            'vlan': 0,
+            'eth_src': 1,
+            'ipv4_fib': 2,
+            'ipv6_fib': 3,
+            'vip': 4,
+            'eth_dst': 5,
+            'flood': 6
+            }
+        self._check_table_names_numbers(dp, tables)
+
+    def test_pipeline_config_ipv6_4_vlan_acl(self):
+        """Test pipelines are generated correctly with different configs"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        faucet_vips: ["10.100.0.254/24", "fc00::1:254/112"]
+        acls_in: [test]
+acls:
+    test:
+        - rule:
+            dl_type: 0x800      # ipv4
+            actions:
+                allow: 1
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[0x1]
+        tables = {
+            'vlan': 0,
+            'vlan_acl': 1,
+            'eth_src': 2,
+            'ipv4_fib': 3,
+            'ipv6_fib': 4,
+            'vip': 5,
+            'eth_dst': 6,
+            'flood': 7
+            }
+        self._check_table_names_numbers(dp, tables)
+
+    def test_pipeline_config_ipv6_4_vlan_port_acl(self):
+        """Test pipelines are generated correctly with different configs"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        faucet_vips: ["10.100.0.254/24", "fc00::1:254/112"]
+        acls_in: [test]
+acls:
+    test:
+        - rule:
+            dl_type: 0x800      # ipv4
+            actions:
+                allow: 1
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [test]
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[0x1]
+        tables = {
+            'port_acl': 0,
+            'vlan': 1,
+            'vlan_acl': 2,
+            'eth_src': 3,
+            'ipv4_fib': 4,
+            'ipv6_fib': 5,
+            'vip': 6,
+            'eth_dst': 7,
+            'flood': 8
+            }
+        self._check_table_names_numbers(dp, tables)
+        self._check_next_tables(dp.tables['port_acl'], [1])
+        self._check_next_tables(dp.tables['vlan'], [2, 3])
+        self._check_next_tables(dp.tables['vlan_acl'], [3])
+        self._check_next_tables(dp.tables['eth_src'], [4, 5, 6, 7])
+        self._check_next_tables(dp.tables['ipv4_fib'], [6, 7])
+        self._check_next_tables(dp.tables['ipv6_fib'], [6, 7])
+        self._check_next_tables(dp.tables['vip'], [])
+        self._check_next_tables(dp.tables['eth_dst'], [8])
+        self._check_next_tables(dp.tables['flood'], [])
+
+
     ###########################################
     # Tests of Configuration Failure Handling #
     ###########################################

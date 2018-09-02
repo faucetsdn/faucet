@@ -10,7 +10,6 @@ import collections
 import copy
 import glob
 import ipaddress
-import json
 import os
 import random
 import re
@@ -570,10 +569,12 @@ class FaucetTestBase(unittest.TestCase):
                 msg='%s log contains %s' % (
                     exception_log_name, exception_contents))
 
-    def tcpdump_helper(self, *args, **kwargs):
+    @staticmethod
+    def tcpdump_helper(*args, **kwargs):
         return TcpdumpHelper(*args, **kwargs).execute()
 
-    def scapy_template(self, packet, iface, count=1):
+    @staticmethod
+    def scapy_template(packet, iface, count=1):
         return ('python3 -c \"from scapy.all import * ; sendp(%s, iface=\'%s\', count=%u)"' % (
             packet, iface, count))
 
@@ -761,7 +762,8 @@ dbs:
                     if actions is not None:
                         flow_actions_set = frozenset(flow_dict['actions'])
                         if actions:
-                            if not actions_set.issubset(flow_actions_set): # pytype: disable=attribute-error
+                            if not actions_set.issubset( # pytype: disable=attribute-error
+                                    flow_actions_set):
                                 continue
                         else:
                             if flow_dict['actions']:
@@ -861,9 +863,10 @@ dbs:
     def mac_as_int(mac):
         return int(mac.replace(':', ''), 16)
 
-    def mac_from_int(self, mac_int):
+    @staticmethod
+    def mac_from_int(mac_int):
         mac_int_str = '%012x' % int(mac_int)
-        return ':'.join( mac_int_str[i:i+2] for i in range(0, len(mac_int_str), 2))
+        return ':'.join(mac_int_str[i:i+2] for i in range(0, len(mac_int_str), 2))
 
     def prom_macs_learned(self, port=None, vlan=None):
         labels = {
@@ -887,13 +890,16 @@ dbs:
         """Return True if a host has been learned on default DPID."""
         return self.mac_learned(host.MAC(), timeout, in_port, hard_timeout=hard_timeout)
 
-    def get_host_intf_mac(self, host, intf):
+    @staticmethod
+    def get_host_intf_mac(host, intf):
         return host.cmd('cat /sys/class/net/%s/address' % intf).strip()
 
-    def get_netns_list(self, host):
+    @staticmethod
+    def get_netns_list(host):
         return host.cmd('ip netns list | grep %s' % host.name).strip()
 
-    def host_ip(self, host, family, family_re):
+    @staticmethod
+    def host_ip(host, family, family_re):
         host_ip_cmd = (
             r'ip -o -f %s addr show %s|'
             'grep -m 1 -Eo "%s %s"|cut -f2 -d " "' % (
@@ -911,7 +917,8 @@ dbs:
         """Return first IPv6/netmask for host's default interface."""
         return self.host_ip(host, 'inet6', r'[0-9a-f\:]+\/[0-9]+')
 
-    def reset_ipv4_prefix(self, host, prefix=24):
+    @staticmethod
+    def reset_ipv4_prefix(host, prefix=24):
         host.setIP(host.IP(), prefixLen=prefix)
 
     def reset_all_ipv4_prefix(self, prefix=24):
@@ -1195,7 +1202,7 @@ dbs:
             'ether dst host ff:ff:ff:ff:ff:ff and icmp and host %s' % self.ipv4_vip_bcast())
         tcpdump_txt = self.tcpdump_helper(
             last_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping -b -c3 %s' % self.ipv4_vip_bcast())])
+                partial(first_host.cmd, 'ping -b -c3 %s' % self.ipv4_vip_bcast())])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt))
 
@@ -1206,7 +1213,7 @@ dbs:
                     ('ndisc6 -w1 fe80::1 %s' % host.defaultIntf()),
                     ('ping -b -i0.1 -c3 %s' % self.ipv4_vip_bcast())):
                 tcpdump_txt = self.tcpdump_helper(
-                    host, tcpdump_filter, [lambda: host.cmd(bcast_cmd)],
+                    host, tcpdump_filter, [partial(host.cmd, bcast_cmd)],
                     timeout=timeout, vflags='-vv', packets=1)
                 self.assertTrue(
                     re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
@@ -1232,11 +1239,11 @@ dbs:
                     host.defaultIntf()))
             tcpdump_txt = self.tcpdump_helper(
                 host, tcpdump_filter, [
-                    lambda: host.cmd(
+                    partial(host.cmd, (
                         self.scapy_template(
                             hello_template % (unicast_mac1, unicast_mac2),
                             host.defaultIntf(),
-                            count=3))],
+                            count=3)))],
                 timeout=5, vflags='-vv', packets=1)
             self.assertTrue(
                 re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
@@ -1427,7 +1434,7 @@ dbs:
             packets *= 2
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
-                lambda: first_host.cmd(first_ping_second)], packets=packets)
+                partial(first_host.cmd, first_ping_second)], packets=packets)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
@@ -1447,7 +1454,7 @@ dbs:
         second_ping_bcast = 'ping -c1 -b %s' % self.ipv4_vip_bcast()
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
-                lambda: second_host.cmd(second_ping_bcast)])
+                partial(second_host.cmd, second_ping_bcast)])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt),
                         msg=tcpdump_txt)
@@ -1531,8 +1538,8 @@ dbs:
             5)
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
-                lambda: first_host.cmd(eap_conf_cmd),
-                lambda: first_host.cmd(wpa_supplicant_cmd)])
+                partial(first_host.cmd, eap_conf_cmd),
+                partial(first_host.cmd, wpa_supplicant_cmd)])
         self.assertTrue(
             re.search('01:80:c2:00:00:03, ethertype EAPOL', tcpdump_txt),
             msg=tcpdump_txt)
@@ -1562,10 +1569,10 @@ dbs:
                 other_host.defaultIntf())
             tcpdump_txt = self.tcpdump_helper(
                 first_host, lldp_filter,
-                [lambda: other_host.cmd(ladvd_mkdir),
-                 lambda: other_host.cmd(send_lldp),
-                 lambda: other_host.cmd(send_lldp),
-                 lambda: other_host.cmd(send_lldp)],
+                [partial(other_host.cmd, ladvd_mkdir),
+                 partial(other_host.cmd, send_lldp),
+                 partial(other_host.cmd, send_lldp),
+                 partial(other_host.cmd, send_lldp)],
                 timeout=5, packets=1)
             if re.search(other_host.MAC(), tcpdump_txt):
                 return False
@@ -1581,10 +1588,10 @@ dbs:
         tcpdump_txt = self.tcpdump_helper(
             first_host,
             cdp_filter,
-            [lambda: second_host.cmd(ladvd_mkdir),
-             lambda: second_host.cmd(send_cdp),
-             lambda: second_host.cmd(send_cdp),
-             lambda: second_host.cmd(send_cdp)],
+            [partial(second_host.cmd, ladvd_mkdir),
+             partial(second_host.cmd, send_cdp),
+             partial(second_host.cmd, send_cdp),
+             partial(second_host.cmd, send_cdp)],
             timeout=20, packets=5)
 
         if re.search(second_host.MAC(), tcpdump_txt):
@@ -1750,7 +1757,8 @@ dbs:
         for port_no in self._dp_ports():
             self.flap_port(port_no, flap_time=flap_time)
 
-    def get_mac_of_intf(self, host, intf):
+    @staticmethod
+    def get_mac_of_intf(host, intf):
         """Get MAC address of a port."""
         return host.cmd(
             '|'.join((
@@ -1810,7 +1818,8 @@ dbs:
             bool(re.search(self.ONE_GOOD_PING, ping_result)) ^ (not expected_result),
             msg='%s: %s' % (ping_cmd, ping_result))
 
-    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None, expected_result=True):
+    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None,
+                      expected_result=True):
         """Ping an IPv4 destination from a host."""
         if intf is None:
             intf = host.defaultIntf()
@@ -1848,7 +1857,8 @@ dbs:
             time.sleep(1)
         self.fail('ping %f loss > required loss %f' % (loss, required_loss))
 
-    def tcp_port_free(self, host, port, ipv=4):
+    @staticmethod
+    def tcp_port_free(host, port, ipv=4):
         listen_out = host.cmd(
             mininet_test_util.tcp_listening_cmd(port, ipv))
         if listen_out:
@@ -1930,9 +1940,9 @@ dbs:
         for _ in range(retries):
             tcpdump_txt = self.tcpdump_helper(
                 second_host, tcpdump_filter, [
-                    lambda: first_host.cmd(
+                    partial(first_host.cmd, (
                         'date | socat - udp-datagram:%s:%d,broadcast' % (
-                            target_addr, port))],
+                            target_addr, port)))],
                 packets=1)
             if re.search(success_re, tcpdump_txt):
                 return True
@@ -2006,7 +2016,8 @@ dbs:
                     exabgp_log_content.append(log.read())
         self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
-    def matching_lines_from_file(self, exp, log_name):
+    @staticmethod
+    def matching_lines_from_file(exp, log_name):
         exp_re = re.compile(exp)
         with open(log_name) as log_file:
             return [log_line for log_line in log_file if exp_re.match(log_line)]
