@@ -49,7 +49,7 @@ class FaucetDot1x:
         """Finds the valve and port that this address corresponds to
         Args:
             port_id: is a macaddress string"""
-        valve, port = self.mac_to_port.get(port_id)
+        valve, port = self.mac_to_port[port_id]
         return valve, port
 
     def auth_handler(self, address, port_id):
