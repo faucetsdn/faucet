@@ -69,8 +69,10 @@ class NextHop:
         """Increment state for next retry."""
         self.resolve_retries += 1
         self.last_retry_time = now
-        self.next_retry_time = now + min(
-            2**self.resolve_retries, max_resolve_backoff_time)
+        self.next_retry_time = (
+            now +
+            min(2**self.resolve_retries, max_resolve_backoff_time) +
+            random.randint(0, self.resolve_retries))
 
     def resolution_due(self, now, max_age):
         """Return True if this nexthop is due to be re resolved/retried."""
