@@ -68,11 +68,11 @@ class NextHop:
         self.resolve_retries += 1
         self.last_retry_time = now
         self.next_retry_time = now + min(
-            2**resolve_retries, max_resolve_backoff_time)
+            2**self.resolve_retries, max_resolve_backoff_time)
 
     def resolution_due(self, now, max_age):
         """Return True if this nexthop is due to be re resolved/retried."""
-        if self.eth_src is not None and self.age() < max_age:
+        if self.eth_src is not None and self.age(now) < max_age:
             return False
         if now >= self.next_retry_time:
             return True
@@ -382,7 +382,8 @@ class ValveRouteManager:
 
     def _resolve_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
         resolve_flows = []
-        entry.next_retry(now, self.max_resolve_backoff_time)
+        last_retry_time = nexthop_cache_entry.last_retry_time
+        nexthop_cache_entry.next_retry(now, self.max_resolve_backoff_time)
         faucet_vip = vlan.vip_map(ip_gw)
         if (vlan.targeted_gw_resolution and
                 last_retry_time is None and nexthop_cache_entry.port is not None):
