@@ -55,7 +55,7 @@ class NextHop:
         self.last_retry_time = None
         self.next_retry_time = None
         if not self.eth_src:
-            self.next_retry_time = now + 1
+            self.next_retry_time = now
 
     def age(self, now):
         """Return age of this nexthop."""
@@ -69,16 +69,15 @@ class NextHop:
         """Increment state for next retry."""
         self.resolve_retries += 1
         self.last_retry_time = now
-        self.next_retry_time = (
-            now +
-            min(2**self.resolve_retries, max_resolve_backoff_time) +
-            random.randint(0, self.resolve_retries))
+        self.next_retry_time = now + min(
+            (2**self.resolve_retries + random.randint(0, self.resolve_retries)),
+            max_resolve_backoff_time)
 
     def resolution_due(self, now, max_age):
         """Return True if this nexthop is due to be re resolved/retried."""
         if self.eth_src is not None and self.age(now) < max_age:
             return False
-        if self.next_retry_time is not None and self.next_retry_time < now:
+        if self.next_retry_time is None or self.next_retry_time < now:
             return True
         return False
 
