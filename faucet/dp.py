@@ -18,14 +18,13 @@
 
 import copy
 from collections import defaultdict
-import netaddr
 import random
+import netaddr
 
 from datadiff import diff
 import networkx
 
 from faucet import faucet_pipeline
-from faucet import valve_of
 from faucet.conf import Conf, test_config_condition
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.faucet_pipeline import ValveTableConfig
@@ -67,7 +66,9 @@ configuration.
         'hardware': 'Open vSwitch',
         # The hardware maker (for chosing an openflow driver)
         'arp_neighbor_timeout': 250,
-        # ARP and neighbor timeout (seconds)
+        # ARP neighbor timeout (seconds)
+        'nd_neighbor_timeout': 30,
+        # IPv6 ND neighbor timeout (seconds)
         'ofchannel_log': None,
         # OF channel log
         'stack': None,
@@ -126,6 +127,8 @@ configuration.
         # Maximum table size for wildcard tables.
         'global_vlan': 0,
         # Reserved VID for internal global router VLAN.
+        'cache_update_guard_time': 7,
+        # Don't update L2 cache if port didn't change within this many seconds.
         }
 
     defaults_types = {
@@ -143,6 +146,7 @@ configuration.
         'description': str,
         'hardware': str,
         'arp_neighbor_timeout': int,
+        'nd_neighbor_timeout': int,
         'ofchannel_log': str,
         'stack': dict,
         'ignore_learn_ins': int,
@@ -171,6 +175,7 @@ configuration.
         'min_wildcard_table_size': int,
         'max_wildcard_table_size': int,
         'global_vlan': int,
+        'cache_update_guard_time': int,
     }
 
     default_table_sizes_types = {
@@ -206,6 +211,7 @@ configuration.
         self.acls_in = None
         self.advertise_interval = None
         self.arp_neighbor_timeout = None
+        self.nd_neighbor_timeout = None
         self.bgp_local_address = None
         self.bgp_neighbor_as = None
         self.bgp_routerid = None
@@ -253,7 +259,6 @@ configuration.
         self.proactive_nd_limit = None
         self.routers = None
         self.stack = None
-        self.stack_ports = None
         self.tables = None
         self.timeout = None
         self.unicast_flood = None
@@ -261,6 +266,7 @@ configuration.
         self.vlans = None
         self.min_wildcard_table_size = None
         self.max_wildcard_table_size = None
+        self.cache_update_guard_time = None
 
         self.acls = {}
         self.vlans = {}
@@ -291,7 +297,7 @@ configuration.
             'DP %s must have at least one interface' % self))
         # To prevent L2 learning from timing out before L3 can refresh
         test_config_condition(self.timeout < self.arp_neighbor_timeout, (
-            'L2 timeout must be >= L3 timeout'))
+            'L2 timeout must be >= ARP timeout'))
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
             test_config_condition('send_interval' not in self.lldp_beacon, (
@@ -339,15 +345,14 @@ configuration.
                 exact_match = acl.exact_match
             matches = set(matches.items())
             table_config[table_name] = ValveTableConfig(
-                    table_name,
-                    default.table_id,
-                    exact_match=exact_match,
-                    meter=meter,
-                    output=True,
-                    match_types=matches,
-                    set_fields=tuple(set_fields),
-                    next_tables=default.next_tables
-                    )
+                table_name,
+                default.table_id,
+                exact_match=exact_match,
+                meter=meter,
+                output=True,
+                match_types=matches,
+                set_fields=tuple(set_fields),
+                next_tables=default.next_tables)
         # TODO: dynamically configure output attribue
         return table_config
 
@@ -356,7 +361,7 @@ configuration.
         tables = {}
         self.groups = ValveGroupTable()
         relative_table_id = 0
-        included_tables = {'vlan', 'eth_src', 'eth_dst', 'flood'}
+        included_tables = copy.deepcopy(faucet_pipeline.MINIMUM_FAUCET_PIPELINE_TABLES)
         acl_tables = self._generate_acl_tables()
         included_tables.update(acl_tables.keys())
         # Only configure IP routing tables if enabled.
@@ -372,10 +377,8 @@ configuration.
             table_name = canonical_table_config.name
             if table_name not in included_tables:
                 continue
-            if table_name in acl_tables:
-                table_config = acl_tables[table_name]
-            else:
-                table_config = copy.deepcopy(canonical_table_config)
+            table_config = acl_tables.get(
+                table_name, copy.deepcopy(canonical_table_config))
             if not valve_cl.STATIC_TABLE_IDS:
                 table_config.table_id = relative_table_id
             relative_table_id += 1
@@ -446,7 +449,7 @@ configuration.
         self.ports[port_num] = port
         if port.output_only:
             self.output_only_ports.append(port)
-        elif port.stack is not None:
+        elif port.stack:
             self.stack_ports.append(port)
         if port.lldp_beacon_enabled():
             self.lldp_beacon_ports.append(port)
@@ -734,7 +737,7 @@ configuration.
                 test_config_condition(acl.exact_match != acls[0].exact_match, (
                     'ACLs when used together must have consistent exact_match'))
 
-        def resolve_acls(valve_cl):
+        def resolve_acls():
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
             for vlan in list(self.vlans.values()):
@@ -807,7 +810,7 @@ configuration.
         resolve_mirror_destinations()
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
-        resolve_acls(valve_cl)
+        resolve_acls()
 
         self._configure_tables(valve_cl)
 

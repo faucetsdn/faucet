@@ -137,7 +137,7 @@ class Port(Conf):
         self.override_output_port = None
         self.permanent_learn = None
         self.receive_lldp = None
-        self.stack = None
+        self.stack = {}
         self.unicast_flood = None
 
         self.dyn_lacp_up = None
@@ -238,7 +238,7 @@ class Port(Conf):
     def to_conf(self):
         result = super(Port, self).to_conf()
         if result is not None:
-            if 'stack' in result and result['stack'] is not None:
+            if 'stack' in result and result['stack']:
                 result['stack'] = {}
                 for stack_config in list(self.stack_defaults_types.keys()):
                     result['stack'][stack_config] = self.stack[stack_config]

@@ -457,9 +457,8 @@ class ValveFloodStackManager(ValveFloodManager):
             if vlan_vid in other_valve.dp.vlans:
                 other_dp_vlan = other_valve.dp.vlans[vlan_vid]
                 entry = other_dp_vlan.cached_host(eth_src)
-                if entry is not None:
-                    if entry.port.stack is None:
-                        return other_valve.dp
+                if entry and not entry.port.stack:
+                    return other_valve.dp
         return None
 
     def update_stack_topo(self, event, dp, port=None):
@@ -503,11 +502,11 @@ class ValveFloodStackManager(ValveFloodManager):
         Returns:
             port to learn host on, or None.
         """
-        if pkt_meta.port.stack is None:
-            return super(ValveFloodStackManager, self).edge_learn_port(
-                other_valves, pkt_meta)
-        edge_dp = self._edge_dp_for_host(other_valves, pkt_meta)
-        # No edge DP may have learned this host yet.
-        if edge_dp is None:
-            return None
-        return self.shortest_path_port(edge_dp.name)
+        if pkt_meta.port.stack:
+            edge_dp = self._edge_dp_for_host(other_valves, pkt_meta)
+            # No edge DP may have learned this host yet.
+            if edge_dp is None:
+                return None
+            return self.shortest_path_port(edge_dp.name)
+        return super(ValveFloodStackManager, self).edge_learn_port(
+            other_valves, pkt_meta)

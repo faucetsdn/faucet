@@ -37,7 +37,8 @@ class UniqueKeyLoader(Loader):
         try:
             key_value_pairs = [
                 (self.construct_object(key_node, deep=deep),
-                 self.construct_object(value_node, deep=deep)) for key_node, value_node in node.value]
+                 self.construct_object(value_node, deep=deep))
+                for key_node, value_node in node.value]
         except TypeError as err:
             raise ConstructorError('invalid key type: %s' % err)
         mapping = {}
@@ -149,9 +150,8 @@ def dp_include(config_hashes, config_file, logname, top_confs):
                 if file_required:
                     logger.error('unable to load required include file: %s', include_path)
                     return False
-                else:
-                    new_config_hashes[include_path] = None
-                    logger.warning('skipping optional include file: %s', include_path)
+                new_config_hashes[include_path] = None
+                logger.warning('skipping optional include file: %s', include_path)
 
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.

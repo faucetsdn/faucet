@@ -103,6 +103,7 @@ VIP_DEFAULT_CONFIG = ValveTableConfig(
     6,
     match_types=(('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
                  ('icmpv6_type', False), ('ip_proto', False)),
+    next_tables=('eth_dst')
     )
 ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
@@ -119,6 +120,9 @@ FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
     vlan_port_scale=2.1,
     )
+
+MINIMUM_FAUCET_PIPELINE_TABLES = {
+    'vlan', 'eth_src', 'eth_dst', 'flood'}
 
 # TODO: implement an eth_type table before VLAN. This would enable interception
 # of control protocols and simplify matches in vlan/eth_src, enabling use of

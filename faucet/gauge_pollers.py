@@ -33,6 +33,7 @@ class GaugePoller:
         self.conf = conf
         self.prom_client = prom_client
         self.reply_pending = False
+        self.ryudp = None
         self.logger = logging.getLogger(
             logname + '.{0}'.format(self.conf.type)
             )
@@ -58,9 +59,9 @@ class GaugePoller:
         """Return True if the poller is running."""
         return self._running
 
-    def is_active(self):
-        """Return True if the poller is controlling the requiest loop for its
-        stat"""
+    @staticmethod
+    def is_active():
+        """Return True if the poller is controlling the request loop for its stat"""
         return False
 
     def send_req(self):
@@ -243,11 +244,10 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
             oxm_tlv = oxm_match['OXMTlv']
             mask = oxm_tlv['mask']
             val = oxm_tlv['value']
-            field = oxm_tlv['field']
+            orig_field = oxm_tlv['field']
             if mask is not None:
                 val = '/'.join((str(val), str(mask)))
-            if field in OLD_MATCH_FIELDS:
-                field = OLD_MATCH_FIELDS[field]
+            field = OLD_MATCH_FIELDS.get(orig_field, orig_field)
             tags[field] = val
             if field == 'vlan_vid' and mask is None:
                 tags['vlan'] = devid_present(int(val))

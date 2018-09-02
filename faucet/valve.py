@@ -161,16 +161,16 @@ class Valve:
             self._port_highwater[vlan_vid] = {}
             for port_number in list(self.dp.ports.keys()):
                 self._port_highwater[vlan_vid][port_number] = 0
-        for ipv, route_manager_class in (
-                (4, valve_route.ValveIPv4RouteManager),
-                (6, valve_route.ValveIPv6RouteManager)):
-            proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
+        for ipv, route_manager_class, neighbor_timeout in (
+                (4, valve_route.ValveIPv4RouteManager, self.dp.arp_neighbor_timeout),
+                (6, valve_route.ValveIPv6RouteManager, self.dp.nd_neighbor_timeout)):
             fib_table_name = 'ipv%u_fib' % ipv
             if not fib_table_name in self.dp.tables:
                 continue
             fib_table = self.dp.tables[fib_table_name]
+            proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
             route_manager = route_manager_class(
-                self.logger, self.dp.global_vlan, self.dp.arp_neighbor_timeout,
+                self.logger, self.dp.global_vlan, neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, proactive_learn, self.DEC_TTL,
                 fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
@@ -203,13 +203,15 @@ class Valve:
                 self.logger, self.dp.ports, self.dp.vlans,
                 self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-                self.dp.low_priority, self.dp.highest_priority)
+                self.dp.low_priority, self.dp.highest_priority,
+                self.dp.cache_update_guard_time)
         else:
             self.host_manager = valve_host.ValveHostManager(
                 self.logger, self.dp.ports, self.dp.vlans,
                 self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-                self.dp.low_priority, self.dp.highest_priority)
+                self.dp.low_priority, self.dp.highest_priority,
+                self.dp.cache_update_guard_time)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
@@ -792,7 +794,7 @@ class Valve:
             port_vlans = port.vlans()
 
             # If this is a stacking port, accept all VLANs (came from another FAUCET)
-            if port.stack is not None:
+            if port.stack:
                 # Actual stack traffic will have VLAN tags.
                 ofmsgs.append(vlan_table.flowdrop(
                     match=vlan_table.match(
@@ -1102,9 +1104,10 @@ class Valve:
             data, orig_len, pkt, eth_pkt, vlan_pkt, port, vlan, eth_src, eth_dst, eth_type)
         if vlan_vid == self.dp.global_vlan:
             vlan_vid = valve_packet.int_from_mac(pkt_meta.eth_dst)
-            vlan = self.dp.vlans[vlan_vid]
+            vlan = self.dp.vlans.get(vlan_vid, None)
             pkt_meta.vlan = vlan
-            pkt_meta.eth_dst = vlan.faucet_mac
+            if vlan is not None:
+                pkt_meta.eth_dst = vlan.faucet_mac
         return pkt_meta
 
     def parse_pkt_meta(self, msg):
@@ -1467,7 +1470,7 @@ class Valve:
             priority=self.dp.highest_priority,
             strict=True
         )
-        return [ofmsg]
+        return ofmsg
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
