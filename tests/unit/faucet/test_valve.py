@@ -777,6 +777,9 @@ class ValveTestBases:
             self.assertFalse(route_add_replies)
             resolve_replies = self.valve.resolve_gateways(
                 time.time(), None)
+            self.assertFalse(resolve_replies)
+            resolve_replies = self.valve.resolve_gateways(
+                time.time() + 99, None)
             self.assertTrue(resolve_replies)
 
         def test_add_del_route(self):
