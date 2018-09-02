@@ -51,9 +51,11 @@ class NextHop:
         self.eth_src = eth_src
         self.port = port
         self.cache_time = now
-        self.last_retry_time = None
-        self.next_retry_time = now + 1
         self.resolve_retries = 0
+        self.last_retry_time = None
+        self.next_retry_time = None
+        if not self.eth_src:
+            self.next_retry_time = now + 1
 
     def age(self, now):
         """Return age of this nexthop."""
@@ -74,7 +76,7 @@ class NextHop:
         """Return True if this nexthop is due to be re resolved/retried."""
         if self.eth_src is not None and self.age(now) < max_age:
             return False
-        if now >= self.next_retry_time:
+        if self.next_retry_time is not None and self.next_retry_time < now:
             return True
         return False
 
