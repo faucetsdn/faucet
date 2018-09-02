@@ -26,14 +26,18 @@ from faucet.faucet_pipeline import ValveTableConfig
 class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attributes
     """Wrapper for an OpenFlow table."""
 
-    def __init__(self, table_id, name, table_config,
-                 flow_cookie, notify_flow_removed=False):
-        self.table_id = table_id
+    def __init__(self, name, table_config,
+                 flow_cookie, notify_flow_removed=False, next_tables=None):
         self.name = name
         self.table_config = table_config
+        self.table_id = self.table_config.table_id
         self.set_fields = self.table_config.set_fields
         self.exact_match = self.table_config.exact_match
         self.match_types = None
+        if next_tables:
+            self.next_tables = next_tables
+        else:
+            self.next_tables = []
         if self.table_config.match_types:
             self.match_types = {}
             for field, mask in self.table_config.match_types:
@@ -204,4 +208,4 @@ class ValveGroupTable:
         return valve_of.groupdel()
 
 wildcard_table = ValveTable(
-    valve_of.ofp.OFPTT_ALL, 'all', ValveTableConfig('all'), flow_cookie=0)
+    'all', ValveTableConfig('all', valve_of.ofp.OFPTT_ALL), flow_cookie=0)

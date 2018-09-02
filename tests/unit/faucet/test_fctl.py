@@ -100,9 +100,11 @@ class FctlTestCase(FctlTestCaseBase):
         self.assertEqual(output, expected_output)
 
     def test_macs(self):
+        """Test can parse learned MACs from Prometheus data."""
         self.run_fctl(self.learned_macs_prom(), self.learned_macs_result())
 
     def test_display_labels(self):
+        """Test can filter by display labels."""
         expected_output = """
 learned_macs\t[('dp_id', '{dp_id}')]\t{mac_addr}
 """.format(**self.DEFAULT_VALUES).strip()
@@ -117,6 +119,7 @@ class FctlClassTestCase(FctlTestCaseBase):
     """Test fctl internal methods."""
 
     def test_http_fail(self):
+        """Test HTTP scrape handled."""
         with open(os.devnull, 'w') as err_output_file:
             self.assertEqual(
                 None,
@@ -124,6 +127,7 @@ class FctlClassTestCase(FctlTestCaseBase):
                     ['http://127.0.0.1:23'], err_output_file=err_output_file))
 
     def test_macs(self):
+        """Test reporting of learned MACs."""
         prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
         with open(prom_input_file_name, 'w') as prom_input_file:
             prom_input_file.write(self.learned_macs_prom())

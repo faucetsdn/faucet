@@ -210,7 +210,7 @@ class DockerHost(Host):
     def wait(self):
         """Wait for an activated container to terminate."""
         try:
-            if self.active_pipe_returncode != None:
+            if self.active_pipe_returncode is not None:
                 return self.active_pipe_returncode
             debug('Waiting for container %s.' % self.container)
             assert self.active_pipe, "container not activated"

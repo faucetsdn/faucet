@@ -90,6 +90,7 @@ def build_output_actions(output_dict):
 def build_acl_entry(rule_conf, meters,
                     acl_allow_inst, acl_force_port_vlan_inst,
                     port_num=None, vlan_vid=None):
+    """Build flow/groupmods for one ACL rule entry."""
     acl_inst = []
     acl_act = []
     acl_match_dict = {}
@@ -154,6 +155,7 @@ def build_acl_ofmsgs(acls, acl_table,
                      acl_allow_inst, acl_force_port_vlan_inst,
                      highest_priority, meters,
                      exact_match, port_num=None, vlan_vid=None):
+    """Build flow/groupmods for all entries in an ACL."""
     ofmsgs = []
     acl_rule_priority = highest_priority
     for acl in acls:

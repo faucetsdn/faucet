@@ -6,14 +6,12 @@ import subprocess
 import os
 import re
 
-from clib import mininet_test_util
-
-# pylint: disable=import-error
-# pylint: disable=no-name-in-module
 from mininet.log import error, debug
 
+from clib import mininet_test_util
 
-class TcpdumpHelper(object):
+
+class TcpdumpHelper:
     """Run tcpdump on interface, then a list of functions, and return tcpdump's parsed output."""
 
     pipe = None
@@ -137,7 +135,7 @@ class TcpdumpHelper(object):
             assert line or self.started, 'tcpdump did not start: %s' % self.last_line.strip()
             if self.started:
                 return line
-            elif re.search('listening on %s' % self.intf_name, line):
+            if re.search('listening on %s' % self.intf_name, line):
                 self.started = True
                 # When we see tcpdump start, then call provided functions.
                 if self.funcs is not None:

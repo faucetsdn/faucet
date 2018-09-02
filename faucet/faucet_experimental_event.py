@@ -7,7 +7,8 @@
 
 # TODO: events are currently schema-less. This is to facilitate rapid prototyping, and will change.
 # TODO: not all cases where a notified client fails or could block, have been tested.
-# only one client is supported (multiple clients should be implemented with a client that copies/pushes to a message bus)
+# only one client is supported (multiple clients should be implemented with a client that
+# copies/pushes to a message bus)
 
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
@@ -35,8 +36,8 @@ from contextlib import contextmanager
 import eventlet
 eventlet.monkey_patch()
 
-from ryu.lib import hub
-from ryu.lib.hub import StreamServer
+from ryu.lib import hub # pylint: disable=wrong-import-position
+from ryu.lib.hub import StreamServer # pylint: disable=wrong-import-position
 
 
 class NonBlockLock:

@@ -1,19 +1,15 @@
 """Topology components for FAUCET Mininet unit tests."""
 
 import os
-import pty
-import select
 import socket
 import string
 import shutil
 import subprocess
 import time
 
-# pylint: disable=import-error
-# pylint: disable=no-name-in-module
 # pylint: disable=too-many-arguments
 
-from mininet.log import error, output
+from mininet.log import output
 from mininet.topo import Topo
 from mininet.node import Controller
 from mininet.node import CPULimitedHost
@@ -23,86 +19,13 @@ from clib import mininet_test_util
 
 import netifaces
 
-# TODO: mininet 2.2.2 leaks ptys (master slave assigned in startShell)
-# override as necessary close them. Transclude overridden methods
-# to avoid multiple inheritance complexity.
-
-class FaucetHostCleanup(object):
-    """TODO: Mininet host implemenation leaks ptys."""
-
-    master = None
-    shell = None
-    slave = None
-    name = None
-    inNamespace = None
-    pollOut = None
-    stdout = None
-    execed = None
-    lastCmd = None # pylint: disable=invalid-name
-    readbuf = None
-    lastPid = None
-    pid = None
-    waiting = None
-    stdin = None
-
-
-    def startShell(self, mnopts=None): # pylint: disable=invalid-name
-        """Override Mininet startshell() to partially avoid pty leak."""
-        if self.shell:
-            error('%s: shell is already running\n' % self.name)
-            return
-        opts = '-cd' if mnopts is None else mnopts
-        if self.inNamespace:
-            opts += 'n'
-        cmd = ['mnexec', opts, 'env', 'PS1=' + chr(127),
-               'bash', '--norc', '-is', 'mininet:' + self.name]
-        self.master, self.slave = pty.openpty()
-        self.shell = self._popen( # pylint: disable=no-member; # pytype: disable=attribute-error
-            cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
-            close_fds=False)
-        self.stdin = os.fdopen(self.master, 'r')
-        self.stdout = self.stdin
-        self.pid = self.shell.pid
-        self.pollOut = select.poll() # pylint: disable=invalid-name
-        self.pollOut.register(self.stdout) # pylint: disable=no-member
-        self.outToNode[self.stdout.fileno()] = self # pylint: disable=no-member; # pytype: disable=attribute-error
-        self.inToNode[self.stdin.fileno()] = self # pylint: disable=no-member; # pytype: disable=attribute-error
-        self.execed = False
-        self.lastCmd = None # pylint: disable=invalid-typevar
-        self.lastPid = None # pylint: disable=invalid-name
-        self.readbuf = ''
-        while True:
-            data = self.read(1024) # pylint: disable=no-member; # pytype: disable=attribute-error
-            if data[-1] == chr(127):
-                break
-            self.pollOut.poll()
-        self.waiting = False
-        self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member; # pytype: disable=attribute-error
-
-    def terminate(self):
-        """Override Mininet terminate() to partially avoid pty leak."""
-        if self.shell is not None:
-            try:
-                os.close(self.slave)
-            except OSError:
-                pass
-            self.stdin.close()
-            if self.shell.returncode is None:
-                self.shell.kill()
-                self.shell.poll()
-        try:
-            self.cleanup() # pylint: disable=no-member; # pytype: disable=attribute-error
-        except OSError:
-            pass
-
-
-class FaucetHost(FaucetHostCleanup, CPULimitedHost):
+class FaucetHost(CPULimitedHost):
     """Base Mininet Host class, for Mininet-based tests."""
 
     pass
 
 
-class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
+class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (netdev based OVS)."""
 
     controller_params = {
@@ -200,7 +123,6 @@ class FaucetSwitchTopo(Topo):
     def _get_sid_prefix(ports_served):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
-        # pylint: disable=no-member
         id_chars = string.ascii_letters + string.digits # pytype: disable=module-attr
         id_a = int(ports_served / len(id_chars))
         id_b = ports_served - (id_a * len(id_chars))
@@ -213,7 +135,7 @@ class FaucetSwitchTopo(Topo):
         return self.addHost(
             name=host_name, cls=VLANHost, vlan=tagged_vid, cpu=self.CPUF)
 
-    def _add_untagged_host(self, sid_prefix, host_n, inNamespace=True):
+    def _add_untagged_host(self, sid_prefix, host_n, inNamespace=True): # pylint: disable=invalid-name
         """Add a single untagged test host."""
         host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
         return self.addHost(name=host_name, cls=FaucetHost, cpu=self.CPUF, inNamespace=inNamespace)
@@ -299,7 +221,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
           with final two links being inter-switch
         """
-        def addLinks(src, dst):
+        def addLinks(src, dst): # pylint: disable=invalid-name
             for _ in range(self.switch_to_switch_links):
                 self.addLink(src, dst)
 
@@ -370,8 +292,7 @@ socket_timeout=15
     def _add_cargs(self, cargs, name):
         ofp_listen_host_arg = ''
         if self.controller_intf is not None:
-            # pylint: disable=no-member
-            self.controller_ip = netifaces.ifaddresses(
+            self.controller_ip = netifaces.ifaddresses( # pylint: disable=c-extension-no-member
                 self.controller_intf)[socket.AF_INET][0]['addr']
             ofp_listen_host_arg = '--ryu-ofp-listen-host=%s' % self.controller_ip
         self.pid_file = os.path.join(self.tmpdir, name + '.pid')
@@ -383,7 +304,7 @@ socket_timeout=15
         return ' '.join((
             self.BASE_CARGS, pid_file_arg, ryu_conf_arg, ofp_listen_host_arg, cargs))
 
-    def IP(self):
+    def IP(self): # pylint: disable=invalid-name
         if self.controller_intf is not None:
             return self.controller_ip
         return super(BaseFAUCET, self).IP()

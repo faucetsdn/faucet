@@ -42,37 +42,37 @@ from faucet import faucet_metrics
 from faucet import valve_of
 
 
-class EventFaucetExperimentalAPIRegistered(event.EventBase):
+class EventFaucetExperimentalAPIRegistered(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to notify that the API is registered with Faucet."""
     pass
 
 
-class EventFaucetResolveGateways(event.EventBase):
+class EventFaucetResolveGateways(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to trigger gateway re/resolution."""
     pass
 
 
-class EventFaucetStateExpire(event.EventBase):
+class EventFaucetStateExpire(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to trigger expiration of state in controller."""
     pass
 
 
-class EventFaucetMetricUpdate(event.EventBase):
+class EventFaucetMetricUpdate(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to trigger update of metrics."""
     pass
 
 
-class EventFaucetAdvertise(event.EventBase):
+class EventFaucetAdvertise(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to trigger periodic network advertisements (eg IPv6 RAs)."""
     pass
 
 
-class EventFaucetLLDPAdvertise(event.EventBase):
+class EventFaucetLLDPAdvertise(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to trigger periodic LLDP beacons."""
     pass
 
 
-class EventFaucetStackLinkStates(event.EventBase):
+class EventFaucetStackLinkStates(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to update link stack states."""
     pass
 
@@ -177,7 +177,7 @@ class Faucet(RyuAppBase):
             ryu_event (ryu.controller.event.Event): event
             require_running (bool): require DP to be running.
         Returns:
-            valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and Ryu msg (if any)
+            valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and msg (if any)
         """
         valve, ryu_dp, msg = self._get_datapath_obj(
             self.valves_manager.valves, ryu_event)
@@ -271,7 +271,8 @@ class Faucet(RyuAppBase):
             return
         discovered_up_ports = [
             port.port_no for port in list(ryu_dp.ports.values())
-            if valve_of.port_status_from_state(port.state) and not valve_of.ignore_port(port.port_no)]
+            if (valve_of.port_status_from_state(port.state) and
+                not valve_of.ignore_port(port.port_no))]
         self._send_flow_msgs(valve, valve.datapath_connect(now, discovered_up_ports))
 
     @kill_on_exception(exc_logname)

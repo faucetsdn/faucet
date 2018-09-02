@@ -109,7 +109,7 @@ class VLAN(Conf):
         # Don't proactively ARP for hosts if over this limit (default 2*max_hosts)
         'proactive_nd_limit': 0,
         # Don't proactively ND for hosts if over this limit (default 2*max_hosts)
-        'targeted_gw_resolution': False,
+        'targeted_gw_resolution': True,
         # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
         'minimum_ip_size_check': True,
         # If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
@@ -292,10 +292,12 @@ class VLAN(Conf):
         self.dyn_unresolved_host_ip_gws = collections.defaultdict(list)
 
     def reset_ports(self, ports):
+        """Reset tagged and untagged port lists."""
         self.tagged = tuple([port for port in ports if self in port.tagged_vlans])
         self.untagged = tuple([port for port in ports if self == port.native_vlan])
 
     def add_cache_host(self, eth_src, port, cache_time):
+        """Add/update a host to the cache on a port at at time."""
         existing_entry = self.cached_host(eth_src)
         if existing_entry is not None:
             self.dyn_host_cache_by_port[existing_entry.port.number].remove(
@@ -327,9 +329,8 @@ class VLAN(Conf):
         return hosts_count
 
     def cached_host(self, eth_src):
-        if eth_src in self.dyn_host_cache:
-            return self.dyn_host_cache[eth_src]
-        return None
+        """Return host from cache or None."""
+        return self.dyn_host_cache.get(eth_src, None)
 
     def cached_host_on_port(self, eth_src, port):
         """Return host cache entry if host in cache and on specified port."""
@@ -373,6 +374,7 @@ class VLAN(Conf):
         return self._by_ipv(self.faucet_vips, ipv)
 
     def link_and_other_vips(self, ipv):
+        """Return link local and non-link local VIPs."""
         vips = self.faucet_vips_by_ipv(ipv)
         link_local_vips = frozenset([vip for vip in vips if vip.is_link_local])
         other_vips = vips - link_local_vips

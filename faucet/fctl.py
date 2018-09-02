@@ -85,15 +85,12 @@ def report_label_match_metrics(report_metrics, metrics, display_labels=None,
                             label_matches.items()).issubset(set(labels.items())))):
                     if nonzero_only and int(value) == 0:
                         continue
-
-                    sorted_labels = []
-                    for key, val in sorted(labels.items()):
-                        if not display_labels or key in display_labels:
-                            sorted_labels.append((key, val))
+                    sorted_labels = [
+                        (key, val) for key, val in sorted(labels.items())
+                        if not display_labels or key in display_labels]
                     value = decode_value(metric.name, value)
                     report_output.append(
-                        delim.join((metric.name, str(sorted_labels), str(value)))
-                        )
+                        delim.join((metric.name, str(sorted_labels), str(value))))
     report_output = '\n'.join(report_output)
     return report_output
 

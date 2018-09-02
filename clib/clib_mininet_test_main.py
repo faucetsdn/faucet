@@ -35,7 +35,6 @@ import yaml
 from packaging import version
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
-# pylint: disable=import-error
 from mininet.log import setLogLevel
 from mininet.clean import Cleanup
 
@@ -143,8 +142,7 @@ def import_hw_config():
                   '%d are provided in %s.' %
                   (REQUIRED_TEST_PORTS, len(dp_ports), config_file_name))
         return config
-    else:
-        return None
+    return None
 
 
 def check_dependencies():

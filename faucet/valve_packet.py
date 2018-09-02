@@ -49,6 +49,7 @@ IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_ALL_NODES = ipaddress.IPv6Address(valve_util.btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
+IPV6_RA_HOP_LIM = 64
 
 LLDP_FAUCET_DP_ID = 1
 LLDP_FAUCET_STACK_STATE = 2
@@ -395,19 +396,20 @@ def lacp_reqreply(eth_src,
     return pkt
 
 
-def arp_request(vid, eth_src, src_ip, dst_ip):
+def arp_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return an ARP request packet.
 
     Args:
         vid (int or None): VLAN VID to use (or None).
         eth_src (str): Ethernet source address.
+        eth_dst (str): Ethernet destination address.
         src_ip (ipaddress.IPv4Address): source IPv4 address.
         dst_ip (ipaddress.IPv4Address): requested IPv4 address.
     Returns:
         ryu.lib.packet.arp: serialized ARP request packet.
     """
     pkt = build_pkt_header(
-        vid, eth_src, valve_of.mac.BROADCAST_STR, valve_of.ether.ETH_TYPE_ARP)
+        vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_ARP)
     arp_pkt = arp.arp(
         opcode=arp.ARP_REQUEST, src_mac=eth_src,
         src_ip=str(src_ip), dst_mac=valve_of.mac.DONTCARE_STR, dst_ip=str(dst_ip))
@@ -472,13 +474,7 @@ def ipv6_link_eth_mcast(dst_ip):
         str: Ethernet multicast address.
     """
     mcast_mac_bytes = b'\x33\x33\xff' + dst_ip.packed[-3:]
-    mcast_mac_octets = []
-    for i in mcast_mac_bytes:
-        if isinstance(i, int):
-            mcast_mac_octets.append(i)
-        else:
-            mcast_mac_octets.append(ord(i))
-    mcast_mac = ':'.join(['%02X' % x for x in mcast_mac_octets])
+    mcast_mac = ':'.join(['%02X' % x for x in mcast_mac_bytes])
     return mcast_mac
 
 
@@ -498,22 +494,27 @@ def ipv6_solicited_node_from_ucast(ucast):
     return link_mcast
 
 
-def nd_request(vid, eth_src, src_ip, dst_ip):
+def nd_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return IPv6 neighbor discovery request packet.
 
     Args:
         vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
+        eth_dst (str): Ethernet destination address.
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         dst_ip (ipaddress.IPv6Address): requested IPv6 address.
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 neighbor discovery packet.
     """
-    nd_mac = ipv6_link_eth_mcast(dst_ip)
-    ip_gw_mcast = ipv6_solicited_node_from_ucast(dst_ip)
+    if mac_addr_is_unicast(eth_dst):
+        nd_mac = eth_dst
+        nd_ip = dst_ip
+    else:
+        nd_mac = ipv6_link_eth_mcast(dst_ip)
+        nd_ip = ipv6_solicited_node_from_ucast(dst_ip)
     pkt = build_pkt_header(vid, eth_src, nd_mac, valve_of.ether.ETH_TYPE_IPV6)
     ipv6_pkt = ipv6.ipv6(
-        src=str(src_ip), dst=ip_gw_mcast, nxt=valve_of.inet.IPPROTO_ICMPV6)
+        src=str(src_ip), dst=nd_ip, nxt=valve_of.inet.IPPROTO_ICMPV6)
     pkt.add_protocol(ipv6_pkt)
     icmpv6_pkt = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_SOLICIT,
@@ -590,7 +591,7 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
 
 def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
                   vips, pi_flags=0x6):
-    """Return IPv6 ICMP echo reply packet.
+    """Return IPv6 ICMP Router Advert.
 
     Args:
         vid (int or None): VLAN VID to use (or None).
@@ -626,7 +627,7 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
         type_=icmpv6.ND_ROUTER_ADVERT,
         data=icmpv6.nd_router_advert(
             rou_l=1800,
-            ch_l=IPV6_MAX_HOP_LIM,
+            ch_l=IPV6_RA_HOP_LIM,
             options=options))
     pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()

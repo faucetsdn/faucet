@@ -69,7 +69,7 @@ class ValveRouteManager:
 
     __slots__ = [
         'active',
-        'arp_neighbor_timeout',
+        'neighbor_timeout',
         'dec_ttl',
         'eth_dst_table',
         'eth_src_table',
@@ -95,14 +95,14 @@ class ValveRouteManager:
     IP_PKT = None
 
 
-    def __init__(self, logger, global_vlan, arp_neighbor_timeout,
+    def __init__(self, logger, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl,
                  fib_table, vip_table, eth_src_table, eth_dst_table, flood_table,
                  route_priority, routers):
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
-        self.arp_neighbor_timeout = arp_neighbor_timeout
+        self.neighbor_timeout = neighbor_timeout
         self.max_hosts_per_resolve_cycle = max_hosts_per_resolve_cycle
         self.max_host_fib_retry_count = max_host_fib_retry_count
         self.max_resolve_backoff_time = max_resolve_backoff_time
@@ -138,11 +138,13 @@ class ValveRouteManager:
 
     def _resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
-            self._gw_resolve_pkt(), vlan.faucet_mac, faucet_vip.ip, ip_gw)
+            self._gw_resolve_pkt(),
+            vlan.faucet_mac, valve_of.mac.BROADCAST_STR, faucet_vip.ip, ip_gw)
 
-    def _resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
+    def _resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw, eth_dst):
         return vlan.pkt_out_port(
-            self._gw_resolve_pkt(), port, vlan.faucet_mac, faucet_vip.ip, ip_gw)
+            self._gw_resolve_pkt(),
+            port, vlan.faucet_mac, eth_dst, faucet_vip.ip, ip_gw)
 
     def _resolve_vip_response(self, pkt_meta, solicited_ip, now):
         ofmsgs = []
@@ -205,10 +207,8 @@ class ValveRouteManager:
             ofmsgs.append(valve_of.dec_ip_ttl())
         return ofmsgs
 
-    def _route_match(self, vlan, ip_dst=None):
-        if ip_dst is not None:
-            return self.fib_table.match(vlan=vlan, eth_type=self.ETH_TYPE, nw_dst=ip_dst)
-        return self.fib_table.match(vlan=vlan, eth_type=self.ETH_TYPE)
+    def _route_match(self, vlan, ip_dst):
+        return self.fib_table.match(vlan=vlan, eth_type=self.ETH_TYPE, nw_dst=ip_dst)
 
     def _route_priority(self, ip_dst):
         prefixlen = ipaddress.ip_network(ip_dst).prefixlen
@@ -348,11 +348,9 @@ class ValveRouteManager:
         vlan_nexthop_cache = self._vlan_nexthop_cache(vlan)
         nexthop_entries = [
             (ip_gw, vlan_nexthop_cache.get(ip_gw, None)) for ip_gw in ip_gws]
-        min_cache_time = now - self.arp_neighbor_timeout
         not_fresh_nexthops = [
             (ip_gw, entry) for ip_gw, entry in nexthop_entries
-            if entry is None or entry.eth_src is None or (
-                entry.cache_time < min_cache_time and now > entry.next_retry_time)]
+            if entry is None or now > entry.next_retry_time]
         unresolved_nexthops_by_retries = defaultdict(list)
         for ip_gw, entry in not_fresh_nexthops:
             if entry is None:
@@ -375,11 +373,14 @@ class ValveRouteManager:
         nexthop_cache_entry.next_retry_time = now + min(
             2**nexthop_cache_entry.resolve_retries, self.max_resolve_backoff_time)
         faucet_vip = vlan.vip_map(ip_gw)
-        resolve_flows = self._resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
-        if vlan.targeted_gw_resolution:
-            if last_retry_time is None and nexthop_cache_entry.port is not None:
-                resolve_flows = [self._resolve_gw_on_port(
-                    vlan, nexthop_cache_entry.port, faucet_vip, ip_gw)]
+        if (vlan.targeted_gw_resolution and
+                last_retry_time is None and nexthop_cache_entry.port is not None):
+            port = nexthop_cache_entry.port
+            eth_dst = nexthop_cache_entry.eth_src
+            resolve_flows = [self._resolve_gw_on_port(
+                vlan, port, faucet_vip, ip_gw, eth_dst)]
+        else:
+            resolve_flows = self._resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
         if resolve_flows:
             if last_retry_time is None:
                 self.logger.info(
@@ -415,15 +416,19 @@ class ValveRouteManager:
     def _resolve_gateways_flows(self, resolve_handler, vlan, now,
                                 unresolved_nexthops, remaining_attempts):
         ofmsgs = []
-        min_cache_time = now - self.arp_neighbor_timeout
+        min_cache_time = now - self.neighbor_timeout
         for ip_gw in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
             entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             if entry is None:
                 continue
-            if entry.eth_src is not None and entry.cache_time > min_cache_time:
-                continue
+            if entry.eth_src is None:
+                if now < entry.next_retry_time:
+                    continue
+            else:
+                if entry.cache_time > min_cache_time:
+                    continue
             resolve_flows = resolve_handler(ip_gw, entry, vlan, now)
             if resolve_flows:
                 ofmsgs.extend(resolve_flows)
@@ -504,9 +509,9 @@ class ValveRouteManager:
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
                     resolution_in_progress = dst_ip in vlan.dyn_host_gws_by_ipv[self.IPV]
                     ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
-                    nexthop_cache_entry = self._update_nexthop_cache(
-                        now, vlan, None, None, dst_ip)
                     if not resolution_in_progress:
+                        nexthop_cache_entry = self._update_nexthop_cache(
+                            now, vlan, None, None, dst_ip)
                         resolve_flows = self._resolve_gateway_flows(
                             dst_ip, nexthop_cache_entry, vlan,
                             nexthop_cache_entry.cache_time)
@@ -705,7 +710,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
             return ofmsgs
         opcode = arp_pkt.opcode
         if opcode == arp.ARP_REQUEST:
-            if pkt_meta.eth_dst == valve_of.mac.BROADCAST_STR:
+            if pkt_meta.eth_dst in (valve_of.mac.BROADCAST_STR, pkt_meta.vlan.faucet_mac):
                 ofmsgs.extend(self._resolve_vip_response(pkt_meta, pkt_meta.l3_dst, now))
         elif opcode == arp.ARP_REPLY:
             if pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
@@ -889,7 +894,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         if ipv6_pkt.ext_hdrs:
             return ofmsgs
         dst_ip = pkt_meta.l3_dst
-        # Explicitly ignore messages to all notes.
+        # Explicitly ignore messages to all nodes.
         if dst_ip == valve_packet.IPV6_ALL_NODES:
             return ofmsgs
         src_ip = pkt_meta.l3_src

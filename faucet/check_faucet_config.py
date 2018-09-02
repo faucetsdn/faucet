@@ -55,7 +55,9 @@ def check_config(conf_files, debug_level, check_output_file):
 
 
 def main():
+    """Mainline."""
     sys.exit(not check_config(sys.argv[1:], logging.DEBUG, sys.stdout))
+
 
 if __name__ == '__main__':
     main()
