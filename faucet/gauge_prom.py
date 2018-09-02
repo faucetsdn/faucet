@@ -51,6 +51,7 @@ class GaugePrometheusClient(PromClient):
 
     def __init__(self, reg=None):
         super(GaugePrometheusClient, self).__init__(reg=reg)
+        self.table_tags = collections.defaultdict(set)
         self.metrics = {}
         self.dp_status = Gauge( # pylint: disable=unexpected-keyword-arg
             'dp_status',
@@ -122,10 +123,6 @@ class GaugePortStatePrometheusPoller(GaugePortStatePoller):
 class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
     """Export flow table entries to Prometheus."""
 
-    def __init__(self, conf, logname, prom_client):
-        self.table_tags = collections.defaultdict(set)
-        super(GaugeFlowTablePrometheusPoller, self).__init__(conf, logname, prom_client)
-
     def update(self, rcv_time, dp_id, msg):
         super(GaugeFlowTablePrometheusPoller, self).update(rcv_time, dp_id, msg)
         jsondict = msg.to_jsondict()
@@ -135,18 +132,19 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
             # Work around this by unregistering/registering the entire variable.
             for var, tags, count in self._parse_flow_stats(stats):
                 table_id = int(tags['table_id'])
-                table_name = self.dp.table_by_id(table_id).name
-                table_prom_var = PROM_PREFIX_DELIM.join((var, table_name))
+                table_tags = self.prom_client.table_tags[table_id]
                 tags_keys = set(tags.keys())
-                if tags_keys != self.table_tags[table_id]:
-                    if not tags_keys.issubset(self.table_tags[table_id]):
-                        self.logger.info('re-initializing tags for table_id %u from %s to %s',
-                                         table_id, self.table_tags[table_id], tags_keys)
-                        self.table_tags[table_id] = self.table_tags[table_id].union(tags_keys)
+                table_name = self.dp.table_by_id(table_id).name
+                if tags_keys != table_tags:
+                    if not tags_keys.issubset(table_tags):
+                        self.logger.info(
+                            're-initializing tags for table_id %u from %s to %s',
+                            table_id, table_tags, tags_keys)
+                        table_tags.update(tags_keys)
                         self.prom_client.reregister_flow_vars(
-                            table_name, self.table_tags[table_id])
+                            table_name, table_tags)
                     # Add blank tags for any tags missing,
-                    for tag in self.table_tags[table_id]:
-                        if tag not in tags:
-                            tags[tag] = ''
+                    for tag in table_tags - tags_keys:
+                        tags[tag] = ''
+                table_prom_var = PROM_PREFIX_DELIM.join((var, table_name))
                 self.prom_client.metrics[table_prom_var].labels(**tags).set(count)
