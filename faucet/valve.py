@@ -866,9 +866,11 @@ class Valve:
         """Return flow messages that delete port from pipeline."""
         return self.ports_delete([port_num])
 
+    def _reset_lacp_status(self, port):
+        self._set_var('port_lacp_status', port.dyn_lacp_up, labels=self.port_labels(port))
+
     def lacp_down(self, port):
         """Return OpenFlow messages when LACP is down on a port."""
-        port.dyn_lacp_up = 0
         vlan_table = self.dp.tables['vlan']
         ofmsgs = []
         ofmsgs.extend(self._port_delete_flows_state(port))
@@ -882,7 +884,10 @@ class Valve:
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
             priority=self.dp.highest_priority,
             max_len=128))
-        self._set_var('port_lacp_status', 0, labels=self.port_labels(port))
+        for vlan in port.vlans():
+            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+        port.dyn_lacp_up = 0
+        self._reset_lacp_status(port)
         return ofmsgs
 
     def lacp_up(self, port):
@@ -892,7 +897,10 @@ class Valve:
         ofmsgs.extend(vlan_table.flowdel(
             match=vlan_table.match(in_port=port.number),
             priority=self.dp.high_priority, strict=True))
-        self._set_var('port_lacp_status', 1, labels=self.port_labels(port))
+        for vlan in port.vlans():
+            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+        port.dyn_lacp_up = 1
+        self._reset_lacp_status(port)
         return ofmsgs
 
     def lacp_handler(self, now, pkt_meta):
@@ -1291,13 +1299,11 @@ class Valve:
             list: OpenFlow messages, if any.
         """
         ofmsgs = []
-        for ports in list(vlan.lags().values()):
-            lacp_up_ports = [port for port in ports if port.dyn_lacp_up]
-            for port in lacp_up_ports:
-                lacp_age = now - port.dyn_lacp_updated_time
-                if lacp_age > self.dp.lacp_timeout:
-                    self.logger.info('LACP on %s expired' % port)
-                    ofmsgs.extend(self.lacp_down(port))
+        for port in vlan.lacp_up_ports():
+            lacp_age = now - port.dyn_lacp_updated_time
+            if lacp_age > self.dp.lacp_timeout:
+                self.logger.info('LACP on %s expired' % port)
+                ofmsgs.extend(self.lacp_down(port))
         return ofmsgs
 
     def state_expire(self, now, _other_valves):
