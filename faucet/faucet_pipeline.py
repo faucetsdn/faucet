@@ -82,7 +82,7 @@ VLAN_DEFAULT_CONFIG = ValveTableConfig(
     match_types=(('eth_dst', True), ('eth_type', False),
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid',),
-    vlan_port_scale=1.1,
+    vlan_port_scale=1.5,
     next_tables=('vlan_acl', 'eth_src'),
     )
 VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
