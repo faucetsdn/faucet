@@ -141,9 +141,9 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                         table_tags.update(unreg_tags)
                         self.prom_client.reregister_flow_vars(
                             table_name, table_tags)
-                        self.logger.info(
-                            'Adding tags %s to %s for table_id %u',
-                            unreg_tags, table_tags, table_id)
+                        self.logger.info( # pylint: disable=logging-not-lazy
+                            'Adding tags %s to %s for table_id %u' % (
+                                unreg_tags, table_tags, table_id))
                     # Add blank tags for any tags not present.
                     missing_tags = table_tags - tags_keys
                     for tag in missing_tags:
@@ -152,6 +152,6 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                 try:
                     self.prom_client.metrics[table_prom_var].labels(**tags).set(count)
                 except ValueError:
-                    self.logger.error(
+                    self.logger.error( # pylint: disable=logging-not-lazy
                         'labels %s versus %s incorrect on %s' % (
                             tags, table_tags, table_prom_var))
