@@ -166,13 +166,28 @@ vlans:
         description: "untagged"
 
 acls:
-    eapol_to_nfv:
+    eapol1_to_nfv:
         - rule:
             dl_type: 0x888e
             actions:
                 output:
-                    # set_fields:
-                        # - eth_dst: NFV_MAC
+                    set_fields:
+                        - eth_dst: 00:00:00:00:00:01
+                    port: b4
+        - rule:
+            eth_src: ff:ff:ff:ff:ff:ff
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 0
+    eapol2_to_nfv:
+        - rule:
+            dl_type: 0x888e
+            actions:
+                output:
+                    set_fields:
+                        - eth_dst: 00:00:00:00:00:02
                     port: b4
         - rule:
             eth_src: ff:ff:ff:ff:ff:ff
@@ -184,15 +199,27 @@ acls:
     eapol_from_nfv:
         - rule:
             dl_type: 0x888e
-            # eth_dst: NFV_MAC
+            eth_src: 00:00:00:00:00:01
             actions:
                 output:
-                    # set_fields:
-                        # - eth_dst: 01:80:c2:00:00:03
+                    set_fields:
+                        - eth_src: 01:80:c2:00:00:03
                     port: b1
+        - rule:
+            dl_type: 0x888e
+            eth_src: 00:00:00:00:00:02
+            actions:
+                output:
+                    set_fields:
+                        - eth_src: 01:80:c2:00:00:03
+                    port: b2
         - rule:
             actions:
                 allow: 0
+    allowall:
+        - rule:
+            actions:
+                allow: 1
 """
 
     CONFIG = """
@@ -203,14 +230,19 @@ acls:
                 name: b1
                 native_vlan: 100
                 description: "b1 - 802.1x client."
-                acl_in: eapol_to_nfv
+                acl_in: eapol1_to_nfv
                 dot1x: True
             %(port_2)d:
+                name: b2
                 native_vlan: 100
-                description: "b2"
+                description: "b2 - 802.1X client."
+                acl_in: eapol2_to_nfv
+                dot1x: True
             %(port_3)d:
+                name: b3
                 native_vlan: 100
-                description: "b3"
+                description: "b3 - ping host."
+                acl_in: allowall
             %(port_4)d:
                 name: b4
                 native_vlan: 100
@@ -218,7 +250,7 @@ acls:
                 acl_in: eapol_from_nfv
 """
 
-    wpasupplicant_conf = """
+    wpasupplicant_conf_1 = """
 ap_scan=0
 network={
     key_mgmt=IEEE8021X
@@ -228,16 +260,27 @@ network={
 }
 """
 
+    wpasupplicant_conf_2 = """
+    ap_scan=0
+    network={
+        key_mgmt=IEEE8021X
+        eap=MD5
+        identity="admin"
+        password="megaphone"
+    }
+    """
+
     HOST_NAMESPACE = {3: False}
 
-    eapol_host = None
+    eapol1_host = None
     ping_host = None
     nfv_host = None
     nfv_intf = None
 
     def _write_faucet_config(self):
-        self.eapol_host = self.net.hosts[0]
-        self.ping_host = self.net.hosts[1]
+        self.eapol1_host = self.net.hosts[0]
+        self.eapol2_host = self.net.hosts[1]
+        self.ping_host = self.net.hosts[2]
         self.nfv_host = self.net.hosts[-1]
         switch = self.net.switches[0]
         last_host_switch_link = switch.connectionsTo(self.nfv_host)[0]
@@ -262,24 +305,52 @@ network={
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
         super(FaucetSingle8021XSuccessTest, self).tearDown()
 
-    def try_8021x(self, and_logff=False):
+    def try_8021x(self, host, port_num, conf, and_logoff=False):
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
-            self.eapol_host, tcpdump_filter, [
-                lambda : self.wpa_supplicant_callback(and_logff)],
+            host, tcpdump_filter, [
+                lambda : self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
             timeout=10, vflags='-v', packets=10)
         return tcpdump_txt
 
     def test_untagged(self):
-        tcpdump_txt = self.try_8021x(and_logff=True)
-
-        self.assertIn('Success', tcpdump_txt)
+        # Log 1 on
+        # test 1 good, 2 bad.
+        # log 2 on
+        # test 1 good, 2 good.
+        # log 2 off
+        # test 1 good, 2 bad.
+        tcpdump_txt_1 = self.try_8021x(self.eapol1_host, 1,
+                                       self.wpasupplicant_conf_1, and_logoff=False)
         self.assertEqual(
             1,
+            self.scrape_prometheus_var('port_dot1x_success', labels={'port': 1}, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_success', labels={'port': 2}, default=0))
+        try:
+            self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(), require_host_learned=False)
+            self.fail('%s should not be able to ping %s' % (self.eapol2_host, self.ping_host))
+        except AssertionError:
+            pass
+        tcpdump_txt_2 = self.try_8021x(self.eapol2_host, 2,
+                                       self.wpasupplicant_conf_1, and_logoff=True)
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
+
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertIn('Success', tcpdump_txt_2)
+        self.assertIn('logoff', tcpdump_txt_2)
+
+        self.assertEqual(
+            2,
             self.scrape_prometheus_var('dp_dot1x_success', default=0))
         self.assertEqual(
             1,
             self.scrape_prometheus_var('port_dot1x_success', labels={'port': 1}, default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success', labels={'port': 2}, default=0))
         self.assertEqual(
             0,
             self.scrape_prometheus_var('dp_dot1x_failure', default=0))
@@ -287,45 +358,58 @@ network={
             0,
             self.scrape_prometheus_var('port_dot1x_failure', labels={'port': 1}, default=0))
         self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_failure', labels={'port': 2}, default=0))
+        self.assertEqual(
             1,
             self.scrape_prometheus_var('dp_dot1x_logoff', default=0))
         self.assertEqual(
-            1,
+            0,
             self.scrape_prometheus_var('port_dot1x_logoff', labels={'port': 1}, default=0))
-        self.assertIn('Success', tcpdump_txt)
-        self.assertIn('logoff', tcpdump_txt)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_logoff', labels={'port': 2}, default=0))
 
-    def wpa_supplicant_callback(self, and_logoff):
+    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
         wpa_ctrl_path = os.path.join(
-            self.tmpdir, '%s%s-wpasupplicant' % (self.tmpdir, self.eapol_host.name))
+            self.tmpdir, '%s%s-wpasupplicant' % (self.tmpdir, host.name))
         self.start_wpasupplicant(
-            self.eapol_host, self.wpasupplicant_conf,
+            host, conf,
             timeout=10, wpa_ctrl_socket_path=wpa_ctrl_path)
-        self.eapol_host.cmd('wpa_cli -p %s logon' % wpa_ctrl_path)
+        host.cmd('wpa_cli -p %s logon' % wpa_ctrl_path)
         if and_logoff:
             eap_state = ''
             for i in range(5):
                 if eap_state == 'SUCCESS':
                     break
-                status = self.eapol_host.cmdPrint('wpa_cli -p %s status' % wpa_ctrl_path)
+                status = host.cmdPrint('wpa_cli -p %s status' % wpa_ctrl_path)
                 for line in status.split("\n"):
                     if line.startswith('EAP state'):
                         eap_state = line.split('=')[1].strip()
                         break
                 time.sleep(1)
+
+
             self.assertEqual(eap_state, 'SUCCESS')
             self.wait_until_matching_flow(
-                {'eth_src': self.eapol_host.MAC(), 'in_port': 1}, table_id=0)
+                {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0)
+            self.one_ipv4_ping(host, self.ping_host.IP(), require_host_learned=False)
 
-            self.eapol_host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
+            self.eapol1_host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
 
             for i in range(10):
                 if not self.matching_flow_present(
-                    {'eth_src': self.eapol_host.MAC(), 'in_port': 1}, table_id=0):
+                    {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0):
                     break
                 time.sleep(1)
             else:
                 self.fail('authentication flow was not removed.')
+            try:
+                self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
+                                   require_host_learned=False)
+                self.fail('%s should not be able to ping %s' % (self.eapol2_host, self.ping_host))
+            except AssertionError:
+                pass
 
     def wait_for_radius(self, radius_log_path, timeout=10):
         for i in range(timeout):
@@ -346,7 +430,8 @@ network={
 
     def start_freeradius(self):
         with open('/etc/freeradius/users', 'w') as f:
-            f.write('user   Cleartext-Password := "microphone"')
+            f.write('''user   Cleartext-Password := "microphone"
+admin   Cleartext-Password:= "megaphone"''')
 
         with open('/etc/freeradius/clients.conf', 'w') as f:
             f.write('''client localhost {
@@ -377,7 +462,7 @@ network={
 class FaucetSingle8021XFailureTest(FaucetSingle8021XSuccessTest):
     """Failure due to incorrect identity/password"""
 
-    wpasupplicant_conf = """
+    wpasupplicant_conf_1 = """
     ap_scan=0
     network={
         key_mgmt=IEEE8021X
@@ -388,7 +473,8 @@ class FaucetSingle8021XFailureTest(FaucetSingle8021XSuccessTest):
     """
 
     def test_untagged(self):
-        tcpdump_txt = self.try_8021x(and_logff=False)
+        tcpdump_txt = self.try_8021x(self.eapol1_host, 1,
+                                     self.wpasupplicant_conf_1, and_logoff=False)
         self.assertIn('Failure', tcpdump_txt)
         self.assertEqual(
             0,
