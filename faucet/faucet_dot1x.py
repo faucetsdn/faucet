@@ -28,11 +28,6 @@ from chewie.chewie import Chewie # pylint: disable=wrong-import-position
 class FaucetDot1x:
     """Wrapper for experimental Chewie 802.1x authenticator."""
 
-    # TODO: support other credentials.
-    CREDENTIALS = {
-        'gary': 'microphone',
-    }
-
     def __init__(self, logger, metrics, send_flow_msgs):
         self.logger = logger
         self.metrics = metrics
@@ -81,6 +76,7 @@ class FaucetDot1x:
         self.metrics.inc_var('dp_dot1x_logoff', valve.base_prom_labels)
         self.metrics.inc_var('port_dot1x_logoff', valve.port_labels(dot1x_port))
         flowmods = valve.del_authed_mac(dot1x_port.number, str(address))
+
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
 
@@ -97,26 +93,29 @@ class FaucetDot1x:
         # TODO: support multiple Valves and ports.
         self._valves = valves
         valve_id = -1
-        for valve in list(valves.values()):
-            valve_id += 1
-            if self.dot1x_speaker is None:
-                if valve.dp.dot1x:
-                    dot1x_intf = valve.dp.dot1x['nfv_intf']
-                    self.dot1x_speaker = self._create_dot1x_speaker(dot1x_intf)
-                else:
-                    continue
-            if valve.dp.dot1x and valve.dp.dot1x_ports():
-                for dot1x_port in valve.dp.dot1x_ports():
-                    if dot1x_port.number > 255:
-                        self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
-                                         % (valve.dp, dot1x_port))
+        try:
+            for valve in list(valves.values()):
+                valve_id += 1
+                if self.dot1x_speaker is None:
+                    if valve.dp.dot1x:
+                        dot1x_intf = valve.dp.dot1x['nfv_intf']
+                        self.dot1x_speaker = self._create_dot1x_speaker(dot1x_intf)
+                    else:
                         continue
-                    if valve_id > 255:
-                        self.logger.info('dot1x not enabled on %s %s. more than 255 valves'
-                                         % (valve.dp, dot1x_port))
-                        continue
-                    mac_str = "00:00:00:00:%02x:%02x" % (valve_id, dot1x_port.number)
-                    self.mac_to_port[mac_str] = (valve, dot1x_port)
-                    self.logger.info(
-                        'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
-                            valve.dp, valve_id, dot1x_port, dot1x_intf))
+                if valve.dp.dot1x and valve.dp.dot1x_ports():
+                    for dot1x_port in valve.dp.dot1x_ports():
+                        if dot1x_port.number > 255:
+                            self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
+                                             % (valve.dp, dot1x_port))
+                            continue
+                        if valve_id > 255:
+                            self.logger.info('dot1x not enabled on %s %s. more than 255 valves'
+                                             % (valve.dp, dot1x_port))
+                            continue
+                        mac_str = "00:00:00:00:%02x:%02x" % (valve_id, dot1x_port.number)
+                        self.mac_to_port[mac_str] = (valve, dot1x_port)
+                        self.logger.info(
+                            'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
+                                valve.dp, valve_id, dot1x_port, dot1x_intf))
+        except Exception as e:
+            self.logger.exception(e)

@@ -13,6 +13,7 @@ import json
 import os
 import random
 import re
+import shutil
 import socket
 import threading
 import time
@@ -155,7 +156,7 @@ vlans:
         self.verify_events_log(event_log)
 
 
-class FaucetUntagged8021XSuccessTest(FaucetUntaggedTest):
+class FaucetSingle8021XSuccessTest(FaucetUntaggedTest):
 
     SOFTWARE_ONLY = True
 
@@ -254,7 +255,7 @@ ap_scan=0
 network={
     key_mgmt=IEEE8021X
     eap=MD5
-    identity="user@example.com"
+    identity="user"
     password="microphone"
 }
 """
@@ -290,11 +291,22 @@ network={
 
         self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
         self.CONFIG_GLOBAL = self.CONFIG_GLOBAL.replace("NFV_MAC", nfv_intf.MAC())
-        super(FaucetUntagged8021XSuccessTest, self)._write_faucet_config()
+        super(FaucetSingle8021XSuccessTest, self)._write_faucet_config()
 
     def setUp(self):
-        super(FaucetUntagged8021XSuccessTest, self).setUp()
+        super(FaucetSingle8021XSuccessTest, self).setUp()
         self.host_drop_all_ips(self.nfv_host)
+        self.radius_port = 1812
+        # self.radius_port = mininet_test_util.find_free_port(
+        #     self.ports_sock, self._test_name())
+        self.start_freeradius()
+
+    def tearDown(self):
+        faucet_log = self.env['faucet']['FAUCET_LOG']
+        with open(faucet_log, 'r') as log:
+            print(log.read())
+        self.nfv_host.cmd('kill %d' % self.freeradius_pid)
+        super(FaucetSingle8021XSuccessTest, self).tearDown()
 
     def try_8021x(self, host, port_num, conf, and_logoff=False):
         tcpdump_filter = 'ether proto 0x888e'
@@ -344,13 +356,16 @@ network={
             self.scrape_prometheus_var('port_dot1x_success', labels={'port': 2}, default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('dp_dot1x_failure', any_labels=True, default=0))
+            self.scrape_prometheus_var('dp_dot1x_failure', default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_failure', labels={'port': 1}, default=0))
         self.assertEqual(
             0,
             self.scrape_prometheus_var('port_dot1x_failure', labels={'port': 2}, default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success', any_labels=True, default=0))
+            self.scrape_prometheus_var('dp_dot1x_logoff', default=0))
         self.assertEqual(
             0,
             self.scrape_prometheus_var('port_dot1x_logoff', labels={'port': 1}, default=0))
@@ -440,7 +455,14 @@ admin   Cleartext-Password:= "megaphone"''')
             new_config = config.replace('port = 0', 'port = %d' % self.radius_port, 2)
             radiusd_file.write(new_config)
 
-class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
+        self.nfv_host.cmd('freeradius -sxx -l %s -d %s/freeradius &' % (radius_log_path, self.tmpdir))
+
+        self.freeradius_pid = self.nfv_host.lastPid
+        self.wait_for_radius(radius_log_path)
+        return radius_log_path
+
+
+class FaucetSingle8021XFailureTest(FaucetSingle8021XSuccessTest):
     """Failure due to incorrect identity/password"""
 
     wpasupplicant_conf_1 = """
@@ -448,7 +470,7 @@ class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
     network={
         key_mgmt=IEEE8021X
         eap=MD5
-        identity="user@example.com"
+        identity="user"
         password="wrongpassword"
     }
     """
@@ -457,17 +479,24 @@ class FaucetUntagged8021XFailureTest(FaucetUntagged8021XSuccessTest):
         tcpdump_txt = self.try_8021x(self.eapol1_host, 1,
                                      self.wpasupplicant_conf_1, and_logoff=False)
         self.assertIn('Failure', tcpdump_txt)
-        faucet_log = self.env['faucet']['FAUCET_LOG']
-        with open(faucet_log, 'r') as log:
-            faucet_log_txt = log.read()
-        self.assertNotIn('Successful auth', faucet_log_txt)
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('dp_dot1x_success', labels={'port': 1}, default=0))
+            self.scrape_prometheus_var('dp_dot1x_success', default=0))
         self.assertEqual(
             0,
             self.scrape_prometheus_var('port_dot1x_success', labels={'port': 1}, default=0))
-        # TODO add prometheus dp/port_dot1x_failure check once failure handler is implemented on chewie side.
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('dp_dot1x_logoff', default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_logoff', labels={'port': 1}, default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('dp_dot1x_failure', default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_failure', labels={'port': 1}, default=0))
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
