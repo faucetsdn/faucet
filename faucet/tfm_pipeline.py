@@ -32,21 +32,17 @@ def load_tables(dp, valve_cl): # pylint: disable=invalid-name
                 new_table.properties.append(
                     valve_of.parser.OFPTableFeaturePropOxm(
                         oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_WILDCARDS))
+        insts = set([valve_of.ofp.OFPIT_APPLY_ACTIONS])
         # Next tables
         if valve_table.next_tables:
-            nt_property = valve_of.parser.OFPTableFeaturePropNextTables(
+            new_table.properties.append(valve_of.parser.OFPTableFeaturePropNextTables(
                 table_ids=valve_table.next_tables,
-                type_=valve_of.ofp.OFPTFPT_NEXT_TABLES
-                )
-            new_table.properties.append(nt_property)
-        # Instructions
-        insts = set([valve_of.ofp.OFPIT_APPLY_ACTIONS])
-        if valve_table.next_tables:
+                type_=valve_of.ofp.OFPTFPT_NEXT_TABLES))
             insts.add(valve_of.ofp.OFPIT_GOTO_TABLE)
+        # Instructions
         if valve_table.table_config.meter:
             insts.add(valve_of.ofp.OFPIT_METER)
-        inst_ids = [
-            valve_of.parser.OFPInstructionId(type_) for type_ in insts]
+        inst_ids = [valve_of.parser.OFPInstructionId(type_) for type_ in insts]
         new_table.properties.append(
             valve_of.parser.OFPTableFeaturePropInstructions(
                 type_=valve_of.ofp.OFPTFPT_INSTRUCTIONS, instruction_ids=inst_ids))

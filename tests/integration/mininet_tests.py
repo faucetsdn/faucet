@@ -1833,7 +1833,7 @@ class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
     # TODO: currently set to accomodate least hardware
     def _max_hosts():
-        return 1024
+        return 512
 
     MAX_HOSTS = _max_hosts()
     TEST_IPV4_NET = '10.0.0.0'
@@ -1853,7 +1853,8 @@ vlans:
         table_sizes:
             eth_src: %u
             eth_dst: %u
-""" % (_max_hosts() + 64, _max_hosts() + 64) +
+            ipv4_fib: %u
+""" % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) +
 """
         interfaces:
             %(port_1)d:
