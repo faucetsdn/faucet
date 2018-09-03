@@ -147,4 +147,8 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                     for tag in table_tags - tags_keys:
                         tags[tag] = ''
                 table_prom_var = PROM_PREFIX_DELIM.join((var, table_name))
-                self.prom_client.metrics[table_prom_var].labels(**tags).set(count)
+                try:
+                    self.prom_client.metrics[table_prom_var].labels(**tags).set(count)
+                except ValueError:
+                    self.logger.error(
+                        'labels %s incorrect on %s' % (tags, table_prom_var))
