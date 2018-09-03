@@ -36,9 +36,10 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
         self.dec_ttl = dec_ttl
         self.vlan_port_scale = vlan_port_scale
         if next_tables:
+            assert isinstance(next_tables, (list, tuple))
             self.next_tables = next_tables
         else:
-            self.next_tables = []
+            self.next_tables = ()
 
     def __str__(self):
         field_strs = ' '.join([
@@ -103,7 +104,7 @@ VIP_DEFAULT_CONFIG = ValveTableConfig(
     6,
     match_types=(('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
                  ('icmpv6_type', False), ('ip_proto', False)),
-    next_tables=('eth_dst')
+    next_tables=('eth_dst',)
     )
 ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
