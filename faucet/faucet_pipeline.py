@@ -103,6 +103,7 @@ VIP_DEFAULT_CONFIG = ValveTableConfig(
     6,
     match_types=(('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
                  ('icmpv6_type', False), ('ip_proto', False)),
+    next_tables=('eth_dst')
     )
 ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
