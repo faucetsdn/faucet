@@ -132,9 +132,9 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
             # Work around this by unregistering/registering the entire variable.
             for var, tags, count in self._parse_flow_stats(stats):
                 table_id = int(tags['table_id'])
-                table_tags = self.prom_client.table_tags[table_id]
-                tags_keys = set(tags.keys())
                 table_name = self.dp.table_by_id(table_id).name
+                table_tags = self.prom_client.table_tags[table_name]
+                tags_keys = set(tags.keys())
                 if tags_keys != table_tags:
                     unreg_tags = tags_keys - table_tags
                     if unreg_tags:
@@ -142,8 +142,8 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                         self.prom_client.reregister_flow_vars(
                             table_name, table_tags)
                         self.logger.info( # pylint: disable=logging-not-lazy
-                            'Adding tags %s to %s for table_id %u' % (
-                                unreg_tags, table_tags, table_id))
+                            'Adding tags %s to %s for table %s' % (
+                                unreg_tags, table_tags, table_name))
                     # Add blank tags for any tags not present.
                     missing_tags = table_tags - tags_keys
                     for tag in missing_tags:
