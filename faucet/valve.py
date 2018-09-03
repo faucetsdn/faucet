@@ -1478,6 +1478,26 @@ class Valve:
         )
         return ofmsg
 
+    def add_dot1x_forward(self, supplicant_port_num, nfv_port_num, mac):
+        to_nfv = self.dp.tables['port_acl'].flowmod(
+            self.dp.tables['port_acl'].match(
+                in_port=supplicant_port_num,
+                dl_type=0x888e,
+                ),
+            priority=self.dp.highest_priority,
+            inst=[valve_of.set_eth_dst(mac),  valve_of.output_port(nfv_port_num)])
+        #
+        # from_nfv = self.dp.tables['port_acl'].flowmod(
+        #     self.dp.tables['port_acl'].match(
+        #         in_port=nfv_port_num,
+        #         dl_type=0x888e,
+        #         eth_src=mac
+        #     ),
+        #     priority=self.dp.highest_priority,
+        #     inst=[valve_of.set_eth_src("01:80:c2:00:00:03"), valve_of.output_port(supplicant_port_num)])
+
+        return [to_nfv]
+
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
         route_manager = self._route_manager_by_ipv[ip_dst.version]

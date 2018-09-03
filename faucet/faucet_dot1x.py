@@ -88,7 +88,6 @@ class FaucetDot1x:
 
     def reset(self, valves):
         """Set up a dot1x speaker."""
-        # TODO: support multiple Valves and ports.
         self._valves = valves
         valve_id = -1
         for valve in list(valves.values()):
@@ -111,6 +110,11 @@ class FaucetDot1x:
                         continue
                     mac_str = "00:00:00:00:%02x:%02x" % (valve_id, dot1x_port.number)
                     self.mac_to_port[mac_str] = (valve, dot1x_port)
+                    try:
+                        valve.add_dot1x_forward(dot1x_port.number, 4, mac_str)
+                    except Exception as e:
+                        self.logger.exception(e)
+                        raise
                     self.logger.info(
                         'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
                             valve.dp, valve_id, dot1x_port, dot1x_intf))

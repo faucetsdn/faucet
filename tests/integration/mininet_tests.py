@@ -169,12 +169,6 @@ acls:
     eapol1_to_nfv:
         - rule:
             dl_type: 0x888e
-            actions:
-                output:
-                    set_fields:
-                        - eth_dst: 00:00:00:00:00:01
-                    port: b4
-        - rule:
             eth_src: ff:ff:ff:ff:ff:ff
             actions:
                 allow: 0
@@ -183,13 +177,6 @@ acls:
                 allow: 0
     eapol2_to_nfv:
         - rule:
-            dl_type: 0x888e
-            actions:
-                output:
-                    set_fields:
-                        - eth_dst: 00:00:00:00:00:02
-                    port: b4
-        - rule:
             eth_src: ff:ff:ff:ff:ff:ff
             actions:
                 allow: 0
@@ -197,22 +184,6 @@ acls:
             actions:
                 allow: 0
     eapol_from_nfv:
-        - rule:
-            dl_type: 0x888e
-            eth_src: 00:00:00:00:00:01
-            actions:
-                output:
-                    set_fields:
-                        - eth_src: 01:80:c2:00:00:03
-                    port: b1
-        - rule:
-            dl_type: 0x888e
-            eth_src: 00:00:00:00:00:02
-            actions:
-                output:
-                    set_fields:
-                        - eth_src: 01:80:c2:00:00:03
-                    port: b2
         - rule:
             actions:
                 allow: 0
@@ -302,6 +273,10 @@ network={
         self.start_freeradius()
 
     def tearDown(self):
+
+        faucet_log = self.env['faucet']['FAUCET_LOG']
+        with open(faucet_log, 'r') as log:
+            print(log.read())
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
         super(FaucetSingle8021XSuccessTest, self).tearDown()
 
