@@ -37,11 +37,11 @@ class FaucetDot1x:
         self.dot1x_intf = None
         self.mac_to_port = {}  # {"00:00:00:00:00:02" : (valve_0, port_1)}
 
-    def _create_dot1x_speaker(self, dot1x_intf):
+    def _create_dot1x_speaker(self, dot1x_intf, chewie_id, radius_ip, radius_port, radius_secret):
         chewie = Chewie(  # pylint: disable=too-many-function-args
             dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
-            '127.0.0.1')
+            radius_ip, radius_port, radius_secret, chewie_id)
         hub.spawn(chewie.run)
         return chewie
 
@@ -96,7 +96,13 @@ class FaucetDot1x:
             if self.dot1x_speaker is None:
                 if valve.dp.dot1x:
                     dot1x_intf = valve.dp.dot1x['nfv_intf']
-                    self.dot1x_speaker = self._create_dot1x_speaker(dot1x_intf)
+                    radius_ip = valve.dp.dot1x['radius_ip']
+                    radius_port = valve.dp.dot1x['radius_port']
+                    radius_secret = valve.dp.dot1x['radius_secret']
+                    self.dot1x_speaker = self._create_dot1x_speaker(dot1x_intf,
+                                                                    valve.dp.faucet_dp_mac,
+                                                                    radius_ip, radius_port,
+                                                                    radius_secret)
                 else:
                     continue
             if valve.dp.dot1x and valve.dp.dot1x_ports():
