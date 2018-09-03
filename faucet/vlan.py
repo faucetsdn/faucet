@@ -483,14 +483,17 @@ class VLAN(Conf):
         return tuple([port for port in self.get_ports() if port.hairpin])
 
     def mirrored_ports(self):
-        """Return list of ports that are mirrored on this VLAN."""
+        """Return ports that are mirrored on this VLAN."""
         return tuple([port for port in self.get_ports() if port.mirror])
 
+    def lacp_up_ports(self):
+        """Return ports that have LACP up on this VLAN."""
+        return tuple([port for port in self.get_ports() if port.lacp and port.dyn_lacp_up])
+
     def lags(self):
-        """Return dict of LAGs mapped to member ports."""
-        lacp_ports = tuple([port for port in self.get_ports() if port.lacp])
+        """Return dict of LAGs mapped to member ports that have LACP up."""
         lags = collections.defaultdict(list)
-        for port in lacp_ports:
+        for port in self.lacp_up_ports():
             lags[port.lacp].append(port)
         return lags
 

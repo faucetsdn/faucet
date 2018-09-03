@@ -57,10 +57,15 @@ class ValveFloodManager:
     def _build_flood_local_rule_actions(vlan, exclude_unicast, in_port):
         """Return a list of flood actions to flood packets from a port."""
         flood_acts = []
-        exclude_ports = []
-        if in_port is not None and in_port.lacp:
-            lags = vlan.lags()
-            exclude_ports = lags[in_port.lacp]
+        exclude_ports = set()
+        lags = vlan.lags()
+        if lags:
+            if in_port is not None and in_port.lacp:
+                # Don't flood from one LACP bundle member, to another.
+                exclude_ports.update(lags[in_port.lacp])
+            # Pick one up bundle member to flood to.
+            for ports in list(lags.values()):
+                exclude_ports.update(ports[1:])
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
         flood_acts.extend(valve_of.flood_tagged_port_outputs(
             tagged_ports, in_port=in_port, exclude_ports=exclude_ports))
