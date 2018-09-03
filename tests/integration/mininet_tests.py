@@ -1831,6 +1831,11 @@ vlans:
 
 class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
+    # TODO: currently set to accomodate least hardware
+    def _max_hosts():
+        return 1024
+
+    MAX_HOSTS = _max_hosts()
     TEST_IPV4_NET = '10.0.0.0'
     TEST_IPV4_PREFIX = 16 # must hold more than MAX_HOSTS + 4
     LEARN_IPV4 = '10.0.254.254'
@@ -1838,42 +1843,51 @@ class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        # Must be > than MAX_HOSTS + 4
-        max_hosts: 2052
+        max_hosts: %u
         faucet_vips: ["10.0.254.254/16"]
-"""
+""" % (_max_hosts() + 4)
 
-    CONFIG = """
+    CONFIG = ("""
         ignore_learn_ins: 0
         metrics_rate_limit_sec: 3
+        table_sizes:
+            eth_src: %u
+            eth_dst: %u
+""" % (_max_hosts() + 64, _max_hosts() + 64) +
+"""
         interfaces:
             %(port_1)d:
                 native_vlan: 100
                 description: "b1"
-                max_hosts: 1024
+                max_hosts: 4096
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
-                max_hosts: 1024
+                max_hosts: 4096
             %(port_3)d:
                 native_vlan: 100
                 description: "b3"
-                max_hosts: 1024
+                max_hosts: 4096
             %(port_4)d:
                 native_vlan: 100
                 description: "b4"
-                max_hosts: 1024
-"""
+                max_hosts: 4096
+""")
 
     def test_untagged(self):
         test_net = ipaddress.IPv4Network(
             '%s/%s' % (self.TEST_IPV4_NET, self.TEST_IPV4_PREFIX))
         learn_ip = ipaddress.IPv4Address(self.LEARN_IPV4)
-        self.verify_learning(test_net, learn_ip, 64, 2048)
+        self.verify_learning(test_net, learn_ip, 64, self.MAX_HOSTS)
 
 
 class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 
+    # TODO: currently set to accomodate least hardware
+    def _max_hosts():
+        return 1024
+
+    MAX_HOSTS = _max_hosts()
     TEST_IPV4_NET = '10.0.0.0'
     TEST_IPV4_PREFIX = 16 # must hold more than MAX_HOSTS + 4
     LEARN_IPV4 = '10.0.0.1'
@@ -1881,37 +1895,41 @@ class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        # Must be > than MAX_HOSTS + 4
-        max_hosts: 5000
-"""
+        max_hosts: %u
+""" % (_max_hosts() + 4)
 
-    CONFIG = """
+    CONFIG = ("""
         ignore_learn_ins: 0
         metrics_rate_limit_sec: 3
+        table_sizes:
+            eth_src: %u
+            eth_dst: %u
+""" % (_max_hosts() + 64, _max_hosts() + 64) +
+"""
         interfaces:
             %(port_1)d:
                 native_vlan: 100
                 description: "b1"
-                max_hosts: 2048
+                max_hosts: 4096
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
-                max_hosts: 2048
+                max_hosts: 4096
             %(port_3)d:
                 native_vlan: 100
                 description: "b3"
-                max_hosts: 2048
+                max_hosts: 4096
             %(port_4)d:
                 native_vlan: 100
                 description: "b4"
-                max_hosts: 2048
-"""
+                max_hosts: 4096
+""")
 
     def test_untagged(self):
         test_net = ipaddress.IPv4Network(
             '%s/%s' % (self.TEST_IPV4_NET, self.TEST_IPV4_PREFIX))
         learn_ip = ipaddress.IPv4Address(self.LEARN_IPV4)
-        self.verify_learning(test_net, learn_ip, 64, 4096)
+        self.verify_learning(test_net, learn_ip, 64, self.MAX_HOSTS)
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
