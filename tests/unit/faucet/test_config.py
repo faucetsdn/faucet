@@ -903,8 +903,8 @@ dps:
             'port_acl': 0,
             'vlan': 1,
             'eth_src': 3,
-            'eth_dst': 7,
-            'flood': 8
+            'eth_dst': 8,
+            'flood': 9
             }
         self._check_table_names_numbers(dp, tables)
 
