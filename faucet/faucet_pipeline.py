@@ -106,9 +106,17 @@ VIP_DEFAULT_CONFIG = ValveTableConfig(
                  ('icmpv6_type', False), ('ip_proto', False)),
     next_tables=('eth_dst', 'flood')
     )
+ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
+    'eth_dst_hairpin',
+    7,
+    match_types=(('in_port', False), ('eth_dst', False)),
+    miss_goto='eth_dst',
+    exact_match=True,
+    vlan_port_scale=4.1,
+    )
 ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
-    7,
+    8,
     exact_match=True,
     miss_goto='flood',
     match_types=(('eth_dst', False), ('vlan_vid', False)),
@@ -117,7 +125,7 @@ ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     )
 FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
-    8,
+    9,
     match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
     vlan_port_scale=2.1,
     )
