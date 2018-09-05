@@ -80,8 +80,9 @@ class FaucetTestBase(unittest.TestCase):
     _IPV4_FIB_TABLE = 4
     _IPV6_FIB_TABLE = 5
     _VIP_TABLE = 6
-    _ETH_DST_TABLE = 7
-    _FLOOD_TABLE = 8
+    _ETH_DST_HAIRPIN_TABLE = 7
+    _ETH_DST_TABLE = 8
+    _FLOOD_TABLE = 9
 
     config = None
     dpid = None
@@ -1740,6 +1741,7 @@ dbs:
         self._IPV4_FIB_TABLE = self._get_tableid('ipv4_fib')
         self._IPV6_FIB_TABLE = self._get_tableid('ipv6_fib')
         self._VIP_TABLE = self._get_tableid('vip')
+        self._ETH_DST_HAIRPIN_TABLE = self._get_tableid('eth_dst_table')
         self._ETH_DST_TABLE = self._get_tableid('eth_dst')
         self._FLOOD_TABLE = self._get_tableid('flood')
 
@@ -1902,9 +1904,9 @@ dbs:
                 return
             time.sleep(1)
         if flow:
-            self.fail('flow %s matching %s had zero packet count' % (flow, match))
+            self.fail('flow %s matching %s table ID %s had zero packet count' % (flow, match, table_id))
         else:
-            self.fail('no flow matching %s' % match)
+            self.fail('no flow matching %s table ID %s' % (match, table_id))
 
     def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is blocked from another host."""

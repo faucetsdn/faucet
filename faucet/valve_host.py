@@ -25,7 +25,8 @@ from faucet import valve_of
 class ValveHostManager:
     """Manage host learning on VLANs."""
 
-    def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
+    def __init__(self, logger, ports, vlans,
+                 eth_src_table, eth_dst_table, eth_dst_hairpin_table,
                  learn_timeout, learn_jitter, learn_ban_timeout,
                  low_priority, host_priority,
                  cache_update_guard_time):
@@ -34,12 +35,16 @@ class ValveHostManager:
         self.vlans = vlans
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
+        self.eth_dst_hairpin_table = eth_dst_hairpin_table
         self.learn_timeout = learn_timeout
         self.learn_jitter = learn_jitter
         self.learn_ban_timeout = learn_ban_timeout
         self.low_priority = low_priority
         self.host_priority = host_priority
         self.cache_update_guard_time = cache_update_guard_time
+        self.output_table = self.eth_dst_table
+        if self.eth_dst_hairpin_table:
+            self.output_table = self.eth_dst_hairpin_table
 
     def ban_rules(self, pkt_meta):
         """Limit learning to a maximum configured on this port/VLAN.
@@ -161,7 +166,7 @@ class ValveHostManager:
         src_match = self.eth_src_table.match(
             in_port=port.number, vlan=vlan, eth_src=eth_src)
         src_priority = self.host_priority - 1
-        inst = valve_of.goto_table(self.eth_dst_table)
+        inst = valve_of.goto_table(self.output_table)
 
         if port.override_output_port:
             inst = valve_of.apply_actions([
@@ -177,10 +182,10 @@ class ValveHostManager:
         # that outputs packets destined to this MAC back out the same
         # port they came in (e.g. multiple hosts on same WiFi AP,
         # and FAUCET is switching between them on the same port).
-        if port.hairpin:
-            ofmsgs.append(self.eth_src_table.flowmod(
-                self.eth_src_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
-                priority=(self.host_priority + 1),
+        if self.eth_dst_hairpin_table and port.hairpin:
+            ofmsgs.append(self.eth_dst_hairpin_table.flowmod(
+                self.eth_dst_hairpin_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
+                priority=self.host_priority,
                 inst=[valve_of.apply_actions(vlan.output_port(port, hairpin=True))],
                 hard_timeout=src_rule_hard_timeout,
                 idle_timeout=dst_rule_idle_timeout))
