@@ -4161,10 +4161,12 @@ vlans:
             %s:
                 native_vlan: 99
                 tagged_vlans: [%s]
+                hairpin_unicast: True
                 description: "b1"
             %s:
                 native_vlan: 99
                 tagged_vlans: [%s]
+                hairpin_unicast: True
                 description: "b2"
 """ % ('%(port_1)d', ','.join(STR_VIDS),
        '%(port_2)d', ','.join(STR_VIDS))
