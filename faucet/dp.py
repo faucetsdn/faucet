@@ -464,7 +464,7 @@ configuration.
             self.stack_ports.append(port)
         if port.lldp_beacon_enabled():
             self.lldp_beacon_ports.append(port)
-        if port.hairpin:
+        if port.hairpin or port.hairpin_unicast:
             self.hairpin_ports.append(port)
 
     def lldp_beacon_send_ports(self, now):
