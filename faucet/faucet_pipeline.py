@@ -93,9 +93,15 @@ VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
     'vlan_acl',
     VLAN_DEFAULT_CONFIG.table_id + 1,
     next_tables=(('eth_src',) + _NEXT_ETH))
+CLASSIFICATION_DEFAULT_CONFIG = ValveTableConfig(
+    'classification',
+    miss_goto='eth_dst'
+    VLAN_ACL_DEFAULT_CONFIG.table_id + 1,
+    next_tables=('ipv4_fib', 'vip')
+    )
 ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
     'eth_src',
-    VLAN_ACL_DEFAULT_CONFIG.table_id + 1,
+    CLASSIFICATION_DEFAULT_CONFIG.table_id + 1,
     miss_goto='eth_dst',
     match_types=(('eth_dst', True), ('eth_src', False), ('eth_type', False),
                  ('in_port', False), ('vlan_vid', False)),
@@ -120,6 +126,7 @@ ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     exact_match=True,
     vlan_port_scale=4.1,
     )
+
 ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
     ETH_DST_HAIRPIN_DEFAULT_CONFIG.table_id + 1,
@@ -128,6 +135,7 @@ ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     match_types=(('eth_dst', False), ('vlan_vid', False)),
     vlan_port_scale=4.1,
     )
+
 FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
     ETH_DST_DEFAULT_CONFIG.table_id + 1,
@@ -145,6 +153,7 @@ FAUCET_PIPELINE = (
     PORT_ACL_DEFAULT_CONFIG,
     VLAN_DEFAULT_CONFIG,
     VLAN_ACL_DEFAULT_CONFIG,
+    CLASSIFICATION_DEFAULT_CONFIG,
     ETH_SRC_DEFAULT_CONFIG,
     IPV4_FIB_DEFAULT_CONFIG,
     IPV6_FIB_DEFAULT_CONFIG,

@@ -902,9 +902,9 @@ dps:
         tables = {
             'port_acl': 0,
             'vlan': 1,
-            'eth_src': 3,
-            'eth_dst': 8,
-            'flood': 9
+            'eth_src': 4,
+            'eth_dst': 9,
+            'flood': 10
             }
         self._check_table_names_numbers(dp, tables)
 
