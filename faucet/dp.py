@@ -186,6 +186,7 @@ configuration.
         'ipv4_fib': int,
         'ipv6_fib': int,
         'vip': int,
+        'eth_dst_hairpin': int,
         'eth_dst': int,
         'flood': int,
     }
