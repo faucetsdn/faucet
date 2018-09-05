@@ -109,7 +109,7 @@ VIP_DEFAULT_CONFIG = ValveTableConfig(
 ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst_hairpin',
     7,
-    match_types=(('in_port', False), ('eth_dst', False)),
+    match_types=(('in_port', False), ('eth_dst', False), ('vlan_vid', False)),
     miss_goto='eth_dst',
     exact_match=True,
     vlan_port_scale=4.1,
