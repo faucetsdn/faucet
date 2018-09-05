@@ -382,10 +382,12 @@ class ValveRouteManager:
         raise NotImplementedError # pragma: no cover
 
     def _resolve_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
+        faucet_vip = vlan.vip_map(ip_gw)
+        if not faucet_vip:
+            return []
         resolve_flows = []
         last_retry_time = nexthop_cache_entry.last_retry_time
         nexthop_cache_entry.next_retry(now, self.max_resolve_backoff_time)
-        faucet_vip = vlan.vip_map(ip_gw)
         if (vlan.targeted_gw_resolution and
                 last_retry_time is None and nexthop_cache_entry.port is not None):
             port = nexthop_cache_entry.port
