@@ -82,7 +82,7 @@ PORT_ACL_DEFAULT_CONFIG = ValveTableConfig(
     )
 VLAN_DEFAULT_CONFIG = ValveTableConfig(
     'vlan',
-    1,
+    PORT_ACL_DEFAULT_CONFIG.table_id + 1,
     match_types=(('eth_dst', True), ('eth_type', False),
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid',),
@@ -91,11 +91,11 @@ VLAN_DEFAULT_CONFIG = ValveTableConfig(
     )
 VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
     'vlan_acl',
-    2,
+    VLAN_DEFAULT_CONFIG.table_id + 1,
     next_tables=(('eth_src',) + _NEXT_ETH))
 ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
     'eth_src',
-    3,
+    VLAN_ACL_DEFAULT_CONFIG.table_id + 1,
     miss_goto='eth_dst',
     match_types=(('eth_dst', True), ('eth_src', False), ('eth_type', False),
                  ('in_port', False), ('vlan_vid', False)),
@@ -103,18 +103,18 @@ ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
     vlan_port_scale=4.1,
     next_tables=(('ipv4_fib', 'ipv6_fib') + _NEXT_VIP)
     )
-IPV4_FIB_DEFAULT_CONFIG = _fib_table(4, 4)
-IPV6_FIB_DEFAULT_CONFIG = _fib_table(6, 5)
+IPV4_FIB_DEFAULT_CONFIG = _fib_table(4, ETH_SRC_DEFAULT_CONFIG.table_id + 1)
+IPV6_FIB_DEFAULT_CONFIG = _fib_table(6, IPV4_FIB_DEFAULT_CONFIG.table_id + 1)
 VIP_DEFAULT_CONFIG = ValveTableConfig(
     'vip',
-    6,
+    IPV6_FIB_DEFAULT_CONFIG.table_id + 1,
     match_types=(('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
                  ('icmpv6_type', False), ('ip_proto', False)),
     next_tables=_NEXT_ETH,
     )
 ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst_hairpin',
-    7,
+    VIP_DEFAULT_CONFIG.table_id + 1,
     match_types=(('in_port', False), ('eth_dst', False), ('vlan_vid', False)),
     miss_goto='eth_dst',
     exact_match=True,
@@ -122,7 +122,7 @@ ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     )
 ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
-    8,
+    ETH_DST_HAIRPIN_DEFAULT_CONFIG.table_id + 1,
     exact_match=True,
     miss_goto='flood',
     match_types=(('eth_dst', False), ('vlan_vid', False)),
@@ -130,7 +130,7 @@ ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     )
 FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
-    9,
+    ETH_DST_DEFAULT_CONFIG.table_id + 1,
     match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
     vlan_port_scale=2.1,
     )
