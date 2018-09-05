@@ -51,7 +51,9 @@ class Port(Conf):
         'max_hosts': 255,
         # maximum number of hosts
         'hairpin': False,
-        # if True, then switch between hosts on this port (eg WiFi radio).
+        # if True, then switch unicast and flood between hosts on this port (eg WiFi radio).
+        'hairpin_unicast': False,
+        # if True, then switch unicast between hosts on this port (eg WiFi radio).
         'lacp': 0,
         # if non 0 (LAG ID), experimental LACP support enabled on this port.
         'loop_protect': False,
@@ -87,6 +89,7 @@ class Port(Conf):
         'stack': dict,
         'max_hosts': int,
         'hairpin': bool,
+        'hairpin_unicast': bool,
         'lacp': int,
         'loop_protect': bool,
         'output_only': bool,
@@ -123,6 +126,7 @@ class Port(Conf):
         self.dp_id = None
         self.enabled = None
         self.hairpin = None
+        self.hairpin_unicast = None
         self.lacp = None
         self.loop_protect = None
         self.max_hosts = None
@@ -177,6 +181,9 @@ class Port(Conf):
         super(Port, self).check_config()
         test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
             not valve_of.ignore_port(self.number))), ('Port number invalid: %s' % self.number))
+        test_config_condition(
+            self.hairpin and self.hairpin_unicast,
+            'Cannot have both hairpin and hairpin_unicast enabled')
         if self.mirror:
             test_config_condition(self.tagged_vlans or self.native_vlan, (
                 'mirror port %s cannot have any VLANs assigned' % self))
