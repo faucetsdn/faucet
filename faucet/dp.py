@@ -418,6 +418,13 @@ configuration.
             return tables[0]
         return None
 
+    def output_tables(self):
+        """Return tables that cause a packet to be forwarded."""
+        return (self.tables['eth_dst'],)
+
+    def output_table(self):
+        return self.output_tables()[0]
+
     def match_tables(self, match_type):
         """Return list of tables with matches of a specific match type."""
         match_tables = []
