@@ -2,6 +2,7 @@ sudo: required
 dist: trusty
 language: python
 python:
+  - '3.4'
   - '3.6'
 services:
   - docker
@@ -29,7 +30,7 @@ install:
   - pip3 install -q dist/*tar.gz
   - pip3 show faucet
 script:
-  - ./run-travis-test.sh
+  - if [[ `python3 --version` == "Python 3.6"* ]] ; then ./run-travis-test.sh ; fi
 deploy:
   provider: pypi
   user: faucet
