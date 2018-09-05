@@ -30,7 +30,7 @@ install:
   - pip3 install -q dist/*tar.gz
   - pip3 show faucet
 script:
-  - if [[ `python3 --version` == "Python 3.6"* ]] ; then ./run-travis-test.sh ; fi
+  - ./run-travis-test.sh
 deploy:
   provider: pypi
   user: faucet
