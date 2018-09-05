@@ -104,12 +104,12 @@ VIP_DEFAULT_CONFIG = ValveTableConfig(
     6,
     match_types=(('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
                  ('icmpv6_type', False), ('ip_proto', False)),
-    next_tables=('eth_dst', 'flood')
+    next_tables=('eth_dst',)
     )
 ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst_hairpin',
     7,
-    match_types=(('in_port', False), ('eth_dst', False)),
+    match_types=(('in_port', False), ('eth_dst', False), ('vlan_vid', False)),
     miss_goto='eth_dst',
     exact_match=True,
     vlan_port_scale=4.1,
@@ -144,6 +144,7 @@ FAUCET_PIPELINE = (
     IPV4_FIB_DEFAULT_CONFIG,
     IPV6_FIB_DEFAULT_CONFIG,
     VIP_DEFAULT_CONFIG,
+    ETH_DST_HAIRPIN_DEFAULT_CONFIG,
     ETH_DST_DEFAULT_CONFIG,
     FLOOD_DEFAULT_CONFIG,
 )
@@ -156,6 +157,7 @@ DEFAULT_CONFIGS = {
     'ipv4_fib': IPV4_FIB_DEFAULT_CONFIG,
     'ipv6_fib': IPV6_FIB_DEFAULT_CONFIG,
     'vip': VIP_DEFAULT_CONFIG,
+    'eth_dst_hairpin': ETH_DST_HAIRPIN_DEFAULT_CONFIG,
     'eth_dst': ETH_DST_DEFAULT_CONFIG,
     'flood': FLOOD_DEFAULT_CONFIG,
 }

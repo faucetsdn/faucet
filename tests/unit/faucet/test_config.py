@@ -1038,7 +1038,7 @@ dps:
         self._check_next_tables(dp.tables['eth_src'], [4, 5, 6, 7])
         self._check_next_tables(dp.tables['ipv4_fib'], [6, 7])
         self._check_next_tables(dp.tables['ipv6_fib'], [6, 7])
-        self._check_next_tables(dp.tables['vip'], [7, 8])
+        self._check_next_tables(dp.tables['vip'], [7])
         self._check_next_tables(dp.tables['eth_dst'], [8])
         self._check_next_tables(dp.tables['flood'], [])
 
