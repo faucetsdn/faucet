@@ -92,7 +92,6 @@ class ValveRouteManager:
         'eth_dst_table',
         'eth_src_table',
         'fib_table',
-        'flood_table',
         'global_vlan',
         'global_routing',
         'logger',
@@ -116,7 +115,7 @@ class ValveRouteManager:
     def __init__(self, logger, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl,
-                 fib_table, vip_table, eth_src_table, eth_dst_table, flood_table,
+                 fib_table, vip_table, eth_src_table, eth_dst_table,
                  route_priority, routers):
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
@@ -130,7 +129,6 @@ class ValveRouteManager:
         self.vip_table = vip_table
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
-        self.flood_table = flood_table
         self.route_priority = route_priority
         self.routers = routers
         self.active = False
@@ -701,7 +699,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 eth_type=valve_of.ether.ETH_TYPE_ARP,
                 eth_dst=valve_of.mac.BROADCAST_STR),
             priority=priority,
-            inst=[valve_of.goto_table(self.flood_table)]))
+            inst=[valve_of.goto_table(self.eth_dst_table)]))
         priority += 1
         ofmsgs.append(self.vip_table.flowcontroller(
             self.vip_table.match(
@@ -787,7 +785,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             valve_packet.ipv6_solicited_node_from_ucast(faucet_vip.ip))
         controller_and_flood = [
             valve_of.apply_actions([valve_of.output_controller()]),
-            valve_of.goto_table(self.flood_table)]
+            valve_of.goto_table(self.eth_dst_table)]
         ofmsgs = []
         ofmsgs.append(self.vip_table.flowcontroller(
             self.vip_table.match(
