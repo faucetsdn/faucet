@@ -716,8 +716,10 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
              'dl_dst': 'ff:ff:ff:ff:ff:ff'},
             table_id=self._FLOOD_TABLE, actions=['OUTPUT:IN_PORT'])
         self.wait_nonzero_packet_count_flow(
-            {'in_port': self.port_map['port_1'], 'dl_dst': macvlan2_mac},
-            table_id=self._ETH_SRC_TABLE, actions=['OUTPUT:IN_PORT'])
+            {'in_port': self.port_map['port_1'],
+             'dl_dst': macvlan2_mac},
+            table_id=self._ETH_DST_HAIRPIN_TABLE,
+            actions=['OUTPUT:IN_PORT'])
 
 
 class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):

@@ -186,6 +186,7 @@ configuration.
         'ipv4_fib': int,
         'ipv6_fib': int,
         'vip': int,
+        'eth_dst_hairpin': int,
         'eth_dst': int,
         'flood': int,
     }
@@ -273,6 +274,7 @@ configuration.
         self.ports = {}
         self.routers = {}
         self.stack_ports = []
+        self.hairpin_ports = []
         self.output_only_ports = []
         self.lldp_beacon_ports = []
         self.tables = {}
@@ -371,6 +373,8 @@ configuration.
                 included_tables.add('vip')
         if valve_cl.STATIC_TABLE_IDS:
             included_tables.add('port_acl')
+        if self.hairpin_ports:
+            included_tables.add('eth_dst_hairpin')
         relative_table_id = 0
         table_configs = {}
         for canonical_table_config in faucet_pipeline.FAUCET_PIPELINE:
@@ -420,6 +424,8 @@ configuration.
 
     def output_tables(self):
         """Return tables that cause a packet to be forwarded."""
+        if self.hairpin_ports:
+            return (self.tables['eth_dst_hairpin'], self.tables['eth_dst'])
         return (self.tables['eth_dst'],)
 
     def output_table(self):
@@ -454,10 +460,12 @@ configuration.
         self.ports[port_num] = port
         if port.output_only:
             self.output_only_ports.append(port)
-        elif port.stack:
+        if port.stack:
             self.stack_ports.append(port)
         if port.lldp_beacon_enabled():
             self.lldp_beacon_ports.append(port)
+        if port.hairpin:
+            self.hairpin_ports.append(port)
 
     def lldp_beacon_send_ports(self, now):
         """Return list of ports to send LLDP packets; stacked ports always send LLDP."""
