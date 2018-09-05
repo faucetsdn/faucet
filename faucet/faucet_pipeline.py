@@ -74,7 +74,7 @@ PORT_ACL_DEFAULT_CONFIG = ValveTableConfig(
     'port_acl',
     0,
     match_types=(('in_port', False),),
-    next_tables=('vlan',)
+    next_tables=('vlan', 'eth_dst_hairpin', 'eth_dst')
     )
 VLAN_DEFAULT_CONFIG = ValveTableConfig(
     'vlan',
