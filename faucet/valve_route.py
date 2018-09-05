@@ -384,6 +384,7 @@ class ValveRouteManager:
     def _resolve_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
         faucet_vip = vlan.vip_map(ip_gw)
         if not faucet_vip:
+            self.logger.info('Not resolving %s (not in connected network)' % ip_gw)
             return []
         resolve_flows = []
         last_retry_time = nexthop_cache_entry.last_retry_time
