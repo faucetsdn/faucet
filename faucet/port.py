@@ -182,7 +182,7 @@ class Port(Conf):
         test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
             not valve_of.ignore_port(self.number))), ('Port number invalid: %s' % self.number))
         test_config_condition(
-            self.hairpin and self.hairpin_unicast),
+            self.hairpin and self.hairpin_unicast,
             'Cannot have both hairpin and hairpin_unicast enabled')
         if self.mirror:
             test_config_condition(self.tagged_vlans or self.native_vlan, (
