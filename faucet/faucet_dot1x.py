@@ -93,29 +93,26 @@ class FaucetDot1x:
         # TODO: support multiple Valves and ports.
         self._valves = valves
         valve_id = -1
-        try:
-            for valve in list(valves.values()):
-                valve_id += 1
-                if self.dot1x_speaker is None:
-                    if valve.dp.dot1x:
-                        dot1x_intf = valve.dp.dot1x['nfv_intf']
-                        self.dot1x_speaker = self._create_dot1x_speaker(dot1x_intf)
-                    else:
+        for valve in list(valves.values()):
+            valve_id += 1
+            if self.dot1x_speaker is None:
+                if valve.dp.dot1x:
+                    dot1x_intf = valve.dp.dot1x['nfv_intf']
+                    self.dot1x_speaker = self._create_dot1x_speaker(dot1x_intf)
+                else:
+                    continue
+            if valve.dp.dot1x and valve.dp.dot1x_ports():
+                for dot1x_port in valve.dp.dot1x_ports():
+                    if dot1x_port.number > 255:
+                        self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
+                                         % (valve.dp, dot1x_port))
                         continue
-                if valve.dp.dot1x and valve.dp.dot1x_ports():
-                    for dot1x_port in valve.dp.dot1x_ports():
-                        if dot1x_port.number > 255:
-                            self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
-                                             % (valve.dp, dot1x_port))
-                            continue
-                        if valve_id > 255:
-                            self.logger.info('dot1x not enabled on %s %s. more than 255 valves'
-                                             % (valve.dp, dot1x_port))
-                            continue
-                        mac_str = "00:00:00:00:%02x:%02x" % (valve_id, dot1x_port.number)
-                        self.mac_to_port[mac_str] = (valve, dot1x_port)
-                        self.logger.info(
-                            'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
-                                valve.dp, valve_id, dot1x_port, dot1x_intf))
-        except Exception as e:
-            self.logger.exception(e)
+                    if valve_id > 255:
+                        self.logger.info('dot1x not enabled on %s %s. more than 255 valves'
+                                         % (valve.dp, dot1x_port))
+                        continue
+                    mac_str = "00:00:00:00:%02x:%02x" % (valve_id, dot1x_port.number)
+                    self.mac_to_port[mac_str] = (valve, dot1x_port)
+                    self.logger.info(
+                        'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
+                            valve.dp, valve_id, dot1x_port, dot1x_intf))
