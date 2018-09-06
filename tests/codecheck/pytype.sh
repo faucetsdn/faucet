@@ -5,15 +5,10 @@ PYV="3.5"
 FAUCETHOME=`dirname $0`"/../.."
 PYTHONPATH=$FAUCETHOME:$FAUCETHOME/faucet:$FAUCETHOME/clib
 PARARGS="parallel --delay 1 --bar"
-
 PYTYPE=`which pytype`
-PYHEADER=`head -1 $PYTYPE`
-
-PYTYPEARGS="python$PYV $PYTYPE --pythonpath $PYTHONPATH -d pyi-error,import-error -V$PYV"
+PYTYPEARGS="python$PYV  $PYTYPE --pythonpath $PYTHONPATH -d pyi-error,import-error -V$PYV"
 PYHEADER=`head -1 $PYTYPE`
 SRCFILES="$FAUCETHOME/tests/codecheck/src_files.sh"
 echo "Using $PYTYPE (header $PYHEADER)"
 
-# pre-generate pyi for main FAUCET codebase.
-$PYTYPEARGS $FAUCETHOME/faucet/*py
 $SRCFILES | shuf | $PARARGS $PYTYPEARGS || exit 1
