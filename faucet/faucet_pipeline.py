@@ -95,9 +95,9 @@ VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
     next_tables=(('eth_src',) + _NEXT_ETH))
 CLASSIFICATION_DEFAULT_CONFIG = ValveTableConfig(
     'classification',
-    miss_goto='eth_dst'
     VLAN_ACL_DEFAULT_CONFIG.table_id + 1,
-    next_tables=('ipv4_fib', 'vip')
+    miss_goto='eth_src',
+    next_tables=(('ipv4_fib', 'ipv6_fib') + _NEXT_VIP)
     )
 ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
     'eth_src',
@@ -144,7 +144,7 @@ FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     )
 
 MINIMUM_FAUCET_PIPELINE_TABLES = {
-    'vlan', 'eth_src', 'eth_dst', 'flood'}
+    'vlan', 'classification', 'eth_src', 'eth_dst', 'flood'}
 
 # TODO: implement an eth_type table before VLAN. This would enable interception
 # of control protocols and simplify matches in vlan/eth_src, enabling use of
