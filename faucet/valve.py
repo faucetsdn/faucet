@@ -326,7 +326,7 @@ class Valve:
         ofmsgs = []
         if vlan.acls_in:
             acl_table = self.dp.tables['vlan_acl']
-            acl_allow_inst = acl_table.goto(self.dp.tables['eth_src'])
+            acl_allow_inst = acl_table.goto(self.dp.tables['classification'])
             acl_force_port_vlan_inst = acl_table.goto(self.dp.output_table())
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 vlan.acls_in, acl_table,
@@ -701,7 +701,7 @@ class Valve:
     def _find_forwarding_table(self, vlan):
         if vlan.acls_in:
             return self.dp.tables['vlan_acl']
-        return self.dp.tables['eth_src']
+        return self.dp.tables['classification']
 
     def _port_add_vlans(self, port, mirror_act):
         ofmsgs = []
