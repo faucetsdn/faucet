@@ -84,22 +84,22 @@ class FaucetDot1XTest(test_valve.ValveTestBases.ValveTestSmall):
                                               # MacAddress.from_string('00:00:00:00:00:01'))
         # 2 = 1 FlowMod + 1 Barrier
         self.assertEqual(len(self.last_flows_to_dp[1]), 2, self.last_flows_to_dp[1])
-
-    def _test_failure_dot1x(self):
-        """Test failure api"""
-        self.dot1x.reset(valves=self.valves_manager.valves)
-        self.assertEqual(len(self.last_flows_to_dp[1]), 0)
-        self.dot1x.dot1x_speaker.auth_faliure(MacAddress.from_string('00:00:00:00:ab:01'),
-                                              MacAddress.from_string('00:00:00:00:00:01'))
-
-    def _test_logoff_dot1x(self):
-        """Test logoff api"""
-        self.dot1x.reset(valves=self.valves_manager.valves)
-        self.assertEqual(len(self.last_flows_to_dp[1]), 0)
-        self.dot1x.dot1x_speaker.auth_logoff(MacAddress.from_string('00:00:00:00:ab:01'),
-                                              MacAddress.from_string('00:00:00:00:00:01'))
-        # 2 = 1 FlowMod + 1 Barrier
-        self.assertEqual(len(self.last_flows_to_dp[1]), 2, self.last_flows_to_dp[1])
+    #
+    # def _test_failure_dot1x(self):
+    #     """Test failure api"""
+    #     self.dot1x.reset(valves=self.valves_manager.valves)
+    #     self.assertEqual(len(self.last_flows_to_dp[1]), 0)
+    #     self.dot1x.dot1x_speaker.auth_faliure(MacAddress.from_string('00:00:00:00:ab:01'),
+    #                                           MacAddress.from_string('00:00:00:00:00:01'))
+    #
+    # def _test_logoff_dot1x(self):
+    #     """Test logoff api"""
+    #     self.dot1x.reset(valves=self.valves_manager.valves)
+    #     self.assertEqual(len(self.last_flows_to_dp[1]), 0)
+    #     self.dot1x.dot1x_speaker.auth_logoff(MacAddress.from_string('00:00:00:00:ab:01'),
+    #                                           MacAddress.from_string('00:00:00:00:00:01'))
+    #     # 2 = 1 FlowMod + 1 Barrier
+    #     self.assertEqual(len(self.last_flows_to_dp[1]), 2, self.last_flows_to_dp[1])
 
 
 if __name__ == "__main__":
