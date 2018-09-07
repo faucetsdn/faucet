@@ -87,12 +87,12 @@ VLAN_DEFAULT_CONFIG = ValveTableConfig(
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid',),
     vlan_port_scale=1.5,
-    next_tables=('vlan_acl', 'eth_src')
+    next_tables=('vlan_acl', 'classification')
     )
 VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
     'vlan_acl',
     VLAN_DEFAULT_CONFIG.table_id + 1,
-    next_tables=(('eth_src',) + _NEXT_ETH))
+    next_tables=(('classification',) + _NEXT_ETH))
 CLASSIFICATION_DEFAULT_CONFIG = ValveTableConfig(
     'classification',
     VLAN_ACL_DEFAULT_CONFIG.table_id + 1,
