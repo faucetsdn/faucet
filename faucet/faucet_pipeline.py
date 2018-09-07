@@ -59,7 +59,7 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
         return self.__hash__() < other.__hash__()
 
 
-_NEXT_ETH = ('eth_dst_hairpin', 'eth_dst')
+_NEXT_ETH = ('eth_dst_hairpin', 'eth_dst', 'flood')
 _NEXT_VIP = ('vip',) + _NEXT_ETH
 
 
@@ -87,10 +87,12 @@ VLAN_DEFAULT_CONFIG = ValveTableConfig(
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid',),
     vlan_port_scale=1.5,
-    next_tables=('vlan_acl', 'eth_src'),
+    next_tables=('vlan_acl', 'eth_src')
     )
 VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
-    'vlan_acl', 2, next_tables=('eth_src',))
+    'vlan_acl',
+    2,
+    next_tables=(('eth_src',) + _NEXT_ETH))
 ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
     'eth_src',
     3,
