@@ -4185,7 +4185,7 @@ vlans:
                         host.intf_root_name, vlan_int, vid),
                     'ip link set dev %s up' % vlan_int,
                     'ip address add %s/24 brd + dev %s' % (ipa, vlan_int),
-                    'arp -s %s 0e:00:00:00:00:01' % ipd,
+                    'arp -s %s %s' % (ipd, self.FAUCET_MAC),
                     'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (vlan_int, ipd),
                     'ping -c1 -i0.1 -I%s %s > /dev/null' % (vlan_int, ipg)])
                 for j, _ in enumerate(hosts, start=1):
@@ -4196,7 +4196,8 @@ vlans:
             self.quiet_commands(host, setup_commands)
 
         drop_rules = self.get_matching_flows_on_dpid(
-            self.dpid, {'dl_type': 2048, 'dl_vlan': '2047'}, table_id=self._IPV4_FIB_TABLE, actions=[])
+            self.dpid, {'dl_type': 2048, 'dl_vlan': '2047'},
+            table_id=self._IPV4_FIB_TABLE, actions=[])
         self.assertTrue(drop_rules)
         drop_ip_re = re.compile(r'^192.168.\d+.253.*')
         for drop_rule in drop_rules:
