@@ -169,10 +169,12 @@ class Valve:
             proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
             route_manager = route_manager_class(
                 self.logger, self.dp.global_vlan, neighbor_timeout,
-                self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-                self.dp.max_resolve_backoff_time, proactive_learn, self.DEC_TTL,
-                fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
-                self.dp.output_table(), self.dp.highest_priority, self.dp.routers)
+                self.dp.max_hosts_per_resolve_cycle,
+                self.dp.max_host_fib_retry_count,
+                self.dp.max_resolve_backoff_time, proactive_learn,
+                self.DEC_TTL, fib_table, self.dp.tables['vip'],
+                self.dp.tables['classification'], self.dp.output_table(),
+                self.dp.highest_priority, self.dp.routers)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
             for vlan in list(self.dp.vlans.values()):
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
@@ -740,6 +742,7 @@ class Valve:
         ofmsgs = []
         vlans_with_ports_added = set()
         eth_src_table = self.dp.tables['eth_src']
+        classification_table = self.dp.tables['classification']
         vlan_table = self.dp.tables['vlan']
 
         for port_num in port_nums:
@@ -799,7 +802,7 @@ class Valve:
                 ofmsgs.append(vlan_table.flowmod(
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.low_priority,
-                    inst=[vlan_table.goto(eth_src_table)]))
+                    inst=[vlan_table.goto(classification_table)]))
                 port_vlans = list(self.dp.vlans.values())
             else:
                 mirror_act = port.mirror_actions()

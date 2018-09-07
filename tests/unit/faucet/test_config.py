@@ -879,7 +879,7 @@ dps:
             'flood': 4
             }
         self._check_table_names_numbers(dp, tables)
-        self._check_next_tables(dp.tables['vlan'], [2])
+        self._check_next_tables(dp.tables['vlan'], [1])
         self._check_next_tables(dp.tables['classification'], [3, 4])
         self._check_next_tables(dp.tables['eth_src'], [3, 4])
         self._check_next_tables(dp.tables['eth_dst'], [])
@@ -1040,8 +1040,8 @@ dps:
             }
         self._check_table_names_numbers(dp, tables)
         self._check_next_tables(dp.tables['port_acl'], [1, 7, 8, 9])
-        self._check_next_tables(dp.tables['vlan'], [2, 4])
-        self._check_next_tables(dp.tables['vlan_acl'], [4, 8, 9])
+        self._check_next_tables(dp.tables['vlan'], [2, 3])
+        self._check_next_tables(dp.tables['vlan_acl'], [3, 8, 9])
         self._check_next_tables(dp.tables['classification'], [5, 6, 7, 8, 9])
         self._check_next_tables(dp.tables['eth_src'], [5, 6, 7, 8, 9])
         self._check_next_tables(dp.tables['ipv4_fib'], [7, 8, 9])
