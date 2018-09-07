@@ -41,7 +41,7 @@ class FaucetDot1x:
         chewie = Chewie(  # pylint: disable=too-many-function-args
             dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
-            '127.0.0.1')
+            radius_server_ip='127.0.0.1', radius_server_port=1812, radius_server_secret="SECRET")
         hub.spawn(chewie.run)
         return chewie
 
@@ -66,7 +66,6 @@ class FaucetDot1x:
             dot1x_port.number, str(address))
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
-
 
     def logoff_handler(self, address, port_id):
         """Callback for when an EAP logoff happens."""
