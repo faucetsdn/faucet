@@ -903,8 +903,8 @@ dps:
             'port_acl': 0,
             'vlan': 1,
             'eth_src': 3,
-            'eth_dst': 7,
-            'flood': 8
+            'eth_dst': 8,
+            'flood': 9
             }
         self._check_table_names_numbers(dp, tables)
 
@@ -1032,13 +1032,13 @@ dps:
             'flood': 8
             }
         self._check_table_names_numbers(dp, tables)
-        self._check_next_tables(dp.tables['port_acl'], [1])
+        self._check_next_tables(dp.tables['port_acl'], [1, 7])
         self._check_next_tables(dp.tables['vlan'], [2, 3])
         self._check_next_tables(dp.tables['vlan_acl'], [3])
         self._check_next_tables(dp.tables['eth_src'], [4, 5, 6, 7])
         self._check_next_tables(dp.tables['ipv4_fib'], [6, 7])
         self._check_next_tables(dp.tables['ipv6_fib'], [6, 7])
-        self._check_next_tables(dp.tables['vip'], [])
+        self._check_next_tables(dp.tables['vip'], [7])
         self._check_next_tables(dp.tables['eth_dst'], [8])
         self._check_next_tables(dp.tables['flood'], [])
 

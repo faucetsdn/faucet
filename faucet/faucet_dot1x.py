@@ -75,6 +75,7 @@ class FaucetDot1x:
         self.metrics.inc_var('dp_dot1x_logoff', valve.base_prom_labels)
         self.metrics.inc_var('port_dot1x_logoff', valve.port_labels(dot1x_port))
         flowmods = valve.del_authed_mac(dot1x_port.number, str(address))
+
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
 

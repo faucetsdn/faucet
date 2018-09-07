@@ -186,6 +186,7 @@ configuration.
         'ipv4_fib': int,
         'ipv6_fib': int,
         'vip': int,
+        'eth_dst_hairpin': int,
         'eth_dst': int,
         'flood': int,
     }
@@ -276,6 +277,7 @@ configuration.
         self.ports = {}
         self.routers = {}
         self.stack_ports = []
+        self.hairpin_ports = []
         self.output_only_ports = []
         self.lldp_beacon_ports = []
         self.tables = {}
@@ -374,6 +376,8 @@ configuration.
                 included_tables.add('vip')
         if valve_cl.STATIC_TABLE_IDS:
             included_tables.add('port_acl')
+        if self.hairpin_ports:
+            included_tables.add('eth_dst_hairpin')
         relative_table_id = 0
         table_configs = {}
         for canonical_table_config in faucet_pipeline.FAUCET_PIPELINE:
@@ -396,10 +400,8 @@ configuration.
                 size = min(size, self.max_wildcard_table_size)
                 size = int(size / self.min_wildcard_table_size) * self.min_wildcard_table_size
             table_config.size = size
-            next_tables = []
-            for nt in table_config.next_tables:
-                if nt in table_configs:
-                    next_tables.append(table_configs[nt].table_id)
+            next_tables = [
+                table_configs[t].table_id for t in table_config.next_tables if t in table_configs]
             tables[table_name] = ValveTable(
                 table_name, table_config, self.cookie,
                 notify_flow_removed=self.use_idle_timeout,
@@ -422,6 +424,15 @@ configuration.
         if tables:
             return tables[0]
         return None
+
+    def output_tables(self):
+        """Return tables that cause a packet to be forwarded."""
+        if self.hairpin_ports:
+            return (self.tables['eth_dst_hairpin'], self.tables['eth_dst'])
+        return (self.tables['eth_dst'],)
+
+    def output_table(self):
+        return self.output_tables()[0]
 
     def match_tables(self, match_type):
         """Return list of tables with matches of a specific match type."""
@@ -452,10 +463,12 @@ configuration.
         self.ports[port_num] = port
         if port.output_only:
             self.output_only_ports.append(port)
-        elif port.stack:
+        if port.stack:
             self.stack_ports.append(port)
         if port.lldp_beacon_enabled():
             self.lldp_beacon_ports.append(port)
+        if port.hairpin or port.hairpin_unicast:
+            self.hairpin_ports.append(port)
 
     def lldp_beacon_send_ports(self, now):
         """Return list of ports to send LLDP packets; stacked ports always send LLDP."""
