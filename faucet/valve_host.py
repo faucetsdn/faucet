@@ -166,7 +166,7 @@ class ValveHostManager:
         src_match = self.eth_src_table.match(
             in_port=port.number, vlan=vlan, eth_src=eth_src)
         src_priority = self.host_priority - 1
-        inst = valve_of.goto_table(self.output_table)
+        inst = self.eth_src_table.goto(self.output_table)
 
         if port.override_output_port:
             inst = valve_of.apply_actions([

@@ -45,6 +45,20 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         self.flow_cookie = flow_cookie
         self.notify_flow_removed = notify_flow_removed
 
+    def goto(self, next_table):
+        """Add goto next table instruction."""
+        assert next_table.name in self.table_config.next_tables, (
+            '%s not configured as next table in %s' % (
+                next_table.name, self.name))
+        return valve_of.goto_table(next_table)
+
+    def goto_miss(self, next_table):
+        """Add miss goto table instruction."""
+        assert next_table.name == self.table_config.miss_goto, (
+            '%s not configured as miss table in %s' % (
+                next_table.name, self.name))
+        return valve_of.goto_table(next_table)
+
     # TODO: verify set_fields
     # TODO: verify actions
     def match(self, in_port=None, vlan=None, # pylint: disable=too-many-arguments

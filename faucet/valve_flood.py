@@ -406,7 +406,7 @@ class ValveFloodStackManager(ValveFloodManager):
                 ofmsgs.append(self.eth_src_table.flowmod(
                     match=match,
                     command=command,
-                    inst=[valve_of.goto_table(self.flood_table)],
+                    inst=[self.eth_src_table.goto(self.flood_table)],
                     priority=self.bypass_priority))
         return ofmsgs
 
