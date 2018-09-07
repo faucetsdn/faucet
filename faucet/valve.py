@@ -683,16 +683,18 @@ class Valve:
         return ofmsgs
 
     def _port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
+        vlan_table = self.dp.tables['vlan']
         push_vlan_act = mirror_act + valve_of.push_vlan_act(vlan.vid)
         push_vlan_inst = [
             valve_of.apply_actions(push_vlan_act),
-            valve_of.goto_table(forwarding_table)
+            vlan_table.goto(forwarding_table)
         ]
         return self._port_add_vlan_rules(port, NullVLAN(), push_vlan_inst)
 
     def _port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
+        vlan_table = self.dp.tables['vlan']
         vlan_inst = [
-            valve_of.goto_table(forwarding_table)
+            vlan_table.goto(forwarding_table)
         ]
         if mirror_act:
             vlan_inst = [valve_of.apply_actions(mirror_act)] + vlan_inst
