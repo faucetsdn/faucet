@@ -880,7 +880,7 @@ dps:
         self._check_table_names_numbers(dp, tables)
         self._check_next_tables(dp.tables['vlan'], [1])
         self._check_next_tables(dp.tables['eth_src'], [2])
-        self._check_next_tables(dp.tables['eth_dst'], [3])
+        self._check_next_tables(dp.tables['eth_dst'], [])
         self._check_next_tables(dp.tables['flood'], [])
 
     def test_pipeline_config_no_acl_static_ids(self):
@@ -1032,14 +1032,14 @@ dps:
             'flood': 8
             }
         self._check_table_names_numbers(dp, tables)
-        self._check_next_tables(dp.tables['port_acl'], [1, 7])
+        self._check_next_tables(dp.tables['port_acl'], [1, 6, 7])
         self._check_next_tables(dp.tables['vlan'], [2, 3])
         self._check_next_tables(dp.tables['vlan_acl'], [3])
         self._check_next_tables(dp.tables['eth_src'], [4, 5, 6, 7])
         self._check_next_tables(dp.tables['ipv4_fib'], [6, 7])
         self._check_next_tables(dp.tables['ipv6_fib'], [6, 7])
         self._check_next_tables(dp.tables['vip'], [7])
-        self._check_next_tables(dp.tables['eth_dst'], [8])
+        self._check_next_tables(dp.tables['eth_dst'], [])
         self._check_next_tables(dp.tables['flood'], [])
 
 
