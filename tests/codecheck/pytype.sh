@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# TODO: run separately until https://github.com/google/pytype/issues/133 is fixed.
 # TODO: until 3.6 safe, force 3.5
 PYV="3.5"
 FAUCETHOME=`dirname $0`"/../.."

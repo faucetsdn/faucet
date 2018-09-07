@@ -397,8 +397,10 @@ configuration.
                 size = min(size, self.max_wildcard_table_size)
                 size = int(size / self.min_wildcard_table_size) * self.min_wildcard_table_size
             table_config.size = size
+            table_config.next_tables = [
+                table_name for table_name in table_config.next_tables if table_name in table_configs]
             next_tables = [
-                table_configs[t].table_id for t in table_config.next_tables if t in table_configs]
+                table_configs[table_name].table_id for table_name in table_config.next_tables]
             tables[table_name] = ValveTable(
                 table_name, table_config, self.cookie,
                 notify_flow_removed=self.use_idle_timeout,

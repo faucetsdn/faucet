@@ -59,6 +59,10 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
         return self.__hash__() < other.__hash__()
 
 
+_NEXT_ETH = ('eth_dst_hairpin', 'eth_dst')
+_NEXT_VIP = ('vip',) + _NEXT_ETH
+
+
 def _fib_table(ipv, table_id):
     return ValveTableConfig(
         'ipv%u_fib' % ipv,
@@ -67,14 +71,14 @@ def _fib_table(ipv, table_id):
         set_fields=('eth_dst', 'eth_src', 'vlan_vid'),
         dec_ttl=True,
         vlan_port_scale=3.1,
-        next_tables=('vip', 'eth_dst')
+        next_tables=_NEXT_VIP
         )
 
 PORT_ACL_DEFAULT_CONFIG = ValveTableConfig(
     'port_acl',
     0,
     match_types=(('in_port', False),),
-    next_tables=('vlan', 'eth_dst_hairpin', 'eth_dst')
+    next_tables=(('vlan',) + _NEXT_VIP)
     )
 VLAN_DEFAULT_CONFIG = ValveTableConfig(
     'vlan',
@@ -95,7 +99,7 @@ ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid', 'eth_dst'),
     vlan_port_scale=4.1,
-    next_tables=('ipv4_fib', 'ipv6_fib', 'vip', 'eth_dst_hairpin', 'eth_dst')
+    next_tables=(('ipv4_fib', 'ipv6_fib') + _NEXT_VIP)
     )
 IPV4_FIB_DEFAULT_CONFIG = _fib_table(4, 4)
 IPV6_FIB_DEFAULT_CONFIG = _fib_table(6, 5)
@@ -104,7 +108,7 @@ VIP_DEFAULT_CONFIG = ValveTableConfig(
     6,
     match_types=(('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
                  ('icmpv6_type', False), ('ip_proto', False)),
-    next_tables=('eth_dst_hairpin', 'eth_dst')
+    next_tables=_NEXT_ETH,
     )
 ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst_hairpin',
@@ -121,7 +125,6 @@ ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     miss_goto='flood',
     match_types=(('eth_dst', False), ('vlan_vid', False)),
     vlan_port_scale=4.1,
-    next_tables=('flood',),
     )
 FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
