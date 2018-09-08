@@ -684,7 +684,7 @@ class Valve:
 
     def _port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
         vlan_table = self.dp.tables['vlan']
-        push_vlan_act = mirror_act + valve_of.push_vlan_act(vlan.vid)
+        push_vlan_act = mirror_act + valve_of.push_vlan_act(vlan_table, vlan.vid)
         push_vlan_inst = [
             valve_of.apply_actions(push_vlan_act),
             vlan_table.goto(forwarding_table)

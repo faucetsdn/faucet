@@ -62,9 +62,9 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
     def set_field(self, **kwds):
         """Return set field action."""
         for field in list(kwds.keys()):
-            assert field in self.set_fields, (
-                '%s not configured as set field in %s' % (
-                field, self.name))
+            assert (self.table_id == valve_of.ofp.OFPTT_ALL or
+                    field in self.set_fields), (
+                        '%s not configured as set field in %s' % (field, self.name))
         return valve_of.set_field(**kwds)
 
     def set_vlan_vid(self, vlan_vid):
@@ -77,9 +77,9 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         """
         return self.set_field(vlan_vid=valve_of.vid_present(vlan_vid))
 
-    # TODO: verify set_fields
     # TODO: verify actions
-    def match(self, in_port=None, vlan=None, # pylint: disable=too-many-arguments
+    @staticmethod
+    def match(in_port=None, vlan=None, # pylint: disable=too-many-arguments
               eth_type=None, eth_src=None,
               eth_dst=None, eth_dst_mask=None,
               icmpv6_type=None,
@@ -238,6 +238,7 @@ class ValveGroupTable:
         """Delete all groups."""
         self.entries = {}
         return valve_of.groupdel()
+
 
 wildcard_table = ValveTable(
     'all', ValveTableConfig('all', valve_of.ofp.OFPTT_ALL), flow_cookie=0)
