@@ -54,7 +54,7 @@ def rewrite_vlan(output_dict):
     return vlan_actions
 
 
-def build_output_actions(output_dict):
+def build_output_actions(acl_table, output_dict):
     """Implement actions to alter packet/output."""
     output_actions = []
     output_port = None
@@ -64,8 +64,8 @@ def build_output_actions(output_dict):
     if vlan_actions:
         output_actions.extend(vlan_actions)
     if 'set_fields' in output_dict:
-        for set_fields in output_dict['set_fields']:
-            output_actions.append(valve_of.set_field(**set_fields))
+        for set_field in output_dict['set_fields']:
+            output_actions.append(acl_table.set_field(**set_field))
     if 'port' in output_dict:
         output_port = output_dict['port']
         output_actions.append(valve_of.output_port(output_port))
@@ -87,7 +87,7 @@ def build_output_actions(output_dict):
 
 # TODO: change this, maybe this can be rewritten easily
 # possibly replace with a class for ACLs
-def build_acl_entry(rule_conf, meters,
+def build_acl_entry(acl_table, rule_conf, meters,
                     acl_allow_inst, acl_force_port_vlan_inst,
                     port_num=None, vlan_vid=None):
     """Build flow/groupmods for one ACL rule entry."""
@@ -126,7 +126,7 @@ def build_acl_entry(rule_conf, meters,
                     allow = True
             if 'output' in attrib_value:
                 output_port, output_actions, output_ofmsgs = build_output_actions(
-                    attrib_value['output'])
+                    acl_table, attrib_value['output'])
                 acl_act.extend(output_actions)
                 acl_ofmsgs.extend(output_ofmsgs)
 
@@ -161,7 +161,7 @@ def build_acl_ofmsgs(acls, acl_table,
     for acl in acls:
         for rule_conf in acl.rules:
             acl_match, acl_inst, acl_cookie, acl_ofmsgs = build_acl_entry(
-                rule_conf, meters,
+                acl_table, rule_conf, meters,
                 acl_allow_inst, acl_force_port_vlan_inst,
                 port_num, vlan_vid)
             ofmsgs.extend(acl_ofmsgs)
