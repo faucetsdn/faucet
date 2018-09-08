@@ -21,7 +21,7 @@ from faucet import valve_of
 from faucet.conf import InvalidConfigError
 
 
-def push_vlan(vlan_vid):
+def push_vlan(acl_table, vlan_vid):
     """Push a VLAN tag with optional selection of eth type."""
     vid = vlan_vid
     vlan_eth_type = None
@@ -30,11 +30,12 @@ def push_vlan(vlan_vid):
         if 'eth_type' in vlan_vid:
             vlan_eth_type = vlan_vid['eth_type']
     if vlan_eth_type is None:
-        return valve_of.push_vlan_act(vid)
-    return valve_of.push_vlan_act(vid, eth_type=vlan_eth_type)
+        return valve_of.push_vlan_act(acl_table, vid)
+    return valve_of.push_vlan_act(
+        acl_table, vid, eth_type=vlan_eth_type)
 
 
-def rewrite_vlan(output_dict):
+def rewrite_vlan(acl_table, output_dict):
     """Implement actions to rewrite VLAN headers."""
     vlan_actions = []
     if 'pop_vlans' in output_dict:
@@ -42,15 +43,15 @@ def rewrite_vlan(output_dict):
             vlan_actions.append(valve_of.pop_vlan())
     # if vlan tag is specified, push it.
     if 'vlan_vid' in output_dict:
-        vlan_actions.extend(push_vlan(output_dict['vlan_vid']))
+        vlan_actions.extend(push_vlan(acl_table, output_dict['vlan_vid']))
     # swap existing VID
     elif 'swap_vid' in output_dict:
         vlan_actions.append(
-            valve_of.set_vlan_vid(output_dict['swap_vid']))
+            acl_table.set_vlan_vid(output_dict['swap_vid']))
     # or, if a list, push them all (all with type Q).
     elif 'vlan_vids' in output_dict:
         for vlan_vid in output_dict['vlan_vids']:
-            vlan_actions.extend(push_vlan(vlan_vid))
+            vlan_actions.extend(push_vlan(acl_table, vlan_vid))
     return vlan_actions
 
 
@@ -60,7 +61,7 @@ def build_output_actions(acl_table, output_dict):
     output_port = None
     ofmsgs = []
     # rewrite any VLAN headers first always
-    vlan_actions = rewrite_vlan(output_dict)
+    vlan_actions = rewrite_vlan(acl_table, output_dict)
     if vlan_actions:
         output_actions.extend(vlan_actions)
     if 'set_fields' in output_dict:
