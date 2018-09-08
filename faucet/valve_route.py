@@ -215,10 +215,10 @@ class ValveRouteManager:
     def _nexthop_actions(self, eth_dst, vlan):
         ofmsgs = []
         if self.routers:
-            ofmsgs.append(valve_of.set_vlan_vid(vlan.vid))
+            ofmsgs.append(self.fib_table.set_vlan_vid(vlan.vid))
         ofmsgs.extend([
-            valve_of.set_eth_src(vlan.faucet_mac),
-            valve_of.set_eth_dst(eth_dst)])
+            self.fib_table.set_field(eth_src=vlan.faucet_mac),
+            self.fib_table.set_field(eth_dst=eth_dst)])
         if self.dec_ttl:
             ofmsgs.append(valve_of.dec_ip_ttl())
         return ofmsgs
@@ -261,8 +261,8 @@ class ValveRouteManager:
         if self.global_routing:
             vlan_mac = valve_packet.int_in_mac(faucet_mac, vlan.vid)
             insts = [valve_of.apply_actions([
-                valve_of.set_eth_dst(vlan_mac),
-                valve_of.set_vlan_vid(self.global_vlan.vid)])] + insts
+                self.fib_table.set_field(eth_dst=vlan_mac),
+                self.fib_table.set_vlan_vid(self.global_vlan.vid)])] + insts
         ofmsgs = []
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(eth_type=self.ETH_TYPE, eth_dst=faucet_mac, vlan=vlan),

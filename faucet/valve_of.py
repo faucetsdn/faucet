@@ -253,28 +253,6 @@ def set_field(**kwds):
     return parser.OFPActionSetField(**kwds)
 
 
-def set_eth_src(eth_src):
-    """Return action to set source Ethernet MAC address.
-
-    Args:
-        eth_src (str): source Ethernet MAC address.
-    Returns:
-        ryu.ofproto.ofproto_v1_3_parser.OFPActionSetField: set field action.
-    """
-    return set_field(eth_src=eth_src)
-
-
-def set_eth_dst(eth_dst):
-    """Return action to set destination Ethernet MAC address.
-
-    Args:
-        eth_src (str): destination Ethernet MAC address.
-    Returns:
-        ryu.ofproto.ofproto_v1_3_parser.OFPActionSetField: set field action.
-    """
-    return set_field(eth_dst=eth_dst)
-
-
 def vid_present(vid):
     """Return VLAN VID with VID_PRESENT flag set.
 

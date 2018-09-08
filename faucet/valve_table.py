@@ -59,6 +59,24 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
                 next_table.name, self.name))
         return valve_of.goto_table(next_table)
 
+    def set_field(self, **kwds):
+        """Return set field action."""
+        for field in list(kwds.keys()):
+            assert field in self.set_fields, (
+                '%s not configured as set field in %s' % (
+                field, self.name))
+        return valve_of.set_field(**kwds)
+
+    def set_vlan_vid(self, vlan_vid):
+        """Set VLAN VID with VID_PRESENT flag set.
+
+        Args:
+            vid (int): VLAN VID
+        Returns:
+            ryu.ofproto.ofproto_v1_3_parser.OFPActionSetField: set VID with VID_PRESENT.
+        """
+        return self.set_field(vlan_vid=valve_of.vid_present(vlan_vid))
+
     # TODO: verify set_fields
     # TODO: verify actions
     def match(self, in_port=None, vlan=None, # pylint: disable=too-many-arguments
