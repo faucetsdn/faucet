@@ -156,7 +156,7 @@ vlans:
         self.verify_events_log(event_log)
 
 
-class FaucetSingle8021XSuccessTest(FaucetUntaggedTest):
+class Faucet8021XSuccessTest(FaucetUntaggedTest):
 
     SOFTWARE_ONLY = True
 
@@ -225,6 +225,9 @@ acls:
     CONFIG = """
         dot1x:
             nfv_intf: NFV_INTF
+            radius_ip: 127.0.0.1
+            radius_port: RADIUS_PORT
+            radius_secret: SECRET
         interfaces:
             %(port_1)d:
                 name: b1
@@ -272,6 +275,8 @@ network={
 
     HOST_NAMESPACE = {3: False}
 
+    RADIUS_PORT = 1840
+
     eapol1_host = None
     ping_host = None
     nfv_host = None
@@ -290,23 +295,23 @@ network={
         nfv_intf = self.nfv_host.intf()
 
         self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
-        self.CONFIG_GLOBAL = self.CONFIG_GLOBAL.replace("NFV_MAC", nfv_intf.MAC())
-        super(FaucetSingle8021XSuccessTest, self)._write_faucet_config()
+        self.CONFIG = self.CONFIG.replace('RADIUS_PORT', str(self.RADIUS_PORT))
+        super(Faucet8021XSuccessTest, self)._write_faucet_config()
 
     def setUp(self):
-        super(FaucetSingle8021XSuccessTest, self).setUp()
+        super(Faucet8021XSuccessTest, self).setUp()
         self.host_drop_all_ips(self.nfv_host)
-        self.radius_port = 1812
+        # self.radius_port = 1812
         # self.radius_port = mininet_test_util.find_free_port(
         #     self.ports_sock, self._test_name())
-        self.start_freeradius()
+        self.radius_log_path = self.start_freeradius()
 
     def tearDown(self):
         faucet_log = self.env['faucet']['FAUCET_LOG']
         with open(faucet_log, 'r') as log:
             print(log.read())
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
-        super(FaucetSingle8021XSuccessTest, self).tearDown()
+        super(Faucet8021XSuccessTest, self).tearDown()
 
     def try_8021x(self, host, port_num, conf, and_logoff=False):
         tcpdump_filter = 'ether proto 0x888e'
@@ -448,12 +453,134 @@ admin   Cleartext-Password:= "megaphone"''')
         os.system('chown -R root:freerad %s/freeradius/*' % self.tmpdir)
         os.system('chown root:freerad %s/freeradius' % self.tmpdir)
 
-        with open('%s/freeradius/radiusd.conf' % self.tmpdir, 'r+') as radiusd_file:
-            config = radiusd_file.read()
-            radiusd_file.seek(0)
-            radiusd_file.truncate()
-            new_config = config.replace('port = 0', 'port = %d' % self.radius_port, 2)
+        with open('%s/freeradius/radiusd.conf' % self.tmpdir, 'w') as radiusd_file:
+            new_config = """prefix = /usr
+exec_prefix = /usr
+sysconfdir = /etc
+localstatedir = /var
+sbindir = ${exec_prefix}/sbin
+logdir = /var/log/freeradius
+raddbdir = /etc/freeradius
+radacctdir = ${logdir}/radacct
+name = freeradius
+confdir = ${raddbdir}
+run_dir = ${localstatedir}/run/${name}
+db_dir = ${raddbdir}
+libdir = /usr/lib/freeradius
+pidfile = ${run_dir}/${name}.pid
+user = freerad
+group = freerad
+max_request_time = 30
+cleanup_delay = 5
+max_requests = 1024
+listen {
+        type = auth
+        ipaddr = *
+        port = %s
+}
+listen {
+        ipaddr = *
+        port = %d
+        type = acct
+}
+hostname_lookups = no
+allow_core_dumps = no
+regular_expressions     = yes
+extended_expressions    = yes
+log {
+        destination = files
+        file = ${logdir}/radius.log
+        syslog_facility = daemon
+        stripped_names = no
+        auth = no
+        auth_badpass = no
+        auth_goodpass = no
+}
+checkrad = ${sbindir}/checkrad
+security {
+        max_attributes = 200
+        reject_delay = 1
+        status_server = yes
+        allow_vulnerable_openssl = no
+}
+proxy_requests  = yes
+#$INCLUDE proxy.conf
+$INCLUDE clients.conf
+thread pool {
+        start_servers = 5
+        max_servers = 32
+        min_spare_servers = 3
+        max_spare_servers = 10
+        max_requests_per_server = 0
+}
+modules {
+        $INCLUDE ${confdir}/modules/
+        $INCLUDE eap.conf
+}
+instantiate {
+        exec
+        expr
+        expiration
+        logintime
+
+}
+$INCLUDE policy.conf
+$INCLUDE sites-enabled/
+""" % (self.RADIUS_PORT, self.RADIUS_PORT + 1)
             radiusd_file.write(new_config)
+
+        with open('%s/freeradius/sites-enabled/inner-tunnel' % self.tmpdir, 'w') as innertunnel_file:
+
+            new_config = '''server inner-tunnel {
+listen {
+       ipaddr = 127.0.0.1
+       port = %d
+       type = auth
+}
+authorize {
+        chap
+        mschap
+        suffix
+        update control {
+               Proxy-To-Realm := LOCAL
+        }
+        eap {
+                ok = return
+        }
+        files
+        expiration
+        logintime
+        pap
+}
+authenticate {
+        Auth-Type PAP {
+                pap
+        }
+        Auth-Type CHAP {
+                chap
+        }
+        Auth-Type MS-CHAP {
+                mschap
+        }
+        unix
+        eap
+}
+session {
+        radutmp
+}
+post-auth {
+        Post-Auth-Type REJECT {
+                attr_filter.access_reject
+        }
+}
+pre-proxy {
+}
+post-proxy {
+        eap
+}
+} # inner-tunnel server block
+''' % (self.RADIUS_PORT + 2)
+            innertunnel_file.write(new_config)
 
         self.nfv_host.cmd('freeradius -sxx -l %s -d %s/freeradius &' % (radius_log_path, self.tmpdir))
 
@@ -462,8 +589,10 @@ admin   Cleartext-Password:= "megaphone"''')
         return radius_log_path
 
 
-class FaucetSingle8021XFailureTest(FaucetSingle8021XSuccessTest):
+class Faucet8021XFailureTest(Faucet8021XSuccessTest):
     """Failure due to incorrect identity/password"""
+
+    RADIUS_PORT = 1850
 
     wpasupplicant_conf_1 = """
     ap_scan=0
