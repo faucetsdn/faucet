@@ -8,5 +8,5 @@ netifaces
 packaging
 pylint
 pytest-cov
-pytype==2018.8.10
+pytype==2018.9.7.1
 requests
