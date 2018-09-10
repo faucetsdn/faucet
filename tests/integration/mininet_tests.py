@@ -4432,6 +4432,7 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def global_vid():
         return 2047
 
+    NETNS = True
     VIDS = _vids()
     GLOBAL_VID = global_vid()
     STR_VIDS = [str(i) for i in _vids()]
