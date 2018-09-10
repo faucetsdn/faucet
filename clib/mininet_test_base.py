@@ -69,6 +69,7 @@ class FaucetTestBase(unittest.TestCase):
     NUM_DPS = 1
     LINKS_PER_HOST = 1
     SOFTWARE_ONLY = False
+    NETNS = False
 
     RUN_GAUGE = True
     REQUIRES_METERS = False
@@ -269,8 +270,15 @@ class FaucetTestBase(unittest.TestCase):
         else:
             self.dpid = self.rand_dpid()
 
+    def hostns(self, host):
+        return '%s' % host.name
+
     def tearDown(self):
         """Clean up after a test."""
+        if self.NETNS:
+            for host in self.net.hosts[:1]:
+                if self.get_host_netns(host):
+                    self.quiet_commands(host, ['ip netns del %s' % self.hostns(host)])
         switch_names = []
         for switch in self.net.switches:
             switch_names.append(switch.name)
@@ -420,6 +428,13 @@ class FaucetTestBase(unittest.TestCase):
             if last_error_txt is None:
                 self._config_tableids()
                 self._wait_load()
+                if self.NETNS:
+                    # TODO: seemingly can't have more than one namespace.
+                    for host in self.net.hosts[:1]:
+                        hostns = self.hostns(host)
+                        if self.get_host_netns(host):
+                            self.quiet_commands(host, ['ip netns del %s' % hostns])
+                        self.quiet_commands(host, ['ip netns add %s' % hostns])
                 return
             self._stop_net()
             last_error_txt += '\n\n' + self._dump_controller_logs()
@@ -895,10 +910,10 @@ dbs:
     def get_host_intf_mac(host, intf):
         return host.cmd('cat /sys/class/net/%s/address' % intf).strip()
 
-    @staticmethod
-    def get_host_netns(host):
+    def get_host_netns(self, host):
+        hostns = self.hostns(host)
         nses = [netns.split()[0] for netns in host.cmd('ip netns list').splitlines()]
-        return host.name in nses
+        return hostns in nses
 
     @staticmethod
     def host_ip(host, family, family_re):

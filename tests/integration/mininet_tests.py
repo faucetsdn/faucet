@@ -23,11 +23,12 @@ from http.server import SimpleHTTPRequestHandler
 from http.server import HTTPServer
 
 import yaml # pytype: disable=pyi-error
-import scapy.all
 
 from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.util import pmonitor
+
+import scapy.all
 
 from clib import mininet_test_base
 from clib import mininet_test_util
@@ -965,6 +966,7 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
 
 class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
 
+    NETNS = True
     CONFIG = """
         interfaces:
             %(port_1)d:
@@ -993,13 +995,10 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         self.add_macvlan(first_host, macvlan1_intf, ipa=macvlan1_ipv4, mode='vepa')
         self.add_macvlan(first_host, macvlan2_intf, mode='vepa')
         macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
-        netns = first_host.name
+        netns = self.hostns(first_host)
         setup_cmds = []
-        if self.get_host_netns(first_host):
-            setup_cmds.append('ip netns del %s' % netns)
         setup_cmds.extend(
-            [('ip netns add %s' % netns),
-             ('ip link set %s netns %s' % (macvlan2_intf, netns))])
+            ['ip link set %s netns %s' % (macvlan2_intf, netns)])
         for exec_cmd in (
                 ('ip address add %s/24 brd + dev %s' % (
                     macvlan2_ipv4, macvlan2_intf),
@@ -1008,7 +1007,6 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         self.quiet_commands(first_host, setup_cmds)
         self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
         self.one_ipv4_ping(first_host, second_host.IP())
-        self.quiet_commands(first_host, ['ip netns del %s' % netns])
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
             {'in_port': self.port_map['port_1'],
@@ -1017,8 +1015,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         self.wait_nonzero_packet_count_flow(
             {'in_port': self.port_map['port_1'],
              'dl_dst': macvlan2_mac},
-            table_id=self._ETH_DST_HAIRPIN_TABLE,
-            actions=['OUTPUT:IN_PORT'])
+            table_id=self._ETH_DST_HAIRPIN_TABLE, actions=['OUTPUT:IN_PORT'])
 
 
 class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):
@@ -4435,6 +4432,7 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def global_vid():
         return 2047
 
+    NETNS = True
     VIDS = _vids()
     GLOBAL_VID = global_vid()
     STR_VIDS = [str(i) for i in _vids()]
@@ -4542,18 +4540,13 @@ vlans:
         # verify L3 hairpin reachability
         macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
         macvlan2_int = 'macvlan%u' % self.NEW_VIDS[1]
-        macvlan1_ip = '192.168.%u.1' % self.NEW_VIDS[0]
         macvlan2_ip = '192.168.%u.1' % self.NEW_VIDS[1]
         macvlan1_gw = '192.168.%u.254' % self.NEW_VIDS[0]
         macvlan2_gw = '192.168.%u.254' % self.NEW_VIDS[1]
-        macvlan2_mac = self.get_mac_of_intf(host, macvlan2_int)
-        netns = host.name
+        netns = self.hostns(host)
         setup_cmds = []
-        if self.get_host_netns(host):
-            setup_cmds.append('ip netns del %s' % netns)
         setup_cmds.extend(
-            [('ip netns add %s' % netns),
-             ('ip link set %s netns %s' % (macvlan2_int, netns))])
+            ['ip link set %s netns %s' % (macvlan2_int, netns)])
         for exec_cmd in (
                 ('ip address add %s/24 brd + dev %s' % (macvlan2_ip, macvlan2_int),
                  'ip link set %s up' % macvlan2_int,
@@ -4563,7 +4556,6 @@ vlans:
             'ip route add %s/32 via %s' % (macvlan2_ip, macvlan1_gw))
         self.quiet_commands(host, setup_cmds)
         self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
-        self.quiet_commands(host, ['ip netns del %s' % netns])
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
@@ -6706,7 +6698,7 @@ acls:
                 # this will fail if no reply
                 lambda: self.one_ipv4_ping(
                     source_host, rewrite_host.IP(), require_host_learned=False)],
-                timeout=3, packets=1)
+            timeout=3, packets=1)
         # ping from h1 to h2.mac should appear in third host, and not second host, as
         # the acl should rewrite the dst mac.
         self.assertFalse(re.search(
