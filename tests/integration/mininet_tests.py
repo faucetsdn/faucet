@@ -995,7 +995,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
         netns = first_host.name
         setup_cmds = []
-        if self.get_netns_list(first_host):
+        if self.get_host_netns(first_host):
             setup_cmds.append('ip netns del %s' % netns)
         setup_cmds.extend(
             [('ip netns add %s' % netns),
@@ -4549,7 +4549,7 @@ vlans:
         macvlan2_mac = self.get_mac_of_intf(host, macvlan2_int)
         netns = host.name
         setup_cmds = []
-        if self.get_netns_list(host):
+        if self.get_host_netns(host):
             setup_cmds.append('ip netns del %s' % netns)
         setup_cmds.extend(
             [('ip netns add %s' % netns),
@@ -6630,6 +6630,16 @@ acls:
 
 class FaucetDestRewriteTest(FaucetUntaggedTest):
 
+    def override_mac():
+        return "0e:00:00:00:00:02"
+
+    OVERRIDE_MAC = override_mac()
+
+    def rewrite_mac():
+        return "0e:00:00:00:00:03"
+
+    REWRITE_MAC = rewrite_mac()
+
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -6638,16 +6648,16 @@ vlans:
 acls:
     1:
         - rule:
-            dl_dst: "00:00:00:00:00:02"
+            dl_dst: "%s"
             actions:
                 allow: 1
                 output:
                     set_fields:
-                        - eth_dst: "00:00:00:00:00:03"
+                        - eth_dst: "%s"
         - rule:
             actions:
                 allow: 1
-"""
+""" % (override_mac(), rewrite_mac())
     CONFIG = """
         interfaces:
             %(port_1)d:
@@ -6668,22 +6678,23 @@ acls:
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expect to see the rewritten mac address.
-        tcpdump_filter = ('icmp and ether dst 00:00:00:00:00:03')
+        tcpdump_filter = ('icmp and ether dst %s' % self.REWRITE_MAC)
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
-                    'arp -s %s %s' % (second_host.IP(), '00:00:00:00:00:02')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+                    'arp -s %s %s' % (second_host.IP(), self.OVERRIDE_MAC)),
+                lambda: first_host.cmd('ping -c1 -t1 %s' % second_host.IP())],
+            timeout=5, packets=1)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
 
     def verify_dest_rewrite(self, source_host, overridden_host, rewrite_host, tcpdump_host):
-        overridden_host.setMAC('00:00:00:00:00:02')
-        rewrite_host.setMAC('00:00:00:00:00:03')
+        overridden_host.setMAC(self.OVERRIDE_MAC)
+        rewrite_host.setMAC(self.REWRITE_MAC)
         rewrite_host.cmd('arp -s %s %s' % (overridden_host.IP(), overridden_host.MAC()))
         rewrite_host.cmd('ping -c1 %s' % overridden_host.IP())
         self.wait_until_matching_flow(
-            {'dl_dst': '00:00:00:00:00:03'},
+            {'dl_dst': self.REWRITE_MAC},
             table_id=self._ETH_DST_TABLE,
             actions=['OUTPUT:%u' % self.port_map['port_3']])
         tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
@@ -6694,7 +6705,8 @@ acls:
                     'arp -s %s %s' % (rewrite_host.IP(), overridden_host.MAC())),
                 # this will fail if no reply
                 lambda: self.one_ipv4_ping(
-                    source_host, rewrite_host.IP(), require_host_learned=False)])
+                    source_host, rewrite_host.IP(), require_host_learned=False)],
+                timeout=3, packets=1)
         # ping from h1 to h2.mac should appear in third host, and not second host, as
         # the acl should rewrite the dst mac.
         self.assertFalse(re.search(

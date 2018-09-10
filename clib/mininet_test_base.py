@@ -896,8 +896,9 @@ dbs:
         return host.cmd('cat /sys/class/net/%s/address' % intf).strip()
 
     @staticmethod
-    def get_netns_list(host):
-        return host.cmd('ip netns list | grep %s' % host.name).strip()
+    def get_host_netns(host):
+        nses = [netns.split()[0] for netns in host.cmd('ip netns list').splitlines()]
+        return host.name in nses
 
     @staticmethod
     def host_ip(host, family, family_re):
