@@ -276,7 +276,7 @@ class FaucetTestBase(unittest.TestCase):
     def tearDown(self):
         """Clean up after a test."""
         if self.NETNS:
-            for host in self.net.hosts:
+            for host in self.net.hosts[:1]:
                 if self.get_host_netns(host):
                     self.quiet_commands(host, ['ip netns del %s' % self.hostns(host)])
         switch_names = []
