@@ -6683,7 +6683,7 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), self.OVERRIDE_MAC)),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+                lambda: first_host.cmd('ping -c1 -t1 %s' % second_host.IP())],
             timeout=5, packets=1)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
