@@ -990,14 +990,15 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         macvlan1_ipv4 = '10.0.0.100'
         macvlan2_intf = 'macvlan2'
         macvlan2_ipv4 = '10.0.0.101'
-        netns = first_host.name
-        self.add_macvlan(first_host, macvlan1_intf, ipa=macvlan1_ipv4)
-        self.add_macvlan(first_host, macvlan2_intf)
+        self.add_macvlan(first_host, macvlan1_intf, ipa=macvlan1_ipv4, mode='vepa')
+        self.add_macvlan(first_host, macvlan2_intf, mode='vepa')
         macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
+        netns = first_host.name
         if self.get_netns_list(first_host):
             first_host.cmd('ip netns del %s' % netns)
-        self.assertEqual('', first_host.cmd('ip netns add %s' % netns))
-        self.assertEqual('', first_host.cmd('ip link set %s netns %s' % (macvlan2_intf, netns)))
+        self.quiet_commands(first_host,
+            [('ip netns add %s' % netns),
+             ('ip link set %s netns %s' % (macvlan2_intf, netns))])
         for exec_cmd in (
                 ('ip address add %s/24 brd + dev %s' % (
                     macvlan2_ipv4, macvlan2_intf),
