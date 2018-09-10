@@ -4534,13 +4534,41 @@ vlans:
                 self.wait_nonzero_packet_count_flow(
                     {'dl_type': 0x0800, 'nw_dst': str(ip)}, table_id=self._IPV4_FIB_TABLE)
 
-        # verify reachability between hosts within each subnet
+        # verify L3 reachability between hosts within each subnet
         for vid in self.NEW_VIDS:
             macvlan_int = 'macvlan%u' % vid
             host_ip = '192.168.%u.%u' % (vid, 1)
             other_ip = '192.168.%u.%u' % (vid, 2)
             self.one_ipv4_ping(host, other_ip, intf=macvlan_int)
             self.one_ipv4_ping(other_host, host_ip, intf=macvlan_int)
+
+        # verify L3 hairpin reachability
+        macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
+        macvlan2_int = 'macvlan%u' % self.NEW_VIDS[1]
+        macvlan1_ip = '192.168.%u.1' % self.NEW_VIDS[0]
+        macvlan2_ip = '192.168.%u.1' % self.NEW_VIDS[1]
+        macvlan1_gw = '192.168.%u.254' % self.NEW_VIDS[0]
+        macvlan2_gw = '192.168.%u.254' % self.NEW_VIDS[1]
+        macvlan2_mac = self.get_mac_of_intf(host, macvlan2_int)
+        netns = host.name
+        setup_cmds = []
+        if self.get_netns_list(host):
+            setup_cmds.append('ip netns del %s' % netns)
+        setup_cmds.extend(
+            [('ip netns add %s' % netns),
+             ('ip link set %s netns %s' % (macvlan2_int, netns))])
+        for exec_cmd in (
+                ('ip address add %s/24 brd + dev %s' % (macvlan2_ip, macvlan2_int),
+                 'ip link set %s up' % macvlan2_int,
+                 'ip route add default via %s' % macvlan2_gw)):
+            setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
+        setup_cmds.append(
+            'ip route add %s/32 via %s' % (macvlan2_ip, macvlan1_gw))
+        self.quiet_commands(host, setup_cmds)
+        self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
+        self.quiet_commands(host, ['ip netns del %s' % netns])
+        self.wait_nonzero_packet_count_flow(
+            {'eth_dst': macvlan2_mac}, table_id=self._ETH_DST_HAIRPIN_TABLE)
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
