@@ -1769,7 +1769,7 @@ dbs:
                 'head -1',
                 'xargs echo -n'))).lower()
 
-    def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24, mac=None, mode='bridge'):
+    def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24, mac=None, mode='vepa'):
         if mac is None:
             mac = ''
         else:
