@@ -995,7 +995,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
         netns = first_host.name
         setup_cmds = []
-        if self.get_netns_list(first_host):
+        if self.get_host_netns(first_host):
             setup_cmds.append('ip netns del %s' % netns)
         setup_cmds.extend(
             [('ip netns add %s' % netns),
@@ -4549,7 +4549,7 @@ vlans:
         macvlan2_mac = self.get_mac_of_intf(host, macvlan2_int)
         netns = host.name
         setup_cmds = []
-        if self.get_netns_list(host):
+        if self.get_host_netns(host):
             setup_cmds.append('ip netns del %s' % netns)
         setup_cmds.extend(
             [('ip netns add %s' % netns),
