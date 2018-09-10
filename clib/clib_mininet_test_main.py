@@ -45,6 +45,7 @@ SUPPORTS_METERS = (
     'Aruba',
     'NoviFlow',
     'Open vSwitch',
+    'ZodiacGX',
 )
 
 
