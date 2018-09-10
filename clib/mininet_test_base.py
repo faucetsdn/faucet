@@ -897,10 +897,8 @@ dbs:
 
     @staticmethod
     def get_host_netns(host):
-        nses = [netns for netns in host.cmd('ip netns list').splitlines() if netns == host.name]
-        if nses:
-            return True
-        return False
+        nses = [netns.split()[0] for netns in host.cmd('ip netns list').splitlines()]
+        return host.name in nses
 
     @staticmethod
     def host_ip(host, family, family_re):
