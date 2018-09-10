@@ -994,19 +994,21 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         self.add_macvlan(first_host, macvlan2_intf, mode='vepa')
         macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
         netns = first_host.name
+        setup_cmds = []
         if self.get_netns_list(first_host):
-            first_host.cmd('ip netns del %s' % netns)
-        self.quiet_commands(first_host,
+            setup_cmds.append('ip netns del %s' % netns)
+        setup_cmds.extend(
             [('ip netns add %s' % netns),
              ('ip link set %s netns %s' % (macvlan2_intf, netns))])
         for exec_cmd in (
                 ('ip address add %s/24 brd + dev %s' % (
                     macvlan2_ipv4, macvlan2_intf),
                  'ip link set %s up' % macvlan2_intf)):
-            self.assertEqual('', first_host.cmd('ip netns exec %s %s' % (netns, exec_cmd)))
+            setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
+        self.quiet_commands(first_host, setup_cmds)
         self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
         self.one_ipv4_ping(first_host, second_host.IP())
-        first_host.cmd('ip netns del %s' % netns)
+        self.quiet_commands(first_host, ['ip netns del %s' % netns])
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
             {'in_port': self.port_map['port_1'],
