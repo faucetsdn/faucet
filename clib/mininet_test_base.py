@@ -1769,15 +1769,15 @@ dbs:
                 'head -1',
                 'xargs echo -n'))).lower()
 
-    def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24, mac=None):
+    def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24, mac=None, mode='bridge'):
         if mac is None:
             mac = ''
         else:
             mac = 'address %s' % mac
         self.assertEqual(
             '',
-            host.cmd('ip link add link %s %s %s type macvlan' % (
-                host.defaultIntf(), mac, macvlan_intf)))
+            host.cmd('ip link add link %s %s %s type macvlan mode %s' % (
+                host.defaultIntf(), mac, macvlan_intf, mode)))
         self.assertEqual(
             '',
             host.cmd('ip link set dev %s up' % macvlan_intf))

@@ -317,7 +317,7 @@ network={
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
-                lambda : self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
+                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
             timeout=10, vflags='-v', packets=10)
         return tcpdump_txt
 
@@ -387,7 +387,7 @@ network={
         host.cmd('wpa_cli -p %s logon' % wpa_ctrl_path)
         if and_logoff:
             eap_state = ''
-            for i in range(5):
+            for _ in range(5):
                 if eap_state == 'SUCCESS':
                     break
                 status = host.cmdPrint('wpa_cli -p %s status' % wpa_ctrl_path)
@@ -397,7 +397,6 @@ network={
                         break
                 time.sleep(1)
 
-
             self.assertEqual(eap_state, 'SUCCESS')
             self.wait_until_matching_flow(
                 {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0)
@@ -405,9 +404,9 @@ network={
 
             self.eapol1_host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
 
-            for i in range(10):
+            for _ in range(10):
                 if not self.matching_flow_present(
-                    {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0):
+                        {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0):
                     break
                 time.sleep(1)
             else:
@@ -420,7 +419,7 @@ network={
                 pass
 
     def wait_for_radius(self, radius_log_path, timeout=10):
-        for i in range(timeout):
+        for _ in range(timeout):
             if os.path.exists(radius_log_path):
                 break
             time.sleep(1)
@@ -991,22 +990,25 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         macvlan1_ipv4 = '10.0.0.100'
         macvlan2_intf = 'macvlan2'
         macvlan2_ipv4 = '10.0.0.101'
-        netns = first_host.name
-        self.add_macvlan(first_host, macvlan1_intf, ipa=macvlan1_ipv4)
-        self.add_macvlan(first_host, macvlan2_intf)
+        self.add_macvlan(first_host, macvlan1_intf, ipa=macvlan1_ipv4, mode='vepa')
+        self.add_macvlan(first_host, macvlan2_intf, mode='vepa')
         macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
+        netns = first_host.name
+        setup_cmds = []
         if self.get_netns_list(first_host):
-            first_host.cmd('ip netns del %s' % netns)
-        self.assertEqual('', first_host.cmd('ip netns add %s' % netns))
-        self.assertEqual('', first_host.cmd('ip link set %s netns %s' % (macvlan2_intf, netns)))
+            setup_cmds.append('ip netns del %s' % netns)
+        setup_cmds.extend(
+            [('ip netns add %s' % netns),
+             ('ip link set %s netns %s' % (macvlan2_intf, netns))])
         for exec_cmd in (
                 ('ip address add %s/24 brd + dev %s' % (
                     macvlan2_ipv4, macvlan2_intf),
                  'ip link set %s up' % macvlan2_intf)):
-            self.assertEqual('', first_host.cmd('ip netns exec %s %s' % (netns, exec_cmd)))
+            setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
+        self.quiet_commands(first_host, setup_cmds)
         self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
         self.one_ipv4_ping(first_host, second_host.IP())
-        first_host.cmd('ip netns del %s' % netns)
+        self.quiet_commands(first_host, ['ip netns del %s' % netns])
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
             {'in_port': self.port_map['port_1'],
@@ -2434,7 +2436,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             restart=True, cold_start=False)
         self.wait_until_matching_flow(
             {'in_port': int(self.port_map['port_1']),
-                'eth_type': 0x800, 'tcp_dst': 5001, 'ip_proto': 6},
+             'eth_type': 0x800, 'tcp_dst': 5001, 'ip_proto': 6},
             table_id=self._PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
@@ -3497,8 +3499,8 @@ vlans:
                             "scapy.all.send(IPv6(dst='%s')/fuzz(%s()),count=%u)" %
                             (self.FAUCET_VIPV6.ip, fuzz_class, packets))
                 out, start, too_long = '', time.time(), 30 # seconds
-                popen = first_host.popen('python3', '-c', fuzz_cmd )
-                for host, line in pmonitor({first_host: popen}):
+                popen = first_host.popen('python3', '-c', fuzz_cmd)
+                for _, line in pmonitor({first_host: popen}):
                     out += line
                     if time.time() - start > too_long:
                         note('stopping', fuzz_class, 'after >', too_long, 'seconds')
@@ -4430,9 +4432,14 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def _vids():
         return [i for i in range(100, 164)]
 
+    def global_vid():
+        return 2047
+
     VIDS = _vids()
+    GLOBAL_VID = global_vid()
     STR_VIDS = [str(i) for i in _vids()]
     NEW_VIDS = VIDS[1:]
+    GLOBAL_VID = 2047
 
     CONFIG_GLOBAL = """
 routers:
@@ -4447,7 +4454,7 @@ vlans:
          '        description: "tagged"',
          '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
-        global_vlan: 2047
+        global_vlan: %u 
         proactive_learn_v4: True
         max_wildcard_table_size: 512
         table_sizes:
@@ -4465,8 +4472,7 @@ vlans:
                 tagged_vlans: [%s]
                 hairpin_unicast: True
                 description: "b2"
-""" % ('%(port_1)d', ','.join(STR_VIDS),
-       '%(port_2)d', ','.join(STR_VIDS))
+""" % (global_vid(), '%(port_1)d', ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
         hosts = self.net.hosts[:2]
@@ -4485,19 +4491,24 @@ vlans:
                     'ip link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int),
                     'ip link set dev %s up' % macvlan_int,
                     'ip address add %s/24 brd + dev %s' % (ipa, macvlan_int),
+                    'ip route add default via %s table %u' % (ipg, vid),
+                    'ip rule add from %s/32 table %u priority 100' % (ipa, vid),
+                    'ping -c1 -i0.1 -I%s %s > /dev/null' % (macvlan_int, ipg),
+                    # stimulate learning attempts for down host.
                     'arp -s %s %s' % (ipd, self.FAUCET_MAC),
-                    'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipd),
-                    'ping -c1 -i0.1 -I%s %s > /dev/null' % (macvlan_int, ipg)])
+                    'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipd)])
+                # next host routes via FAUCET for other host in same connected subnet
+                # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
                     if j != i:
                         other_ip = '192.168.%u.%u/32' % (vid, j)
                         setup_commands.append(
-                            'ip -4 route add %s via %s' % (other_ip, ipg))
+                            'ip -4 route add %s via %s table %u' % (other_ip, ipg, vid))
             self.quiet_commands(host, setup_commands)
 
         # verify drop rules present for down hosts
         drop_rules = self.get_matching_flows_on_dpid(
-            self.dpid, {'dl_type': 2048, 'dl_vlan': '2047'},
+            self.dpid, {'dl_type': 2048, 'dl_vlan': str(self.GLOBAL_VID)},
             table_id=self._IPV4_FIB_TABLE, actions=[])
         self.assertTrue(drop_rules)
         drop_ip_re = re.compile(r'^192.168.\d+.253.*')
@@ -4509,7 +4520,9 @@ vlans:
         # verify routing performance
         host, other_host = hosts
         for routed_ip_pair in (
-                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[0]),):
+                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[0]),
+                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[-1]),
+                ('192.168.%u.1' % self.NEW_VIDS[-1], '192.168.%u.2' % self.NEW_VIDS[0])):
             host_ip_str, other_ip_str = routed_ip_pair
             host_ip = ipaddress.ip_address(host_ip_str)
             other_ip = ipaddress.ip_address(other_ip_str)
@@ -4519,7 +4532,7 @@ vlans:
                 1, host_ip, other_ip)
             for ip in (host_ip, other_ip):
                 self.wait_nonzero_packet_count_flow(
-                    {'dl_type': 0x0800, 'nw_dst': str(host_ip)}, table_id=self._IPV4_FIB_TABLE)
+                    {'dl_type': 0x0800, 'nw_dst': str(ip)}, table_id=self._IPV4_FIB_TABLE)
 
         # verify reachability between hosts within each subnet
         for vid in self.NEW_VIDS:
@@ -4931,7 +4944,7 @@ vlans:
         self.one_ipv6_ping(first_host, 'fc00::1:2')
         self.wait_nonzero_packet_count_flow(
             {'dl_type': 0x86dd, 'ip_proto': 58, 'icmpv6_type': 135,
-                'ipv6_nd_target': 'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
+             'ipv6_nd_target': 'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
 
 
 class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
