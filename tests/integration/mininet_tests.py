@@ -4474,6 +4474,7 @@ vlans:
             setup_commands = []
             for vid in self.NEW_VIDS:
                 vlan_int = '%s.%u' % (host.intf_root_name, vid)
+                macvlan_int = 'macvlan%u' % vid
                 ipa = '192.168.%u.%u' % (vid, i)
                 ipg = '192.168.%u.254' % vid
                 ipd = '192.168.%u.253' % vid
@@ -4481,10 +4482,12 @@ vlans:
                     'ip link add link %s name %s type vlan id %u' % (
                         host.intf_root_name, vlan_int, vid),
                     'ip link set dev %s up' % vlan_int,
-                    'ip address add %s/24 brd + dev %s' % (ipa, vlan_int),
+                    'ip link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int),
+                    'ip link set dev %s up' % macvlan_int,
+                    'ip address add %s/24 brd + dev %s' % (ipa, macvlan_int),
                     'arp -s %s %s' % (ipd, self.FAUCET_MAC),
-                    'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (vlan_int, ipd),
-                    'ping -c1 -i0.1 -I%s %s > /dev/null' % (vlan_int, ipg)])
+                    'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipd),
+                    'ping -c1 -i0.1 -I%s %s > /dev/null' % (macvlan_int, ipg)])
                 for j, _ in enumerate(hosts, start=1):
                     if j != i:
                         other_ip = '192.168.%u.%u/32' % (vid, j)
@@ -4492,6 +4495,7 @@ vlans:
                             'ip -4 route add %s via %s' % (other_ip, ipg))
             self.quiet_commands(host, setup_commands)
 
+        # verify drop rules present for down hosts
         drop_rules = self.get_matching_flows_on_dpid(
             self.dpid, {'dl_type': 2048, 'dl_vlan': '2047'},
             table_id=self._IPV4_FIB_TABLE, actions=[])
@@ -4502,24 +4506,28 @@ vlans:
             self.assertTrue('nw_dst' in match, msg=drop_rule)
             self.assertTrue(drop_ip_re.match(match['nw_dst']), msg=drop_rule)
 
+        # verify routing performance
         host, other_host = hosts
-        for ip_pair in (
-                (host.IP(), other_host.IP()), # non-routed
-                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[0])): # non-routed
-            host_ip_str, other_ip_str = ip_pair
+        for routed_ip_pair in (
+                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[0]),):
+            host_ip_str, other_ip_str = routed_ip_pair
             host_ip = ipaddress.ip_address(host_ip_str)
             other_ip = ipaddress.ip_address(other_ip_str)
             self.verify_iperf_min(
                 ((host, self.port_map['port_1']),
                  (other_host, self.port_map['port_2'])),
                 1, host_ip, other_ip)
+            for ip in (host_ip, other_ip):
+                self.wait_nonzero_packet_count_flow(
+                    {'dl_type': 0x0800, 'nw_dst': str(host_ip)}, table_id=self._IPV4_FIB_TABLE)
+
+        # verify reachability between hosts within each subnet
         for vid in self.NEW_VIDS:
-            host_vlan_int = '%s.%u' % (host.intf_root_name, vid)
-            other_vlan_int = '%s.%u' % (other_host.intf_root_name, vid)
+            macvlan_int = 'macvlan%u' % vid
             host_ip = '192.168.%u.%u' % (vid, 1)
             other_ip = '192.168.%u.%u' % (vid, 2)
-            self.one_ipv4_ping(host, other_ip, intf=host_vlan_int)
-            self.one_ipv4_ping(other_host, host_ip, intf=other_vlan_int)
+            self.one_ipv4_ping(host, other_ip, intf=macvlan_int)
+            self.one_ipv4_ping(other_host, host_ip, intf=macvlan_int)
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
