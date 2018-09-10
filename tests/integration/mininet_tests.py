@@ -4530,9 +4530,6 @@ vlans:
                 ((host, self.port_map['port_1']),
                  (other_host, self.port_map['port_2'])),
                 1, host_ip, other_ip)
-            for ip in (host_ip, other_ip):
-                self.wait_nonzero_packet_count_flow(
-                    {'dl_type': 0x0800, 'nw_dst': str(ip)}, table_id=self._IPV4_FIB_TABLE)
 
         # verify L3 reachability between hosts within each subnet
         for vid in self.NEW_VIDS:
@@ -4567,8 +4564,6 @@ vlans:
         self.quiet_commands(host, setup_cmds)
         self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
         self.quiet_commands(host, ['ip netns del %s' % netns])
-        self.wait_nonzero_packet_count_flow(
-            {'eth_dst': macvlan2_mac}, table_id=self._ETH_DST_HAIRPIN_TABLE)
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
