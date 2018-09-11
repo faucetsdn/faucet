@@ -1043,7 +1043,7 @@ dps:
         self._check_next_tables(dp.tables['vlan'], [2, 3])
         self._check_next_tables(dp.tables['vlan_acl'], [3, 8, 9])
         self._check_next_tables(dp.tables['classification'], [5, 6, 7, 8, 9])
-        self._check_next_tables(dp.tables['eth_src'], [5, 6, 7, 8, 9])
+        self._check_next_tables(dp.tables['eth_src'], [8, 9])
         self._check_next_tables(dp.tables['ipv4_fib'], [7, 8, 9])
         self._check_next_tables(dp.tables['ipv6_fib'], [7, 8, 9])
         self._check_next_tables(dp.tables['vip'], [8, 9])
