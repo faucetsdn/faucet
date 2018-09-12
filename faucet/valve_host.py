@@ -25,7 +25,7 @@ from faucet import valve_of
 class ValveHostManager:
     """Manage host learning on VLANs."""
 
-    def __init__(self, logger, ports, vlans,
+    def __init__(self, logger, ports, vlans, classification_table,
                  eth_src_table, eth_dst_table, eth_dst_hairpin_table,
                  learn_timeout, learn_jitter, learn_ban_timeout,
                  low_priority, host_priority,
@@ -33,6 +33,7 @@ class ValveHostManager:
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
+        self.classification_table = classification_table
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
         self.eth_dst_hairpin_table = eth_dst_hairpin_table
@@ -147,8 +148,13 @@ class ValveHostManager:
 
         if port.permanent_learn:
             # Antispoofing rule for this MAC.
-            ofmsgs.append(self.eth_src_table.flowdrop(
-                self.eth_src_table.match(vlan=vlan, eth_src=eth_src),
+            ofmsgs.append(self.classification_table.flowmod(
+                self.classification_table.match(
+                    in_port=port.number, vlan=vlan, eth_src=eth_src),
+                priority=self.host_priority,
+                inst=[self.classification_table.goto(self.eth_src_table)]))
+            ofmsgs.append(self.classification_table.flowdrop(
+                self.classification_table.match(vlan=vlan, eth_src=eth_src),
                 priority=(self.host_priority - 2)))
         else:
             # Delete any existing entries for MAC.
