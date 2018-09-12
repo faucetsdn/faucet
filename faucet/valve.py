@@ -203,12 +203,12 @@ class Valve:
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
             host_manager_cl = valve_host.ValveHostFlowRemovedManager
-        self.host_manager = host_manager_cl(
-            self.logger, self.dp.ports, self.dp.vlans,
-            self.dp.tables['eth_src'], self.dp.tables['eth_dst'], eth_dst_hairpin_table,
-            self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.low_priority, self.dp.highest_priority,
-            self.dp.cache_update_guard_time)
+        self.host_manager = host_manager_cl( self.logger, self.dp.ports,
+            self.dp.vlans, self.dp.tables['classification'],
+            self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
+            eth_dst_hairpin_table, self.dp.timeout, self.dp.learn_jitter,
+            self.dp.learn_ban_timeout, self.dp.low_priority,
+            self.dp.highest_priority, self.dp.cache_update_guard_time)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
@@ -724,10 +724,10 @@ class Valve:
         for table in self.dp.output_tables():
             ofmsgs.extend(table.flowdel(out_port=port.number))
         if port.permanent_learn:
-            eth_src_table = self.dp.tables['eth_src']
+            classification_table = self.dp.tables['classification']
             for entry in port.hosts():
-                ofmsgs.extend(eth_src_table.flowdel(
-                    match=eth_src_table.match(eth_src=entry.eth_src)))
+                ofmsgs.extend(classification_table.flowdel(
+                    match=classification_table.match(eth_src=entry.eth_src)))
         for vlan in port.vlans():
             vlan.clear_cache_hosts_on_port(port)
         return ofmsgs

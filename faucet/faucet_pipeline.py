@@ -97,7 +97,7 @@ CLASSIFICATION_DEFAULT_CONFIG = ValveTableConfig(
     'classification',
     VLAN_ACL_DEFAULT_CONFIG.table_id + 1,
     miss_goto='eth_src',
-    next_tables=(('ipv4_fib', 'ipv6_fib') + _NEXT_VIP)
+    next_tables=(('eth_src', 'ipv4_fib', 'ipv6_fib') + _NEXT_VIP)
     )
 ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
     'eth_src',
