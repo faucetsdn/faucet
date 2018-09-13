@@ -174,8 +174,6 @@ class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
     """Test chewie api"""
 
     def setUp(self):
-        # self.mock_socket = mock
-        FROM_SUPPLICANT.put(build_byte_string("0000000000010242ac17006f888e01010000"))
         self.setup_valve(DOT1X_CONFIG)
 
     @patch('faucet.faucet_dot1x.chewie.os.urandom', urandom_helper)
@@ -188,12 +186,17 @@ class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
     def test_success_dot1x(self):
         """Test success api"""
         self.dot1x.reset(valves=self.valves_manager.valves)
-        time.sleep(40)
 
-    def tearDown(self):
+        FROM_SUPPLICANT.put(build_byte_string("0000000000010242ac17006f888e01010000"))
+        time.sleep(5)
         with open('%s/faucet.log' % self.tmpdir, 'r') as log:
-            print(log.read())
-        super(FaucetDot1XTest, self).tearDown()
+            for l in log.readlines():
+                if 'Successful auth' in l:
+                    break
+            else:
+                self.fail('Cannot find "Successful auth" string in faucet.log')
+        self.assertEqual(2,
+                         len(self.last_flows_to_dp[1]))
 
 
 if __name__ == "__main__":
