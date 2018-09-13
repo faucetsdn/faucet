@@ -1,19 +1,21 @@
 #!/usr/bin/env python
 
-"""Unit tests run as PYTHONPATH=.. python3 ./test_chewie.py."""
-
-
+import random
+import time
 import unittest
+from queue import Queue
+from unittest.mock import patch
 
-from chewie.mac_address import MacAddress
-from tests.unit.faucet import test_valve
+from netils import build_byte_string
 
-DP1_CONFIG = """
+from tests.unit.faucet.test_valve import ValveTestBases
+
+DOT1X_DP1_CONFIG = """
         dp_id: 1
         dot1x:
-            nfv_intf: abcdef"""
+            nfv_intf: lo"""
 
-CONFIG = """
+DOT1X_CONFIG = """
 acls:
     eapol_to_nfv:
         - rule:
@@ -67,39 +69,128 @@ dps:
 vlans:
     v100:
         vid: 0x100
-""" % DP1_CONFIG
+""" % DOT1X_DP1_CONFIG
+
+FROM_SUPPLICANT = Queue()
+TO_SUPPLICANT = Queue()
+FROM_RADIUS = Queue()
+TO_RADIUS = Queue()
 
 
-class FaucetDot1XTest(test_valve.ValveTestBases.ValveTestSmall):
+def supplicant_replies():
+    header = "0000000000010242ac17006f888e"
+    replies = [build_byte_string(header + "01000009027400090175736572"),
+               build_byte_string(header + "010000160275001604103abcadc86714b2d75d09dd7ff53edf6b")]
+
+    for r in replies:
+        yield r
+
+
+def radius_replies():
+    replies = [build_byte_string("0b040050e5e40d846576a2310755e906c4b2b5064f180175001604101a16a3baa37a0238f33384f6c11067425012ce61ba97026b7a05b194a930a922405218126aa866456add628e3a55a4737872cad6"),
+               build_byte_string("02050032fb4c4926caa21a02f74501a65c96f9c74f06037500045012c060ca6a19c47d0998c7b20fd4d771c1010675736572")]
+    for r in replies:
+        yield r
+
+
+def urandom():
+    _list = [b'\x87\xf5[\xa71\xeeOA;}\\t\xde\xd7.=',
+             b'\xf7\xe0\xaf\xc7Q!\xa2\xa9\xa3\x8d\xf7\xc6\x85\xa8k\x06']
+    for l in _list:
+        yield l
+
+
+URANDOM_GENERATOR = urandom()
+
+
+def urandom_helper(size):
+    return next(URANDOM_GENERATOR)
+
+
+SUPPLICANT_REPLY_GENERATOR = supplicant_replies()
+RADIUS_REPLY_GENERATOR = radius_replies()
+
+
+def eap_receive(chewie):
+    return FROM_SUPPLICANT.get()
+
+
+def eap_send(chewie, data):
+    TO_SUPPLICANT.put(data)
+    try:
+        n = next(SUPPLICANT_REPLY_GENERATOR)
+    except StopIteration:
+        return
+    if n:
+        FROM_SUPPLICANT.put(n)
+
+
+def radius_receive(chewie):
+    return FROM_RADIUS.get()
+
+
+def radius_send(chewie, data):
+    TO_RADIUS.put(data)
+    try:
+        n = next(RADIUS_REPLY_GENERATOR)
+    except StopIteration:
+        return
+    if n:
+        FROM_RADIUS.put(n)
+
+
+def nextId(eap_sm):  # pylint: disable=invalid-name
+    """Determines the next identifier value to use, based on the previous one.
+    Returns:
+        integer"""
+    if eap_sm.currentId is None:
+        # I'm assuming we cant have ids wrap around in the same series.
+        #  so the 200 provides a large buffer.
+        return 116
+    _id = eap_sm.currentId + 1
+    if _id > 255:
+        return random.randint(0, 200)
+    return _id
+
+
+def get_next_radius_packet_id(chewie):
+    """Calulate the next RADIUS Packet ID
+    Returns:
+        int
+    """
+    if chewie.radius_id == -1:
+        chewie.radius_id = 4
+        return chewie.radius_id
+    chewie.radius_id += 1
+    if chewie.radius_id > 255:
+        chewie.radius_id = 0
+    return chewie.radius_id
+
+
+class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
     """Test chewie api"""
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        # self.mock_socket = mock
+        FROM_SUPPLICANT.put(build_byte_string("0000000000010242ac17006f888e01010000"))
+        self.setup_valve(DOT1X_CONFIG)
 
+    @patch('faucet.faucet_dot1x.chewie.os.urandom', urandom_helper)
+    @patch('faucet.faucet_dot1x.chewie.FullEAPStateMachine.nextId', nextId)
+    @patch('faucet.faucet_dot1x.chewie.Chewie.get_next_radius_packet_id', get_next_radius_packet_id)
+    @patch('faucet.faucet_dot1x.chewie.Chewie.radius_send', radius_send)
+    @patch('faucet.faucet_dot1x.chewie.Chewie.radius_receive', radius_receive)
+    @patch('faucet.faucet_dot1x.chewie.Chewie.eap_send', eap_send)
+    @patch('faucet.faucet_dot1x.chewie.Chewie.eap_receive', eap_receive)
     def test_success_dot1x(self):
         """Test success api"""
         self.dot1x.reset(valves=self.valves_manager.valves)
-        self.assertEqual(len(self.last_flows_to_dp[1]), 0)
-        self.dot1x.dot1x_speaker.auth_success(MacAddress.from_string('00:00:00:00:ab:01'))  #,
-                                              # MacAddress.from_string('00:00:00:00:00:01'))
-        # 2 = 1 FlowMod + 1 Barrier
-        self.assertEqual(len(self.last_flows_to_dp[1]), 2, self.last_flows_to_dp[1])
-    #
-    # def _test_failure_dot1x(self):
-    #     """Test failure api"""
-    #     self.dot1x.reset(valves=self.valves_manager.valves)
-    #     self.assertEqual(len(self.last_flows_to_dp[1]), 0)
-    #     self.dot1x.dot1x_speaker.auth_faliure(MacAddress.from_string('00:00:00:00:ab:01'),
-    #                                           MacAddress.from_string('00:00:00:00:00:01'))
-    #
-    # def _test_logoff_dot1x(self):
-    #     """Test logoff api"""
-    #     self.dot1x.reset(valves=self.valves_manager.valves)
-    #     self.assertEqual(len(self.last_flows_to_dp[1]), 0)
-    #     self.dot1x.dot1x_speaker.auth_logoff(MacAddress.from_string('00:00:00:00:ab:01'),
-    #                                           MacAddress.from_string('00:00:00:00:00:01'))
-    #     # 2 = 1 FlowMod + 1 Barrier
-    #     self.assertEqual(len(self.last_flows_to_dp[1]), 2, self.last_flows_to_dp[1])
+        time.sleep(40)
+
+    def tearDown(self):
+        with open('%s/faucet.log' % self.tmpdir, 'r') as log:
+            print(log.read())
+        super(FaucetDot1XTest, self).tearDown()
 
 
 if __name__ == "__main__":
