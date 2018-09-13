@@ -89,8 +89,6 @@ class FaucetDot1x:
 
     def reset(self, valves):
         """Set up a dot1x speaker."""
-        # TODO: support multiple Valves and ports.
-<<<<<<< HEAD
         self._valves = valves
         valve_id = -1
         for valve in list(valves.values()):
