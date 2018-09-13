@@ -82,61 +82,69 @@ PORT_ACL_DEFAULT_CONFIG = ValveTableConfig(
     )
 VLAN_DEFAULT_CONFIG = ValveTableConfig(
     'vlan',
-    1,
+    PORT_ACL_DEFAULT_CONFIG.table_id + 1,
     match_types=(('eth_dst', True), ('eth_type', False),
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid',),
     vlan_port_scale=1.5,
-    next_tables=('vlan_acl', 'eth_src')
+    next_tables=('vlan_acl', 'classification')
     )
 VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
     'vlan_acl',
-    2,
-    next_tables=(('eth_src',) + _NEXT_ETH))
+    VLAN_DEFAULT_CONFIG.table_id + 1,
+    next_tables=(('classification',) + _NEXT_ETH))
+CLASSIFICATION_DEFAULT_CONFIG = ValveTableConfig(
+    'classification',
+    VLAN_ACL_DEFAULT_CONFIG.table_id + 1,
+    miss_goto='eth_src',
+    next_tables=(('eth_src', 'ipv4_fib', 'ipv6_fib') + _NEXT_VIP)
+    )
 ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
     'eth_src',
-    3,
+    CLASSIFICATION_DEFAULT_CONFIG.table_id + 1,
     miss_goto='eth_dst',
     match_types=(('eth_dst', True), ('eth_src', False), ('eth_type', False),
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid', 'eth_dst'),
     vlan_port_scale=4.1,
-    next_tables=(('ipv4_fib', 'ipv6_fib') + _NEXT_VIP)
+    next_tables=_NEXT_ETH
     )
-IPV4_FIB_DEFAULT_CONFIG = _fib_table(4, 4)
-IPV6_FIB_DEFAULT_CONFIG = _fib_table(6, 5)
+IPV4_FIB_DEFAULT_CONFIG = _fib_table(4, ETH_SRC_DEFAULT_CONFIG.table_id + 1)
+IPV6_FIB_DEFAULT_CONFIG = _fib_table(6, IPV4_FIB_DEFAULT_CONFIG.table_id + 1)
 VIP_DEFAULT_CONFIG = ValveTableConfig(
     'vip',
-    6,
+    IPV6_FIB_DEFAULT_CONFIG.table_id + 1,
     match_types=(('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
                  ('icmpv6_type', False), ('ip_proto', False)),
     next_tables=_NEXT_ETH,
     )
 ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst_hairpin',
-    7,
+    VIP_DEFAULT_CONFIG.table_id + 1,
     match_types=(('in_port', False), ('eth_dst', False), ('vlan_vid', False)),
     miss_goto='eth_dst',
     exact_match=True,
     vlan_port_scale=4.1,
     )
+
 ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
-    8,
+    ETH_DST_HAIRPIN_DEFAULT_CONFIG.table_id + 1,
     exact_match=True,
     miss_goto='flood',
     match_types=(('eth_dst', False), ('vlan_vid', False)),
     vlan_port_scale=4.1,
     )
+
 FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
-    9,
+    ETH_DST_DEFAULT_CONFIG.table_id + 1,
     match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
     vlan_port_scale=2.1,
     )
 
 MINIMUM_FAUCET_PIPELINE_TABLES = {
-    'vlan', 'eth_src', 'eth_dst', 'flood'}
+    'vlan', 'classification', 'eth_src', 'eth_dst', 'flood'}
 
 # TODO: implement an eth_type table before VLAN. This would enable interception
 # of control protocols and simplify matches in vlan/eth_src, enabling use of
@@ -145,6 +153,7 @@ FAUCET_PIPELINE = (
     PORT_ACL_DEFAULT_CONFIG,
     VLAN_DEFAULT_CONFIG,
     VLAN_ACL_DEFAULT_CONFIG,
+    CLASSIFICATION_DEFAULT_CONFIG,
     ETH_SRC_DEFAULT_CONFIG,
     IPV4_FIB_DEFAULT_CONFIG,
     IPV6_FIB_DEFAULT_CONFIG,
