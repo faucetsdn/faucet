@@ -13,7 +13,10 @@ from tests.unit.faucet.test_valve import ValveTestBases
 DOT1X_DP1_CONFIG = """
         dp_id: 1
         dot1x:
-            nfv_intf: lo"""
+            nfv_intf: lo
+            radius_ip: 127.0.0.1
+            radius_port: 1812
+            radius_secret: SECRET"""
 
 DOT1X_CONFIG = """
 acls:
