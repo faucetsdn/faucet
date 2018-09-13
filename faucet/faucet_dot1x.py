@@ -91,6 +91,7 @@ class FaucetDot1x:
         """Set up a dot1x speaker."""
         self._valves = valves
         valve_id = -1
+        dot1x_intf = None
         for valve in list(valves.values()):
             valve_id += 1
             if self.dot1x_speaker is None:
