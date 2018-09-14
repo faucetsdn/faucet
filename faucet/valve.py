@@ -675,32 +675,23 @@ class Valve:
                 inst=[acl_allow_inst]))
         return ofmsgs
 
-    def _port_add_vlan_rules(self, port, vlan_vid, vlan_inst):
+    def _port_add_vlan_rules(self, port, vlan, mirror_act, push):
         vlan_table = self.dp.tables['vlan']
-        ofmsgs = []
-        ofmsgs.append(vlan_table.flowmod(
-            vlan_table.match(in_port=port.number, vlan=vlan_vid),
+        actions = copy.copy(mirror_act)
+        match_vlan = vlan
+        if push:
+            actions.extend(valve_of.push_vlan_act(
+                vlan_table, vlan.vid))
+            match_vlan = NullVLAN()
+        inst = [
+            valve_of.apply_actions(actions),
+            vlan_table.goto(self._find_forwarding_table(vlan))
+            ]
+        return vlan_table.flowmod(
+            vlan_table.match(in_port=port.number, vlan=match_vlan),
             priority=self.dp.low_priority,
-            inst=vlan_inst))
-        return ofmsgs
-
-    def _port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
-        vlan_table = self.dp.tables['vlan']
-        push_vlan_act = mirror_act + valve_of.push_vlan_act(vlan_table, vlan.vid)
-        push_vlan_inst = [
-            valve_of.apply_actions(push_vlan_act),
-            vlan_table.goto(forwarding_table)
-        ]
-        return self._port_add_vlan_rules(port, NullVLAN(), push_vlan_inst)
-
-    def _port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
-        vlan_table = self.dp.tables['vlan']
-        vlan_inst = [
-            vlan_table.goto(forwarding_table)
-        ]
-        if mirror_act:
-            vlan_inst = [valve_of.apply_actions(mirror_act)] + vlan_inst
-        return self._port_add_vlan_rules(port, vlan, vlan_inst)
+            inst=inst
+            )
 
     def _find_forwarding_table(self, vlan):
         if vlan.acls_in:
@@ -710,11 +701,11 @@ class Valve:
     def _port_add_vlans(self, port, mirror_act):
         ofmsgs = []
         for vlan in port.tagged_vlans:
-            ofmsgs.extend(self._port_add_vlan_tagged(
-                port, vlan, self._find_forwarding_table(vlan), mirror_act))
+            ofmsgs.append(self._port_add_vlan_rules(
+                port, vlan, mirror_act, False))
         if port.native_vlan is not None:
-            ofmsgs.extend(self._port_add_vlan_untagged(
-                port, port.native_vlan, self._find_forwarding_table(port.native_vlan), mirror_act))
+            ofmsgs.append(self._port_add_vlan_rules(
+                port, port.native_vlan, mirror_act, True))
         return ofmsgs
 
     def _port_delete_flows_state(self, port):
