@@ -23,7 +23,8 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
     def __init__(self, name, table_id, # pylint: disable=too-many-arguments
                  exact_match=None, meter=None, output=True, miss_goto=None,
                  size=None, match_types=None, set_fields=None, dec_ttl=None,
-                 vlan_port_scale=None, next_tables=None):
+                 vlan_port_scale=None, next_tables=None, metadata_match=0,
+                 metadata_write=0):
         self.name = name
         self.table_id = table_id
         self.exact_match = exact_match
@@ -35,6 +36,8 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
         self.set_fields = set_fields
         self.dec_ttl = dec_ttl
         self.vlan_port_scale = vlan_port_scale
+        self.metadata_match = metadata_match
+        self.metadata_write = metadata_write
         if next_tables:
             assert isinstance(next_tables, (list, tuple))
             self.next_tables = next_tables

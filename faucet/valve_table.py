@@ -34,6 +34,8 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         self.set_fields = self.table_config.set_fields
         self.exact_match = self.table_config.exact_match
         self.match_types = None
+        self.metadata_match = self.table_config.metadata_match
+        self.metadata_write = self.table_config.metadata_write
         if next_tables:
             self.next_tables = next_tables
         else:
