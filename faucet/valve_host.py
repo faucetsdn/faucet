@@ -136,7 +136,7 @@ class ValveHostManager:
         # flows destined to controller
         src_rule_idle_timeout = 0
         src_rule_hard_timeout = learn_timeout
-        dst_rule_idle_timeout = learn_timeout
+        dst_rule_idle_timeout = learn_timeout + self.cache_update_guard_time
         return (src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout)
 
     def learn_host_on_vlan_port_flows(self, port, vlan, eth_src,
