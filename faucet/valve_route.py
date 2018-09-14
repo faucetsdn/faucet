@@ -904,10 +904,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
             return ofmsgs
         if ipv6_pkt.ext_hdrs:
             return ofmsgs
-        dst_ip = pkt_meta.l3_dst
-        # Explicitly ignore messages to all nodes.
-        if dst_ip == valve_packet.IPV6_ALL_NODES:
-            return ofmsgs
         src_ip = pkt_meta.l3_src
         vlan = pkt_meta.vlan
         if not vlan.ip_in_vip_subnet(src_ip):
@@ -929,16 +925,16 @@ class ValveIPv6RouteManager(ValveRouteManager):
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
-        if pkt_meta.packet_complete():
+        if (pkt_meta.packet_complete() and
+                pkt_meta.l3_dst != valve_packet.IPV6_ALL_NODES):
             ipv6_pkt = self._ip_pkt(pkt_meta.pkt)
             if ipv6_pkt is not None:
                 icmp_replies = self._control_plane_icmpv6_handler(
                     now, pkt_meta, ipv6_pkt)
                 if icmp_replies:
                     return icmp_replies
-                return self._proactive_resolve_neighbor(
-                    now, pkt_meta.vlan, pkt_meta.l3_dst)
-        return []
+        return self._proactive_resolve_neighbor(
+            now, pkt_meta.vlan, pkt_meta.l3_dst)
 
     def advertise(self, vlan):
         ofmsgs = []
