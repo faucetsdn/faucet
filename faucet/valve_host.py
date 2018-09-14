@@ -78,7 +78,7 @@ class ValveHostManager:
                     vlan.dyn_learn_ban_count += 1
                     self.logger.info(
                         'max hosts %u reached on VLAN %u, '
-                        'temporarily banning learning on this vlan, '
+                        'temporarily banning learning on this VLAN, '
                         'and not learning %s on %s' % (
                             vlan.max_hosts, vlan.vid, eth_src, port))
         return ofmsgs
