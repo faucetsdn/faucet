@@ -1415,6 +1415,63 @@ dps:
         self.update_config(self.LESS_CONFIG, reload_type='warm')
 
 
+class ValveChangeACLTestCase(ValveTestBases.ValveTestSmall):
+    """Test changes to ACL on a port."""
+
+    CONFIG = """
+acls:
+    acl_a:
+        - rule:
+            actions:
+                allow: 1
+    acl_b:
+        - rule:
+            actions:
+                allow: 1
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acl_in: acl_a
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    NEW_CONFIG = """
+acls:
+    acl_a:
+        - rule:
+            actions:
+                allow: 1
+    acl_b:
+        - rule:
+            actions:
+                allow: 1
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acl_in: acl_b
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_change_port_acl(self):
+        """Test port can be deleted."""
+        self.update_config(self.NEW_CONFIG, reload_type='warm')
+
+
 class ValveACLTestCase(ValveTestBases.ValveTestSmall):
     """Test ACL drop/allow and reloading."""
 
@@ -1879,15 +1936,16 @@ vlans:
 
     def test_lacp(self):
         """Test LACP comes up."""
+        test_port = 1
         self.assertEqual(
-            0, int(self.get_prom('port_lacp_status', labels={'port': '1'})))
-        self.rcv_packet(1, 0, {
+            0, int(self.get_prom('port_lacp_status', labels={'port': str(test_port)})))
+        self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
             'eth_src': '0e:00:00:00:00:02'})
         self.assertEqual(
-            1, int(self.get_prom('port_lacp_status', labels={'port': '1'})))
+            1, int(self.get_prom('port_lacp_status', labels={'port': str(test_port)})))
         self.learn_hosts()
         self.verify_expiry()
 
