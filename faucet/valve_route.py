@@ -937,7 +937,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
-        if pkt_meta.packet_complete():
+        if (pkt_meta.packet_complete() and
+                pkt_meta.l3_dst != valve_packet.IPV6_ALL_NODES):
             ipv6_pkt = self._ip_pkt(pkt_meta.pkt)
             if ipv6_pkt is not None:
                 icmp_replies = self._control_plane_icmpv6_handler(
