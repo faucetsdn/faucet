@@ -253,28 +253,6 @@ def set_field(**kwds):
     return parser.OFPActionSetField(**kwds)
 
 
-def set_eth_src(eth_src):
-    """Return action to set source Ethernet MAC address.
-
-    Args:
-        eth_src (str): source Ethernet MAC address.
-    Returns:
-        ryu.ofproto.ofproto_v1_3_parser.OFPActionSetField: set field action.
-    """
-    return set_field(eth_src=eth_src)
-
-
-def set_eth_dst(eth_dst):
-    """Return action to set destination Ethernet MAC address.
-
-    Args:
-        eth_src (str): destination Ethernet MAC address.
-    Returns:
-        ryu.ofproto.ofproto_v1_3_parser.OFPActionSetField: set field action.
-    """
-    return set_field(eth_dst=eth_dst)
-
-
 def vid_present(vid):
     """Return VLAN VID with VID_PRESENT flag set.
 
@@ -297,18 +275,7 @@ def devid_present(vid):
     return vid ^ ofp.OFPVID_PRESENT
 
 
-def set_vlan_vid(vlan_vid):
-    """Set VLAN VID with VID_PRESENT flag set.
-
-    Args:
-        vid (int): VLAN VID
-    Returns:
-        ryu.ofproto.ofproto_v1_3_parser.OFPActionSetField: set VID with VID_PRESENT.
-    """
-    return set_field(vlan_vid=vid_present(vlan_vid))
-
-
-def push_vlan_act(vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
+def push_vlan_act(table, vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
     """Return OpenFlow action list to push Ethernet 802.1Q header with VLAN VID.
 
     Args:
@@ -318,7 +285,7 @@ def push_vlan_act(vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
     """
     return [
         parser.OFPActionPushVlan(eth_type),
-        set_vlan_vid(vlan_vid),
+        table.set_vlan_vid(vlan_vid),
     ]
 
 

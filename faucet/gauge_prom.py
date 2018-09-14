@@ -132,23 +132,26 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
             # Work around this by unregistering/registering the entire variable.
             for var, tags, count in self._parse_flow_stats(stats):
                 table_id = int(tags['table_id'])
-                table_tags = self.prom_client.table_tags[table_id]
-                tags_keys = set(tags.keys())
                 table_name = self.dp.table_by_id(table_id).name
+                table_tags = self.prom_client.table_tags[table_name]
+                tags_keys = set(tags.keys())
                 if tags_keys != table_tags:
-                    if not tags_keys.issubset(table_tags):
-                        self.logger.info(
-                            're-initializing tags for table_id %u from %s to %s',
-                            table_id, table_tags, tags_keys)
-                        table_tags.update(tags_keys)
+                    unreg_tags = tags_keys - table_tags
+                    if unreg_tags:
+                        table_tags.update(unreg_tags)
                         self.prom_client.reregister_flow_vars(
                             table_name, table_tags)
-                    # Add blank tags for any tags missing,
-                    for tag in table_tags - tags_keys:
+                        self.logger.info( # pylint: disable=logging-not-lazy
+                            'Adding tags %s to %s for table %s' % (
+                                unreg_tags, table_tags, table_name))
+                    # Add blank tags for any tags not present.
+                    missing_tags = table_tags - tags_keys
+                    for tag in missing_tags:
                         tags[tag] = ''
                 table_prom_var = PROM_PREFIX_DELIM.join((var, table_name))
                 try:
                     self.prom_client.metrics[table_prom_var].labels(**tags).set(count)
                 except ValueError:
-                    self.logger.error(
-                        'labels %s incorrect on %s' % (tags, table_prom_var))
+                    self.logger.error( # pylint: disable=logging-not-lazy
+                        'labels %s versus %s incorrect on %s' % (
+                            tags, table_tags, table_prom_var))

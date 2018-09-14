@@ -45,6 +45,7 @@ SUPPORTS_METERS = (
     'Aruba',
     'NoviFlow',
     'Open vSwitch',
+    'ZodiacGX',
 )
 
 
@@ -373,7 +374,7 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
             if test_name.startswith('FaucetSanity'):
                 sanity_test_suites.append(test_suite)
             else:
-                if serial or test_name.startswith('FaucetSingle'):
+                if serial or test_name.startswith('FaucetSingle') or test_obj.NETNS:
                     single_test_suites.append(test_suite)
                 else:
                     parallel_test_suites.append(test_suite)

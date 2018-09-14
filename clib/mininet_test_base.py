@@ -69,6 +69,7 @@ class FaucetTestBase(unittest.TestCase):
     NUM_DPS = 1
     LINKS_PER_HOST = 1
     SOFTWARE_ONLY = False
+    NETNS = False
 
     RUN_GAUGE = True
     REQUIRES_METERS = False
@@ -80,8 +81,9 @@ class FaucetTestBase(unittest.TestCase):
     _IPV4_FIB_TABLE = 4
     _IPV6_FIB_TABLE = 5
     _VIP_TABLE = 6
-    _ETH_DST_TABLE = 7
-    _FLOOD_TABLE = 8
+    _ETH_DST_HAIRPIN_TABLE = 7
+    _ETH_DST_TABLE = 8
+    _FLOOD_TABLE = 9
 
     config = None
     dpid = None
@@ -268,8 +270,15 @@ class FaucetTestBase(unittest.TestCase):
         else:
             self.dpid = self.rand_dpid()
 
+    def hostns(self, host):
+        return '%s' % host.name
+
     def tearDown(self):
         """Clean up after a test."""
+        if self.NETNS:
+            for host in self.net.hosts[:1]:
+                if self.get_host_netns(host):
+                    self.quiet_commands(host, ['ip netns del %s' % self.hostns(host)])
         switch_names = []
         for switch in self.net.switches:
             switch_names.append(switch.name)
@@ -419,6 +428,13 @@ class FaucetTestBase(unittest.TestCase):
             if last_error_txt is None:
                 self._config_tableids()
                 self._wait_load()
+                if self.NETNS:
+                    # TODO: seemingly can't have more than one namespace.
+                    for host in self.net.hosts[:1]:
+                        hostns = self.hostns(host)
+                        if self.get_host_netns(host):
+                            self.quiet_commands(host, ['ip netns del %s' % hostns])
+                        self.quiet_commands(host, ['ip netns add %s' % hostns])
                 return
             self._stop_net()
             last_error_txt += '\n\n' + self._dump_controller_logs()
@@ -894,9 +910,10 @@ dbs:
     def get_host_intf_mac(host, intf):
         return host.cmd('cat /sys/class/net/%s/address' % intf).strip()
 
-    @staticmethod
-    def get_netns_list(host):
-        return host.cmd('ip netns list | grep %s' % host.name).strip()
+    def get_host_netns(self, host):
+        hostns = self.hostns(host)
+        nses = [netns.split()[0] for netns in host.cmd('ip netns list').splitlines()]
+        return hostns in nses
 
     @staticmethod
     def host_ip(host, family, family_re):
@@ -1740,6 +1757,7 @@ dbs:
         self._IPV4_FIB_TABLE = self._get_tableid('ipv4_fib')
         self._IPV6_FIB_TABLE = self._get_tableid('ipv6_fib')
         self._VIP_TABLE = self._get_tableid('vip')
+        self._ETH_DST_HAIRPIN_TABLE = self._get_tableid('eth_dst_table')
         self._ETH_DST_TABLE = self._get_tableid('eth_dst')
         self._FLOOD_TABLE = self._get_tableid('flood')
 
@@ -1767,15 +1785,15 @@ dbs:
                 'head -1',
                 'xargs echo -n'))).lower()
 
-    def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24, mac=None):
+    def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24, mac=None, mode='vepa'):
         if mac is None:
             mac = ''
         else:
             mac = 'address %s' % mac
         self.assertEqual(
             '',
-            host.cmd('ip link add link %s %s %s type macvlan' % (
-                host.defaultIntf(), mac, macvlan_intf)))
+            host.cmd('ip link add link %s %s %s type macvlan mode %s' % (
+                host.defaultIntf(), mac, macvlan_intf, mode)))
         self.assertEqual(
             '',
             host.cmd('ip link set dev %s up' % macvlan_intf))
@@ -1902,9 +1920,9 @@ dbs:
                 return
             time.sleep(1)
         if flow:
-            self.fail('flow %s matching %s had zero packet count' % (flow, match))
+            self.fail('flow %s matching %s table ID %s had zero packet count' % (flow, match, table_id))
         else:
-            self.fail('no flow matching %s' % match)
+            self.fail('no flow matching %s table ID %s' % (match, table_id))
 
     def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is blocked from another host."""

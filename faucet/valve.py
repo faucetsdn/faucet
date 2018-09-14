@@ -174,8 +174,7 @@ class Valve:
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, proactive_learn, self.DEC_TTL,
                 fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
-                self.dp.tables['eth_dst'], self.dp.tables['flood'],
-                self.dp.highest_priority, self.dp.routers)
+                self.dp.output_table(), self.dp.highest_priority, self.dp.routers)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
             for vlan in list(self.dp.vlans.values()):
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
@@ -198,20 +197,16 @@ class Valve:
                 self.dp.low_priority, self.dp.highest_priority,
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood)
+        eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
+        host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
-            self.host_manager = valve_host.ValveHostFlowRemovedManager(
-                self.logger, self.dp.ports, self.dp.vlans,
-                self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
-                self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-                self.dp.low_priority, self.dp.highest_priority,
-                self.dp.cache_update_guard_time)
-        else:
-            self.host_manager = valve_host.ValveHostManager(
-                self.logger, self.dp.ports, self.dp.vlans,
-                self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
-                self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-                self.dp.low_priority, self.dp.highest_priority,
-                self.dp.cache_update_guard_time)
+            host_manager_cl = valve_host.ValveHostFlowRemovedManager
+        self.host_manager = host_manager_cl(
+            self.logger, self.dp.ports, self.dp.vlans,
+            self.dp.tables['eth_src'], self.dp.tables['eth_dst'], eth_dst_hairpin_table,
+            self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
+            self.dp.low_priority, self.dp.highest_priority,
+            self.dp.cache_update_guard_time)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
@@ -294,7 +289,7 @@ class Valve:
                 miss_table = self.dp.tables[miss_table_name]
                 ofmsgs.append(table.flowmod(
                     priority=self.dp.lowest_priority,
-                    inst=[valve_of.goto_table(miss_table)]))
+                    inst=[table.goto_miss(miss_table)]))
             else:
                 ofmsgs.append(table.flowdrop(
                     priority=self.dp.lowest_priority))
@@ -333,8 +328,8 @@ class Valve:
         ofmsgs = []
         if vlan.acls_in:
             acl_table = self.dp.tables['vlan_acl']
-            acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
-            acl_force_port_vlan_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
+            acl_allow_inst = acl_table.goto(self.dp.tables['eth_src'])
+            acl_force_port_vlan_inst = acl_table.goto(self.dp.output_table())
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 vlan.acls_in, acl_table,
                 acl_allow_inst, acl_force_port_vlan_inst,
@@ -355,8 +350,8 @@ class Valve:
         ofmsgs = []
         if self.dp.dp_acls:
             port_acl_table = self.dp.tables['port_acl']
-            acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
-            acl_force_port_vlan_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
+            acl_allow_inst = port_acl_table.goto(self.dp.tables['vlan'])
+            acl_force_port_vlan_inst = port_acl_table.goto(self.dp.output_table())
             ofmsgs.extend(valve_acl.build_acl_ofmsgs(
                 self.dp.dp_acls, port_acl_table,
                 acl_allow_inst, acl_force_port_vlan_inst,
@@ -394,7 +389,7 @@ class Valve:
         ofmsgs.append(eth_src_table.flowcontroller(
             eth_src_table.match(vlan=vlan),
             priority=self.dp.low_priority,
-            inst=[valve_of.goto_table(self.dp.tables['eth_dst'])]))
+            inst=[eth_src_table.goto(self.dp.output_table())]))
         return ofmsgs
 
     def _del_vlan(self, vlan):
@@ -661,8 +656,8 @@ class Valve:
             return ofmsgs
         acl_table = self.dp.tables['port_acl']
         in_port_match = acl_table.match(in_port=port.number)
-        acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
-        acl_force_port_vlan_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
+        acl_allow_inst = acl_table.goto(self.dp.tables['vlan'])
+        acl_force_port_vlan_inst = acl_table.goto(self.dp.output_table())
         if cold_start:
             ofmsgs.extend(acl_table.flowdel(in_port_match))
         if port.acls_in:
@@ -688,16 +683,18 @@ class Valve:
         return ofmsgs
 
     def _port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
-        push_vlan_act = mirror_act + valve_of.push_vlan_act(vlan.vid)
+        vlan_table = self.dp.tables['vlan']
+        push_vlan_act = mirror_act + valve_of.push_vlan_act(vlan_table, vlan.vid)
         push_vlan_inst = [
             valve_of.apply_actions(push_vlan_act),
-            valve_of.goto_table(forwarding_table)
+            vlan_table.goto(forwarding_table)
         ]
         return self._port_add_vlan_rules(port, NullVLAN(), push_vlan_inst)
 
     def _port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
+        vlan_table = self.dp.tables['vlan']
         vlan_inst = [
-            valve_of.goto_table(forwarding_table)
+            vlan_table.goto(forwarding_table)
         ]
         if mirror_act:
             vlan_inst = [valve_of.apply_actions(mirror_act)] + vlan_inst
@@ -722,7 +719,8 @@ class Valve:
         """Delete flows/state for a port."""
         ofmsgs = []
         ofmsgs.extend(self._delete_all_port_match_flows(port))
-        ofmsgs.extend(self.dp.tables['eth_dst'].flowdel(out_port=port.number))
+        for table in self.dp.output_tables():
+            ofmsgs.extend(table.flowdel(out_port=port.number))
         if port.permanent_learn:
             eth_src_table = self.dp.tables['eth_src']
             for entry in port.hosts():
@@ -804,7 +802,7 @@ class Valve:
                 ofmsgs.append(vlan_table.flowmod(
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.low_priority,
-                    inst=[valve_of.goto_table(eth_src_table)]))
+                    inst=[vlan_table.goto(eth_src_table)]))
                 port_vlans = list(self.dp.vlans.values())
             else:
                 mirror_act = port.mirror_actions()
@@ -1460,17 +1458,19 @@ class Valve:
     def add_authed_mac(self, port_num, mac):
         """Add authed mac address"""
         # TODO: track dynamic auth state.
-        ofmsg = self.dp.tables['port_acl'].flowmod(
-            self.dp.tables['port_acl'].match(
+        port_acl_table = self.dp.tables['port_acl']
+        ofmsg = port_acl_table.flowmod(
+            port_acl_table.match(
                 in_port=port_num,
                 eth_src=mac),
             priority=self.dp.highest_priority,
-            inst=[valve_of.goto_table(self.dp.tables['vlan'])])
+            inst=[port_acl_table.goto(self.dp.tables['vlan'])])
         return [ofmsg]
 
     def del_authed_mac(self, port_num, mac):
-        ofmsg = self.dp.tables['port_acl'].flowdel(
-            self.dp.tables['port_acl'].match(
+        port_acl_table = self.dp.tables['port_acl']
+        ofmsg = port_acl_table.flowdel(
+            port_acl_table.match(
                 in_port=port_num,
                 eth_src=mac),
             priority=self.dp.highest_priority,

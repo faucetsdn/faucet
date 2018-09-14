@@ -23,11 +23,12 @@ from http.server import SimpleHTTPRequestHandler
 from http.server import HTTPServer
 
 import yaml # pytype: disable=pyi-error
-import scapy.all
 
 from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.util import pmonitor
+
+import scapy.all
 
 from clib import mininet_test_base
 from clib import mininet_test_util
@@ -156,7 +157,7 @@ vlans:
         self.verify_events_log(event_log)
 
 
-class FaucetSingle8021XSuccessTest(FaucetUntaggedTest):
+class Faucet8021XSuccessTest(FaucetUntaggedTest):
 
     SOFTWARE_ONLY = True
 
@@ -196,6 +197,9 @@ acls:
     CONFIG = """
         dot1x:
             nfv_intf: NFV_INTF
+            radius_ip: 127.0.0.1
+            radius_port: RADIUS_PORT
+            radius_secret: SECRET
         interfaces:
             %(port_1)d:
                 name: b1
@@ -243,6 +247,8 @@ network={
 
     HOST_NAMESPACE = {3: False}
 
+    RADIUS_PORT = 1840
+
     eapol1_host = None
     ping_host = None
     nfv_host = None
@@ -261,16 +267,16 @@ network={
         nfv_intf = self.nfv_host.intf()
 
         self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
-        self.CONFIG_GLOBAL = self.CONFIG_GLOBAL.replace("NFV_MAC", nfv_intf.MAC())
-        super(FaucetSingle8021XSuccessTest, self)._write_faucet_config()
+        self.CONFIG = self.CONFIG.replace('RADIUS_PORT', str(self.RADIUS_PORT))
+        super(Faucet8021XSuccessTest, self)._write_faucet_config()
 
     def setUp(self):
-        super(FaucetSingle8021XSuccessTest, self).setUp()
+        super(Faucet8021XSuccessTest, self).setUp()
         self.host_drop_all_ips(self.nfv_host)
-        self.radius_port = 1812
+        # self.radius_port = 1812
         # self.radius_port = mininet_test_util.find_free_port(
         #     self.ports_sock, self._test_name())
-        self.start_freeradius()
+        self.radius_log_path = self.start_freeradius()
 
     def tearDown(self):
 
@@ -278,13 +284,13 @@ network={
         with open(faucet_log, 'r') as log:
             print(log.read())
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
-        super(FaucetSingle8021XSuccessTest, self).tearDown()
+        super(Faucet8021XSuccessTest, self).tearDown()
 
     def try_8021x(self, host, port_num, conf, and_logoff=False):
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
-                lambda : self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
+                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
             timeout=10, vflags='-v', packets=10)
         return tcpdump_txt
 
@@ -354,7 +360,7 @@ network={
         host.cmd('wpa_cli -p %s logon' % wpa_ctrl_path)
         if and_logoff:
             eap_state = ''
-            for i in range(5):
+            for _ in range(5):
                 if eap_state == 'SUCCESS':
                     break
                 status = host.cmdPrint('wpa_cli -p %s status' % wpa_ctrl_path)
@@ -364,7 +370,6 @@ network={
                         break
                 time.sleep(1)
 
-
             self.assertEqual(eap_state, 'SUCCESS')
             self.wait_until_matching_flow(
                 {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0)
@@ -372,9 +377,9 @@ network={
 
             self.eapol1_host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
 
-            for i in range(10):
+            for _ in range(10):
                 if not self.matching_flow_present(
-                    {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0):
+                        {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0):
                     break
                 time.sleep(1)
             else:
@@ -387,7 +392,7 @@ network={
                 pass
 
     def wait_for_radius(self, radius_log_path, timeout=10):
-        for i in range(timeout):
+        for _ in range(timeout):
             if os.path.exists(radius_log_path):
                 break
             time.sleep(1)
@@ -420,12 +425,134 @@ admin   Cleartext-Password:= "megaphone"''')
         os.system('chown -R root:freerad %s/freeradius/*' % self.tmpdir)
         os.system('chown root:freerad %s/freeradius' % self.tmpdir)
 
-        with open('%s/freeradius/radiusd.conf' % self.tmpdir, 'r+') as radiusd_file:
-            config = radiusd_file.read()
-            radiusd_file.seek(0)
-            radiusd_file.truncate()
-            new_config = config.replace('port = 0', 'port = %d' % self.radius_port, 2)
+        with open('%s/freeradius/radiusd.conf' % self.tmpdir, 'w') as radiusd_file:
+            new_config = """prefix = /usr
+exec_prefix = /usr
+sysconfdir = /etc
+localstatedir = /var
+sbindir = ${exec_prefix}/sbin
+logdir = /var/log/freeradius
+raddbdir = /etc/freeradius
+radacctdir = ${logdir}/radacct
+name = freeradius
+confdir = ${raddbdir}
+run_dir = ${localstatedir}/run/${name}
+db_dir = ${raddbdir}
+libdir = /usr/lib/freeradius
+pidfile = ${run_dir}/${name}.pid
+user = freerad
+group = freerad
+max_request_time = 30
+cleanup_delay = 5
+max_requests = 1024
+listen {
+        type = auth
+        ipaddr = *
+        port = %s
+}
+listen {
+        ipaddr = *
+        port = %d
+        type = acct
+}
+hostname_lookups = no
+allow_core_dumps = no
+regular_expressions     = yes
+extended_expressions    = yes
+log {
+        destination = files
+        file = ${logdir}/radius.log
+        syslog_facility = daemon
+        stripped_names = no
+        auth = no
+        auth_badpass = no
+        auth_goodpass = no
+}
+checkrad = ${sbindir}/checkrad
+security {
+        max_attributes = 200
+        reject_delay = 1
+        status_server = yes
+        allow_vulnerable_openssl = no
+}
+proxy_requests  = yes
+#$INCLUDE proxy.conf
+$INCLUDE clients.conf
+thread pool {
+        start_servers = 5
+        max_servers = 32
+        min_spare_servers = 3
+        max_spare_servers = 10
+        max_requests_per_server = 0
+}
+modules {
+        $INCLUDE ${confdir}/modules/
+        $INCLUDE eap.conf
+}
+instantiate {
+        exec
+        expr
+        expiration
+        logintime
+
+}
+$INCLUDE policy.conf
+$INCLUDE sites-enabled/
+""" % (self.RADIUS_PORT, self.RADIUS_PORT + 1)
             radiusd_file.write(new_config)
+
+        with open('%s/freeradius/sites-enabled/inner-tunnel' % self.tmpdir, 'w') as innertunnel_file:
+
+            new_config = '''server inner-tunnel {
+listen {
+       ipaddr = 127.0.0.1
+       port = %d
+       type = auth
+}
+authorize {
+        chap
+        mschap
+        suffix
+        update control {
+               Proxy-To-Realm := LOCAL
+        }
+        eap {
+                ok = return
+        }
+        files
+        expiration
+        logintime
+        pap
+}
+authenticate {
+        Auth-Type PAP {
+                pap
+        }
+        Auth-Type CHAP {
+                chap
+        }
+        Auth-Type MS-CHAP {
+                mschap
+        }
+        unix
+        eap
+}
+session {
+        radutmp
+}
+post-auth {
+        Post-Auth-Type REJECT {
+                attr_filter.access_reject
+        }
+}
+pre-proxy {
+}
+post-proxy {
+        eap
+}
+} # inner-tunnel server block
+''' % (self.RADIUS_PORT + 2)
+            innertunnel_file.write(new_config)
 
         self.nfv_host.cmd('freeradius -sxx -l %s -d %s/freeradius &' % (radius_log_path, self.tmpdir))
 
@@ -434,8 +561,10 @@ admin   Cleartext-Password:= "megaphone"''')
         return radius_log_path
 
 
-class FaucetSingle8021XFailureTest(FaucetSingle8021XSuccessTest):
+class Faucet8021XFailureTest(Faucet8021XSuccessTest):
     """Failure due to incorrect identity/password"""
+
+    RADIUS_PORT = 1850
 
     wpasupplicant_conf_1 = """
     ap_scan=0
@@ -809,6 +938,7 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
 
 class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
 
+    NETNS = True
     CONFIG = """
         interfaces:
             %(port_1)d:
@@ -834,30 +964,30 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         macvlan1_ipv4 = '10.0.0.100'
         macvlan2_intf = 'macvlan2'
         macvlan2_ipv4 = '10.0.0.101'
-        netns = first_host.name
-        self.add_macvlan(first_host, macvlan1_intf, ipa=macvlan1_ipv4)
-        self.add_macvlan(first_host, macvlan2_intf)
+        self.add_macvlan(first_host, macvlan1_intf, ipa=macvlan1_ipv4, mode='vepa')
+        self.add_macvlan(first_host, macvlan2_intf, mode='vepa')
         macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
-        if self.get_netns_list(first_host):
-            first_host.cmd('ip netns del %s' % netns)
-        self.assertEqual('', first_host.cmd('ip netns add %s' % netns))
-        self.assertEqual('', first_host.cmd('ip link set %s netns %s' % (macvlan2_intf, netns)))
+        netns = self.hostns(first_host)
+        setup_cmds = []
+        setup_cmds.extend(
+            ['ip link set %s netns %s' % (macvlan2_intf, netns)])
         for exec_cmd in (
                 ('ip address add %s/24 brd + dev %s' % (
                     macvlan2_ipv4, macvlan2_intf),
                  'ip link set %s up' % macvlan2_intf)):
-            self.assertEqual('', first_host.cmd('ip netns exec %s %s' % (netns, exec_cmd)))
+            setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
+        self.quiet_commands(first_host, setup_cmds)
         self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
         self.one_ipv4_ping(first_host, second_host.IP())
-        first_host.cmd('ip netns del %s' % netns)
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
             {'in_port': self.port_map['port_1'],
              'dl_dst': 'ff:ff:ff:ff:ff:ff'},
             table_id=self._FLOOD_TABLE, actions=['OUTPUT:IN_PORT'])
         self.wait_nonzero_packet_count_flow(
-            {'in_port': self.port_map['port_1'], 'dl_dst': macvlan2_mac},
-            table_id=self._ETH_SRC_TABLE, actions=['OUTPUT:IN_PORT'])
+            {'in_port': self.port_map['port_1'],
+             'dl_dst': macvlan2_mac},
+            table_id=self._ETH_DST_HAIRPIN_TABLE, actions=['OUTPUT:IN_PORT'])
 
 
 class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):
@@ -2275,7 +2405,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             restart=True, cold_start=False)
         self.wait_until_matching_flow(
             {'in_port': int(self.port_map['port_1']),
-                'eth_type': 0x800, 'tcp_dst': 5001, 'ip_proto': 6},
+             'eth_type': 0x800, 'tcp_dst': 5001, 'ip_proto': 6},
             table_id=self._PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
@@ -3338,8 +3468,8 @@ vlans:
                             "scapy.all.send(IPv6(dst='%s')/fuzz(%s()),count=%u)" %
                             (self.FAUCET_VIPV6.ip, fuzz_class, packets))
                 out, start, too_long = '', time.time(), 30 # seconds
-                popen = first_host.popen('python3', '-c', fuzz_cmd )
-                for host, line in pmonitor({first_host: popen}):
+                popen = first_host.popen('python3', '-c', fuzz_cmd)
+                for _, line in pmonitor({first_host: popen}):
                     out += line
                     if time.time() - start > too_long:
                         note('stopping', fuzz_class, 'after >', too_long, 'seconds')
@@ -4271,9 +4401,15 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def _vids():
         return [i for i in range(100, 164)]
 
+    def global_vid():
+        return 2047
+
+    NETNS = True
     VIDS = _vids()
+    GLOBAL_VID = global_vid()
     STR_VIDS = [str(i) for i in _vids()]
     NEW_VIDS = VIDS[1:]
+    GLOBAL_VID = 2047
 
     CONFIG_GLOBAL = """
 routers:
@@ -4288,7 +4424,7 @@ vlans:
          '        description: "tagged"',
          '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
-        global_vlan: 2047
+        global_vlan: %u 
         proactive_learn_v4: True
         max_wildcard_table_size: 512
         table_sizes:
@@ -4299,13 +4435,14 @@ vlans:
             %s:
                 native_vlan: 99
                 tagged_vlans: [%s]
+                hairpin_unicast: True
                 description: "b1"
             %s:
                 native_vlan: 99
                 tagged_vlans: [%s]
+                hairpin_unicast: True
                 description: "b2"
-""" % ('%(port_1)d', ','.join(STR_VIDS),
-       '%(port_2)d', ','.join(STR_VIDS))
+""" % (global_vid(), '%(port_1)d', ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
         hosts = self.net.hosts[:2]
@@ -4313,6 +4450,7 @@ vlans:
             setup_commands = []
             for vid in self.NEW_VIDS:
                 vlan_int = '%s.%u' % (host.intf_root_name, vid)
+                macvlan_int = 'macvlan%u' % vid
                 ipa = '192.168.%u.%u' % (vid, i)
                 ipg = '192.168.%u.254' % vid
                 ipd = '192.168.%u.253' % vid
@@ -4320,19 +4458,28 @@ vlans:
                     'ip link add link %s name %s type vlan id %u' % (
                         host.intf_root_name, vlan_int, vid),
                     'ip link set dev %s up' % vlan_int,
-                    'ip address add %s/24 brd + dev %s' % (ipa, vlan_int),
-                    'arp -s %s 0e:00:00:00:00:01' % ipd,
-                    'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (vlan_int, ipd),
-                    'ping -c1 -i0.1 -I%s %s > /dev/null' % (vlan_int, ipg)])
+                    'ip link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int),
+                    'ip link set dev %s up' % macvlan_int,
+                    'ip address add %s/24 brd + dev %s' % (ipa, macvlan_int),
+                    'ip route add default via %s table %u' % (ipg, vid),
+                    'ip rule add from %s/32 table %u priority 100' % (ipa, vid),
+                    'ping -c1 -i0.1 -I%s %s > /dev/null' % (macvlan_int, ipg),
+                    # stimulate learning attempts for down host.
+                    'arp -s %s %s' % (ipd, self.FAUCET_MAC),
+                    'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipd)])
+                # next host routes via FAUCET for other host in same connected subnet
+                # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
                     if j != i:
                         other_ip = '192.168.%u.%u/32' % (vid, j)
                         setup_commands.append(
-                            'ip -4 route add %s via %s' % (other_ip, ipg))
+                            'ip -4 route add %s via %s table %u' % (other_ip, ipg, vid))
             self.quiet_commands(host, setup_commands)
 
+        # verify drop rules present for down hosts
         drop_rules = self.get_matching_flows_on_dpid(
-            self.dpid, {'dl_type': 2048, 'dl_vlan': '2047'}, table_id=self._IPV4_FIB_TABLE, actions=[])
+            self.dpid, {'dl_type': 2048, 'dl_vlan': str(self.GLOBAL_VID)},
+            table_id=self._IPV4_FIB_TABLE, actions=[])
         self.assertTrue(drop_rules)
         drop_ip_re = re.compile(r'^192.168.\d+.253.*')
         for drop_rule in drop_rules:
@@ -4340,24 +4487,47 @@ vlans:
             self.assertTrue('nw_dst' in match, msg=drop_rule)
             self.assertTrue(drop_ip_re.match(match['nw_dst']), msg=drop_rule)
 
+        # verify routing performance
         host, other_host = hosts
-        for ip_pair in (
-                (host.IP(), other_host.IP()), # non-routed
-                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[0])): # non-routed
-            host_ip_str, other_ip_str = ip_pair
+        for routed_ip_pair in (
+                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[0]),
+                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[-1]),
+                ('192.168.%u.1' % self.NEW_VIDS[-1], '192.168.%u.2' % self.NEW_VIDS[0])):
+            host_ip_str, other_ip_str = routed_ip_pair
             host_ip = ipaddress.ip_address(host_ip_str)
             other_ip = ipaddress.ip_address(other_ip_str)
             self.verify_iperf_min(
                 ((host, self.port_map['port_1']),
                  (other_host, self.port_map['port_2'])),
                 1, host_ip, other_ip)
+
+        # verify L3 reachability between hosts within each subnet
         for vid in self.NEW_VIDS:
-            host_vlan_int = '%s.%u' % (host.intf_root_name, vid)
-            other_vlan_int = '%s.%u' % (other_host.intf_root_name, vid)
+            macvlan_int = 'macvlan%u' % vid
             host_ip = '192.168.%u.%u' % (vid, 1)
             other_ip = '192.168.%u.%u' % (vid, 2)
-            self.one_ipv4_ping(host, other_ip, intf=host_vlan_int)
-            self.one_ipv4_ping(other_host, host_ip, intf=other_vlan_int)
+            self.one_ipv4_ping(host, other_ip, intf=macvlan_int)
+            self.one_ipv4_ping(other_host, host_ip, intf=macvlan_int)
+
+        # verify L3 hairpin reachability
+        macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
+        macvlan2_int = 'macvlan%u' % self.NEW_VIDS[1]
+        macvlan2_ip = '192.168.%u.1' % self.NEW_VIDS[1]
+        macvlan1_gw = '192.168.%u.254' % self.NEW_VIDS[0]
+        macvlan2_gw = '192.168.%u.254' % self.NEW_VIDS[1]
+        netns = self.hostns(host)
+        setup_cmds = []
+        setup_cmds.extend(
+            ['ip link set %s netns %s' % (macvlan2_int, netns)])
+        for exec_cmd in (
+                ('ip address add %s/24 brd + dev %s' % (macvlan2_ip, macvlan2_int),
+                 'ip link set %s up' % macvlan2_int,
+                 'ip route add default via %s' % macvlan2_gw)):
+            setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
+        setup_cmds.append(
+            'ip route add %s/32 via %s' % (macvlan2_ip, macvlan1_gw))
+        self.quiet_commands(host, setup_cmds)
+        self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
@@ -4761,7 +4931,7 @@ vlans:
         self.one_ipv6_ping(first_host, 'fc00::1:2')
         self.wait_nonzero_packet_count_flow(
             {'dl_type': 0x86dd, 'ip_proto': 58, 'icmpv6_type': 135,
-                'ipv6_nd_target': 'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
+             'ipv6_nd_target': 'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
 
 
 class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
@@ -6424,6 +6594,16 @@ acls:
 
 class FaucetDestRewriteTest(FaucetUntaggedTest):
 
+    def override_mac():
+        return "0e:00:00:00:00:02"
+
+    OVERRIDE_MAC = override_mac()
+
+    def rewrite_mac():
+        return "0e:00:00:00:00:03"
+
+    REWRITE_MAC = rewrite_mac()
+
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -6432,16 +6612,16 @@ vlans:
 acls:
     1:
         - rule:
-            dl_dst: "00:00:00:00:00:02"
+            dl_dst: "%s"
             actions:
                 allow: 1
                 output:
                     set_fields:
-                        - eth_dst: "00:00:00:00:00:03"
+                        - eth_dst: "%s"
         - rule:
             actions:
                 allow: 1
-"""
+""" % (override_mac(), rewrite_mac())
     CONFIG = """
         interfaces:
             %(port_1)d:
@@ -6462,22 +6642,23 @@ acls:
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expect to see the rewritten mac address.
-        tcpdump_filter = ('icmp and ether dst 00:00:00:00:00:03')
+        tcpdump_filter = ('icmp and ether dst %s' % self.REWRITE_MAC)
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
-                    'arp -s %s %s' % (second_host.IP(), '00:00:00:00:00:02')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+                    'arp -s %s %s' % (second_host.IP(), self.OVERRIDE_MAC)),
+                lambda: first_host.cmd('ping -c1 -t1 %s' % second_host.IP())],
+            timeout=5, packets=1)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
 
     def verify_dest_rewrite(self, source_host, overridden_host, rewrite_host, tcpdump_host):
-        overridden_host.setMAC('00:00:00:00:00:02')
-        rewrite_host.setMAC('00:00:00:00:00:03')
+        overridden_host.setMAC(self.OVERRIDE_MAC)
+        rewrite_host.setMAC(self.REWRITE_MAC)
         rewrite_host.cmd('arp -s %s %s' % (overridden_host.IP(), overridden_host.MAC()))
         rewrite_host.cmd('ping -c1 %s' % overridden_host.IP())
         self.wait_until_matching_flow(
-            {'dl_dst': '00:00:00:00:00:03'},
+            {'dl_dst': self.REWRITE_MAC},
             table_id=self._ETH_DST_TABLE,
             actions=['OUTPUT:%u' % self.port_map['port_3']])
         tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
@@ -6488,7 +6669,8 @@ acls:
                     'arp -s %s %s' % (rewrite_host.IP(), overridden_host.MAC())),
                 # this will fail if no reply
                 lambda: self.one_ipv4_ping(
-                    source_host, rewrite_host.IP(), require_host_learned=False)])
+                    source_host, rewrite_host.IP(), require_host_learned=False)],
+            timeout=3, packets=1)
         # ping from h1 to h2.mac should appear in third host, and not second host, as
         # the acl should rewrite the dst mac.
         self.assertFalse(re.search(
