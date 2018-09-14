@@ -480,7 +480,7 @@ class Valve:
                 'status': port_status}})
         self._set_port_status(port_no, port_status)
         ofmsgs = []
-        if self.port_no_valid(port_no):
+        if self.dp.port_no_valid(port_no):
             port = self.dp.ports[port_no]
             if port.opstatus_reconf:
                 if reason in port_status_codes:
@@ -745,11 +745,10 @@ class Valve:
         vlan_table = self.dp.tables['vlan']
 
         for port_num in port_nums:
-            if port_num not in self.dp.ports:
+            if not self.dp.port_no_valid(port_num):
                 self.logger.info(
                     'Ignoring port:%u not present in configuration file' % port_num)
                 continue
-
             port = self.dp.ports[port_num]
             port.dyn_phys_up = True
             self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
@@ -840,7 +839,7 @@ class Valve:
         vlans_with_deleted_ports = set()
 
         for port_num in port_nums:
-            if port_num not in self.dp.ports:
+            if not self.dp.port_no_valid(port_num):
                 continue
             port = self.dp.ports[port_num]
             port.dyn_phys_up = False
@@ -1076,15 +1075,6 @@ class Valve:
                 return learn_flows
         return []
 
-    def port_no_valid(self, port_no):
-        """Return True if supplied port number valid on this datapath."""
-        if valve_of.ignore_port(port_no):
-            return False
-        if port_no not in self.dp.ports:
-            self.logger.info('port %u unknown' % port_no)
-            return False
-        return True
-
     def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt, vlan_pkt):
         """Parse a received packet into a PacketMeta instance.
 
@@ -1129,7 +1119,7 @@ class Valve:
         if not msg.match:
             return None
         in_port = msg.match['in_port']
-        if not in_port or not self.port_no_valid(in_port):
+        if not in_port or not self.dp.port_no_valid(in_port):
             return None
 
         if not msg.data:

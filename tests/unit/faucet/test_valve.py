@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Unit tests run as PYTHONPATH=.. python3 ./test_valve.py."""
+"""Unit tests run as PYTHONPATH=../../.. python3 ./test_valve.py."""
 
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2018 The Contributors
@@ -362,7 +362,7 @@ class ValveTestBases:
                 self.bgp, self.dot1x, self.send_flows_to_dp_by_id)
             self.last_flows_to_dp[self.DP_ID] = []
             self.notifier.start()
-            self.update_config(config)
+            self.update_config(config, reload_expected=False)
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self.sock.connect(self.faucet_event_sock)
             self.connect_dp()
@@ -403,11 +403,16 @@ class ValveTestBases:
                 val = 0
             return val
 
-        def prom_inc(self, func, var, labels=None):
+        def prom_inc(self, func, var, labels=None, inc_expected=True):
             """Check Prometheus variable increments by 1 after calling a function."""
             before = self.get_prom(var, labels)
             func()
-            self.assertTrue(before + 1, self.get_prom(var, labels))
+            after = self.get_prom(var, labels)
+            msg = '%s %s before %f after %f' % (var, labels, before, after)
+            if inc_expected:
+                self.assertEqual(before + 1, after, msg=msg)
+            else:
+                self.assertEqual(before, after, msg=msg)
 
         def send_flows_to_dp_by_id(self, valve, flows):
             """Callback for ValvesManager to simulate sending flows to DP."""
@@ -415,7 +420,7 @@ class ValveTestBases:
             prepared_flows = valve.prepare_send_flows(flows)
             self.last_flows_to_dp[valve.dp.dp_id] = prepared_flows
 
-        def update_config(self, config):
+        def update_config(self, config, reload_type='cold', reload_expected=True):
             """Update FAUCET config with config as text."""
             before_dp_status = int(self.get_prom('dp_status'))
             self.assertFalse(self.valves_manager.config_watcher.files_changed())
@@ -425,7 +430,10 @@ class ValveTestBases:
             if existing_config:
                 self.assertTrue(self.valves_manager.config_watcher.files_changed())
             self.last_flows_to_dp[self.DP_ID] = []
-            self.valves_manager.request_reload_configs(time.time(), self.config_file)
+            var = 'faucet_config_reload_%s' % reload_type
+            self.prom_inc(
+                partial(self.valves_manager.request_reload_configs,
+                    time.time(), self.config_file), var=var, inc_expected=reload_expected)
             self.valve = self.valves_manager.valves[self.DP_ID]
             if self.DP_ID in self.last_flows_to_dp:
                 reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
@@ -1362,7 +1370,41 @@ class ValveTestCase(ValveTestBases.ValveTestBig):
     pass
 
 
-class ValveChangePortCase(ValveTestBases.ValveTestSmall):
+class ValveFuzzTestCase(ValveTestBases.ValveTestSmall):
+    """Test unknown ports/VLANs."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_fuzz_vlan(self):
+        """Test unknown VIDs/ports."""
+        for i in range(0, 64):
+            self.rcv_packet(1, i, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': self.P2_V200_MAC,
+                'ipv4_src': '10.0.0.2',
+                'ipv4_dst': '10.0.0.3',
+                'vid': i})
+        for i in range(0, 64):
+            self.rcv_packet(i, 0x100, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': self.P2_V200_MAC,
+                'ipv4_src': '10.0.0.2',
+                'ipv4_dst': '10.0.0.3',
+                'vid': 0x100})
+
+
+class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
     """Test changes to config on ports."""
 
     CONFIG = """
@@ -1396,15 +1438,222 @@ dps:
     def setUp(self):
         self.setup_valve(self.CONFIG)
 
-    def test_delete_port(self):
-        """Test port can be deleted."""
+    def test_delete_permanent_learn(self):
+        """Test port permanent learn can deconfigured."""
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.P3_V200_MAC,
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.3',
             'vid': 0x200})
-        self.update_config(self.LESS_CONFIG)
+        self.update_config(self.LESS_CONFIG, reload_type='warm')
+
+
+class ValveDeletePortTestCase(ValveTestBases.ValveTestSmall):
+    """Test deletion of a port."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+            p3:
+                number: 3
+                tagged_vlans: [0x100]
+""" % DP1_CONFIG
+
+    LESS_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_port_delete(self):
+        """Test port can be deleted."""
+        self.update_config(self.LESS_CONFIG, reload_type='cold')
+
+
+class ValveDeleteVLANTestCase(ValveTestBases.ValveTestSmall):
+    """Test deleting VLAN."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100, 0x200]
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    LESS_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x200]
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_delete_vlan(self):
+        """Test VLAN can be deleted."""
+        self.update_config(self.LESS_CONFIG, reload_type='warm')
+
+
+class ValveAddVLANTestCase(ValveTestBases.ValveTestSmall):
+    """Test adding VLAN."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100, 0x200]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+""" % DP1_CONFIG
+
+    MORE_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100, 0x200]
+            p2:
+                number: 2
+                tagged_vlans: [0x100, 0x300]
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_add_vlan(self):
+        """Test VLAN can added."""
+        self.update_config(self.MORE_CONFIG, reload_type='warm')
+
+
+class ValveChangeACLTestCase(ValveTestBases.ValveTestSmall):
+    """Test changes to ACL on a port."""
+
+    CONFIG = """
+acls:
+    acl_same_a:
+        - rule:
+            actions:
+                allow: 1
+    acl_same_b:
+        - rule:
+            actions:
+                allow: 1
+    acl_diff_c:
+        - rule:
+            actions:
+                allow: 0
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acl_in: acl_same_a
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    SAME_CONTENT_CONFIG = """
+acls:
+    acl_same_a:
+        - rule:
+            actions:
+                allow: 1
+    acl_same_b:
+        - rule:
+            actions:
+                allow: 1
+    acl_diff_c:
+        - rule:
+            actions:
+                allow: 0
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acl_in: acl_same_b
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    DIFF_CONTENT_CONFIG = """
+acls:
+    acl_same_a:
+        - rule:
+            actions:
+                allow: 1
+    acl_same_b:
+        - rule:
+            actions:
+                allow: 1
+    acl_diff_c:
+        - rule:
+            actions:
+                allow: 0
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acl_in: acl_diff_c
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_change_port_acl(self):
+        """Test port ACL can be changed."""
+        self.update_config(self.SAME_CONTENT_CONFIG, reload_type='warm')
+        self.update_config(self.DIFF_CONTENT_CONFIG, reload_type='warm')
 
 
 class ValveACLTestCase(ValveTestBases.ValveTestSmall):
@@ -1474,7 +1723,7 @@ acls:
                 self.table.is_output(match, port=3, vid=self.V200),
                 msg='Packet not output before adding ACL')
 
-        self.update_config(acl_config)
+        self.update_config(acl_config, reload_type='cold')
         self.flap_port(2)
         self.assertFalse(
             self.table.is_output(drop_match),
@@ -1499,15 +1748,6 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
             partial(self.rcv_packet, 1, 0x300, {
                 'eth_src': self.P1_V300_MAC,
                 'eth_dst': self.UNKNOWN_MAC,
-                'ipv4_src': '10.0.0.1',
-                'ipv4_dst': '10.0.0.2'}),
-            'vlan_hosts_learned',
-            labels={'vlan': str(int(0x300))})
-        self.prom_inc(
-            partial(self.rcv_packet, 5, 0x300, {
-                'eth_src': self.P1_V300_MAC,
-                'eth_dst': self.UNKNOWN_MAC,
-                'vid': 0x300,
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.2'}),
             'vlan_hosts_learned',
@@ -1880,15 +2120,16 @@ vlans:
 
     def test_lacp(self):
         """Test LACP comes up."""
+        test_port = 1
         self.assertEqual(
-            0, int(self.get_prom('port_lacp_status', labels={'port': '1'})))
-        self.rcv_packet(1, 0, {
+            0, int(self.get_prom('port_lacp_status', labels={'port': str(test_port)})))
+        self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
             'eth_src': '0e:00:00:00:00:02'})
         self.assertEqual(
-            1, int(self.get_prom('port_lacp_status', labels={'port': '1'})))
+            1, int(self.get_prom('port_lacp_status', labels={'port': str(test_port)})))
         self.learn_hosts()
         self.verify_expiry()
 
@@ -1899,7 +2140,7 @@ class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):
     def setUp(self):
         super(ValveReloadConfigTestCase, self).setUp()
         self.flap_port(1)
-        self.update_config(CONFIG)
+        self.update_config(CONFIG, reload_type='warm', reload_expected=False)
 
 
 class ValveMirrorTestCase(ValveTestBases.ValveTestBig):

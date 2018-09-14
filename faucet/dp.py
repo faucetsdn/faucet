@@ -25,11 +25,12 @@ from datadiff import diff
 import networkx
 
 from faucet import faucet_pipeline
-from faucet.conf import Conf, test_config_condition
-from faucet.valve import SUPPORTED_HARDWARE
-from faucet.faucet_pipeline import ValveTableConfig
-from faucet.valve_table import ValveTable, ValveGroupTable
+from faucet import valve_of
 from faucet import valve_packet
+from faucet.conf import Conf, test_config_condition
+from faucet.faucet_pipeline import ValveTableConfig
+from faucet.valve import SUPPORTED_HARDWARE
+from faucet.valve_table import ValveTable, ValveGroupTable
 
 # Documentation generated using documentation_generator.py
 # For attributues to be included in documentation they must
@@ -426,6 +427,12 @@ configuration.
         if tables:
             return tables[0]
         return None
+
+    def port_no_valid(self, port_no):
+        """Return True if supplied port number valid on this datapath."""
+        if valve_of.ignore_port(port_no):
+            return False
+        return port_no in self.ports
 
     def output_tables(self):
         """Return tables that cause a packet to be forwarded."""
@@ -937,10 +944,9 @@ configuration.
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed/added VLAN IDs.
         """
-        deleted_vlans = set([])
-        for vid in list(self.vlans.keys()):
-            if vid not in new_dp.vlans:
-                deleted_vlans.add(vid)
+        curr_vlans = frozenset(self.vlans.keys())
+        new_vlans = frozenset(new_dp.vlans.keys())
+        deleted_vlans = curr_vlans - new_vlans
 
         changed_vlans = set([])
         for vid, new_vlan in list(new_dp.vlans.items()):
@@ -979,6 +985,8 @@ configuration.
                 changed_ports (set): changed/added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
         """
+        curr_ports = frozenset(self.ports.keys())
+        new_ports = frozenset(new_dp.ports.keys())
         all_ports_changed = False
         changed_ports = set([])
         changed_acl_ports = set([])
@@ -1017,14 +1025,14 @@ configuration.
 
         # TODO: optimize case where only VLAN ACL changed.
         for vid in changed_vlans:
-            for port in new_dp.vlans[vid].get_ports():
-                changed_ports.add(port.number)
+            changed_port_nums = [port.number for port in new_dp.vlans[vid].get_ports()]
+            changed_ports.update(changed_port_nums)
 
-        deleted_ports = set(list(self.ports.keys())) - set(list(new_dp.ports.keys()))
+        deleted_ports = curr_ports - new_ports
         if deleted_ports:
             logger.info('deleted ports: %s' % deleted_ports)
 
-        if changed_ports == set(new_dp.ports.keys()):
+        if changed_ports == new_ports:
             all_ports_changed = True
         elif (not changed_ports and
               not deleted_ports and

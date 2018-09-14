@@ -161,13 +161,13 @@ class ValvesManager:
 
     def valve_packet_in(self, now, valve, msg):
         """Time a call to Valve packet in handler."""
+        self.metrics.of_packet_ins.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).inc()
         if valve.rate_limit_packet_ins(now):
             return
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
             return
-        self.metrics.of_packet_ins.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).inc()
         with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
                 **valve.base_prom_labels).time():
             ofmsgs = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
