@@ -25,11 +25,12 @@ from datadiff import diff
 import networkx
 
 from faucet import faucet_pipeline
-from faucet.conf import Conf, test_config_condition
-from faucet.valve import SUPPORTED_HARDWARE
-from faucet.faucet_pipeline import ValveTableConfig
-from faucet.valve_table import ValveTable, ValveGroupTable
+from faucet import valve_of
 from faucet import valve_packet
+from faucet.conf import Conf, test_config_condition
+from faucet.faucet_pipeline import ValveTableConfig
+from faucet.valve import SUPPORTED_HARDWARE
+from faucet.valve_table import ValveTable, ValveGroupTable
 
 # Documentation generated using documentation_generator.py
 # For attributues to be included in documentation they must
@@ -426,6 +427,12 @@ configuration.
         if tables:
             return tables[0]
         return None
+
+    def port_no_valid(self, port_no):
+        """Return True if supplied port number valid on this datapath."""
+        if valve_of.ignore_port(port_no):
+            return False
+        return port_no in self.ports
 
     def output_tables(self):
         """Return tables that cause a packet to be forwarded."""

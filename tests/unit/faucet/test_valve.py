@@ -1404,8 +1404,8 @@ dps:
     def setUp(self):
         self.setup_valve(self.CONFIG)
 
-    def test_delete_port(self):
-        """Test port can be deleted."""
+    def test_delete_permanent_learn(self):
+        """Test port permanent learn can deconfigured."""
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.P3_V200_MAC,
@@ -1413,6 +1413,46 @@ dps:
             'ipv4_dst': '10.0.0.3',
             'vid': 0x200})
         self.update_config(self.LESS_CONFIG, reload_type='warm')
+
+
+class ValveDeletePortTestCase(ValveTestBases.ValveTestSmall):
+    """Test deletion of a port."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+            p3:
+                number: 3
+                tagged_vlans: [0x100]
+""" % DP1_CONFIG
+
+    LESS_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_port_delete(self):
+        """Test port can be deleted."""
+        self.update_config(self.LESS_CONFIG, reload_type='cold')
 
 
 class ValveDeleteVLANTestCase(ValveTestBases.ValveTestSmall):
