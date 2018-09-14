@@ -161,6 +161,11 @@ class ValveRouteManager:
             self._gw_resolve_pkt(),
             port, vlan.faucet_mac, eth_dst, faucet_vip.ip, ip_gw)
 
+    def _controller_and_flood(self):
+        return [
+            valve_of.apply_actions([valve_of.output_controller()]),
+            self.vip_table.goto(self.output_table)]
+
     def _resolve_vip_response(self, pkt_meta, solicited_ip, now):
         ofmsgs = []
         vlan = pkt_meta.vlan
@@ -280,12 +285,37 @@ class ValveRouteManager:
                     self._route_match(routed_vlan, faucet_vip),
                     priority=learn_connected_priority,
                     inst=[self.fib_table.goto(self.vip_table)]))
+            # Unicast ICMP to us.
             priority -= 1
-            # Learn from other IP traffic.
             ofmsgs.append(self.vip_table.flowcontroller(
-                self.vip_table.match(eth_type=self.ETH_TYPE),
+                self.vip_table.match(
+                    eth_type=self.ETH_TYPE,
+                    eth_dst=faucet_mac,
+                    nw_proto=self.ICMP_TYPE),
+                priority=priority))
+            # Learn + flood other ICMP not unicast to us.
+            priority -= 1
+            ofmsgs.append(self.vip_table.flowmod(
+                self.vip_table.match(
+                    eth_type=self.ETH_TYPE,
+                    nw_proto=self.ICMP_TYPE),
+                priority=priority,
+                inst=self._controller_and_flood()))
+            # Learn from other IP traffic unicast to us.
+            priority -= 1
+            ofmsgs.append(self.vip_table.flowcontroller(
+                self.vip_table.match(
+                    eth_type=self.ETH_TYPE,
+                    eth_dst=faucet_mac),
                 priority=priority,
                 max_len=self.MAX_LEN))
+            # Learn + flood IP traffic not unicast to us.
+            priority -= 1
+            ofmsgs.append(self.vip_table.flowmod(
+                self.vip_table.match(
+                    eth_type=self.ETH_TYPE),
+                priority=priority,
+                inst=self._controller_and_flood()))
         return ofmsgs
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
@@ -686,13 +716,6 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         ofmsgs = []
-        # TODO: could narrow this to only echo.
-        ofmsgs.append(self.vip_table.flowcontroller(
-            self.vip_table.match(
-                eth_type=self.ETH_TYPE,
-                eth_dst=vlan.faucet_mac,
-                nw_proto=self.ICMP_TYPE),
-            priority=priority))
         # ARP
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(
@@ -798,9 +821,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         faucet_vip_host_nd_mcast = valve_packet.ipv6_link_eth_mcast(
             valve_packet.ipv6_solicited_node_from_ucast(faucet_vip.ip))
-        controller_and_flood = [
-            valve_of.apply_actions([valve_of.output_controller()]),
-            self.vip_table.goto(self.output_table)]
         ofmsgs = []
         # RA if this is a link local FAUCET VIP
         if faucet_vip.ip.is_link_local:
@@ -818,7 +838,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     nw_proto=valve_of.inet.IPPROTO_ICMPV6,
                     icmpv6_type=icmpv6.ND_ROUTER_SOLICIT),
                 priority=priority,
-                inst=controller_and_flood))
+                inst=self._controller_and_flood()))
         # IPv6 ping unicast to FAUCET
         ofmsgs.append(self.vip_table.flowcontroller(
             self.vip_table.match(
