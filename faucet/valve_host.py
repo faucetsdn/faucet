@@ -139,9 +139,9 @@ class ValveHostManager:
         dst_rule_idle_timeout = learn_timeout
         return (src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout)
 
-    def learn_host_on_vlan_port_flows(self, port, vlan, eth_src, delete_existing,
-                                      src_rule_idle_timeout, src_rule_hard_timeout,
-                                      dst_rule_idle_timeout):
+    def learn_host_on_vlan_port_flows(self, port, vlan, eth_src,
+                                      delete_existing, refresh_rules,
+                                      src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout):
         """Return flows that implement learning a host on a port."""
         ofmsgs = []
 
@@ -171,9 +171,8 @@ class ValveHostManager:
             hard_timeout=src_rule_hard_timeout,
             idle_timeout=src_rule_idle_timeout))
 
-        # If we are not deleting existing rules, then leave the eth_dst/hairpin rules
-        # alone. They will age out by themselves or be deleted when a host moves ports.
-        if not delete_existing:
+        # If we are refreshing only, leave existing eth_dst/hairpin alone.
+        if refresh_rules:
             return ofmsgs
 
         # Output packets for this MAC to specified port.
@@ -204,6 +203,8 @@ class ValveHostManager:
         cache_port = None
         cache_age = None
         entry = vlan.cached_host(eth_src)
+        refresh_rules = False
+
         # Host not cached, and no hosts expired since we cold started
         # Enable faster learning by assuming there's no previous host to delete
         if entry is None:
@@ -219,11 +220,12 @@ class ValveHostManager:
             cache_port is not None and
             cache_port.lacp and port.lacp and cache_port.lacp == port.lacp)
         if cache_port == port or same_lag:
-            # skip delete if host didn't change ports or on same LAG.
-            delete_existing = False
             # if we very very recently learned this host, don't do anything.
             if cache_age < self.cache_update_guard_time:
                 return (ofmsgs, cache_port)
+            # skip delete if host didn't change ports or on same LAG.
+            delete_existing = False
+            refresh_rules = True
 
         if port.loop_protect:
             ban_age = None
@@ -255,7 +257,7 @@ class ValveHostManager:
          dst_rule_idle_timeout) = self.learn_host_timeouts(port)
 
         ofmsgs.extend(self.learn_host_on_vlan_port_flows(
-            port, vlan, eth_src, delete_existing,
+            port, vlan, eth_src, delete_existing, refresh_rules,
             src_rule_idle_timeout, src_rule_hard_timeout,
             dst_rule_idle_timeout))
 
