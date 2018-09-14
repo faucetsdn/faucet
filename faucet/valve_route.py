@@ -872,7 +872,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 nw_proto=valve_of.inet.IPPROTO_ICMPV6,
                 icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
             priority=priority,
-            inst=controller_and_flood))
+            inst=self._controller_and_flood()))
         return ofmsgs
 
     def _add_faucet_fib_to_vip(self, vlan, priority, faucet_vip, faucet_vip_host):
