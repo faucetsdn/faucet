@@ -254,6 +254,7 @@ class ValveRouteManager:
         return self.global_vlan.vid and self.routers and len(self.routers) == 1
 
     def _add_faucet_fib_to_vip(self, vlan, priority, faucet_vip, faucet_vip_host):
+        ofmsgs = []
         learn_connected_priority = self.route_priority + faucet_vip.network.prefixlen
         faucet_mac = vlan.faucet_mac
         insts = [self.eth_src_table.goto(self.fib_table)]
@@ -262,12 +263,10 @@ class ValveRouteManager:
             insts = [valve_of.apply_actions([
                 self.fib_table.set_field(eth_dst=vlan_mac),
                 self.fib_table.set_vlan_vid(self.global_vlan.vid)])] + insts
-        ofmsgs = []
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(eth_type=self.ETH_TYPE, eth_dst=faucet_mac, vlan=vlan),
             priority=self.route_priority,
             inst=insts))
-        routed_vlans = self._routed_vlans(vlan)
         if self.global_routing:
             vlan = self.global_vlan
         ofmsgs.append(self.fib_table.flowmod(
@@ -275,19 +274,22 @@ class ValveRouteManager:
             priority=priority,
             inst=[self.fib_table.goto(self.vip_table)]))
         if self.proactive_learn and not faucet_vip.ip.is_link_local:
+            routed_vlans = self._routed_vlans(vlan)
             for routed_vlan in routed_vlans:
                 ofmsgs.append(self.fib_table.flowmod(
                     self._route_match(routed_vlan, faucet_vip),
                     priority=learn_connected_priority,
                     inst=[self.fib_table.goto(self.vip_table)]))
             priority -= 1
+            # Drop unicasted ICMPv6 to us if not handled.
             ofmsgs.append(self.vip_table.flowdrop(
                 self.vip_table.match(
                     eth_type=self.ETH_TYPE,
-                    eth_dst=vlan.faucet_mac,
+                    eth_dst=faucet_mac,
                     nw_proto=valve_of.inet.IPPROTO_ICMPV6),
                 priority=priority))
             priority -= 1
+            # Output/flood other ICMPv6.
             ofmsgs.append(self.vip_table.flowmod(
                 self.vip_table.match(
                     eth_type=self.ETH_TYPE,
@@ -295,6 +297,7 @@ class ValveRouteManager:
                 priority=priority,
                 inst=[self.vip_table.goto(self.output_table)]))
             priority -= 1
+            # Learn from other IPv6 traffic.
             ofmsgs.append(self.vip_table.flowcontroller(
                 self.vip_table.match(eth_type=self.ETH_TYPE),
                 priority=priority,
@@ -705,25 +708,28 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 vlan=vlan),
             priority=priority,
             inst=[self.eth_src_table.goto(self.vip_table)]))
+        # ARP for FAUCET VIP
+        ofmsgs.append(self.vip_table.flowcontroller(
+            self.vip_table.match(
+                eth_type=valve_of.ether.ETH_TYPE_ARP,
+                eth_dst=valve_of.mac.BROADCAST_STR,
+                nw_dst=faucet_vip_host),
+            priority=priority,
+            max_len=self.MAX_LEN))
+        # ARP reply to FAUCET VIP
+        ofmsgs.append(self.vip_table.flowcontroller(
+            self.vip_table.match(
+                eth_type=valve_of.ether.ETH_TYPE_ARP,
+                eth_dst=vlan.faucet_mac),
+            priority=priority,
+            max_len=self.MAX_LEN))
+        priority -= 1
+        # Other ARP
         ofmsgs.append(self.vip_table.flowmod(
             self.vip_table.match(
                 eth_type=valve_of.ether.ETH_TYPE_ARP),
             priority=priority,
             inst=[self.vip_table.goto(self.output_table)]))
-        priority += 1
-        ofmsgs.append(self.vip_table.flowmod(
-            self.vip_table.match(
-                eth_type=valve_of.ether.ETH_TYPE_ARP,
-                eth_dst=valve_of.mac.BROADCAST_STR),
-            priority=priority,
-            inst=[self.vip_table.goto(self.output_table)]))
-        priority += 1
-        ofmsgs.append(self.vip_table.flowcontroller(
-            self.vip_table.match(
-                eth_type=valve_of.ether.ETH_TYPE_ARP,
-                nw_dst=faucet_vip_host),
-            priority=priority,
-            max_len=self.MAX_LEN))
         return ofmsgs
 
     def _control_plane_arp_handler(self, now, pkt_meta):
