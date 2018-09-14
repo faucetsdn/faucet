@@ -433,7 +433,7 @@ class ValveTestBases:
             var = 'faucet_config_reload_%s' % reload_type
             self.prom_inc(
                 partial(self.valves_manager.request_reload_configs,
-                    time.time(), self.config_file), var=var, inc_expected=reload_expected)
+                        time.time(), self.config_file), var=var, inc_expected=reload_expected)
             self.valve = self.valves_manager.valves[self.DP_ID]
             if self.DP_ID in self.last_flows_to_dp:
                 reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]

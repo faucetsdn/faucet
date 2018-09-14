@@ -171,11 +171,6 @@ def dpid_log(dpid):
     return 'DPID %u (0x%x)' % (dpid, dpid)
 
 
-def btos(b_str):
-    """Return byte array/string as string."""
-    return b_str.encode('utf-8').decode('utf-8', 'strict')
-
-
 def stat_config_files(config_hashes):
     """Return dict of a subset of stat attributes on config files."""
     config_files_stats = {}

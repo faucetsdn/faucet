@@ -26,7 +26,6 @@ from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 
 from faucet import valve_of
 from faucet import valve_packet
-from faucet.valve_util import btos
 
 
 class AnonVLAN:
@@ -852,13 +851,13 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt):
         ofmsgs = []
-        solicited_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
+        solicited_ip = ipaddress.ip_address(icmpv6_pkt.data.dst)
         ofmsgs.extend(self._resolve_vip_response(pkt_meta, solicited_ip, now))
         return ofmsgs
 
     def _nd_advert_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt):
         ofmsgs = []
-        target_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
+        target_ip = ipaddress.ip_address(icmpv6_pkt.data.dst)
         ofmsgs.extend(self._gw_advert(pkt_meta, target_ip, now))
         return ofmsgs
 

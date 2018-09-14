@@ -47,7 +47,7 @@ LLDP_MAC_NEAREST_BRIDGE = lldp.LLDP_MAC_NEAREST_BRIDGE
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
-IPV6_ALL_NODES = ipaddress.IPv6Address(valve_util.btos('ff02::1'))
+IPV6_ALL_NODES = ipaddress.IPv6Address('ff02::1')
 IPV6_MAX_HOP_LIM = 255
 IPV6_RA_HOP_LIM = 64
 
@@ -488,7 +488,7 @@ def ipv6_solicited_node_from_ucast(ucast):
     Returns:
        ipaddress.IPv6Address: IPv6 solicited node multicast address.
     """
-    link_mcast_prefix = ipaddress.ip_interface(valve_util.btos('ff02::1:ff00:0/104'))
+    link_mcast_prefix = ipaddress.ip_interface('ff02::1:ff00:0/104')
     mcast_bytes = link_mcast_prefix.packed[:13] + ucast.packed[-3:]
     link_mcast = ipaddress.IPv6Address(mcast_bytes)
     return link_mcast
@@ -734,8 +734,8 @@ class PacketMeta:
                 elif hasattr(self.l3_pkt, 'src_ip'):
                     self.l3_src = self.l3_pkt.src_ip
                     self.l3_dst = self.l3_pkt.dst_ip
-                self.l3_src = ipaddress.ip_address(valve_util.btos(self.l3_src))
-                self.l3_dst = ipaddress.ip_address(valve_util.btos(self.l3_dst))
+                self.l3_src = ipaddress.ip_address(self.l3_src)
+                self.l3_dst = ipaddress.ip_address(self.l3_dst)
 
     def packet_complete(self):
         """True if we have the complete packet."""
