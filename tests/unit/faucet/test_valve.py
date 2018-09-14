@@ -362,7 +362,7 @@ class ValveTestBases:
                 self.bgp, self.dot1x, self.send_flows_to_dp_by_id)
             self.last_flows_to_dp[self.DP_ID] = []
             self.notifier.start()
-            self.update_config(config)
+            self.update_config(config, reload_expected=False)
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self.sock.connect(self.faucet_event_sock)
             self.connect_dp()
@@ -403,13 +403,16 @@ class ValveTestBases:
                 val = 0
             return val
 
-        def prom_inc(self, func, var, labels=None):
+        def prom_inc(self, func, var, labels=None, inc_expected=True):
             """Check Prometheus variable increments by 1 after calling a function."""
             before = self.get_prom(var, labels)
             func()
             after = self.get_prom(var, labels)
-            self.assertEqual(
-                before + 1, after, msg='%s %s before %f after %f' % (var, labels, before, after))
+            msg = '%s %s before %f after %f' % (var, labels, before, after)
+            if inc_expected:
+                self.assertEqual(before + 1, after, msg=msg)
+            else:
+                self.assertEqual(before, after, msg=msg)
 
         def send_flows_to_dp_by_id(self, valve, flows):
             """Callback for ValvesManager to simulate sending flows to DP."""
@@ -417,7 +420,7 @@ class ValveTestBases:
             prepared_flows = valve.prepare_send_flows(flows)
             self.last_flows_to_dp[valve.dp.dp_id] = prepared_flows
 
-        def update_config(self, config):
+        def update_config(self, config, reload_type='cold', reload_expected=True):
             """Update FAUCET config with config as text."""
             before_dp_status = int(self.get_prom('dp_status'))
             self.assertFalse(self.valves_manager.config_watcher.files_changed())
@@ -427,7 +430,10 @@ class ValveTestBases:
             if existing_config:
                 self.assertTrue(self.valves_manager.config_watcher.files_changed())
             self.last_flows_to_dp[self.DP_ID] = []
-            self.valves_manager.request_reload_configs(time.time(), self.config_file)
+            var = 'faucet_config_reload_%s' % reload_type
+            self.prom_inc(
+                partial(self.valves_manager.request_reload_configs,
+                    time.time(), self.config_file), var=var, inc_expected=reload_expected)
             self.valve = self.valves_manager.valves[self.DP_ID]
             if self.DP_ID in self.last_flows_to_dp:
                 reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
@@ -1406,7 +1412,7 @@ dps:
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.3',
             'vid': 0x200})
-        self.update_config(self.LESS_CONFIG)
+        self.update_config(self.LESS_CONFIG, reload_type='warm')
 
 
 class ValveACLTestCase(ValveTestBases.ValveTestSmall):
@@ -1476,7 +1482,7 @@ acls:
                 self.table.is_output(match, port=3, vid=self.V200),
                 msg='Packet not output before adding ACL')
 
-        self.update_config(acl_config)
+        self.update_config(acl_config, reload_type='cold')
         self.flap_port(2)
         self.assertFalse(
             self.table.is_output(drop_match),
@@ -1892,7 +1898,7 @@ class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):
     def setUp(self):
         super(ValveReloadConfigTestCase, self).setUp()
         self.flap_port(1)
-        self.update_config(CONFIG)
+        self.update_config(CONFIG, reload_type='warm', reload_expected=False)
 
 
 class ValveMirrorTestCase(ValveTestBases.ValveTestBig):
