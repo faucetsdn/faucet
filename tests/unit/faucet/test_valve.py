@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Unit tests run as PYTHONPATH=.. python3 ./test_valve.py."""
+"""Unit tests run as PYTHONPATH=../.. python3 ./test_valve.py."""
 
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2018 The Contributors
