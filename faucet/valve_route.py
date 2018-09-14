@@ -281,14 +281,6 @@ class ValveRouteManager:
                     priority=learn_connected_priority,
                     inst=[self.fib_table.goto(self.vip_table)]))
             priority -= 1
-            # Output/flood other ICMP
-            ofmsgs.append(self.vip_table.flowmod(
-                self.vip_table.match(
-                    eth_type=self.ETH_TYPE,
-                    nw_proto=self.ICMP_TYPE),
-                priority=priority,
-                inst=[self.vip_table.goto(self.output_table)]))
-            priority -= 1
             # Learn from other IP traffic.
             ofmsgs.append(self.vip_table.flowcontroller(
                 self.vip_table.match(eth_type=self.ETH_TYPE),
