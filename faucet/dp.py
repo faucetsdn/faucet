@@ -986,6 +986,8 @@ configuration.
                 changed_ports (set): changed/added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
         """
+        curr_ports = frozenset(self.ports.keys())
+        new_ports = frozenset(new_dp.ports.keys())
         all_ports_changed = False
         changed_ports = set([])
         changed_acl_ports = set([])
@@ -1024,14 +1026,14 @@ configuration.
 
         # TODO: optimize case where only VLAN ACL changed.
         for vid in changed_vlans:
-            for port in new_dp.vlans[vid].get_ports():
-                changed_ports.add(port.number)
+            changed_port_nums = [port.number for port in new_dp.vlans[vid].get_ports()]
+            changed_ports.update(changed_port_nums)
 
-        deleted_ports = set(list(self.ports.keys())) - set(list(new_dp.ports.keys()))
+        deleted_ports = curr_ports - new_ports
         if deleted_ports:
             logger.info('deleted ports: %s' % deleted_ports)
 
-        if changed_ports == set(new_dp.ports.keys()):
+        if changed_ports == new_ports:
             all_ports_changed = True
         elif (not changed_ports and
               not deleted_ports and
