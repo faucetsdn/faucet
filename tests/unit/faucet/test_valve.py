@@ -1420,14 +1420,18 @@ class ValveChangeACLTestCase(ValveTestBases.ValveTestSmall):
 
     CONFIG = """
 acls:
-    acl_a:
+    acl_same_a:
         - rule:
             actions:
                 allow: 1
-    acl_b:
+    acl_same_b:
         - rule:
             actions:
                 allow: 1
+    acl_diff_c:
+        - rule:
+            actions:
+                allow: 0
 dps:
     s1:
 %s
@@ -1435,22 +1439,26 @@ dps:
             p1:
                 number: 1
                 native_vlan: 0x100
-                acl_in: acl_a
+                acl_in: acl_same_a
             p2:
                 number: 2
                 native_vlan: 0x200
 """ % DP1_CONFIG
 
-    NEW_CONFIG = """
+    SAME_CONTENT_CONFIG = """
 acls:
-    acl_a:
+    acl_same_a:
         - rule:
             actions:
                 allow: 1
-    acl_b:
+    acl_same_b:
         - rule:
             actions:
                 allow: 1
+    acl_diff_c:
+        - rule:
+            actions:
+                allow: 0
 dps:
     s1:
 %s
@@ -1458,7 +1466,34 @@ dps:
             p1:
                 number: 1
                 native_vlan: 0x100
-                acl_in: acl_b
+                acl_in: acl_same_b
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    DIFF_CONTENT_CONFIG = """
+acls:
+    acl_same_a:
+        - rule:
+            actions:
+                allow: 1
+    acl_same_b:
+        - rule:
+            actions:
+                allow: 1
+    acl_diff_c:
+        - rule:
+            actions:
+                allow: 0
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acl_in: acl_diff_c
             p2:
                 number: 2
                 native_vlan: 0x200
@@ -1468,8 +1503,9 @@ dps:
         self.setup_valve(self.CONFIG)
 
     def test_change_port_acl(self):
-        """Test port can be deleted."""
-        self.update_config(self.NEW_CONFIG, reload_type='warm')
+        """Test port ACL can be changed."""
+        self.update_config(self.SAME_CONTENT_CONFIG, reload_type='warm')
+        self.update_config(self.DIFF_CONTENT_CONFIG, reload_type='warm')
 
 
 class ValveACLTestCase(ValveTestBases.ValveTestSmall):
