@@ -128,7 +128,7 @@ configuration.
         # Maximum table size for wildcard tables.
         'global_vlan': 0,
         # Reserved VID for internal global router VLAN.
-        'cache_update_guard_time': 7,
+        'cache_update_guard_time': 17,
         # Don't update L2 cache if port didn't change within this many seconds.
         }
 
