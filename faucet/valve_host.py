@@ -136,7 +136,7 @@ class ValveHostManager:
         # flows destined to controller
         src_rule_idle_timeout = 0
         src_rule_hard_timeout = learn_timeout
-        dst_rule_idle_timeout = learn_timeout
+        dst_rule_idle_timeout = learn_timeout + self.cache_update_guard_time
         return (src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout)
 
     def learn_host_on_vlan_port_flows(self, port, vlan, eth_src,
@@ -186,12 +186,12 @@ class ValveHostManager:
         # that outputs packets destined to this MAC back out the same
         # port they came in (e.g. multiple hosts on same WiFi AP,
         # and FAUCET is switching between them on the same port).
+        # Do not idle timeout hairpin rules as they may not be actually used.
         if self.eth_dst_hairpin_table and (port.hairpin or port.hairpin_unicast):
             ofmsgs.append(self.eth_dst_hairpin_table.flowmod(
                 self.eth_dst_hairpin_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
                 priority=self.host_priority,
-                inst=[valve_of.apply_actions(vlan.output_port(port, hairpin=True))],
-                idle_timeout=dst_rule_idle_timeout))
+                inst=[valve_of.apply_actions(vlan.output_port(port, hairpin=True))]))
 
         return ofmsgs
 
