@@ -139,9 +139,9 @@ class ValveHostManager:
         dst_rule_idle_timeout = learn_timeout
         return (src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout)
 
-    def learn_host_on_vlan_port_flows(self, port, vlan, eth_src, delete_existing,
-                                      src_rule_idle_timeout, src_rule_hard_timeout,
-                                      dst_rule_idle_timeout):
+    def learn_host_on_vlan_port_flows(self, port, vlan, eth_src,
+                                      delete_existing, refresh_rules,
+                                      src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout):
         """Return flows that implement learning a host on a port."""
         ofmsgs = []
 
@@ -154,13 +154,6 @@ class ValveHostManager:
             # Delete any existing entries for MAC.
             if delete_existing:
                 ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
-
-        # Output packets for this MAC to specified port.
-        ofmsgs.append(self.eth_dst_table.flowmod(
-            self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
-            priority=self.host_priority,
-            inst=[valve_of.apply_actions(vlan.output_port(port))],
-            idle_timeout=dst_rule_idle_timeout))
 
         # Associate this MAC with source port.
         src_match = self.eth_src_table.match(
@@ -178,6 +171,17 @@ class ValveHostManager:
             hard_timeout=src_rule_hard_timeout,
             idle_timeout=src_rule_idle_timeout))
 
+        # If we are refreshing only, leave existing eth_dst/hairpin alone.
+        if refresh_rules:
+            return ofmsgs
+
+        # Output packets for this MAC to specified port.
+        ofmsgs.append(self.eth_dst_table.flowmod(
+            self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
+            priority=self.host_priority,
+            inst=[valve_of.apply_actions(vlan.output_port(port))],
+            idle_timeout=dst_rule_idle_timeout))
+
         # If port is in hairpin mode, install a special rule
         # that outputs packets destined to this MAC back out the same
         # port they came in (e.g. multiple hosts on same WiFi AP,
@@ -187,7 +191,6 @@ class ValveHostManager:
                 self.eth_dst_hairpin_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
                 priority=self.host_priority,
                 inst=[valve_of.apply_actions(vlan.output_port(port, hairpin=True))],
-                hard_timeout=src_rule_hard_timeout,
                 idle_timeout=dst_rule_idle_timeout))
 
         return ofmsgs
@@ -200,6 +203,8 @@ class ValveHostManager:
         cache_port = None
         cache_age = None
         entry = vlan.cached_host(eth_src)
+        refresh_rules = False
+
         # Host not cached, and no hosts expired since we cold started
         # Enable faster learning by assuming there's no previous host to delete
         if entry is None:
@@ -215,11 +220,12 @@ class ValveHostManager:
             cache_port is not None and
             cache_port.lacp and port.lacp and cache_port.lacp == port.lacp)
         if cache_port == port or same_lag:
-            # skip delete if host didn't change ports or on same LAG.
-            delete_existing = False
             # if we very very recently learned this host, don't do anything.
             if cache_age < self.cache_update_guard_time:
                 return (ofmsgs, cache_port)
+            # skip delete if host didn't change ports or on same LAG.
+            delete_existing = False
+            refresh_rules = True
 
         if port.loop_protect:
             ban_age = None
@@ -251,7 +257,7 @@ class ValveHostManager:
          dst_rule_idle_timeout) = self.learn_host_timeouts(port)
 
         ofmsgs.extend(self.learn_host_on_vlan_port_flows(
-            port, vlan, eth_src, delete_existing,
+            port, vlan, eth_src, delete_existing, refresh_rules,
             src_rule_idle_timeout, src_rule_hard_timeout,
             dst_rule_idle_timeout))
 

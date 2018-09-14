@@ -23,7 +23,6 @@ import netaddr
 
 from faucet import valve_of
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
-from faucet.valve_util import btos
 from faucet.valve_packet import FAUCET_MAC
 
 
@@ -204,7 +203,7 @@ class VLAN(Conf):
     @staticmethod
     def _check_ip_str(ip_str, ip_method=ipaddress.ip_address):
         try:
-            return ip_method(btos(ip_str))
+            return ip_method(ip_str)
         except (ValueError, AttributeError, TypeError) as err:
             raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
 
@@ -250,7 +249,7 @@ class VLAN(Conf):
                 'BGP port must be %s not %s' % (int, type(self.bgp_port))))
             test_config_condition(self.bgp_connect_mode not in ('passive'), (
                 'BGP connect mode %s must be passive' % self.bgp_connect_mode))
-            test_config_condition(not ipaddress.IPv4Address(btos(self.bgp_routerid)), (
+            test_config_condition(not ipaddress.IPv4Address(self.bgp_routerid), (
                 '%s is not a valid IPv4 address' % (self.bgp_routerid)))
             test_config_condition(not self.bgp_neighbor_as, 'No BGP neighbor AS')
             test_config_condition(not self.bgp_neighbor_addresses, 'No BGP neighbor addresses')

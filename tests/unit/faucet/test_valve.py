@@ -433,7 +433,7 @@ class ValveTestBases:
             var = 'faucet_config_reload_%s' % reload_type
             self.prom_inc(
                 partial(self.valves_manager.request_reload_configs,
-                    time.time(), self.config_file), var=var, inc_expected=reload_expected)
+                        time.time(), self.config_file), var=var, inc_expected=reload_expected)
             self.valve = self.valves_manager.valves[self.DP_ID]
             if self.DP_ID in self.last_flows_to_dp:
                 reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
@@ -722,19 +722,22 @@ class ValveTestBases:
 
         def test_nd_for_controller(self):
             """IPv6 ND for controller VIP."""
-            dst_ip = ipaddress.IPv6Address('fc00::1:254')
-            nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
-            ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
-            for _retries in range(3):
-                nd_replies = self.rcv_packet(2, 0x200, {
-                    'eth_src': self.P2_V200_MAC,
-                    'eth_dst': nd_mac,
-                    'vid': 0x200,
-                    'ipv6_src': 'fc00::1:1',
-                    'ipv6_dst': str(ip_gw_mcast),
-                    'neighbor_solicit_ip': str(dst_ip)})
-                # TODO: check ND reply is valid
-                self.assertTrue(self.packet_outs_from_flows(nd_replies))
+            for dst_ip in (
+                    ipaddress.IPv6Address('fe80::1:254'),
+                    ipaddress.IPv6Address('fc00::1:254')):
+                nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
+                ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
+                for _retries in range(3):
+                    nd_replies = self.rcv_packet(2, 0x200, {
+                        'eth_src': self.P2_V200_MAC,
+                        'eth_dst': nd_mac,
+                        'vid': 0x200,
+                        'ipv6_src': 'fc00::1:1',
+                        'ipv6_dst': str(ip_gw_mcast),
+                        'neighbor_solicit_ip': str(dst_ip)})
+                    # TODO: check reply NA is valid
+                    packet_outs = self.packet_outs_from_flows(nd_replies)
+                    self.assertTrue(packet_outs)
 
         def test_nd_from_host(self):
             """IPv6 NA from host."""

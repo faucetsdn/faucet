@@ -26,7 +26,6 @@ from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 
 from faucet import valve_of
 from faucet import valve_packet
-from faucet.valve_util import btos
 
 
 class AnonVLAN:
@@ -281,9 +280,17 @@ class ValveRouteManager:
                     self._route_match(routed_vlan, faucet_vip),
                     priority=learn_connected_priority,
                     inst=[self.fib_table.goto(self.vip_table)]))
+            priority -= 1
+            ofmsgs.append(self.vip_table.flowmod(
+                self.vip_table.match(
+                    eth_type=self.ETH_TYPE,
+                    nw_proto=valve_of.inet.IPPROTO_ICMPV6),
+                priority=priority,
+                inst=[self.vip_table.goto(self.output_table)]))
+            priority -= 1
             ofmsgs.append(self.vip_table.flowcontroller(
                 self.vip_table.match(eth_type=self.ETH_TYPE),
-                priority=priority-1,
+                priority=priority,
                 max_len=self.MAX_LEN))
         return ofmsgs
 
@@ -790,37 +797,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             valve_of.apply_actions([valve_of.output_controller()]),
             self.vip_table.goto(self.output_table)]
         ofmsgs = []
-        ofmsgs.append(self.vip_table.flowcontroller(
-            self.vip_table.match(
-                eth_type=self.ETH_TYPE,
-                nw_proto=valve_of.inet.IPPROTO_ICMPV6,
-                icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
-            priority=priority,
-            max_len=self.MAX_LEN))
-        # IPv6 ND for FAUCET VIP
-        ofmsgs.append(self.eth_src_table.flowmod(
-            self.eth_src_table.match(
-                eth_type=self.ETH_TYPE,
-                eth_dst=faucet_vip_host_nd_mcast,
-                vlan=vlan),
-            priority=priority,
-            inst=[self.eth_src_table.goto(self.vip_table)]))
-        ofmsgs.append(self.vip_table.flowmod(
-            self.vip_table.match(
-                eth_type=self.ETH_TYPE,
-                nw_proto=valve_of.inet.IPPROTO_ICMPV6,
-                icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
-            priority=priority,
-            inst=controller_and_flood))
-        # IPv6 ND for connected hosts.
-        ofmsgs.append(self.vip_table.flowcontroller(
-            self.vip_table.match(
-                eth_type=self.ETH_TYPE,
-                eth_dst=vlan.faucet_mac,
-                nw_proto=valve_of.inet.IPPROTO_ICMPV6,
-                icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
-            priority=priority,
-            max_len=self.MAX_LEN))
+        # RA if this is a link local FAUCET VIP
         if faucet_vip.ip.is_link_local:
             ofmsgs.append(self.eth_src_table.flowmod(
                 self.eth_src_table.match(
@@ -832,10 +809,45 @@ class ValveIPv6RouteManager(ValveRouteManager):
             ofmsgs.append(self.vip_table.flowmod(
                 self.vip_table.match(
                     eth_type=self.ETH_TYPE,
+                    eth_dst=valve_packet.IPV6_ALL_ROUTERS_MCAST,
                     nw_proto=valve_of.inet.IPPROTO_ICMPV6,
                     icmpv6_type=icmpv6.ND_ROUTER_SOLICIT),
                 priority=priority,
                 inst=controller_and_flood))
+        # IPv6 ping unicast to FAUCET
+        ofmsgs.append(self.vip_table.flowcontroller(
+            self.vip_table.match(
+                eth_type=self.ETH_TYPE,
+                eth_dst=vlan.faucet_mac,
+                nw_proto=valve_of.inet.IPPROTO_ICMPV6,
+                icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
+            priority=priority,
+            max_len=self.MAX_LEN))
+        # IPv6 NA unicast to FAUCET.
+        ofmsgs.append(self.vip_table.flowcontroller(
+            self.vip_table.match(
+                eth_type=self.ETH_TYPE,
+                eth_dst=vlan.faucet_mac,
+                nw_proto=valve_of.inet.IPPROTO_ICMPV6,
+                icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
+            priority=priority,
+            max_len=self.MAX_LEN))
+        # IPv6 NS for FAUCET VIP
+        ofmsgs.append(self.eth_src_table.flowmod(
+            self.eth_src_table.match(
+                eth_type=self.ETH_TYPE,
+                eth_dst=faucet_vip_host_nd_mcast,
+                vlan=vlan),
+            priority=priority,
+            inst=[self.eth_src_table.goto(self.vip_table)]))
+        ofmsgs.append(self.vip_table.flowmod(
+            self.vip_table.match(
+                eth_type=self.ETH_TYPE,
+                eth_dst=faucet_vip_host_nd_mcast,
+                nw_proto=valve_of.inet.IPPROTO_ICMPV6,
+                icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
+            priority=priority,
+            inst=controller_and_flood))
         return ofmsgs
 
     def _add_faucet_fib_to_vip(self, vlan, priority, faucet_vip, faucet_vip_host):
@@ -852,13 +864,13 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt):
         ofmsgs = []
-        solicited_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
+        solicited_ip = ipaddress.ip_address(icmpv6_pkt.data.dst)
         ofmsgs.extend(self._resolve_vip_response(pkt_meta, solicited_ip, now))
         return ofmsgs
 
     def _nd_advert_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt):
         ofmsgs = []
-        target_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
+        target_ip = ipaddress.ip_address(icmpv6_pkt.data.dst)
         ofmsgs.extend(self._gw_advert(pkt_meta, target_ip, now))
         return ofmsgs
 
