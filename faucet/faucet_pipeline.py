@@ -147,6 +147,13 @@ FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
     vlan_port_scale=2.1,
     )
+EGRESS_DEFAULT_CONFIG = ValveTableConfig(
+    'egress',
+    FLOOD_DEFAULT_CONFIG.table_id + 1,
+    match_types=(('metadata', True),),
+    vlan_port_scale=1.5,
+    metadata_match=VLAN_METADATA_MASK & PORT_METADATA_MASK
+    )
 
 MINIMUM_FAUCET_PIPELINE_TABLES = {
     'vlan', 'eth_src', 'eth_dst', 'flood'}
