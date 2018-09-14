@@ -131,16 +131,16 @@ ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     exact_match=True,
     vlan_port_scale=4.1,
     )
-
 ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
     ETH_DST_HAIRPIN_DEFAULT_CONFIG.table_id + 1,
     exact_match=True,
     miss_goto='flood',
     match_types=(('eth_dst', False), ('vlan_vid', False)),
+    next_tables=('egress',),
     vlan_port_scale=4.1,
+    metadata_write=VLAN_METADATA_MASK & PORT_METADATA_MASK
     )
-
 FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
     ETH_DST_DEFAULT_CONFIG.table_id + 1,
@@ -173,6 +173,7 @@ FAUCET_PIPELINE = (
     ETH_DST_HAIRPIN_DEFAULT_CONFIG,
     ETH_DST_DEFAULT_CONFIG,
     FLOOD_DEFAULT_CONFIG,
+    EGRESS_DEFAULT_CONFIG
 )
 
 DEFAULT_CONFIGS = {
@@ -186,4 +187,5 @@ DEFAULT_CONFIGS = {
     'eth_dst_hairpin': ETH_DST_HAIRPIN_DEFAULT_CONFIG,
     'eth_dst': ETH_DST_DEFAULT_CONFIG,
     'flood': FLOOD_DEFAULT_CONFIG,
+    'egress': EGRESS_DEFAULT_CONFIG,
 }

@@ -1045,6 +1045,38 @@ dps:
         self._check_next_tables(dp.tables['eth_dst'], [])
         self._check_next_tables(dp.tables['flood'], [])
 
+    def test_pipeline_config_egress(self):
+        """Test pipelines are generated correctly with different configs"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        egress_pipeline: True
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[0x1]
+        tables = {
+            'vlan': 0,
+            'classification': 1,
+            'eth_src': 2,
+            'eth_dst': 3,
+            'flood': 4,
+            'egress': 5
+            }
+        self._check_table_names_numbers(dp, tables)
+        self._check_next_tables(dp.tables['vlan'], [1])
+        self._check_next_tables(dp.tables['classification'], [2, 3, 4])
+        self._check_next_tables(dp.tables['eth_src'], [3, 4])
+        self._check_next_tables(dp.tables['eth_dst'], [5])
+        self._check_next_tables(dp.tables['flood'], [])
+        self._check_next_tables(dp.tables['egress'], [])
+
 
     ###########################################
     # Tests of Configuration Failure Handling #

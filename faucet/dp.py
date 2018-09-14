@@ -397,6 +397,8 @@ configuration.
             included_tables.add('eth_dst_hairpin')
         if self.use_classification:
             included_tables.add('classification')
+        if self.egress_pipeline:
+            included_tables.add('egress')
         relative_table_id = 0
         table_configs = {}
         for canonical_table_config in faucet_pipeline.FAUCET_PIPELINE:
