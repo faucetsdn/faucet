@@ -944,10 +944,9 @@ configuration.
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed/added VLAN IDs.
         """
-        deleted_vlans = set([])
-        for vid in list(self.vlans.keys()):
-            if vid not in new_dp.vlans:
-                deleted_vlans.add(vid)
+        curr_vlans = frozenset(self.vlans.keys())
+        new_vlans = frozenset(new_dp.vlans.keys())
+        deleted_vlans = curr_vlans - new_vlans
 
         changed_vlans = set([])
         for vid, new_vlan in list(new_dp.vlans.items()):
