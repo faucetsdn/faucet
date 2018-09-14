@@ -354,7 +354,7 @@ network={
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
         wpa_ctrl_path = os.path.join(
             self.tmpdir, '%s%s-wpasupplicant' % (self.tmpdir, host.name))
-        self.start_wpasupplicant(
+        wpa_log = self.start_wpasupplicant(
             host, conf,
             timeout=10, wpa_ctrl_socket_path=wpa_ctrl_path)
         host.cmd('wpa_cli -p %s logon' % wpa_ctrl_path)
@@ -374,8 +374,7 @@ network={
             self.wait_until_matching_flow(
                 {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0)
             self.one_ipv4_ping(host, self.ping_host.IP(), require_host_learned=False)
-
-            self.eapol1_host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
+            host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
 
             for _ in range(10):
                 if not self.matching_flow_present(
@@ -385,9 +384,9 @@ network={
             else:
                 self.fail('authentication flow was not removed.')
             try:
-                self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
+                self.one_ipv4_ping(host, self.ping_host.IP(),
                                    require_host_learned=False)
-                self.fail('%s should not be able to ping %s' % (self.eapol2_host, self.ping_host))
+                self.fail('%s should not be able to ping %s' % (host, self.ping_host))
             except AssertionError:
                 pass
 

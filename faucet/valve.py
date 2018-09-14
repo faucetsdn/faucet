@@ -114,6 +114,7 @@ class Valve:
         self._last_update_metrics_sec = 0
         self._packet_in_count_sec = 0
         self._port_highwater = {}
+        self.dot1x_acls = []
         self.dp_init()
 
     def port_labels(self, port):
@@ -629,6 +630,7 @@ class Valve:
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_ports))
+        ofmsgs.extend(self.dot1x_acls)
         ofmsgs.append(
             valve_of.faucet_async(
                 packet_in=True,
@@ -1463,7 +1465,7 @@ class Valve:
             port_acl_table.match(
                 in_port=port_num,
                 eth_src=mac),
-            priority=self.dp.highest_priority,
+            priority=self.dp.highest_priority-1,
             inst=[port_acl_table.goto(self.dp.tables['vlan'])])
         return [ofmsg]
 
@@ -1473,30 +1475,41 @@ class Valve:
             port_acl_table.match(
                 in_port=port_num,
                 eth_src=mac),
-            priority=self.dp.highest_priority,
+            priority=self.dp.highest_priority-1,
             strict=True
         )
         return ofmsg
 
     def add_dot1x_forward(self, supplicant_port_num, nfv_port_num, mac):
+        """Setup the dot1x forward port acls.
+        Args:
+            supplicant_port_num (int):
+            nfv_port_num (int):
+            mac (str):
+
+        Returns:
+            list of flowmods
+        """
         to_nfv = self.dp.tables['port_acl'].flowmod(
             self.dp.tables['port_acl'].match(
                 in_port=supplicant_port_num,
-                dl_type=0x888e,
+                eth_type=0x888e,
                 ),
             priority=self.dp.highest_priority,
-            inst=[valve_of.set_eth_dst(mac),  valve_of.output_port(nfv_port_num)])
-        #
-        # from_nfv = self.dp.tables['port_acl'].flowmod(
-        #     self.dp.tables['port_acl'].match(
-        #         in_port=nfv_port_num,
-        #         dl_type=0x888e,
-        #         eth_src=mac
-        #     ),
-        #     priority=self.dp.highest_priority,
-        #     inst=[valve_of.set_eth_src("01:80:c2:00:00:03"), valve_of.output_port(supplicant_port_num)])
+            inst=[valve_of.apply_actions([valve_of.set_field(eth_dst=mac),
+                                          valve_of.output_port(nfv_port_num)])])
 
-        return [to_nfv]
+        from_nfv = self.dp.tables['port_acl'].flowmod(
+            self.dp.tables['port_acl'].match(
+                in_port=nfv_port_num,
+                eth_type=0x888e,
+                eth_src=mac
+            ),
+            priority=self.dp.highest_priority,
+            inst=[valve_of.apply_actions([valve_of.set_field(eth_src="01:80:c2:00:00:03"),
+                                          valve_of.output_port(supplicant_port_num)])])
+        self.dot1x_acls.append(to_nfv)
+        self.dot1x_acls.append(from_nfv)
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
