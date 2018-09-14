@@ -155,13 +155,6 @@ class ValveHostManager:
             if delete_existing:
                 ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
-        # Output packets for this MAC to specified port.
-        ofmsgs.append(self.eth_dst_table.flowmod(
-            self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
-            priority=self.host_priority,
-            inst=[valve_of.apply_actions(vlan.output_port(port))],
-            idle_timeout=dst_rule_idle_timeout))
-
         # Associate this MAC with source port.
         src_match = self.eth_src_table.match(
             in_port=port.number, vlan=vlan, eth_src=eth_src)
@@ -178,6 +171,18 @@ class ValveHostManager:
             hard_timeout=src_rule_hard_timeout,
             idle_timeout=src_rule_idle_timeout))
 
+        # If we are not deleting existing rules, then leave the eth_dst/hairpin rules
+        # alone. They will age out by themselves or be deleted when a host moves ports.
+        if not delete_existing:
+            return ofmsgs
+
+        # Output packets for this MAC to specified port.
+        ofmsgs.append(self.eth_dst_table.flowmod(
+            self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
+            priority=self.host_priority,
+            inst=[valve_of.apply_actions(vlan.output_port(port))],
+            idle_timeout=dst_rule_idle_timeout))
+
         # If port is in hairpin mode, install a special rule
         # that outputs packets destined to this MAC back out the same
         # port they came in (e.g. multiple hosts on same WiFi AP,
@@ -187,7 +192,6 @@ class ValveHostManager:
                 self.eth_dst_hairpin_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
                 priority=self.host_priority,
                 inst=[valve_of.apply_actions(vlan.output_port(port, hairpin=True))],
-                hard_timeout=src_rule_hard_timeout,
                 idle_timeout=dst_rule_idle_timeout))
 
         return ofmsgs
