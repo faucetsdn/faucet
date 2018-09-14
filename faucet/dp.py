@@ -132,7 +132,9 @@ configuration.
         'cache_update_guard_time': 0,
         # Don't update L2 cache if port didn't change within this many seconds (default timeout/2).
         'use_classification': False,
-        # use a classification table to reduce the flow types in the eth_src table
+        # Don't update L2 cache if port didn't change within this many seconds.
+        'egress_pipeline': False
+        # Experimental inclusion of an egress pipeline
         }
 
     defaults_types = {
@@ -181,6 +183,7 @@ configuration.
         'global_vlan': int,
         'cache_update_guard_time': int,
         'use_classification': bool,
+        'egress_pipeline': bool
     }
 
     default_table_sizes_types = {
@@ -237,6 +240,7 @@ configuration.
         self.dyn_last_coldstart_time = None
         self.dyn_running = False
         self.dyn_up_ports = None
+        self.egress_pipeline = None
         self.faucet_dp_mac = None
         self.global_vlan = None
         self.groups = None
