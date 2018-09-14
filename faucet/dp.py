@@ -128,8 +128,8 @@ configuration.
         # Maximum table size for wildcard tables.
         'global_vlan': 0,
         # Reserved VID for internal global router VLAN.
-        'cache_update_guard_time': 17,
-        # Don't update L2 cache if port didn't change within this many seconds.
+        'cache_update_guard_time': 0,
+        # Don't update L2 cache if port didn't change within this many seconds (default timeout/2).
         }
 
     defaults_types = {
@@ -304,6 +304,8 @@ configuration.
         # To prevent L2 learning from timing out before L3 can refresh
         test_config_condition(self.timeout < self.arp_neighbor_timeout, (
             'L2 timeout must be >= ARP timeout'))
+        if self.cache_update_guard_time == 0:
+            self.cache_update_guard_time = self.timeout / 2
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
             test_config_condition('send_interval' not in self.lldp_beacon, (
