@@ -1370,6 +1370,40 @@ class ValveTestCase(ValveTestBases.ValveTestBig):
     pass
 
 
+class ValveFuzzTestCase(ValveTestBases.ValveTestSmall):
+    """Test unknown ports/VLANs."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_fuzz_vlan(self):
+        """Test unknown VIDs/ports."""
+        for i in range(0, 64):
+            self.rcv_packet(1, i, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': self.P2_V200_MAC,
+                'ipv4_src': '10.0.0.2',
+                'ipv4_dst': '10.0.0.3',
+                'vid': i})
+        for i in range(0, 64):
+            self.rcv_packet(i, 0x100, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': self.P2_V200_MAC,
+                'ipv4_src': '10.0.0.2',
+                'ipv4_dst': '10.0.0.3',
+                'vid': 0x100})
+
+
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
     """Test changes to config on ports."""
 
