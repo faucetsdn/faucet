@@ -281,6 +281,13 @@ class ValveRouteManager:
                     priority=learn_connected_priority,
                     inst=[self.fib_table.goto(self.vip_table)]))
             priority -= 1
+            ofmsgs.append(self.vip_table.flowdrop(
+                self.vip_table.match(
+                    eth_type=self.ETH_TYPE,
+                    eth_dst=vlan.faucet_mac,
+                    nw_proto=valve_of.inet.IPPROTO_ICMPV6),
+                priority=priority))
+            priority -= 1
             ofmsgs.append(self.vip_table.flowmod(
                 self.vip_table.match(
                     eth_type=self.ETH_TYPE,
