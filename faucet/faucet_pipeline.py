@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+PORT_METADATA_MASK = 0xFFF
+VLAN_METADATA_MASK = 0xFFF000
 
 class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Configuration for a single table."""
