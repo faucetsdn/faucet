@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Unit tests run as PYTHONPATH=../.. python3 ./test_valve.py."""
+"""Unit tests run as PYTHONPATH=../../.. python3 ./test_valve.py."""
 
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2018 The Contributors
@@ -407,7 +407,9 @@ class ValveTestBases:
             """Check Prometheus variable increments by 1 after calling a function."""
             before = self.get_prom(var, labels)
             func()
-            self.assertTrue(before + 1, self.get_prom(var, labels))
+            after = self.get_prom(var, labels)
+            self.assertEqual(
+                before + 1, after, msg='%s %s before %f after %f' % (var, labels, before, after))
 
         def send_flows_to_dp_by_id(self, valve, flows):
             """Callback for ValvesManager to simulate sending flows to DP."""
@@ -1499,15 +1501,6 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
             partial(self.rcv_packet, 1, 0x300, {
                 'eth_src': self.P1_V300_MAC,
                 'eth_dst': self.UNKNOWN_MAC,
-                'ipv4_src': '10.0.0.1',
-                'ipv4_dst': '10.0.0.2'}),
-            'vlan_hosts_learned',
-            labels={'vlan': str(int(0x300))})
-        self.prom_inc(
-            partial(self.rcv_packet, 5, 0x300, {
-                'eth_src': self.P1_V300_MAC,
-                'eth_dst': self.UNKNOWN_MAC,
-                'vid': 0x300,
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.2'}),
             'vlan_hosts_learned',
