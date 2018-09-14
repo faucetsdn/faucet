@@ -1370,7 +1370,7 @@ class ValveTestCase(ValveTestBases.ValveTestBig):
     pass
 
 
-class ValveChangePortCase(ValveTestBases.ValveTestSmall):
+class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
     """Test changes to config on ports."""
 
     CONFIG = """
@@ -1412,6 +1412,43 @@ dps:
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.3',
             'vid': 0x200})
+        self.update_config(self.LESS_CONFIG, reload_type='warm')
+
+
+class ValveDeleteVLANTestCase(ValveTestBases.ValveTestSmall):
+    """Test changes to config on ports."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100, 0x200]
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    LESS_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x200]
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_delete_vlan(self):
+        """Test VLAN can be deleted."""
         self.update_config(self.LESS_CONFIG, reload_type='warm')
 
 
