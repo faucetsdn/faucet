@@ -281,23 +281,15 @@ class ValveRouteManager:
                     priority=learn_connected_priority,
                     inst=[self.fib_table.goto(self.vip_table)]))
             priority -= 1
-            # Drop unicasted ICMPv6 to us if not handled.
-            ofmsgs.append(self.vip_table.flowdrop(
-                self.vip_table.match(
-                    eth_type=self.ETH_TYPE,
-                    eth_dst=faucet_mac,
-                    nw_proto=valve_of.inet.IPPROTO_ICMPV6),
-                priority=priority))
-            priority -= 1
-            # Output/flood other ICMPv6.
+            # Output/flood other ICMP
             ofmsgs.append(self.vip_table.flowmod(
                 self.vip_table.match(
                     eth_type=self.ETH_TYPE,
-                    nw_proto=valve_of.inet.IPPROTO_ICMPV6),
+                    nw_proto=self.ICMP_TYPE),
                 priority=priority,
                 inst=[self.vip_table.goto(self.output_table)]))
             priority -= 1
-            # Learn from other IPv6 traffic.
+            # Learn from other IP traffic.
             ofmsgs.append(self.vip_table.flowcontroller(
                 self.vip_table.match(eth_type=self.ETH_TYPE),
                 priority=priority,
@@ -702,6 +694,14 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         ofmsgs = []
+        # TODO: could narrow this to only echo.
+        ofmsgs.append(self.vip_table.flowcontroller(
+            self.vip_table.match(
+                eth_type=self.ETH_TYPE,
+                eth_dst=vlan.faucet_mac,
+                nw_proto=self.ICMP_TYPE),
+            priority=priority))
+        # ARP
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(
                 eth_type=valve_of.ether.ETH_TYPE_ARP,
