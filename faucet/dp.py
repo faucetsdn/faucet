@@ -19,6 +19,7 @@
 import copy
 from collections import defaultdict
 import random
+import math
 import netaddr
 
 from datadiff import diff
@@ -90,13 +91,13 @@ configuration.
         # Max hosts to try to resolve per gateway resolution cycle.
         'max_host_fib_retry_count': 10,
         # Max number of times to retry resolution of a host FIB route.
-        'max_resolve_backoff_time': 32,
+        'max_resolve_backoff_time': 64,
         # Max number of seconds to back off to when resolving nexthops.
         'packetin_pps': None,
         # Ask switch to rate limit packet pps. TODO: Not supported by OVS in 2.7.0
-        'learn_jitter': 10,
+        'learn_jitter': 0,
         # Jitter learn timeouts by up to this many seconds
-        'learn_ban_timeout': 10,
+        'learn_ban_timeout': 0,
         # When banning/limiting learning, wait this many seconds before learning can be retried
         'advertise_interval': 30,
         # How often to advertise (eg. IPv6 RAs)
@@ -306,6 +307,10 @@ configuration.
             'L2 timeout must be >= ARP timeout'))
         if self.cache_update_guard_time == 0:
             self.cache_update_guard_time = int(self.timeout / 2)
+        if self.learn_jitter == 0:
+            self.learn_jitter = int(max(math.sqrt(self.timeout) * 2, 1))
+        if self.learn_ban_timeout == 0:
+            self.learn_ban_timeout = self.learn_jitter
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
             test_config_condition('send_interval' not in self.lldp_beacon, (
