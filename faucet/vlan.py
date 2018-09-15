@@ -184,6 +184,7 @@ class VLAN(Conf):
         self.dyn_neigh_cache_by_ipv = None
         self.dyn_oldest_host_time = None
         self.dyn_newest_host_time = None
+        self.dyn_last_updated_metrics_sec = None
 
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
         self.dyn_gws_by_ipv = collections.defaultdict(dict)

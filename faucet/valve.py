@@ -87,7 +87,6 @@ class Valve:
         '_last_advertise_sec',
         '_last_packet_in_sec',
         '_last_pipeline_flows',
-        '_last_update_metrics_sec',
         '_packet_in_count_sec',
         '_port_highwater',
         '_route_manager_by_eth_type',
@@ -111,7 +110,6 @@ class Valve:
         self._last_advertise_sec = 0
         self._last_pipeline_flows = []
         self._last_packet_in_sec = 0
-        self._last_update_metrics_sec = 0
         self._packet_in_count_sec = 0
         self._port_highwater = {}
         self.dp_init()
@@ -1171,11 +1169,11 @@ class Valve:
 
     def update_metrics(self, now, updated_port=None, rate_limited=False):
         """Update Gauge/metrics."""
-        if self._last_update_metrics_sec and rate_limited:
-            if now - self._last_update_metrics_sec < self.dp.metrics_rate_limit_sec:
-                return
 
-        def _update_vlan(vlan):
+        def _update_vlan(vlan, now, rate_limited):
+            if vlan.dyn_last_updated_metrics_sec and rate_limited:
+                if now - vlan.dyn_last_updated_metrics_sec < self.dp.metrics_rate_limit_sec:
+                    return False
             vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid)
             self._set_var('vlan_hosts_learned', vlan.hosts_count(), labels=vlan_labels)
             self._set_var('vlan_learn_bans', vlan.dyn_learn_ban_count, labels=vlan_labels)
@@ -1184,6 +1182,7 @@ class Valve:
                     'vlan_neighbors',
                     vlan.neigh_cache_count_by_ipv(ipv),
                     labels=dict(vlan_labels, ipv=ipv))
+            return True
 
         def _update_port(vlan, port):
             port_labels = self.port_labels(port)
@@ -1197,8 +1196,8 @@ class Valve:
             new_vlan_host_learned = (
                 port.dyn_newest_host_time is not None and
                 vlan.dyn_newest_host_time is not None and
-                port.dyn_newest_host_time > self._last_update_metrics_sec and
-                vlan.dyn_newest_host_time > self._last_update_metrics_sec)
+                port.dyn_newest_host_time > vlan.dyn_last_updated_metrics_sec and
+                vlan.dyn_newest_host_time > vlan.dyn_last_updated_metrics_sec)
             # No change in hosts learned on this VLAN, don't re-export MACs.
             if highwater == port_vlan_hosts_learned and not new_vlan_host_learned:
                 return
@@ -1214,13 +1213,15 @@ class Valve:
 
         if updated_port:
             for vlan in updated_port.vlans():
-                _update_vlan(vlan)
-                _update_port(vlan, updated_port)
+                if _update_vlan(vlan, now, rate_limited):
+                    _update_port(vlan, updated_port)
+                    vlan.dyn_last_updated_metrics_sec = now
         else:
             for vlan in list(self.dp.vlans.values()):
-                _update_vlan(vlan)
-                for port in vlan.get_ports():
-                    _update_port(vlan, port)
+                if _update_vlan(vlan, now, rate_limited):
+                    for port in vlan.get_ports():
+                        _update_port(vlan, port)
+                    vlan.dyn_last_updated_metrics_sec = now
 
         self._last_update_metrics_sec = now
 
