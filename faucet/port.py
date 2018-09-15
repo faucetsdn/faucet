@@ -155,6 +155,7 @@ class Port(Conf):
         self.dyn_stack_current_state = STACK_STATE_DOWN
         self.dyn_stack_probe_info = None
         self.dyn_stack_probe_info = {}
+        self.dyn_newest_host_time = None
 
         self.tagged_vlans = []
         self.lldp_beacon = {}

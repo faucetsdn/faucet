@@ -1289,7 +1289,8 @@ dbs:
         for port in ports:
             port_no = self.port_map['port_%u' % port]
             port_vlan_hosts_learned += self.scrape_prometheus_var(
-                'port_vlan_hosts_learned', {'vlan': str(vlan), 'port': int(port_no)})
+                'port_vlan_hosts_learned', {'vlan': str(vlan), 'port': int(port_no)},
+                default=0)
             prom_macs_learned += len(self.prom_macs_learned(
                 vlan=vlan, port=port_no))
         self.assertEqual(vlan_hosts_learned, port_vlan_hosts_learned)

@@ -1174,7 +1174,6 @@ class Valve:
         if self._last_update_metrics_sec and rate_limited:
             if now - self._last_update_metrics_sec < self.dp.metrics_rate_limit_sec:
                 return
-        self._last_update_metrics_sec = now
 
         def _update_vlan(vlan):
             vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid)
@@ -1191,10 +1190,18 @@ class Valve:
             port_vlan_labels = self._port_vlan_labels(port, vlan)
             port_vlan_hosts_learned = port.hosts_count(vlans=[vlan])
             self._set_var(
-                'port_vlan_hosts_learned', port_vlan_hosts_learned, labels=port_vlan_labels)
-            self._set_var(
                 'port_learn_bans', port.dyn_learn_ban_count, labels=port_labels)
+            self._set_var(
+                'port_vlan_hosts_learned', port_vlan_hosts_learned, labels=port_vlan_labels)
             highwater = self._port_highwater[vlan.vid][port.number]
+            new_vlan_host_learned = (
+                port.dyn_newest_host_time is not None and
+                vlan.dyn_newest_host_time is not None and
+                port.dyn_newest_host_time > self._last_update_metrics_sec and
+                vlan.dyn_newest_host_time > self._last_update_metrics_sec)
+            # No change in hosts learned on this VLAN, don't re-export MACs.
+            if highwater == port_vlan_hosts_learned and not new_vlan_host_learned:
+                return
             if highwater > port_vlan_hosts_learned:
                 for i in range(port_vlan_hosts_learned, highwater + 1):
                     self._set_var('learned_macs', 0, dict(port_vlan_labels, n=i))
@@ -1214,6 +1221,8 @@ class Valve:
                 _update_vlan(vlan)
                 for port in vlan.get_ports():
                     _update_port(vlan, port)
+
+        self._last_update_metrics_sec = now
 
     def rcv_packet(self, now, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
