@@ -308,7 +308,7 @@ configuration.
         if self.cache_update_guard_time == 0:
             self.cache_update_guard_time = int(self.timeout / 2)
         if self.learn_jitter == 0:
-            self.learn_jitter = int(max(math.sqrt(self.timeout) * 2, 1))
+            self.learn_jitter = int(max(math.sqrt(self.timeout) * 3, 1))
         if self.learn_ban_timeout == 0:
             self.learn_ban_timeout = self.learn_jitter
         if self.lldp_beacon:
