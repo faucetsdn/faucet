@@ -183,6 +183,8 @@ class VLAN(Conf):
         self.dyn_learn_ban_count = 0
         self.dyn_neigh_cache_by_ipv = None
         self.dyn_oldest_host_time = None
+        self.dyn_newest_host_time = None
+        self.dyn_last_updated_metrics_sec = None
 
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
         self.dyn_gws_by_ipv = collections.defaultdict(dict)
@@ -306,6 +308,8 @@ class VLAN(Conf):
             self.dyn_host_cache_by_port[port.number] = set()
         self.dyn_host_cache_by_port[port.number].add(entry)
         self.dyn_host_cache[eth_src] = entry
+        self.dyn_newest_host_time = cache_time
+        port.dyn_newest_host_time = cache_time
 
     def expire_cache_host(self, eth_src):
         """Expire a host from caches."""
