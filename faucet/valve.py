@@ -1196,6 +1196,7 @@ class Valve:
             new_vlan_host_learned = (
                 port.dyn_newest_host_time is not None and
                 vlan.dyn_newest_host_time is not None and
+                vlan.dyn_last_updated_metrics_sec is not None and
                 port.dyn_newest_host_time > vlan.dyn_last_updated_metrics_sec and
                 vlan.dyn_newest_host_time > vlan.dyn_last_updated_metrics_sec)
             # No change in hosts learned on this VLAN, don't re-export MACs.
