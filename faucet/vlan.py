@@ -532,9 +532,8 @@ class VLAN(Conf):
                 (None, self.untagged_flood_ports(False))):
             if ports:
                 pkt = packet_builder(vid, *args)
-                flood_ofmsgs = [
-                    valve_of.packetout(port.number, pkt.data) for port in ports if port.running()]
-                ofmsgs.extend(flood_ofmsgs)
+                ofmsgs.append(valve_of.packetouts(
+                    [port.number for port in ports if port.running()], pkt.data))
         return ofmsgs
 
     def port_is_tagged(self, port):

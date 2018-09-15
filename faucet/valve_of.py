@@ -351,6 +351,24 @@ def output_controller(max_len=MAX_PACKET_IN_BYTES):
     return output_port(ofp.OFPP_CONTROLLER, max_len)
 
 
+def packetouts(port_nums, data):
+    """Return OpenFlow action to mulltiply packet out to dataplane from controller.
+
+    Args:
+        port_num (list): ints, ports to output to.
+        data (str): raw packet to output.
+    Returns:
+        ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: packet out action.
+    """
+    random.shuffle(port_nums)
+    return parser.OFPPacketOut(
+        datapath=None,
+        buffer_id=ofp.OFP_NO_BUFFER,
+        in_port=ofp.OFPP_CONTROLLER,
+        actions=[output_port(port_num) for port_num in port_nums],
+        data=data)
+
+
 def packetout(port_num, data):
     """Return OpenFlow action to packet out to dataplane from controller.
 
@@ -360,12 +378,7 @@ def packetout(port_num, data):
     Returns:
         ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: packet out action.
     """
-    return parser.OFPPacketOut(
-        datapath=None,
-        buffer_id=ofp.OFP_NO_BUFFER,
-        in_port=ofp.OFPP_CONTROLLER,
-        actions=[output_port(port_num)],
-        data=data)
+    return packetouts([port_num], data)
 
 
 def barrier():
