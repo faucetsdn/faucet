@@ -1224,8 +1224,6 @@ class Valve:
                         _update_port(vlan, port)
                     vlan.dyn_last_updated_metrics_sec = now
 
-        self._last_update_metrics_sec = now
-
     def rcv_packet(self, now, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
 
