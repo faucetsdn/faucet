@@ -151,7 +151,11 @@ class ValvesManager:
         """Call a method on all Valves and send any resulting flows."""
         for valve in list(self.valves.values()):
             other_valves = self._other_running_valves(valve)
-            ofmsgs = getattr(valve, valve_service)(now, other_valves)
+            valve_service_labels = dict(valve.base_prom_labels, valve_service=valve_service)
+            valve_service_func = getattr(valve, valve_service)
+            with self.metrics.faucet_valve_service_secs.labels( # pylint: disable=no-member
+                    **valve_service_labels).time():
+                ofmsgs = valve_service_func(now, other_valves)
             if ofmsgs:
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
 

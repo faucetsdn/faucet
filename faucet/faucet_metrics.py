@@ -95,6 +95,11 @@ class FaucetMetrics(PromClient):
             'FAUCET packet in processing time',
             self.REQUIRED_LABELS,
             (0.0001, 0.001, 0.01, 0.1, 1))
+        self.faucet_valve_service_secs = self._histogram(
+            'faucet_service_secs',
+            'FAUCET valve service processing time',
+            self.REQUIRED_LABELS + ['valve_service'],
+            (0.0001, 0.001, 0.01, 0.1, 1))
         self.bgp_neighbor_uptime_seconds = self._gauge(
             'bgp_neighbor_uptime',
             'BGP neighbor uptime in seconds',
