@@ -4433,7 +4433,7 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
         return 2047
 
     def netbase(self, vid, host):
-        return '192.168.%u.%u' % (vid, host)
+        return ipaddress.ip_interface('192.168.%u.%u' % (vid, host))
 
     def fib_table(self):
         return self._IPV4_FIB_TABLE
@@ -4503,27 +4503,27 @@ vlans:
                 ipa = self.netbase(vid, i)
                 ipg = self.netbase(vid, 254)
                 ipd = self.netbase(vid, 253)
-                required_ipds.add(ipd)
+                required_ipds.add(str(ipd.ip))
                 setup_commands.extend([
                     self.ip('link add link %s name %s type vlan id %u' % (
                         host.intf_root_name, vlan_int, vid)),
                     self.ip('link set dev %s up' % vlan_int),
                     self.ip('link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int)),
                     self.ip('link set dev %s up' % macvlan_int),
-                    self.ip('address add %s/%u brd + dev %s' % (ipa, self.NETPREFIX, macvlan_int)),
-                    self.ip('route add default via %s table %u' % (ipg, vid)),
-                    self.ip('rule add from %s/%u table %u priority 100' % (ipa, self.HOSTPREFIX, vid)),
-                    self.fping(macvlan_int, ipg),
+                    self.ip('address add %s/%u brd + dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
+                    self.ip('route add default via %s table %u' % (ipg.ip, vid)),
+                    self.ip('rule add from %s/%u table %u priority 100' % (ipa.ip, self.HOSTPREFIX, vid)),
+                    self.fping(macvlan_int, ipg.ip),
                     # stimulate learning attempts for down host.
-                    self.ip('neigh add %s lladdr %s dev %s' % (ipd, self.FAUCET_MAC, macvlan_int)),
-                    self.fping(macvlan_int, ipd)])
+                    self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int)),
+                    self.fping(macvlan_int, ipd.ip)])
                 # next host routes via FAUCET for other host in same connected subnet
                 # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
                     if j != i:
                         other_ip = self.netbase(vid, j)
                         setup_commands.append(
-                            self.ip('route add %s/%u via %s table %u' % (other_ip, self.HOSTPREFIX, ipg, vid)))
+                            self.ip('route add %s/%u via %s table %u' % (other_ip.ip, self.HOSTPREFIX, ipg.ip, vid)))
             self.quiet_commands(host, setup_commands)
 
         # verify drop rules present for down hosts
@@ -4546,21 +4546,19 @@ vlans:
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[0], 2)),
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[-1], 2)),
                 (self.netbase(self.NEW_VIDS[-1], 1), self.netbase(self.NEW_VIDS[0], 2))):
-            host_ip_str, other_ip_str = routed_ip_pair
-            host_ip = ipaddress.ip_address(host_ip_str)
-            other_ip = ipaddress.ip_address(other_ip_str)
+            host_ip, other_ip= routed_ip_pair
             self.verify_iperf_min(
                 ((host, self.port_map['port_1']),
                  (other_host, self.port_map['port_2'])),
-                1, host_ip, other_ip)
+                1, host_ip.ip, other_ip.ip)
 
         # verify L3 reachability between hosts within each subnet
         for vid in self.NEW_VIDS:
             macvlan_int = 'macvlan%u' % vid
             host_ip = self.netbase(vid, 1)
             other_ip = self.netbase(vid, 2)
-            self.ping(host, other_ip, macvlan_int)
-            self.ping(other_host, host_ip, macvlan_int)
+            self.ping(host, other_ip.ip, macvlan_int)
+            self.ping(other_host, host_ip.ip, macvlan_int)
 
         # verify L3 hairpin reachability
         macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
@@ -4573,14 +4571,14 @@ vlans:
         setup_cmds.extend(
             [self.ip('link set %s netns %s' % (macvlan2_int, netns))])
         for exec_cmd in (
-                (self.ip('address add %s/%u brd + dev %s' % (macvlan2_ip, self.NETPREFIX, macvlan2_int)),
+                (self.ip('address add %s/%u brd + dev %s' % (macvlan2_ip.ip, self.NETPREFIX, macvlan2_int)),
                  self.ip('link set %s up' % macvlan2_int),
-                 self.ip('route add default via %s' % macvlan2_gw))):
+                 self.ip('route add default via %s' % macvlan2_gw.ip))):
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
         setup_cmds.append(
-            self.ip('route add %s/%u via %s' % (macvlan2_ip, self.HOSTPREFIX, macvlan1_gw)))
+            self.ip('route add %s/%u via %s' % (macvlan2_ip.ip, self.HOSTPREFIX, macvlan1_gw.ip)))
         self.quiet_commands(host, setup_cmds)
-        self.ping(host, macvlan2_ip, macvlan1_int)
+        self.ping(host, macvlan2_ip.ip, macvlan1_int)
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
