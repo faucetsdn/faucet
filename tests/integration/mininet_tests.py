@@ -34,7 +34,7 @@ from clib import mininet_test_base
 from clib import mininet_test_util
 from clib import mininet_test_topo
 
-from clib.mininet_test_base import PEER_BGP_AS
+from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
 
 
 class QuietHTTPServer(HTTPServer):
@@ -718,7 +718,7 @@ class FaucetUntaggedNSLoopTest(FaucetUntaggedTest):
 acls:
     nsonly:
         - rule:
-            dl_type: 0x86dd
+            dl_type: %u
             ip_proto: 58
             icmpv6_type: 135
             actions:
@@ -729,7 +729,7 @@ acls:
 vlans:
     100:
         description: "untagged"
-"""
+""" % IPV6_ETH
 
     CONFIG = """
         interfaces:
@@ -2113,7 +2113,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 class FaucetIPv4TupleTest(FaucetTest):
 
     MAX_RULES = 1024
-    ETH_TYPE = 0x0800
+    ETH_TYPE = IPV4_ETH
     NET_BASE = ipaddress.IPv4Network('10.0.0.0/16')
     N_UNTAGGED = 4
     N_TAGGED = 0
@@ -2198,7 +2198,7 @@ acls:
 class FaucetIPv6TupleTest(FaucetIPv4TupleTest):
 
     MAX_RULES = 1024
-    ETH_TYPE = 0x86DD
+    ETH_TYPE = IPV4_ETH
     NET_BASE = ipaddress.IPv6Network('fc00::00/64')
     START_ACL_CONFIG = """
 acls:
@@ -2404,7 +2404,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             cold_start=False)
         self.wait_until_matching_flow(
             {'in_port': int(self.port_map['port_1']),
-             'eth_type': 0x800, 'tcp_dst': 5001, 'ip_proto': 6},
+             'eth_type': IPV4_ETH, 'tcp_dst': 5001, 'ip_proto': 6},
             table_id=self._PORT_ACL_TABLE, cookie=self.ACL_COOKIE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
@@ -2433,7 +2433,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             restart=True, cold_start=False)
         self.wait_until_matching_flow(
             {'in_port': int(self.port_map['port_1']),
-             'eth_type': 0x800, 'tcp_dst': 5001, 'ip_proto': 6},
+             'eth_type': IPV4_ETH, 'tcp_dst': 5001, 'ip_proto': 6},
             table_id=self._PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
@@ -3749,7 +3749,7 @@ acls:
         matches = {
             'in_port': int(self.port_map['port_1']),
             'tcp_dst': 5001,
-            'eth_type': 0x800,
+            'eth_type': IPV4_ETH,
             'ip_proto': 6}
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
@@ -4926,7 +4926,7 @@ class FaucetTaggedICMPv6ACLTest(FaucetTaggedTest):
 acls:
     1:
         - rule:
-            dl_type: 0x86dd
+            dl_type: %u
             vlan_vid: 100
             ip_proto: 58
             icmpv6_type: 135
@@ -4941,7 +4941,7 @@ vlans:
     100:
         description: "tagged"
         faucet_vips: ["fc00::1:254/112"]
-"""
+""" % IPV6_ETH
 
     CONFIG = """
         max_resolve_backoff_time: 1
@@ -4968,7 +4968,7 @@ vlans:
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         self.one_ipv6_ping(first_host, 'fc00::1:2')
         self.wait_nonzero_packet_count_flow(
-            {'dl_type': 0x86dd, 'ip_proto': 58, 'icmpv6_type': 135,
+            {'dl_type': IPV6_ETH, 'ip_proto': 58, 'icmpv6_type': 135,
              'ipv6_nd_target': 'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
 
 
@@ -6304,7 +6304,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     ACLS = {
         1: [
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'nw_dst': '10.0.0.2',
                 'actions': {
                     'output': {
@@ -6313,7 +6313,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
@@ -6322,7 +6322,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
                         'port': 4
@@ -6337,7 +6337,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
         ],
         2: [
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
                         'port': 5
@@ -6352,7 +6352,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
         ],
         3: [
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'nw_dst': '10.0.0.7',
                 'actions': {
                     'output': {
@@ -6361,7 +6361,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
@@ -6370,7 +6370,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'actions': {
                     'allow': 0,
                 },
@@ -6439,7 +6439,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     ACLS = {
         1: [
             {'rule': {
-                'dl_type': int('0x800', 16),
+                'dl_type': IPV4_ETH,
                 'ip_proto': 6,
                 'tcp_dst': 5001,
                 'actions': {
@@ -6447,7 +6447,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': int('0x800', 16),
+                'dl_type': IPV4_ETH,
                 'ip_proto': 6,
                 'tcp_dst': 5002,
                 'actions': {
@@ -6467,7 +6467,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     ACLS_OVERRIDE = {
         1: [
             {'rule': {
-                'dl_type': int('0x800', 16),
+                'dl_type': IPV4_ETH,
                 'ip_proto': 6,
                 'tcp_dst': 5001,
                 'actions': {
@@ -6475,7 +6475,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': int('0x800', 16),
+                'dl_type': IPV4_ETH,
                 'ip_proto': 6,
                 'tcp_dst': 5002,
                 'actions': {
