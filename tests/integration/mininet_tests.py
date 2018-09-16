@@ -4435,9 +4435,13 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def netbase(self, vid, host):
         return '192.168.%u.%u' % (vid, host)
 
+    def fib_table(self):
+        return self._IPV4_FIB_TABLE
+
     IPV = 4
     HOSTPREFIX = 32
     NETPREFIX = 24
+    ETH_TYPE = IPV4_ETH
 
     def ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
@@ -4518,8 +4522,8 @@ vlans:
 
         # verify drop rules present for down hosts
         drop_rules = self.get_matching_flows_on_dpid(
-            self.dpid, {'dl_type': IPV4_ETH, 'dl_vlan': str(self.GLOBAL_VID)},
-            table_id=self._IPV4_FIB_TABLE, actions=[])
+            self.dpid, {'dl_type': self.ETH_TYPE, 'dl_vlan': str(self.GLOBAL_VID)},
+            table_id=self.fib_table(), actions=[])
         self.assertTrue(drop_rules)
         for drop_rule in drop_rules:
             match = drop_rule['match']
