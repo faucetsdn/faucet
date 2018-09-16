@@ -4452,8 +4452,8 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def fping(self, macvlan_int, ipg):
         return 'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
-    def ping(self, host, macvlan2_ip, macvlan1_int):
-        return self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
+    def ping(self, host, ipa, macvlan_int):
+        return self.one_ipv4_ping(host, ipa, intf=macvlan_int)
 
     def ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
@@ -4545,7 +4545,7 @@ vlans:
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[0], 2)),
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[-1], 2)),
                 (self.netbase(self.NEW_VIDS[-1], 1), self.netbase(self.NEW_VIDS[0], 2))):
-            host_ip, other_ip= routed_ip_pair
+            host_ip, other_ip = routed_ip_pair
             self.verify_iperf_min(
                 ((host, self.port_map['port_1']),
                  (other_host, self.port_map['port_2'])),
@@ -4607,8 +4607,8 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     def fping(self, macvlan_int, ipg):
         return 'fping6 -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
-    def ping(self, host, macvlan2_ip, macvlan1_int):
-        return self.one_ipv6_ping(host, macvlan2_ip, intf=macvlan1_int)
+    def ping(self, host, ipa, macvlan_int):
+        return self.one_ipv6_ping(host, ipa, intf=macvlan_int)
 
     def ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
