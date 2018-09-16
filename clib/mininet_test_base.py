@@ -601,7 +601,7 @@ class FaucetTestBase(unittest.TestCase):
             ('Ether(dst=\'ff:ff:ff:ff:ff:ff\', src=\'%s\', type=%u) / '
              'IP(src=\'0.0.0.0\', dst=\'255.255.255.255\') / UDP(dport=67,sport=68) / '
              'BOOTP(op=1) / DHCP(options=[(\'message-type\', \'discover\'), (\'end\')])') % (
-                 IPV4_ETH, mac),
+                 mac, IPV4_ETH),
             iface)
 
     @staticmethod
