@@ -4438,6 +4438,12 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def fib_table(self):
         return self._IPV4_FIB_TABLE
 
+    def fping(self, macvlan_int, ipg):
+        return 'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
+
+    def ping(self, host, macvlan2_ip, macvlan1_int):
+        return self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
+
     IPV = 4
     HOSTPREFIX = 32
     NETPREFIX = 24
@@ -4507,10 +4513,10 @@ vlans:
                     self.ip('address add %s/%u brd + dev %s' % (ipa, self.NETPREFIX, macvlan_int)),
                     self.ip('route add default via %s table %u' % (ipg, vid)),
                     self.ip('rule add from %s/%u table %u priority 100' % (ipa, self.HOSTPREFIX, vid)),
-                    'ping -c1 -i0.1 -I%s %s > /dev/null' % (macvlan_int, ipg),
+                    self.fping(macvlan_int, ipg),
                     # stimulate learning attempts for down host.
                     self.ip('neigh add %s lladdr %s dev %s' % (ipd, self.FAUCET_MAC, macvlan_int)),
-                    'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipd)])
+                    self.fping(macvlan_int, ipd)])
                 # next host routes via FAUCET for other host in same connected subnet
                 # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
@@ -4553,8 +4559,8 @@ vlans:
             macvlan_int = 'macvlan%u' % vid
             host_ip = self.netbase(vid, 1)
             other_ip = self.netbase(vid, 2)
-            self.one_ipv4_ping(host, other_ip, intf=macvlan_int)
-            self.one_ipv4_ping(other_host, host_ip, intf=macvlan_int)
+            self.ping(host, other_ip, macvlan_int)
+            self.ping(other_host, host_ip, macvlan_int)
 
         # verify L3 hairpin reachability
         macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
@@ -4574,7 +4580,7 @@ vlans:
         setup_cmds.append(
             self.ip('route add %s/%u via %s' % (macvlan2_ip, self.HOSTPREFIX, macvlan1_gw)))
         self.quiet_commands(host, setup_cmds)
-        self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
+        self.ping(host, macvlan2_ip, macvlan1_int)
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
