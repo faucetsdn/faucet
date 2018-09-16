@@ -4441,7 +4441,6 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     GLOBAL_VID = global_vid()
     STR_VIDS = [str(i) for i in _vids()]
     NEW_VIDS = VIDS[1:]
-    GLOBAL_VID = 2047
 
     def netbase(self, vid, host):
         return ipaddress.ip_interface('192.168.%u.%u' % (vid, host))
@@ -4627,7 +4626,7 @@ vlans:
          '        faucet_vips: ["fc01::%u:254/112"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: %u 
-        proactive_learn_v4: True
+        proactive_learn_v6: True
         max_wildcard_table_size: 512
         table_sizes:
             vlan: 256
