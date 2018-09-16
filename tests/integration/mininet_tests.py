@@ -4606,7 +4606,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
         return 'fping6 -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
     def ping(self, host, ipa, macvlan_int):
-        return self.one_ipv6_ping(host, ipa, intf=macvlan_int)
+        return self.one_ipv6_ping(host, ipa, intf=macvlan_int, timeout=2)
 
     def ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)

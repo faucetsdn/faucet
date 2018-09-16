@@ -1841,11 +1841,15 @@ dbs:
             msg='%s: %s' % (ping_cmd, ping_result))
 
     def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None,
-                      expected_result=True):
+                      expected_result=True, timeout=None):
         """Ping an IPv4 destination from a host."""
         if intf is None:
             intf = host.defaultIntf()
-        ping_cmd = 'ping -W2 -c1 -I%s %s' % (intf, dst)
+        if timeout is None:
+            timeout = ''
+        else:
+            timeout = '-W%u' % timeout
+        ping_cmd = 'ping -c1 %s -I%s %s' % (timeout, intf, dst)
         return self._one_ip_ping(host, ping_cmd, retries, require_host_learned, expected_result)
 
     def one_ipv4_controller_ping(self, host):
@@ -1855,11 +1859,15 @@ dbs:
             host, self.FAUCET_VIPV4.ip, self.FAUCET_MAC)
 
     def one_ipv6_ping(self, host, dst, retries=3, require_host_learned=True, intf=None,
-                      expected_result=True):
+                      expected_result=True, timeout=None):
         """Ping an IPv6 destination from a host."""
         if intf is None:
             intf = host.defaultIntf()
-        ping_cmd = 'ping6 -W2 -c1 -I%s %s' % (intf, dst)
+        if timeout is None:
+            timeout = ''
+        else:
+            timeout = '-W%u' % timeout
+        ping_cmd = 'ping6 -c1 %s -I%s %s' % (timeout, intf, dst)
         return self._one_ip_ping(host, ping_cmd, retries, require_host_learned, expected_result)
 
     def one_ipv6_controller_ping(self, host):
