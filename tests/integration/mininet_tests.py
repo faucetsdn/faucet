@@ -4580,6 +4580,7 @@ vlans:
         self.ping(host, macvlan2_ip.ip, macvlan1_int)
 
 
+@unittest.skip('prototype: disabled')
 class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
 
     IPV = 6
