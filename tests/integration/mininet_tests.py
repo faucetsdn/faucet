@@ -4484,6 +4484,7 @@ vlans:
 
     def test_tagged(self):
         hosts = self.net.hosts[:2]
+        required_ipds = set()
         for i, host in enumerate(hosts, start=1):
             setup_commands = []
             for vid in self.NEW_VIDS:
@@ -4492,6 +4493,7 @@ vlans:
                 ipa = self.netbase(vid, i)
                 ipg = self.netbase(vid, 254)
                 ipd = self.netbase(vid, 253)
+                required_ipds.add(ipd)
                 setup_commands.extend([
                     self.ip('link add link %s name %s type vlan id %u' % (
                         host.intf_root_name, vlan_int, vid)),
@@ -4516,14 +4518,17 @@ vlans:
 
         # verify drop rules present for down hosts
         drop_rules = self.get_matching_flows_on_dpid(
-            self.dpid, {'dl_type': 2048, 'dl_vlan': str(self.GLOBAL_VID)},
+            self.dpid, {'dl_type': IPV4_ETH, 'dl_vlan': str(self.GLOBAL_VID)},
             table_id=self._IPV4_FIB_TABLE, actions=[])
         self.assertTrue(drop_rules)
-        drop_ip_re = re.compile(r'^192.168.\d+.253.*')
         for drop_rule in drop_rules:
             match = drop_rule['match']
-            self.assertTrue('nw_dst' in match, msg=drop_rule)
-            self.assertTrue(drop_ip_re.match(match['nw_dst']), msg=drop_rule)
+            del match['dl_type']
+            del match['dl_vlan']
+            self.assertEqual(1, len(match))
+            ipd = list(match.values())[0].split('/')[0]
+            required_ipds.remove(ipd)
+        self.assertFalse(required_ipds)
 
         # verify routing performance
         host, other_host = hosts
