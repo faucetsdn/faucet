@@ -4445,7 +4445,6 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
         return self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
 
     IPV = 4
-    HOSTPREFIX = 32
     NETPREFIX = 24
     ETH_TYPE = IPV4_ETH
 
@@ -4512,7 +4511,7 @@ vlans:
                     self.ip('link set dev %s up' % macvlan_int),
                     self.ip('address add %s/%u brd + dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
                     self.ip('route add default via %s table %u' % (ipg.ip, vid)),
-                    self.ip('rule add from %s/%u table %u priority 100' % (ipa.ip, self.HOSTPREFIX, vid)),
+                    self.ip('rule add from %s table %u priority 100' % (ipa, vid)),
                     self.fping(macvlan_int, ipg.ip),
                     # stimulate learning attempts for down host.
                     self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int)),
@@ -4523,7 +4522,7 @@ vlans:
                     if j != i:
                         other_ip = self.netbase(vid, j)
                         setup_commands.append(
-                            self.ip('route add %s/%u via %s table %u' % (other_ip.ip, self.HOSTPREFIX, ipg.ip, vid)))
+                            self.ip('route add %s via %s table %u' % (other_ip, ipg.ip, vid)))
             self.quiet_commands(host, setup_commands)
 
         # verify drop rules present for down hosts
@@ -4576,7 +4575,7 @@ vlans:
                  self.ip('route add default via %s' % macvlan2_gw.ip))):
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
         setup_cmds.append(
-            self.ip('route add %s/%u via %s' % (macvlan2_ip.ip, self.HOSTPREFIX, macvlan1_gw.ip)))
+            self.ip('route add %s via %s' % (macvlan2_ip, macvlan1_gw.ip)))
         self.quiet_commands(host, setup_cmds)
         self.ping(host, macvlan2_ip.ip, macvlan1_int)
 
