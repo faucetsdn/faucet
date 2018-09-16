@@ -1193,13 +1193,9 @@ class Valve:
             self._set_var(
                 'port_vlan_hosts_learned', port_vlan_hosts_learned, labels=port_vlan_labels)
             highwater = self._port_highwater[vlan.vid][port.number]
-            add_time = vlan.dyn_host_cache_add_time.get(port.number, None)
-            new_vlan_host_learned = (
-                add_time is not None and
-                vlan.dyn_last_updated_metrics_sec is not None and
-                add_time > vlan.dyn_last_updated_metrics_sec)
+            stats_stale = vlan.dyn_host_cache_stats_stale.get(port.number, True)
             # No change in hosts learned on this VLAN, don't re-export MACs.
-            if highwater == port_vlan_hosts_learned and not new_vlan_host_learned:
+            if highwater == port_vlan_hosts_learned and not stats_stale:
                 return
             if highwater > port_vlan_hosts_learned:
                 for i in range(port_vlan_hosts_learned, highwater + 1):
@@ -1210,6 +1206,7 @@ class Valve:
             # TODO: make MAC table updates less expensive.
             for i, entry in enumerate(sorted(port_vlan_hosts)):
                 self._set_var('learned_macs', entry.eth_src_int, dict(port_vlan_labels, n=i))
+            vlan.dyn_host_cache_stats_stale[port.number] = False
 
         if updated_port:
             for vlan in updated_port.vlans():
