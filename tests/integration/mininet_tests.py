@@ -4441,7 +4441,6 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     GLOBAL_VID = global_vid()
     STR_VIDS = [str(i) for i in _vids()]
     NEW_VIDS = VIDS[1:]
-    GLOBAL_VID = 2047
 
     def netbase(self, vid, host):
         return ipaddress.ip_interface('192.168.%u.%u' % (vid, host))
@@ -4452,8 +4451,8 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def fping(self, macvlan_int, ipg):
         return 'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
-    def ping(self, host, macvlan2_ip, macvlan1_int):
-        return self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
+    def ping(self, host, ipa, macvlan_int):
+        return self.one_ipv4_ping(host, ipa, intf=macvlan_int)
 
     def ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
@@ -4545,7 +4544,7 @@ vlans:
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[0], 2)),
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[-1], 2)),
                 (self.netbase(self.NEW_VIDS[-1], 1), self.netbase(self.NEW_VIDS[0], 2))):
-            host_ip, other_ip= routed_ip_pair
+            host_ip, other_ip = routed_ip_pair
             self.verify_iperf_min(
                 ((host, self.port_map['port_1']),
                  (other_host, self.port_map['port_2'])),
@@ -4580,7 +4579,7 @@ vlans:
         self.ping(host, macvlan2_ip.ip, macvlan1_int)
 
 
-@unittest.skip('prototype: disabled')
+@unittest.skip('troubleshoot')
 class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
 
     IPV = 6
@@ -4588,7 +4587,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     ETH_TYPE = IPV6_ETH
 
     def _vids():
-        return [i for i in range(100, 164)]
+        return [i for i in range(100, 103)]
 
     def global_vid():
         return 2047
@@ -4599,7 +4598,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     NEW_VIDS = VIDS[1:]
 
     def netbase(self, vid, host):
-        return ipaddress.ip_interface('fc01::%u:%u' % (vid, host))
+        return ipaddress.ip_interface('fc00::%u:%u' % (vid, host))
 
     def fib_table(self):
         return self._IPV6_FIB_TABLE
@@ -4607,8 +4606,8 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     def fping(self, macvlan_int, ipg):
         return 'fping6 -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
-    def ping(self, host, macvlan2_ip, macvlan1_int):
-        return self.one_ipv6_ping(host, macvlan2_ip, intf=macvlan1_int)
+    def ping(self, host, ipa, macvlan_int):
+        return self.one_ipv6_ping(host, ipa, intf=macvlan_int, timeout=2)
 
     def ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
@@ -4624,10 +4623,10 @@ vlans:
     '\n'.join(['\n'.join(
         ('    %u:',
          '        description: "tagged"',
-         '        faucet_vips: ["fc01::%u:254/112"]')) % (i, i) for i in VIDS]))
+         '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: %u 
-        proactive_learn_v4: True
+        proactive_learn_v6: True
         max_wildcard_table_size: 512
         table_sizes:
             vlan: 256
