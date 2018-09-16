@@ -4579,7 +4579,6 @@ vlans:
         self.ping(host, macvlan2_ip.ip, macvlan1_int)
 
 
-@unittest.skip('prototype: disabled')
 class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
 
     IPV = 6
@@ -4587,7 +4586,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     ETH_TYPE = IPV6_ETH
 
     def _vids():
-        return [i for i in range(100, 164)]
+        return [i for i in range(100, 103)]
 
     def global_vid():
         return 2047
@@ -4598,7 +4597,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     NEW_VIDS = VIDS[1:]
 
     def netbase(self, vid, host):
-        return ipaddress.ip_interface('fc01::%u:%u' % (vid, host))
+        return ipaddress.ip_interface('fc00::%u:%u' % (vid, host))
 
     def fib_table(self):
         return self._IPV6_FIB_TABLE
@@ -4623,7 +4622,7 @@ vlans:
     '\n'.join(['\n'.join(
         ('    %u:',
          '        description: "tagged"',
-         '        faucet_vips: ["fc01::%u:254/112"]')) % (i, i) for i in VIDS]))
+         '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: %u 
         proactive_learn_v6: True
