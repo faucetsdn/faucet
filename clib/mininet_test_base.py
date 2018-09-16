@@ -36,6 +36,8 @@ from clib.tcpdump_helper import TcpdumpHelper
 
 OFPPC_PORT_DOWN = 1 << 0 # TODO: avoid dependency on Python2 Ryu.
 PEER_BGP_AS = 2**16 + 1
+IPV4_ETH = 0x0800
+IPV6_ETH = 0x86dd
 
 
 class FaucetTestBase(unittest.TestCase):
@@ -596,9 +598,10 @@ class FaucetTestBase(unittest.TestCase):
 
     def scapy_dhcp(self, mac, iface):
         return self.scapy_template(
-            ('Ether(dst=\'ff:ff:ff:ff:ff:ff\', src=\'%s\', type=0x0800) / '
+            ('Ether(dst=\'ff:ff:ff:ff:ff:ff\', src=\'%s\', type=%u) / '
              'IP(src=\'0.0.0.0\', dst=\'255.255.255.255\') / UDP(dport=67,sport=68) / '
-             'BOOTP(op=1) / DHCP(options=[(\'message-type\', \'discover\'), (\'end\')])') % mac,
+             'BOOTP(op=1) / DHCP(options=[(\'message-type\', \'discover\'), (\'end\')])') % (
+                 mac, IPV4_ETH),
             iface)
 
     @staticmethod
@@ -1851,10 +1854,13 @@ dbs:
         self.verify_ipv4_host_learned_mac(
             host, self.FAUCET_VIPV4.ip, self.FAUCET_MAC)
 
-    def one_ipv6_ping(self, host, dst, retries=3):
+    def one_ipv6_ping(self, host, dst, retries=3, require_host_learned=True, intf=None,
+                      expected_result=True):
         """Ping an IPv6 destination from a host."""
-        ping_cmd = 'ping6 -c1 %s' % dst
-        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned=True)
+        if intf is None:
+            intf = host.defaultIntf()
+        ping_cmd = 'ping6 -c1 -I%s %s' % (intf, dst)
+        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned, expected_result)
 
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
@@ -1934,7 +1940,7 @@ dbs:
                 'nc %s %u' % (second_host.IP(), port), 10), ))
         if table_id is not None:
             match = {
-                u'dl_type': 0x0800, u'ip_proto': 6
+                'dl_type': IPV4_ETH, 'ip_proto': 6
             }
             match_port = int(port)
             if mask is not None:
@@ -1950,7 +1956,7 @@ dbs:
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
         if table_id is not None:
             self.wait_nonzero_packet_count_flow(
-                {'tp_dst': int(port), 'dl_type': 0x0800, 'ip_proto': 6}, table_id=table_id)
+                {'tp_dst': int(port), 'dl_type': IPV4_ETH, 'ip_proto': 6}, table_id=table_id)
 
     def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re, retries):
         tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
@@ -2102,17 +2108,21 @@ dbs:
                 return
         self.assertEqual(0, loss)
 
-    def wait_for_route_as_flow(self, nexthop, prefix, vlan_vid=None, timeout=10,
-                               nonzero_packets=False):
-        """Verify a route has been added as a flow."""
+    def match_table(self, prefix):
         exp_prefix = '%s/%s' % (
             prefix.network_address, prefix.netmask)
         if prefix.version == 6:
-            nw_dst_match = {'ipv6_dst': exp_prefix, 'dl_type': 0x86DD}
+            nw_dst_match = {'ipv6_dst': exp_prefix, 'dl_type': IPV6_ETH}
             table_id = self._IPV6_FIB_TABLE
         else:
-            nw_dst_match = {u'nw_dst': exp_prefix, 'dl_type': 0x0800}
+            nw_dst_match = {'nw_dst': exp_prefix, 'dl_type': IPV4_ETH}
             table_id = self._IPV4_FIB_TABLE
+        return (nw_dst_match, table_id)
+
+    def wait_for_route_as_flow(self, nexthop, prefix, vlan_vid=None, timeout=10,
+                               nonzero_packets=False):
+        """Verify a route has been added as a flow."""
+        nw_dst_match, table_id = self.match_table(prefix)
         nexthop_action = 'SET_FIELD: {eth_dst:%s}' % nexthop
         if vlan_vid is not None:
             nw_dst_match['dl_vlan'] = str(vlan_vid)

@@ -34,7 +34,7 @@ from clib import mininet_test_base
 from clib import mininet_test_util
 from clib import mininet_test_topo
 
-from clib.mininet_test_base import PEER_BGP_AS
+from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
 
 
 class QuietHTTPServer(HTTPServer):
@@ -718,7 +718,7 @@ class FaucetUntaggedNSLoopTest(FaucetUntaggedTest):
 acls:
     nsonly:
         - rule:
-            dl_type: 0x86dd
+            dl_type: %u
             ip_proto: 58
             icmpv6_type: 135
             actions:
@@ -729,7 +729,7 @@ acls:
 vlans:
     100:
         description: "untagged"
-"""
+""" % IPV6_ETH
 
     CONFIG = """
         interfaces:
@@ -2113,7 +2113,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 class FaucetIPv4TupleTest(FaucetTest):
 
     MAX_RULES = 1024
-    ETH_TYPE = 0x0800
+    ETH_TYPE = IPV4_ETH
     NET_BASE = ipaddress.IPv4Network('10.0.0.0/16')
     N_UNTAGGED = 4
     N_TAGGED = 0
@@ -2198,7 +2198,7 @@ acls:
 class FaucetIPv6TupleTest(FaucetIPv4TupleTest):
 
     MAX_RULES = 1024
-    ETH_TYPE = 0x86DD
+    ETH_TYPE = IPV6_ETH
     NET_BASE = ipaddress.IPv6Network('fc00::00/64')
     START_ACL_CONFIG = """
 acls:
@@ -2404,7 +2404,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             cold_start=False)
         self.wait_until_matching_flow(
             {'in_port': int(self.port_map['port_1']),
-             'eth_type': 0x800, 'tcp_dst': 5001, 'ip_proto': 6},
+             'eth_type': IPV4_ETH, 'tcp_dst': 5001, 'ip_proto': 6},
             table_id=self._PORT_ACL_TABLE, cookie=self.ACL_COOKIE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
@@ -2433,7 +2433,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             restart=True, cold_start=False)
         self.wait_until_matching_flow(
             {'in_port': int(self.port_map['port_1']),
-             'eth_type': 0x800, 'tcp_dst': 5001, 'ip_proto': 6},
+             'eth_type': IPV4_ETH, 'tcp_dst': 5001, 'ip_proto': 6},
             table_id=self._PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
@@ -3749,7 +3749,7 @@ acls:
         matches = {
             'in_port': int(self.port_map['port_1']),
             'tcp_dst': 5001,
-            'eth_type': 0x800,
+            'eth_type': IPV4_ETH,
             'ip_proto': 6}
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
@@ -4426,6 +4426,10 @@ vlans:
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
+    IPV = 4
+    NETPREFIX = 24
+    ETH_TYPE = IPV4_ETH
+
     def _vids():
         return [i for i in range(100, 164)]
 
@@ -4438,6 +4442,21 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     STR_VIDS = [str(i) for i in _vids()]
     NEW_VIDS = VIDS[1:]
     GLOBAL_VID = 2047
+
+    def netbase(self, vid, host):
+        return ipaddress.ip_interface('192.168.%u.%u' % (vid, host))
+
+    def fib_table(self):
+        return self._IPV4_FIB_TABLE
+
+    def fping(self, macvlan_int, ipg):
+        return 'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
+
+    def ping(self, host, macvlan2_ip, macvlan1_int):
+        return self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
+
+    def ip(self, args):
+        return 'ip -%u %s' % (self.IPV, args)
 
     CONFIG_GLOBAL = """
 routers:
@@ -4474,88 +4493,159 @@ vlans:
 
     def test_tagged(self):
         hosts = self.net.hosts[:2]
+        required_ipds = set()
         for i, host in enumerate(hosts, start=1):
             setup_commands = []
             for vid in self.NEW_VIDS:
                 vlan_int = '%s.%u' % (host.intf_root_name, vid)
                 macvlan_int = 'macvlan%u' % vid
-                ipa = '192.168.%u.%u' % (vid, i)
-                ipg = '192.168.%u.254' % vid
-                ipd = '192.168.%u.253' % vid
+                ipa = self.netbase(vid, i)
+                ipg = self.netbase(vid, 254)
+                ipd = self.netbase(vid, 253)
+                required_ipds.add(str(ipd.ip))
                 setup_commands.extend([
-                    'ip link add link %s name %s type vlan id %u' % (
-                        host.intf_root_name, vlan_int, vid),
-                    'ip link set dev %s up' % vlan_int,
-                    'ip link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int),
-                    'ip link set dev %s up' % macvlan_int,
-                    'ip address add %s/24 brd + dev %s' % (ipa, macvlan_int),
-                    'ip route add default via %s table %u' % (ipg, vid),
-                    'ip rule add from %s/32 table %u priority 100' % (ipa, vid),
-                    'ping -c1 -i0.1 -I%s %s > /dev/null' % (macvlan_int, ipg),
+                    self.ip('link add link %s name %s type vlan id %u' % (
+                        host.intf_root_name, vlan_int, vid)),
+                    self.ip('link set dev %s up' % vlan_int),
+                    self.ip('link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int)),
+                    self.ip('link set dev %s up' % macvlan_int),
+                    self.ip('address add %s/%u dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
+                    self.ip('route add default via %s table %u' % (ipg.ip, vid)),
+                    self.ip('rule add from %s table %u priority 100' % (ipa, vid)),
+                    self.fping(macvlan_int, ipg.ip),
                     # stimulate learning attempts for down host.
-                    'arp -s %s %s' % (ipd, self.FAUCET_MAC),
-                    'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipd)])
+                    self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int)),
+                    self.fping(macvlan_int, ipd.ip)])
                 # next host routes via FAUCET for other host in same connected subnet
                 # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
                     if j != i:
-                        other_ip = '192.168.%u.%u/32' % (vid, j)
+                        other_ip = self.netbase(vid, j)
                         setup_commands.append(
-                            'ip -4 route add %s via %s table %u' % (other_ip, ipg, vid))
+                            self.ip('route add %s via %s table %u' % (other_ip, ipg.ip, vid)))
             self.quiet_commands(host, setup_commands)
 
         # verify drop rules present for down hosts
         drop_rules = self.get_matching_flows_on_dpid(
-            self.dpid, {'dl_type': 2048, 'dl_vlan': str(self.GLOBAL_VID)},
-            table_id=self._IPV4_FIB_TABLE, actions=[])
+            self.dpid, {'dl_type': self.ETH_TYPE, 'dl_vlan': str(self.GLOBAL_VID)},
+            table_id=self.fib_table(), actions=[])
         self.assertTrue(drop_rules)
-        drop_ip_re = re.compile(r'^192.168.\d+.253.*')
         for drop_rule in drop_rules:
             match = drop_rule['match']
-            self.assertTrue('nw_dst' in match, msg=drop_rule)
-            self.assertTrue(drop_ip_re.match(match['nw_dst']), msg=drop_rule)
+            del match['dl_type']
+            del match['dl_vlan']
+            self.assertEqual(1, len(match))
+            ipd = list(match.values())[0].split('/')[0]
+            required_ipds.remove(ipd)
+        self.assertFalse(required_ipds)
 
         # verify routing performance
         host, other_host = hosts
         for routed_ip_pair in (
-                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[0]),
-                ('192.168.%u.1' % self.NEW_VIDS[0], '192.168.%u.2' % self.NEW_VIDS[-1]),
-                ('192.168.%u.1' % self.NEW_VIDS[-1], '192.168.%u.2' % self.NEW_VIDS[0])):
-            host_ip_str, other_ip_str = routed_ip_pair
-            host_ip = ipaddress.ip_address(host_ip_str)
-            other_ip = ipaddress.ip_address(other_ip_str)
+                (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[0], 2)),
+                (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[-1], 2)),
+                (self.netbase(self.NEW_VIDS[-1], 1), self.netbase(self.NEW_VIDS[0], 2))):
+            host_ip, other_ip= routed_ip_pair
             self.verify_iperf_min(
                 ((host, self.port_map['port_1']),
                  (other_host, self.port_map['port_2'])),
-                1, host_ip, other_ip)
+                1, host_ip.ip, other_ip.ip)
 
         # verify L3 reachability between hosts within each subnet
         for vid in self.NEW_VIDS:
             macvlan_int = 'macvlan%u' % vid
-            host_ip = '192.168.%u.%u' % (vid, 1)
-            other_ip = '192.168.%u.%u' % (vid, 2)
-            self.one_ipv4_ping(host, other_ip, intf=macvlan_int)
-            self.one_ipv4_ping(other_host, host_ip, intf=macvlan_int)
+            host_ip = self.netbase(vid, 1)
+            other_ip = self.netbase(vid, 2)
+            self.ping(host, other_ip.ip, macvlan_int)
+            self.ping(other_host, host_ip.ip, macvlan_int)
 
         # verify L3 hairpin reachability
         macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
         macvlan2_int = 'macvlan%u' % self.NEW_VIDS[1]
-        macvlan2_ip = '192.168.%u.1' % self.NEW_VIDS[1]
-        macvlan1_gw = '192.168.%u.254' % self.NEW_VIDS[0]
-        macvlan2_gw = '192.168.%u.254' % self.NEW_VIDS[1]
+        macvlan2_ip = self.netbase(self.NEW_VIDS[1], 1)
+        macvlan1_gw = self.netbase(self.NEW_VIDS[0], 254)
+        macvlan2_gw = self.netbase(self.NEW_VIDS[1], 254)
         netns = self.hostns(host)
         setup_cmds = []
         setup_cmds.extend(
-            ['ip link set %s netns %s' % (macvlan2_int, netns)])
+            [self.ip('link set %s netns %s' % (macvlan2_int, netns))])
         for exec_cmd in (
-                ('ip address add %s/24 brd + dev %s' % (macvlan2_ip, macvlan2_int),
-                 'ip link set %s up' % macvlan2_int,
-                 'ip route add default via %s' % macvlan2_gw)):
+                (self.ip('address add %s/%u dev %s' % (macvlan2_ip.ip, self.NETPREFIX, macvlan2_int)),
+                 self.ip('link set %s up' % macvlan2_int),
+                 self.ip('route add default via %s' % macvlan2_gw.ip))):
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
         setup_cmds.append(
-            'ip route add %s/32 via %s' % (macvlan2_ip, macvlan1_gw))
+            self.ip('route add %s via %s' % (macvlan2_ip, macvlan1_gw.ip)))
         self.quiet_commands(host, setup_cmds)
-        self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
+        self.ping(host, macvlan2_ip.ip, macvlan1_int)
+
+
+@unittest.skip('prototype: disabled')
+class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
+
+    IPV = 6
+    NETPREFIX = 112
+    ETH_TYPE = IPV6_ETH
+
+    def _vids():
+        return [i for i in range(100, 164)]
+
+    def global_vid():
+        return 2047
+
+    VIDS = _vids()
+    GLOBAL_VID = global_vid()
+    STR_VIDS = [str(i) for i in _vids()]
+    NEW_VIDS = VIDS[1:]
+
+    def netbase(self, vid, host):
+        return ipaddress.ip_interface('fc01::%u:%u' % (vid, host))
+
+    def fib_table(self):
+        return self._IPV6_FIB_TABLE
+
+    def fping(self, macvlan_int, ipg):
+        return 'fping6 -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
+
+    def ping(self, host, macvlan2_ip, macvlan1_int):
+        return self.one_ipv6_ping(host, macvlan2_ip, intf=macvlan1_int)
+
+    def ip(self, args):
+        return 'ip -%u %s' % (self.IPV, args)
+
+    CONFIG_GLOBAL = """
+routers:
+    global:
+        vlans: [%s]
+vlans:
+%s
+""" % (
+    ','.join(STR_VIDS),
+    '\n'.join(['\n'.join(
+        ('    %u:',
+         '        description: "tagged"',
+         '        faucet_vips: ["fc01::%u:254/112"]')) % (i, i) for i in VIDS]))
+    CONFIG = """
+        global_vlan: %u 
+        proactive_learn_v4: True
+        max_wildcard_table_size: 512
+        table_sizes:
+            vlan: 256
+            vip: 128
+            flood: 384
+        interfaces:
+            %s:
+                native_vlan: 99
+                tagged_vlans: [%s]
+                hairpin_unicast: True
+                description: "b1"
+            %s:
+                native_vlan: 99
+                tagged_vlans: [%s]
+                hairpin_unicast: True
+                description: "b2"
+""" % (global_vid(), '%(port_1)d', ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
+
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
@@ -4916,7 +5006,7 @@ class FaucetTaggedICMPv6ACLTest(FaucetTaggedTest):
 acls:
     1:
         - rule:
-            dl_type: 0x86dd
+            dl_type: %u
             vlan_vid: 100
             ip_proto: 58
             icmpv6_type: 135
@@ -4931,7 +5021,7 @@ vlans:
     100:
         description: "tagged"
         faucet_vips: ["fc00::1:254/112"]
-"""
+""" % IPV6_ETH
 
     CONFIG = """
         max_resolve_backoff_time: 1
@@ -4958,7 +5048,7 @@ vlans:
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         self.one_ipv6_ping(first_host, 'fc00::1:2')
         self.wait_nonzero_packet_count_flow(
-            {'dl_type': 0x86dd, 'ip_proto': 58, 'icmpv6_type': 135,
+            {'dl_type': IPV6_ETH, 'ip_proto': 58, 'icmpv6_type': 135,
              'ipv6_nd_target': 'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
 
 
@@ -6294,7 +6384,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     ACLS = {
         1: [
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'nw_dst': '10.0.0.2',
                 'actions': {
                     'output': {
@@ -6303,7 +6393,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
@@ -6312,7 +6402,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
                         'port': 4
@@ -6327,7 +6417,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
         ],
         2: [
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
                         'port': 5
@@ -6342,7 +6432,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
         ],
         3: [
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'nw_dst': '10.0.0.7',
                 'actions': {
                     'output': {
@@ -6351,7 +6441,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
@@ -6360,7 +6450,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': '0x800',
+                'dl_type': IPV4_ETH,
                 'actions': {
                     'allow': 0,
                 },
@@ -6429,7 +6519,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     ACLS = {
         1: [
             {'rule': {
-                'dl_type': int('0x800', 16),
+                'dl_type': IPV4_ETH,
                 'ip_proto': 6,
                 'tcp_dst': 5001,
                 'actions': {
@@ -6437,7 +6527,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': int('0x800', 16),
+                'dl_type': IPV4_ETH,
                 'ip_proto': 6,
                 'tcp_dst': 5002,
                 'actions': {
@@ -6457,7 +6547,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     ACLS_OVERRIDE = {
         1: [
             {'rule': {
-                'dl_type': int('0x800', 16),
+                'dl_type': IPV4_ETH,
                 'ip_proto': 6,
                 'tcp_dst': 5001,
                 'actions': {
@@ -6465,7 +6555,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
                 },
             }},
             {'rule': {
-                'dl_type': int('0x800', 16),
+                'dl_type': IPV4_ETH,
                 'ip_proto': 6,
                 'tcp_dst': 5002,
                 'actions': {

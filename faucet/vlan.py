@@ -179,11 +179,11 @@ class VLAN(Conf):
 
         self.dyn_host_cache = None
         self.dyn_host_cache_by_port = None
+        self.dyn_host_cache_stats_stale = None
         self.dyn_last_time_hosts_expired = None
         self.dyn_learn_ban_count = 0
         self.dyn_neigh_cache_by_ipv = None
         self.dyn_oldest_host_time = None
-        self.dyn_newest_host_time = None
         self.dyn_last_updated_metrics_sec = None
 
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
@@ -288,6 +288,7 @@ class VLAN(Conf):
         """Reset dynamic caches."""
         self.dyn_host_cache = {}
         self.dyn_host_cache_by_port = {}
+        self.dyn_host_cache_stats_stale = {}
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
         self.dyn_unresolved_route_ip_gws = collections.defaultdict(list)
         self.dyn_unresolved_host_ip_gws = collections.defaultdict(list)
@@ -300,7 +301,9 @@ class VLAN(Conf):
     def add_cache_host(self, eth_src, port, cache_time):
         """Add/update a host to the cache on a port at at time."""
         existing_entry = self.cached_host(eth_src)
-        if existing_entry is not None:
+        if existing_entry is None:
+            self.dyn_host_cache_stats_stale[port.number] = True
+        else:
             self.dyn_host_cache_by_port[existing_entry.port.number].remove(
                 existing_entry)
         entry = HostCacheEntry(eth_src, port, cache_time)
@@ -308,13 +311,12 @@ class VLAN(Conf):
             self.dyn_host_cache_by_port[port.number] = set()
         self.dyn_host_cache_by_port[port.number].add(entry)
         self.dyn_host_cache[eth_src] = entry
-        self.dyn_newest_host_time = cache_time
-        port.dyn_newest_host_time = cache_time
 
     def expire_cache_host(self, eth_src):
         """Expire a host from caches."""
         entry = self.cached_host(eth_src)
         if entry is not None:
+            self.dyn_host_cache_stats_stale[entry.port.number] = True
             self.dyn_host_cache_by_port[entry.port.number].remove(entry)
             del self.dyn_host_cache[eth_src]
 
@@ -345,6 +347,7 @@ class VLAN(Conf):
     def clear_cache_hosts_on_port(self, port):
         """Clear all hosts learned on a port."""
         for entry in self.cached_hosts_on_port(port):
+
             self.expire_cache_host(entry.eth_src)
 
     def expire_cache_hosts(self, now, learn_timeout):
