@@ -1854,10 +1854,13 @@ dbs:
         self.verify_ipv4_host_learned_mac(
             host, self.FAUCET_VIPV4.ip, self.FAUCET_MAC)
 
-    def one_ipv6_ping(self, host, dst, retries=3):
+    def one_ipv6_ping(self, host, dst, retries=3, require_host_learned=True, intf=None,
+                      expected_result=True):
         """Ping an IPv6 destination from a host."""
-        ping_cmd = 'ping6 -c1 %s' % dst
-        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned=True)
+        if intf is None:
+            intf = host.defaultIntf()
+        ping_cmd = 'ping6 -c1 -I%s %s' % (intf, dst)
+        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned, expected_result)
 
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""

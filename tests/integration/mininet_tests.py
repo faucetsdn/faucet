@@ -2198,7 +2198,7 @@ acls:
 class FaucetIPv6TupleTest(FaucetIPv4TupleTest):
 
     MAX_RULES = 1024
-    ETH_TYPE = IPV4_ETH
+    ETH_TYPE = IPV6_ETH
     NET_BASE = ipaddress.IPv6Network('fc00::00/64')
     START_ACL_CONFIG = """
 acls:
@@ -4426,11 +4426,22 @@ vlans:
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
+    IPV = 4
+    NETPREFIX = 24
+    ETH_TYPE = IPV4_ETH
+
     def _vids():
         return [i for i in range(100, 164)]
 
     def global_vid():
         return 2047
+
+    NETNS = True
+    VIDS = _vids()
+    GLOBAL_VID = global_vid()
+    STR_VIDS = [str(i) for i in _vids()]
+    NEW_VIDS = VIDS[1:]
+    GLOBAL_VID = 2047
 
     def netbase(self, vid, host):
         return ipaddress.ip_interface('192.168.%u.%u' % (vid, host))
@@ -4444,19 +4455,8 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def ping(self, host, macvlan2_ip, macvlan1_int):
         return self.one_ipv4_ping(host, macvlan2_ip, intf=macvlan1_int)
 
-    IPV = 4
-    NETPREFIX = 24
-    ETH_TYPE = IPV4_ETH
-
     def ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
-
-    NETNS = True
-    VIDS = _vids()
-    GLOBAL_VID = global_vid()
-    STR_VIDS = [str(i) for i in _vids()]
-    NEW_VIDS = VIDS[1:]
-    GLOBAL_VID = 2047
 
     CONFIG_GLOBAL = """
 routers:
@@ -4509,7 +4509,7 @@ vlans:
                     self.ip('link set dev %s up' % vlan_int),
                     self.ip('link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int)),
                     self.ip('link set dev %s up' % macvlan_int),
-                    self.ip('address add %s/%u brd + dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
+                    self.ip('address add %s/%u dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
                     self.ip('route add default via %s table %u' % (ipg.ip, vid)),
                     self.ip('rule add from %s table %u priority 100' % (ipa, vid)),
                     self.fping(macvlan_int, ipg.ip),
@@ -4570,7 +4570,7 @@ vlans:
         setup_cmds.extend(
             [self.ip('link set %s netns %s' % (macvlan2_int, netns))])
         for exec_cmd in (
-                (self.ip('address add %s/%u brd + dev %s' % (macvlan2_ip.ip, self.NETPREFIX, macvlan2_int)),
+                (self.ip('address add %s/%u dev %s' % (macvlan2_ip.ip, self.NETPREFIX, macvlan2_int)),
                  self.ip('link set %s up' % macvlan2_int),
                  self.ip('route add default via %s' % macvlan2_gw.ip))):
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
@@ -4578,6 +4578,73 @@ vlans:
             self.ip('route add %s via %s' % (macvlan2_ip, macvlan1_gw.ip)))
         self.quiet_commands(host, setup_cmds)
         self.ping(host, macvlan2_ip.ip, macvlan1_int)
+
+
+class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
+
+    IPV = 6
+    NETPREFIX = 112
+    ETH_TYPE = IPV6_ETH
+
+    def _vids():
+        return [i for i in range(100, 164)]
+
+    def global_vid():
+        return 2047
+
+    VIDS = _vids()
+    GLOBAL_VID = global_vid()
+    STR_VIDS = [str(i) for i in _vids()]
+    NEW_VIDS = VIDS[1:]
+
+    def netbase(self, vid, host):
+        return ipaddress.ip_interface('fc01::%u:%u' % (vid, host))
+
+    def fib_table(self):
+        return self._IPV6_FIB_TABLE
+
+    def fping(self, macvlan_int, ipg):
+        return 'fping6 -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
+
+    def ping(self, host, macvlan2_ip, macvlan1_int):
+        return self.one_ipv6_ping(host, macvlan2_ip, intf=macvlan1_int)
+
+    def ip(self, args):
+        return 'ip -%u %s' % (self.IPV, args)
+
+    CONFIG_GLOBAL = """
+routers:
+    global:
+        vlans: [%s]
+vlans:
+%s
+""" % (
+    ','.join(STR_VIDS),
+    '\n'.join(['\n'.join(
+        ('    %u:',
+         '        description: "tagged"',
+         '        faucet_vips: ["fc01::%u:254/112"]')) % (i, i) for i in VIDS]))
+    CONFIG = """
+        global_vlan: %u 
+        proactive_learn_v4: True
+        max_wildcard_table_size: 512
+        table_sizes:
+            vlan: 256
+            vip: 128
+            flood: 384
+        interfaces:
+            %s:
+                native_vlan: 99
+                tagged_vlans: [%s]
+                hairpin_unicast: True
+                description: "b1"
+            %s:
+                native_vlan: 99
+                tagged_vlans: [%s]
+                hairpin_unicast: True
+                description: "b2"
+""" % (global_vid(), '%(port_1)d', ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
+
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
