@@ -171,8 +171,10 @@ class ValveHostManager:
             hard_timeout=src_rule_hard_timeout,
             idle_timeout=src_rule_idle_timeout))
 
-        # If we are refreshing only, leave existing eth_dst/hairpin alone.
-        if refresh_rules:
+        hairpinning = port.hairpin or port.hairpin_unicast
+
+        # If we are refreshing only and not in hairpin mode, leave existing eth_dst alone.
+        if refresh_rules and not hairpinning:
             return ofmsgs
 
         # Output packets for this MAC to specified port.
@@ -186,12 +188,12 @@ class ValveHostManager:
         # that outputs packets destined to this MAC back out the same
         # port they came in (e.g. multiple hosts on same WiFi AP,
         # and FAUCET is switching between them on the same port).
-        # Do not idle timeout hairpin rules as they may not be actually used.
-        if self.eth_dst_hairpin_table and (port.hairpin or port.hairpin_unicast):
+        if hairpinning:
             ofmsgs.append(self.eth_dst_hairpin_table.flowmod(
                 self.eth_dst_hairpin_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
                 priority=self.host_priority,
-                inst=[valve_of.apply_actions(vlan.output_port(port, hairpin=True))]))
+                inst=[valve_of.apply_actions(vlan.output_port(port, hairpin=True))],
+                idle_timeout=dst_rule_idle_timeout))
 
         return ofmsgs
 
