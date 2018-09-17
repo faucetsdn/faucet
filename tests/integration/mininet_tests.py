@@ -4480,6 +4480,8 @@ vlans:
             flood: 384
         interfaces:
             %s:
+                mirror: %s
+            %s:
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
@@ -4489,10 +4491,12 @@ vlans:
                 tagged_vlans: [%s]
                 hairpin_unicast: True
                 description: "b2"
-""" % (global_vid(), '%(port_1)d', ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
+""" % (global_vid(), '%(port_3)d', '%(port_1)d', '%(port_1)d',
+        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
-        hosts = self.net.hosts[:2]
+        first_host, second_host, mirror_host = self.net.hosts[:3]
+        hosts = (first_host, second_host)
         required_ipds = set()
         for i, host in enumerate(hosts, start=1):
             setup_commands = []
@@ -4545,23 +4549,22 @@ vlans:
         self.assertFalse(required_ipds)
 
         # verify routing performance
-        host, other_host = hosts
-        for host_ip, other_ip in (
+        for first_host_ip, second_host_ip in (
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[0], 2)),
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[-1], 2)),
                 (self.netbase(self.NEW_VIDS[-1], 1), self.netbase(self.NEW_VIDS[0], 2))):
             self.verify_iperf_min(
-                ((host, self.port_map['port_1']),
-                 (other_host, self.port_map['port_2'])),
-                1, host_ip.ip, other_ip.ip)
+                ((first_host, self.port_map['port_1']),
+                 (second_host, self.port_map['port_2'])),
+                1, first_host_ip.ip, second_host_ip.ip)
 
         # verify L3 reachability between hosts within each subnet
         for vid in self.NEW_VIDS:
             macvlan_int = 'macvlan%u' % vid
-            host_ip = self.netbase(vid, 1)
-            other_ip = self.netbase(vid, 2)
-            self.ping(host, other_ip.ip, macvlan_int)
-            self.ping(other_host, host_ip.ip, macvlan_int)
+            first_host_ip = self.netbase(vid, 1)
+            second_host_ip = self.netbase(vid, 2)
+            self.ping(first_host, second_host_ip.ip, macvlan_int)
+            self.ping(second_host, first_host_ip.ip, macvlan_int)
 
         # verify L3 hairpin reachability
         macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
@@ -4569,7 +4572,7 @@ vlans:
         macvlan2_ip = self.netbase(self.NEW_VIDS[1], 1)
         macvlan1_gw = self.netbase(self.NEW_VIDS[0], 254)
         macvlan2_gw = self.netbase(self.NEW_VIDS[1], 254)
-        netns = self.hostns(host)
+        netns = self.hostns(first_host)
         setup_cmds = []
         setup_cmds.extend(
             [self.ip('link set %s netns %s' % (macvlan2_int, netns))])
@@ -4580,8 +4583,12 @@ vlans:
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
         setup_cmds.append(
             self.ip('route add %s via %s' % (macvlan2_ip, macvlan1_gw.ip)))
-        self.quiet_commands(host, setup_cmds)
-        self.ping(host, macvlan2_ip.ip, macvlan1_int)
+        self.quiet_commands(first_host, setup_cmds)
+        self.ping(first_host, macvlan2_ip.ip, macvlan1_int)
+
+        # Verify mirror.
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
+        self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
 
 
 class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
@@ -4639,6 +4646,8 @@ vlans:
             flood: 384
         interfaces:
             %s:
+                mirror: %s
+            %s:
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
@@ -4648,7 +4657,8 @@ vlans:
                 tagged_vlans: [%s]
                 hairpin_unicast: True
                 description: "b2"
-""" % (global_vid(), '%(port_1)d', ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
+""" % (global_vid(), '%(port_3)d', '%(port_1)d', '%(port_1)d',
+        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
 
 
