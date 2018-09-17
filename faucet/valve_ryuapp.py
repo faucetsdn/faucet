@@ -64,7 +64,7 @@ class RyuAppBase(app_manager.RyuApp):
     @staticmethod
     def _thread_jitter(period, jitter=2):
         """Reschedule another thread with a random jitter."""
-        hub.sleep(period + random.randint(0, jitter) + random.random())
+        hub.sleep(period + random.randint(0, jitter))
 
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
