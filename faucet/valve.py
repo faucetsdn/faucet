@@ -1299,7 +1299,7 @@ class Valve:
                 ofmsgs.extend(self.lacp_down(port))
         return ofmsgs
 
-    def state_expire(self, now, _other_valves):
+    def state_expire(self, now, other_valves):
         """Expire controller caches/state (e.g. hosts learned).
 
         Return:
@@ -1307,6 +1307,7 @@ class Valve:
         """
         ofmsgs = []
         if self.dp.dyn_running:
+            self.update_stack_link_states(now, other_valves)
             for vlan in list(self.dp.vlans.values()):
                 expired_hosts = self.host_manager.expire_hosts_from_vlan(vlan, now)
                 for entry in expired_hosts:
