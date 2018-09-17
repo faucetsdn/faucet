@@ -4511,7 +4511,7 @@ vlans:
                     self.ip('address add %s/%u dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
                     self.ip('route add default via %s table %u' % (ipg.ip, vid)),
                     self.ip('rule add from %s table %u priority 100' % (ipa, vid)),
-                    self.ip('neigh add %s lladdr %s dev %s' % (ipa.ip, self.FAUCET_MAC, macvlan_int)),
+                    self.ip('neigh add %s lladdr %s dev %s' % (ipg.ip, self.FAUCET_MAC, macvlan_int)),
                     self.fping(macvlan_int, ipg.ip),
                     # stimulate learning attempts for down host.
                     self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int)),
