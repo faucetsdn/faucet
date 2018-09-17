@@ -4426,6 +4426,7 @@ vlans:
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
+    STATIC_GW = False
     IPV = 4
     NETPREFIX = 24
     ETH_TYPE = IPV4_ETH
@@ -4511,11 +4512,15 @@ vlans:
                     self.ip('address add %s/%u dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
                     self.ip('route add default via %s table %u' % (ipg.ip, vid)),
                     self.ip('rule add from %s table %u priority 100' % (ipa, vid)),
-                    self.ip('neigh add %s lladdr %s dev %s' % (ipg.ip, self.FAUCET_MAC, macvlan_int)),
-                    self.fping(macvlan_int, ipg.ip),
                     # stimulate learning attempts for down host.
                     self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int)),
                     self.fping(macvlan_int, ipd.ip)])
+                if self.STATIC_GW:
+                    setup_commands.append(
+                        self.ip('neigh add %s lladdr %s dev %s' % (ipg.ip, self.FAUCET_MAC, macvlan_int)))
+                else:
+                    setup_commands.append(
+                        self.fping(macvlan_int, ipg.ip))
                 # next host routes via FAUCET for other host in same connected subnet
                 # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
@@ -4581,6 +4586,7 @@ vlans:
 
 class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
 
+    STATIC_GW = True
     IPV = 6
     NETPREFIX = 112
     ETH_TYPE = IPV6_ETH
