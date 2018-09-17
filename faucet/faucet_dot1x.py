@@ -19,13 +19,13 @@
 
 import eventlet
 
-from faucet import valve_of
-
 eventlet.monkey_patch()
 
-from ryu.lib import hub # pylint: disable=wrong-import-position
+from ryu.lib import hub  # pylint: disable=wrong-import-position
 
-from chewie.chewie import Chewie # pylint: disable=wrong-import-position
+from chewie.chewie import Chewie  # pylint: disable=wrong-import-position
+
+from faucet import valve_of
 
 
 class FaucetDot1x:
@@ -92,14 +92,29 @@ class FaucetDot1x:
         self.metrics.inc_var('port_dot1x_failure', valve.port_labels(dot1x_port))
 
     def get_mac_str(self, valve_index, port_num):
+        """Gets the mac address string for the valve/port combo
+        Args:
+            valve_index (int): The internally used id of the valve.
+            port_num (int): port number
+
+        Returns:
+            str
+        """
         return "00:00:00:00:%02x:%02x" % (valve_index, port_num)
 
     def set_mac_str(self, valve, valve_index, port_num):
+        """
+        Args:
+            valve (Valve):
+            valve_index (int):
+            port_num (int):
+
+        Returns:
+            str
+        """
         mac_str = self.get_mac_str(valve_index, port_num)
         port = valve.dp.ports[port_num]
         self.mac_to_port[mac_str] = (valve, port)
-        self.dp_id_to_valve_index[valve.dp.dp_id] = valve_index
-
         return mac_str
 
     def get_port_acls(self, valve, dot1x_port):
@@ -141,6 +156,8 @@ class FaucetDot1x:
         dot1x_intf = None
         for valve in list(valves.values()):
             valve_index += 1
+            self.dp_id_to_valve_index[valve.dp.dp_id] = valve_index
+
             if self.dot1x_speaker is None:
                 if valve.dp.dot1x:
                     dot1x_intf = valve.dp.dot1x['nfv_intf']
