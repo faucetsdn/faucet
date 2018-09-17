@@ -18,6 +18,9 @@
 # limitations under the License.
 
 import eventlet
+
+from faucet import valve_of
+
 eventlet.monkey_patch()
 
 from ryu.lib import hub # pylint: disable=wrong-import-position
@@ -36,6 +39,7 @@ class FaucetDot1x:
         self.dot1x_speaker = None
         self.dot1x_intf = None
         self.mac_to_port = {}  # {"00:00:00:00:00:02" : (valve_0, port_1)}
+        self.dp_id_to_valve_index = {}
 
     def _create_dot1x_speaker(self, dot1x_intf, chewie_id, radius_ip, radius_port, radius_secret):
         chewie = Chewie(  # pylint: disable=too-many-function-args
@@ -87,30 +91,69 @@ class FaucetDot1x:
         self.metrics.inc_var('dp_dot1x_failure', valve.base_prom_labels)
         self.metrics.inc_var('port_dot1x_failure', valve.port_labels(dot1x_port))
 
+    def get_mac_str(self, valve_index, port_num):
+        return "00:00:00:00:%02x:%02x" % (valve_index, port_num)
+
+    def set_mac_str(self, valve, valve_index, port_num):
+        mac_str = self.get_mac_str(valve_index, port_num)
+        port = valve.dp.ports[port_num]
+        self.mac_to_port[mac_str] = (valve, port)
+        self.dp_id_to_valve_index[valve.dp.dp_id] = valve_index
+
+        return mac_str
+
+    def get_port_acls(self, valve, dot1x_port):
+        """Setup the dot1x forward port acls.
+        Args:
+            dot1x_port:
+            valve:
+
+        Returns:
+            list of flowmods
+        """
+        valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
+        mac = self.get_mac_str(valve_index, dot1x_port.number)
+        to_nfv = valve.dp.tables['port_acl'].flowmod(
+            valve.dp.tables['port_acl'].match(
+                in_port=dot1x_port.number,
+                eth_type=0x888e,
+                ),
+            priority=valve.dp.highest_priority,
+            inst=[valve_of.apply_actions([valve_of.set_field(eth_dst=mac),
+                                          valve_of.output_port(self.nfv_port.number)])])
+
+        from_nfv = valve.dp.tables['port_acl'].flowmod(
+            valve.dp.tables['port_acl'].match(
+                in_port=self.nfv_port.number,
+                eth_type=0x888e,
+                eth_src=mac
+            ),
+            priority=valve.dp.highest_priority,
+            inst=[valve_of.apply_actions([valve_of.set_field(eth_src="01:80:c2:00:00:03"),
+                                          valve_of.output_port(dot1x_port.number)])])
+        return [to_nfv, from_nfv]
+
     def reset(self, valves):
         """Set up a dot1x speaker."""
         self._valves = valves
-        valve_id = -1
+        valve_index = -1
         dot1x_intf = None
-        for valve in list(valves.values()):
-            valve_id += 1
-            if self.dot1x_speaker is None:
-                if valve.dp.dot1x:
-                    dot1x_intf = valve.dp.dot1x['nfv_intf']
-                    radius_ip = valve.dp.dot1x['radius_ip']
-                    radius_port = valve.dp.dot1x['radius_port']
-                    radius_secret = valve.dp.dot1x['radius_secret']
-                    self.dot1x_speaker = self._create_dot1x_speaker(dot1x_intf,
-                                                                    valve.dp.faucet_dp_mac,
-                                                                    radius_ip, radius_port,
-                                                                    radius_secret)
-                else:
-                    continue
-            if valve.dp.dot1x and valve.dp.dot1x_ports():
-                for dot1x_port in valve.dp.dot1x_ports():
-                    if dot1x_port.number > 255:
-                        self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
-                                         % (valve.dp, dot1x_port))
+        try:
+            for valve in list(valves.values()):
+                valve_index += 1
+                if self.dot1x_speaker is None:
+                    if valve.dp.dot1x:
+                        dot1x_intf = valve.dp.dot1x['nfv_intf']
+                        radius_ip = valve.dp.dot1x['radius_ip']
+                        radius_port = valve.dp.dot1x['radius_port']
+                        radius_secret = valve.dp.dot1x['radius_secret']
+                        self.dot1x_speaker = self._create_dot1x_speaker(dot1x_intf,
+                                                                        valve.dp.faucet_dp_mac,
+                                                                        radius_ip, radius_port,
+                                                                        radius_secret)
+                        # TODO need to remove hardcoded port 4
+                        self.nfv_port = valve.dp.ports[4]
+                    else:
                         continue
                 if valve.dp.dot1x and valve.dp.dot1x_ports():
                     for dot1x_port in valve.dp.dot1x_ports():
@@ -118,13 +161,19 @@ class FaucetDot1x:
                             self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
                                              % (valve.dp, dot1x_port))
                             continue
-                        if valve_id > 255:
-                            self.logger.info('dot1x not enabled on %s %s. more than 255 valves'
-                                             % (valve.dp, dot1x_port))
-                            continue
-                        mac_str = "00:00:00:00:%02x:%02x" % (valve_id, dot1x_port.number)
-                        self.mac_to_port[mac_str] = (valve, dot1x_port)
-                        valve.add_dot1x_forward(dot1x_port.number, 4, mac_str)
-                        self.logger.info(
-                            'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
-                                valve.dp, valve_id, dot1x_port, dot1x_intf))
+                    if valve.dp.dot1x and valve.dp.dot1x_ports():
+                        for dot1x_port in valve.dp.dot1x_ports():
+                            if dot1x_port.number > 255:
+                                self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
+                                                 % (valve.dp, dot1x_port))
+                                continue
+                            if valve_index > 255:
+                                self.logger.info('dot1x not enabled on %s %s. more than 255 valves'
+                                                 % (valve.dp, dot1x_port))
+                                continue
+                            self.set_mac_str(valve, valve_index, dot1x_port.number)
+                            self.logger.info(
+                                'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
+                                    valve.dp, valve_index, dot1x_port, dot1x_intf))
+        except Exception as e:
+            self.logger.exception(e)

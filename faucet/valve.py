@@ -75,6 +75,7 @@ class Valve:
 
     __slots__ = [
         'base_prom_labels',
+        'dot1x'
         'dp',
         'flood_manager',
         'host_manager',
@@ -100,7 +101,8 @@ class Valve:
     GROUPS = True
 
 
-    def __init__(self, dp, logname, metrics, notifier):
+    def __init__(self, dp, logname, metrics, notifier, dot1x):
+        self.dot1x = dot1x
         self.dp = dp
         self.logname = logname
         self.metrics = metrics
@@ -114,7 +116,6 @@ class Valve:
         self._last_update_metrics_sec = 0
         self._packet_in_count_sec = 0
         self._port_highwater = {}
-        self.dot1x_acls = []
         self.dp_init()
 
     def port_labels(self, port):
@@ -630,7 +631,6 @@ class Valve:
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_ports))
-        ofmsgs.extend(self.dot1x_acls)
         ofmsgs.append(
             valve_of.faucet_async(
                 packet_in=True,
@@ -786,6 +786,9 @@ class Valve:
                     inst=[valve_of.apply_actions([
                         valve_of.output_controller(),
                         valve_of.output_port(port.override_output_port.number)])]))
+
+            if port.dot1x:
+                ofmsgs.extend(self.dot1x.get_port_acls(self, port))
 
             if not self.dp.dp_acls:
                 acl_ofmsgs = self._port_add_acl(port)
@@ -1479,37 +1482,6 @@ class Valve:
             strict=True
         )
         return ofmsg
-
-    def add_dot1x_forward(self, supplicant_port_num, nfv_port_num, mac):
-        """Setup the dot1x forward port acls.
-        Args:
-            supplicant_port_num (int):
-            nfv_port_num (int):
-            mac (str):
-
-        Returns:
-            list of flowmods
-        """
-        to_nfv = self.dp.tables['port_acl'].flowmod(
-            self.dp.tables['port_acl'].match(
-                in_port=supplicant_port_num,
-                eth_type=0x888e,
-                ),
-            priority=self.dp.highest_priority,
-            inst=[valve_of.apply_actions([valve_of.set_field(eth_dst=mac),
-                                          valve_of.output_port(nfv_port_num)])])
-
-        from_nfv = self.dp.tables['port_acl'].flowmod(
-            self.dp.tables['port_acl'].match(
-                in_port=nfv_port_num,
-                eth_type=0x888e,
-                eth_src=mac
-            ),
-            priority=self.dp.highest_priority,
-            inst=[valve_of.apply_actions([valve_of.set_field(eth_src="01:80:c2:00:00:03"),
-                                          valve_of.output_port(supplicant_port_num)])])
-        self.dot1x_acls.append(to_nfv)
-        self.dot1x_acls.append(from_nfv)
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""

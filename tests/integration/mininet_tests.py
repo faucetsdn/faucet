@@ -279,11 +279,10 @@ network={
         self.radius_log_path = self.start_freeradius()
 
     def tearDown(self):
-
+        self.nfv_host.cmd('kill %d' % self.freeradius_pid)
         faucet_log = self.env['faucet']['FAUCET_LOG']
         with open(faucet_log, 'r') as log:
             print(log.read())
-        self.nfv_host.cmd('kill %d' % self.freeradius_pid)
         super(Faucet8021XSuccessTest, self).tearDown()
 
     def try_8021x(self, host, port_num, conf, and_logoff=False):
@@ -597,6 +596,21 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
         self.assertEqual(
             1,
             self.scrape_prometheus_var('port_dot1x_failure', labels={'port': 1}, default=0))
+
+
+class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
+
+    RADIUS_PORT = 1860
+
+    def test_untagged(self):
+        actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:01}', 'OUTPUT:4']
+        self.assertTrue(self.get_matching_flow(match=None, actions=actions, timeout=2))
+
+        self.set_port_down(1)
+        self.assertFalse(self.get_matching_flow(match=None, actions=actions))
+
+        self.set_port_up(1)
+        self.assertTrue(self.get_matching_flow(match=None, actions=actions))
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
