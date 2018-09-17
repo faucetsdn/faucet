@@ -2228,7 +2228,7 @@ dbs:
                 '%s -y c -c %s -B %s -t %u' % (iperf_base_cmd, server_ip, client_ip, seconds),
                 timeout)
             iperf_mbps = run_iperf(iperf_server_cmd, server_host, server_start_exp, port)
-            if iperf_mbps is not None:
+            if iperf_mbps is not None and iperf_mbps > 0:
                 return iperf_mbps
             time.sleep(1)
         if iperf_mbps == -1:
