@@ -44,7 +44,8 @@ from clib import mininet_test_util
 SUPPORTS_METERS = (
     'Aruba',
     'NoviFlow',
-    'Open vSwitch',
+# TODO: troubleshoot meters in OVS 2.10.0
+#    'Open vSwitch',
     'ZodiacGX',
 )
 
