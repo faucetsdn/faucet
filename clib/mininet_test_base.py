@@ -2189,10 +2189,6 @@ dbs:
         iperf_csv = iperf_results.strip().split(',')
         if len(iperf_csv) == 9:
             return int(iperf_csv[-1]) / self.ONEMBPS
-        client_routes = client_host.cmd('ip -%u route show' % ipv)
-        client_neigh = client_host.cmd('ip -%u neigh show' % ipv)
-        error('%s: %s %s\n%s\n%s' % (
-            self._test_name(), iperf_client_cmd, iperf_results, client_routes, client_neigh))
         return -1
 
     def iperf(self, client_host, client_ip, server_host, server_ip, seconds):
@@ -2207,7 +2203,6 @@ dbs:
             for host, line in pmonitor(popens):
                 if host != server_host:
                     continue
-                error('%s: %s %s' % (self._test_name(), iperf_server_cmd, line))
                 if not re.search(server_start_exp, line):
                     continue
                 self.wait_for_tcp_listen(
