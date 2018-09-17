@@ -72,6 +72,11 @@ class EventFaucetLLDPAdvertise(event.EventBase): # pylint: disable=too-few-publi
     pass
 
 
+class EventFaucetStackLinkStates(event.EventBase): # pylint: disable=too-few-public-methods
+    """Event used to update link stack states."""
+    pass
+
+
 class Faucet(RyuAppBase):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
@@ -89,6 +94,7 @@ class Faucet(RyuAppBase):
         EventFaucetStateExpire: ('state_expire', 5),
         EventFaucetAdvertise: ('advertise', 5),
         EventFaucetLLDPAdvertise: ('send_lldp_beacons', 5),
+        EventFaucetStackLinkStates: ('update_stack_link_states', 2),
     }
     logname = 'faucet'
     exc_logname = logname + '.exception'
@@ -195,6 +201,7 @@ class Faucet(RyuAppBase):
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetLLDPAdvertise, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetStackLinkStates, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _valve_flow_services(self, ryu_event):
         """Call a method on all Valves and send any resulting flows."""
