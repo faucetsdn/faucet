@@ -613,6 +613,27 @@ class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
         self.assertTrue(self.get_matching_flow(match=None, actions=actions))
 
 
+class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
+
+    RADIUS_PORT = 1870
+
+    def test_untagged(self):
+        p1_actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:01}', 'OUTPUT:4']
+        p2_actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:02}', 'OUTPUT:4']
+        self.assertTrue(self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
+        self.assertTrue(self.get_matching_flow(match=None, actions=p2_actions, timeout=2))
+
+        conf = self._get_conf()
+        conf['dps'][self.DP_NAME]['interfaces'][1]['dot1x'] = False
+
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=True)
+
+        self.assertFalse(self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
+        self.assertTrue(self.get_matching_flow(match=None, actions=p2_actions, timeout=2))
+
+
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
