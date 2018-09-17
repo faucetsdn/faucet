@@ -1598,7 +1598,7 @@ class NoviFlowValve(Valve):
 
 SUPPORTED_HARDWARE = {
     'Generic': Valve,
-    'GenericTFM': TfmValve
+    'GenericTFM': TfmValve,
     'Allied-Telesis': AlliedTelesis,
     'Aruba': ArubaValve,
     'CiscoC9K': CiscoC9KValve,
