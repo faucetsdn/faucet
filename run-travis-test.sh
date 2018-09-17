@@ -21,7 +21,7 @@ else
   }
 
   shard "$ALLTESTS" ${MATRIX_SHARDS}
-  FAUCET_TESTS="-i ${sharded[${MATRIX_SHARD}]}"
+  FAUCET_TESTS="-di ${sharded[${MATRIX_SHARD}]}"
 fi
 
 PY3V=`python3 --version`
