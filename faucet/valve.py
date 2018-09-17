@@ -1592,13 +1592,15 @@ class NoviFlowValve(Valve):
     """Valve implementation for NoviFlow with static pipeline."""
 
     STATIC_TABLE_IDS = True
+    USE_BARRIERS = True
 
 
 SUPPORTED_HARDWARE = {
+    'Generic': Valve,
+    'GenericTFM': TfmValve,
     'Allied-Telesis': AlliedTelesis,
     'Aruba': ArubaValve,
     'CiscoC9K': CiscoC9KValve,
-    'GenericTFM': TfmValve,
     'Lagopus': OVSValve,
     'Netronome': OVSValve,
     'NoviFlow': NoviFlowValve,
