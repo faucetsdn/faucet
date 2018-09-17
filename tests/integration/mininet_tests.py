@@ -4540,11 +4540,10 @@ vlans:
 
         # verify routing performance
         host, other_host = hosts
-        for routed_ip_pair in (
+        for host_ip, other_ip in (
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[0], 2)),
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[-1], 2)),
                 (self.netbase(self.NEW_VIDS[-1], 1), self.netbase(self.NEW_VIDS[0], 2))):
-            host_ip, other_ip = routed_ip_pair
             self.verify_iperf_min(
                 ((host, self.port_map['port_1']),
                  (other_host, self.port_map['port_2'])),
@@ -4579,7 +4578,6 @@ vlans:
         self.ping(host, macvlan2_ip.ip, macvlan1_int)
 
 
-@unittest.skip('failing under CI')
 class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
 
     IPV = 6
