@@ -2184,12 +2184,15 @@ dbs:
         learned_ip6 = ipaddress.ip_interface(self.host_ipv6(learned_host))
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
-    def iperf_client(self, client_host, iperf_client_cmd):
+    def iperf_client(self, client_host, iperf_client_cmd, ipv):
         iperf_results = client_host.cmd(iperf_client_cmd)
         iperf_csv = iperf_results.strip().split(',')
         if len(iperf_csv) == 9:
             return int(iperf_csv[-1]) / self.ONEMBPS
-        error('%s: %s %s' % (self._test_name(), iperf_client_cmd, iperf_results))
+        client_routes = client_host.cmd('ip -%u route show' % ipv)
+        client_neigh = client_host.cmd('ip -%u neigh show' % ipv)
+        error('%s: %s %s\n%s\n%s' % (
+            self._test_name(), iperf_client_cmd, iperf_results, client_routes, client_neigh))
         return -1
 
     def iperf(self, client_host, client_ip, server_host, server_ip, seconds):
@@ -2210,7 +2213,7 @@ dbs:
                 self.wait_for_tcp_listen(
                     server_host, port, ipv=server_ip.version)
                 iperf_mbps = self.iperf_client(
-                    client_host, iperf_client_cmd)
+                    client_host, iperf_client_cmd, ipv=server_ip.version)
                 self._signal_proc_on_port(server_host, port, 9)
                 return iperf_mbps
             return None
