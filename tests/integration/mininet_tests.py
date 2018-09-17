@@ -25,7 +25,6 @@ from http.server import HTTPServer
 import yaml # pytype: disable=pyi-error
 
 from mininet.log import error, output
-from mininet.net import Mininet
 from mininet.util import pmonitor
 
 import scapy.all
