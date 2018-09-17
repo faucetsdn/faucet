@@ -40,12 +40,14 @@ from mininet.clean import Cleanup
 
 from clib import mininet_test_util
 
+DEFAULT_HARDWARE = 'Open vSwitch'
+
 # Only these hardware types will be tested with meters.
 SUPPORTS_METERS = (
     'Aruba',
     'NoviFlow',
 # TODO: troubleshoot meters in OVS 2.10.0
-#    'Open vSwitch',
+#   DEFAULT_HARDWARE,
     'ZodiacGX',
 )
 
@@ -326,25 +328,28 @@ def pipeline_superset_report(decoded_pcap_logs):
 def filter_test_hardware(test_obj, hw_config):
     test_hosts = test_obj.N_TAGGED + test_obj.N_UNTAGGED + test_obj.N_EXTENDED
     test_links = test_hosts * test_obj.LINKS_PER_HOST
-    if hw_config is not None:
+    testing_hardware = hw_config is not None
+    test_hardware = DEFAULT_HARDWARE
+    if testing_hardware:
         test_hardware = hw_config['hardware']
+
+    if test_obj.REQUIRES_METERS and test_hardware not in SUPPORTS_METERS:
+        return False
+
+    if testing_hardware:
         if test_obj.SOFTWARE_ONLY:
             return False
         if test_obj.NUM_DPS > 1:
             # TODO: test other stacking combinations.
             if test_obj.NUM_HOSTS > 2:
                 return False
-        else:
-            if test_links < REQUIRED_TEST_PORTS:
-                if test_hardware == 'ZodiacFX':
-                    return True
-                return False
-        if test_obj.REQUIRES_METERS:
-            if test_hardware not in SUPPORTS_METERS:
-                return False
-    else:
-        if test_obj.NUM_DPS == 1 and test_links < REQUIRED_TEST_PORTS:
-            return False
+        if test_links < REQUIRED_TEST_PORTS:
+            if test_hardware == 'ZodiacFX':
+                return True
+
+    if test_obj.NUM_DPS == 1 and test_links < REQUIRED_TEST_PORTS:
+        return False
+
     return True
 
 
