@@ -1671,7 +1671,7 @@ dbs:
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
-    def verify_iperf_min(self, hosts_switch_ports, min_mbps, client_ip, server_ip):
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps, client_ip, server_ip, seconds=5):
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         prop = 0.1
@@ -2212,6 +2212,7 @@ dbs:
             return None
 
         for _ in range(3):
+            timeout = (seconds * 3) + 5
             port = mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
             iperf_base_cmd = 'iperf -f M -p %u' % port
@@ -2219,11 +2220,11 @@ dbs:
                 iperf_base_cmd += ' -V'
             iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
             iperf_server_cmd = mininet_test_util.timeout_cmd(
-                iperf_server_cmd, (seconds * 3) + 5)
+                iperf_server_cmd, timeout)
             server_start_exp = r'Server listening on TCP port %u' % port
             iperf_client_cmd = mininet_test_util.timeout_cmd(
                 '%s -y c -c %s -B %s -t %u' % (iperf_base_cmd, server_ip, client_ip, seconds),
-                seconds + 5)
+                timeout)
             iperf_mbps = run_iperf(iperf_server_cmd, server_host, server_start_exp, port)
             if iperf_mbps is not None:
                 return iperf_mbps
