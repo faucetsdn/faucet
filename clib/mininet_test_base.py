@@ -1671,7 +1671,7 @@ dbs:
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
-    def verify_iperf_min(self, hosts_switch_ports, min_mbps, client_ip, server_ip):
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps, client_ip, server_ip, seconds=5):
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         prop = 0.1
@@ -2184,12 +2184,12 @@ dbs:
         learned_ip6 = ipaddress.ip_interface(self.host_ipv6(learned_host))
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
-    def iperf_client(self, client_host, iperf_client_cmd):
+    def iperf_client(self, client_host, iperf_client_cmd, ipv):
         iperf_results = client_host.cmd(iperf_client_cmd)
         iperf_csv = iperf_results.strip().split(',')
         if len(iperf_csv) == 9:
             return int(iperf_csv[-1]) / self.ONEMBPS
-        return None
+        return -1
 
     def iperf(self, client_host, client_ip, server_host, server_ip, seconds):
 
@@ -2201,16 +2201,19 @@ dbs:
                 close_fds=True)
             popens = {server_host: server_out}
             for host, line in pmonitor(popens):
-                if host == server_host:
-                    if re.search(server_start_exp, line):
-                        self.wait_for_tcp_listen(
-                            server_host, port, ipv=server_ip.version)
-                        iperf_mbps = self.iperf_client(
-                            client_host, iperf_client_cmd)
-                        self._signal_proc_on_port(server_host, port, 9)
-                        return iperf_mbps
+                if host != server_host:
+                    continue
+                if not re.search(server_start_exp, line):
+                    continue
+                self.wait_for_tcp_listen(
+                    server_host, port, ipv=server_ip.version)
+                iperf_mbps = self.iperf_client(
+                    client_host, iperf_client_cmd, ipv=server_ip.version)
+                self._signal_proc_on_port(server_host, port, 9)
+                return iperf_mbps
             return None
 
+        timeout = (seconds * 3) + 5
         for _ in range(3):
             port = mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
@@ -2219,16 +2222,19 @@ dbs:
                 iperf_base_cmd += ' -V'
             iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
             iperf_server_cmd = mininet_test_util.timeout_cmd(
-                iperf_server_cmd, (seconds * 3) + 5)
+                iperf_server_cmd, timeout)
             server_start_exp = r'Server listening on TCP port %u' % port
             iperf_client_cmd = mininet_test_util.timeout_cmd(
                 '%s -y c -c %s -B %s -t %u' % (iperf_base_cmd, server_ip, client_ip, seconds),
-                seconds + 5)
+                timeout)
             iperf_mbps = run_iperf(iperf_server_cmd, server_host, server_start_exp, port)
             if iperf_mbps is not None:
                 return iperf_mbps
             time.sleep(1)
-        self.fail('%s never started' % iperf_server_cmd)
+        if iperf_mbps == -1:
+            self.fail('iperf client %s did not connect to server %s' % (
+                iperf_client_cmd, iperf_server_cmd))
+        self.fail('iperf server %s never started' % iperf_server_cmd)
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip):
