@@ -34,6 +34,7 @@ from faucet import valve_util
 
 from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
+from faucet.faucet_metadata import get_egress_metadata
 
 
 class ValveLogger:
@@ -693,6 +694,24 @@ class Valve:
             inst=inst
             )
 
+    def _add_egress_table_rule(self, port, vlan, mirror_act, pop):
+        egress_table = self.dp.tables['egress']
+        metadata, metadata_mask = get_egress_metadata(port.number, vlan.vid)
+        actions = copy.copy(mirror_act)
+        if pop:
+            actions.append(valve_of.pop_vlan())
+        actions.append(valve_of.output_port(port.number))
+        inst = [valve_of.apply_actions(actions)]
+        return egress_table.flowmod(
+            egress_table.match(
+                vlan=vlan,
+                metadata=metadata,
+                metadata_mask=metadata_mask
+                ),
+            priority=self.dp.high_priority,
+            inst=inst
+            )
+
     def _find_forwarding_table(self, vlan):
         if vlan.acls_in:
             return self.dp.tables['vlan_acl']
@@ -703,9 +722,15 @@ class Valve:
         for vlan in port.tagged_vlans:
             ofmsgs.append(self._port_add_vlan_rules(
                 port, vlan, mirror_act, False))
+            if self.dp.egress_pipeline:
+                ofmsgs.append(self._add_egress_table_rule(
+                    port, vlan, mirror_act, False))
         if port.native_vlan is not None:
             ofmsgs.append(self._port_add_vlan_rules(
                 port, port.native_vlan, mirror_act, True))
+            if self.dp.egress_pipeline:
+                ofmsgs.append(self._add_egress_table_rule(
+                    port, port.native_vlan, mirror_act, True))
         return ofmsgs
 
     def _port_delete_flows_state(self, port):
@@ -714,6 +739,9 @@ class Valve:
         ofmsgs.extend(self._delete_all_port_match_flows(port))
         for table in self.dp.output_tables():
             ofmsgs.extend(table.flowdel(out_port=port.number))
+        if self.dp.egress_pipeline:
+            ofmsgs.extend(
+                self.dp.tables['egress'].flowdel(out_port=port.number))
         if port.permanent_learn:
             classification_table = self.dp.classification_table()
             for entry in port.hosts():
