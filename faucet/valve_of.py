@@ -241,6 +241,19 @@ def goto_table(table):
     """
     return parser.OFPInstructionGotoTable(table.table_id)
 
+def metadata_goto_table(metadata, mask, table):
+    """Return instructions to write metadata and goto table.
+
+    Args:
+        metadata (int): metadata to write to packet
+        maks (int): mask to apply to metadata
+        table (ValveTable): table to goto.
+    Returns:
+        list of OFPInstructions"""
+    return [
+        parser.OFPInstructionWriteMetadata(metadata, mask),
+        parser.OFPInstructionGotoTable(table.table_id)
+        ]
 
 def set_field(**kwds):
     """Return action to set any field.
@@ -349,7 +362,6 @@ def output_controller(max_len=MAX_PACKET_IN_BYTES):
         ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: packet in action.
     """
     return output_port(ofp.OFPP_CONTROLLER, max_len)
-
 
 def packetouts(port_nums, data):
     """Return OpenFlow action to mulltiply packet out to dataplane from controller.

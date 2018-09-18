@@ -156,7 +156,6 @@ vlans:
                 'nc -U %s' % sock, 10))
         self.verify_events_log(event_log)
 
-
 class Faucet8021XSuccessTest(FaucetUntaggedTest):
 
     SOFTWARE_ONLY = True
@@ -1716,6 +1715,23 @@ vlans:
         self.verify_broadcast()
         self.verify_no_bcast_to_self()
 
+class FaucetTaggedAndUntaggedSameVlanEgressTest(FaucetTaggedAndUntaggedSameVlanTest):
+    CONFIG = """
+        egress_pipeline: True
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
 
 class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTest):
 
