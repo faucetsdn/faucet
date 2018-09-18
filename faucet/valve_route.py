@@ -825,13 +825,13 @@ class ValveIPv6RouteManager(ValveRouteManager):
         ofmsgs = []
         # RA if this is a link local FAUCET VIP
         if faucet_vip.ip.is_link_local:
-            ofmsgs.append(self.eth_src_table.flowmod(
-                self.eth_src_table.match(
+            ofmsgs.append(self.classification_table.flowmod(
+                self.classification_table.match(
                     eth_type=self.ETH_TYPE,
                     eth_dst=valve_packet.IPV6_ALL_ROUTERS_MCAST,
                     vlan=vlan),
                 priority=priority,
-                inst=[self.eth_src_table.goto(self.vip_table)]))
+                inst=[self.classification_table.goto(self.vip_table)]))
             ofmsgs.append(self.vip_table.flowmod(
                 self.vip_table.match(
                     eth_type=self.ETH_TYPE,
@@ -874,30 +874,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
             priority=priority,
             inst=self._controller_and_flood()))
-        # IPv6 ND for connected hosts.
-        ofmsgs.append(self.vip_table.flowcontroller(
-            self.vip_table.match(
-                eth_type=self.ETH_TYPE,
-                eth_dst=vlan.faucet_mac,
-                nw_proto=valve_of.inet.IPPROTO_ICMPV6,
-                icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
-            priority=priority,
-            max_len=self.MAX_LEN))
-        if faucet_vip.ip.is_link_local:
-            ofmsgs.append(self.classification_table.flowmod(
-                self.classification_table.match(
-                    eth_type=self.ETH_TYPE,
-                    eth_dst=valve_packet.IPV6_ALL_ROUTERS_MCAST,
-                    vlan=vlan),
-                priority=priority,
-                inst=[self.classification_table.goto(self.vip_table)]))
-            ofmsgs.append(self.vip_table.flowmod(
-                self.vip_table.match(
-                    eth_type=self.ETH_TYPE,
-                    nw_proto=valve_of.inet.IPPROTO_ICMPV6,
-                    icmpv6_type=icmpv6.ND_ROUTER_SOLICIT),
-                priority=priority,
-                inst=controller_and_flood))
         return ofmsgs
 
     def _add_faucet_fib_to_vip(self, vlan, priority, faucet_vip, faucet_vip_host):
