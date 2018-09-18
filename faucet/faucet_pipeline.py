@@ -149,7 +149,7 @@ FLOOD_DEFAULT_CONFIG = ValveTableConfig(
 EGRESS_DEFAULT_CONFIG = ValveTableConfig(
     'egress',
     FLOOD_DEFAULT_CONFIG.table_id + 1,
-    match_types=(('metadata', True),),
+    match_types=(('metadata', True),('vlan_vid', False)),
     vlan_port_scale=1.5,
     metadata_match=EGRESS_METADATA_MASK
     )
