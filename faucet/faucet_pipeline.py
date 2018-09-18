@@ -16,8 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-PORT_METADATA_MASK = 0xFFF
-VLAN_METADATA_MASK = 0xFFF000
+from faucet.faucet_metadata import EGRESS_METADATA_MASK
 
 class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Configuration for a single table."""
@@ -139,7 +138,7 @@ ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     match_types=(('eth_dst', False), ('vlan_vid', False)),
     next_tables=('egress',),
     vlan_port_scale=4.1,
-    metadata_write=VLAN_METADATA_MASK & PORT_METADATA_MASK
+    metadata_write=EGRESS_METADATA_MASK
     )
 FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
@@ -152,7 +151,7 @@ EGRESS_DEFAULT_CONFIG = ValveTableConfig(
     FLOOD_DEFAULT_CONFIG.table_id + 1,
     match_types=(('metadata', True),),
     vlan_port_scale=1.5,
-    metadata_match=VLAN_METADATA_MASK & PORT_METADATA_MASK
+    metadata_match=EGRESS_METADATA_MASK
     )
 
 MINIMUM_FAUCET_PIPELINE_TABLES = {
