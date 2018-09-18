@@ -678,11 +678,11 @@ class Valve:
                 inst=[acl_allow_inst]))
         return ofmsgs
 
-    def _port_add_vlan_rules(self, port, vlan, mirror_act, push):
+    def _port_add_vlan_rules(self, port, vlan, mirror_act, push_vlan=True):
         vlan_table = self.dp.tables['vlan']
         actions = copy.copy(mirror_act)
         match_vlan = vlan
-        if push:
+        if push_vlan:
             actions.extend(valve_of.push_vlan_act(
                 vlan_table, vlan.vid))
             match_vlan = NullVLAN()
@@ -696,11 +696,11 @@ class Valve:
             inst=inst
             )
 
-    def _add_egress_table_rule(self, port, vlan, mirror_act, pop):
+    def _add_egress_table_rule(self, port, vlan, mirror_act, pop_vlan=True):
         egress_table = self.dp.tables['egress']
         metadata, metadata_mask = get_egress_metadata(port.number, vlan.vid)
         actions = copy.copy(mirror_act)
-        if pop:
+        if pop_vlan:
             actions.append(valve_of.pop_vlan())
         actions.append(valve_of.output_port(port.number))
         inst = [valve_of.apply_actions(actions)]
@@ -723,16 +723,16 @@ class Valve:
         ofmsgs = []
         for vlan in port.tagged_vlans:
             ofmsgs.append(self._port_add_vlan_rules(
-                port, vlan, mirror_act, False))
+                port, vlan, mirror_act, push_vlan=False))
             if self.dp.egress_pipeline:
                 ofmsgs.append(self._add_egress_table_rule(
-                    port, vlan, mirror_act, False))
+                    port, vlan, mirror_act, pop_vlan=False))
         if port.native_vlan is not None:
             ofmsgs.append(self._port_add_vlan_rules(
-                port, port.native_vlan, mirror_act, True))
+                port, port.native_vlan, mirror_act))
             if self.dp.egress_pipeline:
                 ofmsgs.append(self._add_egress_table_rule(
-                    port, port.native_vlan, mirror_act, True))
+                    port, port.native_vlan, mirror_act))
         return ofmsgs
 
     def _port_delete_flows_state(self, port):
