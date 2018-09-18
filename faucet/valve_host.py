@@ -148,11 +148,12 @@ class ValveHostManager:
 
         if port.permanent_learn:
             # Antispoofing rule for this MAC.
-            ofmsgs.append(self.classification_table.flowmod(
-                self.classification_table.match(
-                    in_port=port.number, vlan=vlan, eth_src=eth_src),
-                priority=self.host_priority,
-                inst=[self.classification_table.goto(self.eth_src_table)]))
+            if self.classification_table != self.eth_src_table:
+                ofmsgs.append(self.classification_table.flowmod(
+                    self.classification_table.match(
+                        in_port=port.number, vlan=vlan, eth_src=eth_src),
+                    priority=self.host_priority,
+                    inst=[self.classification_table.goto(self.eth_src_table)]))
             ofmsgs.append(self.classification_table.flowdrop(
                 self.classification_table.match(vlan=vlan, eth_src=eth_src),
                 priority=(self.host_priority - 2)))

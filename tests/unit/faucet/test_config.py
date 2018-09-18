@@ -873,15 +873,13 @@ dps:
         dp = self._get_dps_as_dict(config)[0x1]
         tables = {
             'vlan': 0,
-            'classification': 1,
-            'eth_src': 2,
-            'eth_dst': 3,
-            'flood': 4
+            'eth_src': 1,
+            'eth_dst': 2,
+            'flood': 3
             }
         self._check_table_names_numbers(dp, tables)
         self._check_next_tables(dp.tables['vlan'], [1])
-        self._check_next_tables(dp.tables['classification'], [2, 3, 4])
-        self._check_next_tables(dp.tables['eth_src'], [3, 4])
+        self._check_next_tables(dp.tables['eth_src'], [2, 3])
         self._check_next_tables(dp.tables['eth_dst'], [])
         self._check_next_tables(dp.tables['flood'], [])
 
@@ -904,7 +902,6 @@ dps:
         tables = {
             'port_acl': 0,
             'vlan': 1,
-            'classification': 3,
             'eth_src': 4,
             'eth_dst': 9,
             'flood': 10
@@ -929,12 +926,11 @@ dps:
         dp = self._get_dps_as_dict(config)[0x1]
         tables = {
             'vlan': 0,
-            'classification': 1,
-            'eth_src': 2,
-            'ipv4_fib': 3,
-            'vip': 4,
-            'eth_dst': 5,
-            'flood': 6
+            'eth_src': 1,
+            'ipv4_fib': 2,
+            'vip': 3,
+            'eth_dst': 4,
+            'flood': 5
             }
         self._check_table_names_numbers(dp, tables)
 
@@ -956,13 +952,12 @@ dps:
         dp = self._get_dps_as_dict(config)[0x1]
         tables = {
             'vlan': 0,
-            'classification': 1,
-            'eth_src': 2,
-            'ipv4_fib': 3,
-            'ipv6_fib': 4,
-            'vip': 5,
-            'eth_dst': 6,
-            'flood': 7
+            'eth_src': 1,
+            'ipv4_fib': 2,
+            'ipv6_fib': 3,
+            'vip': 4,
+            'eth_dst': 5,
+            'flood': 6
             }
         self._check_table_names_numbers(dp, tables)
 
@@ -992,17 +987,16 @@ dps:
         tables = {
             'vlan': 0,
             'vlan_acl': 1,
-            'classification': 2,
-            'eth_src': 3,
-            'ipv4_fib': 4,
-            'ipv6_fib': 5,
-            'vip': 6,
-            'eth_dst': 7,
-            'flood': 8
+            'eth_src': 2,
+            'ipv4_fib': 3,
+            'ipv6_fib': 4,
+            'vip': 5,
+            'eth_dst': 6,
+            'flood': 7
             }
         self._check_table_names_numbers(dp, tables)
 
-    def test_pipeline_config_ipv6_4_vlan_port_acl(self):
+    def test_pipeline_full(self):
         """Test pipelines are generated correctly with different configs"""
         config = """
 vlans:
@@ -1019,6 +1013,7 @@ acls:
 dps:
     sw1:
         dp_id: 0x1
+        use_classification: True
         interfaces:
             1:
                 native_vlan: office
@@ -1040,10 +1035,10 @@ dps:
             }
         self._check_table_names_numbers(dp, tables)
         self._check_next_tables(dp.tables['port_acl'], [1, 7, 8, 9])
-        self._check_next_tables(dp.tables['vlan'], [2, 3])
-        self._check_next_tables(dp.tables['vlan_acl'], [3, 8, 9])
+        self._check_next_tables(dp.tables['vlan'], [2, 3, 4])
+        self._check_next_tables(dp.tables['vlan_acl'], [3, 4, 8, 9])
         self._check_next_tables(dp.tables['classification'], [4, 5, 6, 7, 8, 9])
-        self._check_next_tables(dp.tables['eth_src'], [8, 9])
+        self._check_next_tables(dp.tables['eth_src'], [5, 6, 7, 8, 9])
         self._check_next_tables(dp.tables['ipv4_fib'], [7, 8, 9])
         self._check_next_tables(dp.tables['ipv6_fib'], [7, 8, 9])
         self._check_next_tables(dp.tables['vip'], [8, 9])
