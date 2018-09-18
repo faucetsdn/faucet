@@ -196,6 +196,7 @@ acls:
     CONFIG = """
         dot1x:
             nfv_intf: NFV_INTF
+            nfv_sw_port: 4
             radius_ip: 127.0.0.1
             radius_port: RADIUS_PORT
             radius_secret: SECRET

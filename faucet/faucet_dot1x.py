@@ -135,11 +135,11 @@ class FaucetDot1x:
                 ),
             priority=valve.dp.highest_priority,
             inst=[valve_of.apply_actions([valve_of.set_field(eth_dst=mac),
-                                          valve_of.output_port(self.nfv_port.number)])])
+                                          valve_of.output_port(valve.dp.dot1x['nfv_sw_port'])])])
 
         from_nfv = valve.dp.tables['port_acl'].flowmod(
             valve.dp.tables['port_acl'].match(
-                in_port=self.nfv_port.number,
+                in_port=valve.dp.dot1x['nfv_sw_port'],
                 eth_type=0x888e,
                 eth_src=mac
             ),
@@ -168,8 +168,6 @@ class FaucetDot1x:
                                                                     valve.dp.faucet_dp_mac,
                                                                     radius_ip, radius_port,
                                                                     radius_secret)
-                    # TODO need to remove hardcoded port 4
-                    self.nfv_port = valve.dp.ports[4]
                 else:
                     continue
             if valve.dp.dot1x and valve.dp.dot1x_ports():
