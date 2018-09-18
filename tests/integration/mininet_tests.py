@@ -620,8 +620,23 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
     def test_untagged(self):
         p1_actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:01}', 'OUTPUT:4']
         p2_actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:02}', 'OUTPUT:4']
+        from_nfv_match_1 = {'dl_src': '00:00:00:00:00:01',
+                            'in_port': 4,
+                            'dl_type': 34958
+                            }
+        from_nfv_match_2 = {'dl_src': '00:00:00:00:00:02',
+                            'in_port': 4,
+                            'dl_type': 34958
+                            }
+        from_nfv_actions_1 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:1']
+        from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:2']
         self.assertTrue(self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
         self.assertTrue(self.get_matching_flow(match=None, actions=p2_actions, timeout=2))
+
+        self.assertTrue(self.get_matching_flow(match=from_nfv_match_1, actions=from_nfv_actions_1,
+                                               timeout=2))
+        self.assertTrue(
+            self.get_matching_flow(match=from_nfv_match_2, actions=from_nfv_actions_2, timeout=2))
 
         conf = self._get_conf()
         conf['dps'][self.DP_NAME]['interfaces'][1]['dot1x'] = False
@@ -632,6 +647,11 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
 
         self.assertFalse(self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
         self.assertTrue(self.get_matching_flow(match=None, actions=p2_actions, timeout=2))
+
+        self.assertFalse(self.get_matching_flow(match=from_nfv_match_1, actions=from_nfv_actions_1,
+                                                timeout=2))
+        self.assertTrue(
+            self.get_matching_flow(match=from_nfv_match_2, actions=from_nfv_actions_2, timeout=2))
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):

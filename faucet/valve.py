@@ -859,6 +859,9 @@ class Valve:
                 for vlan in port.vlans():
                     vlans_with_deleted_ports.add(vlan)
 
+                if port.dot1x:
+                    ofmsgs.extend(self.dot1x.port_down(self, port))
+
         for vlan in vlans_with_deleted_ports:
             ofmsgs.extend(self.flood_manager.build_flood_rules(
                 vlan, modify=True))

@@ -25,7 +25,19 @@ from ryu.lib import hub  # pylint: disable=wrong-import-position
 
 from chewie.chewie import Chewie  # pylint: disable=wrong-import-position
 
-from faucet import valve_of
+from faucet import valve_of  # pylint: disable=wrong-import-position
+
+
+def get_mac_str(valve_index, port_num):
+    """Gets the mac address string for the valve/port combo
+    Args:
+        valve_index (int): The internally used id of the valve.
+        port_num (int): port number
+
+    Returns:
+        str
+    """
+    return "00:00:00:00:%02x:%02x" % (valve_index, port_num)
 
 
 class FaucetDot1x:
@@ -91,17 +103,6 @@ class FaucetDot1x:
         self.metrics.inc_var('dp_dot1x_failure', valve.base_prom_labels)
         self.metrics.inc_var('port_dot1x_failure', valve.port_labels(dot1x_port))
 
-    def get_mac_str(self, valve_index, port_num):
-        """Gets the mac address string for the valve/port combo
-        Args:
-            valve_index (int): The internally used id of the valve.
-            port_num (int): port number
-
-        Returns:
-            str
-        """
-        return "00:00:00:00:%02x:%02x" % (valve_index, port_num)
-
     def set_mac_str(self, valve, valve_index, port_num):
         """
         Args:
@@ -112,7 +113,7 @@ class FaucetDot1x:
         Returns:
             str
         """
-        mac_str = self.get_mac_str(valve_index, port_num)
+        mac_str = get_mac_str(valve_index, port_num)
         port = valve.dp.ports[port_num]
         self.mac_to_port[mac_str] = (valve, port)
         return mac_str
@@ -127,7 +128,7 @@ class FaucetDot1x:
             list of flowmods
         """
         valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
-        mac = self.get_mac_str(valve_index, dot1x_port.number)
+        mac = get_mac_str(valve_index, dot1x_port.number)
         to_nfv = valve.dp.tables['port_acl'].flowmod(
             valve.dp.tables['port_acl'].match(
                 in_port=dot1x_port.number,
@@ -147,6 +148,38 @@ class FaucetDot1x:
             inst=[valve_of.apply_actions([valve_of.set_field(eth_src="01:80:c2:00:00:03"),
                                           valve_of.output_port(dot1x_port.number)])])
         return [to_nfv, from_nfv]
+
+    def port_down(self, valve, dot1x_port):
+        """
+        Remove the acls added by FaucetDot1x.get_port_acls
+        Args:
+            valve:
+            dot1x_port:
+
+        Returns:
+            list of flowmods
+        """
+        # TODO let chewie know about the port down event.
+
+        valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
+        mac = get_mac_str(valve_index, dot1x_port.number)
+        port_acl_table = valve.dp.tables['port_acl']
+        ofmsgs = []
+        # to_nfv
+        # Strictly speaking this delete isn't needed, as the caller clears the port_acl table for
+        # the port that is down.
+        ofmsgs.extend(port_acl_table.flowdel(match=port_acl_table.match(
+            in_port=dot1x_port.number,
+            eth_type=0x888e
+        ),
+                                             priority=valve.dp.highest_priority))
+        # from_nfv
+        ofmsgs.extend(port_acl_table.flowdel(match=port_acl_table.match(
+            in_port=valve.dp.dot1x['nfv_sw_port'],
+            eth_type=0x888e,
+            eth_src=mac),
+                                             priority=valve.dp.highest_priority))
+        return ofmsgs
 
     def reset(self, valves):
         """Set up a dot1x speaker."""
@@ -173,18 +206,21 @@ class FaucetDot1x:
             if valve.dp.dot1x and valve.dp.dot1x_ports():
                 for dot1x_port in valve.dp.dot1x_ports():
                     if dot1x_port.number > 255:
-                        self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
-                                         % (valve.dp, dot1x_port))
+                        self.logger.info(
+                            'dot1x not enabled on %s %s. Port number is larger than 255'
+                            % (valve.dp, dot1x_port))
                         continue
                 if valve.dp.dot1x and valve.dp.dot1x_ports():
                     for dot1x_port in valve.dp.dot1x_ports():
                         if dot1x_port.number > 255:
-                            self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
-                                             % (valve.dp, dot1x_port))
+                            self.logger.info(
+                                'dot1x not enabled on %s %s. Port number is larger than 255'
+                                % (valve.dp, dot1x_port))
                             continue
                         if valve_index > 255:
-                            self.logger.info('dot1x not enabled on %s %s. more than 255 valves'
-                                             % (valve.dp, dot1x_port))
+                            self.logger.info(
+                                'dot1x not enabled on %s %s. more than 255 valves'
+                                % (valve.dp, dot1x_port))
                             continue
                         self.set_mac_str(valve, valve_index, dot1x_port.number)
                         self.logger.info(
