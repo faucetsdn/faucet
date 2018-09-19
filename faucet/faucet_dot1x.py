@@ -18,11 +18,26 @@
 # limitations under the License.
 
 import eventlet
+
 eventlet.monkey_patch()
 
-from ryu.lib import hub # pylint: disable=wrong-import-position
+from ryu.lib import hub  # pylint: disable=wrong-import-position
 
-from chewie.chewie import Chewie # pylint: disable=wrong-import-position
+from chewie.chewie import Chewie  # pylint: disable=wrong-import-position
+
+from faucet import valve_of  # pylint: disable=wrong-import-position
+
+
+def get_mac_str(valve_index, port_num):
+    """Gets the mac address string for the valve/port combo
+    Args:
+        valve_index (int): The internally used id of the valve.
+        port_num (int): port number
+
+    Returns:
+        str
+    """
+    return "00:00:00:00:%02x:%02x" % (valve_index, port_num)
 
 
 class FaucetDot1x:
@@ -36,6 +51,7 @@ class FaucetDot1x:
         self.dot1x_speaker = None
         self.dot1x_intf = None
         self.mac_to_port = {}  # {"00:00:00:00:00:02" : (valve_0, port_1)}
+        self.dp_id_to_valve_index = {}
 
     def _create_dot1x_speaker(self, dot1x_intf, chewie_id, radius_ip, radius_port, radius_secret):
         chewie = Chewie(  # pylint: disable=too-many-function-args
@@ -87,13 +103,94 @@ class FaucetDot1x:
         self.metrics.inc_var('dp_dot1x_failure', valve.base_prom_labels)
         self.metrics.inc_var('port_dot1x_failure', valve.port_labels(dot1x_port))
 
+    def set_mac_str(self, valve, valve_index, port_num):
+        """
+        Args:
+            valve (Valve):
+            valve_index (int):
+            port_num (int):
+
+        Returns:
+            str
+        """
+        mac_str = get_mac_str(valve_index, port_num)
+        port = valve.dp.ports[port_num]
+        self.mac_to_port[mac_str] = (valve, port)
+        return mac_str
+
+    def get_port_acls(self, valve, dot1x_port):
+        """Setup the dot1x forward port acls.
+        Args:
+            dot1x_port:
+            valve:
+
+        Returns:
+            list of flowmods
+        """
+        valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
+        mac = get_mac_str(valve_index, dot1x_port.number)
+        to_nfv = valve.dp.tables['port_acl'].flowmod(
+            valve.dp.tables['port_acl'].match(
+                in_port=dot1x_port.number,
+                eth_type=0x888e,
+                ),
+            priority=valve.dp.highest_priority,
+            inst=[valve_of.apply_actions([valve_of.set_field(eth_dst=mac),
+                                          valve_of.output_port(valve.dp.dot1x['nfv_sw_port'])])])
+
+        from_nfv = valve.dp.tables['port_acl'].flowmod(
+            valve.dp.tables['port_acl'].match(
+                in_port=valve.dp.dot1x['nfv_sw_port'],
+                eth_type=0x888e,
+                eth_src=mac
+            ),
+            priority=valve.dp.highest_priority,
+            inst=[valve_of.apply_actions([valve_of.set_field(eth_src="01:80:c2:00:00:03"),
+                                          valve_of.output_port(dot1x_port.number)])])
+        return [to_nfv, from_nfv]
+
+    def port_down(self, valve, dot1x_port):
+        """
+        Remove the acls added by FaucetDot1x.get_port_acls
+        Args:
+            valve:
+            dot1x_port:
+
+        Returns:
+            list of flowmods
+        """
+        # TODO let chewie know about the port down event.
+
+        valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
+        mac = get_mac_str(valve_index, dot1x_port.number)
+        port_acl_table = valve.dp.tables['port_acl']
+        ofmsgs = []
+        # to_nfv
+        # Strictly speaking this delete isn't needed, as the caller clears the port_acl table for
+        # the port that is down.
+        ofmsgs.extend(port_acl_table.flowdel(match=port_acl_table.match(
+            in_port=dot1x_port.number,
+            eth_type=0x888e
+        ),
+                                             priority=valve.dp.highest_priority))
+        # from_nfv
+        ofmsgs.extend(port_acl_table.flowdel(match=port_acl_table.match(
+            in_port=valve.dp.dot1x['nfv_sw_port'],
+            eth_type=0x888e,
+            eth_src=mac),
+                                             priority=valve.dp.highest_priority))
+        return ofmsgs
+
     def reset(self, valves):
         """Set up a dot1x speaker."""
-        # TODO: support multiple Valves and ports.
         self._valves = valves
-        valve_id = -1
+        self.dot1x_speaker = None
+        valve_index = -1
+        dot1x_intf = None
         for valve in list(valves.values()):
-            valve_id += 1
+            valve_index += 1
+            self.dp_id_to_valve_index[valve.dp.dp_id] = valve_index
+
             if self.dot1x_speaker is None:
                 if valve.dp.dot1x:
                     dot1x_intf = valve.dp.dot1x['nfv_intf']
@@ -109,15 +206,23 @@ class FaucetDot1x:
             if valve.dp.dot1x and valve.dp.dot1x_ports():
                 for dot1x_port in valve.dp.dot1x_ports():
                     if dot1x_port.number > 255:
-                        self.logger.info('dot1x not enabled on %s %s. Port number is larger than 255'
-                                         % (valve.dp, dot1x_port))
+                        self.logger.info(
+                            'dot1x not enabled on %s %s. Port number is larger than 255'
+                            % (valve.dp, dot1x_port))
                         continue
-                    if valve_id > 255:
-                        self.logger.info('dot1x not enabled on %s %s. more than 255 valves'
-                                         % (valve.dp, dot1x_port))
-                        continue
-                    mac_str = "00:00:00:00:%02x:%02x" % (valve_id, dot1x_port.number)
-                    self.mac_to_port[mac_str] = (valve, dot1x_port)
-                    self.logger.info(
-                        'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
-                            valve.dp, valve_id, dot1x_port, dot1x_intf))
+                if valve.dp.dot1x and valve.dp.dot1x_ports():
+                    for dot1x_port in valve.dp.dot1x_ports():
+                        if dot1x_port.number > 255:
+                            self.logger.info(
+                                'dot1x not enabled on %s %s. Port number is larger than 255'
+                                % (valve.dp, dot1x_port))
+                            continue
+                        if valve_index > 255:
+                            self.logger.info(
+                                'dot1x not enabled on %s %s. more than 255 valves'
+                                % (valve.dp, dot1x_port))
+                            continue
+                        self.set_mac_str(valve, valve_index, dot1x_port.number)
+                        self.logger.info(
+                            'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
+                                valve.dp, valve_index, dot1x_port, dot1x_intf))

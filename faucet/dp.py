@@ -205,6 +205,7 @@ configuration.
 
     dot1x_defaults_types = {
         'nfv_intf': str,
+        'nfv_sw_port': int,
         'radius_ip': str,
         'radius_port': int,
         'radius_secret': str,

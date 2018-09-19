@@ -75,6 +75,7 @@ class Valve:
 
     __slots__ = [
         'base_prom_labels',
+        'dot1x',
         'dp',
         'flood_manager',
         'host_manager',
@@ -99,7 +100,8 @@ class Valve:
     GROUPS = True
 
 
-    def __init__(self, dp, logname, metrics, notifier):
+    def __init__(self, dp, logname, metrics, notifier, dot1x):
+        self.dot1x = dot1x
         self.dp = dp
         self.logname = logname
         self.metrics = metrics
@@ -782,6 +784,9 @@ class Valve:
                         valve_of.output_controller(),
                         valve_of.output_port(port.override_output_port.number)])]))
 
+            if port.dot1x:
+                ofmsgs.extend(self.dot1x.get_port_acls(self, port))
+
             if not self.dp.dp_acls:
                 acl_ofmsgs = self._port_add_acl(port)
                 ofmsgs.extend(acl_ofmsgs)
@@ -850,6 +855,9 @@ class Valve:
                     ofmsgs.extend(self._port_delete_flows_state(port))
                 for vlan in port.vlans():
                     vlans_with_deleted_ports.add(vlan)
+
+                if port.dot1x:
+                    ofmsgs.extend(self.dot1x.port_down(self, port))
 
         for vlan in vlans_with_deleted_ports:
             ofmsgs.extend(self.flood_manager.build_flood_rules(
@@ -1458,7 +1466,7 @@ class Valve:
             port_acl_table.match(
                 in_port=port_num,
                 eth_src=mac),
-            priority=self.dp.highest_priority,
+            priority=self.dp.highest_priority-1,
             inst=[port_acl_table.goto(self.dp.tables['vlan'])])
         return [ofmsg]
 
@@ -1468,7 +1476,7 @@ class Valve:
             port_acl_table.match(
                 in_port=port_num,
                 eth_src=mac),
-            priority=self.dp.highest_priority,
+            priority=self.dp.highest_priority-1,
             strict=True
         )
         return ofmsg
