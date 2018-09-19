@@ -292,7 +292,8 @@ class ValveRouteManager:
                     eth_type=self.ETH_TYPE,
                     eth_dst=faucet_mac,
                     nw_proto=self.ICMP_TYPE),
-                priority=priority))
+                priority=priority,
+                max_len=self.MAX_LEN))
             # Learn + flood other ICMP not unicast to us.
             priority -= 1
             ofmsgs.append(self.vip_table.flowmod(
