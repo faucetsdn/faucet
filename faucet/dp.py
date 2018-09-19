@@ -187,7 +187,7 @@ configuration.
         'port_acl': int,
         'vlan': int,
         'vlan_acl': int,
-        'use_classification': int,
+        'classification': int,
         'eth_src': int,
         'ipv4_fib': int,
         'ipv6_fib': int,
