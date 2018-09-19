@@ -66,7 +66,8 @@ class ValveHostManager:
         if entry is None:
             if port.max_hosts:
                 if port.hosts_count() == port.max_hosts:
-                    ofmsgs.append(self._temp_ban_host_learning(self.eth_src_table.match(in_port=port.number)))
+                    ofmsgs.append(self._temp_ban_host_learning(
+                        self.eth_src_table.match(in_port=port.number)))
                     port.dyn_learn_ban_count += 1
                     self.logger.info(
                         'max hosts %u reached on %s, '
@@ -143,7 +144,9 @@ class ValveHostManager:
 
     def learn_host_on_vlan_port_flows(self, port, vlan, eth_src,
                                       delete_existing, refresh_rules,
-                                      src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout):
+                                      src_rule_idle_timeout,
+                                      src_rule_hard_timeout,
+                                      dst_rule_idle_timeout):
         """Return flows that implement learning a host on a port."""
         ofmsgs = []
 
@@ -268,7 +271,8 @@ class ValveHostManager:
             # already, or newly in protect mode, apply the ban rules.
             if learn_ban:
                 port.dyn_last_ban_time = now
-                ofmsgs.append(self._temp_ban_host_learning(self.eth_src_table.match(in_port=port.number)))
+                ofmsgs.append(self._temp_ban_host_learning(
+                    self.eth_src_table.match(in_port=port.number)))
                 return (ofmsgs, cache_port)
 
         (src_rule_idle_timeout,
