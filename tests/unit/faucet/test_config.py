@@ -1014,6 +1014,7 @@ dps:
     sw1:
         dp_id: 0x1
         use_classification: True
+        egress_pipeline: True
         interfaces:
             1:
                 native_vlan: office
@@ -1031,7 +1032,8 @@ dps:
             'ipv6_fib': 6,
             'vip': 7,
             'eth_dst': 8,
-            'flood': 9
+            'flood': 9,
+            'egress': 10
             }
         self._check_table_names_numbers(dp, tables)
         self._check_next_tables(dp.tables['port_acl'], [1, 7, 8, 9])
@@ -1042,8 +1044,9 @@ dps:
         self._check_next_tables(dp.tables['ipv4_fib'], [7, 8, 9])
         self._check_next_tables(dp.tables['ipv6_fib'], [7, 8, 9])
         self._check_next_tables(dp.tables['vip'], [8, 9])
-        self._check_next_tables(dp.tables['eth_dst'], [])
+        self._check_next_tables(dp.tables['eth_dst'], [10])
         self._check_next_tables(dp.tables['flood'], [])
+        self._check_next_tables(dp.tables['egress'], [])
 
     def test_pipeline_config_egress(self):
         """Test pipelines are generated correctly with different configs"""
@@ -1063,19 +1066,12 @@ dps:
         dp = self._get_dps_as_dict(config)[0x1]
         tables = {
             'vlan': 0,
-            'classification': 1,
-            'eth_src': 2,
-            'eth_dst': 3,
-            'flood': 4,
-            'egress': 5
+            'eth_src': 1,
+            'eth_dst': 2,
+            'flood': 3,
+            'egress': 4
             }
         self._check_table_names_numbers(dp, tables)
-        self._check_next_tables(dp.tables['vlan'], [1])
-        self._check_next_tables(dp.tables['classification'], [2, 3, 4])
-        self._check_next_tables(dp.tables['eth_src'], [3, 4])
-        self._check_next_tables(dp.tables['eth_dst'], [5])
-        self._check_next_tables(dp.tables['flood'], [])
-        self._check_next_tables(dp.tables['egress'], [])
 
 
     ###########################################
