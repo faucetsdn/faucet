@@ -75,7 +75,7 @@ class Valve:
 
     __slots__ = [
         'base_prom_labels',
-        'dot1x'
+        'dot1x',
         'dp',
         'flood_manager',
         'host_manager',
