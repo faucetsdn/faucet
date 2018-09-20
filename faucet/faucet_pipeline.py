@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from faucet.faucet_metadata import EGRESS_METADATA_MASK
 
 class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Configuration for a single table."""
@@ -23,7 +24,8 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
     def __init__(self, name, table_id, # pylint: disable=too-many-arguments
                  exact_match=None, meter=None, output=True, miss_goto=None,
                  size=None, match_types=None, set_fields=None, dec_ttl=None,
-                 vlan_port_scale=None, next_tables=None):
+                 vlan_port_scale=None, next_tables=None, metadata_match=0,
+                 metadata_write=0):
         self.name = name
         self.table_id = table_id
         self.exact_match = exact_match
@@ -35,6 +37,8 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
         self.set_fields = set_fields
         self.dec_ttl = dec_ttl
         self.vlan_port_scale = vlan_port_scale
+        self.metadata_match = metadata_match
+        self.metadata_write = metadata_write
         if next_tables:
             assert isinstance(next_tables, (list, tuple))
             self.next_tables = next_tables
@@ -126,21 +130,28 @@ ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     exact_match=True,
     vlan_port_scale=4.1,
     )
-
 ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
     ETH_DST_HAIRPIN_DEFAULT_CONFIG.table_id + 1,
     exact_match=True,
     miss_goto='flood',
     match_types=(('eth_dst', False), ('vlan_vid', False)),
+    next_tables=('egress',),
     vlan_port_scale=4.1,
+    metadata_write=EGRESS_METADATA_MASK
     )
-
 FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
     ETH_DST_DEFAULT_CONFIG.table_id + 1,
     match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
     vlan_port_scale=2.1,
+    )
+EGRESS_DEFAULT_CONFIG = ValveTableConfig(
+    'egress',
+    FLOOD_DEFAULT_CONFIG.table_id + 1,
+    match_types=(('metadata', True),('vlan_vid', False)),
+    vlan_port_scale=1.5,
+    metadata_match=EGRESS_METADATA_MASK
     )
 
 MINIMUM_FAUCET_PIPELINE_TABLES = {
@@ -161,6 +172,7 @@ FAUCET_PIPELINE = (
     ETH_DST_HAIRPIN_DEFAULT_CONFIG,
     ETH_DST_DEFAULT_CONFIG,
     FLOOD_DEFAULT_CONFIG,
+    EGRESS_DEFAULT_CONFIG
 )
 
 DEFAULT_CONFIGS = {
@@ -174,4 +186,5 @@ DEFAULT_CONFIGS = {
     'eth_dst_hairpin': ETH_DST_HAIRPIN_DEFAULT_CONFIG,
     'eth_dst': ETH_DST_DEFAULT_CONFIG,
     'flood': FLOOD_DEFAULT_CONFIG,
+    'egress': EGRESS_DEFAULT_CONFIG,
 }
