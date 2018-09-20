@@ -39,6 +39,7 @@ ETH_VLAN_HEADER_SIZE = ETH_HEADER_SIZE + 4 # https://en.wikipedia.org/wiki/IEEE_
 IPV4_HEADER_SIZE = 20 # https://en.wikipedia.org/wiki/IPv4#Header
 IPV6_HEADER_SIZE = 40 # https://en.wikipedia.org/wiki/IPv6_packet#Fixed_header
 ARP_PKT_SIZE = 28 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
+VLAN_ARP_PKT_SIZE = ETH_VLAN_HEADER_SIZE + ARP_PKT_SIZE
 
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
@@ -567,7 +568,7 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
             src_ip (ipaddress.IPv6Address): source IPv6 address.
             dst_ip (ipaddress.IPv6Address): destination IPv6 address.
             hop_limit (int): IPv6 hop limit.
-            id\_ (int): identifier for echo reply.
+            id_ (int): identifier for echo reply.
             seq (int): sequence number for echo reply.
             data (str): payload for echo reply.
         Returns:
@@ -660,9 +661,13 @@ class PacketMeta:
     }
 
     MIN_ETH_TYPE_PKT_SIZE = {
-        valve_of.ether.ETH_TYPE_ARP: ETH_VLAN_HEADER_SIZE + ARP_PKT_SIZE,
+        valve_of.ether.ETH_TYPE_ARP: VLAN_ARP_PKT_SIZE,
         valve_of.ether.ETH_TYPE_IP: ETH_VLAN_HEADER_SIZE + IPV4_HEADER_SIZE,
         valve_of.ether.ETH_TYPE_IPV6: ETH_VLAN_HEADER_SIZE + IPV6_HEADER_SIZE,
+    }
+
+    MAX_ETH_TYPE_PKT_SIZE = {
+        valve_of.ether.ETH_TYPE_ARP: VLAN_ARP_PKT_SIZE,
     }
 
     def __init__(self, data, orig_len, pkt, eth_pkt, vlan_pkt, port, valve_vlan,
@@ -695,6 +700,9 @@ class PacketMeta:
             self.data, max_len, eth_pkt=self.eth_pkt, vlan_pkt=self.vlan_pkt)
         if pkt is None or eth_type is None:
             return
+        right_size = self.MAX_ETH_TYPE_PKT_SIZE.get(eth_type, len(self.data))
+        if len(self.data) > right_size:
+            self.data = self.data[:right_size]
         self.pkt = pkt
         self.eth_pkt = eth_pkt
         self.vlan_pkt = vlan_pkt
