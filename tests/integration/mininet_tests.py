@@ -25,7 +25,6 @@ from http.server import HTTPServer
 import yaml # pytype: disable=pyi-error
 
 from mininet.log import error, output
-from mininet.net import Mininet
 from mininet.util import pmonitor
 
 import scapy.all
@@ -170,12 +169,6 @@ acls:
     eapol1_to_nfv:
         - rule:
             dl_type: 0x888e
-            actions:
-                output:
-                    set_fields:
-                        - eth_dst: 00:00:00:00:00:01
-                    port: b4
-        - rule:
             eth_src: ff:ff:ff:ff:ff:ff
             actions:
                 allow: 0
@@ -184,13 +177,6 @@ acls:
                 allow: 0
     eapol2_to_nfv:
         - rule:
-            dl_type: 0x888e
-            actions:
-                output:
-                    set_fields:
-                        - eth_dst: 00:00:00:00:00:02
-                    port: b4
-        - rule:
             eth_src: ff:ff:ff:ff:ff:ff
             actions:
                 allow: 0
@@ -198,22 +184,6 @@ acls:
             actions:
                 allow: 0
     eapol_from_nfv:
-        - rule:
-            dl_type: 0x888e
-            eth_src: 00:00:00:00:00:01
-            actions:
-                output:
-                    set_fields:
-                        - eth_src: 01:80:c2:00:00:03
-                    port: b1
-        - rule:
-            dl_type: 0x888e
-            eth_src: 00:00:00:00:00:02
-            actions:
-                output:
-                    set_fields:
-                        - eth_src: 01:80:c2:00:00:03
-                    port: b2
         - rule:
             actions:
                 allow: 0
@@ -226,6 +196,7 @@ acls:
     CONFIG = """
         dot1x:
             nfv_intf: NFV_INTF
+            nfv_sw_port: 4
             radius_ip: 127.0.0.1
             radius_port: RADIUS_PORT
             radius_secret: SECRET
@@ -308,10 +279,10 @@ network={
         self.radius_log_path = self.start_freeradius()
 
     def tearDown(self):
+        self.nfv_host.cmd('kill %d' % self.freeradius_pid)
         faucet_log = self.env['faucet']['FAUCET_LOG']
         with open(faucet_log, 'r') as log:
             print(log.read())
-        self.nfv_host.cmd('kill %d' % self.freeradius_pid)
         super(Faucet8021XSuccessTest, self).tearDown()
 
     def try_8021x(self, host, port_num, conf, and_logoff=False):
@@ -382,7 +353,7 @@ network={
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
         wpa_ctrl_path = os.path.join(
             self.tmpdir, '%s%s-wpasupplicant' % (self.tmpdir, host.name))
-        self.start_wpasupplicant(
+        wpa_log = self.start_wpasupplicant(
             host, conf,
             timeout=10, wpa_ctrl_socket_path=wpa_ctrl_path)
         host.cmd('wpa_cli -p %s logon' % wpa_ctrl_path)
@@ -402,8 +373,7 @@ network={
             self.wait_until_matching_flow(
                 {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0)
             self.one_ipv4_ping(host, self.ping_host.IP(), require_host_learned=False)
-
-            self.eapol1_host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
+            host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
 
             for _ in range(10):
                 if not self.matching_flow_present(
@@ -413,9 +383,9 @@ network={
             else:
                 self.fail('authentication flow was not removed.')
             try:
-                self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
+                self.one_ipv4_ping(host, self.ping_host.IP(),
                                    require_host_learned=False)
-                self.fail('%s should not be able to ping %s' % (self.eapol2_host, self.ping_host))
+                self.fail('%s should not be able to ping %s' % (host, self.ping_host))
             except AssertionError:
                 pass
 
@@ -626,6 +596,62 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
         self.assertEqual(
             1,
             self.scrape_prometheus_var('port_dot1x_failure', labels={'port': 1}, default=0))
+
+
+class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
+
+    RADIUS_PORT = 1860
+
+    def test_untagged(self):
+        actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:01}', 'OUTPUT:4']
+        self.assertTrue(self.get_matching_flow(match=None, actions=actions, timeout=2))
+
+        self.set_port_down(1)
+        self.assertFalse(self.get_matching_flow(match=None, actions=actions))
+
+        self.set_port_up(1)
+        self.assertTrue(self.get_matching_flow(match=None, actions=actions))
+
+
+class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
+
+    RADIUS_PORT = 1870
+
+    def test_untagged(self):
+        p1_actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:01}', 'OUTPUT:4']
+        p2_actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:02}', 'OUTPUT:4']
+        from_nfv_match_1 = {'dl_src': '00:00:00:00:00:01',
+                            'in_port': 4,
+                            'dl_type': 34958
+                            }
+        from_nfv_match_2 = {'dl_src': '00:00:00:00:00:02',
+                            'in_port': 4,
+                            'dl_type': 34958
+                            }
+        from_nfv_actions_1 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:1']
+        from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:2']
+        self.assertTrue(self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
+        self.assertTrue(self.get_matching_flow(match=None, actions=p2_actions, timeout=2))
+
+        self.assertTrue(self.get_matching_flow(match=from_nfv_match_1, actions=from_nfv_actions_1,
+                                               timeout=2))
+        self.assertTrue(
+            self.get_matching_flow(match=from_nfv_match_2, actions=from_nfv_actions_2, timeout=2))
+
+        conf = self._get_conf()
+        conf['dps'][self.DP_NAME]['interfaces'][1]['dot1x'] = False
+
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=True)
+
+        self.assertFalse(self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
+        self.assertTrue(self.get_matching_flow(match=None, actions=p2_actions, timeout=2))
+
+        self.assertFalse(self.get_matching_flow(match=from_nfv_match_1, actions=from_nfv_actions_1,
+                                                timeout=2))
+        self.assertTrue(
+            self.get_matching_flow(match=from_nfv_match_2, actions=from_nfv_actions_2, timeout=2))
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):

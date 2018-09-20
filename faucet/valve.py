@@ -75,6 +75,7 @@ class Valve:
 
     __slots__ = [
         'base_prom_labels',
+        'dot1x',
         'dp',
         'flood_manager',
         'host_manager',
@@ -99,7 +100,8 @@ class Valve:
     GROUPS = True
 
 
-    def __init__(self, dp, logname, metrics, notifier):
+    def __init__(self, dp, logname, metrics, notifier, dot1x):
+        self.dot1x = dot1x
         self.dp = dp
         self.logname = logname
         self.metrics = metrics
@@ -155,6 +157,8 @@ class Valve:
         self._port_highwater = {}
 
         self.dp.reset_refs()
+
+        classification_table = self.dp.classification_table()
         for vlan_vid in list(self.dp.vlans.keys()):
             self._port_highwater[vlan_vid] = {}
             for port_number in list(self.dp.ports.keys()):
@@ -169,10 +173,12 @@ class Valve:
             proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
             route_manager = route_manager_class(
                 self.logger, self.dp.global_vlan, neighbor_timeout,
-                self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-                self.dp.max_resolve_backoff_time, proactive_learn, self.DEC_TTL,
-                fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
-                self.dp.output_table(), self.dp.highest_priority, self.dp.routers)
+                self.dp.max_hosts_per_resolve_cycle,
+                self.dp.max_host_fib_retry_count,
+                self.dp.max_resolve_backoff_time, proactive_learn,
+                self.DEC_TTL, fib_table, self.dp.tables['vip'],
+                classification_table, self.dp.output_table(),
+                self.dp.highest_priority, self.dp.routers)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
             for vlan in list(self.dp.vlans.values()):
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
@@ -199,12 +205,12 @@ class Valve:
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
             host_manager_cl = valve_host.ValveHostFlowRemovedManager
-        self.host_manager = host_manager_cl(
-            self.logger, self.dp.ports, self.dp.vlans,
-            self.dp.tables['eth_src'], self.dp.tables['eth_dst'], eth_dst_hairpin_table,
-            self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.low_priority, self.dp.highest_priority,
-            self.dp.cache_update_guard_time)
+        self.host_manager = host_manager_cl( self.logger, self.dp.ports,
+            self.dp.vlans, classification_table,
+            self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
+            eth_dst_hairpin_table, self.dp.timeout, self.dp.learn_jitter,
+            self.dp.learn_ban_timeout, self.dp.low_priority,
+            self.dp.highest_priority, self.dp.cache_update_guard_time)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
@@ -277,7 +283,7 @@ class Valve:
 
     def _add_default_drop_flows(self):
         """Add default drop rules on all FAUCET tables."""
-        eth_src_table = self.dp.tables['eth_src']
+        classification_table = self.dp.classification_table()
         flood_table = self.dp.tables['flood']
 
         ofmsgs = []
@@ -294,20 +300,20 @@ class Valve:
 
         # drop broadcast sources
         if self.dp.drop_broadcast_source_address:
-            ofmsgs.append(eth_src_table.flowdrop(
-                eth_src_table.match(eth_src=valve_of.mac.BROADCAST_STR),
+            ofmsgs.append(classification_table.flowdrop(
+                classification_table.match(eth_src=valve_of.mac.BROADCAST_STR),
                 priority=self.dp.highest_priority))
 
-        ofmsgs.append(eth_src_table.flowdrop(
-            eth_src_table.match(eth_type=valve_of.ECTP_ETH_TYPE),
+        ofmsgs.append(classification_table.flowdrop(
+            classification_table.match(eth_type=valve_of.ECTP_ETH_TYPE),
             priority=self.dp.highest_priority))
 
         # antispoof for FAUCET's MAC address
         # TODO: antispoof for controller IPs on this VLAN, too.
         if self.dp.drop_spoofed_faucet_mac:
             for vlan in list(self.dp.vlans.values()):
-                ofmsgs.append(eth_src_table.flowdrop(
-                    eth_src_table.match(eth_src=vlan.faucet_mac),
+                ofmsgs.append(classification_table.flowdrop(
+                    classification_table.match(eth_src=vlan.faucet_mac),
                     priority=self.dp.high_priority))
 
         ofmsgs.append(flood_table.flowdrop(
@@ -326,7 +332,7 @@ class Valve:
         ofmsgs = []
         if vlan.acls_in:
             acl_table = self.dp.tables['vlan_acl']
-            acl_allow_inst = acl_table.goto(self.dp.tables['eth_src'])
+            acl_allow_inst = acl_table.goto(self.dp.classification_table())
             acl_force_port_vlan_inst = acl_table.goto(self.dp.output_table())
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 vlan.acls_in, acl_table,
@@ -701,7 +707,7 @@ class Valve:
     def _find_forwarding_table(self, vlan):
         if vlan.acls_in:
             return self.dp.tables['vlan_acl']
-        return self.dp.tables['eth_src']
+        return self.dp.classification_table()
 
     def _port_add_vlans(self, port, mirror_act):
         ofmsgs = []
@@ -720,10 +726,10 @@ class Valve:
         for table in self.dp.output_tables():
             ofmsgs.extend(table.flowdel(out_port=port.number))
         if port.permanent_learn:
-            eth_src_table = self.dp.tables['eth_src']
+            classification_table = self.dp.classification_table()
             for entry in port.hosts():
-                ofmsgs.extend(eth_src_table.flowdel(
-                    match=eth_src_table.match(eth_src=entry.eth_src)))
+                ofmsgs.extend(classification_table.flowdel(
+                    match=classification_table.match(eth_src=entry.eth_src)))
         for vlan in port.vlans():
             vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
@@ -740,6 +746,7 @@ class Valve:
         ofmsgs = []
         vlans_with_ports_added = set()
         eth_src_table = self.dp.tables['eth_src']
+        classification_table = self.dp.classification_table()
         vlan_table = self.dp.tables['vlan']
 
         for port_num in port_nums:
@@ -782,6 +789,9 @@ class Valve:
                         valve_of.output_controller(),
                         valve_of.output_port(port.override_output_port.number)])]))
 
+            if port.dot1x:
+                ofmsgs.extend(self.dot1x.get_port_acls(self, port))
+
             if not self.dp.dp_acls:
                 acl_ofmsgs = self._port_add_acl(port)
                 ofmsgs.extend(acl_ofmsgs)
@@ -799,7 +809,7 @@ class Valve:
                 ofmsgs.append(vlan_table.flowmod(
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.low_priority,
-                    inst=[vlan_table.goto(eth_src_table)]))
+                    inst=[vlan_table.goto(classification_table)]))
                 port_vlans = list(self.dp.vlans.values())
             else:
                 mirror_act = port.mirror_actions()
@@ -850,6 +860,9 @@ class Valve:
                     ofmsgs.extend(self._port_delete_flows_state(port))
                 for vlan in port.vlans():
                     vlans_with_deleted_ports.add(vlan)
+
+                if port.dot1x:
+                    ofmsgs.extend(self.dot1x.port_down(self, port))
 
         for vlan in vlans_with_deleted_ports:
             ofmsgs.extend(self.flood_manager.build_flood_rules(
@@ -1458,7 +1471,7 @@ class Valve:
             port_acl_table.match(
                 in_port=port_num,
                 eth_src=mac),
-            priority=self.dp.highest_priority,
+            priority=self.dp.highest_priority-1,
             inst=[port_acl_table.goto(self.dp.tables['vlan'])])
         return [ofmsg]
 
@@ -1468,7 +1481,7 @@ class Valve:
             port_acl_table.match(
                 in_port=port_num,
                 eth_src=mac),
-            priority=self.dp.highest_priority,
+            priority=self.dp.highest_priority-1,
             strict=True
         )
         return ofmsg

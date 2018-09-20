@@ -95,7 +95,7 @@ class ValvesManager:
     def new_valve(self, new_dp):
         valve_cl = valve_factory(new_dp)
         if valve_cl is not None:
-            return valve_cl(new_dp, self.logname, self.metrics, self.notifier)
+            return valve_cl(new_dp, self.logname, self.metrics, self.notifier, self.dot1x)
         self.logger.error(
             '%s hardware %s must be one of %s',
             new_dp.name,

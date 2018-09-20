@@ -902,9 +902,9 @@ dps:
         tables = {
             'port_acl': 0,
             'vlan': 1,
-            'eth_src': 3,
-            'eth_dst': 8,
-            'flood': 9
+            'eth_src': 4,
+            'eth_dst': 9,
+            'flood': 10
             }
         self._check_table_names_numbers(dp, tables)
 
@@ -996,7 +996,7 @@ dps:
             }
         self._check_table_names_numbers(dp, tables)
 
-    def test_pipeline_config_ipv6_4_vlan_port_acl(self):
+    def test_pipeline_full(self):
         """Test pipelines are generated correctly with different configs"""
         config = """
 vlans:
@@ -1013,6 +1013,7 @@ acls:
 dps:
     sw1:
         dp_id: 0x1
+        use_classification: True
         interfaces:
             1:
                 native_vlan: office
@@ -1024,21 +1025,23 @@ dps:
             'port_acl': 0,
             'vlan': 1,
             'vlan_acl': 2,
-            'eth_src': 3,
-            'ipv4_fib': 4,
-            'ipv6_fib': 5,
-            'vip': 6,
-            'eth_dst': 7,
-            'flood': 8
+            'classification': 3,
+            'eth_src': 4,
+            'ipv4_fib': 5,
+            'ipv6_fib': 6,
+            'vip': 7,
+            'eth_dst': 8,
+            'flood': 9
             }
         self._check_table_names_numbers(dp, tables)
-        self._check_next_tables(dp.tables['port_acl'], [1, 6, 7, 8])
-        self._check_next_tables(dp.tables['vlan'], [2, 3])
-        self._check_next_tables(dp.tables['vlan_acl'], [3, 7, 8])
-        self._check_next_tables(dp.tables['eth_src'], [4, 5, 6, 7, 8])
-        self._check_next_tables(dp.tables['ipv4_fib'], [6, 7, 8])
-        self._check_next_tables(dp.tables['ipv6_fib'], [6, 7, 8])
-        self._check_next_tables(dp.tables['vip'], [7, 8])
+        self._check_next_tables(dp.tables['port_acl'], [1, 7, 8, 9])
+        self._check_next_tables(dp.tables['vlan'], [2, 3, 4])
+        self._check_next_tables(dp.tables['vlan_acl'], [3, 4, 8, 9])
+        self._check_next_tables(dp.tables['classification'], [4, 5, 6, 7, 8, 9])
+        self._check_next_tables(dp.tables['eth_src'], [5, 6, 7, 8, 9])
+        self._check_next_tables(dp.tables['ipv4_fib'], [7, 8, 9])
+        self._check_next_tables(dp.tables['ipv6_fib'], [7, 8, 9])
+        self._check_next_tables(dp.tables['vip'], [8, 9])
         self._check_next_tables(dp.tables['eth_dst'], [])
         self._check_next_tables(dp.tables['flood'], [])
 
