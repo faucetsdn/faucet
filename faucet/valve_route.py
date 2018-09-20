@@ -106,7 +106,7 @@ class ValveRouteManager:
     IPV = 0
     ETH_TYPE = None
     ICMP_TYPE = None
-    MAX_LEN = valve_of.MAX_PACKET_IN_BYTES
+    ICMP_SIZE = valve_of.MAX_PACKET_IN_BYTES
     CONTROL_ETH_TYPES = () # type: ignore
     IP_PKT = None
 
@@ -163,7 +163,7 @@ class ValveRouteManager:
 
     def _controller_and_flood(self):
         return [
-            valve_of.apply_actions([valve_of.output_controller()]),
+            valve_of.apply_actions([valve_of.output_controller(max_len=self.ICMP_SIZE)]),
             self.vip_table.goto(self.output_table)]
 
     def _resolve_vip_response(self, pkt_meta, solicited_ip, now):
@@ -294,7 +294,7 @@ class ValveRouteManager:
                     eth_dst=faucet_mac,
                     nw_proto=self.ICMP_TYPE),
                 priority=priority,
-                max_len=self.MAX_LEN))
+                max_len=self.ICMP_SIZE))
             # Learn + flood other ICMP not unicast to us.
             priority -= 1
             ofmsgs.append(self.vip_table.flowmod(
@@ -310,7 +310,7 @@ class ValveRouteManager:
                     eth_type=self.ETH_TYPE,
                     eth_dst=faucet_mac),
                 priority=priority,
-                max_len=self.MAX_LEN))
+                max_len=self.ICMP_SIZE))
             # Learn + flood IP traffic not unicast to us.
             priority -= 1
             ofmsgs.append(self.vip_table.flowmod(
@@ -698,6 +698,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
     IPV = 4
     ETH_TYPE = valve_of.ether.ETH_TYPE_IP
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMP
+    ICMP_SIZE = valve_packet.VLAN_ICMP_ECHO_REQ_SIZE
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP) # type: ignore
     IP_PKT = ipv4.ipv4
 
@@ -732,14 +733,14 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 eth_dst=valve_of.mac.BROADCAST_STR,
                 nw_dst=faucet_vip_host),
             priority=priority,
-            max_len=self.MAX_LEN))
+            max_len=valve_packet.VLAN_ARP_PKT_SIZE))
         # ARP reply to FAUCET VIP
         ofmsgs.append(self.vip_table.flowcontroller(
             self.vip_table.match(
                 eth_type=valve_of.ether.ETH_TYPE_ARP,
                 eth_dst=vlan.faucet_mac),
             priority=priority,
-            max_len=self.MAX_LEN))
+            max_len=valve_packet.VLAN_ARP_PKT_SIZE))
         priority -= 1
         # Other ARP
         ofmsgs.append(self.vip_table.flowmod(
@@ -849,7 +850,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 nw_proto=valve_of.inet.IPPROTO_ICMPV6,
                 icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
             priority=priority,
-            max_len=self.MAX_LEN))
+            max_len=self.ICMP_SIZE))
         # IPv6 NA unicast to FAUCET.
         ofmsgs.append(self.vip_table.flowcontroller(
             self.vip_table.match(
@@ -858,7 +859,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 nw_proto=valve_of.inet.IPPROTO_ICMPV6,
                 icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
             priority=priority,
-            max_len=self.MAX_LEN))
+            max_len=self.ICMP_SIZE))
         # IPv6 NS for FAUCET VIP
         ofmsgs.append(self.classification_table.flowmod(
             self.classification_table.match(

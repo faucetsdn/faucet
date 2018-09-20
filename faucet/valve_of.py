@@ -688,12 +688,12 @@ def dedupe_ofmsgs(input_ofmsgs):
 
 
 _OFMSG_ORDER = (
-    ('delete', True),
-    ('tfm', True),
-    ('groupadd', True),
-    ('meteradd', True),
-    ('other', True),
-    ('packetout', False),
+    ('delete', True, True),
+    ('tfm', True, True),
+    ('groupadd', True, True),
+    ('meteradd', True, True),
+    ('other', True, False),
+    ('packetout', False, False),
 )
 
 
@@ -707,13 +707,13 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     # reorder adds to be in priority order.
     output_ofmsgs = []
     by_kind = _partition_ofmsgs(dedupe_ofmsgs(input_ofmsgs))
-    for kind, in_order in _OFMSG_ORDER:
+    for kind, in_order, suggest_barrier in _OFMSG_ORDER:
         ofmsgs = by_kind.get(kind, [])
         if ofmsgs:
             if not in_order:
                 random.shuffle(ofmsgs)
             output_ofmsgs.extend(ofmsgs)
-            if use_barriers:
+            if use_barriers and suggest_barrier:
                 output_ofmsgs.append(barrier())
     return output_ofmsgs
 
