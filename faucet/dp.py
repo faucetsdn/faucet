@@ -131,6 +131,8 @@ configuration.
         # Reserved VID for internal global router VLAN.
         'cache_update_guard_time': 0,
         # Don't update L2 cache if port didn't change within this many seconds (default timeout/2).
+        'use_classification': False,
+        # use a classification table to reduce the flow types in the eth_src table
         }
 
     defaults_types = {
@@ -178,12 +180,14 @@ configuration.
         'max_wildcard_table_size': int,
         'global_vlan': int,
         'cache_update_guard_time': int,
+        'use_classification': bool,
     }
 
     default_table_sizes_types = {
         'port_acl': int,
         'vlan': int,
         'vlan_acl': int,
+        'classification': int,
         'eth_src': int,
         'ipv4_fib': int,
         'ipv6_fib': int,
@@ -274,6 +278,7 @@ configuration.
         self.min_wildcard_table_size = None
         self.max_wildcard_table_size = None
         self.cache_update_guard_time = None
+        self.use_classification = None
 
         self.acls = {}
         self.vlans = {}
@@ -387,6 +392,8 @@ configuration.
             included_tables.add('port_acl')
         if self.hairpin_ports:
             included_tables.add('eth_dst_hairpin')
+        if self.use_classification:
+            included_tables.add('classification')
         relative_table_id = 0
         table_configs = {}
         for canonical_table_config in faucet_pipeline.FAUCET_PIPELINE:
@@ -441,6 +448,12 @@ configuration.
         if valve_of.ignore_port(port_no):
             return False
         return port_no in self.ports
+
+    def classification_table(self):
+        if self.use_classification:
+            return self.tables['classification']
+        else:
+            return self.tables['eth_src']
 
     def output_tables(self):
         """Return tables that cause a packet to be forwarded."""
