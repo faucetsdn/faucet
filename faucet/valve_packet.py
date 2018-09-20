@@ -37,9 +37,11 @@ FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
 ETH_HEADER_SIZE = 14
 ETH_VLAN_HEADER_SIZE = ETH_HEADER_SIZE + 4 # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
 IPV4_HEADER_SIZE = 20 # https://en.wikipedia.org/wiki/IPv4#Header
+ICMP_ECHO_REQ_SIZE = 8 + 64 # https://en.wikipedia.org/wiki/Ping_(networking_utility)#ICMP_packet
 IPV6_HEADER_SIZE = 40 # https://en.wikipedia.org/wiki/IPv6_packet#Fixed_header
 ARP_PKT_SIZE = 28 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
 VLAN_ARP_PKT_SIZE = ETH_VLAN_HEADER_SIZE + ARP_PKT_SIZE
+VLAN_ICMP_ECHO_REQ_SIZE = ETH_VLAN_HEADER_SIZE + IPV4_HEADER_SIZE + ICMP_ECHO_REQ_SIZE
 
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
@@ -668,6 +670,7 @@ class PacketMeta:
 
     MAX_ETH_TYPE_PKT_SIZE = {
         valve_of.ether.ETH_TYPE_ARP: VLAN_ARP_PKT_SIZE,
+        valve_of.ether.ETH_TYPE_IP: VLAN_ICMP_ECHO_REQ_SIZE,
     }
 
     def __init__(self, data, orig_len, pkt, eth_pkt, vlan_pkt, port, valve_vlan,

@@ -698,6 +698,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
     IPV = 4
     ETH_TYPE = valve_of.ether.ETH_TYPE_IP
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMP
+    ICMP_SIZE = valve_packet.VLAN_ICMP_ECHO_REQ_SIZE
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP) # type: ignore
     IP_PKT = ipv4.ipv4
 
