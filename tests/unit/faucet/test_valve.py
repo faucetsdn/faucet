@@ -66,6 +66,7 @@ FAUCET_MAC = '0e:00:00:00:00:01'
 # (ie. do not output to in_port)
 DP1_CONFIG = """
         dp_id: 1
+        egress_pipeline: True
         ignore_learn_ins: 100
         combinatorial_port_flood: True
         ofchannel_log: '/dev/null'
@@ -312,7 +313,7 @@ class ValveTestBases:
         DP = 's1'
         DP_ID = 1
         NUM_PORTS = 5
-        NUM_TABLES = 9
+        NUM_TABLES = 10
         P1_V100_MAC = '00:00:00:01:00:01'
         P2_V200_MAC = '00:00:00:02:00:02'
         P3_V200_MAC = '00:00:00:02:00:03'
@@ -1372,6 +1373,12 @@ class ValveTestCase(ValveTestBases.ValveTestBig):
 
     pass
 
+class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):
+    """Run complete set of basic tests."""
+
+    DP1_CONFIG = """
+            egress_pipeline: True
+    """ + DP1_CONFIG
 
 class ValveFuzzTestCase(ValveTestBases.ValveTestSmall):
     """Test unknown ports/VLANs."""

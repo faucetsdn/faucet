@@ -12,8 +12,8 @@ def load_tables(dp, valve_cl): # pylint: disable=invalid-name
         table_attr = {
             'config': 3,
             'max_entries': valve_table.table_config.size,
-            'metadata_match': 0,
-            'metadata_write': 0,
+            'metadata_match': valve_table.metadata_match,
+            'metadata_write': valve_table.metadata_write,
             'name': valve_table.name.encode('utf-8'),
             'properties': [],
             'table_id': table_id,

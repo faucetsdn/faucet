@@ -241,6 +241,19 @@ def goto_table(table):
     """
     return parser.OFPInstructionGotoTable(table.table_id)
 
+def metadata_goto_table(metadata, mask, table):
+    """Return instructions to write metadata and goto table.
+
+    Args:
+        metadata (int): metadata to write to packet
+        maks (int): mask to apply to metadata
+        table (ValveTable): table to goto.
+    Returns:
+        list of OFPInstructions"""
+    return [
+        parser.OFPInstructionWriteMetadata(metadata, mask),
+        parser.OFPInstructionGotoTable(table.table_id)
+        ]
 
 def set_field(**kwds):
     """Return action to set any field.
@@ -349,7 +362,6 @@ def output_controller(max_len=MAX_PACKET_IN_BYTES):
         ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: packet in action.
     """
     return output_port(ofp.OFPP_CONTROLLER, max_len)
-
 
 def packetouts(port_nums, data):
     """Return OpenFlow action to mulltiply packet out to dataplane from controller.
@@ -479,11 +491,10 @@ def _match_ip_masked(ipa):
     return (str(ipa.ip), str(ipa.netmask))
 
 
-def build_match_dict(in_port=None, vlan=None,
-                     eth_type=None, eth_src=None,
-                     eth_dst=None, eth_dst_mask=None,
-                     icmpv6_type=None,
-                     nw_proto=None, nw_dst=None):
+def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
+                     eth_dst=None, eth_dst_mask=None, icmpv6_type=None,
+                     nw_proto=None, nw_dst=None, metadata=None,
+                     metadata_mask=None):
     match_dict = {}
     if in_port is not None:
         match_dict['in_port'] = in_port
@@ -515,6 +526,11 @@ def build_match_dict(in_port=None, vlan=None,
             match_dict['ipv6_dst'] = nw_dst_masked
     if eth_type is not None:
         match_dict['eth_type'] = eth_type
+    if metadata is not None:
+        if metadata_mask is not None:
+            match_dict['metadata'] = (metadata, metadata_mask)
+        else:
+            match_dict['metadata'] = metadata
     return match_dict
 
 
