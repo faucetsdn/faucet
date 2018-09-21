@@ -176,8 +176,11 @@ class Valve:
                 self.logger, self.dp.global_vlan, neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle,
                 self.dp.max_host_fib_retry_count,
-                self.dp.max_resolve_backoff_time, proactive_learn,
-                self.DEC_TTL, fib_table, self.dp.tables['vip'],
+                self.dp.max_resolve_backoff_time,
+                proactive_learn,
+                self.DEC_TTL,
+                self.dp.multi_out,
+                fib_table, self.dp.tables['vip'],
                 classification_table, self.dp.output_table(),
                 self.dp.highest_priority, self.dp.routers)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
