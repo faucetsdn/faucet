@@ -137,6 +137,8 @@ configuration.
         # Experimental inclusion of an egress pipeline
         'strict_packet_in_cookie': True,
         # Apply strict packet in checking to all packet ins.
+        'multi_out': True,
+        # Have OFA copy packet outs to multiple ports.
         }
 
     defaults_types = {
@@ -187,6 +189,7 @@ configuration.
         'use_classification': bool,
         'egress_pipeline': bool,
         'strict_packet_in_cookie': bool,
+        'multi_out': bool,
     }
 
     default_table_sizes_types = {
@@ -287,6 +290,7 @@ configuration.
         self.cache_update_guard_time = None
         self.use_classification = None
         self.strict_packet_in_cookie = None
+        self.multi_out = None
 
         self.acls = {}
         self.vlans = {}

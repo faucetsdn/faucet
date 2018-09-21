@@ -91,6 +91,7 @@ class ValveRouteManager:
         'output_table',
         'classification_table',
         'fib_table',
+        'multi_out',
         'global_vlan',
         'global_routing',
         'logger',
@@ -113,7 +114,7 @@ class ValveRouteManager:
 
     def __init__(self, logger, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
-                 max_resolve_backoff_time, proactive_learn, dec_ttl,
+                 max_resolve_backoff_time, proactive_learn, dec_ttl, multi_out,
                  fib_table, vip_table, classification_table, output_table,
                  route_priority, routers):
         self.logger = logger
@@ -124,6 +125,7 @@ class ValveRouteManager:
         self.max_resolve_backoff_time = max_resolve_backoff_time
         self.proactive_learn = proactive_learn
         self.dec_ttl = dec_ttl
+        self.multi_out = multi_out
         self.fib_table = fib_table
         self.vip_table = vip_table
         self.classification_table = classification_table
@@ -153,7 +155,7 @@ class ValveRouteManager:
 
     def _resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
-            self._gw_resolve_pkt(),
+            self._gw_resolve_pkt(), self.multi_out,
             vlan.faucet_mac, valve_of.mac.BROADCAST_STR, faucet_vip.ip, ip_gw)
 
     def _resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw, eth_dst):
@@ -981,7 +983,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
         for link_local_vip in link_local_vips:
             # https://tools.ietf.org/html/rfc4861#section-6.1.2
             ofmsgs.extend(vlan.flood_pkt(
-                valve_packet.router_advert, vlan.faucet_mac,
+                valve_packet.router_advert, self.multi_out,
+                vlan.faucet_mac,
                 valve_packet.IPV6_ALL_NODES_MCAST,
                 link_local_vip.ip, valve_packet.IPV6_ALL_NODES,
                 other_vips))
