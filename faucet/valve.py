@@ -1142,7 +1142,7 @@ class Valve:
         """Parse OF packet-in message to PacketMeta."""
         if not self.dp.dyn_running:
             return None
-        if self.dp.cookie != msg.cookie:
+        if self.dp.strict_packet_in_cookie and self.dp.cookie != msg.cookie:
             self.logger.info('got packet in with unknown cookie %s' % msg.cookie)
             return None
         # Drop any packet we didn't specifically ask for

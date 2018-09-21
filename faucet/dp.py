@@ -133,8 +133,10 @@ configuration.
         # Don't update L2 cache if port didn't change within this many seconds (default timeout/2).
         'use_classification': False,
         # Don't update L2 cache if port didn't change within this many seconds.
-        'egress_pipeline': False
+        'egress_pipeline': False,
         # Experimental inclusion of an egress pipeline
+        'strict_packet_in_cookie': True,
+        # Apply strict packet in checking to all packet ins.
         }
 
     defaults_types = {
@@ -183,7 +185,8 @@ configuration.
         'global_vlan': int,
         'cache_update_guard_time': int,
         'use_classification': bool,
-        'egress_pipeline': bool
+        'egress_pipeline': bool,
+        'strict_packet_in_cookie': bool,
     }
 
     default_table_sizes_types = {
@@ -283,6 +286,7 @@ configuration.
         self.max_wildcard_table_size = None
         self.cache_update_guard_time = None
         self.use_classification = None
+        self.strict_packet_in_cookie = None
 
         self.acls = {}
         self.vlans = {}
