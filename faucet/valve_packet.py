@@ -333,7 +333,7 @@ def parse_faucet_lldp(lldp_pkt, faucet_dp_mac):
 
 def lacp_reqreply(eth_src,
                   actor_system, actor_key, actor_port,
-                  partner_system='',
+                  partner_system='00:00:00:00:00:00',
                   partner_key=0,
                   partner_port=0,
                   partner_system_priority=0,

@@ -807,7 +807,7 @@ class Valve:
 
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
-                if port.lacp_active:
+                if port.lacp_active and port.dyn_last_lacp_pkt:
                     pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
                     ofmsgs.append(valve_of.packetout(port.number, pkt.data))
 
