@@ -807,6 +807,9 @@ class Valve:
 
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
+                if port.lacp_active:
+                    pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
+                    ofmsgs.append(valve_of.packetout(port.number, pkt.data))
 
             if port.override_output_port:
                 ofmsgs.append(eth_src_table.flowmod(

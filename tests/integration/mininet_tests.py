@@ -3165,10 +3165,12 @@ vlans:
                 native_vlan: 100
                 description: "b1"
                 lacp: 1
+                lacp_active: True
             %(port_2)d:
                 native_vlan: 100
                 description: "b1"
                 lacp: 1
+                lacp_active: True
             %(port_3)d:
                 native_vlan: 100
                 description: "b2"
