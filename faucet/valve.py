@@ -521,6 +521,10 @@ class Valve:
             for route_manager in list(self._route_manager_by_ipv.values()):
                 for vlan in list(self.dp.vlans.values()):
                     ofmsgs.extend(route_manager.advertise(vlan))
+            for port in list(self.dp.lacp_active_ports):
+                if port.running():
+                    pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
+                    ofmsgs.append(valve_of.packetout(port.number, pkt.data))
             self._last_advertise_sec = now
         return ofmsgs
 
@@ -935,6 +939,25 @@ class Valve:
         self._reset_lacp_status(port)
         return ofmsgs
 
+    def _lacp_pkt(self, lacp_pkt, port):
+        if lacp_pkt:
+            return valve_packet.lacp_reqreply(
+                self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
+                port.lacp, port.number,
+                lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
+                lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
+                lacp_pkt.actor_state_defaulted,
+                lacp_pkt.actor_state_expired,
+                lacp_pkt.actor_state_timeout,
+                lacp_pkt.actor_state_collecting,
+                lacp_pkt.actor_state_distributing,
+                lacp_pkt.actor_state_aggregation,
+                lacp_pkt.actor_state_synchronization,
+                lacp_pkt.actor_state_activity)
+        return valve_packet.lacp_reqreply(
+            self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
+            port.lacp, port.number)
+
     def lacp_handler(self, now, pkt_meta):
         """Handle a LACP packet.
 
@@ -966,19 +989,7 @@ class Valve:
                             pkt_meta.log()))
                     if pkt_meta.port.dyn_lacp_up:
                         ofmsgs.extend(self.lacp_up(pkt_meta.port))
-                pkt = valve_packet.lacp_reqreply(
-                    self.dp.faucet_dp_mac,
-                    self.dp.faucet_dp_mac, pkt_meta.port.lacp, pkt_meta.port.number,
-                    lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
-                    lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
-                    lacp_pkt.actor_state_defaulted,
-                    lacp_pkt.actor_state_expired,
-                    lacp_pkt.actor_state_timeout,
-                    lacp_pkt.actor_state_collecting,
-                    lacp_pkt.actor_state_distributing,
-                    lacp_pkt.actor_state_aggregation,
-                    lacp_pkt.actor_state_synchronization,
-                    lacp_pkt.actor_state_activity)
+                pkt = self._lacp_pkt(lacp_pkt, pkt_meta.port)
                 ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
         return ofmsgs
 

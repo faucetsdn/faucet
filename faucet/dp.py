@@ -300,6 +300,7 @@ configuration.
         self.hairpin_ports = []
         self.output_only_ports = []
         self.lldp_beacon_ports = []
+        self.lacp_active_ports = []
         self.tables = {}
         self.meters = {}
         self.lldp_beacon = {}
@@ -513,6 +514,8 @@ configuration.
             self.lldp_beacon_ports.append(port)
         if port.hairpin or port.hairpin_unicast:
             self.hairpin_ports.append(port)
+        if port.lacp and port.lacp_active:
+            self.lacp_active_ports.append(port)
 
     def lldp_beacon_send_ports(self, now):
         """Return list of ports to send LLDP packets; stacked ports always send LLDP."""

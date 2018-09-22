@@ -56,6 +56,8 @@ class Port(Conf):
         # if True, then switch unicast between hosts on this port (eg WiFi radio).
         'lacp': 0,
         # if non 0 (LAG ID), experimental LACP support enabled on this port.
+        'lacp_active': False,
+        # experimental active LACP
         'loop_protect': False,
         # if True, do simple loop protection on this port.
         'output_only': False,
@@ -91,6 +93,7 @@ class Port(Conf):
         'hairpin': bool,
         'hairpin_unicast': bool,
         'lacp': int,
+        'lacp_active': bool,
         'loop_protect': bool,
         'output_only': bool,
         'lldp_beacon': dict,
@@ -128,6 +131,7 @@ class Port(Conf):
         self.hairpin = None
         self.hairpin_unicast = None
         self.lacp = None
+        self.lacp_active = None
         self.loop_protect = None
         self.max_hosts = None
         self.max_lldp_lost = None

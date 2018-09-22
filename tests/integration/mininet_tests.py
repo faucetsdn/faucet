@@ -352,7 +352,7 @@ network={
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
         wpa_ctrl_path = os.path.join(
             self.tmpdir, '%s%s-wpasupplicant' % (self.tmpdir, host.name))
-        wpa_log = self.start_wpasupplicant(
+        self.start_wpasupplicant(
             host, conf,
             timeout=10, wpa_ctrl_socket_path=wpa_ctrl_path)
         host.cmd('wpa_cli -p %s logon' % wpa_ctrl_path)
@@ -621,21 +621,23 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
         p2_actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:02}', 'OUTPUT:4']
         from_nfv_match_1 = {'dl_src': '00:00:00:00:00:01',
                             'in_port': 4,
-                            'dl_type': 34958
-                            }
+                            'dl_type': 34958}
         from_nfv_match_2 = {'dl_src': '00:00:00:00:00:02',
                             'in_port': 4,
-                            'dl_type': 34958
-                            }
+                            'dl_type': 34958}
         from_nfv_actions_1 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:1']
         from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:2']
-        self.assertTrue(self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
-        self.assertTrue(self.get_matching_flow(match=None, actions=p2_actions, timeout=2))
-
-        self.assertTrue(self.get_matching_flow(match=from_nfv_match_1, actions=from_nfv_actions_1,
-                                               timeout=2))
         self.assertTrue(
-            self.get_matching_flow(match=from_nfv_match_2, actions=from_nfv_actions_2, timeout=2))
+            self.get_matching_flow(match=None, actions=p1_actions))
+        self.assertTrue(
+            self.get_matching_flow(match=None, actions=p2_actions))
+
+        self.assertTrue(
+            self.get_matching_flow(
+                match=from_nfv_match_1, actions=from_nfv_actions_1))
+        self.assertTrue(
+            self.get_matching_flow(
+                match=from_nfv_match_2, actions=from_nfv_actions_2))
 
         conf = self._get_conf()
         conf['dps'][self.DP_NAME]['interfaces'][1]['dot1x'] = False
@@ -644,13 +646,16 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
-        self.assertFalse(self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
-        self.assertTrue(self.get_matching_flow(match=None, actions=p2_actions, timeout=2))
-
-        self.assertFalse(self.get_matching_flow(match=from_nfv_match_1, actions=from_nfv_actions_1,
-                                                timeout=2))
+        self.assertFalse(
+            self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
         self.assertTrue(
-            self.get_matching_flow(match=from_nfv_match_2, actions=from_nfv_actions_2, timeout=2))
+            self.get_matching_flow(match=None, actions=p2_actions))
+        self.assertFalse(
+            self.get_matching_flow(
+                match=from_nfv_match_1, actions=from_nfv_actions_1, timeout=2))
+        self.assertTrue(
+            self.get_matching_flow(
+                match=from_nfv_match_2, actions=from_nfv_actions_2))
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
@@ -4534,7 +4539,7 @@ vlans:
                 hairpin_unicast: True
                 description: "b2"
 """ % (global_vid(), '%(port_3)d', '%(port_1)d', '%(port_1)d',
-        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
+       ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
         first_host, second_host, mirror_host = self.net.hosts[:3]
@@ -4700,7 +4705,7 @@ vlans:
                 hairpin_unicast: True
                 description: "b2"
 """ % (global_vid(), '%(port_3)d', '%(port_1)d', '%(port_1)d',
-        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
+       ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
 
 
