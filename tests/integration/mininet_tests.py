@@ -623,11 +623,11 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
             'dl_src': self._priv_mac(2), 'in_port': 4, 'dl_type': 34958}
         from_nfv_actions_1 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:1']
         from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:2']
+
         self.assertTrue(
             self.get_matching_flow(match=None, actions=p1_actions))
         self.assertTrue(
             self.get_matching_flow(match=None, actions=p2_actions))
-
         self.assertTrue(
             self.get_matching_flow(
                 match=from_nfv_match_1, actions=from_nfv_actions_1))
@@ -642,16 +642,14 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
-        self.assertFalse(
-            self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
         self.assertTrue(
             self.get_matching_flow(match=None, actions=p2_actions))
+        self.assertTrue(self.get_matching_flow(
+            match=from_nfv_match_2, actions=from_nfv_actions_2))
         self.assertFalse(
-            self.get_matching_flow(
-                match=from_nfv_match_1, actions=from_nfv_actions_1, timeout=2))
-        self.assertTrue(
-            self.get_matching_flow(
-                match=from_nfv_match_2, actions=from_nfv_actions_2))
+            self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
+        self.assertFalse(self.get_matching_flow(
+            match=from_nfv_match_1, actions=from_nfv_actions_1, timeout=2))
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
