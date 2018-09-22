@@ -31,6 +31,7 @@ from faucet import valve_packet
 from faucet import valve_route
 from faucet import valve_table
 from faucet import valve_util
+from faucet import valve_pipeline
 
 from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
@@ -157,6 +158,7 @@ class Valve:
 
         self.dp.reset_refs()
 
+        self.pipeline = valve_pipeline.ValvePipeline(self.dp)
         classification_table = self.dp.classification_table()
         for vlan_vid in list(self.dp.vlans.keys()):
             self._port_highwater[vlan_vid] = {}
@@ -180,6 +182,7 @@ class Valve:
                 self.dp.multi_out,
                 fib_table, self.dp.tables['vip'],
                 classification_table, self.dp.output_table(),
+                self.pipeline,
                 self.dp.highest_priority, self.dp.routers)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
             for vlan in list(self.dp.vlans.values()):
