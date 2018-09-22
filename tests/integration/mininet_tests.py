@@ -197,7 +197,7 @@ acls:
         dot1x:
             nfv_intf: NFV_INTF
             nfv_sw_port: 4
-            radius_ip: 127.0.0.1
+            radius_ip: ::1
             radius_port: RADIUS_PORT
             radius_secret: SECRET
         interfaces:
@@ -410,7 +410,7 @@ admin   Cleartext-Password:= "megaphone"''')
 
         with open('/etc/freeradius/clients.conf', 'w') as f:
             f.write('''client localhost {
-    ipaddr = 127.0.0.1
+    ipv6addr = ::1
     secret = SECRET
 }''')
 
