@@ -255,7 +255,7 @@ network={
     nfv_intf = None
 
     def _priv_mac(self, host_id):
-        return '0e:00:00:00:99:%2.2u' % host_id
+        return '00:00:00:00:00:%2.2u' % host_id
 
     def _write_faucet_config(self):
         self.eapol1_host = self.net.hosts[0]
@@ -297,8 +297,8 @@ network={
         # test 1 good, 2 good.
         # log 2 off
         # test 1 good, 2 bad.
-        tcpdump_txt_1 = self.try_8021x(self.eapol1_host, 1,
-                                       self.wpasupplicant_conf_1, and_logoff=False)
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, 1, self.wpasupplicant_conf_1, and_logoff=False)
         self.assertEqual(
             1,
             self.scrape_prometheus_var('port_dot1x_success', labels={'port': 1}, default=0))
@@ -310,8 +310,8 @@ network={
             self.fail('%s should not be able to ping %s' % (self.eapol2_host, self.ping_host))
         except AssertionError:
             pass
-        tcpdump_txt_2 = self.try_8021x(self.eapol2_host, 2,
-                                       self.wpasupplicant_conf_1, and_logoff=True)
+        tcpdump_txt_2 = self.try_8021x(
+            self.eapol2_host, 2, self.wpasupplicant_conf_1, and_logoff=True)
 
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
 
@@ -601,7 +601,7 @@ class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
 
     def test_untagged(self):
         actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(1), 'OUTPUT:4']
-        self.assertTrue(self.get_matching_flow(match=None, actions=actions, timeout=2))
+        self.assertTrue(self.get_matching_flow(match=None, actions=actions))
 
         self.set_port_down(1)
         self.assertFalse(self.get_matching_flow(match=None, actions=actions))
