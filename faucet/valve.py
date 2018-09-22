@@ -956,7 +956,7 @@ class Valve:
                 lacp_pkt.actor_state_activity)
         return valve_packet.lacp_reqreply(
             self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-            pkt_meta.port.lacp, pkt_meta.port.number)
+            port.lacp, port.number)
 
     def lacp_handler(self, now, pkt_meta):
         """Handle a LACP packet.
