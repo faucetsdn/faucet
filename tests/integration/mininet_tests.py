@@ -155,6 +155,7 @@ vlans:
                 'nc -U %s' % sock, 10))
         self.verify_events_log(event_log)
 
+
 class Faucet8021XSuccessTest(FaucetUntaggedTest):
 
     SOFTWARE_ONLY = True
@@ -253,6 +254,9 @@ network={
     nfv_host = None
     nfv_intf = None
 
+    def _priv_mac(self, host_id):
+        return '0e:00:00:00:99:%2.2u' % host_id
+
     def _write_faucet_config(self):
         self.eapol1_host = self.net.hosts[0]
         self.eapol2_host = self.net.hosts[1]
@@ -272,16 +276,10 @@ network={
     def setUp(self):
         super(Faucet8021XSuccessTest, self).setUp()
         self.host_drop_all_ips(self.nfv_host)
-        # self.radius_port = 1812
-        # self.radius_port = mininet_test_util.find_free_port(
-        #     self.ports_sock, self._test_name())
         self.radius_log_path = self.start_freeradius()
 
     def tearDown(self):
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
-        faucet_log = self.env['faucet']['FAUCET_LOG']
-        with open(faucet_log, 'r') as log:
-            print(log.read())
         super(Faucet8021XSuccessTest, self).tearDown()
 
     def try_8021x(self, host, port_num, conf, and_logoff=False):
@@ -574,8 +572,8 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
     """
 
     def test_untagged(self):
-        tcpdump_txt = self.try_8021x(self.eapol1_host, 1,
-                                     self.wpasupplicant_conf_1, and_logoff=False)
+        tcpdump_txt = self.try_8021x(
+            self.eapol1_host, 1, self.wpasupplicant_conf_1, and_logoff=False)
         self.assertIn('Failure', tcpdump_txt)
         self.assertEqual(
             0,
@@ -602,7 +600,7 @@ class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
     RADIUS_PORT = 1860
 
     def test_untagged(self):
-        actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:01}', 'OUTPUT:4']
+        actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(1), 'OUTPUT:4']
         self.assertTrue(self.get_matching_flow(match=None, actions=actions, timeout=2))
 
         self.set_port_down(1)
@@ -617,14 +615,12 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
     RADIUS_PORT = 1870
 
     def test_untagged(self):
-        p1_actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:01}', 'OUTPUT:4']
-        p2_actions = ['SET_FIELD: {eth_dst:00:00:00:00:00:02}', 'OUTPUT:4']
-        from_nfv_match_1 = {'dl_src': '00:00:00:00:00:01',
-                            'in_port': 4,
-                            'dl_type': 34958}
-        from_nfv_match_2 = {'dl_src': '00:00:00:00:00:02',
-                            'in_port': 4,
-                            'dl_type': 34958}
+        p1_actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(1), 'OUTPUT:4']
+        p2_actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(2), 'OUTPUT:4']
+        from_nfv_match_1 = {
+            'dl_src': self._priv_mac(1), 'in_port': 4, 'dl_type': 34958}
+        from_nfv_match_2 = {
+            'dl_src': self._priv_mac(2), 'in_port': 4, 'dl_type': 34958}
         from_nfv_actions_1 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:1']
         from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:2']
         self.assertTrue(
