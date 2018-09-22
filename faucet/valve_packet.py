@@ -333,16 +333,19 @@ def parse_faucet_lldp(lldp_pkt, faucet_dp_mac):
 
 def lacp_reqreply(eth_src,
                   actor_system, actor_key, actor_port,
-                  partner_system, partner_key, partner_port,
-                  partner_system_priority, partner_port_priority,
-                  partner_state_defaulted,
-                  partner_state_expired,
-                  partner_state_timeout,
-                  partner_state_collecting,
-                  partner_state_distributing,
-                  partner_state_aggregation,
-                  partner_state_synchronization,
-                  partner_state_activity):
+                  partner_system='',
+                  partner_key=0,
+                  partner_port=0,
+                  partner_system_priority=0,
+                  partner_port_priority=0,
+                  partner_state_defaulted=0,
+                  partner_state_expired=0,
+                  partner_state_timeout=0,
+                  partner_state_collecting=0,
+                  partner_state_distributing=0,
+                  partner_state_aggregation=0,
+                  partner_state_synchronization=0,
+                  partner_state_activity=0):
     """Return a LACP frame.
 
     Args:
