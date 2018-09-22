@@ -116,6 +116,7 @@ class ValveRouteManager:
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl, multi_out,
                  fib_table, vip_table, classification_table, output_table,
+                 pipeline,
                  route_priority, routers):
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
@@ -130,6 +131,7 @@ class ValveRouteManager:
         self.vip_table = vip_table
         self.classification_table = classification_table
         self.output_table = output_table
+        self.pipeline = pipeline
         self.route_priority = route_priority
         self.routers = routers
         self.active = False
