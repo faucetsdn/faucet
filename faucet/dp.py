@@ -460,9 +460,7 @@ configuration.
 
     def port_no_valid(self, port_no):
         """Return True if supplied port number valid on this datapath."""
-        if valve_of.ignore_port(port_no):
-            return False
-        return port_no in self.ports
+        return not valve_of.ignore_port(port_no) and port_no in self.ports
 
     def classification_table(self):
         if self.use_classification:
@@ -481,14 +479,9 @@ configuration.
 
     def match_tables(self, match_type):
         """Return list of tables with matches of a specific match type."""
-        match_tables = []
-        for table in list(self.tables.values()):
-            if table.match_types is not None:
-                if match_type in table.match_types:
-                    match_tables.append(table)
-            else:
-                match_tables.append(table)
-        return match_tables
+        return [
+            table for table in list(self.tables.values())
+            if table.match_types is None or match_type in table.match_types]
 
     def in_port_tables(self):
         """Return list of tables that specify in_port as a match."""
@@ -904,9 +897,10 @@ configuration.
 
     def get_native_vlan(self, port_num):
         """Return native VLAN for a port by number, or None."""
-        if port_num in self.ports:
+        try:
             return self.ports[port_num].native_vlan
-        return None
+        except KeyError:
+            return None
 
     def bgp_vlans(self):
         """Return list of VLANs with BGP enabled."""
