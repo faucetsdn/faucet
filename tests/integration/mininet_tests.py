@@ -177,6 +177,7 @@ acls:
                 allow: 0
     eapol2_to_nfv:
         - rule:
+            dl_type: 0x888e
             eth_src: ff:ff:ff:ff:ff:ff
             actions:
                 allow: 0
