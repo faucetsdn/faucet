@@ -24,6 +24,7 @@ from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
 from faucet.valve_table import wildcard_table
 
+
 class ACL(Conf):
     """Contains the state for an ACL, including the configuration.
 

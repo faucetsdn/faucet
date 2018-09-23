@@ -202,8 +202,7 @@ class FaucetDot1x:
             if valve.dp.dot1x and valve.dp.dot1x_ports():
                 if valve_index > 255:
                     self.logger.info(
-                        'dot1x not enabled on %s %s. more than 255 valves' % (
-                            valve.dp, dot1x_port))
+                        'dot1x not enabled on %s: more than 255 valves' % valve.dp)
                     continue
                 for dot1x_port in valve.dp.dot1x_ports():
                     self.set_mac_str(valve, valve_index, dot1x_port.number)

@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
+
 
 class InvalidConfigError(Exception):
     """This error is thrown when the config file is not valid."""
@@ -150,6 +152,11 @@ class Conf:
                 val = tuple(val)
             elif isinstance(val, set):
                 val = frozenset(val)
+            elif isinstance(val, dict):
+                ordered_val = OrderedDict()
+                for k, v in sorted(list(val.items())):
+                    ordered_val[k] = v
+                val = ordered_val
             self.__dict__[key] = val
         self.dyn_finalized = True
 
