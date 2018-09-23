@@ -1373,12 +1373,14 @@ class ValveTestCase(ValveTestBases.ValveTestBig):
 
     pass
 
+
 class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):
     """Run complete set of basic tests."""
 
     DP1_CONFIG = """
             egress_pipeline: True
     """ + DP1_CONFIG
+
 
 class ValveFuzzTestCase(ValveTestBases.ValveTestSmall):
     """Test unknown ports/VLANs."""

@@ -2668,6 +2668,29 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_dot1x_config_valid(self):
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        dot1x:
+            nfv_intf: lo
+            nfv_sw_port: 2
+            radius_ip: ::1
+            radius_port: 123
+            radius_secret: SECRET
+        interfaces:
+            1:
+                native_vlan: office
+                dot1x: True
+            2:
+                output_only: True
+"""
+        self.check_config_success(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main() # pytype: disable=module-attr
