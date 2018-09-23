@@ -31,16 +31,16 @@ class ValvePipeline(object):
             match_dict: a dictionary specifying the match fields
         """
         return [self.classification_table.flowdrop(
-            self.classification_table.match(match),
-            priority=(self.high_priority))]
+            self.classification_table.match(**match_dict),
+            priority=(self.filter_priority))]
 
-    def select_packets(self, target_table, match, actions=None):
+    def select_packets(self, target_table, match_dict, actions=None):
         """retrieve rules to redirect packets matching match_dict to table"""
-        inst = [self.target_table.goto_this()]
+        inst = [target_table.goto_this()]
         if actions is not None:
             inst.append(valve_of.apply_actions(actions))
         return [self.classification_table.flowmod(
-            self.classification_table.match(match),
-            priority=self.low_priority,
+            self.classification_table.match(**match_dict),
+            priority=self.select_priority,
             inst=inst)]
 
