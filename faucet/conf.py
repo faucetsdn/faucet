@@ -154,7 +154,7 @@ class Conf:
                 val = frozenset(val)
             elif isinstance(val, dict):
                 ordered_val = OrderedDict()
-                for k, v in sorted(list(val.items())):
+                for k, v in sorted(list(val.items()), key=str):
                     ordered_val[k] = v
                 val = ordered_val
             self.__dict__[key] = val
