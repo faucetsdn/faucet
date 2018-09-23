@@ -153,10 +153,8 @@ class Conf:
             elif isinstance(val, set):
                 val = frozenset(val)
             elif isinstance(val, dict):
-                ordered_val = OrderedDict()
-                for k, v in sorted(list(val.items()), key=str):
-                    ordered_val[k] = v
-                val = ordered_val
+                val = OrderedDict([
+                    (k, v) for k, v in sorted(list(val.items()), key=str)])
             self.__dict__[key] = val
         self.dyn_finalized = True
 
