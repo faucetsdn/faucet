@@ -113,10 +113,7 @@ The output action contains a dictionary with the following elements:
         for rule in rules:
             test_config_condition(not isinstance(rule, dict), (
                 'ACL rule is %s not %s' % (type(rule), dict)))
-            if 'rule' in rule:
-                conf['rules'].append(rule['rule'])
-            else:
-                conf['rules'].append(rule)
+            conf['rules'].append(rule.get('rule', rule))
         super(ACL, self).__init__(_id, dp_id, conf)
 
     def check_config(self):

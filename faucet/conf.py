@@ -125,11 +125,8 @@ class Conf:
 
     def to_conf(self):
         """Return configuration as a dict."""
-        result = {}
-        for key in self.defaults.keys():
-            if key != 'name':
-                result[key] = self.__dict__[str(key)]
-        return result
+        return {
+            key: self.__dict__[str(key)] for key in self.defaults.keys() if key != 'name'}
 
     def conf_hash(self, dyn=False, subconf=True, ignore_keys=None):
         """Return hash of keys configurably filtering attributes."""
