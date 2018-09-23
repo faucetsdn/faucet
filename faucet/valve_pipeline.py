@@ -22,8 +22,8 @@ class ValvePipeline(object):
             self.egress_table = dp.tables['egress']
         self.vlan_table = dp.tables['vlan']
         self.use_group_table = dp.group_table
-        self.high_priority = dp.high_priority
-        self.low_priority = dp.low_priority
+        self.filter_priority = dp.highest_priority + 1
+        self.select_priority = dp.highest_priority
 
     def dp_connect(self):
         pass
