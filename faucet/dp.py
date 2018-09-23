@@ -28,8 +28,8 @@ import networkx
 from faucet import faucet_pipeline
 from faucet import valve_of
 from faucet import valve_packet
+from faucet.acl import PORT_ACL_8021X
 from faucet.conf import Conf, test_config_condition
-from faucet.faucet_dot1x import PORT_ACL_8021X
 from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.valve_table import ValveTable, ValveGroupTable

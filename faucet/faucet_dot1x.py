@@ -31,12 +31,6 @@ from faucet import valve_packet # pylint: disable=wrong-import-position
 
 EAPOL_DST = '01:80:c2:00:00:03'
 
-# TODO: 802.1x steals the port ACL table.
-PORT_ACL_8021X = ACL(
-    'port_acl_8021x', 0,
-    {'rules': [{'eth_type': 1, 'eth_src': '01:02:03:04:05:06', 'actions': {
-        'output': {'set_fields': [{'eth_src': '01:02:03:04:05:06'}]}}}]})
-
 
 def get_mac_str(valve_index, port_num):
     """Gets the mac address string for the valve/port combo
