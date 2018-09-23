@@ -186,6 +186,9 @@ class Port(Conf):
         test_config_condition(
             self.hairpin and self.hairpin_unicast,
             'Cannot have both hairpin and hairpin_unicast enabled')
+        if self.dot1x:
+            test_config_condition(self.number > 255, (
+                '802.1x not supported on ports > 255'))
         if self.mirror:
             test_config_condition(self.tagged_vlans or self.native_vlan, (
                 'mirror port %s cannot have any VLANs assigned' % self))

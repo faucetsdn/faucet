@@ -960,9 +960,11 @@ configuration.
                 changed_acls[acl_id] = new_acl
                 logger.info('ACL %s new' % acl_id)
             else:
-                if new_acl != self.acls[acl_id]:
+                acl = self.acls[acl_id]
+                if acl != new_acl:
                     changed_acls[acl_id] = new_acl
-                    logger.info('ACL %s changed' % acl_id)
+                    logger.info('ACL %s changed: %s' % (
+                        acl_id, diff(acl.to_conf(), new_acl.to_conf(), context=1)))
         return changed_acls
 
     def _get_vlan_config_changes(self, logger, new_dp):

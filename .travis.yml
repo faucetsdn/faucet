@@ -13,17 +13,17 @@ before_install:
   - sudo ./docker/retrycmd.sh "apt-get install docker-ce=18.03.1~ce-0~ubuntu"
 cache:
   pip: true
-# Run with 4 test shards (can't seem to schedule more).
 env:
   global:
     - FAUCET_TEST_IMG=faucet/tests
-    - MATRIX_SHARDS=4
+    - MATRIX_SHARDS=5
   matrix:
     - MATRIX_SHARD=sanity
     - MATRIX_SHARD=0
     - MATRIX_SHARD=1
     - MATRIX_SHARD=2
     - MATRIX_SHARD=3
+    - MATRIX_SHARD=4
 install:
   - ./docker/pip_deps.sh
   - python3 setup.py -q sdist

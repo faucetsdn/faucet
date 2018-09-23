@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
+
 
 class InvalidConfigError(Exception):
     """This error is thrown when the config file is not valid."""
@@ -125,11 +127,8 @@ class Conf:
 
     def to_conf(self):
         """Return configuration as a dict."""
-        result = {}
-        for key in self.defaults.keys():
-            if key != 'name':
-                result[key] = self.__dict__[str(key)]
-        return result
+        return {
+            key: self.__dict__[str(key)] for key in self.defaults.keys() if key != 'name'}
 
     def conf_hash(self, dyn=False, subconf=True, ignore_keys=None):
         """Return hash of keys configurably filtering attributes."""
@@ -153,6 +152,9 @@ class Conf:
                 val = tuple(val)
             elif isinstance(val, set):
                 val = frozenset(val)
+            elif isinstance(val, dict):
+                val = OrderedDict([
+                    (k, v) for k, v in sorted(list(val.items()), key=str)])
             self.__dict__[key] = val
         self.dyn_finalized = True
 
