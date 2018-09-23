@@ -89,8 +89,8 @@ class ValveRouteManager:
         'neighbor_timeout',
         'dec_ttl',
         'output_table',
-        'classification_table',
         'fib_table',
+        'pipeline'
         'multi_out',
         'global_vlan',
         'global_routing',
@@ -115,7 +115,7 @@ class ValveRouteManager:
     def __init__(self, logger, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl, multi_out,
-                 fib_table, vip_table, classification_table, output_table,
+                 fib_table, vip_table, output_table,
                  pipeline,
                  route_priority, routers):
         self.logger = logger
@@ -129,7 +129,6 @@ class ValveRouteManager:
         self.multi_out = multi_out
         self.fib_table = fib_table
         self.vip_table = vip_table
-        self.classification_table = classification_table
         self.output_table = output_table
         self.pipeline = pipeline
         self.route_priority = route_priority
@@ -266,17 +265,18 @@ class ValveRouteManager:
         ofmsgs = []
         learn_connected_priority = self.route_priority + faucet_vip.network.prefixlen
         faucet_mac = vlan.faucet_mac
-        insts = [self.classification_table.goto(self.fib_table)]
+        actions = None
         if self.global_routing:
             vlan_mac = valve_packet.int_in_mac(faucet_mac, vlan.vid)
-            insts = [valve_of.apply_actions([
+            actions = [
                 self.fib_table.set_field(eth_dst=vlan_mac),
-                self.fib_table.set_vlan_vid(self.global_vlan.vid)])] + insts
-        ofmsgs.append(self.classification_table.flowmod(
-            self.classification_table.match(
-                eth_type=self.ETH_TYPE, eth_dst=faucet_mac, vlan=vlan),
-            priority=self.route_priority,
-            inst=insts))
+                self.fib_table.set_vlan_vid(self.global_vlan.vid)
+                ]
+        ofmsgs.extend(self.pipeline.select_packets(
+            self.fib_table,
+            {'eth_type': self.ETH_TYPE, 'eth_dst': faucet_mac, 'vlan': vlan},
+            actions
+            ))
         if self.global_routing:
             vlan = self.global_vlan
         ofmsgs.append(self.fib_table.flowmod(
@@ -724,12 +724,10 @@ class ValveIPv4RouteManager(ValveRouteManager):
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         ofmsgs = []
         # ARP
-        ofmsgs.append(self.classification_table.flowmod(
-            self.classification_table.match(
-                eth_type=valve_of.ether.ETH_TYPE_ARP,
-                vlan=vlan),
-            priority=priority,
-            inst=[self.classification_table.goto(self.vip_table)]))
+        ofmsgs.extend(self.pipeline.select_packets(
+            self.vip_table,
+            {'eth_type': valve_of.ether.ETH_TYPE_ARP, 'vlan': vlan}
+            ))
         # ARP for FAUCET VIP
         ofmsgs.append(self.vip_table.flowcontroller(
             self.vip_table.match(
@@ -831,13 +829,12 @@ class ValveIPv6RouteManager(ValveRouteManager):
         ofmsgs = []
         # RA if this is a link local FAUCET VIP
         if faucet_vip.ip.is_link_local:
-            ofmsgs.append(self.classification_table.flowmod(
-                self.classification_table.match(
-                    eth_type=self.ETH_TYPE,
-                    eth_dst=valve_packet.IPV6_ALL_ROUTERS_MCAST,
-                    vlan=vlan),
-                priority=priority,
-                inst=[self.classification_table.goto(self.vip_table)]))
+            match = {
+                'eth_type': self.ETH_TYPE,
+                'eth_dst': valve_packet.IPV6_ALL_ROUTERS_MCAST,
+                'vlan': vlan
+                }
+            ofmsgs.extend(self.pipeline.select_packets(self.vip_table, match))
             ofmsgs.append(self.vip_table.flowmod(
                 self.vip_table.match(
                     eth_type=self.ETH_TYPE,
@@ -865,13 +862,12 @@ class ValveIPv6RouteManager(ValveRouteManager):
             priority=priority,
             max_len=self.ICMP_SIZE))
         # IPv6 NS for FAUCET VIP
-        ofmsgs.append(self.classification_table.flowmod(
-            self.classification_table.match(
-                eth_type=self.ETH_TYPE,
-                eth_dst=faucet_vip_host_nd_mcast,
-                vlan=vlan),
-            priority=priority,
-            inst=[self.classification_table.goto(self.vip_table)]))
+        match = {
+            'eth_type': self.ETH_TYPE,
+            'eth_dst': faucet_vip_host_nd_mcast,
+            'vlan': vlan
+            }
+        ofmsgs.extend(self.pipeline.select_packets(self.vip_table, match))
         ofmsgs.append(self.vip_table.flowmod(
             self.vip_table.match(
                 eth_type=self.ETH_TYPE,
