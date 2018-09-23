@@ -1520,8 +1520,9 @@ class Valve:
                 in_port=port_num,
                 eth_src=mac),
             priority=self.dp.highest_priority-1,
-            strict=True)
-        return [ofmsg]
+            strict=True
+        )
+        return ofmsg
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
