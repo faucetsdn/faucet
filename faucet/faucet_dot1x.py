@@ -22,10 +22,10 @@ import eventlet
 eventlet.monkey_patch()
 
 from ryu.lib import hub  # pylint: disable=wrong-import-position
-
 from chewie.chewie import Chewie  # pylint: disable=wrong-import-position
 
-from faucet import valve_of  # pylint: disable=wrong-import-position
+from faucet import valve_of # pylint: disable=wrong-import-position
+from faucet import valve_packet # pylint: disable=wrong-import-position
 
 
 def get_mac_str(valve_index, port_num):
@@ -132,7 +132,7 @@ class FaucetDot1x:
         to_nfv = valve.dp.tables['port_acl'].flowmod(
             valve.dp.tables['port_acl'].match(
                 in_port=dot1x_port.number,
-                eth_type=0x888e),
+                eth_type=valve_packet.ETH_EAPOL),
             priority=valve.dp.highest_priority,
             inst=[valve_of.apply_actions([
                 valve_of.set_field(eth_dst=mac),
@@ -141,7 +141,7 @@ class FaucetDot1x:
         from_nfv = valve.dp.tables['port_acl'].flowmod(
             valve.dp.tables['port_acl'].match(
                 in_port=valve.dp.dot1x['nfv_sw_port'],
-                eth_type=0x888e,
+                eth_type=valve_packet.ETH_EAPOL,
                 eth_src=mac),
             priority=valve.dp.highest_priority,
             inst=[valve_of.apply_actions([
@@ -170,13 +170,13 @@ class FaucetDot1x:
         ofmsgs.extend(port_acl_table.flowdel(
             match=port_acl_table.match(
                 in_port=dot1x_port.number,
-                eth_type=0x888e),
+                eth_type=valve_packet.ETH_EAPOL),
             priority=valve.dp.highest_priority))
         # from_nfv
         ofmsgs.extend(port_acl_table.flowdel(
             match=port_acl_table.match(
                 in_port=valve.dp.dot1x['nfv_sw_port'],
-                eth_type=0x888e,
+                eth_type=valve_packet.ETH_EAPOL,
                 eth_src=mac),
             priority=valve.dp.highest_priority))
         return ofmsgs
