@@ -117,8 +117,8 @@ class Conf:
 
     def merge_dyn(self, other_conf):
         """Merge dynamic state from other conf object."""
-        for key, value in self._conf_keys(other_conf, dyn=True):
-            self.__dict__[key] = value
+        self.__dict__.update(
+            {k: v for k, v in self._conf_keys(other_conf, dyn=True)})
 
     def _set_default(self, key, value):
         assert key in self.__dict__, key
@@ -128,7 +128,7 @@ class Conf:
     def to_conf(self):
         """Return configuration as a dict."""
         return {
-            key: self.__dict__[str(key)] for key in self.defaults.keys() if key != 'name'}
+            k: self.__dict__[str(k)] for k in self.defaults.keys() if k != 'name'}
 
     def conf_hash(self, dyn=False, subconf=True, ignore_keys=None):
         """Return hash of keys configurably filtering attributes."""
@@ -143,19 +143,24 @@ class Conf:
             self.dyn_hash = dyn_hash
         return dyn_hash
 
+    def _finalize_val(self, val):
+        if isinstance(val, list):
+            return tuple(
+                [self._finalize_val(v) for v in val])
+        if isinstance(val, set):
+            return frozenset(
+                [self._finalize_val(v) for v in val])
+        if isinstance(val, dict):
+            return OrderedDict([
+                (k, self._finalize_val(v)) for k, v in sorted(list(val.items()), key=str)])
+        return val
+
     def finalize(self):
         """Configuration parsing marked complete."""
-        for key, val in list(self.__dict__.items()):
-            if key.startswith('dyn'):
+        for k, v in list(self.__dict__.items()):
+            if k.startswith('dyn'):
                 continue
-            if isinstance(val, list):
-                val = tuple(val)
-            elif isinstance(val, set):
-                val = frozenset(val)
-            elif isinstance(val, dict):
-                val = OrderedDict([
-                    (k, v) for k, v in sorted(list(val.items()), key=str)])
-            self.__dict__[key] = val
+            self.__dict__[k] = self._finalize_val(v)
         self.dyn_finalized = True
 
     def ignore_subconf(self, other, ignore_keys=None):
