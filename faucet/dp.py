@@ -28,8 +28,8 @@ import networkx
 from faucet import faucet_pipeline
 from faucet import valve_of
 from faucet import valve_packet
+from faucet.acl import PORT_ACL_8021X
 from faucet.conf import Conf, test_config_condition
-from faucet.faucet_dot1x import PORT_ACL_8021X
 from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.valve_table import ValveTable, ValveGroupTable
@@ -473,8 +473,7 @@ configuration.
     def classification_table(self):
         if self.use_classification:
             return self.tables['classification']
-        else:
-            return self.tables['eth_src']
+        return self.tables['eth_src']
 
     def output_tables(self):
         """Return tables that cause a packet to be forwarded."""
@@ -927,31 +926,21 @@ configuration.
                     result['stack'] = {
                         'root_dp': str(self.stack['root_dp'])
                     }
-            interface_dict = {}
-            for port in list(self.ports.values()):
-                interface_dict[port.name] = port.to_conf()
-            result['interfaces'] = interface_dict
+            result['interfaces'] = {
+                port.name: port.to_conf() for port in list(self.ports.values())}
         return result
 
     def get_tables(self):
         """Return tables as dict for API call."""
-        result = {}
-        for table_name, table in list(self.tables.items()):
-            result[table_name] = table.table_id
-        return result
+        return {
+            table_name: table.table_id for table_name, table in list(self.tables.items())}
 
     def get_config_dict(self):
         """Return DP config as a dict for API call."""
-        vlans_dict = {}
-        for vlan in list(self.vlans.values()):
-            vlans_dict[vlan.name] = vlan.to_conf()
-        acls_dict = {}
-        for acl_id, acl in list(self.acls.items()):
-            acls_dict[acl_id] = acl.to_conf()
         return {
             'dps': {self.name: self.to_conf()},
-            'vlans': vlans_dict,
-            'acls': acls_dict}
+            'vlans': {vlan.name: vlan.to_conf() for vlan in list(self.vlans.values())},
+            'acls': {acl_id: acl.to_conf() for acl_id, acl in list(self.acls.items())}}
 
     def _get_acl_config_changes(self, logger, new_dp):
         """Detect any config changes to ACLs.
