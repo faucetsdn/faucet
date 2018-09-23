@@ -29,6 +29,7 @@ from faucet import faucet_pipeline
 from faucet import valve_of
 from faucet import valve_packet
 from faucet.conf import Conf, test_config_condition
+from faucet.faucet_dot1x import PORT_ACL_8021X
 from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.valve_table import ValveTable, ValveGroupTable
@@ -348,16 +349,23 @@ configuration.
 
     def _generate_acl_tables(self):
         all_acls = {}
+        if self.dot1x:
+            all_acls['port_acl'] = [PORT_ACL_8021X]
+
         for vlan in self.vlans.values():
             if vlan.acls_in:
                 all_acls.setdefault('vlan_acl', [])
                 all_acls['vlan_acl'].extend(vlan.acls_in)
         if self.dp_acls:
+            test_config_condition(self.dot1x, (
+                'DP ACLs and 802.1x cannot be configured together'))
             for acl in self.dp_acls:
                 all_acls['port_acl'] = self.dp_acls
         else:
             for port in self.ports.values():
                 if port.acls_in:
+                    test_config_condition(port.dot1x, (
+                        'port ACLs and 802.1x cannot be configured together'))
                     all_acls.setdefault('port_acl', [])
                     all_acls['port_acl'].extend(port.acls_in)
 
@@ -963,8 +971,7 @@ configuration.
                 acl = self.acls[acl_id]
                 if acl != new_acl:
                     changed_acls[acl_id] = new_acl
-                    logger.info('ACL %s changed: %s' % (
-                        acl_id, diff(acl.to_conf(), new_acl.to_conf(), context=1)))
+                    logger.info('ACL %s changed: %s' % (acl_id, new_acl.to_conf()))
         return changed_acls
 
     def _get_vlan_config_changes(self, logger, new_dp):

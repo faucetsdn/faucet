@@ -156,7 +156,6 @@ vlans:
         self.verify_events_log(event_log)
 
 
-@unittest.skip('TODO: conflicts with ACL change detection')
 class Faucet8021XSuccessTest(FaucetUntaggedTest):
 
     SOFTWARE_ONLY = True
@@ -165,34 +164,6 @@ class Faucet8021XSuccessTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-
-acls:
-    eapol1_to_nfv:
-        - rule:
-            dl_type: 0x888e
-            eth_src: ff:ff:ff:ff:ff:ff
-            actions:
-                allow: 0
-        - rule:
-            actions:
-                allow: 0
-    eapol2_to_nfv:
-        - rule:
-            dl_type: 0x888e
-            eth_src: ff:ff:ff:ff:ff:ff
-            actions:
-                allow: 0
-        - rule:
-            actions:
-                allow: 0
-    eapol_from_nfv:
-        - rule:
-            actions:
-                allow: 0
-    allowall:
-        - rule:
-            actions:
-                allow: 1
 """
 
     CONFIG = """
@@ -207,24 +178,20 @@ acls:
                 name: b1
                 native_vlan: 100
                 description: "b1 - 802.1x client."
-                acl_in: eapol1_to_nfv
                 dot1x: True
             %(port_2)d:
                 name: b2
                 native_vlan: 100
                 description: "b2 - 802.1X client."
-                acl_in: eapol2_to_nfv
                 dot1x: True
             %(port_3)d:
                 name: b3
                 native_vlan: 100
                 description: "b3 - ping host."
-                acl_in: allowall
             %(port_4)d:
                 name: b4
                 native_vlan: 100
                 description: "NFV host - interface used by controller."
-                acl_in: eapol_from_nfv
 """
 
     wpasupplicant_conf_1 = """

@@ -140,9 +140,6 @@ The output action contains a dictionary with the following elements:
                             self._check_conf_types(
                                 action_conf, self.output_actions_types)
 
-    def to_conf(self):
-        return [{'rule': rule} for rule in self.rules]
-
     def build(self, meters, vid, port_num):
         """Check that ACL can be built from config."""
 
