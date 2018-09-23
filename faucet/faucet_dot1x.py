@@ -37,7 +37,7 @@ def get_mac_str(valve_index, port_num):
     Returns:
         str
     """
-    return "00:00:00:00:%02x:%02x" % (valve_index, port_num)
+    return '00:00:00:00:%02x:%02x' % (valve_index, port_num)
 
 
 class FaucetDot1x:
@@ -66,7 +66,7 @@ class FaucetDot1x:
         Args:
             port_id: is a macaddress string"""
         valve, port = self.mac_to_port[port_id]
-        return valve, port
+        return (valve, port)
 
     def auth_handler(self, address, port_id):
         """Callback for when a successful auth happens."""
@@ -86,8 +86,8 @@ class FaucetDot1x:
     def logoff_handler(self, address, port_id):
         """Callback for when an EAP logoff happens."""
         valve, dot1x_port = self.get_valve_and_port(port_id)
-        self.logger.info('Logoff from MAC %s on %s',
-                         str(address), dot1x_port)
+        self.logger.info(
+            'Logoff from MAC %s on %s', str(address), dot1x_port)
         self.metrics.inc_var('dp_dot1x_logoff', valve.base_prom_labels)
         self.metrics.inc_var('port_dot1x_logoff', valve.port_labels(dot1x_port))
         flowmods = valve.del_authed_mac(
@@ -98,8 +98,8 @@ class FaucetDot1x:
     def failure_handler(self, address, port_id):
         """Callback for when a EAP failure happens."""
         valve, dot1x_port = self.get_valve_and_port(port_id)
-        self.logger.info('Failure from MAC %s on %s',
-                         str(address), dot1x_port)
+        self.logger.info(
+            'Failure from MAC %s on %s', str(address), dot1x_port)
         self.metrics.inc_var('dp_dot1x_failure', valve.base_prom_labels)
         self.metrics.inc_var('port_dot1x_failure', valve.port_labels(dot1x_port))
 
@@ -132,21 +132,21 @@ class FaucetDot1x:
         to_nfv = valve.dp.tables['port_acl'].flowmod(
             valve.dp.tables['port_acl'].match(
                 in_port=dot1x_port.number,
-                eth_type=0x888e,
-                ),
+                eth_type=0x888e),
             priority=valve.dp.highest_priority,
-            inst=[valve_of.apply_actions([valve_of.set_field(eth_dst=mac),
-                                          valve_of.output_port(valve.dp.dot1x['nfv_sw_port'])])])
+            inst=[valve_of.apply_actions([
+                valve_of.set_field(eth_dst=mac),
+                valve_of.output_port(valve.dp.dot1x['nfv_sw_port'])])])
 
         from_nfv = valve.dp.tables['port_acl'].flowmod(
             valve.dp.tables['port_acl'].match(
                 in_port=valve.dp.dot1x['nfv_sw_port'],
                 eth_type=0x888e,
-                eth_src=mac
-            ),
+                eth_src=mac),
             priority=valve.dp.highest_priority,
-            inst=[valve_of.apply_actions([valve_of.set_field(eth_src="01:80:c2:00:00:03"),
-                                          valve_of.output_port(dot1x_port.number)])])
+            inst=[valve_of.apply_actions([
+                valve_of.set_field(eth_src="01:80:c2:00:00:03"),
+                valve_of.output_port(dot1x_port.number)])])
         return [to_nfv, from_nfv]
 
     def port_down(self, valve, dot1x_port):
@@ -160,25 +160,25 @@ class FaucetDot1x:
             list of flowmods
         """
         # TODO let chewie know about the port down event.
-
         valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
         mac = get_mac_str(valve_index, dot1x_port.number)
         port_acl_table = valve.dp.tables['port_acl']
         ofmsgs = []
         # to_nfv
-        # Strictly speaking this delete isn't needed, as the caller clears the port_acl table for
-        # the port that is down.
-        ofmsgs.extend(port_acl_table.flowdel(match=port_acl_table.match(
-            in_port=dot1x_port.number,
-            eth_type=0x888e
-        ),
-                                             priority=valve.dp.highest_priority))
+        # Strictly speaking this delete isn't needed, as the caller
+        # clears the port_acl table for # the port that is down.
+        ofmsgs.extend(port_acl_table.flowdel(
+            match=port_acl_table.match(
+                in_port=dot1x_port.number,
+                eth_type=0x888e),
+            priority=valve.dp.highest_priority))
         # from_nfv
-        ofmsgs.extend(port_acl_table.flowdel(match=port_acl_table.match(
-            in_port=valve.dp.dot1x['nfv_sw_port'],
-            eth_type=0x888e,
-            eth_src=mac),
-                                             priority=valve.dp.highest_priority))
+        ofmsgs.extend(port_acl_table.flowdel(
+            match=port_acl_table.match(
+                in_port=valve.dp.dot1x['nfv_sw_port'],
+                eth_type=0x888e,
+                eth_src=mac),
+            priority=valve.dp.highest_priority))
         return ofmsgs
 
     def reset(self, valves):
@@ -190,17 +190,15 @@ class FaucetDot1x:
         for valve in list(valves.values()):
             valve_index += 1
             self.dp_id_to_valve_index[valve.dp.dp_id] = valve_index
-
             if self.dot1x_speaker is None:
                 if valve.dp.dot1x:
                     dot1x_intf = valve.dp.dot1x['nfv_intf']
                     radius_ip = valve.dp.dot1x['radius_ip']
                     radius_port = valve.dp.dot1x['radius_port']
                     radius_secret = valve.dp.dot1x['radius_secret']
-                    self.dot1x_speaker = self._create_dot1x_speaker(dot1x_intf,
-                                                                    valve.dp.faucet_dp_mac,
-                                                                    radius_ip, radius_port,
-                                                                    radius_secret)
+                    self.dot1x_speaker = self._create_dot1x_speaker(
+                        dot1x_intf, valve.dp.faucet_dp_mac,
+                        radius_ip, radius_port, radius_secret)
                 else:
                     continue
             if valve.dp.dot1x and valve.dp.dot1x_ports():
