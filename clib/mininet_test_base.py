@@ -1118,6 +1118,8 @@ dbs:
                         delete=False) as config_file_tmp:
                     config_file_tmp_name = config_file_tmp.name
                     config_file_tmp.write(new_conf_str)
+                with open(config_file_tmp_name, 'rb') as config_file_tmp:
+                    assert new_conf_str == config_file_tmp.read()
                 os.rename(config_file_tmp_name, conf_path)
 
         update_conf_func = partial(_update_conf, conf_path, yaml_conf)
