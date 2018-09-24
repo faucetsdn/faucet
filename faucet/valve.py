@@ -210,7 +210,7 @@ class Valve:
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
             host_manager_cl = valve_host.ValveHostFlowRemovedManager
-        self.host_manager = host_manager_cl( self.logger, self.dp.ports,
+        self.host_manager = host_manager_cl(self.logger, self.dp.ports,
             self.dp.vlans, classification_table,
             self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
             eth_dst_hairpin_table, egress_table, self.dp.timeout,
@@ -989,6 +989,9 @@ class Valve:
                 if pkt_meta.port.dyn_lacp_updated_time:
                     age = now - pkt_meta.port.dyn_lacp_updated_time
                 lacp_state_change = pkt_meta.port.dyn_lacp_up != lacp_pkt.actor_state_synchronization
+                lacp_pkt_change = (
+                    pkt_meta.port.dyn_last_lacp_pkt is None or
+                    str(lacp_pkt) != str(pkt_meta.port.dyn_last_lacp_pkt))
                 if lacp_state_change:
                     self.logger.info(
                         'remote LACP state change from %s to %s from %s LAG %u (%s)' % (
@@ -998,7 +1001,7 @@ class Valve:
                     if lacp_pkt.actor_state_synchronization:
                         ofmsgs.extend(self.lacp_up(pkt_meta.port))
                 # TODO: make LACP response rate limit configurable.
-                if (age is not None and age > 1):
+                if lacp_pkt_change or (age is not None and age > 1):
                     pkt = self._lacp_pkt(lacp_pkt, pkt_meta.port)
                     ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
