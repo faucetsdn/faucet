@@ -988,18 +988,16 @@ class Valve:
                 age = None
                 if pkt_meta.port.dyn_lacp_updated_time:
                     age = now - pkt_meta.port.dyn_lacp_updated_time
-                last_lacp_up = pkt_meta.port.dyn_lacp_up
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
-                pkt_meta.port.dyn_lacp_up = lacp_pkt.actor_state_synchronization
                 pkt_meta.port.dyn_lacp_updated_time = now
-                lacp_state_change = last_lacp_up != pkt_meta.port.dyn_lacp_up
+                lacp_state_change = pkt_meta.port.dyn_lacp_up != lacp_pkt.actor_state_synchronization
                 if lacp_state_change:
                     self.logger.info(
                         'remote LACP state change from %s to %s from %s LAG %u (%s)' % (
-                            last_lacp_up, pkt_meta.port.dyn_lacp_up,
+                            pkt_meta.port.dyn_lacp_up, lacp_pkt.actor_state_synchronization,
                             lacp_pkt.actor_system, pkt_meta.port.lacp,
                             pkt_meta.log()))
-                    if pkt_meta.port.dyn_lacp_up:
+                    if lacp_pkt.actor_state_synchronization:
                         ofmsgs.extend(self.lacp_up(pkt_meta.port))
                 # TODO: make LACP response rate limit configurable.
                 if lacp_state_change or age is None or age > 1:
