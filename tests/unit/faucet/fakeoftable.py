@@ -207,9 +207,10 @@ class FakeOFTable:
                                 packet_dict[action.key] = action.value
                     elif instruction.type == ofp.OFPIT_WRITE_METADATA:
                         metadata = packet_dict.get('metadata', 0)
-                        packet_dict['metadata'] = metadata | (
-                            instruction.metadata & instruction.metadata_mask
-                            )
+                        mask = instruction.metadata_mask
+                        mask_compl = mask ^ 0xFFFFFFFFFFFFFFFF
+                        packet_dict['metadata'] = (metadata & mask_compl)\
+                            | (instruction.metadata & mask)
         return instructions
 
     def is_output(self, match, port=None, vid=None):
