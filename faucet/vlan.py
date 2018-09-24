@@ -492,11 +492,22 @@ class VLAN(Conf):
         """Return ports that are mirrored on this VLAN."""
         return tuple([port for port in self.get_ports() if port.mirror])
 
+    def lacp_ports(self):
+        """Return ports that have LACP on this VLAN."""
+        return tuple([port for port in self.get_ports() if port.lacp])
+
     def lacp_up_ports(self):
         """Return ports that have LACP up on this VLAN."""
-        return tuple([port for port in self.get_ports() if port.lacp and port.dyn_lacp_up])
+        return tuple([port for port in self.lacp_ports() if port.dyn_lacp_up])
 
     def lags(self):
+        """Return dict of LAGs mapped to member ports."""
+        lags = collections.defaultdict(list)
+        for port in self.lacp_ports():
+            lags[port.lacp].append(port)
+        return lags
+
+    def lags_up(self):
         """Return dict of LAGs mapped to member ports that have LACP up."""
         lags = collections.defaultdict(list)
         for port in self.lacp_up_ports():

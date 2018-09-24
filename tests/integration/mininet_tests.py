@@ -6316,7 +6316,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            switch_to_switch_links=1,
+            switch_to_switch_links=2,
             hw_dpid=self.hw_dpid,
             lacp=True)
         self.start_net()
