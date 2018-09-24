@@ -101,7 +101,9 @@ configuration.
         'learn_ban_timeout': 0,
         # When banning/limiting learning, wait this many seconds before learning can be retried
         'advertise_interval': 30,
-        # How often to advertise (eg. IPv6 RAs)
+        # How often to slow advertise (eg. IPv6 RAs)
+        'fast_advertise_interval': 5,
+        # How often to fast advertise (eg. LACP)
         'proactive_learn_v4': True,
         # whether proactive learning is enabled for IPv4 nexthops
         'proactive_learn_v6': True,
@@ -171,6 +173,7 @@ configuration.
         'learn_jitter': int,
         'learn_ban_timeout': int,
         'advertise_interval': int,
+        'fast_advertise_interval': int,
         'proactive_learn_v4': bool,
         'proactive_learn_v6': bool,
         'use_idle_timeout': bool,
@@ -230,6 +233,7 @@ configuration.
         self.acls = None
         self.acls_in = None
         self.advertise_interval = None
+        self.fast_advertise_interval = None
         self.arp_neighbor_timeout = None
         self.nd_neighbor_timeout = None
         self.bgp_local_address = None

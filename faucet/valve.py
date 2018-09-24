@@ -87,6 +87,7 @@ class Valve:
         'ofchannel_logger',
         'recent_ofmsgs',
         '_last_advertise_sec',
+        '_last_fast_advertise_sec',
         '_last_packet_in_sec',
         '_last_pipeline_flows',
         '_packet_in_count_sec',
@@ -110,11 +111,7 @@ class Valve:
         self.ofchannel_logger = None
         self.logger = None
         self.recent_ofmsgs = deque(maxlen=32)
-        self._last_advertise_sec = 0
         self._last_pipeline_flows = []
-        self._last_packet_in_sec = 0
-        self._packet_in_count_sec = 0
-        self._port_highwater = {}
         self.dp_init()
 
     def port_labels(self, port):
@@ -153,6 +150,7 @@ class Valve:
         self._packet_in_count_sec = 0
         self._last_packet_in_sec = 0
         self._last_advertise_sec = 0
+        self._last_fast_advertise_sec = 0
         self._route_manager_by_ipv = {}
         self._route_manager_by_eth_type = {}
         self._port_highwater = {}
@@ -517,16 +515,15 @@ class Valve:
     def advertise(self, now, _other_values):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
         ofmsgs = []
-        if (self.dp.advertise_interval and
-                now - self._last_advertise_sec > self.dp.advertise_interval):
-            for route_manager in list(self._route_manager_by_ipv.values()):
-                for vlan in list(self.dp.vlans.values()):
-                    ofmsgs.extend(route_manager.advertise(vlan))
-            for port in list(self.dp.lacp_active_ports):
-                if port.running():
-                    pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
-                    ofmsgs.append(valve_of.packetout(port.number, pkt.data))
-            self._last_advertise_sec = now
+        if (not self.dp.advertise_interval or
+                now - self._last_advertise_sec < self.dp.advertise_interval):
+            return ofmsgs
+        self._last_advertise_sec = now
+
+        for route_manager in list(self._route_manager_by_ipv.values()):
+            for vlan in list(self.dp.vlans.values()):
+                ofmsgs.extend(route_manager.advertise(vlan))
+
         return ofmsgs
 
     def _send_lldp_beacon_on_port(self, port, now):
@@ -549,8 +546,8 @@ class Valve:
         port.dyn_last_lldp_beacon_time = now
         return valve_of.packetout(port.number, lldp_beacon_pkt.data)
 
-    def send_lldp_beacons(self, now, _other_valves):
-        """Called periodically to send LLDP beacon packets."""
+    def fast_advertise(self, now, _other_valves):
+        """Called periodically to send LLDP/LACP packets."""
         # TODO: the beacon service is specifically NOT to support conventional R/STP.
         # It is intended to facilitate physical troubleshooting (e.g.
         # a standard cable tester can display OF port information).
@@ -558,10 +555,19 @@ class Valve:
         # TODO: in the stacking case, provide an authentication scheme for the probes
         # so they cannot be forged.
         ofmsgs = []
+        if (not self.dp.fast_advertise_interval or
+                now - self._last_fast_advertise_sec < self.dp.fast_advertise_interval):
+            return ofmsgs
+        self._last_fast_advertise_sec = now
+
+        for port in list(self.dp.lacp_active_ports):
+            if port.running():
+                pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
+                ofmsgs.append(valve_of.packetout(port.number, pkt.data))
+
         ports = self.dp.lldp_beacon_send_ports(now)
-        if ports:
-            self.logger.debug('sending LLDP beacons on %s' % ports)
-            ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in ports]
+        ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
+
         return ofmsgs
 
     def _next_stack_link_state(self, port, now):
@@ -617,7 +623,7 @@ class Valve:
             for valve in [self] + other_valves:
                 valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
 
-    def update_stack_link_states(self, now, other_valves):
+    def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""
         for port in self.dp.stack_ports:
             self._update_stack_link_state(port, now, other_valves)

@@ -47,6 +47,11 @@ class EventFaucetExperimentalAPIRegistered(event.EventBase): # pylint: disable=t
     pass
 
 
+class EventFaucetMetricUpdate(event.EventBase): # pylint: disable=too-few-public-methods
+    """Event used to trigger update of metrics."""
+    pass
+
+
 class EventFaucetResolveGateways(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to trigger gateway re/resolution."""
     pass
@@ -56,9 +61,8 @@ class EventFaucetStateExpire(event.EventBase): # pylint: disable=too-few-public-
     """Event used to trigger expiration of state in controller."""
     pass
 
-
-class EventFaucetMetricUpdate(event.EventBase): # pylint: disable=too-few-public-methods
-    """Event used to trigger update of metrics."""
+class EventFaucetFastStateExpire(event.EventBase): # pylint: disable=too-few-public-methods
+    """Event used to trigger fast expiration of state in controller."""
     pass
 
 
@@ -67,14 +71,10 @@ class EventFaucetAdvertise(event.EventBase): # pylint: disable=too-few-public-me
     pass
 
 
-class EventFaucetLLDPAdvertise(event.EventBase): # pylint: disable=too-few-public-methods
-    """Event used to trigger periodic LLDP beacons."""
+class EventFaucetFastAdvertise(event.EventBase): # pylint: disable=too-few-public-methods
+    """Event used to trigger periodic fast network advertisements (eg LACP)."""
     pass
 
-
-class EventFaucetStackLinkStates(event.EventBase): # pylint: disable=too-few-public-methods
-    """Event used to update link stack states."""
-    pass
 
 
 class Faucet(RyuAppBase):
@@ -92,9 +92,9 @@ class Faucet(RyuAppBase):
         EventFaucetMetricUpdate: (None, 5),
         EventFaucetResolveGateways: ('resolve_gateways', 2),
         EventFaucetStateExpire: ('state_expire', 5),
-        EventFaucetAdvertise: ('advertise', 5),
-        EventFaucetLLDPAdvertise: ('send_lldp_beacons', 5),
-        EventFaucetStackLinkStates: ('update_stack_link_states', 2),
+        EventFaucetFastStateExpire: ('fast_state_expire', 2),
+        EventFaucetAdvertise: ('advertise', 15),
+        EventFaucetFastAdvertise: ('fast_advertise', 5),
     }
     logname = 'faucet'
     exc_logname = logname + '.exception'
@@ -199,9 +199,9 @@ class Faucet(RyuAppBase):
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetFastStateExpire, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
-    @set_ev_cls(EventFaucetLLDPAdvertise, MAIN_DISPATCHER)
-    @set_ev_cls(EventFaucetStackLinkStates, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetFastAdvertise, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _valve_flow_services(self, ryu_event):
         """Call a method on all Valves and send any resulting flows."""

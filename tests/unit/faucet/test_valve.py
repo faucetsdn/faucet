@@ -603,8 +603,7 @@ class ValveTestBases:
             rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
             self.table.apply_ofmsgs(rcv_packet_ofmsgs)
             for valve_service in (
-                    'resolve_gateways', 'advertise',
-                    'send_lldp_beacons', 'state_expire'):
+                    'resolve_gateways', 'advertise', 'fast_advertise', 'state_expire'):
                 self.valves_manager.valve_flow_services(
                     now, valve_service)
             self.valves_manager.update_metrics(now)
@@ -1285,7 +1284,7 @@ meters:
         def test_lldp_beacon(self):
             """Test LLDP beacon service."""
             # TODO: verify LLDP packet content.
-            self.assertTrue(self.valve.send_lldp_beacons(time.time(), None))
+            self.assertTrue(self.valve.fast_advertise(time.time(), None))
 
         def test_unknown_port(self):
             """Test port status change for unknown port handled."""
@@ -1887,7 +1886,7 @@ vlans:
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
         other_valves = self.valves_manager._other_running_valves(self.valve)
-        self.valve.update_stack_link_states(time.time(), other_valves)
+        self.valve.fast_state_expire(time.time(), other_valves)
         self.assertTrue(stack_port.is_stack_down())
         for change_func, check_func in [
                 ('stack_init', 'is_stack_init'),
@@ -1920,7 +1919,7 @@ vlans:
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_init())
         other_valves = self.valves_manager._other_running_valves(self.valve)
-        self.valve.update_stack_link_states(time.time() + 300, other_valves) # simulate packet loss
+        self.valve.fast_state_expire(time.time() + 300, other_valves) # simulate packet loss
         self.assertTrue(stack_port.is_stack_down())
 
 
@@ -1947,7 +1946,7 @@ class ValveStackGraphUpdateTestCase(ValveStackProbeTestCase):
             peer_port.stack_down()
             self.valves_manager.valve_flow_services(
                 time.time() + 600,
-                'update_stack_link_states')
+                'fast_state_expire')
             self.assertTrue(port.is_stack_down())
 
         def verify_stack_learn_edges(num_edges, edge=None, test_func=None):
