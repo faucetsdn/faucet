@@ -172,12 +172,12 @@ class FaucetDot1x:
         ofmsgs = []
         # Strictly speaking these deletes aren't needed, as the caller
         # clears the port_acl table for # the port that is down.
-        ofmsgs.append(port_acl_table.flowdel(
+        ofmsgs.extend(port_acl_table.flowdel(
             match=port_acl_table.match(
                 in_port=dot1x_port.number,
                 eth_type=valve_packet.ETH_EAPOL),
             priority=valve.dp.highest_priority))
-        ofmsgs.append(port_acl_table.flowdel(
+        ofmsgs.extend(port_acl_table.flowdel(
             match=port_acl_table.match(
                 in_port=nfv_sw_port,
                 eth_type=valve_packet.ETH_EAPOL,
