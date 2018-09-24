@@ -424,6 +424,9 @@ configuration.
             name = canonical_table_config.name
             table_config = acl_tables.get(
                 name, copy.deepcopy(canonical_table_config))
+            if not self.egress_pipeline:
+                table_config.metadata_write = 0
+                table_config.metadata_match = 0
             if not valve_cl.STATIC_TABLE_IDS:
                 table_config.table_id = relative_table_id
             table_configs[name] = table_config

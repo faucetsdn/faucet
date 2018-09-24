@@ -18,6 +18,10 @@ def load_tables(dp, valve_cl): # pylint: disable=invalid-name
             'properties': [],
             'table_id': table_id,
         }
+        if valve_table.metadata_match:
+            table_attr.update({'metadata_match': valve_table.metadata_match})
+        if valve_table.metadata_write:
+            table_attr.update({'metadata_write': valve_table.metadata_write})
         new_table = valve_of.parser.OFPTableFeaturesStats(**table_attr)
         # Match types
         if valve_table.match_types:
