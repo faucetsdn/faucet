@@ -807,7 +807,7 @@ class Valve:
 
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
-                if port.lacp_active and port.dyn_last_lacp_pkt:
+                if port.lacp_active:
                     pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
                     ofmsgs.append(valve_of.packetout(port.number, pkt.data))
 
@@ -927,6 +927,7 @@ class Valve:
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         port.dyn_lacp_up = 0
         port.dyn_last_lacp_pkt = None
+        port.dyn_lacp_updated_time = None
         self._reset_lacp_status(port)
         return ofmsgs
 
@@ -945,7 +946,7 @@ class Valve:
 
     def _lacp_pkt(self, lacp_pkt, port):
         if lacp_pkt:
-            return valve_packet.lacp_reqreply(
+            pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
                 port.lacp, port.number, 1,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
@@ -958,9 +959,12 @@ class Valve:
                 lacp_pkt.actor_state_aggregation,
                 lacp_pkt.actor_state_synchronization,
                 lacp_pkt.actor_state_activity)
-        return valve_packet.lacp_reqreply(
-            self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-            port.lacp, port.number)
+        else:
+            pkt = valve_packet.lacp_reqreply(
+                self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
+                port.lacp, port.number)
+        self.logger.debug('sending LACP %s on %s' % (pkt, port))
+        return pkt
 
     def lacp_handler(self, now, pkt_meta):
         """Handle a LACP packet.
@@ -981,11 +985,15 @@ class Valve:
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
             if lacp_pkt:
+                age = None
+                if pkt_meta.port.dyn_lacp_updated_time:
+                    age = now - pkt_meta.port.dyn_lacp_updated_time
                 last_lacp_up = pkt_meta.port.dyn_lacp_up
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
                 pkt_meta.port.dyn_lacp_up = lacp_pkt.actor_state_synchronization
                 pkt_meta.port.dyn_lacp_updated_time = now
-                if last_lacp_up != pkt_meta.port.dyn_lacp_up:
+                lacp_state_change = last_lacp_up != pkt_meta.port.dyn_lacp_up
+                if lacp_state_change:
                     self.logger.info(
                         'remote LACP state change from %s to %s from %s LAG %u (%s)' % (
                             last_lacp_up, pkt_meta.port.dyn_lacp_up,
@@ -993,8 +1001,10 @@ class Valve:
                             pkt_meta.log()))
                     if pkt_meta.port.dyn_lacp_up:
                         ofmsgs.extend(self.lacp_up(pkt_meta.port))
-                pkt = self._lacp_pkt(lacp_pkt, pkt_meta.port)
-                ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
+                # TODO: make LACP response rate limit configurable.
+                if lacp_state_change or age is None or age > 1:
+                    pkt = self._lacp_pkt(lacp_pkt, pkt_meta.port)
+                    ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
         return ofmsgs
 
     def _verify_stack_lldp(self, port, now, other_valves,

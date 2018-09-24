@@ -5953,7 +5953,8 @@ class FaucetStringOfDPTest(FaucetTest):
                   n_untagged=0, untagged_vid=100,
                   include=None, include_optional=None,
                   acls=None, acl_in_dp=None,
-                  switch_to_switch_links=1, hw_dpid=None, stack_ring=False):
+                  switch_to_switch_links=1, hw_dpid=None,
+                  stack_ring=False, lacp=False):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
@@ -5993,12 +5994,14 @@ class FaucetStringOfDPTest(FaucetTest):
             acls,
             acl_in_dp,
             stack_ring,
+            lacp,
         )
         self._write_faucet_config()
 
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
-                   include=None, include_optional=None, acls=None, acl_in_dp=None, stack_ring=False):
+                   include=None, include_optional=None, acls=None, acl_in_dp=None, stack_ring=False,
+                   lacp=False):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
         if dpids is None:
             dpids = []
@@ -6103,6 +6106,9 @@ class FaucetStringOfDPTest(FaucetTest):
                                 tagged_vlans = [untagged_vid]
                             if tagged_vlans:
                                 interfaces_config[port]['tagged_vlans'] = tagged_vlans
+                            if lacp:
+                                interfaces_config[port].update(
+                                        {'lacp': 1, 'lacp_active': True})
                         add_acl_to_port(name, port, interfaces_config)
                         port += 1
 
@@ -6298,6 +6304,29 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
     def test_other_tagged(self):
         for coldstart in (False, True):
             self.verify_one_stack_down(self.NUM_HOSTS + 2, coldstart)
+
+
+class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
+    """Test topology of LACP-connected datapaths with untagged hosts."""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+
+    def setUp(self): # pylint: disable=invalid-name
+        super(FaucetStringOfDPLACPUntaggedTest, self).setUp()
+        self.build_net(
+            stack=False,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            untagged_vid=self.VID,
+            switch_to_switch_links=1,
+            hw_dpid=self.hw_dpid,
+            lacp=True)
+        self.start_net()
+
+    def test_untagged(self):
+        """All untagged hosts in stack topology can reach each other."""
+        self.verify_stack_hosts()
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
