@@ -987,9 +987,8 @@ class Valve:
         ofmsgs = []
         if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
                 pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW and
-                len(pkt_meta.data) == valve_packet.LACP_SIZE and
-                pkt_meta.packet_complete() and
                 pkt_meta.port.lacp):
+            pkt_meta.data = pkt_meta.data[:valve_packet.LACP_SIZE]
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
             if lacp_pkt:
