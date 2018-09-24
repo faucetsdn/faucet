@@ -101,6 +101,7 @@ class Port(Conf):
         'receive_lldp': bool,
         'override_output_port': (str, int),
         'dot1x': bool,
+        'max_lldp_lost': int,
     }
 
     stack_defaults_types = {

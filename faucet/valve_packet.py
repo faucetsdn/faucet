@@ -334,6 +334,7 @@ def parse_faucet_lldp(lldp_pkt, faucet_dp_mac):
 
 def lacp_reqreply(eth_src,
                   actor_system, actor_key, actor_port,
+                  actor_state_synchronization=0,
                   partner_system='00:00:00:00:00:00',
                   partner_key=0,
                   partner_port=0,
@@ -354,6 +355,7 @@ def lacp_reqreply(eth_src,
         actor_system (str): actor system ID (MAC address)
         actor_key (int): actor's LACP key assigned to this port.
         actor_port (int): actor port number.
+        actor_state_synchronization (int): 1 if we will use this link.
         partner_system (str): partner system ID (MAC address)
         partner_key (int): partner's LACP key assigned to this port.
         partner_port (int): partner port number.
@@ -396,7 +398,7 @@ def lacp_reqreply(eth_src,
         partner_state_distributing=partner_state_distributing,
         actor_state_aggregation=1,
         partner_state_aggregation=partner_state_aggregation,
-        actor_state_synchronization=1,
+        actor_state_synchronization=actor_state_synchronization,
         partner_state_synchronization=partner_state_synchronization,
         actor_state_activity=0,
         partner_state_activity=partner_state_activity)
