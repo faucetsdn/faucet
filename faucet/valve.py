@@ -926,6 +926,7 @@ class Valve:
         for vlan in port.vlans():
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         port.dyn_lacp_up = 0
+        port.dyn_last_lacp_pkt = None
         self._reset_lacp_status(port)
         return ofmsgs
 
