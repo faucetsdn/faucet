@@ -946,10 +946,13 @@ class Valve:
         return ofmsgs
 
     def _lacp_pkt(self, lacp_pkt, port):
+        actor_state_activity = 0
+        if port.lacp_active:
+            actor_state_activity = 1
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.number, 1,
+                port.lacp, port.number, 1, actor_state_activity,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
                 lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
                 lacp_pkt.actor_state_defaulted,
@@ -963,7 +966,8 @@ class Valve:
         else:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.number)
+                port.lacp, port.number,
+                actor_state_activity=actor_state_activity)
         self.logger.debug('sending LACP %s on %s' % (pkt, port))
         return pkt
 
