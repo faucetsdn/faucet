@@ -191,6 +191,7 @@ configuration.
         'egress_pipeline': bool,
         'strict_packet_in_cookie': bool,
         'multi_out': bool,
+        'lacp_timeout': int,
     }
 
     default_table_sizes_types = {
