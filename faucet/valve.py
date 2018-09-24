@@ -922,7 +922,7 @@ class Valve:
                 eth_type=valve_of.ether.ETH_TYPE_SLOW,
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
             priority=self.dp.highest_priority,
-            max_len=128))
+            max_len=256))
         for vlan in port.vlans():
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         port.dyn_lacp_up = 0
