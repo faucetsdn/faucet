@@ -17,7 +17,7 @@
 # limitations under the License.
 
 import copy
-from collections import defaultdict
+from collections import defaultdict, Counter
 import random
 import math
 import netaddr
@@ -417,18 +417,17 @@ configuration.
             included_tables.add('classification')
         if self.egress_pipeline:
             included_tables.add('egress')
-        relative_table_id = 0
+        canonical_configs = [
+            config for config in faucet_pipeline.FAUCET_PIPELINE
+            if config.name in included_tables]
         table_configs = {}
-        for canonical_table_config in faucet_pipeline.FAUCET_PIPELINE:
-            table_name = canonical_table_config.name
-            if table_name not in included_tables:
-                continue
+        for relative_table_id, canonical_table_config in enumerate(canonical_configs, start=0):
+            name = canonical_table_config.name
             table_config = acl_tables.get(
-                table_name, copy.deepcopy(canonical_table_config))
+                name, copy.deepcopy(canonical_table_config))
             if not valve_cl.STATIC_TABLE_IDS:
                 table_config.table_id = relative_table_id
-            relative_table_id += 1
-            table_configs[table_name] = table_config
+            table_configs[name] = table_config
 
         for table_name, table_config in table_configs.items():
             size = self.table_sizes.get(table_name, self.min_wildcard_table_size)
@@ -612,7 +611,7 @@ configuration.
             test_config_condition(stack_dps, 'stacking enabled but no root_dp')
             return
 
-        edge_count = {}
+        edge_count = Counter()
 
         graph = networkx.MultiGraph()
         for dp in dps:
@@ -620,8 +619,6 @@ configuration.
                 graph.add_node(dp.name)
                 for port in dp.stack_ports:
                     edge_name = self.add_stack_link(graph, dp, port)
-                    if edge_name not in edge_count:
-                        edge_count[edge_name] = 0
                     edge_count[edge_name] += 1
         if graph.size():
             for edge_name, count in list(edge_count.items()):

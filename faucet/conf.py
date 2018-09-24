@@ -157,10 +157,9 @@ class Conf:
 
     def finalize(self):
         """Configuration parsing marked complete."""
-        for k, v in list(self.__dict__.items()):
-            if k.startswith('dyn'):
-                continue
-            self.__dict__[k] = self._finalize_val(v)
+        self.__dict__.update(
+            {k: self._finalize_val(v) for k, v in list(self.__dict__.items())
+             if not k.startswith('dyn')})
         self.dyn_finalized = True
 
     def ignore_subconf(self, other, ignore_keys=None):

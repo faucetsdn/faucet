@@ -24,7 +24,6 @@ eventlet.monkey_patch()
 from ryu.lib import hub  # pylint: disable=wrong-import-position
 from chewie.chewie import Chewie  # pylint: disable=wrong-import-position
 
-from faucet.acl import ACL
 from faucet import valve_of # pylint: disable=wrong-import-position
 from faucet import valve_packet # pylint: disable=wrong-import-position
 
@@ -131,27 +130,29 @@ class FaucetDot1x:
         Returns:
             list of flowmods
         """
+        port_acl_table = valve.dp.tables['port_acl']
+        nfv_sw_port = valve.dp.dot1x['nfv_sw_port']
         valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
         mac = get_mac_str(valve_index, dot1x_port.number)
-        to_nfv = valve.dp.tables['port_acl'].flowmod(
-            valve.dp.tables['port_acl'].match(
+        ofmsgs = []
+        ofmsgs.append(port_acl_table.flowmod(
+            port_acl_table.match(
                 in_port=dot1x_port.number,
                 eth_type=valve_packet.ETH_EAPOL),
             priority=valve.dp.highest_priority,
             inst=[valve_of.apply_actions([
                 valve_of.set_field(eth_dst=mac),
-                valve_of.output_port(valve.dp.dot1x['nfv_sw_port'])])])
-
-        from_nfv = valve.dp.tables['port_acl'].flowmod(
-            valve.dp.tables['port_acl'].match(
-                in_port=valve.dp.dot1x['nfv_sw_port'],
+                valve_of.output_port(nfv_sw_port)])]))
+        ofmsgs.append(port_acl_table.flowmod(
+            port_acl_table.match(
+                in_port=nfv_sw_port,
                 eth_type=valve_packet.ETH_EAPOL,
                 eth_src=mac),
             priority=valve.dp.highest_priority,
             inst=[valve_of.apply_actions([
                 valve_of.set_field(eth_src=EAPOL_DST),
-                valve_of.output_port(dot1x_port.number)])])
-        return [to_nfv, from_nfv]
+                valve_of.output_port(dot1x_port.number)])]))
+        return ofmsgs
 
     def port_down(self, valve, dot1x_port):
         """
@@ -163,23 +164,22 @@ class FaucetDot1x:
         Returns:
             list of flowmods
         """
-        # TODO let chewie know about the port down event.
+        # TODO: let chewie know about the port down event.
+        port_acl_table = valve.dp.tables['port_acl']
+        nfv_sw_port = valve.dp.dot1x['nfv_sw_port']
         valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
         mac = get_mac_str(valve_index, dot1x_port.number)
-        port_acl_table = valve.dp.tables['port_acl']
         ofmsgs = []
-        # to_nfv
-        # Strictly speaking this delete isn't needed, as the caller
+        # Strictly speaking these deletes aren't needed, as the caller
         # clears the port_acl table for # the port that is down.
         ofmsgs.extend(port_acl_table.flowdel(
             match=port_acl_table.match(
                 in_port=dot1x_port.number,
                 eth_type=valve_packet.ETH_EAPOL),
             priority=valve.dp.highest_priority))
-        # from_nfv
         ofmsgs.extend(port_acl_table.flowdel(
             match=port_acl_table.match(
-                in_port=valve.dp.dot1x['nfv_sw_port'],
+                in_port=nfv_sw_port,
                 eth_type=valve_packet.ETH_EAPOL,
                 eth_src=mac),
             priority=valve.dp.highest_priority))
