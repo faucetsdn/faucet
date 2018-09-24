@@ -163,8 +163,6 @@ configuration.
         'ignore_learn_ins': int,
         'drop_broadcast_source_address': bool,
         'drop_spoofed_faucet_mac': bool,
-        'drop_bpdu': bool,
-        'drop_lldp': bool,
         'group_table': bool,
         'max_hosts_per_resolve_cycle': int,
         'max_host_fib_retry_count': int,

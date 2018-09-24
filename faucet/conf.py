@@ -44,6 +44,9 @@ class Conf:
         self.dp_id = dp_id
         if conf is None:
             conf = {}
+        if self.defaults is not None and self.defaults_types is not None:
+            diff = set(self.defaults.keys()).symmetric_difference(set(self.defaults_types.keys()))
+            assert not diff, diff
         # TODO: handle conf as a sequence. # pylint: disable=fixme
         if isinstance(conf, dict):
             self.update(conf)
