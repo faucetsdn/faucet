@@ -110,11 +110,7 @@ class Valve:
         self.ofchannel_logger = None
         self.logger = None
         self.recent_ofmsgs = deque(maxlen=32)
-        self._last_advertise_sec = 0
         self._last_pipeline_flows = []
-        self._last_packet_in_sec = 0
-        self._packet_in_count_sec = 0
-        self._port_highwater = {}
         self.dp_init()
 
     def port_labels(self, port):
