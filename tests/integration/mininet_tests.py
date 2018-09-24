@@ -6108,7 +6108,7 @@ class FaucetStringOfDPTest(FaucetTest):
                                 interfaces_config[port]['tagged_vlans'] = tagged_vlans
                             if lacp:
                                 interfaces_config[port].update(
-                                        {'lacp': 1, 'lacp_active': not first_dp})
+                                        {'lacp': 1, 'lacp_active': True})
                         add_acl_to_port(name, port, interfaces_config)
                         port += 1
 
