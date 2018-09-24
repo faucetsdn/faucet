@@ -210,7 +210,8 @@ class Valve:
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
             host_manager_cl = valve_host.ValveHostFlowRemovedManager
-        self.host_manager = host_manager_cl(self.logger, self.dp.ports,
+        self.host_manager = host_manager_cl(
+            self.logger, self.dp.ports,
             self.dp.vlans, classification_table,
             self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
             eth_dst_hairpin_table, egress_table, self.dp.timeout,
@@ -992,6 +993,7 @@ class Valve:
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
             if lacp_pkt:
+                self.logger.debug('receive LACP %s on %s' % (lacp_pkt, pkt_meta.port))
                 age = None
                 if pkt_meta.port.dyn_lacp_updated_time:
                     age = now - pkt_meta.port.dyn_lacp_updated_time
