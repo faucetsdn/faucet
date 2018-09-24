@@ -806,7 +806,7 @@ class Valve:
                     max_len=128))
 
             if port.lacp:
-                ofmsgs.extend(self.lacp_down(port))
+                ofmsgs.extend(self.lacp_down(port, cold_start=cold_start))
                 if port.lacp_active:
                     pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
                     ofmsgs.append(valve_of.packetout(port.number, pkt.data))
@@ -908,11 +908,14 @@ class Valve:
     def _reset_lacp_status(self, port):
         self._set_var('port_lacp_status', port.dyn_lacp_up, labels=self.port_labels(port))
 
-    def lacp_down(self, port):
+    def lacp_down(self, port, cold_start=False):
         """Return OpenFlow messages when LACP is down on a port."""
-        vlan_table = self.dp.tables['vlan']
         ofmsgs = []
-        ofmsgs.extend(self._port_delete_flows_state(port))
+        if not cold_start:
+            ofmsgs.extend(self._port_delete_flows_state(port))
+            for vlan in port.vlans():
+                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+        vlan_table = self.dp.tables['vlan']
         ofmsgs.append(vlan_table.flowdrop(
             match=vlan_table.match(in_port=port.number),
             priority=self.dp.high_priority))
@@ -922,9 +925,7 @@ class Valve:
                 eth_type=valve_of.ether.ETH_TYPE_SLOW,
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
             priority=self.dp.highest_priority,
-            max_len=256))
-        for vlan in port.vlans():
-            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+            max_len=valve_packet.LACP_SIZE))
         port.dyn_lacp_up = 0
         port.dyn_last_lacp_pkt = None
         port.dyn_lacp_updated_time = None
@@ -981,6 +982,8 @@ class Valve:
         ofmsgs = []
         if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
                 pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW and
+                len(pkt_meta.data) == valve_packet.LACP_SIZE and
+                pkt_meta.packet_complete() and
                 pkt_meta.port.lacp):
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)

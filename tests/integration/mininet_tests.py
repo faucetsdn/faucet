@@ -6223,8 +6223,7 @@ class FaucetStringOfDPTest(FaucetTest):
             for dpid in self.dpids:
                 self.wait_nonzero_packet_count_flow(
                     {'dl_dst': '01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
-                    dpid=dpid,
-                    table_id=self._FLOOD_TABLE)
+                    dpid=dpid, table_id=self._FLOOD_TABLE, ofa_match=False)
 
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):

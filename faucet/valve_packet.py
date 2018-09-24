@@ -60,6 +60,8 @@ IPV6_RA_HOP_LIM = 64
 LLDP_FAUCET_DP_ID = 1
 LLDP_FAUCET_STACK_STATE = 2
 
+LACP_SIZE = 124
+
 
 def int_from_mac(mac):
     int_hi, int_lo = [int(i, 16) for i in mac.split(':')[-2:]]
