@@ -549,7 +549,7 @@ class Valve:
         port.dyn_last_lldp_beacon_time = now
         return valve_of.packetout(port.number, lldp_beacon_pkt.data)
 
-    def send_lldp_beacons(self, now, _other_valves):
+    def _send_lldp_beacons(self, now):
         """Called periodically to send LLDP beacon packets."""
         # TODO: the beacon service is specifically NOT to support conventional R/STP.
         # It is intended to facilitate physical troubleshooting (e.g.
@@ -563,6 +563,10 @@ class Valve:
             self.logger.debug('sending LLDP beacons on %s' % ports)
             ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in ports]
         return ofmsgs
+
+    def fast_advertise(self, now, _other_valves):
+        """Called periodically to send LLDP beacon packets."""
+        return self._send_lldp_beacons(now)
 
     def _next_stack_link_state(self, port, now):
         if port.is_stack_admin_down():
@@ -617,10 +621,13 @@ class Valve:
             for valve in [self] + other_valves:
                 valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
 
-    def update_stack_link_states(self, now, other_valves):
-        """Called periodically to verify the state of stack ports."""
+    def _update_stack_link_states(self, now, other_valves):
         for port in self.dp.stack_ports:
             self._update_stack_link_state(port, now, other_valves)
+
+    def fast_state_expire(self, now, other_valves):
+        """Fast expiry of state."""
+        self._update_stack_link_states(now, other_valves)
 
     def _reset_dp_status(self):
         if self.dp.dyn_running:
