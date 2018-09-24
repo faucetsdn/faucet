@@ -946,7 +946,7 @@ class Valve:
         if lacp_pkt:
             return valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.number, actor_state_synchronization,
+                port.lacp, port.number, 1,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
                 lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
                 lacp_pkt.actor_state_defaulted,
