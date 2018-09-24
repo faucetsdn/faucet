@@ -988,8 +988,6 @@ class Valve:
                 age = None
                 if pkt_meta.port.dyn_lacp_updated_time:
                     age = now - pkt_meta.port.dyn_lacp_updated_time
-                pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
-                pkt_meta.port.dyn_lacp_updated_time = now
                 lacp_state_change = pkt_meta.port.dyn_lacp_up != lacp_pkt.actor_state_synchronization
                 if lacp_state_change:
                     self.logger.info(
@@ -1000,9 +998,12 @@ class Valve:
                     if lacp_pkt.actor_state_synchronization:
                         ofmsgs.extend(self.lacp_up(pkt_meta.port))
                 # TODO: make LACP response rate limit configurable.
-                if lacp_state_change or age is None or age > 1:
+                if (lacp_state_change or lacp_pkt != pkt_meta.port.dyn_last_lacp_pkt or
+                        (age is not None and age > 1)):
                     pkt = self._lacp_pkt(lacp_pkt, pkt_meta.port)
                     ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
+                pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
+                pkt_meta.port.dyn_lacp_updated_time = now
         return ofmsgs
 
     def _verify_stack_lldp(self, port, now, other_valves,
