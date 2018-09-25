@@ -39,11 +39,14 @@ class ValvePipeline:
         else:
             actions = []
         instructions = []
+        instructions.append(valve_of.apply_actions(actions))
         if self.egress_table:
             metadata, metadata_mask = get_egress_metadata(
-                output_port.number, vlan.vid)
-            instructions.append(valve_of.metadata_goto_table(
+                port.number, vlan.vid)
+            instructions.extend(valve_of.metadata_goto_table(
                 metadata, metadata_mask, self.egress_table))
+        else:
+            instructions.append(valve_of.apply_actions(vlan.output_port(port)))
         return instructions
 
     def accept_to_l2_forwarding(self, actions=None):
