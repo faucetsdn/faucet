@@ -181,7 +181,6 @@ class Valve:
                 self.DEC_TTL,
                 self.dp.multi_out,
                 fib_table, self.dp.tables['vip'],
-                self.dp.output_table(),
                 self.pipeline,
                 self.dp.highest_priority, self.dp.routers)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
