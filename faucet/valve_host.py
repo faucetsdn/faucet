@@ -26,18 +26,18 @@ from faucet.faucet_metadata import get_egress_metadata
 class ValveHostManager:
     """Manage host learning on VLANs."""
 
-    def __init__(self, logger, ports, vlans, classification_table,
-                 eth_src_table, eth_dst_table, eth_dst_hairpin_table,
-                 egress_table, learn_timeout, learn_jitter, learn_ban_timeout,
-                 low_priority, host_priority, cache_update_guard_time):
+    def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
+                 eth_dst_hairpin_table, egress_table, pipeline, learn_timeout,
+                 learn_jitter, learn_ban_timeout, low_priority, host_priority,
+                 cache_update_guard_time):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
-        self.classification_table = classification_table
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
         self.eth_dst_hairpin_table = eth_dst_hairpin_table
         self.egress_table = egress_table
+        self.pipeline = pipeline
         self.learn_timeout = learn_timeout
         self.learn_jitter = learn_jitter
         self.learn_ban_timeout = learn_ban_timeout
@@ -85,12 +85,6 @@ class ValveHostManager:
                         'and not learning %s on %s' % (
                             vlan.max_hosts, vlan.vid, eth_src, port))
         return ofmsgs
-
-    def _block_host_on_port(self, eth_src, port_num, timeout=0):
-        return [self.classification_table.flowdrop(
-            self.classification_table.match(eth_src=eth_src, in_port=port_num),
-            priority=self.host_priority
-            )]
 
     def _temp_ban_host_learning(self, match):
         return self.eth_src_table.flowdrop(
@@ -229,7 +223,9 @@ class ValveHostManager:
                 delete_existing = False
         elif entry.port.permanent_learn:
             if entry.port != port:
-                ofmsgs.extend(self._block_host_on_port(eth_src, port.number))
+                ofmsgs.extend(self.pipeline.filter_packets(
+                    self.eth_src_table,
+                    {'eth_src': eth_src, 'in_port': port.number}))
             return (ofmsgs, entry.port)
         else:
             cache_age = now - entry.cache_time
