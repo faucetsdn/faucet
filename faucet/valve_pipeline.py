@@ -1,8 +1,9 @@
 import copy
 from faucet import valve_of
 from faucet.faucet_metadata import get_egress_metadata
+from faucet.valve_manager_base import ValveManagerBase
 
-class ValvePipeline(object):
+class ValvePipeline(ValveManagerBase):
     """Responsible for maintaing the integrity of the Faucet pipeline for a
     single valve.
 
