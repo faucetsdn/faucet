@@ -212,7 +212,7 @@ class Valve:
         self.host_manager = host_manager_cl(
             self.logger, self.dp.ports,
             self.dp.vlans, self.dp.tables['eth_src'],
-            self.dp.tables['eth_dst'], eth_dst_hairpin_table, egress_table,
+            self.dp.tables['eth_dst'], eth_dst_hairpin_table,
             self.pipeline, self.dp.timeout, self.dp.learn_jitter,
             self.dp.learn_ban_timeout, self.dp.low_priority,
             self.dp.highest_priority, self.dp.cache_update_guard_time)
