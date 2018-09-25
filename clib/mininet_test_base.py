@@ -998,9 +998,12 @@ dbs:
             return []
         with open(os.path.join(self.tmpdir, '%s-prometheus.log' % controller), 'w') as prom_log:
             prom_log.write(prom_raw)
-        return [
-            prom_line for prom_line in prom_raw.splitlines()
-            if not prom_line.startswith('#') and prom_line.startswith(var)]
+        prom_lines = [
+            prom_line for prom_line in prom_raw.splitlines() if not prom_line.startswith('#')]
+        if var:
+            prom_lines = [
+                prom_line for prom_line in prom_lines if prom_line.startswith(var)]
+        return prom_lines
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
                               dpid=True, multiple=False, controller='faucet', retries=3):
