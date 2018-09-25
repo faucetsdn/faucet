@@ -55,6 +55,8 @@ build-vm-image:
     paths:
       - images/vm/faucet-amd64-*.qcow2*
     expire_in: 1 week
+  only:
+    - tags
 
 build-rpi-image:
   stage: build-image
@@ -78,3 +80,5 @@ build-rpi-image:
     paths:
       - images/raspbian/pi-gen/deploy/*
     expire_in: 1 week
+  only:
+    - tags
