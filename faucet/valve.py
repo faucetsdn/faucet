@@ -160,7 +160,6 @@ class Valve:
         self.dp.reset_refs()
 
         self.pipeline = valve_pipeline.ValvePipeline(self.dp)
-        classification_table = self.dp.classification_table()
         for vlan_vid in self.dp.vlans.keys():
             self._port_highwater[vlan_vid] = {}
             for port_number in self.dp.ports.keys():
@@ -288,10 +287,10 @@ class Valve:
 
     def _add_default_drop_flows(self):
         """Add default drop rules on all FAUCET tables."""
-        classification_table = self.dp.classification_table()
+        ofmsgs = []
+        ofmsgs.extend(self.pipeline.initialise_tables())
         flood_table = self.dp.tables['flood']
 
-        ofmsgs = []
         for table in self.dp.tables.values():
             miss_table_name = table.table_config.miss_goto
             if miss_table_name:
@@ -302,24 +301,6 @@ class Valve:
             else:
                 ofmsgs.append(table.flowdrop(
                     priority=self.dp.lowest_priority))
-
-        # drop broadcast sources
-        if self.dp.drop_broadcast_source_address:
-            ofmsgs.append(classification_table.flowdrop(
-                classification_table.match(eth_src=valve_of.mac.BROADCAST_STR),
-                priority=self.dp.highest_priority))
-
-        ofmsgs.append(classification_table.flowdrop(
-            classification_table.match(eth_type=valve_of.ECTP_ETH_TYPE),
-            priority=self.dp.highest_priority))
-
-        # antispoof for FAUCET's MAC address
-        # TODO: antispoof for controller IPs on this VLAN, too.
-        if self.dp.drop_spoofed_faucet_mac:
-            for vlan in self.dp.vlans.values():
-                ofmsgs.append(classification_table.flowdrop(
-                    classification_table.match(eth_src=vlan.faucet_mac),
-                    priority=self.dp.high_priority))
 
         ofmsgs.append(flood_table.flowdrop(
             flood_table.match(
