@@ -213,12 +213,11 @@ class Valve:
             host_manager_cl = valve_host.ValveHostFlowRemovedManager
         self.host_manager = host_manager_cl(
             self.logger, self.dp.ports,
-            self.dp.vlans, classification_table,
-            self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
-            eth_dst_hairpin_table, egress_table, self.dp.timeout,
-            self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.low_priority, self.dp.highest_priority,
-            self.dp.cache_update_guard_time)
+            self.dp.vlans, self.dp.tables['eth_src'],
+            self.dp.tables['eth_dst'], eth_dst_hairpin_table, egress_table,
+            self.pipeline, self.dp.timeout, self.dp.learn_jitter,
+            self.dp.learn_ban_timeout, self.dp.low_priority,
+            self.dp.highest_priority, self.dp.cache_update_guard_time)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
