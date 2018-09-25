@@ -27,7 +27,7 @@ class ValveHostManager:
     """Manage host learning on VLANs."""
 
     def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
-                 eth_dst_hairpin_table, egress_table, pipeline, learn_timeout,
+                 eth_dst_hairpin_table, pipeline, learn_timeout,
                  learn_jitter, learn_ban_timeout, low_priority, host_priority,
                  cache_update_guard_time):
         self.logger = logger
@@ -36,7 +36,6 @@ class ValveHostManager:
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
         self.eth_dst_hairpin_table = eth_dst_hairpin_table
-        self.egress_table = egress_table
         self.pipeline = pipeline
         self.learn_timeout = learn_timeout
         self.learn_jitter = learn_jitter
@@ -176,20 +175,11 @@ class ValveHostManager:
             return ofmsgs
 
         # Output packets for this MAC to specified port.
-        if self.egress_table is not None:
-            metadata, metadata_mask = get_egress_metadata(port.number, vlan.vid)
-            ofmsgs.append(self.eth_dst_table.flowmod(
-                self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
-                priority=self.host_priority,
-                inst=valve_of.metadata_goto_table(
-                    metadata, metadata_mask, self.egress_table),
-                idle_timeout=dst_rule_idle_timeout))
-        else:
-            ofmsgs.append(self.eth_dst_table.flowmod(
-                self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
-                priority=self.host_priority,
-                inst=[valve_of.apply_actions(vlan.output_port(port))],
-                idle_timeout=dst_rule_idle_timeout))
+        ofmsgs.append(self.eth_dst_table.flowmod(
+            self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
+            priority=self.host_priority,
+            inst=self.pipeline.output(port, vlan),
+            idle_timeout=dst_rule_idle_timeout))
 
         # If port is in hairpin mode, install a special rule
         # that outputs packets destined to this MAC back out the same
