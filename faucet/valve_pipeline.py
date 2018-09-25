@@ -95,3 +95,25 @@ class ValvePipeline(ValveManagerBase):
             priority=self.select_priority,
             inst=inst)]
 
+    def remove_filter(self, target_table, match_dict, strict=True):
+        #TODO: We need a mechanism to stop a module from removing filters added
+        #by another module. Cookies seems like the logical approach. For now
+        # modules are trusted
+        ofmsgs = []
+        priority = None
+        if strict:
+            priorty = self.filter_priority
+        return [self.classification_table.flowdel(
+            self.classification_table.match(**match_dict),
+            priority=priority,
+            strict=strict)]
+
+    def remove_selection(self, target_table, match_dict, strict=True):
+        ofmsgs = []
+        priority = None
+        if strict:
+            priorty = self.select_priority
+        return [self.classification_table.flowdel(
+            self.classification_table.match(**match_dict),
+            priority=priority,
+            strict=strict)]
