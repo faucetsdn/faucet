@@ -289,9 +289,6 @@ class Valve:
     def _add_default_drop_flows(self):
         """Add default drop rules on all FAUCET tables."""
         ofmsgs = []
-        ofmsgs.extend(self.pipeline.initialise_tables())
-        flood_table = self.dp.tables['flood']
-
         for table in list(self.dp.tables.values()):
             miss_table_name = table.table_config.miss_goto
             if miss_table_name:
@@ -303,15 +300,8 @@ class Valve:
                 ofmsgs.append(table.flowdrop(
                     priority=self.dp.lowest_priority))
 
-        ofmsgs.append(flood_table.flowdrop(
-            flood_table.match(
-                eth_dst=valve_packet.CISCO_SPANNING_GROUP_ADDRESS),
-            priority=self.dp.highest_priority))
-        ofmsgs.append(flood_table.flowdrop(
-            flood_table.match(
-                eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
-                eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
-            priority=self.dp.highest_priority))
+        ofmsgs.extend(self.pipeline.initialise_tables())
+        ofmsgs.extend(self.flood_manager.initialise_tables())
 
         return ofmsgs
 

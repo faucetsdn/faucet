@@ -67,6 +67,20 @@ class ValveFloodManager:
             in_port=in_port,
             exclude_ports=exclude_ports)
 
+    def initialise_tables(self):
+        ofmsgs = []
+        ofmsgs.append(self.flood_table.flowdrop(
+            self.flood_table.match(
+                eth_dst=valve_packet.CISCO_SPANNING_GROUP_ADDRESS),
+            priority=self.bypass_priority))
+        ofmsgs.append(self.flood_table.flowdrop(
+            self.flood_table.match(
+                eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
+                eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
+            priority=self.bypass_priority))
+        return ofmsgs
+
+
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
         return self._build_flood_local_rule_actions(
             vlan, exclude_unicast, in_port)
