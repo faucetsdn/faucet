@@ -47,6 +47,28 @@ class ValvePipeline(object):
             inst.append(valve_of.apply_actions(actions))
         return inst
 
+    def initialise_tables(self):
+        ofmsgs = []
+        # drop broadcast sources
+        if self.dp.drop_broadcast_source_address:
+            ofmsgs.extend(self.filter_packets(
+                self.classification_table,
+                {'eth_src': valve_of.mac.BROADCAST_STR}
+                ))
+
+        ofmsgs.extend(self.filter_packets(
+            self.classification_table, {'eth_type': valve_of.ECTP_ETH_TYPE}))
+
+        # antispoof for FAUCET's MAC address
+        # TODO: antispoof for controller IPs on this VLAN, too.
+        if self.dp.drop_spoofed_faucet_mac:
+            for vlan in list(self.dp.vlans.values()):
+                ofmsgs.extend(self.filter_packets(
+                    self.classification_table, {'eth_src': vlan.faucet_mac}))
+
+        return ofmsgs
+
+
     def filter_packets(self, target_table, match_dict):
         # TODO: if you have an overlapping match here then it shouldnt matter
         # since these are always explicit drop rules, but it would be good to
