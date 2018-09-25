@@ -86,6 +86,12 @@ class ValveHostManager:
                             vlan.max_hosts, vlan.vid, eth_src, port))
         return ofmsgs
 
+    def _block_host_on_port(self, eth_src, port_num, timeout=0):
+        return [self.classification_table.flowdrop(
+            self.classification_table.match(eth_src=eth_src, in_port=port_num),
+            priority=self.host_priority
+            )]
+
     def _temp_ban_host_learning(self, match):
         return self.eth_src_table.flowdrop(
             match,
@@ -149,21 +155,9 @@ class ValveHostManager:
         """Return flows that implement learning a host on a port."""
         ofmsgs = []
 
-        if port.permanent_learn:
-            # Antispoofing rule for this MAC.
-            if self.classification_table != self.eth_src_table:
-                ofmsgs.append(self.classification_table.flowmod(
-                    self.classification_table.match(
-                        in_port=port.number, vlan=vlan, eth_src=eth_src),
-                    priority=self.host_priority,
-                    inst=[self.classification_table.goto(self.eth_src_table)]))
-            ofmsgs.append(self.classification_table.flowdrop(
-                self.classification_table.match(vlan=vlan, eth_src=eth_src),
-                priority=(self.host_priority - 2)))
-        else:
-            # Delete any existing entries for MAC.
-            if delete_existing:
-                ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
+        # Delete any existing entries for MAC.
+        if delete_existing:
+            ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         # Associate this MAC with source port.
         src_match = self.eth_src_table.match(
@@ -233,6 +227,10 @@ class ValveHostManager:
                     (vlan.dyn_last_time_hosts_expired is None or
                      vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
                 delete_existing = False
+        elif entry.port.permanent_learn:
+            if entry.port != port:
+                ofmsgs.extend(self._block_host_on_port(eth_src, port.number))
+            return (ofmsgs, entry.port)
         else:
             cache_age = now - entry.cache_time
             cache_port = entry.port
