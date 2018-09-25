@@ -21,9 +21,10 @@ import random
 
 from faucet import valve_of
 from faucet.faucet_metadata import get_egress_metadata
+from faucet.valve_manager_base import ValveManagerBase
 
 
-class ValveHostManager:
+class ValveHostManager(ValveManagerBase):
     """Manage host learning on VLANs."""
 
     def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
