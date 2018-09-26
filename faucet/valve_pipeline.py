@@ -1,6 +1,6 @@
 import copy
+import faucet.faucet_metadata as faucet_metadata
 from faucet import valve_of
-from faucet.faucet_metadata import get_egress_metadata
 from faucet.valve_manager_base import ValveManagerBase
 
 class ValvePipeline(ValveManagerBase):
@@ -37,7 +37,7 @@ class ValvePipeline(ValveManagerBase):
         instructions = []
         instructions.append(valve_of.apply_actions(actions))
         if self.egress_table:
-            metadata, metadata_mask = get_egress_metadata(
+            metadata, metadata_mask = faucet_metadata.get_egress_metadata(
                 port.number, vlan.vid)
             instructions.extend(valve_of.metadata_goto_table(
                 metadata, metadata_mask, self.egress_table))
@@ -79,7 +79,8 @@ class ValvePipeline(ValveManagerBase):
         return ofmsgs
 
     def _add_egress_table_rule(self, port, vlan, pop_vlan=True):
-        metadata, metadata_mask = get_egress_metadata(port.number, vlan.vid)
+        metadata, metadata_mask = faucet_metadata.get_egress_metadata(
+            port.number, vlan.vid)
         actions = copy.copy(port.mirror_actions())
         if pop_vlan:
             actions.append(valve_of.pop_vlan())
@@ -105,6 +106,16 @@ class ValvePipeline(ValveManagerBase):
         if port.native_vlan is not None:
             ofmsgs.append(self._add_egress_table_rule(
                 port, port.native_vlan))
+        return ofmsgs
+
+    def del_port(self, port):
+        ofmsgs = []
+        if self.egress_table:
+            mask = faucet_metadata.PORT_METADATA_MASK
+            ofmsgs.extend(self.egress_table.flowdel(self.egress_table.match(
+                metadata=port.number & mask,
+                metadata_mask = mask
+                )))
         return ofmsgs
 
     def filter_packets(self, target_table, match_dict):
