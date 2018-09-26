@@ -20,3 +20,11 @@ class ValveManagerBase: # pylint: disable=too-few-public-methods
     def add_port(self, port):
         """install flows in response to a new port"""
         return []
+
+    def del_vlan(self, vlan):
+        """delete flows in response to a vlan removal"""
+        return []
+
+    def del_port(self, port):
+        """delete flows in response to a port removal"""
+        return []
