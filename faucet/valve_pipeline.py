@@ -35,14 +35,14 @@ class ValvePipeline(ValveManagerBase):
         else:
             actions = []
         instructions = []
-        instructions.append(valve_of.apply_actions(actions))
         if self.egress_table:
             metadata, metadata_mask = faucet_metadata.get_egress_metadata(
                 port.number, vlan.vid)
             instructions.extend(valve_of.metadata_goto_table(
                 metadata, metadata_mask, self.egress_table))
         else:
-            instructions.append(valve_of.apply_actions(vlan.output_port(port)))
+            actions.extend(vlan.output_port(port))
+        instructions.append(valve_of.apply_actions(actions))
         return instructions
 
     def _accept_to_table(self, table, actions):

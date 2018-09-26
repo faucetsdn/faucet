@@ -311,6 +311,7 @@ class FlowMod:
         """flowmod is a ryu flow modification message object"""
         self.priority = flowmod.priority
         self.instructions = flowmod.instructions
+        self.validate_instructions()
         self.match_values = {}
         self.match_masks = {}
         self.out_port = None
@@ -328,6 +329,14 @@ class FlowMod:
             val = self.match_to_bits(key, val) & mask
             self.match_values[key] = val
             self.match_masks[key] = mask
+
+    def validate_instructions(self):
+        instruction_types = set()
+        for instruction in self.instructions:
+            if instruction.type in instruction_types:
+                raise FakeOFTableException(
+                    'FlowMod with Multiple instructions of the '
+                    'same type: {}'.format(self.instructions))
 
     def out_port_matches(self, other):
         """returns True if other has an output action to this flowmods
