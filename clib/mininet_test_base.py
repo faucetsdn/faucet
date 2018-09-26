@@ -859,7 +859,8 @@ dbs:
             msg=match)
 
     def wait_until_controller_flow(self):
-        self.wait_until_matching_flow(None, actions=['OUTPUT:CONTROLLER'])
+        self.wait_until_matching_flow(
+            None, table_id=self._ETH_SRC_TABLE, actions=['OUTPUT:CONTROLLER'])
 
     def mac_learned(self, mac, timeout=10, in_port=None, hard_timeout=1):
         """Return True if a MAC has been learned on default DPID."""
