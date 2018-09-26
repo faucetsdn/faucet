@@ -42,6 +42,22 @@ class ValvePipeline(ValveManagerBase):
         self.filter_priority = dp.highest_priority + 1
         self.select_priority = dp.highest_priority
 
+    def _accept_to_table(self, table, actions):
+        inst = [table.goto_this()]
+        if actions is not None:
+            inst.append(valve_of.apply_actions(actions))
+        return inst
+
+    def accept_to_classification(self, actions=None):
+        """Get instructions to forward packet through the pipeline to
+        classification table.
+        args:
+            actions: (optional) list of actions to apply to packet.
+        returns:
+            list of instructions
+        """
+        return self._accept_to_table(self.classification_table, actions)
+
     def accept_to_l2_forwarding(self, actions=None):
         """Get instructions to forward packet through the pipeline to l2
         forwarding.
@@ -50,10 +66,7 @@ class ValvePipeline(ValveManagerBase):
         returns:
             list of instructions
         """
-        inst = [self.output_table.goto_this()]
-        if actions is not None:
-            inst.append(valve_of.apply_actions(actions))
-        return inst
+        return self._accept_to_table(self.output_table, actions)
 
     def output(self, port, vlan):
         """Get instructions list to output a packet through the regular

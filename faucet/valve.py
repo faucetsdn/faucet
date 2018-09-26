@@ -711,7 +711,6 @@ class Valve:
         ofmsgs = []
         vlans_with_ports_added = set()
         eth_src_table = self.dp.tables['eth_src']
-        classification_table = self.dp.classification_table()
         vlan_table = self.dp.tables['vlan']
 
         for port_num in port_nums:
@@ -772,7 +771,7 @@ class Valve:
                 ofmsgs.append(vlan_table.flowmod(
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.low_priority,
-                    inst=[vlan_table.goto(classification_table)]))
+                    inst=self.pipeline.accept_to_classification()))
                 port_vlans = self.dp.vlans.values()
             else:
                 mirror_act = port.mirror_actions()
