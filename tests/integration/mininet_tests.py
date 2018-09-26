@@ -650,11 +650,15 @@ vlans:
 """
 
     def test_untagged(self):
+        last_vid = None
         for _ in range(5):
             vid = random.randint(2, 512)
+            if vid == last_vid:
+                continue
             self.change_vlan_config(
                 'randvlan', 'vid', vid, cold_start=True, hup=True)
             self.ping_all_when_learned()
+            last_vid = vid
 
 
 class FaucetUntaggedNoCombinatorialFlood(FaucetUntaggedTest):
