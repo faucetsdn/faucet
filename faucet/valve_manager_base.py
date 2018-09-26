@@ -6,6 +6,14 @@ class ValveManagerBase(object):
     Expected to control the installation of flows into datapath tables.
 
     Ideally each datapath table should be controlled by 1 manager only."""
+
+    _MISS_PRIORITY = 0
+    _LOW_PRIORITY = 0x1000
+    _STATIC_MATCH_PRIORITY = 0x2000
+    _LPM_PRIORITY = 0x3000
+    _HIGH_PRIORITY = 0x4000
+    _FILTER_PRIORITY = 0x5000
+
     def initialise_tables(self):
         return []
 

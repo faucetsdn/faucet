@@ -1235,7 +1235,6 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                     'cookie': cookie,
                     'eth_dst': host.MAC(),
                     'inst_count': str(1),
-                    'priority': str(9099),
                     'table_id': str(self._ETH_DST_TABLE),
                     'vlan': str(100),
                     'vlan_vid': str(4196)
