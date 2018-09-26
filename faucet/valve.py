@@ -205,7 +205,6 @@ class Valve:
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood)
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
-        egress_table = self.dp.tables.get('egress', None)
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
             host_manager_cl = valve_host.ValveHostFlowRemovedManager
@@ -727,7 +726,6 @@ class Valve:
         """
         ofmsgs = []
         vlans_with_ports_added = set()
-        eth_src_table = self.dp.tables['eth_src']
         vlan_table = self.dp.tables['vlan']
 
         for port_num in port_nums:
