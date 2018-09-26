@@ -24,7 +24,7 @@ from http.server import HTTPServer
 
 import yaml # pytype: disable=pyi-error
 
-from mininet.log import error, output
+from mininet.log import error
 from mininet.util import pmonitor
 
 import scapy.all
@@ -570,13 +570,13 @@ class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
 
     def test_untagged(self):
         actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(1), 'OUTPUT:4']
-        self.assertTrue(self.get_matching_flow(match=None, actions=actions))
+        self.assertTrue(self.get_matching_flow(match=None, table_id=0, actions=actions))
 
         self.set_port_down(1)
-        self.assertFalse(self.get_matching_flow(match=None, actions=actions))
+        self.assertFalse(self.get_matching_flow(match=None, table_id=0, actions=actions))
 
         self.set_port_up(1)
-        self.assertTrue(self.get_matching_flow(match=None, actions=actions))
+        self.assertTrue(self.get_matching_flow(match=None, table_id=0, actions=actions))
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
@@ -594,15 +594,15 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
         from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:2']
 
         self.assertTrue(
-            self.get_matching_flow(match=None, actions=p1_actions))
+            self.get_matching_flow(match=None, table_id=0, actions=p1_actions))
         self.assertTrue(
-            self.get_matching_flow(match=None, actions=p2_actions))
-        self.assertTrue(
-            self.get_matching_flow(
-                match=from_nfv_match_1, actions=from_nfv_actions_1))
+            self.get_matching_flow(match=None, table_id=0, actions=p2_actions))
         self.assertTrue(
             self.get_matching_flow(
-                match=from_nfv_match_2, actions=from_nfv_actions_2))
+                match=from_nfv_match_1, table_id=0, actions=from_nfv_actions_1))
+        self.assertTrue(
+            self.get_matching_flow(
+                match=from_nfv_match_2, table_id=0, actions=from_nfv_actions_2))
 
         conf = self._get_conf()
         conf['dps'][self.DP_NAME]['interfaces'][1]['dot1x'] = False
@@ -612,13 +612,16 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
             restart=True, cold_start=False, change_expected=True)
 
         self.assertTrue(
-            self.get_matching_flow(match=None, actions=p2_actions))
+            self.get_matching_flow(
+                match=None, table_id=0, actions=p2_actions))
         self.assertTrue(self.get_matching_flow(
-            match=from_nfv_match_2, actions=from_nfv_actions_2))
+            match=from_nfv_match_2, table_id=0, actions=from_nfv_actions_2))
         self.assertFalse(
-            self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
-        self.assertFalse(self.get_matching_flow(
-            match=from_nfv_match_1, actions=from_nfv_actions_1, timeout=2))
+            self.get_matching_flow(
+                match=None, table_id=0, actions=p1_actions, timeout=2))
+        self.assertFalse(
+            self.get_matching_flow(
+                match=from_nfv_match_1, table_id=0, actions=from_nfv_actions_1, timeout=2))
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
@@ -6106,7 +6109,7 @@ class FaucetStringOfDPTest(FaucetTest):
                                 interfaces_config[port]['tagged_vlans'] = tagged_vlans
                             if lacp:
                                 interfaces_config[port].update(
-                                        {'lacp': 1, 'lacp_active': True})
+                                    {'lacp': 1, 'lacp_active': True})
                         add_acl_to_port(name, port, interfaces_config)
                         port += 1
 
@@ -6323,7 +6326,9 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
-        self.verify_stack_hosts()
+        for _ in range(3):
+            self.verify_stack_hosts()
+            self.flap_all_switch_ports()
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
@@ -6373,24 +6378,26 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.fifth_host = self.net.hosts[self.NUM_HOSTS + self.NUM_DPS - 1]
         self.last_host = self.net.hosts[self.NUM_HOSTS + self.NUM_DPS]
 
-    def wait_for_stack_port_status(self, dpid, port_no, status, timeout=25):
-        controller = self._get_controller()
-        count = 0
+    def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
+        labels = {
+            'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name, 'port': port_no}
         for _ in range(timeout):
-            count = int(controller.cmd('grep -c "%s. Stack Port %s.%s" %s' % (
-                dpid, port_no, status, self.env['faucet']['FAUCET_LOG'])))
-            if count:
-                break
+            actual_status = self.scrape_prometheus_var(
+                'port_stack_state', labels=labels, dpid=False, default=None)
+            if actual_status == status:
+                return
             time.sleep(1)
-        self.assertGreaterEqual(
-            1, count, 'status log "%s" for Port %s on dp %s not found' % (
-                status, port_no, dpid))
+        self.assertEqual(
+            status, actual_status, msg='expected dpid %x port %u port_stack_state %u != actual %s' % (
+                int(dpid), port_no, status, str(actual_status)))
 
     def verify_all_stack_up(self):
         port_base = self.NUM_HOSTS + 1
-        for dpid in self.dpids:
+        for i, dpid in enumerate(self.dpids, start=1):
+            dp_name = 'faucet-%u' % i
             for port_no in range(self.topo.switch_to_switch_links):
-                self.wait_for_stack_port_status(dpid, port_base + port_no, 'UP')
+                self.wait_for_stack_port_status(
+                    dpid, dp_name, port_base + port_no, 3) # up
 
     def verify_stack_has_no_loop(self):
         tcpdump_filter = 'ether src %s' % self.first_host.MAC()
@@ -6406,7 +6413,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
     def one_stack_port_down(self):
         port = self.NUM_HOSTS + self.topo.switch_to_switch_links + 1 # root port
         self.set_port_down(port, self.dpid)
-        self.wait_for_stack_port_status(self.dpid, port, 'DOWN')
+        self.wait_for_stack_port_status(self.dpid, self.DP_NAME, port, 2) # down
 
     def test_untagged(self):
         """Stack loop prevention works and hosts can ping each others."""
