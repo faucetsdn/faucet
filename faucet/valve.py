@@ -192,14 +192,14 @@ class Valve:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         if self.dp.stack:
             self.flood_manager = valve_flood.ValveFloodStackManager(
-                self.dp.tables['flood'], self.dp.tables['eth_src'],
+                self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood,
                 self.dp.stack, self.dp.stack_ports,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port)
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
-                self.dp.tables['flood'], self.dp.tables['eth_src'],
+                self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood)
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)

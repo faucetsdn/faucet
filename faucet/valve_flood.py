@@ -37,10 +37,10 @@ class ValveFloodManager(ValveManagerBase):
         (False, valve_of.mac.BROADCAST_STR, None), # flood on ethernet broadcasts
     )
 
-    def __init__(self, flood_table, eth_src_table,
+    def __init__(self, flood_table, pipeline,
                  use_group_table, groups, combinatorial_port_flood):
         self.flood_table = flood_table
-        self.eth_src_table = eth_src_table
+        self.pipeline = pipeline
         self.bypass_priority = self._FILTER_PRIORITY
         self.flood_priority = self._STATIC_MATCH_PRIORITY
         self.use_group_table = use_group_table
@@ -234,13 +234,13 @@ class ValveFloodManager(ValveManagerBase):
 class ValveFloodStackManager(ValveFloodManager):
     """Implement dataplane based flooding for stacked dataplanes."""
 
-    def __init__(self, flood_table, eth_src_table, # pylint: disable=too-many-arguments
+    def __init__(self, flood_table, pipeline, # pylint: disable=too-many-arguments
                  use_group_table, groups,
                  combinatorial_port_flood,
                  stack, stack_ports,
                  dp_shortest_path_to_root, shortest_path_port):
         super(ValveFloodStackManager, self).__init__(
-            flood_table, eth_src_table,
+            flood_table, pipeline,
             use_group_table, groups,
             combinatorial_port_flood)
         self.stack = stack
@@ -392,27 +392,22 @@ class ValveFloodStackManager(ValveFloodManager):
         # Because stacking uses reflected broadcasts from the root,
         # don't try to learn broadcast sources from stacking ports.
         for port in self.stack_ports:
-            ofmsgs.append(self.eth_src_table.flowdrop(
-                self.eth_src_table.match(
-                    in_port=port.number,
-                    vlan=vlan,
-                    eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
-                    eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
-                priority=self.bypass_priority+1))
+            ofmsgs.extend(self.pipeline.filter_packets(self.flood_table, {
+                    'in_port': port.number,
+                    'vlan': vlan,
+                    'eth_dst': valve_packet.BRIDGE_GROUP_ADDRESS,
+                    'eth_dst_mask': valve_packet.BRIDGE_GROUP_MASK
+                    }))
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst:
                 continue
             for port in self.stack_ports:
-                match = self.eth_src_table.match(
-                    in_port=port.number,
-                    vlan=vlan,
-                    eth_dst=eth_dst,
-                    eth_dst_mask=eth_dst_mask)
-                ofmsgs.append(self.eth_src_table.flowmod(
-                    match=match,
-                    command=command,
-                    inst=[self.eth_src_table.goto(self.flood_table)],
-                    priority=self.bypass_priority))
+                ofmsgs.extend(self.pipeline.select_packets(self.flood_table, {
+                    'in_port': port.number,
+                    'vlan': vlan,
+                    'eth_dst': eth_dst,
+                    'eth_dst_mask': eth_dst_mask
+                    }))
         return ofmsgs
 
     def _vlan_all_ports(self, vlan, exclude_unicast):
