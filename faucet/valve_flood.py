@@ -373,7 +373,7 @@ class ValveFloodStackManager(ValveFloodManager):
             for port in self.stack_ports:
                 ofmsgs.extend(self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask,
-                    exclude_unicast, command, flood_priority + 1,
+                    exclude_unicast, command, flood_priority + 10,
                     port, mirror_acts))
             ofmsgs.extend(self._build_flood_rule_for_vlan(
                 vlan, eth_dst, eth_dst_mask,

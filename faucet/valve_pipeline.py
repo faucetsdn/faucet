@@ -77,14 +77,19 @@ class ValvePipeline(ValveManagerBase):
                 ))
 
         ofmsgs.extend(self.filter_packets(
-            self.classification_table, {'eth_type': valve_of.ECTP_ETH_TYPE}))
+            self.classification_table,
+            {'eth_type': valve_of.ECTP_ETH_TYPE},
+            priority_offset=0x5))
 
         # antispoof for FAUCET's MAC address
         # TODO: antispoof for controller IPs on this VLAN, too.
         if self.dp.drop_spoofed_faucet_mac:
             for vlan in list(self.dp.vlans.values()):
                 ofmsgs.extend(self.filter_packets(
-                    self.classification_table, {'eth_src': vlan.faucet_mac}))
+                    self.classification_table,
+                    {'eth_src': vlan.faucet_mac},
+                    priority_offset=0x80
+                    ))
 
         return ofmsgs
 

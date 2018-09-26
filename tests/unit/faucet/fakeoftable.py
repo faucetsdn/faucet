@@ -86,16 +86,14 @@ class FakeOFTable:
             # entries which will cause ambiguous behaviour. This is
             # obviously unnacceptable so we will assume this is
             # always set
-            add = True
             for fte in table:
                 if flowmod.fte_matches(fte, strict=True):
                     table.remove(fte)
                     break
                 elif flowmod.overlaps(fte):
-                    add = False
-                    break
-            if add:
-                table.append(flowmod)
+                    raise FakeOFTableException(
+                        'Overlapping flowmod {}'.format(flowmod))
+            table.append(flowmod)
 
         def _del(table, flowmod):
             removals = [fte for fte in table if flowmod.fte_matches(fte)]
