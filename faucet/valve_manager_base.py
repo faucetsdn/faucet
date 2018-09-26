@@ -14,3 +14,9 @@ class ValveManagerBase(object):
 
     def add_port(self, port):
         return []
+
+    def del_vlan(self, vlan):
+        return []
+
+    def del_port(self, port):
+        return []
