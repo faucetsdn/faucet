@@ -86,6 +86,18 @@ class ValveHostManager(ValveManagerBase):
                             vlan.max_hosts, vlan.vid, eth_src, port))
         return ofmsgs
 
+    def add_port(self, port):
+        ofmsgs = []
+        if port.override_output_port:
+            ofmsgs.append(self.eth_src_table.flowmod(
+                match=eth_src_table.match(
+                    in_port=port_num),
+                priority=self.dp.low_priority + 1,
+                inst=[valve_of.apply_actions([
+                    valve_of.output_controller(),
+                    valve_of.output_port(port.override_output_port.number)])]))
+        return ofmsgs
+
     def initialise_tables(self):
         ofmsgs = []
         # add learn rule for this VLAN.

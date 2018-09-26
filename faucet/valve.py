@@ -792,15 +792,6 @@ class Valve:
                     pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
                     ofmsgs.append(valve_of.packetout(port.number, pkt.data))
 
-            if port.override_output_port:
-                ofmsgs.append(eth_src_table.flowmod(
-                    match=eth_src_table.match(
-                        in_port=port_num),
-                    priority=self.dp.low_priority + 1,
-                    inst=[valve_of.apply_actions([
-                        valve_of.output_controller(),
-                        valve_of.output_port(port.override_output_port.number)])]))
-
             if port.dot1x:
                 ofmsgs.extend(self.dot1x.get_port_acls(self, port))
 
