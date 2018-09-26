@@ -11,3 +11,6 @@ class ValveManagerBase(object):
 
     def add_vlan(self, vlan):
         return []
+
+    def add_port(self, port):
+        return []
