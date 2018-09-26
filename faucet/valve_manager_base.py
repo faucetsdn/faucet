@@ -8,3 +8,6 @@ class ValveManagerBase(object):
     Ideally each datapath table should be controlled by 1 manager only."""
     def initialise_tables(self):
         return []
+
+    def add_vlan(self, vlan):
+        return []

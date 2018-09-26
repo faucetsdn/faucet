@@ -366,6 +366,8 @@ class Valve:
         self.logger.info('Configuring %s' % vlan)
         # add ACL rules
         ofmsgs.extend(self._vlan_add_acl(vlan))
+        for manager in self._get_managers():
+            ofmsgs.extend(manager.add_vlan(vlan))
         # add controller IPs if configured.
         for ipv in vlan.ipvs():
             route_manager = self._route_manager_by_ipv[ipv]

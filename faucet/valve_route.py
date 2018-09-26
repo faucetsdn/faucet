@@ -323,6 +323,8 @@ class ValveRouteManager(ValveManagerBase):
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         raise NotImplementedError # pragma: no cover
 
+    def add_vlan(self, vlan):
+
     def add_faucet_vip(self, vlan, faucet_vip):
         ofmsgs = []
         max_prefixlen = faucet_vip.ip.max_prefixlen
