@@ -368,8 +368,6 @@ class Valve:
         ofmsgs.extend(self._vlan_add_acl(vlan))
         for manager in self._get_managers():
             ofmsgs.extend(manager.add_vlan(vlan))
-        # install eth_dst_table flood ofmsgs
-        ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         return ofmsgs
 
     def _del_vlan(self, vlan):

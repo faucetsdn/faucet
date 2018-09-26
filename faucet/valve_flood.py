@@ -202,6 +202,9 @@ class ValveFloodManager(ValveManagerBase):
             flood_priority += 1
         return ofmsgs
 
+    def add_vlan(self, vlan):
+        return self.build_flood_rules(vlan)
+
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
         # TODO: group table support is still fairly uncommon, so
