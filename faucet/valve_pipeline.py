@@ -45,11 +45,17 @@ class ValvePipeline(ValveManagerBase):
             instructions.append(valve_of.apply_actions(vlan.output_port(port)))
         return instructions
 
-    def accept_to_l2_forwarding(self, actions=None):
-        inst = [self.output_table.goto_this()]
+    def _accept_to_table(self, table, actions):
+        inst = [table.goto_this()]
         if actions is not None:
             inst.append(valve_of.apply_actions(actions))
         return inst
+
+    def accept_to_classification(self, actions=None):
+        return self._accept_to_table(self.classification_table, actions)
+
+    def accept_to_l2_forwarding(self, actions=None):
+        return self._accept_to_table(self.output_table, actions)
 
     def initialise_tables(self):
         ofmsgs = []
