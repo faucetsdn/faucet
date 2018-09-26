@@ -28,9 +28,8 @@ class ValveHostManager(ValveManagerBase):
     """Manage host learning on VLANs."""
 
     def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
-                 eth_dst_hairpin_table, pipeline, learn_timeout,
-                 learn_jitter, learn_ban_timeout, low_priority, host_priority,
-                 cache_update_guard_time, idle_dst):
+                 eth_dst_hairpin_table, pipeline, learn_timeout, learn_jitter,
+                 learn_ban_timeout, cache_update_guard_time, idle_dst):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
@@ -41,8 +40,8 @@ class ValveHostManager(ValveManagerBase):
         self.learn_timeout = learn_timeout
         self.learn_jitter = learn_jitter
         self.learn_ban_timeout = learn_ban_timeout
-        self.low_priority = low_priority
-        self.host_priority = host_priority
+        self.low_priority = self._LOW_PRIORITY
+        self.host_priority = self._MATCH_PRIORITY
         self.cache_update_guard_time = cache_update_guard_time
         self.output_table = self.eth_dst_table
         self.idle_dst = idle_dst

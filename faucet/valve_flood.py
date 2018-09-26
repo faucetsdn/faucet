@@ -37,14 +37,12 @@ class ValveFloodManager(ValveManagerBase):
         (False, valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)), # eth broadcasts
     )
 
-    def __init__(self, flood_table, eth_src_table, # pylint: disable=too-many-arguments
-                 flood_priority, bypass_priority,
-                 use_group_table, groups,
-                 combinatorial_port_flood):
+    def __init__(self, flood_table, eth_src_table,
+                 use_group_table, groups, combinatorial_port_flood):
         self.flood_table = flood_table
         self.eth_src_table = eth_src_table
-        self.bypass_priority = bypass_priority
-        self.flood_priority = flood_priority
+        self.bypass_priority = self._FILTER_PRIORITY
+        self.flood_priority = self._MATCH_PRIORITY
         self.use_group_table = use_group_table
         self.groups = groups
         self.combinatorial_port_flood = combinatorial_port_flood
@@ -231,14 +229,12 @@ class ValveFloodStackManager(ValveFloodManager):
     """Implement dataplane based flooding for stacked dataplanes."""
 
     def __init__(self, flood_table, eth_src_table, # pylint: disable=too-many-arguments
-                 flood_priority, bypass_priority,
                  use_group_table, groups,
                  combinatorial_port_flood,
                  stack, stack_ports,
                  dp_shortest_path_to_root, shortest_path_port):
         super(ValveFloodStackManager, self).__init__(
             flood_table, eth_src_table,
-            flood_priority, bypass_priority,
             use_group_table, groups,
             combinatorial_port_flood)
         self.stack = stack

@@ -166,9 +166,11 @@ class Valve:
             proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
             route_manager = route_manager_class(
                 self.logger, self.dp.global_vlan, neighbor_timeout,
-                self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-                self.dp.max_resolve_backoff_time, proactive_learn, self.DEC_TTL, self.dp.multi_out,
-                fib_table, self.dp.tables['vip'], self.pipeline, self.dp.highest_priority, self.dp.routers)
+                self.dp.max_hosts_per_resolve_cycle,
+                self.dp.max_host_fib_retry_count,
+                self.dp.max_resolve_backoff_time, proactive_learn,
+                self.DEC_TTL, self.dp.multi_out, fib_table,
+                self.dp.tables['vip'], self.pipeline, self.dp.routers)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
             for vlan in self.dp.vlans.values():
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
@@ -180,7 +182,6 @@ class Valve:
         if self.dp.stack:
             self.flood_manager = valve_flood.ValveFloodStackManager(
                 self.dp.tables['flood'], self.dp.tables['eth_src'],
-                self.dp.low_priority, self.dp.highest_priority,
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood,
                 self.dp.stack, self.dp.stack_ports,
@@ -188,7 +189,6 @@ class Valve:
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
                 self.dp.tables['flood'], self.dp.tables['eth_src'],
-                self.dp.low_priority, self.dp.highest_priority,
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood)
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
@@ -200,7 +200,6 @@ class Valve:
             self.dp.vlans, self.dp.tables['eth_src'],
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.low_priority, self.dp.highest_priority,
             self.dp.cache_update_guard_time, self.dp.idle_dst)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
