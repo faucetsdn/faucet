@@ -701,8 +701,6 @@ class Valve:
         """Delete flows/state for a port."""
         ofmsgs = []
         ofmsgs.extend(self._delete_all_port_match_flows(port))
-        for table in self.dp.output_tables():
-            ofmsgs.extend(table.flowdel(out_port=port.number))
         if self.dp.egress_pipeline:
             ofmsgs.extend(
                 self.dp.tables['egress'].flowdel(out_port=port.number))
