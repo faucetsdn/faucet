@@ -94,19 +94,18 @@ class ValvePipeline(ValveManagerBase):
         # drop broadcast sources
         if self.dp.drop_broadcast_source_address:
             ofmsgs.extend(self.filter_packets(
-                self.classification_table,
                 {'eth_src': valve_of.mac.BROADCAST_STR}
                 ))
 
         ofmsgs.extend(self.filter_packets(
-            self.classification_table, {'eth_type': valve_of.ECTP_ETH_TYPE}))
+            {'eth_type': valve_of.ECTP_ETH_TYPE}))
 
         # antispoof for FAUCET's MAC address
         # TODO: antispoof for controller IPs on this VLAN, too.
         if self.dp.drop_spoofed_faucet_mac:
             for vlan in list(self.dp.vlans.values()):
                 ofmsgs.extend(self.filter_packets(
-                    self.classification_table, {'eth_src': vlan.faucet_mac}))
+                    {'eth_src': vlan.faucet_mac}))
 
         return ofmsgs
 
@@ -150,16 +149,16 @@ class ValvePipeline(ValveManagerBase):
                 )))
         return ofmsgs
 
-    def filter_packets(self, _target_table, match_dict):
+    def filter_packets(self, match_dict, priority_offset=0):
         """get a list of flow modification messages to filter packets from
         the pipeline.
         args:
-            _target_table: the table requesting the filtering
             match_dict: a dictionary specifying the match fields
+            priority_offset: used to prevent overlapping entries
         """
         return [self.classification_table.flowdrop(
             self.classification_table.match(**match_dict),
-            priority=(self.filter_priority))]
+            priority=(self.filter_priority + priority_offset))]
 
     def select_packets(self, target_table, match_dict, actions=None):
         """retrieve rules to redirect packets matching match_dict to table"""

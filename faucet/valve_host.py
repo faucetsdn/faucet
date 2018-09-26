@@ -247,7 +247,6 @@ class ValveHostManager(ValveManagerBase):
         elif entry.port.permanent_learn:
             if entry.port != port:
                 ofmsgs.extend(self.pipeline.filter_packets(
-                    self.eth_src_table,
                     {'eth_src': eth_src, 'in_port': port.number}))
             return (ofmsgs, entry.port)
         else:
