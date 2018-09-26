@@ -747,6 +747,9 @@ class Valve:
             if not port.running():
                 continue
 
+            for manager in self._get_managers():
+                ofmsgs.extend(manager.add_port(port))
+
             if port.output_only:
                 ofmsgs.append(vlan_table.flowdrop(
                     match=vlan_table.match(in_port=port_num),
