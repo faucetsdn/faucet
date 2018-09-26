@@ -191,6 +191,8 @@ class FaucetDot1x:
         dot1x_valves = [
             valve for valve in valves.values() if valve.dp.dot1x and valve.dp.dot1x_ports()]
         assert len(dot1x_valves) < 255, 'dot1x not supported for > 255 DPs'
+        if not dot1x_valves:
+            return
 
         first_valve = dot1x_valves[0]
         dot1x_intf = first_valve.dp.dot1x['nfv_intf']
