@@ -768,7 +768,7 @@ dbs:
             else:
                 flow_dump = self.get_all_flows_from_dpid(dpid, table_id)
             with open(flowdump, 'w') as flowdump_file:
-                flowdump_file.write('\n'.join(str(flow_dump)))
+                flowdump_file.write(str(flow_dump))
             for flow_dict in flow_dump:
                 if (cookie is not None and
                         cookie != flow_dict['cookie']):
@@ -1207,7 +1207,7 @@ dbs:
         mac = '0e:00:00:00:00:ff'
         locations = set()
         for host in self.net.hosts:
-            for _ in range(3):
+            for _ in range(5):
                 host.cmd(self.scapy_dhcp(mac, host.defaultIntf()))
                 new_locations = set()
                 for line in self.scrape_prometheus(var='learned_macs'):
