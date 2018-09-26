@@ -62,13 +62,13 @@ from fakeoftable import FakeOFTable
 
 FAUCET_MAC = '0e:00:00:00:00:01'
 
+
 # TODO: fix fake OF table implementation for in_port filtering
 # (ie. do not output to in_port)
-DP1_CONFIG = """
+BASE_DP1_CONFIG = """
         dp_id: 1
         egress_pipeline: True
         ignore_learn_ins: 100
-        combinatorial_port_flood: True
         ofchannel_log: '/dev/null'
         packetin_pps: 99
         lldp_beacon:
@@ -76,13 +76,18 @@ DP1_CONFIG = """
             max_per_interval: 1
 """
 
+DP1_CONFIG = """
+        combinatorial_port_flood: True
+""" + BASE_DP1_CONFIG
+
 IDLE_DP1_CONFIG = """
         use_idle_timeout: True
 """ + DP1_CONFIG
 
 GROUP_DP1_CONFIG = """
         group_table: True
-""" + DP1_CONFIG
+        combinatorial_port_flood: False
+""" + BASE_DP1_CONFIG
 
 CONFIG = """
 dps:
@@ -558,7 +563,7 @@ class ValveTestBases:
                         output = _verify_flood_to_port(match, port, valve_vlan)
                         if port == in_port:
                             self.assertNotEqual(
-                                combinatorial_port_flood, output,
+                                output, combinatorial_port_flood,
                                 msg=('flooding to in_port (%s) not '
                                      'compatible with flood mode (%s)') % (
                                          output, combinatorial_port_flood))

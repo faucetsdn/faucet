@@ -514,6 +514,24 @@ class VLAN(Conf):
             lags[port.lacp].append(port)
         return lags
 
+    def exclude_same_lag_member_ports(self, in_port=None):
+        """Ensure output on only one member of a LAG."""
+        exclude_ports = set()
+        lags = self.lags()
+        if lags:
+            lags_up = self.lags_up()
+            if in_port is not None and in_port.lacp:
+                # Don't flood from one LACP bundle member, to another.
+                exclude_ports.update(lags[in_port.lacp])
+            # Pick one up bundle member to flood to.
+            for lag, ports in list(lags.items()):
+                ports_up = lags_up[lag]
+                if ports_up:
+                    exclude_ports.update(ports[1:])
+                else:
+                    exclude_ports.update(ports)
+        return exclude_ports
+
     @staticmethod
     def flood_ports(configured_ports, exclude_unicast):
         if exclude_unicast:
@@ -550,7 +568,9 @@ class VLAN(Conf):
                 (None, self.untagged_flood_ports(False))):
             if ports:
                 pkt = packet_builder(vid, *args)
-                running_ports = [port for port in ports if port.running()]
+                exclude_ports = self.exclude_same_lag_member_ports()
+                running_ports = [
+                    port for port in ports if port.running() and port not in exclude_ports]
                 if multi_out:
                     ofmsgs.append(valve_of.packetouts(
                         [port.number for port in running_ports], pkt.data))

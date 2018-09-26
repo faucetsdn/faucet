@@ -769,6 +769,13 @@ def flood_untagged_port_outputs(ports, in_port=None, exclude_ports=None):
     return flood_acts
 
 
+def flood_port_outputs(tagged_ports, untagged_ports, in_port=None, exclude_ports=None):
+    """Return actions for both tagged and untagged ports."""
+    return (
+        flood_tagged_port_outputs(tagged_ports, in_port, exclude_ports) +
+        flood_untagged_port_outputs(untagged_ports, in_port, exclude_ports))
+
+
 def faucet_config(datapath=None):
     """Return switch config for FAUCET."""
     return parser.OFPSetConfig(datapath, ofp.OFPC_FRAG_NORMAL, 0)
