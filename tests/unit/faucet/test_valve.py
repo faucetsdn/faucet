@@ -558,7 +558,7 @@ class ValveTestBases:
                         output = _verify_flood_to_port(match, port, valve_vlan)
                         if port == in_port:
                             self.assertNotEqual(
-                                combinatorial_port_flood, output,
+                                output, combinatorial_port_flood,
                                 msg=('flooding to in_port (%s) not '
                                      'compatible with flood mode (%s)') % (
                                          output, combinatorial_port_flood))
