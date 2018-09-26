@@ -100,6 +100,14 @@ class ValveHostManager(ValveManagerBase):
                     valve_of.output_port(port.override_output_port.number)])]))
         return ofmsgs
 
+    def del_port(self, port):
+        ofmsgs = []
+        if port.permanent_learn:
+            for entry in port.hosts():
+                ofmsgs.extend(self.pipeline.remove_filter(
+                    {'eth_src': entry.eth_src}))
+        return ofmsgs
+
     def initialise_tables(self):
         ofmsgs = []
         for vlan in self.vlans.values():

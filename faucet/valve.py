@@ -687,11 +687,6 @@ class Valve:
         ofmsgs.extend(self._delete_all_port_match_flows(port))
         for manager in self._get_managers():
             ofmsgs.extend(manager.del_port(port))
-        if port.permanent_learn:
-            classification_table = self.dp.classification_table()
-            for entry in port.hosts():
-                ofmsgs.append(classification_table.flowdel(
-                    match=classification_table.match(eth_src=entry.eth_src)))
         for vlan in port.vlans():
             vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
