@@ -663,23 +663,8 @@ class Valve:
         return vlan_table.flowmod(
             vlan_table.match(in_port=port.number, vlan=match_vlan),
             priority=self.dp.low_priority,
-            inst=inst)
-
-    def _add_egress_table_rule(self, port, vlan, mirror_act, pop_vlan=True):
-        egress_table = self.dp.tables['egress']
-        metadata, metadata_mask = get_egress_metadata(port.number, vlan.vid)
-        actions = copy.copy(mirror_act)
-        if pop_vlan:
-            actions.append(valve_of.pop_vlan())
-        actions.append(valve_of.output_port(port.number))
-        inst = [valve_of.apply_actions(actions)]
-        return egress_table.flowmod(
-            egress_table.match(
-                vlan=vlan,
-                metadata=metadata,
-                metadata_mask=metadata_mask),
-            priority=self.dp.high_priority,
-            inst=inst)
+            inst=inst
+            )
 
     def _find_forwarding_table(self, vlan):
         if vlan.acls_in:
@@ -691,15 +676,9 @@ class Valve:
         for vlan in port.tagged_vlans:
             ofmsgs.append(self._port_add_vlan_rules(
                 port, vlan, mirror_act, push_vlan=False))
-            if self.dp.egress_pipeline:
-                ofmsgs.append(self._add_egress_table_rule(
-                    port, vlan, mirror_act, pop_vlan=False))
         if port.native_vlan is not None:
             ofmsgs.append(self._port_add_vlan_rules(
                 port, port.native_vlan, mirror_act))
-            if self.dp.egress_pipeline:
-                ofmsgs.append(self._add_egress_table_rule(
-                    port, port.native_vlan, mirror_act))
         return ofmsgs
 
     def _port_delete_flows_state(self, port):

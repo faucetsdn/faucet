@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import faucet.faucet_metadata as faucet_md
 from faucet import valve_of
 from faucet.valve_manager_base import ValveManagerBase
@@ -94,6 +95,36 @@ class ValvePipeline(ValveManagerBase):
                 ofmsgs.extend(self.filter_packets(
                     self.classification_table, {'eth_src': vlan.faucet_mac}))
 
+        return ofmsgs
+
+    def _add_egress_table_rule(self, port, vlan, pop_vlan=True):
+        metadata, metadata_mask = faucet_md.get_egress_metadata(
+            port.number, vlan.vid)
+        actions = copy.copy(port.mirror_actions())
+        if pop_vlan:
+            actions.append(valve_of.pop_vlan())
+        actions.append(valve_of.output_port(port.number))
+        inst = [valve_of.apply_actions(actions)]
+        return self.egress_table.flowmod(
+            self.egress_table.match(
+                vlan=vlan,
+                metadata=metadata,
+                metadata_mask=metadata_mask
+                ),
+            priority=self.dp.high_priority,
+            inst=inst
+            )
+
+    def add_port(self, port):
+        ofmsgs = []
+        if self.egress_table is None:
+            return ofmsgs
+        for vlan in port.tagged_vlans:
+            ofmsgs.append(self._add_egress_table_rule(
+               port, vlan, pop_vlan=False))
+        if port.native_vlan is not None:
+            ofmsgs.append(self._add_egress_table_rule(
+                port, port.native_vlan))
         return ofmsgs
 
     def filter_packets(self, _target_table, match_dict):
