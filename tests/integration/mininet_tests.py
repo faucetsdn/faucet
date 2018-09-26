@@ -3427,6 +3427,7 @@ vlans:
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [], timeout=30, vflags='-vv', packets=1)
         for ra_required in (
+                r'ethertype IPv6 \(0x86dd\), length 142',
                 r'fe80::1:254 > ff02::1:.+ICMP6, router advertisement',
                 r'fc00::1:0/112, Flags \[onlink, auto\]',
                 r'fc00::2:0/112, Flags \[onlink, auto\]',
