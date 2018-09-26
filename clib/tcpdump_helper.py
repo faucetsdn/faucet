@@ -45,7 +45,8 @@ class TcpdumpHelper:
             stdin=mininet_test_util.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            close_fds=True)
+            close_fds=True,
+            shell=False)
 
         if self.stream():
             debug('tcpdump_helper stream fd %s %s' % (
@@ -90,7 +91,7 @@ class TcpdumpHelper:
 
         try:
             debug('tcpdump_helper terminate fd %s' % self.stream().fileno())
-            self.pipe.kill()
+            self.pipe.terminate()
             result = self.pipe.wait()
             if result == 124:
                 # Mask valid result from timeout command.

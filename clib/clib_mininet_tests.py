@@ -68,7 +68,7 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
     def _terminate_with_nonzero(self, tcpdump_helper):
         term_returns = tcpdump_helper.terminate()
         self.assertNotEqual(
-            0, term_returns, msg='terminate code s 0: %d' % term_returns)
+            0, term_returns, msg='terminate code is 0: %d' % term_returns)
 
     def test_tcpdump_execute(self):
         """Check tcpdump filter monitors ping using execute"""
