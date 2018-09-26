@@ -368,11 +368,6 @@ class Valve:
         ofmsgs.extend(self._vlan_add_acl(vlan))
         for manager in self._get_managers():
             ofmsgs.extend(manager.add_vlan(vlan))
-        # add controller IPs if configured.
-        for ipv in vlan.ipvs():
-            route_manager = self._route_manager_by_ipv[ipv]
-            ofmsgs.extend(self._add_faucet_vips(
-                route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
         # install eth_dst_table flood ofmsgs
         ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         return ofmsgs
@@ -1496,13 +1491,6 @@ class Valve:
         else:
             ofmsgs = []
         self._notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
-        return ofmsgs
-
-    @staticmethod
-    def _add_faucet_vips(route_manager, vlan, faucet_vips):
-        ofmsgs = []
-        for faucet_vip in faucet_vips:
-            ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
         return ofmsgs
 
     def add_authed_mac(self, port_num, mac):
