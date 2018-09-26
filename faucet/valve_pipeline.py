@@ -72,6 +72,34 @@ class ValvePipeline(ValveManagerBase):
 
         return ofmsgs
 
+    def _add_egress_table_rule(self, port, vlan, pop_vlan=True):
+        metadata, metadata_mask = get_egress_metadata(port.number, vlan.vid)
+        actions = copy.copy(port.mirror_actions())
+        if pop_vlan:
+            actions.append(valve_of.pop_vlan())
+        actions.append(valve_of.output_port(port.number))
+        inst = [valve_of.apply_actions(actions)]
+        return self.egress_table.flowmod(
+            self.egress_table.match(
+                vlan=vlan,
+                metadata=metadata,
+                metadata_mask=metadata_mask
+                ),
+            priority=self.dp.high_priority,
+            inst=inst
+            )
+
+    def add_port(self, port):
+        ofmsgs = []
+        if self.egress_table is None:
+            return ofmsgs
+        for vlan in port.tagged_vlans:
+            ofmsgs.append(self._add_egress_table_rule(
+               port, vlan, pop_vlan=False))
+        if port.native_vlan is not None:
+            ofmsgs.append(self._add_egress_table_rule(
+                port, port.native_vlan))
+        return ofmsgs
 
     def filter_packets(self, target_table, match_dict):
         # TODO: if you have an overlapping match here then it shouldnt matter
