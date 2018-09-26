@@ -1767,7 +1767,7 @@ dbs:
         self._IPV4_FIB_TABLE = self._get_tableid('ipv4_fib')
         self._IPV6_FIB_TABLE = self._get_tableid('ipv6_fib')
         self._VIP_TABLE = self._get_tableid('vip')
-        self._ETH_DST_HAIRPIN_TABLE = self._get_tableid('eth_dst_table')
+        self._ETH_DST_HAIRPIN_TABLE = self._get_tableid('eth_dst_hairpin')
         self._ETH_DST_TABLE = self._get_tableid('eth_dst')
         self._FLOOD_TABLE = self._get_tableid('flood')
 
