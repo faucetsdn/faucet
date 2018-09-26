@@ -45,6 +45,16 @@ class ValvePipeline(ValveManagerBase):
         instructions.append(valve_of.apply_actions(actions))
         return instructions
 
+    def _get_offset(self, table):
+        result = 0
+        if table.name in ('ipv4_fib', 'ipv6_fib', 'vip'):
+            result = 0x300
+        elif table.name in ('eth_src', 'eth_dst'):
+            result = 0x200
+        elif table.name in ('flood'):
+            result = 0x100
+        return result
+
     def _accept_to_table(self, table, actions):
         inst = [table.goto_this()]
         if actions is not None:
@@ -118,7 +128,7 @@ class ValvePipeline(ValveManagerBase):
                 )))
         return ofmsgs
 
-    def filter_packets(self, target_table, match_dict):
+    def filter_packets(self, target_table, match_dict, priority_offset=0):
         # TODO: if you have an overlapping match here then it shouldnt matter
         # since these are always explicit drop rules, but it would be good to
         # validate this. It is possible the rules wont get accepted if they
@@ -126,36 +136,43 @@ class ValvePipeline(ValveManagerBase):
 
         # possibly we could have a hierarchy of modules that determines the
         # priority for rules from that module
+        priority = self._get_offset(target_table) + self.filter_priority
         return [self.classification_table.flowdrop(
             self.classification_table.match(**match_dict),
-            priority=(self.filter_priority))]
+            priority= priority + priority_offset)]
 
-    def select_packets(self, target_table, match_dict, actions=None):
+    def select_packets(self, target_table, match_dict, actions=None,
+                       priority_offset=0):
         """retrieve rules to redirect packets matching match_dict to table"""
         inst = [target_table.goto_this()]
+        priority = self._get_offset(target_table) + self.select_priority
         if actions is not None:
             inst.append(valve_of.apply_actions(actions))
         return [self.classification_table.flowmod(
             self.classification_table.match(**match_dict),
-            priority=self.select_priority,
+            priority=self.select_priority + priority_offset,
             inst=inst)]
 
-    def remove_filter(self, target_table, match_dict, strict=True):
+    def remove_filter(self, target_table, match_dict, strict=True,
+                      priority_offset=0):
         #TODO: We need a mechanism to stop a module from removing filters added
         #by another module. Cookies seems like the logical approach. For now
         # modules are trusted
         priority = None
         if strict:
-            priorty = self.filter_priority
+            priorty = self._get_offset(target_table)\
+                + self.filter_priority + priority_offset
         return self.classification_table.flowdel(
             self.classification_table.match(**match_dict),
             priority=priority,
             strict=strict)
 
-    def remove_selection(self, target_table, match_dict, strict=True):
+    def remove_selection(self, target_table, match_dict, strict=True,
+                         priority_offset=0):
         priority = None
         if strict:
-            priorty = self.select_priority
+            priorty = self._get_offset(target_table)\
+                + self.select_priority + priority_offset
         return self.classification_table.flowdel(
             self.classification_table.match(**match_dict),
             priority=priority,
