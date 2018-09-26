@@ -710,7 +710,6 @@ class Valve:
         """
         ofmsgs = []
         vlans_with_ports_added = set()
-        eth_src_table = self.dp.tables['eth_src']
         vlan_table = self.dp.tables['vlan']
 
         for port_num in port_nums:
