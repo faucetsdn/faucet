@@ -316,8 +316,8 @@ class Valve:
         ofmsgs = []
         if vlan.acls_in:
             acl_table = self.dp.tables['vlan_acl']
-            acl_allow_inst = acl_table.goto(self.dp.classification_table())
-            acl_force_port_vlan_inst = acl_table.goto(self.dp.output_table())
+            acl_allow_inst = self.pipeline.accept_to_classification()[0]
+            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()[0]
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 vlan.acls_in, acl_table,
                 acl_allow_inst, acl_force_port_vlan_inst,
