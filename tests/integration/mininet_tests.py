@@ -24,7 +24,7 @@ from http.server import HTTPServer
 
 import yaml # pytype: disable=pyi-error
 
-from mininet.log import error, output
+from mininet.log import error
 from mininet.util import pmonitor
 
 import scapy.all
@@ -570,13 +570,13 @@ class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
 
     def test_untagged(self):
         actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(1), 'OUTPUT:4']
-        self.assertTrue(self.get_matching_flow(match=None, actions=actions))
+        self.assertTrue(self.get_matching_flow(match=None, table_id=0, actions=actions))
 
         self.set_port_down(1)
-        self.assertFalse(self.get_matching_flow(match=None, actions=actions))
+        self.assertFalse(self.get_matching_flow(match=None, table_id=0, actions=actions))
 
         self.set_port_up(1)
-        self.assertTrue(self.get_matching_flow(match=None, actions=actions))
+        self.assertTrue(self.get_matching_flow(match=None, table_id=0, actions=actions))
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
@@ -594,15 +594,15 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
         from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:2']
 
         self.assertTrue(
-            self.get_matching_flow(match=None, actions=p1_actions))
+            self.get_matching_flow(match=None, table_id=0, actions=p1_actions))
         self.assertTrue(
-            self.get_matching_flow(match=None, actions=p2_actions))
-        self.assertTrue(
-            self.get_matching_flow(
-                match=from_nfv_match_1, actions=from_nfv_actions_1))
+            self.get_matching_flow(match=None, table_id=0, actions=p2_actions))
         self.assertTrue(
             self.get_matching_flow(
-                match=from_nfv_match_2, actions=from_nfv_actions_2))
+                match=from_nfv_match_1, table_id=0, actions=from_nfv_actions_1))
+        self.assertTrue(
+            self.get_matching_flow(
+                match=from_nfv_match_2, table_id=0, actions=from_nfv_actions_2))
 
         conf = self._get_conf()
         conf['dps'][self.DP_NAME]['interfaces'][1]['dot1x'] = False
@@ -612,13 +612,16 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
             restart=True, cold_start=False, change_expected=True)
 
         self.assertTrue(
-            self.get_matching_flow(match=None, actions=p2_actions))
+            self.get_matching_flow(
+                match=None, table_id=0, actions=p2_actions))
         self.assertTrue(self.get_matching_flow(
-            match=from_nfv_match_2, actions=from_nfv_actions_2))
+            match=from_nfv_match_2, table_id=0, actions=from_nfv_actions_2))
         self.assertFalse(
-            self.get_matching_flow(match=None, actions=p1_actions, timeout=2))
-        self.assertFalse(self.get_matching_flow(
-            match=from_nfv_match_1, actions=from_nfv_actions_1, timeout=2))
+            self.get_matching_flow(
+                match=None, table_id=0, actions=p1_actions, timeout=2))
+        self.assertFalse(
+            self.get_matching_flow(
+                match=from_nfv_match_1, table_id=0, actions=from_nfv_actions_1, timeout=2))
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
@@ -6377,7 +6380,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         labels = {
-           'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name, 'port': port_no}
+            'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name, 'port': port_no}
         for _ in range(timeout):
             actual_status = self.scrape_prometheus_var(
                 'port_stack_state', labels=labels, dpid=False, default=None)
