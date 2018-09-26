@@ -365,12 +365,6 @@ class Valve:
                 route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
         # install eth_dst_table flood ofmsgs
         ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
-        # add learn rule for this VLAN.
-        eth_src_table = self.dp.tables['eth_src']
-        ofmsgs.append(eth_src_table.flowcontroller(
-            eth_src_table.match(vlan=vlan),
-            priority=self.dp.low_priority,
-            inst=[eth_src_table.goto(self.dp.output_table())]))
         return ofmsgs
 
     def _del_vlan(self, vlan):

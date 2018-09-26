@@ -86,6 +86,14 @@ class ValveHostManager(ValveManagerBase):
                             vlan.max_hosts, vlan.vid, eth_src, port))
         return ofmsgs
 
+    def initialise_tables(self):
+        ofmsgs = []
+        # add learn rule for this VLAN.
+        ofmsgs.append(self.eth_src_table.flowcontroller(
+            priority=self.low_priority,
+            inst=[self.eth_src_table.goto(self.output_table)]))
+        return ofmsgs
+
     def _temp_ban_host_learning(self, match):
         return self.eth_src_table.flowdrop(
             match,
