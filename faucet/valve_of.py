@@ -763,7 +763,7 @@ def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
 def flood_untagged_port_outputs(ports, in_port=None, exclude_ports=None):
     """Return list of actions necessary to flood to list of untagged ports."""
     flood_acts = flood_tagged_port_outputs(
-        ports, in_port=in_port, exclude_ports=exclude_ports))
+        ports, in_port=in_port, exclude_ports=exclude_ports)
     if flood_acts:
         flood_acts = [pop_vlan()] + flood_acts
     return flood_acts

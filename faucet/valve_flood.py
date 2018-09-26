@@ -48,6 +48,10 @@ class ValveFloodManager:
         self.groups = groups
         self.combinatorial_port_flood = combinatorial_port_flood
 
+    def _require_combinatorial_flood(self, vlan):
+        """Must use in_port style flood rules if configured to or hairpinning/LAGs are in use."""
+        return self.combinatorial_port_flood or vlan.hairpin_ports() or vlan.lags()
+
     @staticmethod
     def _vlan_all_ports(vlan, exclude_unicast):
         """Return list of all ports that should be flooded to on a VLAN."""
@@ -120,7 +124,7 @@ class ValveFloodManager:
         ofmsgs = []
         # TODO: hairpin rules should use higher priority rules so we
         # can use default non-combinatorial rules.
-        if self.combinatorial_port_flood or vlan.hairpin_ports():
+        if self._require_combinatorial_flood(vlan):
             for port in self._vlan_all_ports(vlan, exclude_unicast):
                 ofmsgs.extend(self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask,
@@ -206,9 +210,8 @@ class ValveFloodManager:
         command = valve_of.ofp.OFPFC_ADD
         if modify:
             command = valve_of.ofp.OFPFC_MODIFY_STRICT
-        if self.use_group_table and not vlan.hairpin_ports():
+        if self.use_group_table and not self._require_combinatorial_flood(vlan):
             # TODO: hairpin flooding modes.
-            # TODO: avoid loopback flood on LAG ports
             return self._build_group_flood_rules(vlan, modify, command)
         return self._build_multiout_flood_rules(vlan, command)
 
