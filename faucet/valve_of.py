@@ -468,13 +468,13 @@ MATCH_FIELDS = {
 
 
 def match_from_dict(match_dict):
-    for old_match, new_match in list(OLD_MATCH_FIELDS.items()):
+    for old_match, new_match in OLD_MATCH_FIELDS.items():
         if old_match in match_dict:
             match_dict[new_match] = match_dict[old_match]
             del match_dict[old_match]
 
     kwargs = {}
-    for of_match, field in list(match_dict.items()):
+    for of_match, field in match_dict.items():
         test_config_condition(of_match not in MATCH_FIELDS, 'Unknown match field: %s' % of_match)
         try:
             encoded_field = MATCH_FIELDS[of_match](field)

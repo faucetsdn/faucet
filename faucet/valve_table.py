@@ -63,7 +63,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
 
     def set_field(self, **kwds):
         """Return set field action."""
-        for field in list(kwds.keys()):
+        for field in kwds.keys():
             assert (self.table_id == valve_of.ofp.OFPTT_ALL or
                     field in self.set_fields), (
                         '%s not configured as set field in %s' % (field, self.name))
@@ -99,7 +99,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             assert not flowmod.match.items(), (
                 'default flow cannot have matches')
         elif self.match_types:
-            match_fields = list(flowmod.match.items())
+            match_fields = flowmod.match.items()
             for match_type, match_field in match_fields:
                 assert match_type in self.match_types, (
                     '%s match in table %s' % (match_type, self.name))

@@ -121,11 +121,11 @@ The output action contains a dictionary with the following elements:
         test_config_condition(
             not self.rules, 'no rules found for ACL %s' % self._id)
         for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
-            for match in list(match_fields.keys()):
+            for match in match_fields.keys():
                 self.rule_types[match] = (str, int)
         for rule in self.rules:
             self._check_conf_types(rule, self.rule_types)
-            for rule_field, rule_conf in list(rule.items()):
+            for rule_field, rule_conf in rule.items():
                 if rule_field == 'cookie':
                     test_config_condition(rule_conf < 0 or rule_conf > 2**16, (
                         'rule cookie value must be 0-2**16'))
@@ -135,7 +135,7 @@ The output action contains a dictionary with the following elements:
                         'Missing rule actions in ACL %s' % self._id
                         )
                     self._check_conf_types(rule_conf, self.actions_types)
-                    for action_name, action_conf in list(rule_conf.items()):
+                    for action_name, action_conf in rule_conf.items():
                         if action_name == 'output':
                             self._check_conf_types(
                                 action_conf, self.output_actions_types)
@@ -181,7 +181,7 @@ The output action contains a dictionary with the following elements:
                     for action in apply_actions:
                         if valve_of.is_set_field(action):
                             self.set_fields.add(action.key)
-                    for match, value in list(ofmsg.match.items()):
+                    for match, value in ofmsg.match.items():
                         has_mask = isinstance(value, (tuple, list))
                         if has_mask or match not in self.matches:
                             self.matches[match] = has_mask
@@ -201,7 +201,7 @@ The output action contains a dictionary with the following elements:
 
     def _resolve_output_ports(self, action_conf, resolve_port_cb):
         result = {}
-        for output_action, output_action_values in list(action_conf.items()):
+        for output_action, output_action_values in action_conf.items():
             if output_action == 'port':
                 port_name = output_action_values
                 port = resolve_port_cb(port_name)
@@ -225,7 +225,7 @@ The output action contains a dictionary with the following elements:
                 test_config_condition(not isinstance(failover, dict), (
                     'failover is not a dictionary'))
                 result[output_action] = {}
-                for failover_name, failover_values in list(failover.items()):
+                for failover_name, failover_values in failover.items():
                     if failover_name == 'ports':
                         resolved_ports = [
                             resolve_port_cb(p) for p in failover_values]
@@ -248,7 +248,7 @@ The output action contains a dictionary with the following elements:
                 resolved_actions = {}
                 test_config_condition(not isinstance(actions_conf, dict), (
                     'actions value is not a dictionary'))
-                for action_name, action_conf in list(actions_conf.items()):
+                for action_name, action_conf in actions_conf.items():
                     if action_name == 'mirror':
                         resolved_port = resolve_port_cb(action_conf)
                         test_config_condition(

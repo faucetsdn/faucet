@@ -307,7 +307,7 @@ class ValveHostFlowRemovedManager(ValveHostManager):
                 in_port = None
                 eth_src = None
                 eth_dst = None
-                for field, value in list(match.items()):
+                for field, value in match.items():
                     if field == 'in_port':
                         in_port = value
                     elif field == 'eth_src':

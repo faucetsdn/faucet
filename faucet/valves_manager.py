@@ -108,7 +108,7 @@ class ValvesManager:
         new_dps = self.parse_configs(new_config_file)
         if new_dps is not None:
             deleted_dpids = (
-                set(list(self.valves.keys())) -
+                set(self.valves.keys()) -
                 set([dp.dp_id for dp in new_dps]))
             for new_dp in new_dps:
                 dp_id = new_dp.dp_id
@@ -143,13 +143,13 @@ class ValvesManager:
 
     def update_metrics(self, now):
         """Update metrics in all Valves."""
-        for valve in list(self.valves.values()):
+        for valve in self.valves.values():
             valve.update_metrics(now, rate_limited=False)
         self.bgp.update_metrics(now)
 
     def valve_flow_services(self, now, valve_service):
         """Call a method on all Valves and send any resulting flows."""
-        for valve in list(self.valves.values()):
+        for valve in self.valves.values():
             other_valves = self._other_running_valves(valve)
             valve_service_labels = dict(valve.base_prom_labels, valve_service=valve_service)
             valve_service_func = getattr(valve, valve_service)
@@ -160,7 +160,7 @@ class ValvesManager:
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
 
     def _other_running_valves(self, valve):
-        return [other_valve for other_valve in list(self.valves.values())
+        return [other_valve for other_valve in self.valves.values()
                 if valve != other_valve and other_valve.dp.dyn_running]
 
     def valve_packet_in(self, now, valve, msg):

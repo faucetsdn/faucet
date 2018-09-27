@@ -27,7 +27,7 @@ def load_tables(dp, valve_cl): # pylint: disable=invalid-name
         if valve_table.match_types:
             oxm_ids = [
                 valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
-                for match_type, hasmask in list(valve_table.match_types.items())]
+                for match_type, hasmask in valve_table.match_types.items()]
             new_table.properties.append(
                 valve_of.parser.OFPTableFeaturePropOxm(
                     oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_MATCH))
