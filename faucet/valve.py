@@ -81,6 +81,7 @@ class Valve:
         'dp',
         'flood_manager',
         'host_manager',
+        'pipeline',
         'logger',
         'logname',
         'metrics',

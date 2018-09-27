@@ -1,8 +1,9 @@
+"""Manages movement of packets through the faucet pipeline"""
 import copy
 from faucet import valve_of
 from faucet.faucet_metadata import get_egress_metadata
 
-class ValvePipeline(object):
+class ValvePipeline:
     """Responsible for maintaing the integrity of the Faucet pipeline for a
     single valve.
 
@@ -12,7 +13,6 @@ class ValvePipeline(object):
     Responsible for installing flows in the vlan, egress and classification
     tables"""
 
-    # TODO: initialise tables
     def __init__(self, dp):
         self.dp = dp
         self.classification_table = dp.classification_table()
@@ -25,16 +25,22 @@ class ValvePipeline(object):
         self.filter_priority = dp.highest_priority + 1
         self.select_priority = dp.highest_priority
 
-    def dp_connect(self):
-        pass
-
     def output(self, output_port, vlan, actions=None):
+        """Get instructions list to output a packet through the regular
+        pipeline.
+        args:
+            port: Port object of port to output packet to
+            vlan: Vlan object of vlan to output packet on
+            actions: list of actions to apply to packet before outputting
+        returns:
+            list of Instructions
+        """
         if actions is not None:
             actions = copy.copy(actions)
         else:
             actions = []
         instructions = []
-        if self.egress_pipeline:
+        if self.egress_table:
             metadata, metadata_mask = get_egress_metadata(
                 output_port.number, vlan.vid)
             instructions.append(valve_of.metadata_goto_table(
@@ -42,19 +48,26 @@ class ValvePipeline(object):
         return instructions
 
     def accept_to_l2_forwarding(self, actions=None):
+        """Get instructions to forward packet through the pipeline to l2
+        forwarding.
+        args:
+            actions: (optional) list of actions to apply to packet.
+        returns:
+            list of instructions
+        """
         inst = [self.output_table.goto_this()]
         if actions is not None:
             inst.append(valve_of.apply_actions(actions))
         return inst
 
+    # pylint: disable=W0613
     def filter_packets(self, target_table, match_dict):
-        # TODO: if you have an overlapping match here then it shouldnt matter
-        # since these are always explicit drop rules, but it would be good to
-        # validate this. It is possible the rules wont get accepted if they
-        # overlap.
-
-        # possibly we could have a hierarchy of modules that determines the
-        # priority for rules from that module
+        """get a list of flow modification messages to filter packets from
+        the pipeline.
+        args:
+            target_table: the table requesting the filtering
+            match_dict: a dictionary specifying the match fields
+        """
         return [self.classification_table.flowdrop(
             self.classification_table.match(**match_dict),
             priority=(self.filter_priority))]
@@ -68,4 +81,3 @@ class ValvePipeline(object):
             self.classification_table.match(**match_dict),
             priority=self.select_priority,
             inst=inst)]
-
