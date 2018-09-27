@@ -148,13 +148,9 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         command = valve_of.ofp.OFPFC_DELETE
         if strict:
             command = valve_of.ofp.OFPFC_DELETE_STRICT
-        return [
-            self.flowmod(
-                match=match,
-                priority=priority,
-                command=command,
-                out_port=out_port,
-                out_group=valve_of.ofp.OFPG_ANY)]
+        return self.flowmod(
+            match=match, priority=priority, command=command,
+            out_port=out_port, out_group=valve_of.ofp.OFPG_ANY)
 
     def flowdrop(self, match=None, priority=None, hard_timeout=0):
         """Add drop matching flow to a table."""

@@ -666,7 +666,7 @@ class ValveRouteManager:
         routed_vlans = self._routed_vlans(vlan)
         for routed_vlan in routed_vlans:
             route_match = self._route_match(routed_vlan, ip_dst)
-            ofmsgs.extend(self.fib_table.flowdel(
+            ofmsgs.append(self.fib_table.flowdel(
                 route_match, priority=self._route_priority(ip_dst), strict=True))
         return ofmsgs
 

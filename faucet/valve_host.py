@@ -94,12 +94,11 @@ class ValveHostManager:
 
     def delete_host_from_vlan(self, eth_src, vlan):
         """Delete a host from a VLAN."""
-        ofmsgs = []
-        ofmsgs.extend(self.eth_src_table.flowdel(
-            self.eth_src_table.match(vlan=vlan, eth_src=eth_src)))
-        ofmsgs.extend(self.eth_dst_table.flowdel(
-            self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src)))
-        return ofmsgs
+        return [
+            self.eth_src_table.flowdel(
+                self.eth_src_table.match(vlan=vlan, eth_src=eth_src)),
+            self.eth_dst_table.flowdel(
+                self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src))]
 
     def expire_hosts_from_vlan(self, vlan, now):
         """Expire hosts from VLAN cache."""

@@ -261,8 +261,7 @@ class Valve:
 
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
-        ofmsgs = []
-        ofmsgs.extend(valve_table.wildcard_table.flowdel())
+        ofmsgs = [valve_table.wildcard_table.flowdel()]
         if self.dp.meters:
             ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
@@ -271,16 +270,14 @@ class Valve:
 
     def _delete_all_port_match_flows(self, port):
         """Delete all flows that match an input port from all FAUCET tables."""
-        ofmsgs = []
         tables = [valve_table.wildcard_table]
         if self.dp.dp_acls:
             # DP ACL flows live forever.
             port_acl_table = self.dp.tables['port_acl']
             tables = set(self.dp.in_port_tables()) - set([port_acl_table])
-        for table in tables:
-            ofmsgs.extend(table.flowdel(
-                match=table.match(in_port=port.number)))
-        return ofmsgs
+        return [
+            table.flowdel(match=table.match(in_port=port.number))
+            for table in tables]
 
     @staticmethod
     def _pipeline_flows():
@@ -403,10 +400,9 @@ class Valve:
 
     def _del_vlan(self, vlan):
         """Delete a configured VLAN."""
-        table = valve_table.wildcard_table
-        ofmsgs = table.flowdel(match=table.match(vlan=vlan))
         self.logger.info('Delete VLAN %s' % vlan)
-        return ofmsgs
+        table = valve_table.wildcard_table
+        return [table.flowdel(match=table.match(vlan=vlan))]
 
     def _add_ports_and_vlans(self, discovered_up_port_nos):
         """Add all configured and discovered ports and VLANs."""
@@ -680,7 +676,7 @@ class Valve:
         acl_allow_inst = acl_table.goto(self.dp.tables['vlan'])
         acl_force_port_vlan_inst = acl_table.goto(self.dp.output_table())
         if cold_start:
-            ofmsgs.extend(acl_table.flowdel(in_port_match))
+            ofmsgs.append(acl_table.flowdel(in_port_match))
         if port.acls_in:
             ofmsgs.extend(valve_acl.build_acl_ofmsgs(
                 port.acls_in, acl_table,
@@ -756,14 +752,14 @@ class Valve:
         ofmsgs = []
         ofmsgs.extend(self._delete_all_port_match_flows(port))
         for table in self.dp.output_tables():
-            ofmsgs.extend(table.flowdel(out_port=port.number))
+            ofmsgs.append(table.flowdel(out_port=port.number))
         if self.dp.egress_pipeline:
-            ofmsgs.extend(
+            ofmsgs.append(
                 self.dp.tables['egress'].flowdel(out_port=port.number))
         if port.permanent_learn:
             classification_table = self.dp.classification_table()
             for entry in port.hosts():
-                ofmsgs.extend(classification_table.flowdel(
+                ofmsgs.append(classification_table.flowdel(
                     match=classification_table.match(eth_src=entry.eth_src)))
         for vlan in port.vlans():
             vlan.clear_cache_hosts_on_port(port)
@@ -943,7 +939,7 @@ class Valve:
         """Return OpenFlow messages when LACP is up on a port."""
         vlan_table = self.dp.tables['vlan']
         ofmsgs = []
-        ofmsgs.extend(vlan_table.flowdel(
+        ofmsgs.append(vlan_table.flowdel(
             match=vlan_table.match(in_port=port.number),
             priority=self.dp.high_priority, strict=True))
         for vlan in port.vlans():
@@ -1541,14 +1537,12 @@ class Valve:
 
     def del_authed_mac(self, port_num, mac):
         port_acl_table = self.dp.tables['port_acl']
-        ofmsg = port_acl_table.flowdel(
+        return [port_acl_table.flowdel(
             port_acl_table.match(
                 in_port=port_num,
                 eth_src=mac),
             priority=self.dp.highest_priority-1,
-            strict=True
-        )
-        return ofmsg
+            strict=True)]
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
