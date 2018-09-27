@@ -691,7 +691,8 @@ class ValveRouteManager:
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
-        raise NotImplementedError # pragma: no cover
+        return self._proactive_resolve_neighbor(
+            now, pkt_meta.vlan, pkt_meta.l3_dst)
 
 
 class ValveIPv4RouteManager(ValveRouteManager):
@@ -798,8 +799,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 pkt_meta, ipv4_pkt)
             if icmp_replies:
                 return icmp_replies
-        return self._proactive_resolve_neighbor(
-            now, pkt_meta.vlan, pkt_meta.l3_dst)
+        return super(ValveIPv4RouteManager, self).control_plane_handler(now, pkt_meta)
 
 
 class ValveIPv6RouteManager(ValveRouteManager):
@@ -974,8 +974,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     now, pkt_meta, ipv6_pkt)
                 if icmp_replies:
                     return icmp_replies
-        return self._proactive_resolve_neighbor(
-            now, pkt_meta.vlan, pkt_meta.l3_dst)
+        return super(ValveIPv6RouteManager, self).control_plane_handler(now, pkt_meta)
 
     def advertise(self, vlan):
         ofmsgs = []
