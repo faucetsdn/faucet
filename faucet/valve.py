@@ -35,7 +35,6 @@ from faucet import valve_pipeline
 
 from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
-from faucet.faucet_metadata import get_egress_metadata
 
 
 class ValveLogger:
@@ -81,6 +80,7 @@ class Valve:
         'dp',
         'flood_manager',
         'host_manager',
+        'pipeline',
         'logger',
         'logname',
         'metrics',

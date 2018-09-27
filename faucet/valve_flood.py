@@ -393,11 +393,11 @@ class ValveFloodStackManager(ValveFloodManager):
         # don't try to learn broadcast sources from stacking ports.
         for port in self.stack_ports:
             ofmsgs.extend(self.pipeline.filter_packets(self.flood_table, {
-                    'in_port': port.number,
-                    'vlan': vlan,
-                    'eth_dst': valve_packet.BRIDGE_GROUP_ADDRESS,
-                    'eth_dst_mask': valve_packet.BRIDGE_GROUP_MASK
-                    }))
+                'in_port': port.number,
+                'vlan': vlan,
+                'eth_dst': valve_packet.BRIDGE_GROUP_ADDRESS,
+                'eth_dst_mask': valve_packet.BRIDGE_GROUP_MASK
+                }))
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst:
                 continue

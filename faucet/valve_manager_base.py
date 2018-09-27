@@ -1,6 +1,8 @@
 """Valve Manager base class"""
 
-class ValveManagerBase(object):
+# pylint: disable=R0201
+# pylint: disable=W0613
+class ValveManagerBase:
     """Base class for ValveManager objects.
 
     Expected to control the installation of flows into datapath tables.
@@ -15,16 +17,36 @@ class ValveManagerBase(object):
     _FILTER_PRIORITY = 0x5000
 
     def initialise_tables(self):
+        """initialise tables for this manager.
+
+        returns:
+            list of ofmsgs"""
         return []
 
     def add_vlan(self, vlan):
+        """update tables for the addition of a vlan
+
+        returns:
+            list of ofmsgs"""
         return []
 
     def add_port(self, port):
+        """update tables for the addition of a port
+
+        returns:
+            list of ofmsgs"""
         return []
 
     def del_vlan(self, vlan):
+        """update tables for the removal of a vlan
+
+        returns:
+            list of ofmsgs"""
         return []
 
     def del_port(self, port):
+        """update tables for the removal of a port
+
+        returns:
+            list of ofmsgs"""
         return []

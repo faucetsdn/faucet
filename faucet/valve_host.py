@@ -20,7 +20,6 @@
 import random
 
 from faucet import valve_of
-from faucet.faucet_metadata import get_egress_metadata
 from faucet.valve_manager_base import ValveManagerBase
 
 
@@ -89,9 +88,9 @@ class ValveHostManager(ValveManagerBase):
         ofmsgs = []
         if port.override_output_port:
             ofmsgs.append(self.eth_src_table.flowmod(
-                match=eth_src_table.match(
-                    in_port=port_num),
-                priority=self.dp.low_priority + 1,
+                match=self.eth_src_table.match(
+                    in_port=port.number),
+                priority=self.low_priority + 1,
                 inst=[valve_of.apply_actions([
                     valve_of.output_controller(),
                     valve_of.output_port(port.override_output_port.number)])]))
