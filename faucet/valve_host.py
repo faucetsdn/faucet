@@ -20,29 +20,27 @@
 import random
 
 from faucet import valve_of
-from faucet.faucet_metadata import get_egress_metadata
+from faucet.valve_manager_base import ValveManagerBase
 
 
-class ValveHostManager:
+class ValveHostManager(ValveManagerBase):
     """Manage host learning on VLANs."""
 
-    def __init__(self, logger, ports, vlans, classification_table,
-                 eth_src_table, eth_dst_table, eth_dst_hairpin_table,
-                 egress_table, learn_timeout, learn_jitter, learn_ban_timeout,
-                 low_priority, host_priority, cache_update_guard_time):
+    def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
+                 eth_dst_hairpin_table, pipeline, learn_timeout,
+                 learn_jitter, learn_ban_timeout, cache_update_guard_time):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
-        self.classification_table = classification_table
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
         self.eth_dst_hairpin_table = eth_dst_hairpin_table
-        self.egress_table = egress_table
+        self.pipeline = pipeline
         self.learn_timeout = learn_timeout
         self.learn_jitter = learn_jitter
         self.learn_ban_timeout = learn_ban_timeout
-        self.low_priority = low_priority
-        self.host_priority = host_priority
+        self.low_priority = self._LOW_PRIORITY
+        self.host_priority = self._STATIC_MATCH_PRIORITY
         self.cache_update_guard_time = cache_update_guard_time
         self.output_table = self.eth_dst_table
         if self.eth_dst_hairpin_table:
@@ -84,6 +82,34 @@ class ValveHostManager:
                         'temporarily banning learning on this VLAN, '
                         'and not learning %s on %s' % (
                             vlan.max_hosts, vlan.vid, eth_src, port))
+        return ofmsgs
+
+    def add_port(self, port):
+        ofmsgs = []
+        if port.override_output_port:
+            ofmsgs.append(self.eth_src_table.flowmod(
+                match=self.eth_src_table.match(
+                    in_port=port.number),
+                priority=self.low_priority + 1,
+                inst=[valve_of.apply_actions([
+                    valve_of.output_controller(),
+                    valve_of.output_port(port.override_output_port.number)])]))
+        return ofmsgs
+
+    def del_port(self, port):
+        ofmsgs = []
+        if port.permanent_learn:
+            for entry in port.hosts():
+                ofmsgs.extend(self.pipeline.remove_filter(
+                    self.eth_src_table, {'eth_src': entry.eth_src}))
+        return ofmsgs
+
+    def initialise_tables(self):
+        ofmsgs = []
+        # add learn rule for this VLAN.
+        ofmsgs.append(self.eth_src_table.flowcontroller(
+            priority=self.low_priority,
+            inst=[self.eth_src_table.goto(self.output_table)]))
         return ofmsgs
 
     def _temp_ban_host_learning(self, match):
@@ -150,21 +176,9 @@ class ValveHostManager:
         """Return flows that implement learning a host on a port."""
         ofmsgs = []
 
-        if port.permanent_learn:
-            # Antispoofing rule for this MAC.
-            if self.classification_table != self.eth_src_table:
-                ofmsgs.append(self.classification_table.flowmod(
-                    self.classification_table.match(
-                        in_port=port.number, vlan=vlan, eth_src=eth_src),
-                    priority=self.host_priority,
-                    inst=[self.classification_table.goto(self.eth_src_table)]))
-            ofmsgs.append(self.classification_table.flowdrop(
-                self.classification_table.match(vlan=vlan, eth_src=eth_src),
-                priority=(self.host_priority - 2)))
-        else:
-            # Delete any existing entries for MAC.
-            if delete_existing:
-                ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
+        # Delete any existing entries for MAC.
+        if delete_existing:
+            ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         # Associate this MAC with source port.
         src_match = self.eth_src_table.match(
@@ -189,20 +203,11 @@ class ValveHostManager:
             return ofmsgs
 
         # Output packets for this MAC to specified port.
-        if self.egress_table is not None:
-            metadata, metadata_mask = get_egress_metadata(port.number, vlan.vid)
-            ofmsgs.append(self.eth_dst_table.flowmod(
-                self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
-                priority=self.host_priority,
-                inst=valve_of.metadata_goto_table(
-                    metadata, metadata_mask, self.egress_table),
-                idle_timeout=dst_rule_idle_timeout))
-        else:
-            ofmsgs.append(self.eth_dst_table.flowmod(
-                self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
-                priority=self.host_priority,
-                inst=[valve_of.apply_actions(vlan.output_port(port))],
-                idle_timeout=dst_rule_idle_timeout))
+        ofmsgs.append(self.eth_dst_table.flowmod(
+            self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
+            priority=self.host_priority,
+            inst=self.pipeline.output(port, vlan),
+            idle_timeout=dst_rule_idle_timeout))
 
         # If port is in hairpin mode, install a special rule
         # that outputs packets destined to this MAC back out the same
@@ -234,6 +239,12 @@ class ValveHostManager:
                     (vlan.dyn_last_time_hosts_expired is None or
                      vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
                 delete_existing = False
+        elif entry.port.permanent_learn:
+            if entry.port != port:
+                ofmsgs.extend(self.pipeline.filter_packets(
+                    self.eth_src_table,
+                    {'eth_src': eth_src, 'in_port': port.number}))
+            return (ofmsgs, entry.port)
         else:
             cache_age = now - entry.cache_time
             cache_port = entry.port
