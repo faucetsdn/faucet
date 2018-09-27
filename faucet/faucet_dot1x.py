@@ -134,25 +134,24 @@ class FaucetDot1x:
         nfv_sw_port = valve.dp.dot1x['nfv_sw_port']
         valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
         mac = get_mac_str(valve_index, dot1x_port.number)
-        ofmsgs = []
-        ofmsgs.append(port_acl_table.flowmod(
-            port_acl_table.match(
-                in_port=dot1x_port.number,
-                eth_type=valve_packet.ETH_EAPOL),
-            priority=valve.dp.highest_priority,
-            inst=[valve_of.apply_actions([
-                valve_of.set_field(eth_dst=mac),
-                valve_of.output_port(nfv_sw_port)])]))
-        ofmsgs.append(port_acl_table.flowmod(
-            port_acl_table.match(
-                in_port=nfv_sw_port,
-                eth_type=valve_packet.ETH_EAPOL,
-                eth_src=mac),
-            priority=valve.dp.highest_priority,
-            inst=[valve_of.apply_actions([
-                valve_of.set_field(eth_src=EAPOL_DST),
-                valve_of.output_port(dot1x_port.number)])]))
-        return ofmsgs
+        return [
+            port_acl_table.flowmod(
+                port_acl_table.match(
+                    in_port=dot1x_port.number,
+                    eth_type=valve_packet.ETH_EAPOL),
+                priority=valve.dp.highest_priority,
+                inst=[valve_of.apply_actions([
+                    valve_of.set_field(eth_dst=mac),
+                    valve_of.output_port(nfv_sw_port)])]),
+            port_acl_table.flowmod(
+                port_acl_table.match(
+                    in_port=nfv_sw_port,
+                    eth_type=valve_packet.ETH_EAPOL,
+                    eth_src=mac),
+                priority=valve.dp.highest_priority,
+                inst=[valve_of.apply_actions([
+                    valve_of.set_field(eth_src=EAPOL_DST),
+                    valve_of.output_port(dot1x_port.number)])])]
 
     def port_down(self, valve, dot1x_port):
         """
@@ -169,21 +168,20 @@ class FaucetDot1x:
         nfv_sw_port = valve.dp.dot1x['nfv_sw_port']
         valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
         mac = get_mac_str(valve_index, dot1x_port.number)
-        ofmsgs = []
         # Strictly speaking these deletes aren't needed, as the caller
         # clears the port_acl table for # the port that is down.
-        ofmsgs.extend(port_acl_table.flowdel(
-            match=port_acl_table.match(
-                in_port=dot1x_port.number,
-                eth_type=valve_packet.ETH_EAPOL),
-            priority=valve.dp.highest_priority))
-        ofmsgs.extend(port_acl_table.flowdel(
-            match=port_acl_table.match(
-                in_port=nfv_sw_port,
-                eth_type=valve_packet.ETH_EAPOL,
-                eth_src=mac),
-            priority=valve.dp.highest_priority))
-        return ofmsgs
+        return [
+            port_acl_table.flowdel(
+                match=port_acl_table.match(
+                    in_port=dot1x_port.number,
+                    eth_type=valve_packet.ETH_EAPOL),
+                priority=valve.dp.highest_priority),
+            port_acl_table.flowdel(
+                match=port_acl_table.match(
+                    in_port=nfv_sw_port,
+                    eth_type=valve_packet.ETH_EAPOL,
+                    eth_src=mac),
+                priority=valve.dp.highest_priority)]
 
     def reset(self, valves):
         """Set up a dot1x speaker."""
