@@ -188,28 +188,25 @@ class FaucetDot1x:
     def reset(self, valves):
         """Set up a dot1x speaker."""
         self._valves = valves
-        self.dot1x_speaker = None
-        dot1x_intf = None
+        dot1x_valves = [
+            valve for valve in valves.values() if valve.dp.dot1x and valve.dp.dot1x_ports()]
+        assert len(dot1x_valves) < 255, 'dot1x not supported for > 255 DPs'
+        if not dot1x_valves:
+            return
 
-        for valve_index, valve in enumerate(list(valves.values()), start=0):
+        first_valve = dot1x_valves[0]
+        dot1x_intf = first_valve.dp.dot1x['nfv_intf']
+        radius_ip = first_valve.dp.dot1x['radius_ip']
+        radius_port = first_valve.dp.dot1x['radius_port']
+        radius_secret = first_valve.dp.dot1x['radius_secret']
+        self.dot1x_speaker = self._create_dot1x_speaker(
+            dot1x_intf, first_valve.dp.faucet_dp_mac,
+            radius_ip, radius_port, radius_secret)
+
+        for valve_index, valve in enumerate(dot1x_valves, start=0):
             self.dp_id_to_valve_index[valve.dp.dp_id] = valve_index
-            if self.dot1x_speaker is None:
-                if not valve.dp.dot1x:
-                    continue
-                dot1x_intf = valve.dp.dot1x['nfv_intf']
-                radius_ip = valve.dp.dot1x['radius_ip']
-                radius_port = valve.dp.dot1x['radius_port']
-                radius_secret = valve.dp.dot1x['radius_secret']
-                self.dot1x_speaker = self._create_dot1x_speaker(
-                    dot1x_intf, valve.dp.faucet_dp_mac,
-                    radius_ip, radius_port, radius_secret)
-            if valve.dp.dot1x and valve.dp.dot1x_ports():
-                if valve_index > 255:
-                    self.logger.info(
-                        'dot1x not enabled on %s: more than 255 valves' % valve.dp)
-                    continue
-                for dot1x_port in valve.dp.dot1x_ports():
-                    self.set_mac_str(valve, valve_index, dot1x_port.number)
-                    self.logger.info(
-                        'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
-                            valve.dp, valve_index, dot1x_port, dot1x_intf))
+            for dot1x_port in valve.dp.dot1x_ports():
+                self.set_mac_str(valve, valve_index, dot1x_port.number)
+                self.logger.info(
+                    'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
+                        valve.dp, valve_index, dot1x_port, dot1x_intf))
