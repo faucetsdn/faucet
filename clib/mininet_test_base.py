@@ -856,7 +856,7 @@ dbs:
                 match, table_id, timeout=timeout,
                 actions=actions, hard_timeout=hard_timeout, cookie=cookie,
                 ofa_match=ofa_match),
-            msg=match)
+            msg=('match: %s table_id: %u actions: %s' % (match, table_id, actions)))
 
     def wait_until_controller_flow(self):
         self.wait_until_matching_flow(
@@ -2135,7 +2135,8 @@ dbs:
             table_id = self._IPV4_FIB_TABLE
         return (nw_dst_match, table_id)
 
-    def wait_for_route_as_flow(self, nexthop, prefix, vlan_vid=None, timeout=10,
+    def wait_for_route_as_flow(self, nexthop, prefix,
+                               vlan_vid=None, timeout=10,
                                nonzero_packets=False):
         """Verify a route has been added as a flow."""
         nw_dst_match, table_id = self.match_table(prefix)
