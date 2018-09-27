@@ -21,7 +21,6 @@ class ValvePipeline:
         if dp.egress_pipeline:
             self.egress_table = dp.tables['egress']
         self.vlan_table = dp.tables['vlan']
-        self.use_group_table = dp.group_table
         self.filter_priority = dp.highest_priority + 1
         self.select_priority = dp.highest_priority
 
