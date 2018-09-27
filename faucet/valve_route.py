@@ -90,7 +90,7 @@ class ValveRouteManager:
         'dec_ttl',
         'output_table',
         'fib_table',
-        'pipeline'
+        'pipeline',
         'multi_out',
         'global_vlan',
         'global_routing',

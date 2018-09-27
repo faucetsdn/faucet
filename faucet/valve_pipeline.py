@@ -1,7 +1,7 @@
 """Manages movement of packets through the faucet pipeline"""
 from faucet import valve_of
 
-class ValvePipeline(object):
+class ValvePipeline:
     """Responsible for maintaing the integrity of the Faucet pipeline for a
     single valve.
 
@@ -11,7 +11,6 @@ class ValvePipeline(object):
     Responsible for installing flows in the vlan, egress and classification
     tables"""
 
-    # TODO: initialise tables
     def __init__(self, dp):
         self.dp = dp
         self.classification_table = dp.classification_table()
@@ -43,4 +42,3 @@ class ValvePipeline(object):
             self.classification_table.match(**match_dict),
             priority=self.select_priority,
             inst=inst)]
-
