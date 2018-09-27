@@ -99,7 +99,7 @@ def build_acl_entry(acl_table, rule_conf, meters,
     acl_cookie = None
     allow_inst = acl_allow_inst
 
-    for attrib, attrib_value in list(rule_conf.items()):
+    for attrib, attrib_value in rule_conf.items():
         if attrib == 'in_port':
             continue
         if attrib == 'cookie':

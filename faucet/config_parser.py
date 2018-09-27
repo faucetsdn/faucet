@@ -59,7 +59,7 @@ def _get_vlan_by_key(dp_id, vlan_key, vlans):
         'VLAN key must not be type %s' % type(vlan_key)))
     if vlan_key in vlans:
         return vlans[vlan_key]
-    for vlan in list(vlans.values()):
+    for vlan in vlans.values():
         if vlan_key == str(vlan.vid):
             return vlan
     # Create VLAN with VID, if not defined.
@@ -99,7 +99,7 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans):
 
     def _map_port_num_to_port(ports_conf):
         port_num_to_port_conf = {}
-        for port_key, port_conf in list(ports_conf.items()):
+        for port_key, port_conf in ports_conf.items():
             test_config_condition(not isinstance(port_conf, dict), 'Invalid syntax in port config')
             port_num = port_conf.get('number', port_key)
             try:
@@ -109,7 +109,7 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans):
         return port_num_to_port_conf
 
     def _parse_port_ranges(port_ranges_conf, port_num_to_port_conf):
-        for port_range, port_conf in list(port_ranges_conf.items()):
+        for port_range, port_conf in port_ranges_conf.items():
             # port range format: 1-6 OR 1-6,8-9 OR 1-3,5,7-9
             test_config_condition(not isinstance(port_conf, dict), 'Invalid syntax in port config')
             port_nums = set()
@@ -119,7 +119,7 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans):
                 start_num, end_num = [int(num) for num in range_.split('-')]
                 test_config_condition(start_num >= end_num, (
                     'Incorrect port range (%d - %d)' % (start_num, end_num)))
-                port_nums.update(list(range(start_num, end_num + 1)))
+                port_nums.update(range(start_num, end_num + 1))
                 port_range = re.sub(range_, '', port_range)
             other_nums = [int(p) for p in re.findall(r'\d+', str(port_range))]
             port_nums.update(other_nums)
@@ -127,7 +127,7 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans):
             for port_num in port_nums:
                 if port_num in port_num_to_port_conf:
                     # port range config has lower priority than individual port config
-                    for attr, value in list(port_conf.items()):
+                    for attr, value in port_conf.items():
                         port_num_to_port_conf[port_num][1].setdefault(attr, value)
                 else:
                     port_num_to_port_conf[port_num] = (port_num, port_conf)
@@ -135,7 +135,7 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans):
     port_num_to_port_conf = _map_port_num_to_port(ports_conf)
     _parse_port_ranges(port_ranges_conf, port_num_to_port_conf)
 
-    for port_num, port_conf in list(port_num_to_port_conf.values()):
+    for port_num, port_conf in port_num_to_port_conf.values():
         port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
         dp.add_port(port)
     dp.reset_refs(vlans=vlans)
@@ -149,7 +149,7 @@ def _parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
     dp_id = dp.dp_id
     vlans = {}
     vids = set()
-    for vlan_key, vlan_conf in list(vlans_conf.items()):
+    for vlan_key, vlan_conf in vlans_conf.items():
         vlan = VLAN(vlan_key, dp_id, vlan_conf)
         test_config_condition(str(vlan_key) not in (str(vlan.vid), vlan.name), (
             'VLAN %s key must match VLAN name or VLAN VID' % vlan_key))
@@ -157,13 +157,13 @@ def _parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
             'VLAN VID %u multiply configured' % vlan.vid))
         vlans[vlan_key] = vlan
         vids.add(vlan.vid)
-    for acl_key, acl_conf in list(acls_conf.items()):
+    for acl_key, acl_conf in acls_conf.items():
         acl = ACL(acl_key, dp_id, acl_conf)
         dp.add_acl(acl_key, acl)
-    for router_key, router_conf in list(routers_conf.items()):
+    for router_key, router_conf in routers_conf.items():
         router = Router(router_key, dp_id, router_conf)
         dp.add_router(router_key, router)
-    for meter_key, meter_conf in list(meters_conf.items()):
+    for meter_key, meter_conf in meters_conf.items():
         meter = Meter(meter_key, dp_id, meter_conf)
         dp.meters[meter_key] = meter
     _dp_add_ports(dp, dp_conf, dp_id, vlans)
@@ -174,7 +174,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                   routers_conf, vlans_conf):
 
     dps = [_parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
-           for dp_key, dp_conf in list(dps_conf.items())]
+           for dp_key, dp_conf in dps_conf.items()]
     for dp in dps:
         dp.finalize_config(dps)
     for dp in dps:
@@ -182,9 +182,9 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
     router_ref_dps = collections.defaultdict(set)
     for dp in dps:
-        for router in list(dp.routers.keys()):
+        for router in dp.routers.keys():
             router_ref_dps[router].add(dp)
-    for router in list(routers_conf.keys()):
+    for router in routers_conf.keys():
         test_config_condition(not router_ref_dps[router], (
             'router %s configured but not used by any DP' % router))
 
@@ -219,7 +219,7 @@ def get_config_for_api(valves):
     config = {}
     for i in V2_TOP_CONFS:
         config[i] = {}
-    for valve in list(valves.values()):
+    for valve in valves.values():
         valve_conf = valve.get_config_dict()
         for i in V2_TOP_CONFS:
             if i in valve_conf:
@@ -268,9 +268,9 @@ def _watcher_parser_v2(conf, logname, prom_client):
 
     result = []
     # pylint: disable=fixme
-    for watcher_name, watcher_conf in list(conf['watchers'].items()):
+    for watcher_name, watcher_conf in conf['watchers'].items():
         if watcher_conf.get('all_dps', False):
-            watcher_dps = list(dps.keys())
+            watcher_dps = dps.keys()
         else:
             watcher_dps = watcher_conf['dps']
         # Watcher config has a list of DPs, but actually a WatcherConf is

@@ -61,7 +61,7 @@ class Conf:
 
     def set_defaults(self):
         """Set default values and run any basic sanity checks."""
-        for key, value in list(self.defaults.items()):
+        for key, value in self.defaults.items():
             self._set_default(key, value)
 
     def _check_unknown_conf(self, conf):
@@ -73,7 +73,7 @@ class Conf:
 
     def _check_conf_types(self, conf, conf_types):
         """Check that conf value is of the correct type."""
-        for conf_key, conf_value in list(conf.items()):
+        for conf_key, conf_value in conf.items():
             test_config_condition(
                 conf_key not in conf_types, '%s field unknown in %s (known types %s)' % (
                     conf_key, self._id, conf_types))
@@ -86,7 +86,7 @@ class Conf:
 
     @staticmethod
     def _set_unknown_conf(conf, conf_types):
-        for conf_key, conf_type in list(conf_types.items()):
+        for conf_key, conf_type in conf_types.items():
             if conf_key not in conf:
                 if conf_type == list:
                     conf[conf_key] = []

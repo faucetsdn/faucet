@@ -133,9 +133,8 @@ class FaucetBgp:
     def _bgp_vlans(valves):
         bgp_vlans = set()
         if valves:
-            for valve in list(valves.values()):
-                for vlan in valve.dp.bgp_vlans():
-                    bgp_vlans.add(vlan)
+            for valve in valves.values():
+                bgp_vlans.update({vlan for vlan in valve.dp.bgp_vlans()})
         return bgp_vlans
 
     @staticmethod
@@ -144,7 +143,7 @@ class FaucetBgp:
         for faucet_vip in vlan.faucet_vips_by_ipv(ipv):
             vlan_prefixes.append((str(faucet_vip), str(faucet_vip.ip)))
         routes = vlan.routes_by_ipv(ipv)
-        for ip_dst, ip_gw in list(routes.items()):
+        for ip_dst, ip_gw in routes.items():
             vlan_prefixes.append((str(ip_dst), str(ip_gw)))
         return vlan_prefixes
 
@@ -179,7 +178,7 @@ class FaucetBgp:
 
     def shutdown_bgp_speakers(self):
         """Shutdown any active BGP speakers."""
-        for bgp_speaker in list(self._dp_bgp_speakers.values()):
+        for bgp_speaker in self._dp_bgp_speakers.values():
             bgp_speaker.shutdown()
         self._dp_bgp_speakers = {}
 
@@ -200,7 +199,7 @@ class FaucetBgp:
                     bgp_speaker = self._dp_bgp_speakers[bgp_speaker_key]
                     if bgp_speaker_key in self._dp_bgp_rib:
                         # Re-add routes (to avoid flapping BGP even when VLAN cold starts).
-                        for prefix, nexthop in list(self._dp_bgp_rib[bgp_speaker_key].items()):
+                        for prefix, nexthop in self._dp_bgp_rib[bgp_speaker_key].items():
                             self.logger.info(
                                 'Re-adding %s via %s' % (prefix, nexthop))
                             flowmods = valve.add_route(bgp_vlan, nexthop, prefix)
@@ -211,7 +210,7 @@ class FaucetBgp:
                     bgp_speaker = self._create_bgp_speaker_for_vlan(bgp_vlan, bgp_speaker_key)
                 new_dp_bgp_speakers[bgp_speaker_key] = bgp_speaker
         # TODO: shutdown and remove deconfigured BGP speakers.
-        for bgp_speaker_key, old_bgp_speaker in list(self._dp_bgp_speakers.items()):
+        for bgp_speaker_key, old_bgp_speaker in self._dp_bgp_speakers.items():
             if bgp_speaker_key not in new_dp_bgp_speakers:
                 new_dp_bgp_speakers[bgp_speaker_key] = old_bgp_speaker
         self._dp_bgp_speakers = new_dp_bgp_speakers
@@ -219,7 +218,7 @@ class FaucetBgp:
 
     def update_metrics(self, _now):
         """Update BGP metrics."""
-        for bgp_speaker_key, bgp_speaker in list(self._dp_bgp_speakers.items()):
+        for bgp_speaker_key, bgp_speaker in self._dp_bgp_speakers.items():
             dp_id = bgp_speaker_key.dp_id
             vlan_vid = bgp_speaker_key.vlan_vid
             ipv = bgp_speaker_key.ipv

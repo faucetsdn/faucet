@@ -524,7 +524,7 @@ class VLAN(Conf):
                 # Don't flood from one LACP bundle member, to another.
                 exclude_ports.update(lags[in_port.lacp])
             # Pick one up bundle member to flood to.
-            for lag, ports in list(lags.items()):
+            for lag, ports in lags.items():
                 ports_up = lags_up[lag]
                 if ports_up:
                     exclude_ports.update(ports[1:])

@@ -66,7 +66,7 @@ class Gauge(RyuAppBase):
             self.logger.error('invalid config: %s', err)
             return
 
-        for old_watchers in list(self.watchers.values()):
+        for old_watchers in self.watchers.values():
             self._stop_watchers(old_watchers)
 
         new_watchers = {}
@@ -81,7 +81,7 @@ class Gauge(RyuAppBase):
                 new_watchers[watcher_dpid][watcher_type] = []
             new_watchers[watcher_dpid][watcher_type].append(watcher)
 
-        for watcher_dpid, watchers in list(new_watchers.items()):
+        for watcher_dpid, watchers in new_watchers.items():
             ryu_dp = self.dpset.get(watcher_dpid)
             if ryu_dp:
                 self._start_watchers(ryu_dp, watchers)
@@ -111,7 +111,7 @@ class Gauge(RyuAppBase):
 
     def _start_watchers(self, ryu_dp, watchers):
         """Start watchers for DP if active."""
-        for watchers_by_name in list(watchers.values()):
+        for watchers_by_name in watchers.values():
             for i, watcher in enumerate(watchers_by_name):
                 is_active = i == 0
                 watcher.report_dp_status(1)
@@ -134,7 +134,7 @@ class Gauge(RyuAppBase):
 
     def _stop_watchers(self, watchers):
         """Stop watchers for DP."""
-        for watchers_by_name in list(watchers.values()):
+        for watchers_by_name in watchers.values():
             for watcher in watchers_by_name:
                 watcher.report_dp_status(0)
                 if watcher.is_active():

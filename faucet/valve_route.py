@@ -238,7 +238,7 @@ class ValveRouteManager:
 
     def _router_for_vlan(self, vlan):
         if self.routers:
-            for router in list(self.routers.values()):
+            for router in self.routers.values():
                 if vlan in router.vlans:
                     return router
         return None
@@ -248,7 +248,7 @@ class ValveRouteManager:
             return set([self.global_vlan])
         vlans = set([vlan])
         if self.routers:
-            for router in list(self.routers.values()):
+            for router in self.routers.values():
                 if vlan in router.vlans:
                     vlans = vlans.union(router.vlans)
         return vlans
