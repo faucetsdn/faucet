@@ -541,7 +541,9 @@ class ValveRouteManager:
     def _vlan_nexthop_cache_limit(self, vlan):
         raise NotImplementedError # pragma: no cover
 
-    def _proactive_resolve_neighbor(self, now, vlan, dst_ip):
+    def _proactive_resolve_neighbor(self, now, pkt_meta):
+        vlan = pkt_meta.vlan
+        dst_ip = pkt_meta.l3_dst
         ofmsgs = []
         if self.proactive_learn:
             router = self._router_for_vlan(vlan)
@@ -553,6 +555,9 @@ class ValveRouteManager:
                     faucet_vip.ip != dst_ip and self._stateful_gw(vlan, dst_ip)):
                 limit = self._vlan_nexthop_cache_limit(vlan)
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
+                    # TODO: avoid relearning L3 source if same L3 source tries
+                    # multiple L3 destinations quickly.
+                    ofmsgs.extend(self.add_host_fib_route_from_pkt(now, pkt_meta))
                     resolution_in_progress = dst_ip in vlan.dyn_host_gws_by_ipv[self.IPV]
                     ofmsgs.extend(self._add_host_fib_route(vlan, dst_ip, blackhole=True))
                     nexthop_cache_entry = self._update_nexthop_cache(
@@ -691,7 +696,7 @@ class ValveRouteManager:
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
-        raise NotImplementedError # pragma: no cover
+        return self._proactive_resolve_neighbor(now, pkt_meta)
 
 
 class ValveIPv4RouteManager(ValveRouteManager):
@@ -798,8 +803,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 pkt_meta, ipv4_pkt)
             if icmp_replies:
                 return icmp_replies
-        return self._proactive_resolve_neighbor(
-            now, pkt_meta.vlan, pkt_meta.l3_dst)
+        return super(ValveIPv4RouteManager, self).control_plane_handler(now, pkt_meta)
 
 
 class ValveIPv6RouteManager(ValveRouteManager):
@@ -974,8 +978,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     now, pkt_meta, ipv6_pkt)
                 if icmp_replies:
                     return icmp_replies
-        return self._proactive_resolve_neighbor(
-            now, pkt_meta.vlan, pkt_meta.l3_dst)
+        return super(ValveIPv6RouteManager, self).control_plane_handler(now, pkt_meta)
 
     def advertise(self, vlan):
         ofmsgs = []
