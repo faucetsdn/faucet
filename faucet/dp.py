@@ -466,7 +466,7 @@ configuration.
         self._set_default('description', self.name)
 
     def table_by_id(self, table_id):
-        tables = [table for table in list(self.tables.values()) if table_id == table.table_id]
+        tables = [table for table in self.tables.values() if table_id == table.table_id]
         if tables:
             return tables[0]
         return None
@@ -492,7 +492,7 @@ configuration.
     def match_tables(self, match_type):
         """Return list of tables with matches of a specific match type."""
         return [
-            table for table in list(self.tables.values())
+            table for table in self.tables.values()
             if table.match_types is None or match_type in table.match_types]
 
     def in_port_tables(self):
@@ -609,7 +609,7 @@ configuration.
                         'stack priority must be > 0'))
                     test_config_condition(root_dp is not None, 'cannot have multiple stack roots')
                     root_dp = dp
-                    for vlan in list(dp.vlans.values()):
+                    for vlan in dp.vlans.values():
                         test_config_condition(vlan.faucet_vips, (
                             'routing + stacking not supported'))
 
@@ -627,7 +627,7 @@ configuration.
                     edge_name = self.add_stack_link(graph, dp, port)
                     edge_count[edge_name] += 1
         if graph.size():
-            for edge_name, count in list(edge_count.items()):
+            for edge_name, count in edge_count.items():
                 test_config_condition(count != 2, '%s defined only in one direction' % edge_name)
             if self.name in graph:
                 if self.stack is None:
@@ -693,8 +693,8 @@ configuration.
         if vlans is None:
             vlans = self.vlans
         self.vlans = {}
-        for vlan in list(vlans.values()):
-            vlan.reset_ports(list(self.ports.values()))
+        for vlan in vlans.values():
+            vlan.reset_ports(self.ports.values())
             if vlan.get_ports():
                 self.vlans[vlan.vid] = vlan
 
@@ -704,7 +704,7 @@ configuration.
             if port_name in self.ports:
                 return self.ports[port_name]
         elif isinstance(port_name, str):
-            resolved_ports = [port for port in list(self.ports.values()) if port_name == port.name]
+            resolved_ports = [port for port in self.ports.values() if port_name == port.name]
             if resolved_ports:
                 return resolved_ports[0]
         return None
@@ -742,7 +742,7 @@ configuration.
                 test_config_condition(stack_dp not in dp_by_name, (
                     'stack DP %s not defined' % stack_dp))
                 port_stack_dp[port] = dp_by_name[stack_dp]
-            for port, dp in list(port_stack_dp.items()):
+            for port, dp in port_stack_dp.items():
                 port.stack['dp'] = dp
                 stack_port = dp.resolve_port(port.stack['port'])
                 test_config_condition(stack_port is None, (
@@ -752,7 +752,7 @@ configuration.
         def resolve_mirror_destinations():
             """Resolve mirror port references and destinations."""
             mirror_from_port = defaultdict(list)
-            for mirror_port in list(self.ports.values()):
+            for mirror_port in self.ports.values():
                 if mirror_port.mirror is not None:
                     mirrored_ports = resolve_ports(mirror_port.mirror)
                     test_config_condition(len(mirrored_ports) != len(mirror_port.mirror), (
@@ -762,7 +762,7 @@ configuration.
 
             # TODO: confusingly, mirror at config time means what ports to mirror from.
             # But internally we use as a list of ports to mirror to.
-            for mirrored_port, mirror_ports in list(mirror_from_port.items()):
+            for mirrored_port, mirror_ports in mirror_from_port.items():
                 mirrored_port.mirror = []
                 for mirror_port in mirror_ports:
                     mirrored_port.mirror.append(mirror_port.number)
@@ -770,7 +770,7 @@ configuration.
 
         def resolve_override_output_ports():
             """Resolve override output ports."""
-            for port_no, port in list(self.ports.items()):
+            for port_no, port in self.ports.items():
                 if port.override_output_port:
                     port.override_output_port = self.resolve_port(port.override_output_port)
                     test_config_condition(not port.override_output_port, (
@@ -806,7 +806,7 @@ configuration.
         def resolve_acls():
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
-            for vlan in list(self.vlans.values()):
+            for vlan in self.vlans.values():
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
@@ -814,7 +814,7 @@ configuration.
                         acls.append(self.acls[acl])
                     vlan.acls_in = acls
                     verify_acl_exact_match(acls)
-            for port in list(self.ports.values()):
+            for port in self.ports.values():
                 if port.acls_in:
                     test_config_condition(self.dp_acls, (
                         'dataplane ACLs cannot be used with port ACLs.'))
@@ -834,7 +834,7 @@ configuration.
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
             dp_routers = {}
-            for router_name, router in list(self.routers.items()):
+            for router_name, router in self.routers.items():
                 vlans = []
                 for vlan_name in router.vlans:
                     vlan = resolve_vlan(vlan_name)
@@ -862,11 +862,11 @@ configuration.
         valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
         test_config_condition(
             not valve_cl, 'hardware %s must be in %s' % (
-                self.hardware, list(SUPPORTED_HARDWARE.keys())))
+                self.hardware, SUPPORTED_HARDWARE.keys()))
 
         for dp in dps:
             dp_by_name[dp.name] = dp
-        for vlan in list(self.vlans.values()):
+        for vlan in self.vlans.values():
             vlan_by_name[vlan.name] = vlan
             if self.global_vlan:
                 test_config_condition(
@@ -895,13 +895,13 @@ configuration.
                     bgp_vlans[0].bgp_server_addresses), (
                         'BGP server addresses must all be the same'))
 
-        for port in list(self.ports.values()):
+        for port in self.ports.values():
             port.finalize()
-        for vlan in list(self.vlans.values()):
+        for vlan in self.vlans.values():
             vlan.finalize()
-        for acl in list(self.acls.values()):
+        for acl in self.acls.values():
             acl.finalize()
-        for router in list(self.routers.values()):
+        for router in self.routers.values():
             router.finalize()
         self.finalize()
 
@@ -914,11 +914,11 @@ configuration.
 
     def bgp_vlans(self):
         """Return list of VLANs with BGP enabled."""
-        return tuple([vlan for vlan in list(self.vlans.values()) if vlan.bgp_as])
+        return tuple([vlan for vlan in self.vlans.values() if vlan.bgp_as])
 
     def dot1x_ports(self):
         """Return list of ports with 802.1x enabled."""
-        return tuple([port for port in list(self.ports.values()) if port.dot1x])
+        return tuple([port for port in self.ports.values() if port.dot1x])
 
     def to_conf(self):
         """Return DP config as dict."""
@@ -930,20 +930,20 @@ configuration.
                         'root_dp': str(self.stack['root_dp'])
                     }
             result['interfaces'] = {
-                port.name: port.to_conf() for port in list(self.ports.values())}
+                port.name: port.to_conf() for port in self.ports.values()}
         return result
 
     def get_tables(self):
         """Return tables as dict for API call."""
         return {
-            table_name: table.table_id for table_name, table in list(self.tables.items())}
+            table_name: table.table_id for table_name, table in self.tables.items()}
 
     def get_config_dict(self):
         """Return DP config as a dict for API call."""
         return {
             'dps': {self.name: self.to_conf()},
-            'vlans': {vlan.name: vlan.to_conf() for vlan in list(self.vlans.values())},
-            'acls': {acl_id: acl.to_conf() for acl_id, acl in list(self.acls.items())}}
+            'vlans': {vlan.name: vlan.to_conf() for vlan in self.vlans.values()},
+            'acls': {acl_id: acl.to_conf() for acl_id, acl in self.acls.items()}}
 
     def _get_acl_config_changes(self, logger, new_dp):
         """Detect any config changes to ACLs.
@@ -955,7 +955,7 @@ configuration.
             changed_acls (dict): ACL ID map to new/changed ACLs.
         """
         changed_acls = {}
-        for acl_id, new_acl in list(new_dp.acls.items()):
+        for acl_id, new_acl in new_dp.acls.items():
             if acl_id not in self.acls:
                 changed_acls[acl_id] = new_acl
                 logger.info('ACL %s new' % acl_id)
@@ -982,7 +982,7 @@ configuration.
         deleted_vlans = curr_vlans - new_vlans
 
         changed_vlans = set([])
-        for vid, new_vlan in list(new_dp.vlans.items()):
+        for vid, new_vlan in new_dp.vlans.items():
             if vid not in self.vlans:
                 changed_vlans.add(vid)
                 logger.info('VLAN %s added' % vid)
@@ -1024,7 +1024,7 @@ configuration.
         changed_ports = set([])
         changed_acl_ports = set([])
 
-        for port_no, new_port in list(new_dp.ports.items()):
+        for port_no, new_port in new_dp.ports.items():
             if port_no not in self.ports:
                 # Detected a newly configured port
                 changed_ports.add(port_no)
@@ -1093,7 +1093,7 @@ configuration.
         """
         def _table_configs(dp):
             return frozenset([
-                table.table_config for table in list(dp.tables.values())])
+                table.table_config for table in dp.tables.values()])
 
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
