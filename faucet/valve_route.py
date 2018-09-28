@@ -220,15 +220,15 @@ class ValveRouteManager:
         del nexthop_cache[ip_gw]
 
     def _nexthop_actions(self, eth_dst, vlan):
-        ofmsgs = []
+        actions = []
         if self.routers:
-            ofmsgs.append(self.fib_table.set_vlan_vid(vlan.vid))
-        ofmsgs.extend([
+            actions.append(self.fib_table.set_vlan_vid(vlan.vid))
+        actions.extend([
             self.fib_table.set_field(eth_src=vlan.faucet_mac),
             self.fib_table.set_field(eth_dst=eth_dst)])
         if self.dec_ttl:
-            ofmsgs.append(valve_of.dec_ip_ttl())
-        return ofmsgs
+            actions.append(valve_of.dec_ip_ttl())
+        return actions
 
     def _route_match(self, vlan, ip_dst):
         return self.fib_table.match(vlan=vlan, eth_type=self.ETH_TYPE, nw_dst=ip_dst)
