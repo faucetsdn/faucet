@@ -88,7 +88,6 @@ class ValveRouteManager:
         'active',
         'neighbor_timeout',
         'dec_ttl',
-        'output_table',
         'fib_table',
         'pipeline',
         'multi_out',
@@ -115,9 +114,7 @@ class ValveRouteManager:
     def __init__(self, logger, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl, multi_out,
-                 fib_table, vip_table, output_table,
-                 pipeline,
-                 route_priority, routers):
+                 fib_table, vip_table, pipeline, route_priority, routers):
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
         self.neighbor_timeout = neighbor_timeout
@@ -129,7 +126,6 @@ class ValveRouteManager:
         self.multi_out = multi_out
         self.fib_table = fib_table
         self.vip_table = vip_table
-        self.output_table = output_table
         self.pipeline = pipeline
         self.route_priority = route_priority
         self.routers = routers
@@ -165,9 +161,8 @@ class ValveRouteManager:
             port, vlan.faucet_mac, eth_dst, faucet_vip.ip, ip_gw)
 
     def _controller_and_flood(self):
-        return [
-            valve_of.apply_actions([valve_of.output_controller(max_len=self.ICMP_SIZE)]),
-            self.vip_table.goto(self.output_table)]
+        return self.pipeline.accept_to_l2_forwarding(
+            actions=[valve_of.output_controller(max_len=self.ICMP_SIZE)])
 
     def _resolve_vip_response(self, pkt_meta, solicited_ip, now):
         ofmsgs = []
@@ -349,8 +344,8 @@ class ValveRouteManager:
             self.logger.info(
                 'Adding new route %s via %s (%s) on VLAN %u' % (
                     ip_dst, ip_gw, eth_dst, vlan.vid))
-        inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst, vlan)),
-                self.fib_table.goto(self.output_table)]
+        inst = self.pipeline.accept_to_l2_forwarding(
+            actions=self._nexthop_actions(eth_dst, vlan))
         routed_vlans = self._routed_vlans(vlan)
         for routed_vlan in routed_vlans:
             in_match = self._route_match(routed_vlan, ip_dst)
@@ -754,7 +749,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
             self.vip_table.match(
                 eth_type=valve_of.ether.ETH_TYPE_ARP),
             priority=priority,
-            inst=[self.vip_table.goto(self.output_table)]))
+            inst=self.pipeline.accept_to_l2_forwarding()))
         return ofmsgs
 
     def _control_plane_arp_handler(self, now, pkt_meta):

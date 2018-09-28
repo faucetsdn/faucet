@@ -21,6 +21,19 @@ class ValvePipeline:
         self.filter_priority = dp.highest_priority + 1
         self.select_priority = dp.highest_priority
 
+    def accept_to_l2_forwarding(self, actions=None):
+        """Get instructions to forward packet through the pipeline to l2
+        forwarding.
+        args:
+            actions: (optional) list of actions to apply to packet.
+        returns:
+            list of instructions
+        """
+        inst = [self.output_table.goto_this()]
+        if actions is not None:
+            inst.append(valve_of.apply_actions(actions))
+        return inst
+
     # pylint: disable=W0613
     def filter_packets(self, target_table, match_dict):
         """get a list of flow modification messages to filter packets from
