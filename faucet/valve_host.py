@@ -278,12 +278,16 @@ class ValveHostManager:
          src_rule_hard_timeout,
          dst_rule_idle_timeout) = self.learn_host_timeouts(port)
 
+        if (entry is not None and entry.idle_timeout is not None and
+                entry.idle_timeout == dst_rule_idle_timeout):
+            dst_rule_idle_timeout += 1
+
         ofmsgs.extend(self.learn_host_on_vlan_port_flows(
             port, vlan, eth_src, delete_existing, refresh_rules,
             src_rule_idle_timeout, src_rule_hard_timeout,
             dst_rule_idle_timeout))
 
-        vlan.add_cache_host(eth_src, port, now)
+        vlan.add_cache_host(eth_src, port, now, idle_timeout=dst_rule_idle_timeout)
         return (ofmsgs, cache_port)
 
     def flow_timeout(self, _now, _table_id, _match):
