@@ -326,8 +326,10 @@ configuration.
         test_config_condition(not (self.interfaces or self.interface_ranges), (
             'DP %s must have at least one interface' % self))
         # To prevent L2 learning from timing out before L3 can refresh
-        test_config_condition(self.timeout < self.arp_neighbor_timeout, (
-            'L2 timeout must be >= ARP timeout'))
+        test_config_condition(not (self.arp_neighbor_timeout < (self.timeout / 2)), (
+            'L2 timeout must be > ARP timeout * 2'))
+        test_config_condition(not (self.nd_neighbor_timeout < (self.timeout / 2)), (
+            'L2 timeout must be > ARP timeout * 2'))
         if self.cache_update_guard_time == 0:
             self.cache_update_guard_time = int(self.timeout / 2)
         if self.learn_jitter == 0:
