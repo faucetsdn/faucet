@@ -68,7 +68,7 @@ configuration.
         # description, strictly informational
         'hardware': 'Open vSwitch',
         # The hardware maker (for chosing an openflow driver)
-        'arp_neighbor_timeout': 250,
+        'arp_neighbor_timeout': 30,
         # ARP neighbor timeout (seconds)
         'nd_neighbor_timeout': 30,
         # IPv6 ND neighbor timeout (seconds)
