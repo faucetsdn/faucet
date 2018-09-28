@@ -1890,7 +1890,8 @@ vlans:
 
     CONFIG = """
         timeout: 10
-        arp_neighbor_timeout: 10
+        arp_neighbor_timeout: 4
+        nd_neighbor_timeout: 4
         ignore_learn_ins: 0
         learn_jitter: 0
         interfaces:
