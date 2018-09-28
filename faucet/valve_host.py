@@ -26,18 +26,18 @@ from faucet.faucet_metadata import get_egress_metadata
 class ValveHostManager:
     """Manage host learning on VLANs."""
 
-    def __init__(self, logger, ports, vlans, classification_table,
-                 eth_src_table, eth_dst_table, eth_dst_hairpin_table,
-                 egress_table, learn_timeout, learn_jitter, learn_ban_timeout,
-                 low_priority, host_priority, cache_update_guard_time):
+    def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
+                 eth_dst_hairpin_table, egress_table, pipeline, learn_timeout,
+                 learn_jitter, learn_ban_timeout, low_priority, host_priority,
+                 cache_update_guard_time):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
-        self.classification_table = classification_table
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
         self.eth_dst_hairpin_table = eth_dst_hairpin_table
         self.egress_table = egress_table
+        self.pipeline = pipeline
         self.learn_timeout = learn_timeout
         self.learn_jitter = learn_jitter
         self.learn_ban_timeout = learn_ban_timeout
@@ -149,21 +149,9 @@ class ValveHostManager:
         """Return flows that implement learning a host on a port."""
         ofmsgs = []
 
-        if port.permanent_learn:
-            # Antispoofing rule for this MAC.
-            if self.classification_table != self.eth_src_table:
-                ofmsgs.append(self.classification_table.flowmod(
-                    self.classification_table.match(
-                        in_port=port.number, vlan=vlan, eth_src=eth_src),
-                    priority=self.host_priority,
-                    inst=[self.classification_table.goto(self.eth_src_table)]))
-            ofmsgs.append(self.classification_table.flowdrop(
-                self.classification_table.match(vlan=vlan, eth_src=eth_src),
-                priority=(self.host_priority - 2)))
-        else:
-            # Delete any existing entries for MAC.
-            if delete_existing:
-                ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
+        # Delete any existing entries for MAC.
+        if delete_existing:
+            ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         # Associate this MAC with source port.
         src_match = self.eth_src_table.match(
@@ -233,6 +221,12 @@ class ValveHostManager:
                     (vlan.dyn_last_time_hosts_expired is None or
                      vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
                 delete_existing = False
+        elif entry.port.permanent_learn:
+            if entry.port != port:
+                ofmsgs.extend(self.pipeline.filter_packets(
+                    self.eth_src_table,
+                    {'eth_src': eth_src, 'in_port': port.number}))
+            return (ofmsgs, entry.port)
         else:
             cache_age = now - entry.cache_time
             cache_port = entry.port

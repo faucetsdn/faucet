@@ -31,6 +31,7 @@ from faucet import valve_packet
 from faucet import valve_route
 from faucet import valve_table
 from faucet import valve_util
+from faucet import valve_pipeline
 
 from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
@@ -80,6 +81,7 @@ class Valve:
         'dp',
         'flood_manager',
         'host_manager',
+        'pipeline',
         'logger',
         'logname',
         'metrics',
@@ -157,6 +159,7 @@ class Valve:
 
         self.dp.reset_refs()
 
+        self.pipeline = valve_pipeline.ValvePipeline(self.dp)
         classification_table = self.dp.classification_table()
         for vlan_vid in self.dp.vlans.keys():
             self._port_highwater[vlan_vid] = {}
@@ -179,7 +182,8 @@ class Valve:
                 self.DEC_TTL,
                 self.dp.multi_out,
                 fib_table, self.dp.tables['vip'],
-                classification_table, self.dp.output_table(),
+                self.dp.output_table(),
+                self.pipeline,
                 self.dp.highest_priority, self.dp.routers)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
             for vlan in self.dp.vlans.values():
@@ -210,12 +214,11 @@ class Valve:
             host_manager_cl = valve_host.ValveHostFlowRemovedManager
         self.host_manager = host_manager_cl(
             self.logger, self.dp.ports,
-            self.dp.vlans, classification_table,
-            self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
-            eth_dst_hairpin_table, egress_table, self.dp.timeout,
-            self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.low_priority, self.dp.highest_priority,
-            self.dp.cache_update_guard_time)
+            self.dp.vlans, self.dp.tables['eth_src'],
+            self.dp.tables['eth_dst'], eth_dst_hairpin_table, egress_table,
+            self.pipeline, self.dp.timeout, self.dp.learn_jitter,
+            self.dp.learn_ban_timeout, self.dp.low_priority,
+            self.dp.highest_priority, self.dp.cache_update_guard_time)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
