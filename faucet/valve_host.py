@@ -245,7 +245,7 @@ class ValveHostManager:
             if cache_age < self.cache_update_guard_time:
                 return (ofmsgs, cache_port)
             # skip delete if host didn't change ports or on same LAG.
-            delete_existing = False
+            # delete_existing = False
             refresh_rules = True
 
         if port.loop_protect:
