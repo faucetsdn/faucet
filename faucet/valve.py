@@ -160,7 +160,6 @@ class Valve:
         self.dp.reset_refs()
 
         self.pipeline = valve_pipeline.ValvePipeline(self.dp)
-        classification_table = self.dp.classification_table()
         for vlan_vid in self.dp.vlans.keys():
             self._port_highwater[vlan_vid] = {}
             for port_number in self.dp.ports.keys():
