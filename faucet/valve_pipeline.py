@@ -74,6 +74,28 @@ class ValvePipeline:
             instructions.append(valve_of.apply_actions(vlan.output_port(port)))
         return instructions
 
+    def initialise_tables(self):
+        """Install rules to initialise the classification_table"""
+        ofmsgs = []
+        # drop broadcast sources
+        if self.dp.drop_broadcast_source_address:
+            ofmsgs.extend(self.filter_packets(
+                self.classification_table,
+                {'eth_src': valve_of.mac.BROADCAST_STR}
+                ))
+
+        ofmsgs.extend(self.filter_packets(
+            self.classification_table, {'eth_type': valve_of.ECTP_ETH_TYPE}))
+
+        # antispoof for FAUCET's MAC address
+        # TODO: antispoof for controller IPs on this VLAN, too.
+        if self.dp.drop_spoofed_faucet_mac:
+            for vlan in list(self.dp.vlans.values()):
+                ofmsgs.extend(self.filter_packets(
+                    self.classification_table, {'eth_src': vlan.faucet_mac}))
+
+        return ofmsgs
+
     def filter_packets(self, _target_table, match_dict):
         """get a list of flow modification messages to filter packets from
         the pipeline.
