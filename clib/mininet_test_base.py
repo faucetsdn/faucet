@@ -2136,7 +2136,7 @@ dbs:
         return (nw_dst_match, table_id)
 
     def wait_for_route_as_flow(self, nexthop, prefix,
-                               vlan_vid=None, timeout=10,
+                               vlan_vid=None, timeout=30,
                                nonzero_packets=False):
         """Verify a route has been added as a flow."""
         nw_dst_match, table_id = self.match_table(prefix)
