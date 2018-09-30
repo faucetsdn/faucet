@@ -1894,6 +1894,7 @@ vlans:
         nd_neighbor_timeout: 4
         ignore_learn_ins: 0
         learn_jitter: 0
+        cache_update_guard_time: 1
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1967,17 +1968,54 @@ vlans:
         # make sure at least one host still learned
         learned_macs = self.hosts_learned(all_learned_mac_ports)
         self.assertTrue(learned_macs)
+        before_expiry_learned_macs = learned_macs
 
         # make sure they all eventually expire
-        for _ in range(self.TIMEOUT * 2):
+        for _ in range(self.TIMEOUT * 3):
             learned_macs = self.hosts_learned(all_learned_mac_ports)
             self.verify_learn_counters(
                 100, list(range(1, len(self.net.hosts) + 1)))
             if not learned_macs:
-                return
+                break
             time.sleep(1)
 
-        self.fail('MACs did not expire: %s' % learned_macs)
+        self.assertFalse(learned_macs, msg='MACs did not expire: %s' % learned_macs)
+
+        self.assertTrue(before_expiry_learned_macs)
+        for mac in before_expiry_learned_macs:
+            self.assertFalse(
+                self.get_matching_flow(
+                    match={'eth_dst': mac}, table_id=self._ETH_DST_TABLE))
+
+
+class FaucetSingleHostsNoIdleTimeoutPrometheusTest(FaucetSingleHostsTimeoutPrometheusTest):
+
+    """Test broken reset idle timer on flow refresh workaround."""
+
+    CONFIG = """
+        timeout: 10
+        arp_neighbor_timeout: 4
+        nd_neighbor_timeout: 4
+        ignore_learn_ins: 0
+        learn_jitter: 0
+        cache_update_guard_time: 1
+        idle_dst: False
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+
 
 
 class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):

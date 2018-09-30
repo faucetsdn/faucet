@@ -30,7 +30,7 @@ class ValveHostManager(ValveManagerBase):
     def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
                  eth_dst_hairpin_table, pipeline, learn_timeout,
                  learn_jitter, learn_ban_timeout, low_priority, host_priority,
-                 cache_update_guard_time):
+                 cache_update_guard_time, idle_dst):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
@@ -45,6 +45,7 @@ class ValveHostManager(ValveManagerBase):
         self.host_priority = host_priority
         self.cache_update_guard_time = cache_update_guard_time
         self.output_table = self.eth_dst_table
+        self.idle_dst = idle_dst
         if self.eth_dst_hairpin_table:
             self.output_table = self.eth_dst_hairpin_table
 
@@ -146,6 +147,8 @@ class ValveHostManager(ValveManagerBase):
         src_rule_idle_timeout = 0
         src_rule_hard_timeout = learn_timeout
         dst_rule_idle_timeout = learn_timeout + self.cache_update_guard_time
+        if not self.idle_dst:
+            dst_rule_idle_timeout = 0
         return (src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout)
 
     def learn_host_on_vlan_port_flows(self, port, vlan, eth_src,

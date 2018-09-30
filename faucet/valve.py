@@ -210,7 +210,7 @@ class Valve:
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.low_priority, self.dp.highest_priority,
-            self.dp.cache_update_guard_time)
+            self.dp.cache_update_guard_time, self.dp.idle_dst)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
@@ -1343,6 +1343,9 @@ class Valve:
         if self.dp.dyn_running:
             for vlan in self.dp.vlans.values():
                 expired_hosts = self.host_manager.expire_hosts_from_vlan(vlan, now)
+                if not self.dp.idle_dst:
+                    for entry in expired_hosts:
+                         ofmsgs.extend(self.host_manager.delete_host_from_vlan(entry.eth_src, vlan))
                 for entry in expired_hosts:
                     self._notify(
                         {'L2_EXPIRE': {
