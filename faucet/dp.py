@@ -142,6 +142,8 @@ configuration.
         # Apply strict packet in checking to all packet ins.
         'multi_out': True,
         # Have OFA copy packet outs to multiple ports.
+        'idle_dst': True,
+        # Use switch-based idle timeouts for dst rules.
         }
 
     defaults_types = {
@@ -193,6 +195,7 @@ configuration.
         'strict_packet_in_cookie': bool,
         'multi_out': bool,
         'lacp_timeout': int,
+        'idle_dst': bool,
     }
 
     default_table_sizes_types = {
