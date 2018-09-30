@@ -4,7 +4,7 @@
 # TODO: until 3.6 safe, force 3.5
 PYV="3.5"
 FAUCETHOME=`dirname $0`"/../.."
-TMPDIR=`mktemp -d`
+TMPDIR=`mktemp -d -p /var/tmp`
 CONFIG="$FAUCETHOME/setup.cfg"
 PARARGS="parallel --delay 1 --bar"
 PYTYPE=`which pytype`
