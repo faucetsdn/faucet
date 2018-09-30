@@ -298,7 +298,6 @@ configuration.
         self.use_classification = None
         self.strict_packet_in_cookie = None
         self.multi_out = None
-        self.idle_dst = None
 
         self.acls = {}
         self.vlans = {}
