@@ -160,7 +160,6 @@ class Valve:
         self.dp.reset_refs()
 
         self.pipeline = valve_pipeline.ValvePipeline(self.dp)
-        classification_table = self.dp.classification_table()
         for vlan_vid in self.dp.vlans.keys():
             self._port_highwater[vlan_vid] = {}
             for port_number in self.dp.ports.keys():
@@ -208,14 +207,26 @@ class Valve:
         self.host_manager = host_manager_cl(
             self.logger, self.dp.ports,
             self.dp.vlans, self.dp.tables['eth_src'],
-            self.dp.tables['eth_dst'], eth_dst_hairpin_table, egress_table,
-            self.pipeline, self.dp.timeout, self.dp.learn_jitter,
-            self.dp.learn_ban_timeout, self.dp.low_priority,
-            self.dp.highest_priority, self.dp.cache_update_guard_time)
+            self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
+            self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
+            self.dp.low_priority, self.dp.highest_priority,
+            self.dp.cache_update_guard_time)
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
             self.logger.info('table ID %u %s' % (table_id, table_config))
+
+    def _get_managers(self):
+        managers = (
+            self.pipeline,
+            self.host_manager,
+            self._route_manager_by_ipv.get(4),
+            self._route_manager_by_ipv.get(6),
+            self.flood_manager
+            )
+        for manager in managers:
+            if manager is not None:
+                yield manager
 
     def _notify(self, event_dict):
         """Send an event notification."""
@@ -281,9 +292,6 @@ class Valve:
 
     def _add_default_drop_flows(self):
         """Add default drop rules on all FAUCET tables."""
-        classification_table = self.dp.classification_table()
-        flood_table = self.dp.tables['flood']
-
         ofmsgs = []
         for table in self.dp.tables.values():
             miss_table_name = table.table_config.miss_goto
@@ -295,35 +303,6 @@ class Valve:
             else:
                 ofmsgs.append(table.flowdrop(
                     priority=self.dp.lowest_priority))
-
-        # drop broadcast sources
-        if self.dp.drop_broadcast_source_address:
-            ofmsgs.append(classification_table.flowdrop(
-                classification_table.match(eth_src=valve_of.mac.BROADCAST_STR),
-                priority=self.dp.highest_priority))
-
-        ofmsgs.append(classification_table.flowdrop(
-            classification_table.match(eth_type=valve_of.ECTP_ETH_TYPE),
-            priority=self.dp.highest_priority))
-
-        # antispoof for FAUCET's MAC address
-        # TODO: antispoof for controller IPs on this VLAN, too.
-        if self.dp.drop_spoofed_faucet_mac:
-            for vlan in self.dp.vlans.values():
-                ofmsgs.append(classification_table.flowdrop(
-                    classification_table.match(eth_src=vlan.faucet_mac),
-                    priority=self.dp.high_priority))
-
-        ofmsgs.append(flood_table.flowdrop(
-            flood_table.match(
-                eth_dst=valve_packet.CISCO_SPANNING_GROUP_ADDRESS),
-            priority=self.dp.highest_priority))
-        ofmsgs.append(flood_table.flowdrop(
-            flood_table.match(
-                eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
-                eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
-            priority=self.dp.highest_priority))
-
         return ofmsgs
 
     def _vlan_add_acl(self, vlan):
@@ -379,19 +358,8 @@ class Valve:
         self.logger.info('Configuring %s' % vlan)
         # add ACL rules
         ofmsgs.extend(self._vlan_add_acl(vlan))
-        # add controller IPs if configured.
-        for ipv in vlan.ipvs():
-            route_manager = self._route_manager_by_ipv[ipv]
-            ofmsgs.extend(self._add_faucet_vips(
-                route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
-        # install eth_dst_table flood ofmsgs
-        ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
-        # add learn rule for this VLAN.
-        eth_src_table = self.dp.tables['eth_src']
-        ofmsgs.append(eth_src_table.flowcontroller(
-            eth_src_table.match(vlan=vlan),
-            priority=self.dp.low_priority,
-            inst=[eth_src_table.goto(self.dp.output_table())]))
+        for manager in self._get_managers():
+            ofmsgs.extend(manager.add_vlan(vlan))
         return ofmsgs
 
     def _del_vlan(self, vlan):
@@ -640,6 +608,8 @@ class Valve:
                 'reason': 'cold_start'}})
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
+        for manager in self._get_managers():
+            ofmsgs.extend(manager.initialise_tables())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_ports))
         ofmsgs.append(
             valve_of.faucet_async(
@@ -1505,13 +1475,6 @@ class Valve:
         else:
             ofmsgs = []
         self._notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
-        return ofmsgs
-
-    @staticmethod
-    def _add_faucet_vips(route_manager, vlan, faucet_vips):
-        ofmsgs = []
-        for faucet_vip in faucet_vips:
-            ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
         return ofmsgs
 
     def add_authed_mac(self, port_num, mac):

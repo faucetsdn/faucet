@@ -19,9 +19,10 @@
 
 from faucet import valve_of
 from faucet import valve_packet
+from faucet.valve_manager_base import ValveManagerBase
 
 
-class ValveFloodManager:
+class ValveFloodManager(ValveManagerBase):
     """Implement dataplane based flooding for standalone dataplanes."""
 
     # Enumerate possible eth_dst flood destinations.
@@ -66,6 +67,21 @@ class ValveFloodManager:
             vlan.untagged_flood_ports(exclude_unicast),
             in_port=in_port,
             exclude_ports=exclude_ports)
+
+    def initialise_tables(self):
+        """initialise the flood table with filtering flows"""
+        ofmsgs = []
+        ofmsgs.append(self.flood_table.flowdrop(
+            self.flood_table.match(
+                eth_dst=valve_packet.CISCO_SPANNING_GROUP_ADDRESS),
+            priority=self.bypass_priority))
+        ofmsgs.append(self.flood_table.flowdrop(
+            self.flood_table.match(
+                eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
+                eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
+            priority=self.bypass_priority))
+        return ofmsgs
+
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
         return self._build_flood_local_rule_actions(
@@ -186,6 +202,9 @@ class ValveFloodManager:
                 priority=flood_priority))
             flood_priority += 1
         return ofmsgs
+
+    def add_vlan(self, vlan):
+        return self.build_flood_rules(vlan)
 
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
