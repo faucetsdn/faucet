@@ -19,9 +19,10 @@
 
 from faucet import valve_of
 from faucet import valve_packet
+from faucet.valve_manager_base import ValveManagerBase
 
 
-class ValveFloodManager:
+class ValveFloodManager(ValveManagerBase):
     """Implement dataplane based flooding for standalone dataplanes."""
 
     # Enumerate possible eth_dst flood destinations.

@@ -26,6 +26,7 @@ from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 
 from faucet import valve_of
 from faucet import valve_packet
+from faucet.valve_manager_base import ValveManagerBase
 
 
 class AnonVLAN:
@@ -81,7 +82,7 @@ class NextHop:
         return False
 
 
-class ValveRouteManager:
+class ValveRouteManager(ValveManagerBase):
     """Base class to implement RIB/FIB."""
 
     __slots__ = [

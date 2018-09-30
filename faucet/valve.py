@@ -216,6 +216,18 @@ class Valve:
         for table_id, table_config in table_configs:
             self.logger.info('table ID %u %s' % (table_id, table_config))
 
+    def _get_managers(self):
+        managers = (
+            self.pipeline,
+            self.host_manager,
+            self._route_manager_by_ipv.get(4),
+            self._route_manager_by_ipv.get(6),
+            self.flood_manager
+            )
+        for manager in managers:
+            if manager is not None:
+                yield manager
+
     def _notify(self, event_dict):
         """Send an event notification."""
         self.notifier.notify(self.dp.dp_id, self.dp.name, event_dict)
@@ -291,10 +303,6 @@ class Valve:
             else:
                 ofmsgs.append(table.flowdrop(
                     priority=self.dp.lowest_priority))
-
-        ofmsgs.extend(self.pipeline.initialise_tables())
-        ofmsgs.extend(self.flood_manager.initialise_tables())
-
         return ofmsgs
 
     def _vlan_add_acl(self, vlan):
@@ -357,12 +365,6 @@ class Valve:
                 route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
         # install eth_dst_table flood ofmsgs
         ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
-        # add learn rule for this VLAN.
-        eth_src_table = self.dp.tables['eth_src']
-        ofmsgs.append(eth_src_table.flowcontroller(
-            eth_src_table.match(vlan=vlan),
-            priority=self.dp.low_priority,
-            inst=[eth_src_table.goto(self.dp.output_table())]))
         return ofmsgs
 
     def _del_vlan(self, vlan):
@@ -611,6 +613,8 @@ class Valve:
                 'reason': 'cold_start'}})
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
+        for manager in self._get_managers():
+            ofmsgs.extend(manager.initialise_tables())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_ports))
         ofmsgs.append(
             valve_of.faucet_async(

@@ -19,9 +19,9 @@
 
 import faucet.faucet_metadata as faucet_md
 from faucet import valve_of
+from faucet.valve_manager_base import ValveManagerBase
 
-
-class ValvePipeline:
+class ValvePipeline(ValveManagerBase):
     """Responsible for maintaing the integrity of the Faucet pipeline for a
     single valve.
 
