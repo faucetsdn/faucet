@@ -333,7 +333,7 @@ configuration.
         test_config_condition(not (self.arp_neighbor_timeout < (self.timeout / 2)), (
             'L2 timeout must be > ARP timeout * 2'))
         test_config_condition(not (self.nd_neighbor_timeout < (self.timeout / 2)), (
-            'L2 timeout must be > ARP timeout * 2'))
+            'L2 timeout must be > ND timeout * 2'))
         if self.cache_update_guard_time == 0:
             self.cache_update_guard_time = int(self.timeout / 2)
         if self.learn_jitter == 0:
