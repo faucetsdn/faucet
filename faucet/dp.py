@@ -142,6 +142,8 @@ configuration.
         # Apply strict packet in checking to all packet ins.
         'multi_out': True,
         # Have OFA copy packet outs to multiple ports.
+        'idle_dst': True,
+        # If False, workaround for flow idle timer not reset on flow refresh.
         }
 
     defaults_types = {
@@ -193,6 +195,7 @@ configuration.
         'strict_packet_in_cookie': bool,
         'multi_out': bool,
         'lacp_timeout': int,
+        'idle_dst': bool,
     }
 
     default_table_sizes_types = {
@@ -295,6 +298,7 @@ configuration.
         self.use_classification = None
         self.strict_packet_in_cookie = None
         self.multi_out = None
+        self.idle_dst = None
 
         self.acls = {}
         self.vlans = {}
@@ -329,7 +333,7 @@ configuration.
         test_config_condition(not (self.arp_neighbor_timeout < (self.timeout / 2)), (
             'L2 timeout must be > ARP timeout * 2'))
         test_config_condition(not (self.nd_neighbor_timeout < (self.timeout / 2)), (
-            'L2 timeout must be > ARP timeout * 2'))
+            'L2 timeout must be > ND timeout * 2'))
         if self.cache_update_guard_time == 0:
             self.cache_update_guard_time = int(self.timeout / 2)
         if self.learn_jitter == 0:
