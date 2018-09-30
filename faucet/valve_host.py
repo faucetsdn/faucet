@@ -88,7 +88,6 @@ class ValveHostManager(ValveManagerBase):
 
     def initialise_tables(self):
         ofmsgs = []
-        # add learn rule for this VLAN.
         ofmsgs.append(self.eth_src_table.flowcontroller(
             priority=self.low_priority,
             inst=[self.eth_src_table.goto(self.output_table)]))
