@@ -323,15 +323,17 @@ class ValveRouteManager(ValveManagerBase):
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         raise NotImplementedError # pragma: no cover
 
-    def add_faucet_vip(self, vlan, faucet_vip):
+    def add_vlan(self, vlan):
         ofmsgs = []
-        max_prefixlen = faucet_vip.ip.max_prefixlen
-        faucet_vip_host = self._host_from_faucet_vip(faucet_vip)
-        priority = self.route_priority + max_prefixlen
-        ofmsgs.extend(self._add_faucet_vip_nd(
-            vlan, priority, faucet_vip, faucet_vip_host))
-        ofmsgs.extend(self._add_faucet_fib_to_vip(
-            vlan, priority, faucet_vip, faucet_vip_host))
+        # add controller IPs if configured.
+        for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
+            max_prefixlen = faucet_vip.ip.max_prefixlen
+            faucet_vip_host = self._host_from_faucet_vip(faucet_vip)
+            priority = self.route_priority + max_prefixlen
+            ofmsgs.extend(self._add_faucet_vip_nd(
+                vlan, priority, faucet_vip, faucet_vip_host))
+            ofmsgs.extend(self._add_faucet_fib_to_vip(
+                vlan, priority, faucet_vip, faucet_vip_host))
         return ofmsgs
 
     def _add_resolved_route(self, vlan, ip_gw, ip_dst, eth_dst, is_updated):
