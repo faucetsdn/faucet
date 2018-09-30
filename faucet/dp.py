@@ -329,6 +329,7 @@ configuration.
             'invalid MAC address %s' % self.faucet_dp_mac))
         test_config_condition(not (self.interfaces or self.interface_ranges), (
             'DP %s must have at least one interface' % self))
+        test_config_condition(self.timeout < 15, ('timeout must be > 15'))
         # To prevent L2 learning from timing out before L3 can refresh
         test_config_condition(not (self.arp_neighbor_timeout < (self.timeout / 2)), (
             'L2 timeout must be > ARP timeout * 2'))

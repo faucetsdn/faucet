@@ -1881,7 +1881,7 @@ class FaucetSingleHostsTimeoutPrometheusTest(FaucetUntaggedTest):
        If the maximum number of MACs at any one time is 5, then only 5 values
        should be exported, even if over 2 hours, there are 100 MACs learnt
     """
-    TIMEOUT = 10
+    TIMEOUT = 15
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -1889,7 +1889,7 @@ vlans:
 """
 
     CONFIG = """
-        timeout: 10
+        timeout: 15
         arp_neighbor_timeout: 4
         nd_neighbor_timeout: 4
         ignore_learn_ins: 0
@@ -1993,7 +1993,7 @@ class FaucetSingleHostsNoIdleTimeoutPrometheusTest(FaucetSingleHostsTimeoutProme
     """Test broken reset idle timer on flow refresh workaround."""
 
     CONFIG = """
-        timeout: 10
+        timeout: 15
         arp_neighbor_timeout: 4
         nd_neighbor_timeout: 4
         ignore_learn_ins: 0
