@@ -83,6 +83,7 @@ RADIUS_REPLY_GENERATOR = radius_replies()
 def do_nothing(chewie):  # pylint: disable=unused-argument
     pass
 
+
 def eap_receive(chewie):  # pylint: disable=unused-argument
     return FROM_SUPPLICANT.get()
 
@@ -155,13 +156,12 @@ class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
     @patch('faucet.faucet_dot1x.chewie.Chewie.open_socket', do_nothing)
     @patch('faucet.faucet_dot1x.chewie.Chewie.get_interface_info', do_nothing)
     @patch('faucet.faucet_dot1x.chewie.Chewie.join_multicast_group', do_nothing)
-
     def test_success_dot1x(self):
         """Test success api"""
-        self.dot1x.reset(valves=self.valves_manager.valves)
 
         FROM_SUPPLICANT.put(build_byte_string("0000000000010242ac17006f888e01010000"))
         time.sleep(5)
+        # TODO replace this find string. maybe just search for ERRORs?
         with open('%s/faucet.log' % self.tmpdir, 'r') as log:
             for l in log.readlines():
                 print(l)
@@ -169,8 +169,8 @@ class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
                     break
             else:
                 self.fail('Cannot find "Successful auth" string in faucet.log')
-        self.assertEqual(2,
-                         len(self.last_flows_to_dp[1]))
+        self.assertEqual(1,
+                         len(self.last_flows_to_dp[1]), self.last_flows_to_dp)
 
 
 if __name__ == "__main__":
