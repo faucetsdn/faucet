@@ -22,6 +22,7 @@ Setup
 System & Network Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+ * NOTE: Do not configure IPv6 management of the switch! This will cause IPv6 under OpenFlow control to break.
  * Use Serial Console cable to login to the box.
  * Use ``minicom`` for serial terminal @ 115Kbps.  Minicom is available on Linux and MacOS (macports) systems.
  * Connected Port 1 of Switch to Top of the Rack (TOR) switch which had DHCP and DNS enabled.  Mac Address was programmed into DNS/DHCP Server so that IP address of 10.20.5.11 was provided to this box.
