@@ -164,7 +164,6 @@ class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
         # TODO replace this find string. maybe just search for ERRORs?
         with open('%s/faucet.log' % self.tmpdir, 'r') as log:
             for l in log.readlines():
-                print(l)
                 if 'Successful auth' in l:
                     break
             else:
