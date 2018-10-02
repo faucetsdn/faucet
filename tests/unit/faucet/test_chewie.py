@@ -2,10 +2,10 @@
 
 """Unit tests run as PYTHONPATH=../../.. python3 ./test_chewie.py."""
 
+from queue import Queue
 import random
 import time
 import unittest
-from queue import Queue
 from unittest.mock import patch
 
 from netils import build_byte_string
