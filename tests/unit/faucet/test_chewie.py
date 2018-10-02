@@ -72,7 +72,7 @@ def urandom():
 URANDOM_GENERATOR = urandom()
 
 
-def urandom_helper(size):
+def urandom_helper(size):  # pylint: disable=unused-argument
     return next(URANDOM_GENERATOR)
 
 
@@ -80,11 +80,14 @@ SUPPLICANT_REPLY_GENERATOR = supplicant_replies()
 RADIUS_REPLY_GENERATOR = radius_replies()
 
 
-def eap_receive(chewie):
+def do_nothing(chewie):  # pylint: disable=unused-argument
+    pass
+
+def eap_receive(chewie):  # pylint: disable=unused-argument
     return FROM_SUPPLICANT.get()
 
 
-def eap_send(chewie, data):
+def eap_send(chewie, data):  # pylint: disable=unused-argument
     TO_SUPPLICANT.put(data)
     try:
         n = next(SUPPLICANT_REPLY_GENERATOR)
@@ -94,11 +97,11 @@ def eap_send(chewie, data):
         FROM_SUPPLICANT.put(n)
 
 
-def radius_receive(chewie):
+def radius_receive(chewie):  # pylint: disable=unused-argument
     return FROM_RADIUS.get()
 
 
-def radius_send(chewie, data):
+def radius_send(chewie, data):  # pylint: disable=unused-argument
     TO_RADIUS.put(data)
     try:
         n = next(RADIUS_REPLY_GENERATOR)
@@ -149,6 +152,7 @@ class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
     @patch('faucet.faucet_dot1x.chewie.Chewie.radius_receive', radius_receive)
     @patch('faucet.faucet_dot1x.chewie.Chewie.eap_send', eap_send)
     @patch('faucet.faucet_dot1x.chewie.Chewie.eap_receive', eap_receive)
+    @patch('faucet.faucet_dot1x.chewie.Chewie.open_socket', do_nothing)
     def test_success_dot1x(self):
         """Test success api"""
         self.dot1x.reset(valves=self.valves_manager.valves)
