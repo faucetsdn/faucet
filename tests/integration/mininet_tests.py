@@ -3049,15 +3049,15 @@ vlans:
 
     def test_untagged(self):
         self.ping_all_when_learned(hard_timeout=0)
-        first_host, second_host, third_host = self.net.hosts[0:3]
-        self.assertTrue(self.prom_mac_learned(first_host.MAC(), port=1))
+        first_host, second_host, third_host = self.net.hosts[:3]
+        self.assertTrue(self.prom_mac_learned(first_host.MAC(), port=self.port_map['port_1']))
 
         # 3rd host impersonates 1st but 1st host still OK
         original_third_host_mac = third_host.MAC()
         third_host.setMAC(first_host.MAC())
         self.assertEqual(100.0, self.net.ping((second_host, third_host)))
-        self.assertTrue(self.prom_mac_learned(first_host.MAC(), port=1))
-        self.assertFalse(self.prom_mac_learned(first_host.MAC(), port=3))
+        self.assertTrue(self.prom_mac_learned(first_host.MAC(), port=self.port_map['port_1']))
+        self.assertFalse(self.prom_mac_learned(first_host.MAC(), port=self.port_map['port_3']))
         self.retry_net_ping(hosts=(first_host, second_host))
 
         # 3rd host stops impersonating, now everything fine again.
