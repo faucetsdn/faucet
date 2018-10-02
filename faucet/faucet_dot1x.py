@@ -22,7 +22,7 @@ import eventlet
 eventlet.monkey_patch()
 
 from ryu.lib import hub  # pylint: disable=wrong-import-position
-from chewie.chewie import Chewie  # pylint: disable=wrong-import-position
+from chewie import chewie  # pylint: disable=wrong-import-position
 
 from faucet import valve_of # pylint: disable=wrong-import-position
 from faucet import valve_packet # pylint: disable=wrong-import-position
@@ -57,12 +57,12 @@ class FaucetDot1x:
         self.dp_id_to_valve_index = {}
 
     def _create_dot1x_speaker(self, dot1x_intf, chewie_id, radius_ip, radius_port, radius_secret):
-        chewie = Chewie(  # pylint: disable=too-many-function-args
+        _chewie = chewie.Chewie(  # pylint: disable=too-many-function-args
             dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
             radius_ip, radius_port, radius_secret, chewie_id)
-        hub.spawn(chewie.run)
-        return chewie
+        hub.spawn(_chewie.run)
+        return _chewie
 
     def get_valve_and_port(self, port_id):
         """Finds the valve and port that this address corresponds to
