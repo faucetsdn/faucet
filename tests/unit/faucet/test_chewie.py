@@ -173,7 +173,6 @@ class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
 
         FROM_SUPPLICANT.put(build_byte_string("0000000000010242ac17006f888e01010000"))
         time.sleep(5)
-        # TODO replace this find string. maybe just search for ERRORs?
         with open('%s/faucet.log' % self.tmpdir, 'r') as log:
             for line in log.readlines():
                 if 'Successful auth' in line:
