@@ -153,6 +153,9 @@ class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
     @patch('faucet.faucet_dot1x.chewie.Chewie.eap_send', eap_send)
     @patch('faucet.faucet_dot1x.chewie.Chewie.eap_receive', eap_receive)
     @patch('faucet.faucet_dot1x.chewie.Chewie.open_socket', do_nothing)
+    @patch('faucet.faucet_dot1x.chewie.Chewie.get_interface_info', do_nothing)
+    @patch('faucet.faucet_dot1x.chewie.Chewie.join_multicast_group', do_nothing)
+
     def test_success_dot1x(self):
         """Test success api"""
         self.dot1x.reset(valves=self.valves_manager.valves)
