@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Unit tests run as PYTHONPATH=../../.. python3 ./test_chewie.py."""
+
 import random
 import time
 import unittest
@@ -47,32 +49,36 @@ TO_RADIUS = Queue()
 
 
 def supplicant_replies():
+    """generator for packets supplicant sends"""
     header = "0000000000010242ac17006f888e"
     replies = [build_byte_string(header + "01000009027400090175736572"),
                build_byte_string(header + "010000160275001604103abcadc86714b2d75d09dd7ff53edf6b")]
 
-    for r in replies:
-        yield r
+    for reply in replies:
+        yield reply
 
 
 def radius_replies():
+    """generator for packets radius sends"""
     replies = [build_byte_string("0b040050e5e40d846576a2310755e906c4b2b5064f180175001604101a16a3baa37a0238f33384f6c11067425012ce61ba97026b7a05b194a930a922405218126aa866456add628e3a55a4737872cad6"),
                build_byte_string("02050032fb4c4926caa21a02f74501a65c96f9c74f06037500045012c060ca6a19c47d0998c7b20fd4d771c1010675736572")]
-    for r in replies:
-        yield r
+    for reply in replies:
+        yield reply
 
 
 def urandom():
+    """generator for urandom"""
     _list = [b'\x87\xf5[\xa71\xeeOA;}\\t\xde\xd7.=',
              b'\xf7\xe0\xaf\xc7Q!\xa2\xa9\xa3\x8d\xf7\xc6\x85\xa8k\x06']
-    for l in _list:
-        yield l
+    for item in _list:
+        yield item
 
 
 URANDOM_GENERATOR = urandom()
 
 
 def urandom_helper(size):  # pylint: disable=unused-argument
+    """helper for urandom_generator"""
     return next(URANDOM_GENERATOR)
 
 
@@ -81,35 +87,41 @@ RADIUS_REPLY_GENERATOR = radius_replies()
 
 
 def do_nothing(chewie):  # pylint: disable=unused-argument
+    """mocked function that does nothing"""
     pass
 
 
 def eap_receive(chewie):  # pylint: disable=unused-argument
+    """mocked chewie.eap_receive"""
     return FROM_SUPPLICANT.get()
 
 
 def eap_send(chewie, data):  # pylint: disable=unused-argument
+    """mocked chewie.eap_send"""
+
     TO_SUPPLICANT.put(data)
     try:
-        n = next(SUPPLICANT_REPLY_GENERATOR)
+        _next = next(SUPPLICANT_REPLY_GENERATOR)
     except StopIteration:
         return
-    if n:
-        FROM_SUPPLICANT.put(n)
+    if _next:
+        FROM_SUPPLICANT.put(_next)
 
 
 def radius_receive(chewie):  # pylint: disable=unused-argument
+    """mocked chewie.radius_radius"""
     return FROM_RADIUS.get()
 
 
 def radius_send(chewie, data):  # pylint: disable=unused-argument
+    """mocked chewie.radius_send"""
     TO_RADIUS.put(data)
     try:
-        n = next(RADIUS_REPLY_GENERATOR)
+        _next = next(RADIUS_REPLY_GENERATOR)
     except StopIteration:
         return
-    if n:
-        FROM_RADIUS.put(n)
+    if _next:
+        FROM_RADIUS.put(_next)
 
 
 def nextId(eap_sm):  # pylint: disable=invalid-name
@@ -163,8 +175,8 @@ class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
         time.sleep(5)
         # TODO replace this find string. maybe just search for ERRORs?
         with open('%s/faucet.log' % self.tmpdir, 'r') as log:
-            for l in log.readlines():
-                if 'Successful auth' in l:
+            for line in log.readlines():
+                if 'Successful auth' in line:
                     break
             else:
                 self.fail('Cannot find "Successful auth" string in faucet.log')
