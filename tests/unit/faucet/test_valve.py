@@ -1826,10 +1826,11 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
 
     def test_no_unexpressed_packetin(self):
         """Test host learning on stack root."""
+        unexpressed_vid = 0x666 | ofp.OFPVID_PRESENT
         match = {
-            'vlan_vid': 0x666,
+            'vlan_vid': unexpressed_vid,
             'eth_dst': self.UNKNOWN_MAC}
-        self.assertFalse(self.table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=0x666))
+        self.assertFalse(self.table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=unexpressed_vid))
 
 
 class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
