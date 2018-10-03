@@ -387,9 +387,9 @@ class Valve:
             vlan.reset_caches()
 
         ports_status = defaultdict(bool)
-        for port_no in discovered_up_port_nos:
-            if port_no in all_configured_port_nos:
-                ports_status[port_no] = True
+        ports_status.update({
+            port_no: True for port_no in discovered_up_port_nos
+            if port_no in all_configured_port_nos})
         self._notify({'PORTS_STATUS': ports_status})
 
         all_up_port_nos = set()
@@ -811,8 +811,7 @@ class Valve:
                 # Add port/to VLAN rules.
                 ofmsgs.extend(self._port_add_vlans(port, mirror_act))
 
-            for vlan in port_vlans:
-                vlans_with_ports_added.add(vlan)
+            vlans_with_ports_added.update({vlan for vlan in port_vlans})
 
         # Only update flooding rules if not cold starting.
         if not cold_start:
@@ -848,16 +847,17 @@ class Valve:
             port.dyn_phys_up = False
             self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
 
-            if not port.output_only:
-                if port.lacp:
-                    ofmsgs.extend(self.lacp_down(port))
-                else:
-                    ofmsgs.extend(self._port_delete_flows_state(port))
-                for vlan in port.vlans():
-                    vlans_with_deleted_ports.add(vlan)
+            if port.output_only:
+                continue
 
-                if port.dot1x:
-                    ofmsgs.extend(self.dot1x.port_down(self, port))
+            vlans_with_deleted_ports.update({vlan for vlan in port.vlans()})
+
+            if port.dot1x:
+                ofmsgs.extend(self.dot1x.port_down(self, port))
+            if port.lacp:
+                ofmsgs.extend(self.lacp_down(port))
+            else:
+                ofmsgs.extend(self._port_delete_flows_state(port))
 
         for vlan in vlans_with_deleted_ports:
             ofmsgs.extend(self.flood_manager.build_flood_rules(
