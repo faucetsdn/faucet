@@ -8,6 +8,6 @@ networkx
 pbr>=1.9
 prometheus_client<0.4.0
 pyyaml
-ryu==4.27
+ryu==4.29
 beka==0.3.3
 pytricia
