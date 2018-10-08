@@ -1,5 +1,13 @@
 #!/bin/bash
 
+
+FILES_CHANGED_CMD="git diff --name-only HEAD...$TRAVIS_BRANCH"
+FILES_CHANGED=`$FILES_CHANGED_CMD`
+PY_FILES_CHANGED=`$FILES_CHANGED_CMD|grep  -E ".py$"`
+
+echo files changed: $FILES_CHANGED
+
+
 if [ "${MATRIX_SHARD}" = "sanity" ] ; then
   FAUCET_TESTS="-u FaucetSanityTest"
   ./tests/run_unit_tests.sh || exit 1
@@ -27,6 +35,11 @@ fi
 PY3V=`python3 --version`
 if [[ "$PY3V" != "Python 3.6"* ]] ; then
   echo not running docker tests for $PY3V
+  exit 0
+fi
+
+if [[ "$PY_FILES_CHANGED" == "" ]] ; then
+  echo no python source changed, not running docker tests.
   exit 0
 fi
 
