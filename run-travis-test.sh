@@ -1,11 +1,15 @@
 #!/bin/bash
 
 
-FILES_CHANGED_CMD="git diff --name-only HEAD...$TRAVIS_BRANCH"
+FILES_CHANGED_CMD="($(git diff --name-only $TRAVIS_COMMIT_RANGE))"
 FILES_CHANGED=`$FILES_CHANGED_CMD`
-PY_FILES_CHANGED=`$FILES_CHANGED_CMD|grep  -E ".py$"`
+PY_FILES_CHANGED=`$FILES_CHANGED_CMD|grep -E ".py$"`
 
-echo files changed: $FILES_CHANGED
+if [[ "$FILES_CHANGED" == "" ]] ; then
+  echo files changed: $FILES_CHANGED
+else
+  echo no files changed.
+fi
 
 
 if [ "${MATRIX_SHARD}" = "sanity" ] ; then
