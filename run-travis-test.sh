@@ -3,6 +3,7 @@
 
 echo TRAVIS_COMMIT_RANGE: $TRAVIS_COMMIT_RANGE
 echo TRAVIS_COMMIT: $TRAVIS_COMMIT
+git diff --name-only $TRAVIS_COMMIT_RANGE
 
 FILES_CHANGED=`git diff --name-only $TRAVIS_COMMIT_RANGE`
 PY_FILES_CHANGED=`$git diff --name-only $TRAVIS_COMMIT_RANGE|grep -E ".py$"`
