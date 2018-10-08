@@ -7,7 +7,6 @@ python:
 services:
   - docker
 before_install:
-  - echo commit range: $TRAVIS_COMMIT_RANGE
   - sudo ./docker/retrycmd.sh "apt-get -qy update"
   - sudo ./docker/retrycmd.sh "apt-get install -qy openvswitch-switch"
   - sudo ./docker/retrycmd.sh "apt-cache madison docker-ce"
@@ -26,6 +25,7 @@ env:
     - MATRIX_SHARD=3
     - MATRIX_SHARD=4
 install:
+  - echo commit range: $TRAVIS_COMMIT_RANGE
   - ./docker/pip_deps.sh
   - python3 setup.py -q sdist
   - pip3 install -q dist/*tar.gz
