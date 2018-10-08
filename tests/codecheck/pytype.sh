@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PYV="3.6"
+PYV="3.5"
 FAUCETHOME=`dirname $0`"/../.."
 TMPDIR=`mktemp -d -p /var/tmp`
 CONFIG="$FAUCETHOME/setup.cfg"
