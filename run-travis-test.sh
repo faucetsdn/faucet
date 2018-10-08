@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-FILES_CHANGED_CMD="($(git diff --name-only $TRAVIS_COMMIT_RANGE))"
+FILES_CHANGED_CMD="git diff --name-only $TRAVIS_COMMIT_RANGE"
 FILES_CHANGED=`$FILES_CHANGED_CMD`
 PY_FILES_CHANGED=`$FILES_CHANGED_CMD|grep -E ".py$"`
 
