@@ -12,7 +12,7 @@ else
   echo no files changed.
 fi
 
-if [ "${MATRIX_SHARD}" = "sanity" ] ; then
+if [ "${MATRIX_SHARD}" == "sanity" ] ; then
   FAUCET_TESTS="-u FaucetSanityTest"
   ./tests/run_unit_tests.sh || exit 1
   codecov || true
@@ -56,5 +56,6 @@ echo Shard $MATRIX_SHARD: $FAUCETTESTS
 sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   -v $HOME/.cache/pip:/var/tmp/pip-cache \
   -e FAUCET_TESTS="${FAUCET_TESTS}" \
+  -e PY_FILES_CHANGED="{$PY_FILES_CHANGED}" \
   -t ${FAUCET_TEST_IMG} || exit 1
 exit 0
