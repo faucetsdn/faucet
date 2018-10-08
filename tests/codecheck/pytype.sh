@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# TODO: run separately until https://github.com/google/pytype/issues/133 is fixed.
 # TODO: until 3.6 safe, force 3.5
-PYV="3.5"
+PYV="3.6"
 FAUCETHOME=`dirname $0`"/../.."
 TMPDIR=`mktemp -d -p /var/tmp`
 CONFIG="$FAUCETHOME/setup.cfg"
