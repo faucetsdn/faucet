@@ -25,7 +25,6 @@ env:
     - MATRIX_SHARD=3
     - MATRIX_SHARD=4
 install:
-  - echo commit range: $TRAVIS_COMMIT_RANGE
   - ./docker/pip_deps.sh
   - python3 setup.py -q sdist
   - pip3 install -q dist/*tar.gz
