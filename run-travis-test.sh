@@ -4,9 +4,8 @@
 echo TRAVIS_COMMIT_RANGE: $TRAVIS_COMMIT_RANGE
 echo TRAVIS_COMMIT: $TRAVIS_COMMIT
 
-FILES_CHANGED_CMD="git diff --name-only $TRAVIS_COMMIT_RANGE"
-FILES_CHANGED=`$FILES_CHANGED_CMD`
-PY_FILES_CHANGED=`$FILES_CHANGED_CMD|grep -E ".py$"`
+FILES_CHANGED=`git diff --name-only $TRAVIS_COMMIT_RANGE`
+PY_FILES_CHANGED=`$git diff --name-only $TRAVIS_COMMIT_RANGE|grep -E ".py$"`
 
 if [[ "$FILES_CHANGED" == "" ]] ; then
   echo files changed: $FILES_CHANGED
