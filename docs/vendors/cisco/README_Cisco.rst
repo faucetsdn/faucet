@@ -69,7 +69,8 @@ Configure Openflow
 	Switch-C9300(config)#feature openflow
 	Switch-C9300(config)#openflow
 	Switch-C9300(config-openflow)#switch 1 pipeline 1
-	Switch-C9300(config-openflow-switch)#controller ipv4 192.168.0.91 port 6334 vrf Mgmt-vrf security none
+	Switch-C9300(config-openflow-switch)#controller ipv4 192.168.0.91 port 6653 vrf Mgmt-vrf security none
+	Switch-C9300(config-openflow-switch)#controller ipv4 192.168.0.91 port 6654 vrf Mgmt-vrf security none
 	Switch-C9300(config-openflow-switch)#datapath-id 0xABCDEF1234
 	Switch-C9300(config-openflow-switch)#end
 	Switch-C9300#
@@ -138,7 +139,8 @@ Command to check overall openflow configuration
 		 Number of buffers: 256
 		 Capabilities: FLOW_STATS TABLE_STATS PORT_STATS
 	  Controllers:
-		 192.168.0.91:6334, Protocol: TCP, VRF: Mgmt-vrf
+		 192.168.0.91:6653, Protocol: TCP, VRF: Mgmt-vrf
+		 192.168.0.91:6654, Protocol: TCP, VRF: Mgmt-vrf
 	  Interfaces:
 		 GigabitEthernet1/0/1
 		 GigabitEthernet1/0/2
@@ -175,46 +177,74 @@ Command to check the status of the controller
 
     Switch-C9300#
     Switch-C9300#show openflow switch 1 controller
-    show openflow switch 1 controller
-	Logical Switch Id: 1
-	Total Controllers: 1
+    Logical Switch Id: 1
+    Total Controllers: 2
 
-	  Controller: 1
-		192.168.0.91:6334
-		Protocol: tcp
-		VRF: Mgmt-vrf
-		Connected: No
-		Role: Master
-		Negotiated Protocol Version: disconnected
-		Last Alive Ping: N/A
-		last_error: Unknown error 260
-		state: CONNECTING
-		sec_since_disconnect: 15
+      Controller: 1
+        192.168.0.91:6653
+        Protocol: tcp
+        VRF: Mgmt-vrf
+        Connected: Yes
+        Role: Equal
+        Negotiated Protocol Version: OpenFlow 1.3
+        Last Alive Ping: 2018-10-03 18:43:07 NZST
+        state: ACTIVE
+        sec_since_connect: 13150
+
+      Controller: 2
+        192.16.0.91:6654
+        Protocol: tcp
+        VRF: Mgmt-vrf
+        Connected: Yes
+        Role: Equal
+        Negotiated Protocol Version: OpenFlow 1.3
+        Last Alive Ping: 2018-10-03 18:43:07 NZST
+        state: ACTIVE
+        sec_since_connect: 12960
+
 
 Command to check controller statistics
 
 .. code-block:: console
 
+    Switch-C9300#
     Switch-C9300#show openflow switch 1 controller stats
-	Logical Switch Id: 1
-	Total Controllers: 1
+    Logical Switch Id: 1
+    Total Controllers: 2
 
-	  Controller: 1
-		address                         :  tcp:192.168.0.91:6334%Mgmt-vrf
-		connection attempts             :  2127
-		successful connection attempts  :  0
-		flow adds                       :  0
-		flow mods                       :  0
-		flow deletes                    :  0
-		flow removals                   :  0
-		flow errors                     :  0
-		flow unencodable errors         :  0
-		total errors                    :  0
-		echo requests                   :  rx: 0, tx:0
-		echo reply                      :  rx: 0, tx:0
-		flow stats                      :  rx: 0, tx:0
-		barrier                         :  rx: 0, tx:0
-		packet-in/packet-out            :  rx: 0, tx:0
+      Controller: 1
+        address                         :  tcp:192.168.0.91:6653%Mgmt-vrf
+        connection attempts             :  165
+        successful connection attempts  :  61
+        flow adds                       :  1286700
+        flow mods                       :  645
+        flow deletes                    :  909564
+        flow removals                   :  0
+        flow errors                     :  45499
+        flow unencodable errors         :  0
+        total errors                    :  45499
+        echo requests                   :  rx: 842945, tx:205
+        echo reply                      :  rx: 140, tx:842945
+        flow stats                      :  rx: 0, tx:0
+        barrier                         :  rx: 8324752, tx:8324737
+        packet-in/packet-out            :  rx: 29931732, tx:8772758
+
+      Controller: 2
+        address                         :  tcp:192.168.0.91:6654%Mgmt-vrf
+        connection attempts             :  11004
+        successful connection attempts  :  3668
+        flow adds                       :  0
+        flow mods                       :  0
+        flow deletes                    :  0
+        flow removals                   :  0
+        flow errors                     :  0
+        flow unencodable errors         :  0
+        total errors                    :  0
+        echo requests                   :  rx: 946257, tx:1420
+        echo reply                      :  rx: 1420, tx:946257
+        flow stats                      :  rx: 47330, tx:57870
+        barrier                         :  rx: 0, tx:0
+        packet-in/packet-out            :  rx: 377, tx:0
 
 References
 ^^^^^^^^^^

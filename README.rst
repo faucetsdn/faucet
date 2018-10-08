@@ -74,8 +74,3 @@ We run a number of mailing lists for communication between users and developers 
 Faucet blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz.
 
 To create a issue, use `GitHub Issues <https://github.com/faucetsdn/faucet/issues>`_.
-
-Faucet deployment around the world
-----------------------------------
-
-`Faucet deployment map <https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en>`_
