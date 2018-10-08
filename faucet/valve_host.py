@@ -89,9 +89,11 @@ class ValveHostManager(ValveManagerBase):
 
     def initialise_tables(self):
         ofmsgs = []
-        ofmsgs.append(self.eth_src_table.flowcontroller(
-            priority=self.low_priority,
-            inst=[self.eth_src_table.goto(self.output_table)]))
+        for vlan in self.vlans.values():
+            ofmsgs.append(self.eth_src_table.flowcontroller(
+                match=self.eth_src_table.match(vlan=vlan),
+                priority=self.low_priority,
+                inst=[self.eth_src_table.goto(self.output_table)]))
         return ofmsgs
 
     def _temp_ban_host_learning(self, match):

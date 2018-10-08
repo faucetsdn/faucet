@@ -171,6 +171,8 @@ class ValvesManager:
             return
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
+            self.metrics.of_unexpected_packet_ins.labels( # pylint: disable=no-member
+               **valve.base_prom_labels).inc()
             return
         with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
                 **valve.base_prom_labels).time():

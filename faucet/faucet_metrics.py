@@ -49,7 +49,10 @@ class FaucetMetrics(PromClient):
             'number of cold, complete reprovision config reloads executed')
         self.of_ignored_packet_ins = self._dpid_counter(
             'of_ignored_packet_ins',
-            'number of OF packet_ins received but ignored from DP')
+            'number of OF packet_ins received but ignored from DP (due to rate limiting)')
+        self.of_unexpected_packet_ins = self._dpid_counter(
+            'of_unexpected_packet_ins',
+            'number of OF packet_ins received that are unexpected from DP (e.g. for VLAN that is not configured)')
         self.of_packet_ins = self._dpid_counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP')

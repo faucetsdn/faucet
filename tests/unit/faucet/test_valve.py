@@ -642,6 +642,17 @@ class ValveTestBases:
             self.prom_inc(partial(self.valve.datapath_disconnect), 'of_dp_disconnections')
             self.assertEqual(0, int(self.get_prom('dp_status')))
 
+        def test_unexpected_port(self):
+            """Test packet in from unexpected port."""
+            self.prom_inc(
+                partial(self.rcv_packet, 999, 0x100, {
+                    'eth_src': self.P1_V300_MAC,
+                    'eth_dst': self.UNKNOWN_MAC,
+                    'ipv4_src': '10.0.0.1',
+                    'ipv4_dst': '10.0.0.2'}),
+                'of_unexpected_packet_ins',
+                inc_expected=True)
+
         def test_oferror(self):
             """Test OFError handler."""
             datapath = None
@@ -1812,6 +1823,14 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
                 'eth_src': self.P1_V300_MAC
             }]
         self.verify_flooding(matches)
+
+    def test_no_unexpressed_packetin(self):
+        """Test host learning on stack root."""
+        unexpressed_vid = 0x666 | ofp.OFPVID_PRESENT
+        match = {
+            'vlan_vid': unexpressed_vid,
+            'eth_dst': self.UNKNOWN_MAC}
+        self.assertFalse(self.table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=unexpressed_vid))
 
 
 class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
