@@ -6,7 +6,7 @@ PYV="3.5"
 FAUCETHOME=`dirname $0`"/../.."
 TMPDIR=`mktemp -d -p /var/tmp`
 CONFIG="$FAUCETHOME/setup.cfg"
-PARARGS="parallel --delay 1 --bar --halt now,fail=1 --memfree 256M"
+PARARGS="parallel --delay 1 --bar --halt now,fail=1"
 PYTYPE=`which pytype`
 PYTYPEARGS="python$PYV $PYTYPE --config $CONFIG -o $TMPDIR"
 PYHEADER=`head -1 $PYTYPE`
