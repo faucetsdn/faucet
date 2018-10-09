@@ -387,6 +387,7 @@ class ValveTestBases:
 
         @staticmethod
         def profile(func, sortby='cumulative', amount=20, count=1):
+            """Convenience method to profile a function call."""
             prof = cProfile.Profile()
             prof.enable()
             for _ in range(count):

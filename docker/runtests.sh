@@ -76,9 +76,9 @@ if [ "$DEPCHECK" == 1 ] ; then
 
     cd /faucet-src/tests/codecheck
     echo "============ Running pylint analyzer ============"
-    time ./pylint.sh
+    time ./pylint.sh $PY_FILES_CHANGED
     echo "============ Running pytype analyzer ============"
-    time ./pytype.sh
+    time ./pytype.sh $PY_FILES_CHANGED
 fi
 
 echo "========== Starting docker container =========="
