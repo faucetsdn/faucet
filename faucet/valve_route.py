@@ -583,6 +583,12 @@ class ValveRouteManager(ValveManagerBase):
         router = self._router_for_vlan(vlan)
         if router is not None:
             vlan, _ = router.vip_map(ip_gw)
+            if vlan is None:
+                self.logger.error(
+                    ('Cannot resolve destination VLAN for gateway %s in router %s '
+                     '(not in global router?)' % (
+                         ip_gw, router)))
+                return ofmsgs
         if vlan.is_faucet_vip(ip_dst):
             return ofmsgs
         routes = self._vlan_routes(vlan)

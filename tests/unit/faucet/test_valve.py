@@ -360,7 +360,8 @@ class ValveTestBases:
             # TODO: verify events
             self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
                 self.faucet_event_sock, self.metrics, self.logger)
-            self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self.send_flows_to_dp_by_id)
+            self.bgp = faucet_bgp.FaucetBgp(
+                self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
             self.dot1x = faucet_dot1x.FaucetDot1x(
                 self.logger, self.metrics, self.send_flows_to_dp_by_id)
             self.valves_manager = valves_manager.ValvesManager(
