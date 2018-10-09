@@ -11,7 +11,7 @@ build-package:
     - mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
     - export DEBEMAIL='maintainers@faucet.nz' && export DEBFULLNAME='Faucet Maintainers'
     - debchange --newversion ${CI_COMMIT_REF_NAME} -b "New upstream release"
-    - fakeroot debian/rules binary
+    - dpkg-buildpackage -b -us -uc -rfakeroot
     - mkdir built-packages || true
     - mv ../*.deb built-packages/
   artifacts:
