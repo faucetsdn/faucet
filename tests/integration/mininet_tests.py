@@ -5300,6 +5300,87 @@ vlans:
             1)
 
 
+class FaucetUntaggedIPv4GlobalInterVLANRouteTest(FaucetUntaggedTest):
+
+    FAUCET_MAC2 = '0e:00:00:00:00:02'
+
+    CONFIG_GLOBAL = """
+routers:
+    global:
+        vlans: [100, 200]
+vlans:
+    100:
+        faucet_vips: ["10.100.0.254/24"]
+        bgp_port: %(bgp_port)d
+        bgp_server_addresses: ["127.0.0.1", "::1"]
+        bgp_as: 1
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_addresses: ["127.0.0.1", "::1"]
+        bgp_connect_mode: "passive"
+""" + """
+        bgp_neighbor_as: %u
+    200:
+        faucet_vips: ["10.200.0.254/24"]
+        faucet_mac: "%s"
+""" % (PEER_BGP_AS, FAUCET_MAC2)
+
+    CONFIG = """
+        global_vlan: 300
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        proactive_learn_v4: True
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 200
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 200
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 200
+                description: "b4"
+"""
+
+
+    exabgp_peer_conf = """
+    static {
+      route 10.99.99.0/24 next-hop 10.200.0.1 local-preference 100;
+    }
+"""
+    exabgp_log = None
+    exabgp_err = None
+    config_ports = {'bgp_port': None}
+
+    def pre_start_net(self):
+        exabgp_conf = self.get_exabgp_conf(
+            mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
+
+    def test_untagged(self):
+        first_host_ip = ipaddress.ip_interface('10.100.0.1/24')
+        first_faucet_vip = ipaddress.ip_interface('10.100.0.254/24')
+        second_host_ip = ipaddress.ip_interface('10.200.0.1/24')
+        second_faucet_vip = ipaddress.ip_interface('10.200.0.254/24')
+        first_host, second_host = self.net.hosts[:2]
+        first_host.setIP(str(first_host_ip.ip), prefixLen=24)
+        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
+        self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
+        self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
+
+        self.one_ipv4_ping(first_host, second_host_ip.ip)
+        self.one_ipv4_ping(second_host, first_host_ip.ip)
+        self.assertEqual(
+            self._ip_neigh(first_host, first_faucet_vip.ip, 4), self.FAUCET_MAC)
+        self.assertEqual(
+            self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
+        self.wait_for_route_as_flow(
+            second_host.MAC(), ipaddress.IPv4Network('10.99.99.0/24'), vlan_vid=300)
+
+
+
 class FaucetUntaggedIPv4InterVLANRouteTest(FaucetUntaggedTest):
 
     FAUCET_MAC2 = '0e:00:00:00:00:02'

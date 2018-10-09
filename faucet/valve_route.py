@@ -580,12 +580,14 @@ class ValveRouteManager(ValveManagerBase):
             list: OpenFlow messages.
         """
         ofmsgs = []
+        router = self._router_for_vlan(vlan)
+        if router is not None:
+            vlan, _ = router.vip_map(ip_gw)
         if vlan.is_faucet_vip(ip_dst):
             return ofmsgs
         routes = self._vlan_routes(vlan)
-        if ip_dst in routes:
-            if routes[ip_dst] == ip_gw:
-                return ofmsgs
+        if routes.get(ip_dst, None) == ip_gw:
+            return ofmsgs
 
         vlan.add_route(ip_dst, ip_gw)
         cached_eth_dst = self._cached_nexthop_eth_dst(vlan, ip_gw)
