@@ -27,6 +27,8 @@ from ryu.lib import hub # pylint: disable=wrong-import-position
 
 from beka.beka import Beka # pylint: disable=wrong-import-position
 
+from faucet.valve_util import kill_on_exception
+
 
 class BgpSpeakerKey:
     """Uniquely describe a BGP speaker."""
@@ -53,13 +55,25 @@ class BgpSpeakerKey:
 class FaucetBgp:
     """Wrapper for Ryu BGP speaker."""
 
-    def __init__(self, logger, metrics, send_flow_msgs):
+    exc_logname = None
+
+    def __init__(self, logger, exc_logname, metrics, send_flow_msgs):
         self.logger = logger
+        self.exc_logname = exc_logname
         self.metrics = metrics
         self._send_flow_msgs = send_flow_msgs
         self._dp_bgp_speakers = {}
         self._dp_bgp_rib = {}
         self._valves = None
+
+    def _valve_vlan(self, dp_id, vlan_vid):
+        valve = None
+        vlan = None
+        if dp_id in self._valves:
+            if vlan_vid in self._valves[dp_id].dp.vlans:
+                valve = self._valves[dp_id]
+                vlan = valve.dp.vlans[vlan_vid]
+        return (valve, vlan)
 
     @staticmethod
     def _neighbor_states(bgp_speaker):
@@ -69,22 +83,16 @@ class FaucetBgp:
             neighbor_states = bgp_speaker.neighbor_states()
         return neighbor_states
 
+    @kill_on_exception(exc_logname)
     def _bgp_up_handler(self, remote_ip, remote_as):
         self.logger.info('BGP peer router ID %s AS %s up' % (remote_ip, remote_as))
 
+    @kill_on_exception(exc_logname)
     def _bgp_down_handler(self, remote_ip, remote_as):
         self.logger.info('BGP peer router ID %s AS %s down' % (remote_ip, remote_as))
         # TODO: delete RIB routes for down peer.
 
-    def _valve_vlan(self, dp_id, vlan_vid):
-        valve = None
-        vlan = None
-        if dp_id in self._valves:
-            if vlan_vid in self._valves[dp_id].dp.vlans:
-                valve = self._valves[dp_id]
-                vlan = self._valves[dp_id].dp.vlans[vlan_vid]
-        return (valve, vlan)
-
+    @kill_on_exception(exc_logname)
     def _bgp_route_handler(self, path_change, bgp_speaker_key):
         """Handle a BGP change event.
 
