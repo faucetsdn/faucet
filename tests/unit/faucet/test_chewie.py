@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from netils import build_byte_string
 
-from tests.unit.faucet.test_valve import ValveTestBases
+from test_valve import ValveTestBases
 
 DOT1X_DP1_CONFIG = """
         dp_id: 1
