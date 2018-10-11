@@ -8,7 +8,8 @@ Before submitting a PR
 ----------------------
 
 -  If you have general questions, feel free to reach out to the faucet-dev mailing list.
--  Please open a github issue with the proposed change. This will enable broad understanding of
+-  If you are new to FAUCET, or are contemplating a major change, it's recommended to
+   open a github issue with the proposed change. This will enable broad understanding of
    your work including being able to catch any potential snags very early (for example,
    adding new dependencies). Architectural and approach questions are best
    settled at this stage before any code is written.
