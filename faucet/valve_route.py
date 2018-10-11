@@ -168,7 +168,8 @@ class ValveRouteManager(ValveManagerBase):
     def _resolve_vip_response(self, pkt_meta, solicited_ip, now):
         ofmsgs = []
         vlan = pkt_meta.vlan
-        if pkt_meta.vlan.is_faucet_vip(solicited_ip):
+        if (pkt_meta.vlan.is_faucet_vip(solicited_ip) and
+                pkt_meta.vlan.ip_in_vip_subnet(pkt_meta.l3_src)):
             src_ip = pkt_meta.l3_src
             eth_src = pkt_meta.eth_src
             port = pkt_meta.port
