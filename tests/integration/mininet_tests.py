@@ -353,12 +353,18 @@ network={
                 time.sleep(1)
             else:
                 self.fail('authentication flow was not removed.')
+
+            fail_msg = '%s should not be able to ping %s' % (host, self.ping_host)
+            ping_was_successful = False
             try:
                 self.one_ipv4_ping(host, self.ping_host.IP(),
                                    require_host_learned=False)
-                self.fail('%s should not be able to ping %s' % (host, self.ping_host))
-            except AssertionError:
+                print('should not be able to ping')
+                ping_was_successful = True
+            except AssertionError as e:
                 pass
+            if ping_was_successful:
+                self.fail(fail_msg)
 
     def wait_for_radius(self, radius_log_path, timeout=10):
         for _ in range(timeout):
