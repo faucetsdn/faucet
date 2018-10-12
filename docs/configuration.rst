@@ -161,6 +161,10 @@ string names given to the datapath, or the OFP datapath id.
       - string
       - name
       - Description of this datapath, strictly informational
+    * - dot1x
+      - dictionary
+      - {}
+      - 802.1X configuration (see below)
     * - dp_id
       - integer
       - The configuration key
@@ -369,6 +373,74 @@ configuration block at the dp level:
       - None
       - The maximum number of beacons, across all ports to send each interval
 
+802.1X (DP)
+~~~~~~~~~~~~~
+
+.. note:: 802.1X support is experimental, and there may be incomplete features or bugs.
+    If you find an issue please email the mailing list or create an Github issue.
+
+Faucet implements 802.1X by forwarding EAPOL packets on the dataplane to a socket it is listening on.
+These packets are then passed through to a RADIUS server which performs the authentication
+and generates the reply message.
+
+For each instance of Faucet there is only one 802.1X speaker. This 802.1X speaker is configured by
+the options below.
+Except for the 'nfv_sw_port' option, the configuration for the speaker is configured using the first
+dp's dot1x config dictionary. For all other dps only the 'nfv_sw_port' option is required with
+the others ignored.
+
+A brief overview of the current state of the implementation:
+
+Implemented:
+
+- EAP Types: MD5 & TTLS.
+- Authentication session expiry default 3600 seconds.
+  (configurable (per authentication) via returning the Session-Timeout attribute in the RADIUS Access-Accept message).
+- Faucet connects to a single RADIUS server, and passes through all EAP messages.
+- Client can end session with EAP-Logoff.
+
+Not Supported (yet):
+
+- RADIUS Accounting.
+- Port status changes do not affect the authentication status.
+- Multiple RADIUS Servers.
+- Other EAP types. E.g. TLS, ...
+- Dynamic assignment of VLAN/ACL.
+
+802.1X port authentication is configured in the dp configuration block and in the interface
+configuration block. At the dp level the following attributes can be configured
+with the configuration block 'dot1x':
+
+.. list-table:: dps: <dp name or id>: dot1x: {}
+    :widths: 31 15 15 60
+    :header-rows: 1
+
+    * - Attribute
+      - Type
+      - Default
+      - Description
+    * - nfv_intf
+      - str
+      -
+      - The interface for Faucet to listen for EAP packets from the dataplane. - NOTE: Faucet will only use the config from the first dp
+    * - nfv_sw_port
+      - int
+      -
+      - Switch port number that connects to the Faucet server's nfv_intf
+    * - radius_ip
+      - str
+      -
+      - IP address of RADIUS Server the 802.1X speaker will authenticate with. - NOTE: Faucet will only use the config from the first dp
+    * - radius_port
+      - int
+      - 1812
+      - UDP port of RADIUS Server the 802.1X speaker will authenticate with. - NOTE: Faucet will only use the config from the first dp
+    * - radius_secret
+      - str
+      -
+      - Shared secret used by the RADIUS server and the 802.1X speaker. - NOTE: Faucet will only use the config from the first dp
+
+
 Interfaces
 ~~~~~~~~~~
 Configuration for each interface is entered in the 'interfaces' configuration
@@ -406,6 +478,10 @@ OFP port number ranges (eg. 1-6).
       - string
       - Name (which defaults to the configuration key)
       - Description, purely informational
+    * - dot1x
+      - boolean
+      - False
+      - Enable 802.1X port authentication
     * - enabled
       - boolean
       - True
