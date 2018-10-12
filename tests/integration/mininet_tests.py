@@ -274,11 +274,16 @@ network={
         self.assertEqual(
             0,
             self.scrape_prometheus_var('port_dot1x_success', labels={'port': 2}, default=0))
+        fail_msg = '%s should not be able to ping %s' % (self.eapol2_host, self.ping_host)
+        ping_was_successful = False
         try:
             self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(), require_host_learned=False)
-            self.fail('%s should not be able to ping %s' % (self.eapol2_host, self.ping_host))
-        except AssertionError:
+            print('should not be able to ping')
+            ping_was_successful = True
+        except AssertionError as e:
             pass
+        if ping_was_successful:
+            self.fail(fail_msg)
         tcpdump_txt_2 = self.try_8021x(
             self.eapol2_host, 2, self.wpasupplicant_conf_1, and_logoff=True)
 
