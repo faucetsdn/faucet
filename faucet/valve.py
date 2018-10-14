@@ -648,7 +648,7 @@ class Valve:
                 acl_allow_inst, acl_force_port_vlan_inst,
                 self.dp.highest_priority, self.dp.meters,
                 port.acls_in[0].exact_match, port_num=port.number))
-        else:
+        elif not port.dot1x:
             ofmsgs.append(acl_table.flowmod(
                 in_port_match,
                 priority=self.dp.highest_priority,
