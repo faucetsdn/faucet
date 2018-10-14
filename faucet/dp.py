@@ -393,15 +393,14 @@ configuration.
                 set_fields.update(acl.set_fields)
                 meter = meter or acl.meter
                 exact_match = acl.exact_match
-            matches = set(matches.items())
             table_config[table_name] = ValveTableConfig(
                 table_name,
                 default.table_id,
                 exact_match=exact_match,
                 meter=meter,
                 output=True,
-                match_types=matches,
-                set_fields=tuple(set_fields),
+                match_types=tuple(sorted(matches.items())),
+                set_fields=tuple(sorted(set_fields)),
                 next_tables=default.next_tables)
         # TODO: dynamically configure output attribue
         return table_config

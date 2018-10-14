@@ -713,6 +713,17 @@ class ValveTestBases:
                 'chassis_id': self.P1_V100_MAC,
                 'port_id': 1}))
 
+        def test_bogon_arp_for_controller(self):
+            """Bogon ARP request for controller VIP."""
+            replies = self.rcv_packet(1, 0x100, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': mac.BROADCAST_STR,
+                'arp_code': arp.ARP_REQUEST,
+                'arp_source_ip': '8.8.8.8',
+                'arp_target_ip': '10.0.0.254'})
+            # Must be no ARP reply to an ARP request not in our subnet.
+            self.assertFalse(self.packet_outs_from_flows(replies))
+
         def test_arp_for_controller(self):
             """ARP request for controller VIP."""
             for _retries in range(3):
