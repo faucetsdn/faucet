@@ -389,6 +389,12 @@ Except for the 'nfv_sw_port' option, the configuration for the speaker is config
 dp's dot1x config dictionary. For all other dps only the 'nfv_sw_port' option is required with
 the others ignored.
 
+A basic network and configuration with two hosts may look like:
+
+.. image:: ./_static/images/8021X-conf-diagram.svg
+    :alt: ACL network diagram
+    :align: center
+
 A brief overview of the current state of the implementation:
 
 Implemented:
