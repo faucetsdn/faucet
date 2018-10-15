@@ -6,6 +6,10 @@ python:
   - '3.6'
 services:
   - docker
+branches:
+  only:
+    - master
+    - ^(\d*\.)+\d*$
 before_install:
   - sudo ./docker/retrycmd.sh "apt-get -qy update"
   - sudo ./docker/retrycmd.sh "apt-get install -qy openvswitch-switch"
