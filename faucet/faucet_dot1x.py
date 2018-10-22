@@ -195,7 +195,7 @@ class FaucetDot1x:
                 **FaucetDot1x.get_dot1x_port_match_priority(dot1x_port, port_acl_table, valve)),
             port_acl_table.flowdel(
                 **FaucetDot1x.get_nfv_sw_port_match_priority(mac, nfv_sw_port,
-                                                             port_acl_table, valve),
+                                                             port_acl_table, valve)
                 )]
 
     @staticmethod
