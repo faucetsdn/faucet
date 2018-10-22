@@ -57,6 +57,18 @@ class FaucetDot1x:
         self.dp_id_to_valve_index = {}
 
     def _create_dot1x_speaker(self, dot1x_intf, chewie_id, radius_ip, radius_port, radius_secret):
+        """
+
+        Args:
+            dot1x_intf (str):
+            chewie_id (str):
+            radius_ip (str):
+            radius_port (int):
+            radius_secret (str):
+
+        Returns:
+            Chewie
+        """
         _chewie = chewie.Chewie(  # pylint: disable=too-many-function-args
             dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
