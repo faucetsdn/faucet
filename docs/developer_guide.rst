@@ -7,16 +7,57 @@ testing and style.
 Before submitting a PR
 ----------------------
 
--  All unit and integration tests must pass (please use the docker based tests; see
-   :ref:`docker-sw-testing`).
+-  If you have general questions, feel free to reach out to the faucet-dev mailing list.
+-  If you are new to FAUCET, or are contemplating a major change, it's recommended to
+   open a github issue with the proposed change. This will enable broad understanding of
+   your work including being able to catch any potential snags very early (for example,
+   adding new dependencies). Architectural and approach questions are best
+   settled at this stage before any code is written.
+-  Please send relatively small, tightly scoped PRs (approx 200-300 LOC or less).
+   This makes review and analysis easier and lowers risk, including risk of merge
+   conflicts with other PRs. Larger changes must be refactored into incremental changes.
 -  You must add a test if FAUCET's functionality changes (ie. a new
    feature, or correcting a bug).
+-  All unit and integration tests must pass (please use the docker based tests; see
+   :ref:`docker-sw-testing`). Where hardware is available, please also run the hardware
+   based integration tests also.
+-  In order to speed up acceptance of your PR we recommend enabling TravisCI on your
+   own github repo, and linking the test results in the body of the PR. This enables
+   the maintainers to quickly verify that your changes pass all tests in a pristine
+   environment while conserving our TravisCI resources on the main branch (by minimizing
+   resources used on potentially failing test runs which could be caught before opening
+   a PR on the main branch).
+-  You must use the github feature branches (see https://gist.github.com/vlandham/3b2b79c40bc7353ae95a),
+   for your change and squash commits (https://blog.github.com/2016-04-01-squash-your-commits/)
+   when creating the PR.
 -  Please use the supplied git pre-commit hook (see ``../git-hook/pre-commit``),
-   to automatically run the unit tests and pylint for you at git commit time.
--  Please enable TravisCI testing on your repo, which enables the maintainers
-   to quickly verify that your changes pass all tests in a pristine environment.
+   to automatically run the unit tests and pylint for you at git commit time,
+   which will save you TravisCI resources also.
 -  pylint must show no new errors or warnings.
 -  Code must conform to the style guide (see below).
+
+PR handling guidelines
+----------------------
+
+This section documents general guidelines for the maintainers in handling PRs.
+The overall intent is, to enable quality contributions with as low overhead as possible,
+maximizing the use of tools such as static analysis and unit/integration testing,
+and supporting rapid and safe advancement of the overall project.
+
+In addition to the above PR submission guidelines, above:
+
+-  PRs require a positive review per github's built in gating feature. The approving
+   reviewer executes the merge.
+-  PRs that should not be merged until some other criteria are met (e.g. not
+   until release day) must include DO NOT MERGE in the title, with the details
+   in PR comments.
+-  A typical PR review/adjust/merge cycle should be 2-3 days (timezones, weekends, etc
+   permitting). If a PR upon review appears too complex or requires further
+   discussion it is recommended it be refactored into smaller PRs or
+   discussed in another higher bandwidth forum (e.g. a VC) as appropriate.
+-  A PR can be submitted at any time, but to simplify release logistics PR merges
+   might not be done before release, on release days.
+
 
 Code style
 ----------
