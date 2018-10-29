@@ -20,6 +20,7 @@
 
 import logging
 import os
+import pprint
 import sys
 
 from faucet import valve
@@ -35,22 +36,23 @@ def check_config(conf_files, debug_level, check_output_file):
     logger.addHandler(logger_handler)
     logger.propagate = 0
     logger.setLevel(debug_level)
-    check_output = ''
-    check_result = False
+    check_output = []
 
     for conf_file in conf_files:
+        check_result = False
+
         try:
             _, dps = dp_parser(conf_file, logname)
-            for dp in dps:
-                valve_dp = valve.valve_factory(dp)
-                if valve_dp is None:
-                    check_result = False
-                    break
-                check_output = dp.to_conf()
+            if dps is not None:
+                dps_conf = [(valve.valve_factory(dp), dp.to_conf()) for dp in dps]
+                check_output.extend([conf for _, conf in dps_conf])
                 check_result = True
+                continue
         except InvalidConfigError as config_err:
-            check_output = config_err
-    check_output_file.write(str(check_output))
+            check_output = [config_err]
+        break
+
+    pprint.pprint(check_output, stream=check_output_file)
     return check_result
 
 
