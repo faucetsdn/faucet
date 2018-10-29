@@ -25,6 +25,7 @@ def main():
     # make sure dps are running
     if application.valves_manager is not None:
         for valve in list(application.valves_manager.valves.values()):
+            valve.dp.dyn_finalized = False
             valve.dp.running = True
 
     # create data from read file

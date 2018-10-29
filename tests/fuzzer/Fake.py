@@ -14,3 +14,4 @@ class Message:
 class Datapath:
     def __init__(self, id):
         self.id = id
+        dyn_finalized = False
