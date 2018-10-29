@@ -784,7 +784,8 @@ class Valve:
                         valve_of.output_controller(),
                         valve_of.output_port(port.override_output_port.number)])]))
 
-            if port.dot1x:
+            if port.dot1x \
+                    or (self.dp.dot1x and port.number == self.dp.dot1x['nfv_sw_port']):
                 ofmsgs.extend(self.dot1x.get_port_acls(self, port))
 
             if not self.dp.dp_acls:

@@ -565,6 +565,12 @@ class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
     RADIUS_PORT = 1860
 
     def test_untagged(self):
+
+        def get_actions_and_match(in_port, out_port):
+            actions = ["SET_FIELD: {eth_src:01:80:c2:00:00:03}", 'OUTPUT:%d' % out_port]
+            match = {'in_port': in_port, 'dl_src': '00:00:00:00:00:%02x' % out_port}
+            return actions, match
+
         actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(1), 'OUTPUT:4']
         self.assertTrue(self.get_matching_flow(match=None, table_id=0, actions=actions))
 
@@ -573,6 +579,42 @@ class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
 
         self.set_port_up(1)
         self.assertTrue(self.get_matching_flow(match=None, table_id=0, actions=actions))
+
+        actions, match = get_actions_and_match(4, 1)
+
+        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
+                        self.get_all_flows_from_dpid(self.dpid, 0))
+
+        self.set_port_down(4)
+        self.assertFalse(self.get_matching_flow(match=match, table_id=0, actions=actions),
+                         self.get_all_flows_from_dpid(self.dpid, 0))
+
+        self.set_port_up(4)
+        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
+                        self.get_all_flows_from_dpid(self.dpid, 0))
+
+        # check only have rules for port 2 installed. after the nvf port comes up
+        self.set_port_down(1)
+        self.set_port_down(4)
+        self.set_port_up(4)
+
+        self.assertFalse(self.get_matching_flow(match=match, table_id=0, actions=actions),
+                         self.get_all_flows_from_dpid(self.dpid, 0))
+
+        actions, match = get_actions_and_match(4, 2)
+
+        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
+                        self.get_all_flows_from_dpid(self.dpid, 0))
+
+        self.set_port_up(1)
+
+        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
+                        self.get_all_flows_from_dpid(self.dpid, 0))
+
+        actions, match = get_actions_and_match(4, 1)
+
+        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
+                        self.get_all_flows_from_dpid(self.dpid, 0))
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
