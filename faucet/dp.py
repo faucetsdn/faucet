@@ -611,6 +611,8 @@ configuration.
             if dp.stack is not None:
                 stack_dps.append(dp)
                 if 'priority' in dp.stack:
+                    test_config_condition(not isinstance(dp.stack['priority'], int), (
+                        'stack priority must be type %s not %s' % (int, type(dp.stack['priority']))))
                     test_config_condition(dp.stack['priority'] <= 0, (
                         'stack priority must be > 0'))
                     test_config_condition(root_dp is not None, 'cannot have multiple stack roots')
