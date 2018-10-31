@@ -170,7 +170,7 @@ MINIMUM_FAUCET_PIPELINE_TABLES = {
 # of control protocols and simplify matches in vlan/eth_src, enabling use of
 # exact_match.
 FAUCET_PIPELINE = (
-    PORT_ACL_8021X_CONFIG,
+    PORT_ACL_DEFAULT_CONFIG,
     VLAN_DEFAULT_CONFIG,
     VLAN_ACL_DEFAULT_CONFIG,
     CLASSIFICATION_DEFAULT_CONFIG,
@@ -185,7 +185,7 @@ FAUCET_PIPELINE = (
 )
 
 DEFAULT_CONFIGS = {
-    'port_acl': PORT_ACL_8021X_CONFIG,
+    'port_acl': PORT_ACL_DEFAULT_CONFIG,
     'vlan': VLAN_DEFAULT_CONFIG,
     'vlan_acl': VLAN_ACL_DEFAULT_CONFIG,
     'eth_src': ETH_SRC_DEFAULT_CONFIG,
