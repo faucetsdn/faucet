@@ -38,7 +38,7 @@ class Router(Conf):
         super(Router, self).__init__(_id, dp_id, conf)
 
     def __str__(self):
-        return self._id
+        return str(self._id)
 
     def check_config(self):
         super(Router, self).check_config()
