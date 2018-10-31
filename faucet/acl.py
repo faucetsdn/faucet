@@ -111,7 +111,7 @@ The output action contains a dictionary with the following elements:
             conf = {}
         else:
             raise InvalidConfigError(
-                'ACL conf is an invalid type %s' % self._id)
+                'ACL conf is an invalid type %s' % _id)
         conf['rules'] = []
         for rule in rules:
             normalized_rule = rule
