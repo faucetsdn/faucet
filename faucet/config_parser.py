@@ -29,6 +29,7 @@ from faucet.router import Router
 from faucet.vlan import VLAN
 from faucet.watcher_conf import WatcherConf
 
+from faucet.config_parser_util import get_logger
 
 V2_TOP_CONFS = (
     'acls',
@@ -171,12 +172,14 @@ def _parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
 
 
 def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
-                  routers_conf, vlans_conf):
+                  routers_conf, vlans_conf, logname):
 
     dps = [_parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
            for dp_key, dp_conf in dps_conf.items()]
+ 
+    logger = get_logger(logname)
     for dp in dps:
-        dp.finalize_config(dps)
+        dp.finalize_config(dps, logger)
     for dp in dps:
         dp.resolve_stack_topology(dps)
 
@@ -210,7 +213,7 @@ def _config_parser_v2(config_file, logname):
             top_confs['dps'],
             top_confs['meters'],
             top_confs['routers'],
-            top_confs['vlans'])
+            top_confs['vlans'], logname)
     return (config_hashes, dps)
 
 
@@ -249,7 +252,7 @@ def _parse_dps_for_watchers(conf, logname):
         meters = faucet_conf.get('meters', {})
         routers = faucet_conf.get('routers', {})
         vlans = faucet_conf.get('vlans', {})
-        for dp in _dp_parser_v2(acls, fct_dps, meters, routers, vlans):
+        for dp in _dp_parser_v2(acls, fct_dps, meters, routers, vlans, logname):
             dps[dp.name] = dp
 
     if not dps:

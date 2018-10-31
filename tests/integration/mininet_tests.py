@@ -158,12 +158,26 @@ vlans:
 
 class Faucet8021XSuccessTest(FaucetUntaggedTest):
 
-    SOFTWARE_ONLY = True
+#    SOFTWARE_ONLY = True
 
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
+
+acls:
+    dummy:
+        - rule:
+            eth_src: ff:ff:ff:ff:ff:ff
+            eth_type: 0xffff
+            actions:
+                output:
+                    set_fields:
+                        - eth_dst: 00:00:00:00:00:01
+                allow: True
+        - rule:
+            actions:
+                allow: True
 """
 
     CONFIG = """
@@ -188,6 +202,7 @@ vlans:
                 name: b3
                 native_vlan: 100
                 description: "b3 - ping host."
+#                acls_in: [dummy]
             %(port_4)d:
                 name: b4
                 native_vlan: 100

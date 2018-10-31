@@ -117,6 +117,18 @@ The output action contains a dictionary with the following elements:
             conf['rules'].append(rule.get('rule', rule))
         super(ACL, self).__init__(_id, dp_id, conf)
 
+        for rule_conf in self.rules:
+            self.matches['in_port'] = True
+            for k in rule_conf.keys():
+                if k != 'actions':
+                    self.matches[k] = True
+            if 'actions' in rule_conf:
+                if 'output' in rule_conf['actions']:
+                    if 'set_fields' in rule_conf['actions']['output']:
+                        _set_fields = rule_conf['actions']['output']['set_fields']
+                        for field_pair in _set_fields:
+                            self.set_fields.add(list(field_pair.keys())[0])
+
     def check_config(self):
         test_config_condition(
             not self.rules, 'no rules found for ACL %s' % self._id)
@@ -265,9 +277,11 @@ The output action contains a dictionary with the following elements:
                         resolved_actions[action_name] = action_conf
                 rule_conf['actions'] = resolved_actions
 
+    def __str__(self):
+        return str(self.__dict__)
 
 # TODO: 802.1x steals the port ACL table.
 PORT_ACL_8021X = ACL(
     'port_acl_8021x', 0,
     {'rules': [{'eth_type': 1, 'eth_src': '01:02:03:04:05:06', 'actions': {
-        'output': {'set_fields': [{'eth_src': '01:02:03:04:05:06'}]}}}]})
+        'output': {'set_fields': [{'eth_src': '01:02:03:04:05:06'}, {'eth_dst': '01:02:03:04:05:06'}]}}}]})
