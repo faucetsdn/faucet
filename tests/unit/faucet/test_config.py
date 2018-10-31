@@ -2691,6 +2691,43 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_stack_priority_value_invalid(self):
+        """Test config fails when stack priority invalid type"""
+        config = """
+acls:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        stack:
+            priority: !
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_conf_type_invalid(self):
+        """Test config fails when conf invalid type"""
+        config = """
+acls:
+    office-vlan-protect:
+        - rule:
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main() # pytype: disable=module-attr
