@@ -29,7 +29,6 @@ from faucet.router import Router
 from faucet.vlan import VLAN
 from faucet.watcher_conf import WatcherConf
 
-from faucet.config_parser_util import get_logger
 
 V2_TOP_CONFS = (
     'acls',
@@ -176,7 +175,6 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
     dps = [_parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
            for dp_key, dp_conf in dps_conf.items()]
- 
     for dp in dps:
         dp.finalize_config(dps)
     for dp in dps:

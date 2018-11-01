@@ -34,7 +34,6 @@ from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.valve_table import ValveTable, ValveGroupTable
 
-
 # Documentation generated using documentation_generator.py
 # For attributues to be included in documentation they must
 # have a default value, and their descriptor must come
@@ -394,7 +393,7 @@ configuration.
                 set_fields.update(acl.set_fields)
                 meter = meter or acl.meter
                 exact_match = acl.exact_match
-            vtc = ValveTableConfig(
+            table_config[table_name] = ValveTableConfig(
                 table_name,
                 default.table_id,
                 exact_match=exact_match,
@@ -403,7 +402,7 @@ configuration.
                 match_types=tuple(sorted(matches.items())),
                 set_fields=tuple(sorted(set_fields)),
                 next_tables=default.next_tables)
-            table_config[table_name] = vtc
+
         # TODO: dynamically configure output attribue
         return table_config
 
@@ -431,7 +430,6 @@ configuration.
         canonical_configs = [
             config for config in faucet_pipeline.FAUCET_PIPELINE
             if config.name in included_tables]
-
         table_configs = {}
         for relative_table_id, canonical_table_config in enumerate(canonical_configs, start=0):
             name = canonical_table_config.name
