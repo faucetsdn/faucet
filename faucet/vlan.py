@@ -295,8 +295,9 @@ class VLAN(Conf):
 
     def reset_ports(self, ports):
         """Reset tagged and untagged port lists."""
-        self.tagged = tuple([port for port in ports if self in port.tagged_vlans])
-        self.untagged = tuple([port for port in ports if self == port.native_vlan])
+        sorted_ports = sorted(ports, key=lambda i: i.number)
+        self.tagged = tuple([port for port in sorted_ports if self in port.tagged_vlans])
+        self.untagged = tuple([port for port in sorted_ports if self == port.native_vlan])
 
     def add_cache_host(self, eth_src, port, cache_time):
         """Add/update a host to the cache on a port at at time."""
@@ -473,9 +474,12 @@ class VLAN(Conf):
         return len(self.dyn_host_cache)
 
     def __str__(self):
-        port_list = tuple([str(x) for x in self.get_ports()])
-        ports = ','.join(port_list)
-        return 'VLAN %s vid:%s ports:%s' % (self.name, self.vid, ports)
+        str_ports = []
+        if self.tagged:
+            str_ports.append('tagged: %s' % ','.join([str(p) for p in self.tagged]))
+        if self.untagged:
+            str_ports.append('untagged: %s' % ','.join([str(p) for p in self.untagged]))
+        return 'VLAN %s vid:%s %s' % (self.name, self.vid, ' '.join(str_ports))
 
     def __repr__(self):
         return self.__str__()
