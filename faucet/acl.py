@@ -277,8 +277,6 @@ The output action contains a dictionary with the following elements:
                         resolved_actions[action_name] = action_conf
                 rule_conf['actions'] = resolved_actions
 
-    def __str__(self):
-        return str(self.__dict__)
 
 # TODO: 802.1x steals the port ACL table.
 PORT_ACL_8021X = ACL(

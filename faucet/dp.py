@@ -34,20 +34,6 @@ from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.valve_table import ValveTable, ValveGroupTable
 
-def log_acl(acl):
-    return str(acl)
-
-def log_acls(_list):
-    ret = ''
-    for i in _list:
-        ret += ' ' + log_acl(i)
-    return ret
-
-def log_table(_dict):
-    ret = ''
-    for k, v in _dict.items():
-        ret += ' ' + k + ':' + str(v.__dict__)
-    return ret
 
 # Documentation generated using documentation_generator.py
 # For attributues to be included in documentation they must
@@ -372,12 +358,11 @@ configuration.
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
         self._check_conf_types(self.table_sizes, self.default_table_sizes_types)
 
-    def _generate_acl_tables(self, logger):
+    def _generate_acl_tables(self):
         all_acls = {}
         if self.dot1x:
             all_acls['port_acl'] = [PORT_ACL_8021X]
-#        logger.info('port_acl type: %s', type(all_acls['port_acl']))
-#        logger.info('port_acl %s', log_acls(all_acls['port_acl']))
+
         for vlan in self.vlans.values():
             if vlan.acls_in:
                 all_acls.setdefault('vlan_acl', [])
@@ -394,19 +379,15 @@ configuration.
                         'port ACLs and 802.1x cannot be configured together'))
                     all_acls.setdefault('port_acl', [])
                     all_acls['port_acl'].extend(port.acls_in)
-                    logger.info('port_acl %s', log_acls(all_acls['port_acl']))
 
-#        logger.info('port_acl %s', log_acls(all_acls['port_acl']))
         table_config = {}
         for table_name, acls in all_acls.items():
-            logger.info('aaaaaa %s %s', table_name, log_acls(acls))
             matches = {}
             set_fields = set()
             meter = False
             exact_match = False
             default = faucet_pipeline.DEFAULT_CONFIGS[table_name]
             for acl in acls:
-                logger.warn('acl: %s', log_acl(acl))
                 for field, has_mask in acl.matches.items():
                     if has_mask or field not in matches:
                         matches[field] = has_mask
@@ -422,19 +403,17 @@ configuration.
                 match_types=tuple(sorted(matches.items())),
                 set_fields=tuple(sorted(set_fields)),
                 next_tables=default.next_tables)
-            logger.info('vtc %s', str(vtc.__dict__))
             table_config[table_name] = vtc
         # TODO: dynamically configure output attribue
-        logger.info('table_config: %s', log_table(table_config))
         return table_config
 
-    def _configure_tables(self, valve_cl, logger):
+    def _configure_tables(self, valve_cl):
         """Configure FAUCET pipeline with tables."""
         tables = {}
         self.groups = ValveGroupTable()
         relative_table_id = 0
         included_tables = copy.deepcopy(faucet_pipeline.MINIMUM_FAUCET_PIPELINE_TABLES)
-        acl_tables = self._generate_acl_tables(logger)
+        acl_tables = self._generate_acl_tables()
         included_tables.update(acl_tables.keys())
         # Only configure IP routing tables if enabled.
         for vlan in self.vlans.values():
@@ -453,8 +432,6 @@ configuration.
             config for config in faucet_pipeline.FAUCET_PIPELINE
             if config.name in included_tables]
 
-#        if self.dot1x:
-#            canonical_configs
         table_configs = {}
         for relative_table_id, canonical_table_config in enumerate(canonical_configs, start=0):
             name = canonical_table_config.name
@@ -741,7 +718,7 @@ configuration.
                 return resolved_ports[0]
         return None
 
-    def finalize_config(self, dps, logger):
+    def finalize_config(self, dps):
         """Perform consistency checks after initial config parsing."""
 
         dp_by_name = {}
@@ -910,7 +887,7 @@ configuration.
         resolve_vlan_names_in_routers()
         resolve_acls()
 
-        self._configure_tables(valve_cl, logger)
+        self._configure_tables(valve_cl)
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:

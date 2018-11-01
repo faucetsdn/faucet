@@ -214,7 +214,7 @@ class Valve:
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
-            self.logger.info('bbbtable ID %u %s' % (table_id, table_config))
+            self.logger.info('table ID %u %s' % (table_id, table_config))
 
     def _get_managers(self):
         managers = (

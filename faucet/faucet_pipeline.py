@@ -48,7 +48,7 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
     def __str__(self):
         field_strs = ' '.join([
             '%s: %s' % (key, val) for key, val in sorted(self.__dict__.items())])
-        return 'ccccctable config %s' % field_strs
+        return 'table config %s' % field_strs
 
     def __repr__(self):
         return self.__str__()
@@ -82,15 +82,6 @@ PORT_ACL_DEFAULT_CONFIG = ValveTableConfig(
     'port_acl',
     0,
     match_types=(('in_port', False),),
-    next_tables=(('vlan',) + _NEXT_VIP)
-    )
-PORT_ACL_8021X_CONFIG = ValveTableConfig(
-    'port_acl',
-    0,
-    match_types=(('in_port', False),
-                 ('eth_type', False),
-                 ('eth_src', True),),
-    set_fields=(('eth_dst')),
     next_tables=(('vlan',) + _NEXT_VIP)
     )
 VLAN_DEFAULT_CONFIG = ValveTableConfig(

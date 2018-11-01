@@ -158,26 +158,10 @@ vlans:
 
 class Faucet8021XSuccessTest(FaucetUntaggedTest):
 
-#    SOFTWARE_ONLY = True
-
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
-
-acls:
-    dummy:
-        - rule:
-            eth_src: ff:ff:ff:ff:ff:ff
-            eth_type: 0xffff
-            actions:
-                output:
-                    set_fields:
-                        - eth_dst: 00:00:00:00:00:01
-                allow: True
-        - rule:
-            actions:
-                allow: True
 """
 
     CONFIG = """
@@ -202,7 +186,6 @@ acls:
                 name: b3
                 native_vlan: 100
                 description: "b3 - ping host."
-#                acls_in: [dummy]
             %(port_4)d:
                 name: b4
                 native_vlan: 100
@@ -332,7 +315,7 @@ network={
 
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
         wpa_ctrl_path = os.path.join(
-            self.tmpdir, '%s%s-wpasupplicant' % (self.tmpdir, host.name))
+            self.tmpdir, '%s/%s-wpasupplicant' % (self.tmpdir, host.name))
         self.start_wpasupplicant(
             host, conf,
             timeout=10, wpa_ctrl_socket_path=wpa_ctrl_path)
