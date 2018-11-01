@@ -402,7 +402,6 @@ configuration.
                 match_types=tuple(sorted(matches.items())),
                 set_fields=tuple(sorted(set_fields)),
                 next_tables=default.next_tables)
-
         # TODO: dynamically configure output attribue
         return table_config
 
