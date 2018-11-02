@@ -140,7 +140,7 @@ class Gauge(RyuAppBase):
         self.logger.info('%s up', dpid_log(ryu_dp.id))
         ryu_dp.send_msg(valve_of.faucet_config(datapath=ryu_dp))
         ryu_dp.send_msg(valve_of.faucet_async(datapath=ryu_dp, packet_in=False))
-        self._start_watchers(ryu_dp, watchers, ryu_event.timestamp)
+        self._start_watchers(ryu_dp, watchers, time.time())
 
     def _stop_watchers(self, watchers):
         """Stop watchers for DP."""
