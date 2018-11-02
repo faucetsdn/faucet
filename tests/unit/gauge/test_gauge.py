@@ -870,7 +870,7 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
         ryu_app.reload_config(None)
         self.assertFalse(ryu_app._config_files_changed())
         ryu_app._update_watcher(None, self._fake_event())
-        ryu_app._start_watchers(self._fake_dp(), {})
+        ryu_app._start_watchers(self._fake_dp(), {}, time.time())
         for event_handler in (
                 ryu_app._datapath_connect,
                 ryu_app._datapath_disconnect):
