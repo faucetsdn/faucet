@@ -385,6 +385,28 @@ dps:
 """
         self.check_config_success(acl_config)
 
+    def test_multiple_dps(self):
+        """Test multiple DPs."""
+        acl_config = """
+vlans:
+    100:
+        description: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+    switch2:
+        dp_id: 0xcafef00e
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_success(acl_config)
+
     def test_router_resolved_vlans(self):
         """Test that VLANs get resolved by routers."""
         vlan_config = """
