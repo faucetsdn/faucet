@@ -1216,7 +1216,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                 port_var, labels=port_labels, controller='gauge', retries=3)
             self.assertIsNotNone(val, '%s missing for port %u' % (port_var, port))
             port_counters[port_var] = val
-            for port_state_var in ('of_port_state', 'of_port_reason'):
+            for port_state_var in ('of_port_state', 'of_port_reason', 'of_port_curr_speed'):
                 self.assertTrue(val and val > 0, self.scrape_prometheus_var(
                     port_state_var, labels=port_labels, controller='gauge', retries=3))
         return port_counters
@@ -1230,8 +1230,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         )
         self.flap_all_switch_ports()
         first_port_counters = {}
-        for i, _ in enumerate(self.net.hosts):
-            port = i + 1
+        for port, _ in enumerate(self.net.hosts, start=1):
             port_counters = self.scrape_port_counters(port, port_vars)
             first_port_counters[port] = port_counters
         counter_delay = 0
@@ -1239,8 +1238,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         for _ in range(self.DB_TIMEOUT * 3):
             self.ping_all_when_learned()
             updating = True
-            for i, _ in enumerate(self.net.hosts):
-                port = i + 1
+            for port, _ in enumerate(self.net.hosts, start=1):
                 port_counters = self.scrape_port_counters(port, port_vars)
                 for port_var, val in list(port_counters.items()):
                     if not val > first_port_counters[port][port_var]:
