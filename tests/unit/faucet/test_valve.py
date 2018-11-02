@@ -1529,6 +1529,55 @@ dps:
         self.update_config(self.LESS_CONFIG, reload_type='cold')
 
 
+class ValveWarmStartVLANTestCase(ValveTestBases.ValveTestSmall):
+    """Test change of port VLAN only is a warm start."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 9
+                tagged_vlans: [0x100]
+            p2:
+                number: 11
+                tagged_vlans: [0x100]
+            p3:
+                number: 13
+                tagged_vlans: [0x100]
+            p4:
+                number: 14
+                native_vlan: 0x200
+""" % DP1_CONFIG
+
+    WARM_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 9
+                tagged_vlans: [0x100]
+            p2:
+                number: 11
+                tagged_vlans: [0x100]
+            p3:
+                number: 13
+                tagged_vlans: [0x100]
+            p4:
+                number: 14
+                native_vlan: 0x300
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_warm_start(self):
+        """Test VLAN change is warm startable."""
+        self.update_config(self.WARM_CONFIG, reload_type='warm')
+
+
 class ValveDeleteVLANTestCase(ValveTestBases.ValveTestSmall):
     """Test deleting VLAN."""
 

@@ -175,8 +175,8 @@ class FaucetTestBase(unittest.TestCase):
                 dp_ports = self.config['dp_ports']
                 self.port_map = {}
                 self.switch_map = {}
-                for i, switch_port in enumerate(dp_ports):
-                    test_port_name = 'port_%u' % (i + 1)
+                for i, switch_port in enumerate(sorted(dp_ports), start=1):
+                    test_port_name = 'port_%u' % i
                     self.port_map[test_port_name] = switch_port
                     self.switch_map[test_port_name] = dp_ports[switch_port]
 
@@ -733,7 +733,7 @@ dbs:
             time.sleep(1)
         return False
 
-    def get_matching_flows_on_dpid(self, dpid, match, table_id, timeout=10, 
+    def get_matching_flows_on_dpid(self, dpid, match, table_id, timeout=10,
                                    actions=None, hard_timeout=0, cookie=None,
                                    ofa_match=True):
 
@@ -1122,6 +1122,7 @@ dbs:
                     config_file_tmp.write(new_conf_str)
                 with open(config_file_tmp_name, 'rb') as config_file_tmp:
                     assert new_conf_str == config_file_tmp.read()
+                shutil.copyfile(conf_path, '%s.%f' % (conf_path, time.time()))
                 os.rename(config_file_tmp_name, conf_path)
 
         update_conf_func = partial(_update_conf, conf_path, yaml_conf)
@@ -1159,17 +1160,15 @@ dbs:
         cold_start_conf = copy.deepcopy(orig_conf)
         used_vids = set()
         for vlan_name, vlan_conf in cold_start_conf['vlans'].items():
-            if 'vid' in vlan_conf:
-                used_vids.add(vlan_conf['vid'])
-            else:
-                used_vids.add(vlan_name)
-        unused_vid = list(set(range(1, 4095)) - used_vids)[0]
+            used_vids.add(vlan_conf.get('vid', vlan_name))
+        unused_vids = list(set(range(2, max(used_vids))) - used_vids)
+        assert len(unused_vids) >= len(self.port_map)
+        # Ensure cold start by moving all ports to new, unused VLANs,
+        # then back again.
         for dp_conf in cold_start_conf['dps'].values():
             dp_conf['interfaces'] = {
-                self.port_map[list(self.port_map.keys())[0]]: {
-                    'native_vlan': unused_vid,
-                }
-            }
+                self.port_map[port]: {'native_vlan': unused_vids[i]}
+                for i, port in enumerate(self.port_map.keys(), start=0)}
         for conf in (cold_start_conf, orig_conf):
             self.reload_conf(
                 conf, self.faucet_config_path,
@@ -1968,7 +1967,7 @@ dbs:
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEqual(
             'hello\r\n',
-        first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
+            first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
         if table_id is None:
             return
         self.wait_nonzero_packet_count_flow(
