@@ -110,6 +110,17 @@ class GaugePoller:
         self.logger.debug('stats for unknown port %u', stat.port_no)
         return str(stat.port_no)
 
+    def _stat_port_labels(self, msg, stat, dp_id):
+        port = self.dp.ports.get(stat.port_no, None)
+        port_name = self._stat_port_name(msg, stat, dp_id)
+        port_description = port_name
+        if port is not None:
+            port_description = port.description
+        port_labels = dict(
+            dp_id=hex(dp_id), dp_name=self.dp.name,
+            port_name=port_name, port_description=port_description)
+        return port_labels
+
     @staticmethod
     def _format_port_stats(delim, stat):
         formatted_port_stats = []

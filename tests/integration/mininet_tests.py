@@ -1210,6 +1210,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
             'dp_id': self.dpid,
             'dp_name': self.DP_NAME,
             'port_name': self.port_map['port_%u' % port],
+            'port_description': 'b%u' % port,
         }
         for port_var in port_vars:
             val = self.scrape_prometheus_var(
