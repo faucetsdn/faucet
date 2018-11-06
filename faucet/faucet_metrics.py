@@ -32,7 +32,7 @@ class FaucetMetrics(PromClient):
 
     def __init__(self, reg=None):
         super(FaucetMetrics, self).__init__(reg=reg)
-        self.PORT_REQUIRED_LABELS = self.REQUIRED_LABELS + ['port']
+        self.PORT_REQUIRED_LABELS = self.REQUIRED_LABELS + ['port', 'port_description']
         self._dpid_counters = {}
         self._dpid_gauges = {}
         self.faucet_config_reload_requests = self._counter(

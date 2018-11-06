@@ -117,10 +117,11 @@ class Valve:
         self.dp_init()
 
     def port_labels(self, port):
-        return dict(self.base_prom_labels, port=port.number)
+        return dict(
+            self.base_prom_labels, port=port.number, port_description=port.description)
 
     def _port_vlan_labels(self, port, vlan):
-        return dict(self.base_prom_labels, vlan=vlan.vid, port=port.number)
+        return dict(self.port_labels(port), vlan=vlan.vid)
 
     def _inc_var(self, var, labels=None, val=1):
         if labels is None:
@@ -419,8 +420,11 @@ class Valve:
 
     def _set_port_status(self, port_no, port_status):
         """Set port operational status."""
-        labels = dict(self.base_prom_labels, port=port_no)
-        self._set_var('port_status', port_status, labels=labels)
+        port = self.dp.ports.get(port_no, None)
+        if port is None:
+            return
+        port_labels = self.port_labels(port)
+        self._set_var('port_status', port_status, labels=port_labels)
         if port_status:
             self.dp.dyn_up_ports.add(port_no)
         else:
