@@ -3125,14 +3125,14 @@ vlans:
                 description: "b1"
             %(port_2)d:
                 native_vlan: 100
-                description: "b1"
+                description: "b2"
             %(port_3)d:
                 native_vlan: 100
-                description: "b2"
+                description: "b3"
                 loop_protect: True
             %(port_4)d:
                 native_vlan: 100
-                description: "b2"
+                description: "b4"
                 loop_protect: True
 """
 
@@ -3150,7 +3150,7 @@ vlans:
             in_port = 'port_%u' % (i + 1)
             dp_port = self.port_map[in_port]
             total_bans += self.scrape_prometheus_var(
-                'port_learn_bans', {'port': str(dp_port)}, dpid=True, default=0)
+                'port_learn_bans', self.port_labels(dp_port), dpid=True, default=0)
         return total_bans
 
     def test_untagged(self):
