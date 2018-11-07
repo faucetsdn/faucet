@@ -1210,7 +1210,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 
     def scrape_port_counters(self, port, port_vars):
         port_counters = {}
-        port_labels = self.port_labels(self.port_map['port_%u' % port])
+        port_labels = self.port_labels(port)
         for port_var in port_vars:
             val = self.scrape_prometheus_var(
                 port_var, labels=port_labels, controller='gauge', dpid=True, retries=3)
@@ -1901,11 +1901,11 @@ vlans:
         self.assertEqual(self.MAX_HOSTS, len(flows))
         self.assertGreater(
             self.scrape_prometheus_var(
-                'port_learn_bans', self.port_labels(self.port_map['port_2'])), 0)
+                'port_learn_bans', self.port_labels(2), 0))
         learned_macs = [
             mac for _, mac in self.scrape_prometheus_var(
                 'learned_macs',
-                dict(self.port_labels(self.port_map['port_2']), vlan=100),
+                dict(self.port_labels(2), vlan=100),
                 multiple=True) if mac]
         self.assertEqual(self.MAX_HOSTS, len(learned_macs))
 
@@ -3142,10 +3142,8 @@ vlans:
     def total_port_bans(self):
         total_bans = 0
         for i in range(self.LINKS_PER_HOST * self.N_UNTAGGED):
-            in_port = 'port_%u' % (i + 1)
-            dp_port = self.port_map[in_port]
             total_bans += self.scrape_prometheus_var(
-                'port_learn_bans', self.port_labels(dp_port), dpid=True, default=0)
+                'port_learn_bans', self.port_labels(i + 1), dpid=True, default=0)
         return total_bans
 
     def test_untagged(self):
@@ -3316,7 +3314,7 @@ details partner lacp pdu:
     port priority: 255
     port number: %d
     port state: 62
-""".strip() % lag_ports
+""".strip() % tuple([self.port_map['port_%u' % i] for i in lag_ports])
         def prom_lag_status():
             lacp_up_ports = 0
             for lacp_port in lag_ports:
