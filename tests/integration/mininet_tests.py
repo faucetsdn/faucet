@@ -3219,14 +3219,14 @@ vlans:
                 lacp: 1
             %(port_2)d:
                 native_vlan: 100
-                description: "b1"
+                description: "b2"
                 lacp: 1
             %(port_3)d:
                 native_vlan: 100
-                description: "b2"
+                description: "b3"
             %(port_4)d:
                 native_vlan: 100
-                description: "b2"
+                description: "b4"
 """
 
     def setUp(self): # pylint: disable=invalid-name
@@ -4447,7 +4447,7 @@ vlans:
         self.flap_all_switch_ports()
         self.change_port_config(
             self.port_map['port_3'], 'mirror', ['b1', 'b2'],
-            restart=True, cold_start=True, hup=True)
+            restart=True, cold_start=False, hup=True)
         self.verify_ping_mirrored_multi(
             ping_pairs, mirror_host, both_mirrored=True)
 
