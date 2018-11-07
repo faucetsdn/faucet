@@ -63,7 +63,7 @@ Code style
 ----------
 
 Please use the coding style documented at
-http://google.github.io/styleguide/pyguide.html. Existing code not using
+https://github.com/google/styleguide/blob/gh-pages/pyguide.md. Existing code not using
 this style will be incrementally migrated to comply with it. New code
 should comply.
 
