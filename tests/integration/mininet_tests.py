@@ -561,7 +561,7 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
             self.scrape_prometheus_var('dp_dot1x_failure', default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_failure', labels={'port': 1}, default=0))
+            self.scrape_prometheus_var('port_dot1x_failure', labels=self.port_labels(1), default=0))
 
 
 class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
