@@ -8,6 +8,7 @@ echo TRAVIS_COMMIT: $TRAVIS_COMMIT
 # If PY_FILES_CHANGED is empty, run all codecheck tests (otherwise only on changed files).
 FILES_CHANGED=""
 PY_FILES_CHANGED=""
+RQ_FILES_CHANGED=""
 
 # TRAVIS_COMMIT_RANGE will be empty in a new branch.
 if [[ "$TRAVIS_COMMIT_RANGE" != "" ]] ; then
@@ -16,6 +17,7 @@ if [[ "$TRAVIS_COMMIT_RANGE" != "" ]] ; then
   FILES_CHANGED=`$GIT_DIFF_CMD`
   if [ $? -ne 0 ] ; then echo $GIT_DIFF_CMD returned $? ; fi
   PY_FILES_CHANGED=`$GIT_DIFF_CMD | grep -E ".py$"`
+  RQ_FILES_CHANGED=`$GIT_DIFF_CMD | grep -E "requirements.*txt$"`
   if [[ "$FILES_CHANGED" != "" ]] ; then
     echo files changed: $FILES_CHANGED
   else
@@ -57,11 +59,12 @@ fi
 if [[ "$FILES_CHANGED" != "" ]] ; then
   # Always test docs if anything changed.
   cd ./docs && make html && rm -rf _build && cd .. || exit 1
-  if [[ "$PY_FILES_CHANGED" == "" ]] ; then
-    echo Not running docker tests because only non-python changes: $FILES_CHANGED
+
+  if [[ "$PY_FILES_CHANGED" == "" && "$RQ_FILES_CHANGED" == "" ]] ; then
+    echo Not running docker tests because only non-python/requirements changes: $FILES_CHANGED
     exit 0
   else
-    echo python source changes: $PY_FILES_CHANGED
+    echo python/requirements changes: $PY_FILES_CHANGED $RQ_FILES_CHANGED
   fi
 fi
 
