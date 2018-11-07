@@ -1210,10 +1210,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 
     def scrape_port_counters(self, port, port_vars):
         port_counters = {}
-        port_labels = {
-            'port': self.port_map['port_%u' % port],
-            'port_description': 'b%u' % port,
-        }
+        port_labels = self.port_labels(self.port_map['port_%u' % port])
         for port_var in port_vars:
             val = self.scrape_prometheus_var(
                 port_var, labels=port_labels, controller='gauge', dpid=True, retries=3)
