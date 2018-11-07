@@ -350,7 +350,6 @@ Implemented:
 Not Supported (yet):
 
 - RADIUS Accounting.
-- Port status changes do not affect the authentication status.
 - Multiple RADIUS Servers.
 - Other EAP types. E.g. TLS, ...
 - Dynamic assignment of VLAN/ACL.

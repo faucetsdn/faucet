@@ -133,7 +133,7 @@ class FaucetDot1x:
         self.mac_to_port[mac_str] = (valve, port)
         return mac_str
 
-    def get_port_acls(self, valve, dot1x_port):
+    def port_up(self, valve, dot1x_port):
         """Setup the dot1x forward port acls.
         Args:
             dot1x_port:
@@ -142,6 +142,8 @@ class FaucetDot1x:
         Returns:
             list of flowmods
         """
+        self.dot1x_speaker.port_down(get_mac_str(self.dp_id_to_valve_index[valve.dp.dp_id],
+                                                 dot1x_port.number))
         nfv_sw_port = valve.dp.dot1x['nfv_sw_port']
 
         if dot1x_port.number == nfv_sw_port:
@@ -195,20 +197,25 @@ class FaucetDot1x:
         Returns:
             list of flowmods
         """
-        # TODO: let chewie know about the port down event.
+        self.dot1x_speaker.port_down(get_mac_str(self.dp_id_to_valve_index[valve.dp.dp_id],
+                                                 dot1x_port.number))
+        flowmods = valve.del_authed_mac(
+            dot1x_port.number)
+
         port_acl_table = valve.dp.tables['port_acl']
         nfv_sw_port = valve.dp.dot1x['nfv_sw_port']
         valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
         mac = get_mac_str(valve_index, dot1x_port.number)
         # Strictly speaking these deletes aren't needed, as the caller
         # clears the port_acl table for # the port that is down.
-        return [
+        flowmods.extend([
             port_acl_table.flowdel(
                 **FaucetDot1x.get_dot1x_port_match_priority(dot1x_port, port_acl_table, valve)),
             port_acl_table.flowdel(
                 **FaucetDot1x.get_nfv_sw_port_match_priority(mac, nfv_sw_port,
                                                              port_acl_table, valve)
-                )]
+                )])
+        return flowmods
 
     @staticmethod
     def get_nfv_sw_port_match_priority(mac, nfv_sw_port, port_acl_table, valve):

@@ -595,7 +595,7 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
             self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels, default=0))
 
 
-class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
+class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
 
     RADIUS_PORT = 1860
 
@@ -638,6 +638,24 @@ class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
         self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
         actions, match = get_actions_and_match(port_no4, port_no1)
         self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
+
+        # When the port goes down, and up the host should not be authenticated anymore.
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, 1, self.wpasupplicant_conf_1, and_logoff=False)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success', labels={'port': 1}, default=0))
+        self.assertIn('Success', tcpdump_txt_1)
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
+        self.set_port_down(1)
+
+        self.set_port_up(1)
+        actions, match = get_actions_and_match(4, 1)
+        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
+                        self.get_all_flows_from_dpid(self.dpid, 0))
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
