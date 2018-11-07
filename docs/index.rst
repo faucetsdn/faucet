@@ -12,6 +12,7 @@ User Documentation
    installation
    docker
    configuration
+   monitoring
    recipe_book/index
    vendors/index
    external_resources

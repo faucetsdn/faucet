@@ -18,7 +18,11 @@
 #
 import os
 import sys
+import docutils
 sys.path.insert(0, os.path.abspath('../'))
+
+from docutils.parsers.rst.directives import tables
+from docutils.statemachine import StringList
 
 autodoc_default_flags = ["members", "undoc-members", "show-inheritance"]
 
@@ -171,6 +175,66 @@ def run_apidoc(_):
     from sphinx.apidoc import main as apidoc_main
     apidoc_main(['-e', '-o', 'source/apidoc', '../faucet'])
 
+class FaucetPromMetricsTable(tables.ListTable):
+    """Autogen prometheus metrics documentation"""
+
+    options = {'header-rows': 1, 'widths': [31, 15, 15, 60]}
+
+    def run(self):
+        import faucet.faucet_metrics
+        from prometheus_client import CollectorRegistry
+
+        self.block_text = """\
+* - Metric
+  - Type
+  - Description
+"""
+
+        faucet_metrics = faucet.faucet_metrics.FaucetMetrics(reg=CollectorRegistry())
+        for metric in faucet_metrics._reg.collect():
+            self.block_text += """\
+* - {}
+  - {}
+  - {}
+""".format(metric.name, metric.type, metric.documentation)
+
+        self.content = StringList()
+        for lineno, line in enumerate(self.block_text.split('\n')):
+            self.content.append(line, __file__, lineno)
+
+        return super(FaucetPromMetricsTable, self).run()
+
+class GaugePromMetricsTable(tables.ListTable):
+    """Autogen prometheus metrics documentation"""
+
+    options = {'header-rows': 1, 'widths': [31, 15, 15, 60]}
+
+    def run(self):
+        import faucet.gauge_prom
+        from prometheus_client import CollectorRegistry
+
+        self.block_text = """\
+* - Metric
+  - Type
+  - Description
+"""
+
+        gauge_metrics = faucet.gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
+        for metric in gauge_metrics._reg.collect():
+            self.block_text += """\
+* - {}
+  - {}
+  - {}
+""".format(metric.name, metric.type, metric.documentation)
+
+        self.content = StringList()
+        for lineno, line in enumerate(self.block_text.split('\n')):
+            self.content.append(line, __file__, lineno)
+
+        return super(GaugePromMetricsTable, self).run()
+
 def setup(app):
     """Over-ride Sphinx setup to trigger sphinx-apidoc."""
     app.connect('builder-inited', run_apidoc)
+    app.add_directive('faucet-prom-metrics-table', FaucetPromMetricsTable)
+    app.add_directive('gauge-prom-metrics-table', GaugePromMetricsTable)
