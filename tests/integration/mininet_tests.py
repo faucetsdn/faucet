@@ -1901,7 +1901,7 @@ vlans:
         self.assertEqual(self.MAX_HOSTS, len(flows))
         self.assertGreater(
             self.scrape_prometheus_var(
-                'port_learn_bans', self.port_labels(2), 0))
+                'port_learn_bans', self.port_labels(2)), 0)
         learned_macs = [
             mac for _, mac in self.scrape_prometheus_var(
                 'learned_macs',
