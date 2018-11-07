@@ -62,7 +62,8 @@ class GaugePrometheusClient(PromClient):
             exported_prom_var = PROM_PREFIX_DELIM.join(
                 (PROM_PORT_PREFIX, prom_var))
             self.metrics[exported_prom_var] = Gauge( # pylint: disable=unexpected-keyword-arg
-                exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'],
+                exported_prom_var, '',
+                self.REQUIRED_LABELS + ['port', 'port_description'],
                 registry=self._reg)
 
     def reregister_flow_vars(self, table_name, table_tags):
@@ -98,8 +99,7 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
     def update(self, rcv_time, dp_id, msg):
         super(GaugePortStatsPrometheusPoller, self).update(rcv_time, dp_id, msg)
         for stat in msg.body:
-            port_name = self._stat_port_name(msg, stat, dp_id)
-            port_labels = dict(dp_id=hex(dp_id), dp_name=self.dp.name, port_name=port_name)
+            port_labels = self._stat_port_labels(msg, stat, dp_id)
             for stat_name, stat_val in self._format_port_stats(
                     PROM_PREFIX_DELIM, stat):
                 self.prom_client.metrics[stat_name].labels(**port_labels).set(stat_val)
@@ -111,13 +111,14 @@ class GaugePortStatePrometheusPoller(GaugePortStatePoller):
     def update(self, rcv_time, dp_id, msg):
         super(GaugePortStatePrometheusPoller, self).update(rcv_time, dp_id, msg)
         port_no = msg.desc.port_no
-        if port_no in self.dp.ports:
-            port_name = self.dp.ports[port_no].name
-            port_labels = dict(dp_id=hex(dp_id), dp_name=self.dp.name, port_name=port_name)
-            for prom_var in PROM_PORT_STATE_VARS:
-                exported_prom_var = PROM_PREFIX_DELIM.join((PROM_PORT_PREFIX, prom_var))
-                msg_value = msg.reason if prom_var == 'reason' else getattr(msg.desc, prom_var)
-                self.prom_client.metrics[exported_prom_var].labels(**port_labels).set(msg_value)
+        port = self.dp.ports.get(port_no, None)
+        if port is None:
+            return
+        port_labels = self._stat_port_labels(msg, msg.desc, dp_id)
+        for prom_var in PROM_PORT_STATE_VARS:
+            exported_prom_var = PROM_PREFIX_DELIM.join((PROM_PORT_PREFIX, prom_var))
+            msg_value = msg.reason if prom_var == 'reason' else getattr(msg.desc, prom_var)
+            self.prom_client.metrics[exported_prom_var].labels(**port_labels).set(msg_value)
 
 
 class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):

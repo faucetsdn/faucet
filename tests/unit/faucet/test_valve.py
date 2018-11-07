@@ -148,6 +148,7 @@ dps:
                 number: 4
                 native_vlan: v300
             5:
+                description: p5
                 stack:
                     dp: s4
                     port: 5
@@ -168,6 +169,7 @@ dps:
                 number: 4
                 native_vlan: v300
             5:
+                description: p5
                 number: 5
                 stack:
                     dp: s3
@@ -457,22 +459,36 @@ class ValveTestBases:
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
             self.assertEqual(1, int(self.get_prom('dp_status')))
             for port_no in discovered_up_ports:
-                self.set_port_up(port_no)
+                if port_no in self.valve.dp.ports:
+                    self.set_port_up(port_no)
             self.assertTrue(self.valve.dp.to_conf())
+
+        def port_labels(self, port_no, port_desc=None):
+            if port_desc is None:
+                port_desc = 'p%u' % port_no
+            return {'port': str(port_no), 'port_description': port_desc}
+
+        def port_expected_status(self, port_no, exp_status, port_desc=None):
+            if port_no not in self.valve.dp.ports:
+                return
+            labels = self.port_labels(port_no)
+            status = int(self.get_prom('port_status', labels=labels))
+            self.assertEqual(
+                status, exp_status,
+                msg='status %u != expected %u for port %s' % (
+                    status, exp_status, labels))
 
         def set_port_down(self, port_no):
             """Set port status of port to down."""
             self.table.apply_ofmsgs(self.valve.port_status_handler(
                 port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN))
-            self.assertEqual(
-                0, int(self.get_prom('port_status', labels={'port': str(port_no)})))
+            self.port_expected_status(port_no, 0)
 
         def set_port_up(self, port_no):
             """Set port status of port to up."""
             self.table.apply_ofmsgs(self.valve.port_status_handler(
                 port_no, ofp.OFPPR_ADD, 0))
-            self.assertEqual(
-                1, int(self.get_prom('port_status', labels={'port': str(port_no)})))
+            self.port_expected_status(port_no, 1)
 
         def flap_port(self, port_no):
             """Flap op status on a port."""
@@ -1906,14 +1922,17 @@ dps:
             priority: 1
         interfaces:
             1:
+                description: p1
                 stack:
                     dp: s2
                     port: 1
             2:
+                description: p2
                 stack:
                     dp: s2
                     port: 2
             3:
+                description: p3
                 native_vlan: v100
     s2:
         hardware: 'Open vSwitch'
@@ -1923,25 +1942,31 @@ dps:
             max_per_interval: 1
         interfaces:
             1:
+                description: p1
                 stack:
                     dp: s1
                     port: 1
             2:
+                description: p2
                 stack:
                     dp: s1
                     port: 2
             3:
+                description: p3
                 stack:
                     dp: s3
                     port: 2
             4:
+                description: p4
                 native_vlan: v100
     s3:
         dp_id: 0x3
         interfaces:
             1:
+                description: p1
                 native_vlan: v100
             2:
+                description: p2
                 stack:
                     dp: s2
                     port: 3
@@ -2218,15 +2243,16 @@ vlans:
     def test_lacp(self):
         """Test LACP comes up."""
         test_port = 1
+        labels = self.port_labels(test_port)
         self.assertEqual(
-            0, int(self.get_prom('port_lacp_status', labels={'port': str(test_port)})))
+            0, int(self.get_prom('port_lacp_status', labels=labels)))
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
             'eth_src': '0e:00:00:00:00:02'})
         self.assertEqual(
-            1, int(self.get_prom('port_lacp_status', labels={'port': str(test_port)})))
+            1, int(self.get_prom('port_lacp_status', labels=labels)))
         self.learn_hosts()
         self.verify_expiry()
 

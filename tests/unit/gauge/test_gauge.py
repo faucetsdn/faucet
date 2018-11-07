@@ -237,15 +237,15 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
             labels = line[index + 1:line.find('}')].split(',')
 
             for label in labels:
-                lab_name, lab_val = label.split('=')
+                lab_name, lab_val = label.split('=', 1)
                 lab_val = lab_val.replace('"', '')
                 if lab_name == 'dp_id':
                     dp_id = int(lab_val, 16)
-                elif lab_name == 'port_name':
+                elif lab_name == 'port':
                     port_name = lab_val
 
             key = (dp_id, port_name)
-            stat_val = line.split(' ')[1]
+            stat_val = line.split(' ')[-1]
             if key not in parsed_output:
                 parsed_output[key] = []
 
