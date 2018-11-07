@@ -6251,10 +6251,9 @@ class FaucetStringOfDPTest(FaucetTest):
                         peer_stack_port_base = first_stack_port + self.topo.switch_to_switch_links
                     for stack_dp_port in range(self.topo.switch_to_switch_links):
                         peer_port = peer_stack_port_base + stack_dp_port
-                        description = 'to %s port %u' % (dp_name(peer_dp), peer_port)
                         interfaces_config[port] = {
                             'name': stack_name(i, port),
-                            'description': description,
+                            'description': 'b%u' % port,
                         }
                         if stack:
                             # make this a stacking link.
@@ -6551,11 +6550,9 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.last_host = self.net.hosts[self.NUM_HOSTS + self.NUM_DPS]
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
-        labels = {
-            'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name, 'port': port_no}
         for _ in range(timeout):
             actual_status = self.scrape_prometheus_var(
-                'port_stack_state', labels=labels, dpid=False, default=None)
+                'port_stack_state', labels=self.port_labels(port_no), dpid=dpid, default=None)
             if actual_status == status:
                 return
             time.sleep(1)
