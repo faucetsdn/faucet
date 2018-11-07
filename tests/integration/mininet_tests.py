@@ -177,21 +177,25 @@ vlans:
             %(port_1)d:
                 name: b1
                 native_vlan: 100
-                description: "b1 - 802.1x client."
+                description: "b1"
+                # 802.1x client.
                 dot1x: True
             %(port_2)d:
                 name: b2
                 native_vlan: 100
-                description: "b2 - 802.1X client."
+                description: "b2"
+                # 802.1X client.
                 dot1x: True
             %(port_3)d:
                 name: b3
                 native_vlan: 100
-                description: "b3 - ping host."
+                description: "b3"
+                # ping host.
             %(port_4)d:
                 name: b4
                 native_vlan: 100
-                description: "NFV host - interface used by controller."
+                description: "b4"
+                # "NFV host - interface used by controller."
 """
 
     wpasupplicant_conf_1 = """
@@ -270,10 +274,10 @@ network={
             self.eapol1_host, 1, self.wpasupplicant_conf_1, and_logoff=False)
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success', labels={'port': 1}, default=0))
+            self.scrape_prometheus_var('port_dot1x_success', labels=self.port_labels(1), default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_success', labels={'port': 2}, default=0))
+            self.scrape_prometheus_var('port_dot1x_success', labels=self.port_labels(2), default=0))
 
         self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
@@ -545,13 +549,13 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
             self.scrape_prometheus_var('dp_dot1x_success', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_success', labels={'port': 1}, default=0))
+            self.scrape_prometheus_var('port_dot1x_success', labels=self.port_labels(1), default=0))
         self.assertEqual(
             0,
             self.scrape_prometheus_var('dp_dot1x_logoff', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_logoff', labels={'port': 1}, default=0))
+            self.scrape_prometheus_var('port_dot1x_logoff', labels=self.port_labels(1), default=0))
         self.assertEqual(
             1,
             self.scrape_prometheus_var('dp_dot1x_failure', default=0))
@@ -1902,11 +1906,11 @@ vlans:
         self.assertEqual(self.MAX_HOSTS, len(flows))
         self.assertGreater(
             self.scrape_prometheus_var(
-                'port_learn_bans', {'port': self.port_map['port_2']}), 0)
+                'port_learn_bans', self.port_labels(self.port_map['port_2'])), 0)
         learned_macs = [
             mac for _, mac in self.scrape_prometheus_var(
                 'learned_macs',
-                {'port': self.port_map['port_2'], 'vlan': '100'},
+                dict(self.port_labels(self.port_map['port_2']), vlan=100),
                 multiple=True) if mac]
         self.assertEqual(self.MAX_HOSTS, len(learned_macs))
 
@@ -3322,7 +3326,7 @@ details partner lacp pdu:
             lacp_up_ports = 0
             for lacp_port in lag_ports:
                 lacp_up_ports += self.scrape_prometheus_var(
-                    'port_lacp_status', {'port': str(lacp_port)})
+                    'port_lacp_status', self.port_labels(lacp_port))
             return lacp_up_ports
 
         self.assertEqual(0, prom_lag_status())
@@ -4431,6 +4435,9 @@ vlans:
                 description: "b2"
             %(port_3)d:
                 description: "b3"
+                output_only: True
+            %(port_4)d:
+                description: "b4"
                 output_only: True
 """
 

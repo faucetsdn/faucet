@@ -1713,11 +1713,13 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
+    def port_labels(self, port_no):
+        return {'port': port_no, 'port_description': 'b%u' % port_no}
+
     def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10):
         for _ in range(timeout):
             port_status = self.scrape_prometheus_var(
-                'port_status', {'port': port_no, 'port_description': 'b%u' % port_no},
-                default=None, dpid=dpid)
+                'port_status', self.port_labels(port_no), default=None, dpid=dpid)
             if port_status is not None and port_status == expected_status:
                 return
             self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
