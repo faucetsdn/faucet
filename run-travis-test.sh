@@ -55,6 +55,8 @@ if [[ "$PY3V" != "Python 3.6"* ]] ; then
 fi
 
 if [[ "$FILES_CHANGED" != "" ]] ; then
+  # Always test docs if anything changed.
+  cd ./docs && make html && rm -rf _build && cd .. || exit 1
   if [[ "$PY_FILES_CHANGED" == "" ]] ; then
     echo Not running docker tests because only non-python changes: $FILES_CHANGED
     exit 0
