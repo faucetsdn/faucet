@@ -296,28 +296,28 @@ network={
             self.scrape_prometheus_var('dp_dot1x_success', default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success', labels={'port': 1}, default=0))
+            self.scrape_prometheus_var('port_dot1x_success', labels=self.port_labels(1), default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success', labels={'port': 2}, default=0))
+            self.scrape_prometheus_var('port_dot1x_success', labels=self.port_labels(2), default=0))
         self.assertEqual(
             0,
             self.scrape_prometheus_var('dp_dot1x_failure', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_failure', labels={'port': 1}, default=0))
+            self.scrape_prometheus_var('port_dot1x_failure', labels=self.port_labels(1), default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_failure', labels={'port': 2}, default=0))
+            self.scrape_prometheus_var('port_dot1x_failure', labels=self.port_labels(2), default=0))
         self.assertEqual(
             1,
             self.scrape_prometheus_var('dp_dot1x_logoff', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_logoff', labels={'port': 1}, default=0))
+            self.scrape_prometheus_var('port_dot1x_logoff', labels=self.port_labels(1), default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_logoff', labels={'port': 2}, default=0))
+            self.scrape_prometheus_var('port_dot1x_logoff', labels=self.port_labels(2), default=0))
 
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
         wpa_ctrl_path = os.path.join(
@@ -1210,15 +1210,10 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 
     def scrape_port_counters(self, port, port_vars):
         port_counters = {}
-        port_labels = {
-            'dp_id': self.dpid,
-            'dp_name': self.DP_NAME,
-            'port': self.port_map['port_%u' % port],
-            'port_description': 'b%u' % port,
-        }
+        port_labels = self.port_labels(self.port_map['port_%u' % port])
         for port_var in port_vars:
             val = self.scrape_prometheus_var(
-                port_var, labels=port_labels, controller='gauge', retries=3)
+                port_var, labels=port_labels, controller='gauge', dpid=True, retries=3)
             self.assertIsNotNone(val, '%s missing for port %u' % (port_var, port))
             port_counters[port_var] = val
             for port_state_var in ('of_port_state', 'of_port_reason', 'of_port_curr_speed'):
@@ -6550,9 +6545,11 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.last_host = self.net.hosts[self.NUM_HOSTS + self.NUM_DPS]
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
+        labels = self.port_labels(port_no)
+        labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         for _ in range(timeout):
             actual_status = self.scrape_prometheus_var(
-                'port_stack_state', labels=self.port_labels(port_no), dpid=dpid, default=None)
+                'port_stack_state', labels=labels, default=None)
             if actual_status == status:
                 return
             time.sleep(1)
