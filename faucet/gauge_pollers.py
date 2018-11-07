@@ -118,7 +118,7 @@ class GaugePoller:
             port_description = port.description
         port_labels = dict(
             dp_id=hex(dp_id), dp_name=self.dp.name,
-            port_name=port_name, port_description=port_description)
+            port=port_name, port_description=port_description)
         return port_labels
 
     @staticmethod

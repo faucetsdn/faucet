@@ -63,7 +63,7 @@ class GaugePrometheusClient(PromClient):
                 (PROM_PORT_PREFIX, prom_var))
             self.metrics[exported_prom_var] = Gauge( # pylint: disable=unexpected-keyword-arg
                 exported_prom_var, '',
-                self.REQUIRED_LABELS + ['port_name', 'port_description'],
+                self.REQUIRED_LABELS + ['port', 'port_description'],
                 registry=self._reg)
 
     def reregister_flow_vars(self, table_name, table_tags):

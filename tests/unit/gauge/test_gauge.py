@@ -241,7 +241,7 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
                 lab_val = lab_val.replace('"', '')
                 if lab_name == 'dp_id':
                     dp_id = int(lab_val, 16)
-                elif lab_name == 'port_name':
+                elif lab_name == 'port':
                     port_name = lab_val
 
             key = (dp_id, port_name)
