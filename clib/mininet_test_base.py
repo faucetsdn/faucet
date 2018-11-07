@@ -1718,7 +1718,8 @@ dbs:
         self.fail(msg=msg)
 
     def port_labels(self, port_no):
-        remapped_port_no = self.port_map['port_%u' % port_no]
+        remap_key = 'port_%u' % port_no
+        remapped_port_no = self.port_map.get(remap_key, port_no)
         return {'port': remapped_port_no, 'port_description': 'b%u' % port_no}
 
     def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10):
