@@ -47,7 +47,9 @@ faucet_configs:
         logging.disable(logging.NOTSET)
         shutil.rmtree(self.tmpdir)
 
-    def parse_conf_result(self, gauge_file, gauge_dir):
+    @staticmethod
+    def parse_conf_result(gauge_file, gauge_dir):
+        """Return True if config parses successfully."""
         try:
             cp.watcher_parser(gauge_file, gauge_dir, None)
         except InvalidConfigError:
