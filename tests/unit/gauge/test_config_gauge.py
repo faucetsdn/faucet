@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import unittest
 from faucet import config_parser as cp
+from faucet.conf import InvalidConfigError
 
 LOGNAME = '/dev/null'
 
@@ -45,6 +46,13 @@ faucet_configs:
     def tearDown(self):
         logging.disable(logging.NOTSET)
         shutil.rmtree(self.tmpdir)
+
+    def parse_conf_result(self, gauge_file, gauge_dir):
+        try:
+            cp.watcher_parser(gauge_file, gauge_dir, None)
+        except InvalidConfigError:
+            return False
+        return True
 
     def conf_file_name(self, faucet=False):
         """Return path for configuration file."""
@@ -92,6 +100,24 @@ dbs:
             self.assertEqual(watcher_conf.interval, 10, msg)
             self.assertEqual(watcher_conf.db_type, 'prometheus', msg)
 
+    def test_no_all_dps(self):
+        """Test setting all_dps and dps together."""
+        GAUGE_CONF = """
+watchers:
+    port_stats_poller:
+        type: 'port_stats'
+        dps: []
+        all_dps: True
+        interval: 10
+        db: 'prometheus'
+dbs:
+    prometheus:
+        type: 'prometheus'
+"""
+        conf = self.get_config(GAUGE_CONF)
+        gauge_file, _ = self.create_config_files(conf)
+        self.assertFalse(self.parse_conf_result(gauge_file, 'gauge_config_test'))
+
     def test_no_faucet_config_file(self):
         """Test missing FAUCET config."""
         GAUGE_CONF = """
@@ -122,5 +148,6 @@ dbs:
         self.assertEqual(watcher_conf.type, 'port_stats', msg)
         self.assertEqual(watcher_conf.db_type, 'prometheus', msg)
 
-if __name__ == "__main__": 
+
+if __name__ == "__main__":
     unittest.main() # pytype: disable=module-attr
