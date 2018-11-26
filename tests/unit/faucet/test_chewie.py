@@ -8,8 +8,6 @@ import time
 import unittest
 from unittest.mock import patch
 
-from netils import build_byte_string
-
 from test_valve import ValveTestBases
 
 DOT1X_DP1_CONFIG = """
@@ -51,8 +49,8 @@ TO_RADIUS = Queue()
 def supplicant_replies():
     """generator for packets supplicant sends"""
     header = "0000000000010242ac17006f888e"
-    replies = [build_byte_string(header + "01000009027400090175736572"),
-               build_byte_string(header + "010000160275001604103abcadc86714b2d75d09dd7ff53edf6b")]
+    replies = [bytes.fromhex(header + "01000009027400090175736572"),
+               bytes.fromhex(header + "010000160275001604103abcadc86714b2d75d09dd7ff53edf6b")]
 
     for reply in replies:
         yield reply
@@ -60,8 +58,8 @@ def supplicant_replies():
 
 def radius_replies():
     """generator for packets radius sends"""
-    replies = [build_byte_string("0b040050e5e40d846576a2310755e906c4b2b5064f180175001604101a16a3baa37a0238f33384f6c11067425012ce61ba97026b7a05b194a930a922405218126aa866456add628e3a55a4737872cad6"),
-               build_byte_string("02050032fb4c4926caa21a02f74501a65c96f9c74f06037500045012c060ca6a19c47d0998c7b20fd4d771c1010675736572")]
+    replies = [bytes.fromhex("0b040050e5e40d846576a2310755e906c4b2b5064f180175001604101a16a3baa37a0238f33384f6c11067425012ce61ba97026b7a05b194a930a922405218126aa866456add628e3a55a4737872cad6"),
+               bytes.fromhex("02050032fb4c4926caa21a02f74501a65c96f9c74f06037500045012c060ca6a19c47d0998c7b20fd4d771c1010675736572")]
     for reply in replies:
         yield reply
 
@@ -171,7 +169,7 @@ class FaucetDot1XTest(ValveTestBases.ValveTestSmall):
     def test_success_dot1x(self):
         """Test success api"""
 
-        FROM_SUPPLICANT.put(build_byte_string("0000000000010242ac17006f888e01010000"))
+        FROM_SUPPLICANT.put(bytes.fromhex("0000000000010242ac17006f888e01010000"))
         time.sleep(5)
         with open('%s/faucet.log' % self.tmpdir, 'r') as log:
             for line in log.readlines():
