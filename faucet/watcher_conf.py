@@ -20,7 +20,7 @@
 
 
 from copy import deepcopy
-from faucet.conf import Conf
+from faucet.conf import Conf, test_config_condition
 
 
 class WatcherConf(Conf):
@@ -165,3 +165,9 @@ For Prometheus:
     def add_dp(self, dp): # pylint: disable=invalid-name
         """Add a datapath to this watcher."""
         self.dp = dp # pylint: disable=invalid-name
+
+    def check_config(self):
+        super(WatcherConf, self).check_config()
+        test_config_condition(
+            self.all_dps and self.dps is not None,
+            'all_dps and dps cannot be set together')
