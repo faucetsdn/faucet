@@ -51,6 +51,10 @@ SUPPORTS_METERS = (
     'ZodiacGX',
 )
 
+SUPPORTS_METADATA = (
+    DEFAULT_HARDWARE,
+)
+
 
 EXTERNAL_DEPENDENCIES = (
     ('ryu-manager', ['--version'],
@@ -334,6 +338,9 @@ def filter_test_hardware(test_obj, hw_config):
         test_hardware = hw_config['hardware']
 
     if test_obj.REQUIRES_METERS and test_hardware not in SUPPORTS_METERS:
+        return False
+
+    if test_obj.REQUIRES_METADATA and test_hardware not in SUPPORTS_METADATA:
         return False
 
     if testing_hardware:

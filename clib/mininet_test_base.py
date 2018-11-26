@@ -75,6 +75,7 @@ class FaucetTestBase(unittest.TestCase):
 
     RUN_GAUGE = True
     REQUIRES_METERS = False
+    REQUIRES_METADATA = False
 
     _PORT_ACL_TABLE = 0
     _VLAN_TABLE = 1

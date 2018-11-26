@@ -1752,7 +1752,10 @@ vlans:
         self.verify_broadcast()
         self.verify_no_bcast_to_self()
 
+
 class FaucetTaggedAndUntaggedSameVlanEgressTest(FaucetTaggedAndUntaggedSameVlanTest):
+
+    REQUIRES_METADATA = True
     CONFIG = """
         egress_pipeline: True
         interfaces:
@@ -1769,6 +1772,7 @@ class FaucetTaggedAndUntaggedSameVlanEgressTest(FaucetTaggedAndUntaggedSameVlanT
                 native_vlan: 100
                 description: "b4"
 """
+
 
 class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTest):
 
