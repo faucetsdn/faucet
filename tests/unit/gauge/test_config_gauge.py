@@ -120,6 +120,25 @@ dbs:
         gauge_file, _ = self.create_config_files(conf)
         self.assertFalse(self.parse_conf_result(gauge_file, 'gauge_config_test'))
 
+    def test_file_not_writable(self):
+        """Test file arg is not writable."""
+        GAUGE_CONF = """
+watchers:
+    ft_10:
+        interval: 600
+        type: 'flow_table'
+        all_dps: True
+        db: 'text'
+dbs:
+    text:
+        file: '/not/writable/ft.yml.gz'
+        type: 'text'
+        compress: True
+"""
+        conf = self.get_config(GAUGE_CONF)
+        gauge_file, _ = self.create_config_files(conf)
+        self.assertFalse(self.parse_conf_result(gauge_file, 'gauge_config_test'))
+
     def test_no_faucet_config_file(self):
         """Test missing FAUCET config."""
         GAUGE_CONF = """
