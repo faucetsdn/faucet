@@ -101,6 +101,8 @@ The output action contains a dictionary with the following elements:
         self.meter = False
         self.matches = {}
         self.set_fields = set()
+        for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
+            self.rule_types.update({match: (str, int) for match in match_fields.keys()})
         conf = copy.deepcopy(conf)
         if isinstance(conf, dict):
             rules = conf.get('rules', [])
@@ -112,28 +114,30 @@ The output action contains a dictionary with the following elements:
                 'ACL conf is an invalid type %s' % _id)
         conf['rules'] = []
         for rule in rules:
-            test_config_condition(not isinstance(rule, dict), (
-                'ACL rule is %s not %s' % (type(rule), dict)))
-            conf['rules'].append(rule.get('rule', rule))
+            normalized_rule = rule
+            if isinstance(rule, dict):
+                normalized_rule = rule.get('rule', rule)
+                if normalized_rule is None:
+                    normalized_rule = {k: v for k, v in rule.items() if v is not None}
+            test_config_condition(not isinstance(normalized_rule, dict), (
+                'ACL rule is %s not %s (%s)' % (type(normalized_rule), dict, rules)))
+            conf['rules'].append(normalized_rule)
         super(ACL, self).__init__(_id, dp_id, conf)
 
     def check_config(self):
         test_config_condition(
             not self.rules, 'no rules found for ACL %s' % self._id)
-        for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
-            for match in match_fields.keys():
-                self.rule_types[match] = (str, int)
         for rule in self.rules:
             self._check_conf_types(rule, self.rule_types)
             for rule_field, rule_conf in rule.items():
                 if rule_field == 'cookie':
-                    test_config_condition(rule_conf < 0 or rule_conf > 2**16, (
-                        'rule cookie value must be 0-2**16'))
+                    test_config_condition(
+                        rule_conf < 0 or rule_conf > 2**16,
+                        'rule cookie value must be 0-2**16')
                 elif rule_field == 'actions':
                     test_config_condition(
                         not rule_conf,
-                        'Missing rule actions in ACL %s' % self._id
-                        )
+                        'Missing rule actions in ACL %s' % self._id)
                     self._check_conf_types(rule_conf, self.actions_types)
                     for action_name, action_conf in rule_conf.items():
                         if action_name == 'output':

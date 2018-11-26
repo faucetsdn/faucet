@@ -2691,6 +2691,24 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_rule_acl_parse(self):
+        config = """
+dps:
+  sw1:
+    dp_id: 1
+    hardware: Open vSwitch
+    interfaces:
+      1:
+        native_vlan: 100
+        acl_in: acl1
+acls:
+  acl1:
+    - rule:
+      actions:
+        allow: 1
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_stack_priority_value_invalid(self):
         """Test config fails when stack priority invalid type"""
         config = """
@@ -2714,7 +2732,7 @@ dps:
         config = """
 acls:
     office-vlan-protect:
-        - rule:
+        - rule: []
 vlans:
     office:
         vid: 100
