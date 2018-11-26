@@ -158,8 +158,6 @@ vlans:
 
 class Faucet8021XSuccessTest(FaucetUntaggedTest):
 
-    SOFTWARE_ONLY = True
-
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -321,7 +319,7 @@ network={
 
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
         wpa_ctrl_path = os.path.join(
-            self.tmpdir, '%s%s-wpasupplicant' % (self.tmpdir, host.name))
+            self.tmpdir, '%s/%s-wpasupplicant' % (self.tmpdir, host.name))
         self.start_wpasupplicant(
             host, conf,
             timeout=10, wpa_ctrl_socket_path=wpa_ctrl_path)
