@@ -10,7 +10,6 @@ User Documentation
    intro
    tutorials/index
    installation
-   docker
    configuration
    monitoring
    recipe_book/index

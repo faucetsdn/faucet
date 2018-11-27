@@ -37,7 +37,7 @@ covers how to navigate the changes and safely upgrade from earlier versions to
 
        Dockers will need to be started with new mount directories, the commands
        to start a 1.7.0 docker version of faucet or gauge are detailed in the
-       :doc:`docker` section.
+       :ref:`faucet-docker-install` section.
 
        **Virtualenvs**
 

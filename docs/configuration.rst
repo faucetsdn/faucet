@@ -1,6 +1,11 @@
 Configuration
 =============
 
+.. _faucet-configuration:
+
+Faucet configuration
+--------------------
+
 Faucet is configured with a YAML-based configuration file, ``faucet.yaml``.
 The following is example demonstrating a few common features:
 
@@ -18,78 +23,12 @@ The datapath ID may be specified as an integer or hex string (beginning with 0x)
 
 A port not explicitly defined in the YAML configuration file will be left down and will drop all packets.
 
-Gauge is configured similarly with, ``gauge.yaml``.
-The following is example demonstrating a few common features:
-
-.. literalinclude:: ../etc/faucet/gauge.yaml
-  :language: yaml
-  :caption: gauge.yaml
-  :name: gauge.yaml
-
-Verifying configuration
------------------------
-
-You can verify that your configuration is correct with the ``check_faucet_config`` script:
-
-.. code:: console
-
-  check_faucet_config /etc/faucet/faucet.yaml
-
-Configuration examples
-----------------------
-
-For complete working examples of configuration features, see the unit tests, ``tests/faucet_mininet_test.py``.
-For example, ``FaucetUntaggedACLTest`` shows how to configure an ACL to block a TCP port,
-``FaucetTaggedIPv4RouteTest`` shows how to configure static IPv4 routing.
-
-Applying configuration updates
-------------------------------
-
-You can update FAUCET's configuration by sending it a HUP signal.
-This will cause it to apply the minimum number of flow changes to the switch(es), to implement the change.
-
-.. code:: console
-
-  pkill -HUP -f faucet.faucet
-
-Configuration in separate files
--------------------------------
-
-Extra DP, VLAN or ACL data can also be separated into different files and included into the main configuration file, as shown below. The ``include`` field is used for configuration files which are required to be loaded, and Faucet will log an error if there was a problem while loading a file. Files listed on ``include-optional`` will simply be skipped and a warning will be logged instead.
-
-Files are parsed in order, and both absolute and relative (to the configuration file) paths are allowed. DPs, VLANs or ACLs defined in subsequent files overwrite previously defined ones with the same name.
-
-``faucet.yaml``
-
-.. code:: yaml
-
-  include:
-      - /etc/faucet/dps.yaml
-      - /etc/faucet/vlans.yaml
-
-  include-optional:
-      - acls.yaml
-
-``dps.yaml``
-
-.. code:: yaml
-
-  # Recursive include is allowed, if needed.
-  # Again, relative paths are relative to this configuration file.
-  include-optional:
-      - override.yaml
-
-  dps:
-      test-switch-1:
-          ...
-      test-switch-2:
-          ...
-
 Configuration options
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 Top Level
-~~~~~~~~~
+#########
+
 .. list-table:: Faucet.yaml
     :widths: 31 15 15 60
     :header-rows: 1
@@ -135,7 +74,8 @@ Top Level
         vlan's configuration (see below).
 
 DP
-~~
+##
+
 DP configuration is entered in the 'dps' configuration block. The 'dps'
 configuration contains a dictionary of configuration blocks each
 containing the configuration for one datapath. The keys can either be
@@ -321,7 +261,8 @@ string names given to the datapath, or the OFP datapath id.
 
 
 Stacking (DP)
-~~~~~~~~~~~~~
+#############
+
 Stacking is configured in the dp configuration block and in the interface
 configuration block. At the dp level the following attributes can be configured
 withing the configuration block 'stack':
@@ -341,7 +282,8 @@ withing the configuration block 'stack':
         should be the root for the stacking topology.
 
 LLDP (DP)
-~~~~~~~~~
+#########
+
 LLDP beacons are configured in the dp and interface configuration blocks.
 
 Note: the LLDP beacon service is specifically NOT to discover topology. It is
@@ -374,7 +316,7 @@ configuration block at the dp level:
       - The maximum number of beacons, across all ports to send each interval
 
 802.1X (DP)
-~~~~~~~~~~~~~
+###########
 
 .. note:: 802.1X support is experimental, and there may be incomplete features or bugs.
     If you find an issue please email the mailing list or create an Github issue.
@@ -448,7 +390,8 @@ with the configuration block 'dot1x':
 
 
 Interfaces
-~~~~~~~~~~
+##########
+
 Configuration for each interface is entered in the 'interfaces' configuration
 block withing the config for the datapath. Each interface configuration block
 is a dictionary keyed by the interface name.
@@ -562,7 +505,8 @@ OFP port number ranges (eg. 1-6).
 
 
 Stacking (Interfaces)
-~~~~~~~~~~~~~~~~~~~~~
+#####################
+
 Stacking port configuration indicates how datapaths are connected when using
 stacking. The configuration is found under the 'stack' attribute of an
 interface configuration block. The following attributes can be configured:
@@ -586,7 +530,8 @@ interface configuration block. The following attributes can be configured:
         to this interface.
 
 LLDP (Interfaces)
-~~~~~~~~~~~~~~~~~
+#################
+
 Interface specific configuration for LLDP.
 
 .. list-table:: dps: <dp name or id>: interfaces: <interface name or port number: lldp_beacon: {}
@@ -616,7 +561,8 @@ Interface specific configuration for LLDP.
 
 
 LLDP Organisational TLVs (Interfaces)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#####################################
+
 Faucet allows defining organisational TLVs for LLDP beacons. These are configured
 in a list under lldp_beacons/org_tlvs at the interfaces level of configuration.
 
@@ -644,7 +590,8 @@ Each list element contains a dictionary with the following elements:
       - The organizationally defined subtype
 
 Router
-~~~~~~
+######
+
 Routers config is used to allow routing between vlans. Routers configuration
 is entered in the 'routers' configuration block at the top level of the faucet
 configuration file. Configuration for each router is an entry in the routers
@@ -666,7 +613,7 @@ be configured:
 
 
 VLAN
-~~~~
+####
 
 VLANs are configured in the 'vlans' configuration block at the top level of
 the faucet config file. The config for each vlan is an entry keyed by its vid
@@ -767,7 +714,7 @@ or a name. The following attributes can be configured:
       - The vid for the vlan.
 
 Static Routes
-~~~~~~~~~~~~~
+#############
 
 Static routes are given as a list. Each entry in the list contains a dictionary
 keyed with the keyword 'route' and contains a dictionary configuration block as
@@ -793,7 +740,7 @@ follows:
 .. _configuration-meters:
 
 Meters
-~~~~~~
+######
 
 .. note:: Meters are platform dependent and not all functions may be available. 
 
@@ -860,7 +807,7 @@ contains a dictionary of individual meters each keyed by its name.
      - Only used if type is DSCP_REMARK. The amount by which the drop precedence should be increased.
 
 ACLs
-~~~~
+####
 
 ACLs are configured under the 'acls' configuration block. The acls block
 contains a dictionary of individual acls each keyed by its name.
@@ -967,6 +914,79 @@ Failover is an experimental option, but can be configured as follows:
       - list
       - None
       - The list of ports the packet can be output through.
+
+.. _gauge-configuration:
+
+Gauge configuration
+-------------------
+
+Gauge is configured similarly with, ``gauge.yaml``.
+The following is an example demonstrating a few common features:
+
+.. literalinclude:: ../etc/faucet/gauge.yaml
+  :language: yaml
+  :caption: gauge.yaml
+  :name: gauge.yaml
+
+Verifying configuration
+-----------------------
+
+You can verify that your configuration is correct with the ``check_faucet_config`` script:
+
+.. code:: console
+
+  check_faucet_config /etc/faucet/faucet.yaml
+
+Configuration examples
+----------------------
+
+For complete working examples of configuration features, see the unit tests, ``tests/faucet_mininet_test.py``.
+For example, ``FaucetUntaggedACLTest`` shows how to configure an ACL to block a TCP port,
+``FaucetTaggedIPv4RouteTest`` shows how to configure static IPv4 routing.
+
+Applying configuration updates
+------------------------------
+
+You can update FAUCET's configuration by sending it a HUP signal.
+This will cause it to apply the minimum number of flow changes to the switch(es), to implement the change.
+
+.. code:: console
+
+  pkill -HUP -f faucet.faucet
+
+Configuration in separate files
+-------------------------------
+
+Extra DP, VLAN or ACL data can also be separated into different files and included into the main configuration file, as shown below. The ``include`` field is used for configuration files which are required to be loaded, and Faucet will log an error if there was a problem while loading a file. Files listed on ``include-optional`` will simply be skipped and a warning will be logged instead.
+
+Files are parsed in order, and both absolute and relative (to the configuration file) paths are allowed. DPs, VLANs or ACLs defined in subsequent files overwrite previously defined ones with the same name.
+
+``faucet.yaml``
+
+.. code:: yaml
+
+  include:
+      - /etc/faucet/dps.yaml
+      - /etc/faucet/vlans.yaml
+
+  include-optional:
+      - acls.yaml
+
+``dps.yaml``
+
+.. code:: yaml
+
+  # Recursive include is allowed, if needed.
+  # Again, relative paths are relative to this configuration file.
+  include-optional:
+      - override.yaml
+
+  dps:
+      test-switch-1:
+          ...
+      test-switch-2:
+          ...
+
 
 .. _env-vars:
 
