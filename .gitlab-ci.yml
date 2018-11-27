@@ -73,8 +73,8 @@ build-rpi-image:
     - mv ../02-run.sh ./stage2/01-sys-tweaks/
     - mv ../build.sh ./
     - echo "IMG_NAME='faucet_${CI_COMMIT_REF_NAME}_raspbian'" > config
-    - touch ./stage3/SKIP ./stage4/SKIP
-    - touch ./stage4/SKIP_IMAGES
+    - touch ./stage3/SKIP ./stage4/SKIP ./stage5/SKIP
+    - touch ./stage4/SKIP_IMAGES ./stage5/SKIP_IMAGES
     - export container=lxc
     - ./build.sh
   artifacts:
