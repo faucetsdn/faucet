@@ -118,9 +118,9 @@ vlans:
             host_namespace=self.HOST_NAMESPACE)
         self.start_net()
 
-    def verify_events_log(self, event_log):
-        required_events = set(['PORT_CHANGE', 'L2_LEARN', 'PORTS_STATUS'])
-        for _ in range(10):
+    def verify_events_log(self, event_log, timeout=10):
+        required_events = set(['CONFIG_CHANGE', 'PORT_CHANGE', 'L2_LEARN', 'PORTS_STATUS'])
+        for _ in range(timeout):
             prom_event_id = self.scrape_prometheus_var('faucet_event_id', dpid=False)
             event_id = None
             with open(event_log, 'r') as event_log_file:
