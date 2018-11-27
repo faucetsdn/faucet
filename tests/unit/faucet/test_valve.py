@@ -1631,6 +1631,31 @@ dps:
         self.update_config(self.LESS_CONFIG, reload_type='warm')
 
 
+class ValveOFErrorTestCase(ValveTestBases.ValveTestSmall):
+    """Test decoding of OFErrors."""
+
+    def setUp(self):
+        self.setup_valve(CONFIG)
+
+    def test_oferror_parser(self):
+        for type_code, error_tuple in valve_of.OFERROR_TYPE_CODE.items():
+            self.assertTrue(isinstance(type_code, int))
+            type_str, error_codes = error_tuple
+            self.assertTrue(isinstance(type_str, str))
+            for error_code, error_str in error_codes.items():
+                self.assertTrue(isinstance(error_code, int))
+                self.assertTrue(isinstance(error_str, str))
+        test_err = parser.OFPErrorMsg(
+            datapath=None, type_=ofp.OFPET_FLOW_MOD_FAILED, code=ofp.OFPFMFC_UNKNOWN)
+        self.valve.oferror(test_err)
+        test_unknown_type_err = parser.OFPErrorMsg(
+            datapath=None, type_=666, code=ofp.OFPFMFC_UNKNOWN)
+        self.valve.oferror(test_unknown_type_err)
+        test_unknown_code_err = parser.OFPErrorMsg(
+            datapath=None, type_=ofp.OFPET_FLOW_MOD_FAILED, code=666)
+        self.valve.oferror(test_unknown_code_err)
+
+
 class ValveAddVLANTestCase(ValveTestBases.ValveTestSmall):
     """Test adding VLAN."""
 
