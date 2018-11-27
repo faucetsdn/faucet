@@ -201,7 +201,6 @@ class Valve:
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood)
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
-        egress_table = self.dp.tables.get('egress', None)
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
             host_manager_cl = valve_host.ValveHostFlowRemovedManager
@@ -1350,7 +1349,7 @@ class Valve:
                 expired_hosts = self.host_manager.expire_hosts_from_vlan(vlan, now)
                 if not self.dp.idle_dst:
                     for entry in expired_hosts:
-                         ofmsgs.extend(self.host_manager.delete_host_from_vlan(entry.eth_src, vlan))
+                        ofmsgs.extend(self.host_manager.delete_host_from_vlan(entry.eth_src, vlan))
                 for entry in expired_hosts:
                     self._notify(
                         {'L2_EXPIRE': {
@@ -1539,7 +1538,15 @@ class Valve:
         error_txt = msg
         if orig_msgs:
             error_txt = '%s caused by %s' % (error_txt, orig_msgs[0])
-        self.logger.error('OFError %s' % error_txt)
+        error_type = 'UNKNOWN'
+        error_code = 'UNKNOWN'
+        try:
+            error_tuple = valve_of.OFERROR_TYPE_CODE[msg.type]
+            error_type = error_tuple[0]
+            error_code = error_tuple[1][msg.code]
+        except KeyError:
+            pass
+        self.logger.error('OFError type: %s code: %s %s' % (error_type, error_code, error_txt))
 
     def prepare_send_flows(self, flow_msgs):
         """Prepare to send flows to datapath.
