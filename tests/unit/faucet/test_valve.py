@@ -668,7 +668,7 @@ class ValveTestBases:
                     'eth_dst': self.UNKNOWN_MAC,
                     'ipv4_src': '10.0.0.1',
                     'ipv4_dst': '10.0.0.2'}),
-                'of_unexpected_packet_ins',
+                'of_unexpected_packet_ins_total',
                 inc_expected=True)
 
         def test_oferror(self):
