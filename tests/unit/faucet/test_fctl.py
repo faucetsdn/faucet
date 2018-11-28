@@ -139,8 +139,6 @@ class FctlClassTestCase(FctlTestCaseBase):
             _
             ) = fctl.parse_args(self.fctl_args())
         metrics = fctl.scrape_prometheus(endpoints)
-        print(metrics)
-        print([metric.samples for metric in metrics])
         report_out = fctl.report_label_match_metrics( # pylint: disable=assignment-from-no-return
             report_metrics=report_metrics,
             metrics=metrics,
