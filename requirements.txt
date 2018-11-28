@@ -6,7 +6,7 @@ msgpack
 msgpack-python
 networkx
 pbr>=1.9
-prometheus_client<0.4.0
+prometheus_client==0.4.2
 pyyaml
 ryu==4.30
 beka==0.3.3

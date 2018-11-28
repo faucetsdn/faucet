@@ -1095,7 +1095,7 @@ dbs:
         """Return the number of times FAUCET has processed a reload request."""
         for _ in range(retries):
             count = self.scrape_prometheus_var(
-                'faucet_config_reload_requests', default=None, dpid=False)
+                'faucet_config_reload_requests_total', default=None, dpid=False)
             if count:
                 break
             time.sleep(1)
@@ -1633,9 +1633,9 @@ dbs:
                              cold_start=True, change_expected=True,
                              hup=True, reconf_funcs=None):
         """HUP and verify the HUP was processed."""
-        var = 'faucet_config_reload_warm'
+        var = 'faucet_config_reload_warm_total'
         if cold_start:
-            var = 'faucet_config_reload_cold'
+            var = 'faucet_config_reload_cold_total'
         old_count = int(
             self.scrape_prometheus_var(var, dpid=True, default=0))
         start_configure_count = self.get_configure_count()
