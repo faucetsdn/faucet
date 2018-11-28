@@ -440,7 +440,7 @@ class ValveTestBases:
             if existing_config:
                 self.assertTrue(self.valves_manager.config_watcher.files_changed())
             self.last_flows_to_dp[self.DP_ID] = []
-            var = 'faucet_config_reload_%s' % reload_type
+            var = 'faucet_config_reload_%s_total' % reload_type
             self.prom_inc(
                 partial(self.valves_manager.request_reload_configs,
                         time.time(), self.config_file), var=var, inc_expected=reload_expected)
@@ -657,7 +657,7 @@ class ValveTestBases:
         def test_disconnect(self):
             """Test disconnection of DP from controller."""
             self.assertEqual(1, int(self.get_prom('dp_status')))
-            self.prom_inc(partial(self.valve.datapath_disconnect), 'of_dp_disconnections')
+            self.prom_inc(partial(self.valve.datapath_disconnect), 'of_dp_disconnections_total')
             self.assertEqual(0, int(self.get_prom('dp_status')))
 
         def test_unexpected_port(self):
