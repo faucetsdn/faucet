@@ -622,7 +622,7 @@ class ValveTestBases:
             now = time.time()
             self.prom_inc(
                 partial(self.valves_manager.valve_packet_in, now, self.valve, msg),
-                'of_packet_ins')
+                'of_packet_ins_total')
             rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
             self.table.apply_ofmsgs(rcv_packet_ofmsgs)
             for valve_service in (
