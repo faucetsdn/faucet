@@ -463,12 +463,11 @@ class ValveTestBases:
                     self.set_port_up(port_no)
             self.assertTrue(self.valve.dp.to_conf())
 
-        def port_labels(self, port_no, port_desc=None):
-            if port_desc is None:
-                port_desc = 'p%u' % port_no
-            return {'port': str(port_no), 'port_description': port_desc}
+        def port_labels(self, port_no):
+            port = self.valve.dp.ports[port_no]
+            return {'port': port.name, 'port_description': port.description}
 
-        def port_expected_status(self, port_no, exp_status, port_desc=None):
+        def port_expected_status(self, port_no, exp_status):
             if port_no not in self.valve.dp.ports:
                 return
             labels = self.port_labels(port_no)

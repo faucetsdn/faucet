@@ -99,7 +99,7 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
     def update(self, rcv_time, dp_id, msg):
         super(GaugePortStatsPrometheusPoller, self).update(rcv_time, dp_id, msg)
         for stat in msg.body:
-            port_labels = self._stat_port_labels(msg, stat, dp_id)
+            port_labels = self.dp.port_labels(stat.port_no)
             for stat_name, stat_val in self._format_port_stats(
                     PROM_PREFIX_DELIM, stat):
                 self.prom_client.metrics[stat_name].labels(**port_labels).set(stat_val)
@@ -114,7 +114,7 @@ class GaugePortStatePrometheusPoller(GaugePortStatePoller):
         port = self.dp.ports.get(port_no, None)
         if port is None:
             return
-        port_labels = self._stat_port_labels(msg, msg.desc, dp_id)
+        port_labels = self.dp.port_labels(port_no)
         for prom_var in PROM_PORT_STATE_VARS:
             exported_prom_var = PROM_PREFIX_DELIM.join((PROM_PORT_PREFIX, prom_var))
             msg_value = msg.reason if prom_var == 'reason' else getattr(msg.desc, prom_var)
