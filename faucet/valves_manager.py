@@ -106,37 +106,44 @@ class ValvesManager:
     def load_configs(self, now, new_config_file, delete_dp=None):
         """Load/apply new config to all Valves."""
         new_dps = self.parse_configs(new_config_file)
-        if new_dps is not None:
-            deleted_dpids = (
-                set(self.valves.keys()) -
-                set([dp.dp_id for dp in new_dps]))
-            for new_dp in new_dps:
-                dp_id = new_dp.dp_id
-                if dp_id in self.valves:
-                    self.logger.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
-                    valve = self.valves[dp_id]
-                    ofmsgs = valve.reload_config(now, new_dp)
-                    if ofmsgs:
-                        self.send_flows_to_dp_by_id(valve, ofmsgs)
-                else:
-                    self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
-                    valve = self.new_valve(new_dp)
-                    if valve is None:
-                        continue
-                valve.update_config_metrics()
-                self.valves[dp_id] = valve
-            if delete_dp is not None:
-                for deleted_dp in deleted_dpids:
-                    delete_dp(deleted_dp)
-                    del self.valves[deleted_dp]
-            self.bgp.reset(self.valves)
-            self.dot1x.reset(self.valves)
+        if new_dps is None:
+            return False
+        deleted_dpids = (
+            set(self.valves.keys()) -
+            set([dp.dp_id for dp in new_dps]))
+        for new_dp in new_dps:
+            dp_id = new_dp.dp_id
+            if dp_id in self.valves:
+                self.logger.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
+                valve = self.valves[dp_id]
+                ofmsgs = valve.reload_config(now, new_dp)
+                if ofmsgs:
+                    self.send_flows_to_dp_by_id(valve, ofmsgs)
+            else:
+                self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
+                valve = self.new_valve(new_dp)
+                if valve is None:
+                    continue
+            valve.update_config_metrics()
+            self.valves[dp_id] = valve
+        if delete_dp is not None:
+            for deleted_dp in deleted_dpids:
+                delete_dp(deleted_dp)
+                del self.valves[deleted_dp]
+        self.bgp.reset(self.valves)
+        self.dot1x.reset(self.valves)
+        return True
+
+    def _notify(self, event_dict):
+        """Send an event notification."""
+        self.notifier.notify(0, str(0), event_dict)
 
     def request_reload_configs(self, now, new_config_file, delete_dp=None):
         """Process a request to load config changes."""
         if self.config_watcher.content_changed(new_config_file):
             self.logger.info('configuration %s changed, analyzing differences', new_config_file)
-            self.load_configs(now, new_config_file, delete_dp=delete_dp)
+            result = self.load_configs(now, new_config_file, delete_dp=delete_dp)
+            self._notify({'CONFIG_CHANGE': {'success': result}})
         else:
             self.logger.info('configuration is unchanged, not reloading')
         self.metrics.faucet_config_reload_requests.inc() # pylint: disable=no-member
@@ -172,7 +179,7 @@ class ValvesManager:
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
             self.metrics.of_unexpected_packet_ins.labels( # pylint: disable=no-member
-               **valve.base_prom_labels).inc()
+                **valve.base_prom_labels).inc()
             return
         with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
                 **valve.base_prom_labels).time():
