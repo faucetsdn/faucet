@@ -36,6 +36,47 @@ from clib import mininet_test_topo
 from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
 
 
+CONFIG_BOILER_UNTAGGED = """
+        interfaces:
+            %(port_1)d:
+                name: b1
+                description: "b1"
+                native_vlan: 100
+            %(port_2)d:
+                name: b2
+                description: "b2"
+                native_vlan: 100
+            %(port_3)d:
+                name: b3
+                description: "b3"
+                native_vlan: 100
+            %(port_4)d:
+                name: b4
+                description: "b4"
+                native_vlan: 100
+"""
+
+CONFIG_TAGGED_BOILER = """
+        interfaces:
+            %(port_1)d:
+                name: b1
+                description: "b1"
+                tagged_vlans: [100]
+            %(port_2)d:
+                name: b2
+                description: "b2"
+                tagged_vlans: [100]
+            %(port_3)d:
+                name: b3
+                description: "b3"
+                tagged_vlans: [100]
+            %(port_4)d:
+                name: b4
+                description: "b4"
+                tagged_vlans: [100]
+"""
+
+
 class QuietHTTPServer(HTTPServer):
 
     allow_reuse_address = True
@@ -93,21 +134,7 @@ vlans:
         description: "untagged"
 """
 
-    CONFIG = """
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+    CONFIG = CONFIG_BOILER_UNTAGGED
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetUntaggedTest, self).setUp()
@@ -174,25 +201,25 @@ vlans:
         interfaces:
             %(port_1)d:
                 name: b1
-                native_vlan: 100
                 description: "b1"
+                native_vlan: 100
                 # 802.1x client.
                 dot1x: True
             %(port_2)d:
                 name: b2
-                native_vlan: 100
                 description: "b2"
+                native_vlan: 100
                 # 802.1X client.
                 dot1x: True
             %(port_3)d:
                 name: b3
-                native_vlan: 100
                 description: "b3"
+                native_vlan: 100
                 # ping host.
             %(port_4)d:
                 name: b4
-                native_vlan: 100
                 description: "b4"
+                native_vlan: 100
                 # "NFV host - interface used by controller."
 """
 
@@ -676,17 +703,21 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: randvlan
+                name: b1
                 description: "b1"
+                native_vlan: randvlan
             %(port_2)d:
-                native_vlan: randvlan
+                name: b2
                 description: "b2"
+                native_vlan: randvlan
             %(port_3)d:
-                native_vlan: randvlan
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: randvlan
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: randvlan
 """
 
     def test_untagged(self):
@@ -705,20 +736,7 @@ class FaucetUntaggedNoCombinatorialFlood(FaucetUntaggedTest):
 
     CONFIG = """
         combinatorial_port_flood: False
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
 
 class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
@@ -774,20 +792,24 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: nsonly
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
                 acl_in: nsonly
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
+                native_vlan: 100
                 acl_in: nsonly
             %(port_4)d:
-                native_vlan: 100
+                name: b4
                 description: "b4"
+                native_vlan: 100
                 acl_in: nsonly
     """
 
@@ -800,20 +822,7 @@ class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
 
     CONFIG = """
         combinatorial_port_flood: False
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
 
 class FaucetExperimentalAPITest(FaucetUntaggedTest):
@@ -860,8 +869,9 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
             max_per_interval: 5
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 lldp_beacon:
                     enable: True
                     system_name: "faucet"
@@ -869,14 +879,17 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
                     org_tlvs:
                         - {oui: 0x12bb, subtype: 2, info: "01406500"}
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     @staticmethod
@@ -924,8 +937,9 @@ class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
             max_per_interval: 5
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 lldp_beacon:
                     enable: True
                     org_tlvs:
@@ -984,18 +998,22 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
     CONFIG = """
         interfaces:
             %(port_1)d:
+                name: b1
+                description: "b1"
                 acl_in: lossyacl
                 native_vlan: 100
-                description: "b1"
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -1010,18 +1028,22 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
     CONFIG = """
         interfaces:
             %(port_1)d:
+                name: b1
+                description: "b1"
                 hairpin: True
                 native_vlan: 100
-                description: "b1"
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -1064,16 +1086,21 @@ class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):
         group_table: True
         interfaces:
             %(port_1)d:
+                name: b1
+                description: "b1"
                 hairpin: True
                 native_vlan: 100
-                description: "b1"
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
-            %(port_3)d:
                 native_vlan: 100
+            %(port_3)d:
+                name: b3
                 description: "b3"
+                native_vlan: 100
             %(port_4)d:
+                name: b4
+                description: "b4"
                 native_vlan: 100
     """
 
@@ -1721,17 +1748,21 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
+                tagged_vlans: [100]
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def setUp(self): # pylint: disable=invalid-name
@@ -1758,17 +1789,21 @@ class FaucetTaggedAndUntaggedSameVlanEgressTest(FaucetTaggedAndUntaggedSameVlanT
         egress_pipeline: True
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
+                tagged_vlans: [100]
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
 
@@ -1778,17 +1813,21 @@ class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTe
         group_table: True
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
+                tagged_vlans: [100]
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
 
@@ -1806,17 +1845,21 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
+                tagged_vlans: [100]
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -1835,21 +1878,8 @@ vlans:
         max_hosts: 2
 """
 
-    CONFIG = """
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+    CONFIG = CONFIG_BOILER_UNTAGGED
+
     def test_untagged(self):
         self.net.pingAll()
         learned_hosts = [
@@ -1874,18 +1904,22 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
-            %(port_2)d:
                 native_vlan: 100
+            %(port_2)d:
+                name: b2
                 description: "b2"
+                native_vlan: 100
                 max_hosts: 3
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -1933,20 +1967,7 @@ vlans:
         ignore_learn_ins: 0
         learn_jitter: 0
         cache_update_guard_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def hosts_learned(self, hosts):
         """Check that hosts are learned by FAUCET on the expected ports."""
@@ -2038,22 +2059,7 @@ class FaucetSingleHostsNoIdleTimeoutPrometheusTest(FaucetSingleHostsTimeoutProme
         learn_jitter: 0
         cache_update_guard_time: 1
         idle_dst: False
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
-
-
+""" + CONFIG_BOILER_UNTAGGED
 
 
 class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
@@ -2085,20 +2091,24 @@ vlans:
 """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 max_hosts: 4096
             %(port_2)d:
+                name: b2
+                description: "b3"
                 native_vlan: 100
-                description: "b2"
                 max_hosts: 4096
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
+                native_vlan: 100
                 max_hosts: 4096
             %(port_4)d:
-                native_vlan: 100
+                name: b4
                 description: "b4"
+                native_vlan: 100
                 max_hosts: 4096
 """)
 
@@ -2136,20 +2146,24 @@ vlans:
 """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 max_hosts: 4096
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
                 max_hosts: 4096
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
+                native_vlan: 100
                 max_hosts: 4096
             %(port_4)d:
-                native_vlan: 100
+                name: b4
                 description: "b4"
+                native_vlan: 100
                 max_hosts: 4096
 """)
 
@@ -2222,8 +2236,9 @@ vlans:
             port_acl: 1100
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
 """
     START_ACL_CONFIG = """
@@ -2326,18 +2341,22 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: allow
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
                 tagged_vlans: [200]
 """
     ACL = """
@@ -2541,6 +2560,8 @@ class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
         del conf['dps'][self.DP_NAME]['interfaces']
         conf['dps'][self.DP_NAME]['interfaces'] = {
             int(self.port_map['port_1']): {
+                'name': 'b1',
+                'description': 'b1',
                 'native_vlan': '100',
                 'tagged_vlans': ['200'],
             }
@@ -2569,20 +2590,24 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acls_in: [allow]
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
                 acl_in: allow
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
+                native_vlan: 100
                 acl_in: deny
             %(port_4)d:
-                native_vlan: 100
+                name: b4
                 description: "b4"
+                native_vlan: 100
                 acl_in: deny
 """
 
@@ -2637,20 +2662,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     exabgp_peer_conf = """
     static {
@@ -2710,20 +2722,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     exabgp_peer_conf = """
     static {
@@ -2786,20 +2785,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     exabgp_peer_conf = """
     static {
@@ -2875,20 +2861,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     exabgp_log = None
     exabgp_err = None
@@ -2933,21 +2906,7 @@ vlans:
         unicast_flood: True
 """
 
-    CONFIG = """
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+    CONFIG = CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
         self.ping_all_when_learned()
@@ -2963,21 +2922,7 @@ vlans:
         unicast_flood: False
 """
 
-    CONFIG = """
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+    CONFIG = CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
         self.assertFalse(self.bogus_mac_flooded_to_port1())
@@ -2995,18 +2940,22 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 unicast_flood: True
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -3027,18 +2976,22 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 unicast_flood: False
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -3070,18 +3023,22 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 permanent_learn: True
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -3118,18 +3075,22 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
-            %(port_3)d:
                 native_vlan: 100
+            %(port_3)d:
+                name: b3
                 description: "b3"
+                native_vlan: 100
                 loop_protect: True
             %(port_4)d:
-                native_vlan: 100
+                name: b4
                 description: "b4"
+                native_vlan: 100
                 loop_protect: True
 """
 
@@ -3211,19 +3172,23 @@ vlans:
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 lacp: 1
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
                 lacp: 1
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def setUp(self): # pylint: disable=invalid-name
@@ -3371,21 +3336,7 @@ vlans:
 
     CONFIG = """
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
-
+""" + CONFIG_BOILER_UNTAGGED
 
     def test_ping_fragment_controller(self):
         first_host = self.net.hosts[0]
@@ -3430,20 +3381,7 @@ vlans:
 
     CONFIG = """
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def test_fping_controller(self):
         first_host = self.net.hosts[0]
@@ -3465,20 +3403,7 @@ vlans:
 
     CONFIG = """
         advertise_interval: 5
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def test_ndisc6(self):
         first_host = self.net.hosts[0]
@@ -3549,20 +3474,7 @@ vlans:
 
     CONFIG = """
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def test_flap_ping_controller(self):
         first_host, second_host = self.net.hosts[0:2]
@@ -3628,20 +3540,7 @@ vlans:
 
     CONFIG = """
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def test_fping_controller(self):
         first_host = self.net.hosts[0]
@@ -3666,17 +3565,21 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
-            %(port_2)d:
                 tagged_vlans: [100]
+            %(port_2)d:
+                name: b2
                 description: "b2"
+                tagged_vlans: [100]
             %(port_3)d:
-                native_vlan: 101
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 101
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 101
 """
 
     def setUp(self): # pylint: disable=invalid-name
@@ -3729,18 +3632,22 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_port5001_blocked(self):
@@ -3780,20 +3687,7 @@ acls:
 """
     CONFIG = """
         dp_acls: [1]
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def test_port5001_blocked(self):
         self.ping_all_when_learned()
@@ -3827,19 +3721,23 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
                 opstatus_reconf: False
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -3927,21 +3825,7 @@ vlans:
         description: "untagged"
         acl_in: 1
 """
-    CONFIG = """
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+    CONFIG = CONFIG_BOILER_UNTAGGED
 
     def test_port5001_blocked(self):
         self.ping_all_when_learned()
@@ -3973,18 +3857,21 @@ class FaucetUntaggedOutputOnlyTest(FaucetUntaggedTest):
     CONFIG = """
         interfaces:
             %(port_1)d:
-                output_only: True
+                name: b1
                 description: "b1"
+                output_only: True
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                number: %(port_3)d
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -4009,26 +3896,29 @@ acls:
         - rule:
             actions:
                 allow: 1
-                mirror: mirrorport
+                mirror: b3 
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
                 acl_in: 1
-            mirrorport:
-                number: %(port_3)d
-                native_vlan: 100
+            %(port_3)d:
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -4053,26 +3943,29 @@ acls:
             actions:
                 allow: 1
                 output:
-                    ports: [mirrorport]
+                    ports: [b1]
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
                 acl_in: 1
-            mirrorport:
-                number: %(port_3)d
-                native_vlan: 100
+            %(port_3)d:
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -4097,26 +3990,29 @@ acls:
     1:
         - rule:
             actions:
-                mirror: mirrorport
+                mirror: b3 
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
                 acl_in: 1
-            mirrorport:
-                number: %(port_3)d
-                native_vlan: 100
+            %(port_3)d:
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
 
@@ -4131,21 +4027,27 @@ acls:
         - rule:
             actions:
                 output:
-                    ports: [ output2, output3 ]
+                    ports: [b2, b3]
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
+                name: b1
+                description: "b1"
                 native_vlan: 100
                 acl_in: multi_out
-            output2:
-                number: %(port_2)d
+            %(port_2)d:
+                name: b2
+                description: "b2"
                 native_vlan: 100
-            output3:
-                number: %(port_3)d
+            %(port_3)d:
+                name: b3
+                description: "b3"
                 native_vlan: 200
             %(port_4)d:
+                name: b4
+                description: "b4"
                 native_vlan: 100
 """
 
@@ -4187,25 +4089,28 @@ acls:
                     vlan_vid: 123
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
-                    port: acloutport
+                    port: b2
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
-            acloutport:
-                number: %(port_2)d
-                native_vlan: 100
+            %(port_2)d:
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
-                description: "b4"
+            %(port_4)d:
+                name: b1
+                description: "b1"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -4239,25 +4144,28 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [123, 456]
-                    port: acloutport
+                    port: b2 
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
-            acloutport:
-                number: %(port_2)d
+            %(port_2)d:
+                name: b2
+                description: "b22"
                 native_vlan: 100
-                description: "b2"
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -4292,25 +4200,28 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [{vid: 123, eth_type: 0x88a8}, 456]
-                    port: acloutport
+                    port: b2 
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
-            acloutport:
-                number: %(port_2)d
-                native_vlan: 100
+            %(port_2)d:
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -4340,18 +4251,22 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
-            %(port_2)d:
                 native_vlan: 100
+            %(port_2)d:
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                # port 3 will mirror port 1
+                name: b3
                 description: "b3"
+                # port 3 will mirror port 1
                 mirror: %(port_1)d
             %(port_4)d:
-                native_vlan: 100
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -4373,18 +4288,22 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 override_output_port: %(port_3)d
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
+                name: b3
                 description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                native_vlan: 100
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -4422,16 +4341,18 @@ vlans:
         interfaces:
             %(port_1)d:
                 name: b1
-                native_vlan: 100
                 description: "b1"
+                native_vlan: 100
             %(port_2)d:
                 name: b2
-                native_vlan: 100
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
+                name: b3
                 description: "b3"
                 output_only: True
             %(port_4)d:
+                name: b4
                 description: "b4"
                 output_only: True
 """
@@ -4461,15 +4382,19 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
-            %(port_2)d:
                 native_vlan: 100
+            %(port_2)d:
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
+                name: b3
                 description: "b3"
                 mirror: %(port_1)d
             %(port_4)d:
+                name: b4
                 description: "b4"
                 mirror: %(port_1)d
 """
@@ -4496,21 +4421,7 @@ vlans:
         description: "tagged"
 """
 
-    CONFIG = """
-        interfaces:
-            %(port_1)d:
-                tagged_vlans: [100]
-                description: "b1"
-            %(port_2)d:
-                tagged_vlans: [100]
-                description: "b2"
-            %(port_3)d:
-                tagged_vlans: [100]
-                description: "b3"
-            %(port_4)d:
-                tagged_vlans: [100]
-                description: "b4"
-"""
+    CONFIG = CONFIG_TAGGED_BOILER
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetTaggedTest, self).setUp()
@@ -4580,17 +4491,21 @@ vlans:
             flood: 384
         interfaces:
             %s:
+                name: b3
+                description: "b3"
                 mirror: %s
             %s:
-                native_vlan: 99
-                tagged_vlans: [%s]
-                hairpin_unicast: True
+                name: b1
                 description: "b1"
-            %s:
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
+            %s:
+                name: b2
                 description: "b2"
+                native_vlan: 99
+                tagged_vlans: [%s]
+                hairpin_unicast: True
 """ % (global_vid(), '%(port_3)d', '%(port_1)d', '%(port_1)d',
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
@@ -4746,17 +4661,21 @@ vlans:
             flood: 384
         interfaces:
             %s:
+                name: b3
+                description: "b3"
                 mirror: %s
             %s:
-                native_vlan: 99
-                tagged_vlans: [%s]
-                hairpin_unicast: True
+                name: b1
                 description: "b1"
-            %s:
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
+            %s:
+                name: b2
                 description: "b2"
+                native_vlan: 99
+                tagged_vlans: [%s]
+                hairpin_unicast: True
 """ % (global_vid(), '%(port_3)d', '%(port_1)d', '%(port_1)d',
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
@@ -4779,17 +4698,21 @@ vlans:
     CONFIG = """
         interfaces:
             %s:
-                tagged_vlans: [%s]
+                name: b1
                 description: "b1"
-            %s:
                 tagged_vlans: [%s]
+            %s:
+                name: b2
                 description: "b2"
-            %s:
                 tagged_vlans: [%s]
+            %s:
+                name: b3
                 description: "b3"
-            %s:
                 tagged_vlans: [%s]
+            %s:
+                name: b4
                 description: "b4"
+                tagged_vlans: [%s]
 """ % ('%(port_1)d', ','.join(STR_VIDS),
        '%(port_2)d', ','.join(STR_VIDS),
        '%(port_3)d', ','.join(STR_VIDS),
@@ -4855,21 +4778,25 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 200
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
+                native_vlan: 200
+                tagged_vlans: [100]
             %(port_2)d:
-                native_vlan: 200
-                tagged_vlans: [100]
+                name: b2
                 description: "b2"
+                native_vlan: 200
+                tagged_vlans: [100]
             %(port_3)d:
-                native_vlan: 200
-                tagged_vlans: [100]
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 200
                 tagged_vlans: [100]
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 200
+                tagged_vlans: [100]
 """
 
     def test_tagged(self):
@@ -4897,7 +4824,7 @@ acls:
         - rule:
             vlan_vid: 100
             actions:
-                mirror: mirrorport
+                mirror: b3
                 force_port_vlan: 1
                 output:
                     swap_vid: 101
@@ -4907,19 +4834,22 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
+                tagged_vlans: [100]
                 acl_in: 1
             %(port_2)d:
-                tagged_vlans: [101]
+                name: b2
                 description: "b2"
-            mirrorport:
-                number: %(port_3)d
-                tagged_vlans: [100]
+                tagged_vlans: [101]
+            %(port_3)d:
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 tagged_vlans: [100]
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                tagged_vlans: [100]
     """
 
     def test_tagged(self):
@@ -4959,25 +4889,28 @@ acls:
             actions:
                 output:
                     swap_vid: 101
-                    port: acloutport
+                    port: b2
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
+                tagged_vlans: [100]
                 acl_in: 1
-            acloutport:
-                number: %(port_2)d
-                tagged_vlans: [101]
+            %(port_2)d:
+                name: b2
                 description: "b2"
+                tagged_vlans: [101]
             %(port_3)d:
-                tagged_vlans: [100]
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 tagged_vlans: [100]
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                tagged_vlans: [100]
 """
 
     def test_tagged(self):
@@ -5012,25 +4945,28 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     pop_vlans: 1
-                    port: acloutport
+                    port: b2
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
+                tagged_vlans: [100]
                 acl_in: 1
-            acloutport:
-                tagged_vlans: [100]
-                number: %(port_2)d
+            %(port_2)d:
+                name: b2
                 description: "b2"
+                tagged_vlans: [100]
             %(port_3)d:
-                tagged_vlans: [100]
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 tagged_vlans: [100]
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                tagged_vlans: [100]
 """
 
     def test_tagged(self):
@@ -5057,20 +4993,7 @@ vlans:
 
     CONFIG = """
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                tagged_vlans: [100]
-                description: "b1"
-            %(port_2)d:
-                tagged_vlans: [100]
-                description: "b2"
-            %(port_3)d:
-                tagged_vlans: [100]
-                description: "b3"
-            %(port_4)d:
-                tagged_vlans: [100]
-                description: "b4"
-"""
+""" + CONFIG_TAGGED_BOILER
 
     def test_ping_controller(self):
         first_host, second_host = self.net.hosts[0:2]
@@ -5090,20 +5013,7 @@ vlans:
 
     CONFIG = """
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                tagged_vlans: [100]
-                description: "b1"
-            %(port_2)d:
-                tagged_vlans: [100]
-                description: "b2"
-            %(port_3)d:
-                tagged_vlans: [100]
-                description: "b3"
-            %(port_4)d:
-                tagged_vlans: [100]
-                description: "b4"
-"""
+""" + CONFIG_TAGGED_BOILER
 
     def test_ping_controller(self):
         first_host, second_host = self.net.hosts[0:2]
@@ -5141,19 +5051,22 @@ vlans:
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
+                tagged_vlans: [100]
                 acl_in: 1
-            b2:
-                number: %(port_2)d
-                tagged_vlans: [100]
+            %(port_2)d:
+                name: b2
                 description: "b2"
+                tagged_vlans: [100]
             %(port_3)d:
-                tagged_vlans: [100]
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 tagged_vlans: [100]
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                tagged_vlans: [100]
 """
 
     def test_icmpv6_acl_match(self):
@@ -5194,17 +5107,21 @@ vlans:
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                name: b1
                 description: "b1"
+                tagged_vlans: [100]
             %(port_2)d:
-                tagged_vlans: [100]
+                name: b2
                 description: "b2"
-            %(port_3)d:
                 tagged_vlans: [100]
+            %(port_3)d:
+                name: b3
                 description: "b3"
+                tagged_vlans: [100]
             %(port_4)d:
-                native_vlan: 200
+                name: b4
                 description: "b4"
+                native_vlan: 200
 """
 
     def test_tagged(self):
@@ -5260,20 +5177,7 @@ vlans:
         nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         proactive_learn_v4: True
-        interfaces:
-            %(port_1)d:
-                tagged_vlans: [100]
-                description: "b1"
-            %(port_2)d:
-                tagged_vlans: [100]
-                description: "b2"
-            %(port_3)d:
-                tagged_vlans: [100]
-                description: "b3"
-            %(port_4)d:
-                tagged_vlans: [100]
-                description: "b4"
-"""
+""" + CONFIG_TAGGED_BOILER
 
     def test_tagged(self):
         host_pair = self.net.hosts[:2]
@@ -5303,20 +5207,7 @@ vlans:
         nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         proactive_learn_v6: True
-        interfaces:
-            %(port_1)d:
-                tagged_vlans: [100]
-                description: "b1"
-            %(port_2)d:
-                tagged_vlans: [100]
-                description: "b2"
-            %(port_3)d:
-                tagged_vlans: [100]
-                description: "b3"
-            %(port_4)d:
-                tagged_vlans: [100]
-                description: "b4"
-"""
+""" + CONFIG_TAGGED_BOILER
 
     def test_tagged(self):
         host_pair = self.net.hosts[:2]
@@ -5369,17 +5260,21 @@ vlans:
         proactive_learn_v4: True
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
             %(port_2)d:
-                native_vlan: 200
+                name: b2
                 description: "b2"
+                native_vlan: 200
             %(port_3)d:
-                native_vlan: 200
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 200
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 200
 """
 
 
@@ -5442,17 +5337,21 @@ routers:
         proactive_learn_v4: True
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
             %(port_2)d:
-                native_vlan: vlanb
+                name: b2
                 description: "b2"
+                native_vlan: vlanb
             %(port_3)d:
-                native_vlan: vlanb
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: vlanb
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: vlanb
 """
 
     def test_untagged(self):
@@ -5501,17 +5400,21 @@ routers:
         proactive_learn_v4: True
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
             %(port_2)d:
-                native_vlan: vlanb
+                name: b2
                 description: "b2"
+                native_vlan: vlanb
             %(port_3)d:
-                native_vlan: vlanb
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: vlanb
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: vlanb
 """
 
     def test_untagged(self):
@@ -5565,17 +5468,21 @@ routers:
         proactive_learn_v6: True
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
             %(port_2)d:
-                native_vlan: vlanb
+                name: b2
                 description: "b2"
+                native_vlan: vlanb
             %(port_3)d:
-                native_vlan: vlanb
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: vlanb
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: vlanb
 """
 
     def test_untagged(self):
@@ -5647,17 +5554,21 @@ routers:
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
-            %(port_2)d:
-                native_vlan: 200
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 300
-                description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_2)d:
+                name: b2
+                description: "b2"
+                native_vlan: 200
+            %(port_3)d:
+                name: b3
+                description: "b3"
+                native_vlan: 300
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -5705,20 +5616,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
         host_pair = self.net.hosts[:2]
@@ -5748,20 +5646,7 @@ vlans:
     CONFIG = """
         nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
         host_pair = self.net.hosts[:2]
@@ -5800,20 +5685,7 @@ vlans:
     CONFIG = """
         nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     exabgp_peer_conf = """
     static {
@@ -5871,20 +5743,7 @@ vlans:
     CONFIG = """
         nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     exabgp_peer_conf = """
     static {
@@ -5940,20 +5799,7 @@ vlans:
     CONFIG = """
         nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -6007,20 +5853,7 @@ vlans:
     CONFIG = """
         nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     exabgp_log = None
     exabgp_err = None
@@ -6070,20 +5903,7 @@ vlans:
     CONFIG = """
         nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                tagged_vlans: [100]
-                description: "b1"
-            %(port_2)d:
-                tagged_vlans: [100]
-                description: "b2"
-            %(port_3)d:
-                tagged_vlans: [100]
-                description: "b3"
-            %(port_4)d:
-                tagged_vlans: [100]
-                description: "b4"
-"""
+""" + CONFIG_TAGGED_BOILER
 
     def test_tagged(self):
         """Test IPv6 routing works."""
@@ -6300,6 +6120,7 @@ class FaucetStringOfDPTest(FaucetTest):
             for _ in range(n_tagged):
                 interfaces_config[port] = {
                     'tagged_vlans': [tagged_vid],
+                    'name': 'b%i' % port,
                     'description': 'b%i' % port,
                 }
                 add_acl_to_port(name, port, interfaces_config)
@@ -6308,6 +6129,7 @@ class FaucetStringOfDPTest(FaucetTest):
             for _ in range(n_untagged):
                 interfaces_config[port] = {
                     'native_vlan': untagged_vid,
+                    'name': 'b%i' % port,
                     'description': 'b%i' % port,
                 }
                 add_acl_to_port(name, port, interfaces_config)
@@ -6843,20 +6665,7 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
 
     CONFIG = """
         group_table: True
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def test_group_exist(self):
         self.assertEqual(
@@ -6870,20 +6679,7 @@ class FaucetTaggedGroupTableTest(FaucetTaggedTest):
 
     CONFIG = """
         group_table: True
-        interfaces:
-            %(port_1)d:
-                tagged_vlans: [100]
-                description: "b1"
-            %(port_2)d:
-                tagged_vlans: [100]
-                description: "b2"
-            %(port_3)d:
-                tagged_vlans: [100]
-                description: "b3"
-            %(port_4)d:
-                tagged_vlans: [100]
-                description: "b4"
-"""
+""" + CONFIG_TAGGED_BOILER
 
     def test_group_exist(self):
         self.assertEqual(
@@ -6912,18 +6708,22 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -6968,18 +6768,22 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                native_vlan: 100
+                name: b1
                 description: "b1"
+                native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                native_vlan: 100
+                name: b2
                 description: "b2"
+                native_vlan: 100
             %(port_3)d:
-                native_vlan: 100
+                name: b3
                 description: "b3"
-            %(port_4)d:
                 native_vlan: 100
+            %(port_4)d:
+                name: b4
                 description: "b4"
+                native_vlan: 100
 """
 
     def test_untagged(self):
@@ -7039,20 +6843,7 @@ vlans:
     CONFIG = """
         timeout: 1
         use_idle_timeout: True
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
+""" + CONFIG_BOILER_UNTAGGED
 
     def wait_for_host_removed(self, host, in_port, timeout=5):
         for _ in range(timeout):
