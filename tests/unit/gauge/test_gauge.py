@@ -555,7 +555,6 @@ class GaugeInfluxUpdateTest(unittest.TestCase): # pytype: disable=module-attr
             measurement, influx_data = self.parse_influx_output(line)
 
             # get the number at the end of the port_name
-            print(influx_data)
             port_num = int(influx_data['port_name'][-1]) # pytype: disable=unsupported-operands
             # get the original port stat value
             port_stat_val = logger_to_ofp(
