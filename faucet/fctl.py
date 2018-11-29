@@ -79,7 +79,9 @@ def report_label_match_metrics(report_metrics, metrics, display_labels=None,
     report_output = []
     for metric in metrics:
         if not report_metrics or metric.name in report_metrics:
-            for _, labels, value in metric.samples:
+            for sample in metric.samples:
+                labels = sample.labels
+                value = sample.value
                 if (label_matches is None or
                         (label_matches and set(
                             label_matches.items()).issubset(set(labels.items())))):

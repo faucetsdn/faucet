@@ -272,10 +272,10 @@ network={
             self.eapol1_host, 1, self.wpasupplicant_conf_1, and_logoff=False)
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(1), default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_success', labels=self.port_labels(2), default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(2), default=0))
 
         self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
@@ -291,31 +291,31 @@ network={
 
         self.assertEqual(
             2,
-            self.scrape_prometheus_var('dp_dot1x_success', default=0))
+            self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(1), default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success', labels=self.port_labels(2), default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(2), default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('dp_dot1x_failure', default=0))
+            self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_failure', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=self.port_labels(1), default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_failure', labels=self.port_labels(2), default=0))
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=self.port_labels(2), default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('dp_dot1x_logoff', default=0))
+            self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_logoff', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=self.port_labels(1), default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_logoff', labels=self.port_labels(2), default=0))
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=self.port_labels(2), default=0))
 
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
         wpa_ctrl_path = os.path.join(
@@ -544,22 +544,22 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
         self.assertIn('Failure', tcpdump_txt)
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('dp_dot1x_success', default=0))
+            self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_success', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(1), default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('dp_dot1x_logoff', default=0))
+            self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_logoff', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=self.port_labels(1), default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('dp_dot1x_failure', default=0))
+            self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_failure', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=self.port_labels(1), default=0))
 
 
 class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
@@ -2190,11 +2190,11 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self._configure_count_with_retry(i+1)
             self.assertEqual(
                 self.scrape_prometheus_var(
-                    'of_dp_disconnections', dpid=True, default=None),
+                    'of_dp_disconnections_total', dpid=True, default=None),
                 0)
             self.assertEqual(
                 self.scrape_prometheus_var(
-                    'of_dp_connections', dpid=True, default=None),
+                    'of_dp_connections_total', dpid=True, default=None),
                 1)
             self.wait_until_controller_flow()
             self.ping_all_when_learned()
@@ -6364,9 +6364,9 @@ class FaucetStringOfDPTest(FaucetTest):
             i += 1
             labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': 'faucet-%u' % i}
             self.assertEqual(
-                0, self.scrape_prometheus_var(var='stack_cabling_errors', labels=labels, default=0))
+                0, self.scrape_prometheus_var(var='stack_cabling_errors_total', labels=labels, default=None))
             self.assertGreater(
-                self.scrape_prometheus_var(var='stack_probes_received', labels=labels), 0)
+                self.scrape_prometheus_var(var='stack_probes_received_total', labels=labels), 0)
 
     def verify_stack_hosts(self, verify_bridge_local_rule=True):
         lldp_cap_files = []
