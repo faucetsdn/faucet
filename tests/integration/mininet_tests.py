@@ -6027,9 +6027,6 @@ class FaucetStringOfDPTest(FaucetTest):
                                dpid_count, stack, n_tagged, tagged_vid,
                                n_untagged, untagged_vid):
 
-            def stack_name(name, port):
-                return '%s_%u' % (dp_name(name), port)
-
             # Add configuration for the switch-to-switch links
             # (0 for a single switch, 1 for an end switch, 2 for middle switches).
             first_dp = i == 0
@@ -6067,7 +6064,7 @@ class FaucetStringOfDPTest(FaucetTest):
                     for stack_dp_port in range(self.topo.switch_to_switch_links):
                         peer_port = peer_stack_port_base + stack_dp_port
                         interfaces_config[port] = {
-                            'name': stack_name(i, port),
+                            'name': 'b%u' % port,
                             'description': 'b%u' % port,
                         }
                         if stack:
@@ -6079,7 +6076,7 @@ class FaucetStringOfDPTest(FaucetTest):
                                     'receive_lldp': True,
                                     'stack': {
                                         'dp': dp_name(peer_dp),
-                                        'port': stack_name(peer_dp, peer_port)}
+                                        'port': 'b%u' % peer_port}
                                 })
                         else:
                             # not a stack - make this a trunk.
