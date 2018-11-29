@@ -111,7 +111,7 @@ class GaugePortStatsLogger(GaugePortStatsPoller):
         super(GaugePortStatsLogger, self).update(rcv_time, dp_id, msg)
         rcv_time_str = _rcv_time(rcv_time)
         for stat in msg.body:
-            port_name = self._stat_port_name(msg, stat, dp_id)
+            port_name = self.dp.port_labels(stat.port_no)['port']
             with open(self.conf.file, 'a') as logfile:
                 log_lines = []
                 for stat_name, stat_val in self._format_port_stats('-', stat):

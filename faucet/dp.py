@@ -481,6 +481,26 @@ configuration.
         """Return True if supplied port number valid on this datapath."""
         return not valve_of.ignore_port(port_no) and port_no in self.ports
 
+    def base_prom_labels(self):
+        """Return base Prometheus labels for this DP."""
+        return dict(dp_id=hex(self.dp_id), dp_name=self.name)
+
+    def port_labels(self, port_no):
+        """Return port name and description labels for a port number."""
+        port_name = str(port_no)
+        port_description = None
+        if port_no in self.ports:
+            port = self.ports[port_no]
+            port_name = port.name
+            port_description = port.description
+        elif port_no == valve_of.ofp.OFPP_CONTROLLER:
+            port_name = 'CONTROLLER'
+        elif port_no == valve_of.ofp.OFPP_LOCAL:
+            port_name = 'LOCAL'
+        if port_description is None:
+            port_description = port_name
+        return dict(self.base_prom_labels(), port=port_name, port_description=port_description)
+
     def classification_table(self):
         if self.use_classification:
             return self.tables['classification']
