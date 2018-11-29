@@ -36,24 +36,31 @@ class QuietHandler(BaseHTTPRequestHandler):
         pass
 
 
-def table_by_id(i):
-    table = mock.Mock()
-    table_name = mock.PropertyMock(return_value='table' + str(i))
-    type(table).name = table_name
-    return table
-
-
 def create_mock_datapath(num_ports):
     """Mock a datapath by creating mocked datapath ports."""
+
+    dp_id = random.randint(1, 5000)
+    dp_name = mock.PropertyMock(return_value='datapath')
+
+    def table_by_id(i):
+        table = mock.Mock()
+        table_name = mock.PropertyMock(return_value='table' + str(i))
+        type(table).name = table_name
+        return table
+
+    def port_labels(port_no):
+        return {
+            'port': 'port%u' % port_no, 'port_description': 'port%u' % port_no,
+            'dp_id': hex(dp_id), 'dp_name': dp_name}
+
     ports = {}
     for i in range(1, num_ports + 1):
         port = mock.Mock()
         port_name = mock.PropertyMock(return_value='port' + str(i))
         type(port).name = port_name
         ports[i] = port
-    datapath = mock.Mock(ports=ports, dp_id=random.randint(1, 5000))
-    datapath.table_by_id = table_by_id
-    dp_name = mock.PropertyMock(return_value='datapath')
+
+    datapath = mock.Mock(ports=ports, dp_id=dp_id, port_labels=port_labels, table_by_id=table_by_id)
     type(datapath).name = dp_name
     return datapath
 
