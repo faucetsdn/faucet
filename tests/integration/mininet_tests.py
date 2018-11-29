@@ -3943,7 +3943,7 @@ acls:
             actions:
                 allow: 1
                 output:
-                    ports: [b1]
+                    ports: [b3]
 """
 
     CONFIG = """

@@ -891,11 +891,11 @@ dbs:
     def prom_macs_learned(self, port=None, vlan=None):
         labels = {
             'n': r'\d+',
-            'port': r'\d+',
+            'port': r'b\d+',
             'vlan': r'\d+',
         }
         if port:
-            labels['port'] = str(port)
+            labels['port'] = 'b%u' % port
         if vlan:
             labels['vlan'] = str(vlan)
         port_learned_macs_prom = self.scrape_prometheus_var(
@@ -1302,7 +1302,7 @@ dbs:
         for port in ports:
             port_no = self.port_map['port_%u' % port]
             port_vlan_hosts_learned += self.scrape_prometheus_var(
-                'port_vlan_hosts_learned', {'vlan': str(vlan), 'port': int(port_no)},
+                'port_vlan_hosts_learned', {'vlan': str(vlan), 'port': 'b%u' % port_no},
                 default=0)
             prom_macs_learned += len(self.prom_macs_learned(
                 vlan=vlan, port=port_no))
