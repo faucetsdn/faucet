@@ -91,7 +91,7 @@ class FaucetDot1x:
             'Successful auth from MAC %s on %s' % (
                 str(address), dot1x_port))
         self.metrics.inc_var('dp_dot1x_success', valve.dp.base_prom_labels())
-        self.metrics.inc_var('port_dot1x_success', valve.port_labels(dot1x_port))
+        self.metrics.inc_var('port_dot1x_success', valve.dp.port_labels(dot1x_port.number))
 
         flowmods = valve.add_authed_mac(
             dot1x_port.number, str(address))
@@ -104,7 +104,7 @@ class FaucetDot1x:
         self.logger.info(
             'Logoff from MAC %s on %s', str(address), dot1x_port)
         self.metrics.inc_var('dp_dot1x_logoff', valve.dp.base_prom_labels())
-        self.metrics.inc_var('port_dot1x_logoff', valve.port_labels(dot1x_port))
+        self.metrics.inc_var('port_dot1x_logoff', valve.dp.port_labels(dot1x_port.number))
         flowmods = valve.del_authed_mac(
             dot1x_port.number, str(address))
         if flowmods:
@@ -116,7 +116,7 @@ class FaucetDot1x:
         self.logger.info(
             'Failure from MAC %s on %s', str(address), dot1x_port)
         self.metrics.inc_var('dp_dot1x_failure', valve.dp.base_prom_labels())
-        self.metrics.inc_var('port_dot1x_failure', valve.port_labels(dot1x_port))
+        self.metrics.inc_var('port_dot1x_failure', valve.dp.port_labels(dot1x_port.number))
 
     def set_mac_str(self, valve, valve_index, port_num):
         """
