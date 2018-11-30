@@ -892,7 +892,8 @@ def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
             if exclude_ports and port in exclude_ports:
                 continue
             flood_acts.append(output_port(port.number))
-    return flood_acts
+            flood_acts.extend(port.mirror_actions())
+    return dedupe_output_port_acts(flood_acts)
 
 
 def flood_untagged_port_outputs(ports, in_port=None, exclude_ports=None):

@@ -1432,7 +1432,6 @@ dbs:
                 break
         self.assertTrue(successful_learn_hosts >= min_hosts)
 
-
     def verify_vlan_flood_limited(self, vlan_first_host, vlan_second_host,
                                   other_vlan_host):
         """Verify that flooding doesn't cross VLANs."""
@@ -1473,7 +1472,7 @@ dbs:
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
 
-    def verify_bcast_ping_mirrored(self, first_host, second_host, mirror_host):
+    def verify_bcast_ping_mirrored(self, first_host, second_host, mirror_host, tagged=False):
         """Verify that broadcast to a mirrored port, is mirrored."""
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):
@@ -1482,10 +1481,15 @@ dbs:
         tcpdump_filter = (
             'ether src %s and ether dst ff:ff:ff:ff:ff:ff and '
             'icmp[icmptype] == 8') % second_host.MAC()
-        second_ping_bcast = 'ping -c1 -b %s' % self.ipv4_vip_bcast()
+        if tagged:
+            tcpdump_filter = 'vlan and %s' % tcpdump_filter
+        else:
+            tcpdump_filter = '%s and not vlan' % tcpdump_filter
+        second_ping_bcast = 'ping -c3 -b %s' % self.ipv4_vip_bcast()
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
-                partial(second_host.cmd, second_ping_bcast)])
+                partial(second_host.cmd, second_ping_bcast)],
+            packets=1)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt),
                         msg=tcpdump_txt)
