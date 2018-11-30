@@ -34,7 +34,7 @@ class ValveFloodManager(ValveManagerBase):
         (False, valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.mac_byte_mask(3)), # 802.x
         (False, '01:00:5E:00:00:00', valve_packet.mac_byte_mask(3)), # IPv4 multicast
         (False, '33:33:00:00:00:00', valve_packet.mac_byte_mask(2)), # IPv6 multicast
-        (False, valve_of.mac.BROADCAST_STR, None), # flood on ethernet broadcasts
+        (False, valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)), # flood on ethernet broadcasts
     )
 
     def __init__(self, flood_table, eth_src_table, # pylint: disable=too-many-arguments
@@ -50,7 +50,7 @@ class ValveFloodManager(ValveManagerBase):
         self.combinatorial_port_flood = combinatorial_port_flood
 
     def initialise_tables(self):
-        """Initialise the flood table with filtering flows"""
+        """Initialise the flood table with filtering flows."""
         ofmsgs = []
         ofmsgs.append(self.flood_table.flowdrop(
             self.flood_table.match(
@@ -101,8 +101,8 @@ class ValveFloodManager(ValveManagerBase):
             priority=flood_priority)]
 
     def _build_flood_rule_for_vlan(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
-                                   exclude_unicast, command, flood_priority,
-                                   preflood_acts):
+                                   exclude_unicast, command, preflood_acts):
+        flood_priority = self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
         match = self.flood_table.match(
             vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
         flood_acts = self._build_flood_rule_actions(
@@ -110,8 +110,8 @@ class ValveFloodManager(ValveManagerBase):
         return self._build_flood_rule(match, command, preflood_acts, flood_acts, flood_priority)
 
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
-                                   exclude_unicast, command, flood_priority,
-                                   port, preflood_acts):
+                                   exclude_unicast, command, port, preflood_acts):
+        flood_priority = self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
         match = self.flood_table.match(
             vlan=vlan, in_port=port.number,
             eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
@@ -120,30 +120,27 @@ class ValveFloodManager(ValveManagerBase):
         return self._build_flood_rule(match, command, preflood_acts, flood_acts, flood_priority)
 
     def _combinatorial_port_flood(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
-                                  exclude_unicast, command, flood_priority,
-                                  mirror_acts):
+                                  exclude_unicast, command, mirror_acts):
         ofmsgs = []
         for port in self._vlan_all_ports(vlan, exclude_unicast):
             ofmsgs.extend(self._build_flood_rule_for_port(
                 vlan, eth_dst, eth_dst_mask,
-                exclude_unicast, command, flood_priority,
+                exclude_unicast, command,
                 port, mirror_acts))
         return ofmsgs
 
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
-                                exclude_unicast, command, flood_priority,
-                                mirror_acts):
+                                exclude_unicast, command, mirror_acts):
         if self._require_combinatorial_flood(vlan):
             return self._combinatorial_port_flood(
                 vlan, eth_dst, eth_dst_mask,
-                exclude_unicast, command, flood_priority, mirror_acts)
+                exclude_unicast, command, mirror_acts)
         return self._build_flood_rule_for_vlan(
             vlan, eth_dst, eth_dst_mask,
-            exclude_unicast, command, flood_priority, mirror_acts)
+            exclude_unicast, command, mirror_acts)
 
     def _build_multiout_flood_rules(self, vlan, command):
         """Build flooding rules for a VLAN without using groups."""
-        flood_priority = self.flood_priority
         mirror_acts = self._vlan_flood_mirror_acts(vlan)
         ofmsgs = []
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
@@ -151,8 +148,7 @@ class ValveFloodManager(ValveManagerBase):
                 continue
             ofmsgs.extend(self._build_mask_flood_rules(
                 vlan, eth_dst, eth_dst_mask,
-                unicast_eth_dst, command, flood_priority, mirror_acts))
-            flood_priority += 1
+                unicast_eth_dst, command, mirror_acts))
         return ofmsgs
 
     @staticmethod
@@ -166,7 +162,6 @@ class ValveFloodManager(ValveManagerBase):
 
     def _build_group_flood_rules(self, vlan, modify, command):
         """Build flooding rules for a VLAN using groups."""
-        flood_priority = self.flood_priority
         broadcast_group = self.groups.get_entry(
             vlan.vid,
             self._build_group_buckets(vlan, False))
@@ -188,12 +183,12 @@ class ValveFloodManager(ValveManagerBase):
                 group = unicast_group
             match = self.flood_table.match(
                 vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
+            flood_priority = self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
             ofmsgs.append(self.flood_table.flowmod(
                 match=match,
                 command=command,
                 inst=[valve_of.apply_actions([valve_of.group_act(group.group_id)])],
                 priority=flood_priority))
-            flood_priority += 1
         return ofmsgs
 
     def add_vlan(self, vlan):
@@ -366,16 +361,14 @@ class ValveFloodStackManager(ValveFloodManager):
         return True
 
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
-                                exclude_unicast, command, flood_priority,
-                                mirror_acts):
+                                exclude_unicast, command, mirror_acts):
         ofmsgs = super(ValveFloodStackManager, self)._build_mask_flood_rules(
-            vlan, eth_dst, eth_dst_mask, exclude_unicast, command, flood_priority, mirror_acts)
+            vlan, eth_dst, eth_dst_mask, exclude_unicast, command, mirror_acts)
         for port in self.stack_ports:
             # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
             ofmsgs.extend(self._build_flood_rule_for_port(
                 vlan, eth_dst, eth_dst_mask,
-                exclude_unicast, command, flood_priority + 1,
-                port, mirror_acts))
+                exclude_unicast, command, port, mirror_acts))
             if not self._dp_is_root():
                 # Drop bridge local traffic immediately.
                 ofmsgs.append(self.eth_src_table.flowdrop(

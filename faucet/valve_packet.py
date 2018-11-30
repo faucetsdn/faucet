@@ -20,6 +20,7 @@
 import ipaddress
 import socket
 import struct
+from netaddr import EUI
 
 from ryu.lib import addrconv
 from ryu.lib.mac import BROADCAST, is_multicast, haddr_to_bin
@@ -61,6 +62,16 @@ LLDP_FAUCET_DP_ID = 1
 LLDP_FAUCET_STACK_STATE = 2
 
 LACP_SIZE = 124
+
+EUI_BITS = len(EUI(0).packed*8)
+MAC_MASK_BITMAP = {(2**EUI_BITS - 2**i): (EUI_BITS - i) for i in range(0, EUI_BITS + 1)}
+
+
+def mac_mask_bits(mac_mask):
+    """Return number of bits in MAC mask or 0."""
+    if mac_mask is not None:
+        return MAC_MASK_BITMAP.get(EUI(mac_mask).value, 0)
+    return 0
 
 
 def int_from_mac(mac):
