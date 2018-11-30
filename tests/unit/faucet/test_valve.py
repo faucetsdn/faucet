@@ -2129,10 +2129,6 @@ dps:
             p4:
                 number: 4
                 tagged_vlans: [v200]
-            p5:
-                number: 5
-                output_only: True
-                mirror: 4
 vlans:
     v100:
         vid: 0x100
