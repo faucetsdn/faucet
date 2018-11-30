@@ -34,7 +34,7 @@ class ValveFloodManager(ValveManagerBase):
         (False, valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.mac_byte_mask(3)), # 802.x
         (False, '01:00:5E:00:00:00', valve_packet.mac_byte_mask(3)), # IPv4 multicast
         (False, '33:33:00:00:00:00', valve_packet.mac_byte_mask(2)), # IPv6 multicast
-        (False, valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)), # flood on ethernet broadcasts
+        (False, valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)), # eth broadcasts
     )
 
     def __init__(self, flood_table, eth_src_table, # pylint: disable=too-many-arguments
@@ -65,7 +65,8 @@ class ValveFloodManager(ValveManagerBase):
 
     def _require_combinatorial_flood(self, vlan):
         """Must use in_port style flood rules if configured to or hairpinning/LAGs are in use."""
-        return self.combinatorial_port_flood or vlan.hairpin_ports() or vlan.lags() or vlan.mirrored_ports()
+        return (self.combinatorial_port_flood or vlan.hairpin_ports()
+                or vlan.lags() or vlan.mirrored_ports())
 
     @staticmethod
     def _vlan_all_ports(vlan, exclude_unicast):
@@ -197,7 +198,8 @@ class ValveFloodManager(ValveManagerBase):
             return self._build_group_flood_rules(vlan, modify, command)
         return self._build_multiout_flood_rules(vlan, command)
 
-    def update_stack_topo(self, event, dp, port=None): # pylint: disable=unused-argument,invalid-name
+    @staticmethod
+    def update_stack_topo(event, dp, port=None): # pylint: disable=unused-argument,invalid-name
         """Update the stack topology. It has nothing to do for non-stacking DPs."""
         return
 
