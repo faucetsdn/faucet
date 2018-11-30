@@ -41,7 +41,7 @@ deploy-package:
 
 build-vm-image:
   stage: build-image
-  image: debian:stretch
+  image: faucet/dbuilder
   script:
     - cd images/vm/
     - apt-get update && apt-get upgrade -y
