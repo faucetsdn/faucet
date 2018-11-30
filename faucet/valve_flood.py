@@ -82,7 +82,8 @@ class ValveFloodManager(ValveManagerBase):
             in_port=in_port,
             exclude_ports=exclude_ports)
 
-    def _vlan_flood_mirror_acts(self, vlan):
+    @staticmethod
+    def _vlan_flood_mirror_acts(vlan):
         mirror_acts = []
         for mirrored_port in vlan.mirrored_ports():
             mirror_acts.extend([act for act in mirrored_port.mirror_actions()])
@@ -207,7 +208,7 @@ class ValveFloodManager(ValveManagerBase):
 
     def update_stack_topo(self, event, dp, port=None): # pylint: disable=unused-argument,invalid-name
         """Update the stack topology. It has nothing to do for non-stacking DPs."""
-        pass
+        return
 
     @staticmethod
     def edge_learn_port(_other_valves, pkt_meta):
