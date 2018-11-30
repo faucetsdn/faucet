@@ -368,16 +368,15 @@ class ValveFloodStackManager(ValveFloodManager):
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                 exclude_unicast, command, flood_priority,
                                 mirror_acts):
-        ofmsgs = []
+        ofmsgs = super(ValveFloodStackManager, self)._build_mask_flood_rules(
+            vlan, eth_dst, eth_dst_mask, exclude_unicast, command, flood_priority, mirror_acts)
         for port in self.stack_ports:
+            # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
             ofmsgs.extend(self._build_flood_rule_for_port(
                 vlan, eth_dst, eth_dst_mask,
                 exclude_unicast, command, flood_priority + 1,
                 port, mirror_acts))
-        ofmsgs.extend(super(ValveFloodStackManager, self)._build_mask_flood_rules(
-            vlan, eth_dst, eth_dst_mask, exclude_unicast, command, flood_priority, mirror_acts))
-        if not self._dp_is_root():
-            for port in self.stack_ports:
+            if not self._dp_is_root():
                 # Drop bridge local traffic immediately.
                 ofmsgs.append(self.eth_src_table.flowdrop(
                     self.eth_src_table.match(
