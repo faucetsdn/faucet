@@ -52,16 +52,16 @@ class ValveFloodManager(ValveManagerBase):
     def initialise_tables(self):
         """Initialise the flood table with filtering flows."""
         ofmsgs = []
-        ofmsgs.append(self.flood_table.flowdrop(
-            self.flood_table.match(
-                eth_dst=valve_packet.CISCO_SPANNING_GROUP_ADDRESS),
-            priority=self.bypass_priority))
-        ofmsgs.append(self.flood_table.flowdrop(
-            self.flood_table.match(
-                eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
-                eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
-            priority=self.bypass_priority))
+        for eth_dst, eth_dst_mask in (
+                (valve_packet.CISCO_SPANNING_GROUP_ADDRESS, valve_packet.mac_byte_mask(6)),
+                (valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.BRIDGE_GROUP_MASK)):
+            ofmsgs.append(self.flood_table.flowdrop(
+                self.flood_table.match(eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
+                priority=self._mask_flood_priority(eth_dst_mask)))
         return ofmsgs
+
+    def _mask_flood_priority(self, eth_dst_mask):
+        return self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
 
     def _require_combinatorial_flood(self, vlan):
         """Must use in_port style flood rules if configured to or hairpinning/LAGs are in use."""
@@ -102,7 +102,7 @@ class ValveFloodManager(ValveManagerBase):
 
     def _build_flood_rule_for_vlan(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                    exclude_unicast, command, preflood_acts):
-        flood_priority = self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
+        flood_priority = self._mask_flood_priority(eth_dst_mask)
         match = self.flood_table.match(
             vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
         flood_acts = self._build_flood_rule_actions(
@@ -111,7 +111,7 @@ class ValveFloodManager(ValveManagerBase):
 
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                    exclude_unicast, command, port, preflood_acts):
-        flood_priority = self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
+        flood_priority = self._mask_flood_priority(eth_dst_mask)
         match = self.flood_table.match(
             vlan=vlan, in_port=port.number,
             eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
@@ -183,7 +183,7 @@ class ValveFloodManager(ValveManagerBase):
                 group = unicast_group
             match = self.flood_table.match(
                 vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
-            flood_priority = self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
+            flood_priority = self._mask_flood_priority(eth_dst_mask)
             ofmsgs.append(self.flood_table.flowmod(
                 match=match,
                 command=command,
