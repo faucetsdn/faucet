@@ -65,7 +65,7 @@ class ValveFloodManager(ValveManagerBase):
 
     def _require_combinatorial_flood(self, vlan):
         """Must use in_port style flood rules if configured to or hairpinning/LAGs are in use."""
-        return self.combinatorial_port_flood or vlan.hairpin_ports() or vlan.lags()
+        return self.combinatorial_port_flood or vlan.hairpin_ports() or vlan.lags() or vlan.mirrored_ports()
 
     @staticmethod
     def _vlan_all_ports(vlan, exclude_unicast):
