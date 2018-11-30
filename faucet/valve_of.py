@@ -832,31 +832,37 @@ def dedupe_ofmsgs(input_ofmsgs):
     return deduped_input_ofmsgs
 
 
+# kind, random_order, suggest_barrier
 _OFMSG_ORDER = (
-    ('delete', True, True),
-    ('tfm', True, True),
-    ('groupadd', True, True),
-    ('meteradd', True, True),
-    ('other', True, False),
-    ('packetout', False, False),
+    ('delete', False, True),
+    ('tfm', False, True),
+    ('groupadd', False, True),
+    ('meteradd', False, True),
+    ('other', False, False),
+    ('packetout', True, False),
 )
 
 
 def valve_flowreorder(input_ofmsgs, use_barriers=True):
     """Reorder flows for better OFA performance."""
     # Move all deletes to be first, and add one barrier,
-    # while preserving order. Platforms that do parallel delete
-    # will perform better and platforms that don't will have
-    # at most only one barrier to deal with.
-    # TODO: further optimizations may be possible - for example,
-    # reorder adds to be in priority order.
+    # while optionally randomizing order. Platforms that do
+    # parallel delete will perform better and platforms that
+    # don't will have at most only one barrier to deal with.
     output_ofmsgs = []
     by_kind = _partition_ofmsgs(dedupe_ofmsgs(input_ofmsgs))
-    for kind, in_order, suggest_barrier in _OFMSG_ORDER:
+    for kind, random_order, suggest_barrier in _OFMSG_ORDER:
         ofmsgs = by_kind.get(kind, [])
         if ofmsgs:
-            if not in_order:
+            if random_order:
                 random.shuffle(ofmsgs)
+            else:
+                with_priorities = [ofmsg for ofmsg in ofmsgs if hasattr(ofmsg, 'priority')]
+                # If priority present, send highest priority first.
+                if with_priorities:
+                    with_priorities.sort(key=lambda ofmsg: ofmsg.priority, reverse=True)
+                    without_priorities = [ofmsg for ofmsg in ofmsgs if not hasattr(ofmsg, 'priority')]
+                    ofmsgs = without_priorities + with_priorities
             output_ofmsgs.extend(ofmsgs)
             if use_barriers and suggest_barrier:
                 output_ofmsgs.append(barrier())
