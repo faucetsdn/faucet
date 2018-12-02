@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "5.2.2"
+      "version": "5.3.4"
     },
     {
       "type": "datasource",
@@ -889,6 +889,6 @@
   },
   "timezone": "",
   "title": "Faucet Inventory",
-  "uid": "000000023",
-  "version": 11
+  "uid": "faucet-inventory",
+  "version": 1
 }
