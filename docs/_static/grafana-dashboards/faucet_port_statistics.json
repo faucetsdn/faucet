@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "5.3.2"
+      "version": "5.3.4"
     },
     {
       "type": "panel",
@@ -46,7 +46,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1542299872759,
+  "iteration": 1543787223782,
   "links": [],
   "panels": [
     {
@@ -599,7 +599,7 @@
         "multi": true,
         "name": "port",
         "options": [],
-        "query": "query_result(port_status{dp_name =~ \"$dp_name\"} == 1)",
+        "query": "query_result(port_status{dp_name =~ \"$dp_name\"})",
         "refresh": 2,
         "regex": "/.*port=\"([^\"]*).*/",
         "skipUrlSync": false,
@@ -643,6 +643,6 @@
   },
   "timezone": "",
   "title": "Faucet Port Statistics",
-  "uid": "hvgp2Xbik",
-  "version": 3
+  "uid": "faucet-port-stats",
+  "version": 2
 }
