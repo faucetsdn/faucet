@@ -646,9 +646,8 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels={'port': 1},
-                                       default=0),
-            self.scrape_prometheus())
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(1),
+                                       default=0))
         self.set_port_down(1)
 
         self.set_port_up(1)
