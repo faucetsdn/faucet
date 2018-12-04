@@ -115,8 +115,17 @@ class FaucetDot1x:
         valve, dot1x_port = self.get_valve_and_port(port_id)
         self.logger.info(
             'Failure from MAC %s on %s', str(address), dot1x_port)
+        self.logger.info(
+            'Removing Access for MAC %s on %s', str(address), dot1x_port)
+
         self.metrics.inc_var('dp_dot1x_failure', valve.dp.base_prom_labels())
         self.metrics.inc_var('port_dot1x_failure', valve.dp.port_labels(dot1x_port.number))
+
+        flowmods = valve.del_authed_mac(
+            dot1x_port.number, str(address))
+        if flowmods:
+            self._send_flow_msgs(valve, flowmods)
+
 
     def set_mac_str(self, valve, valve_index, port_num):
         """
