@@ -1,5 +1,5 @@
 sudo: required
-dist: trusty
+dist: xenial
 language: python
 python:
   - '3.4'
@@ -7,9 +7,7 @@ python:
 services:
   - docker
 before_install:
-  - sudo ./docker/retrycmd.sh "apt-get -qy update"
-  - sudo ./docker/retrycmd.sh "apt-get install -qy openvswitch-switch"
-  - sudo ./docker/retrycmd.sh "apt-get install docker-ce"
+  - sudo modprobe openvswitch
 cache:
   pip: true
 env:
