@@ -103,6 +103,7 @@ class FaucetTestBase(unittest.TestCase):
     ca_certs = None
     port_map = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
     switch_map = {}
+    port_map_rev = {}
     tmpdir = None
     net = None
     topo = None
@@ -175,10 +176,12 @@ class FaucetTestBase(unittest.TestCase):
                     self.ca_certs = self.config['ca_certs']
                 dp_ports = self.config['dp_ports']
                 self.port_map = {}
+                self.port_map_rev = {}
                 self.switch_map = {}
                 for i, switch_port in enumerate(sorted(dp_ports), start=1):
                     test_port_name = 'port_%u' % i
                     self.port_map[test_port_name] = switch_port
+                    self.port_map_rev[switch_port] = i
                     self.switch_map[test_port_name] = dp_ports[switch_port]
 
     def _set_vars(self):
@@ -1722,14 +1725,17 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
-    def port_labels(self, port_no):
-        port_name = 'b%u' % port_no
+    def port_labels(self, port_no, dpid=None):
+        remapped_port_no = port_no
+        if dpid is None or dpid == int(self.dpid):
+            remapped_port_no = self.port_map_rev.get(port_no, port_no)
+        port_name = 'b%u' % remapped_port_no
         return {'port': port_name, 'port_description': port_name}
 
     def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10):
         for _ in range(timeout):
             port_status = self.scrape_prometheus_var(
-                'port_status', self.port_labels(port_no), default=None, dpid=dpid)
+                'port_status', self.port_labels(port_no, dpid), default=None, dpid=dpid)
             if port_status is not None and port_status == expected_status:
                 return
             self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
