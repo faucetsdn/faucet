@@ -174,6 +174,13 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             inst=[valve_of.apply_actions(
                 [valve_of.output_controller(max_len)])] + inst)
 
+    def convert_to_flow_del(self, ofp_flowmods):
+        flowdels = []
+        for flowmod in ofp_flowmods:
+            flowdels.append(self.flowdel(match=flowmod.match, priority=flowmod.priority))
+
+        return flowdels
+
 
 class ValveGroupEntry:
     """Abstraction for a single OpenFlow group entry."""

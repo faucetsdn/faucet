@@ -447,6 +447,22 @@ The output action contains a dictionary with the following elements:
                 rule_conf['actions'] = resolved_actions
 
 
+    # def build_of_msgs(self, vid, port_num, acl_table, goto_table):
+    #     ofmsgs = None
+    #     if self.rules:
+    #         try:
+    #             ofmsgs = valve_acl.build_acl_ofmsgs(
+    #                 [self], acl_table,
+    #                 valve_of.goto_table(goto_table),
+    #                 valve_of.goto_table(goto_table),
+    #                 2 ** 16 - 1, self.meter, self.exact_match,
+    #                 vlan_vid=vid, port_num=port_num)
+    #         except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
+    #             raise InvalidConfigError(err)
+    #         test_config_condition(not ofmsgs, 'OF messages is empty')
+    #     return ofmsgs
+
+
 # TODO: 802.1x steals the port ACL table.
 PORT_ACL_8021X = ACL(
     'port_acl_8021x', 0,

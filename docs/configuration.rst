@@ -391,6 +391,15 @@ with the configuration block 'dot1x':
       - str
       -
       - Shared secret used by the RADIUS server and the 802.1X speaker. - NOTE: Faucet will only use the config from the first dp
+    * - failure_acl
+      - str
+      -
+      - The name of the defined ACL [refer to acls.yaml for more information] that will be set to all 802.1X ports by default, that is before any user is authenticated. - NOTE: Faucet will only use the config from the first dp
+    * - success_acl
+      - str
+      -
+      - The name of the defined ACL [refer to acls.yaml for more information] that will be set to an 802.1X port when a user authenticates. - NOTE: Faucet will only use the config from the first dp
+
 
 
 Interfaces

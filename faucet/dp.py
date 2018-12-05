@@ -228,6 +228,8 @@ configuration.
         'radius_ip': str,
         'radius_port': int,
         'radius_secret': str,
+        'success_acl': str,
+        'failure_acl': str,
     }
 
 
@@ -370,8 +372,13 @@ configuration.
 
     def _generate_acl_tables(self):
         all_acls = {}
+        # NOTE: These are used to define the config of the table and what OF rules can be added to the table
         if self.dot1x:
-            all_acls['port_acl'] = [PORT_ACL_8021X]
+            all_acls['port_acl'] = [
+               self.acls[self.dot1x['success_acl']],
+               self.acls[self.dot1x['failure_acl']],
+               PORT_ACL_8021X]
+            all_acls['port_acl'] = filter(None, all_acls['port_acl'])
 
         for vlan in self.vlans.values():
             if vlan.acls_in:
@@ -1020,16 +1027,29 @@ configuration.
                     vlan.acls_in = acls
                     verify_acl_exact_match(acls)
             for port in self.ports.values():
+                acls = []
                 if port.acls_in:
                     test_config_condition(self.dp_acls, (
                         'dataplane ACLs cannot be used with port ACLs.'))
-                    acls = []
                     for acl in port.acls_in:
                         resolve_acl(acl, port_num=port.number)
                         acls.append(self.acls[acl])
                         resolved.append(acl)
                     port.acls_in = acls
                     verify_acl_exact_match(acls)
+
+                if port.dot1x and self.dot1x:
+                    if self.dot1x['failure_acl']:
+                        failure_acl = self.dot1x['failure_acl']
+                        resolve_acl(failure_acl, port_num=port.number)
+
+                    if self.dot1x['success_acl']:
+                        success_acl = self.dot1x['success_acl']
+                        resolve_acl(success_acl, port_num=port.number)
+
+                port.acls_in = acls
+                verify_acl_exact_match(acls)
+
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
