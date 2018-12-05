@@ -285,7 +285,7 @@ network={
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
                 lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
-            timeout=10, vflags='-v', packets=10)
+            timeout=10, vflags='-vvv', packets=10)
         return tcpdump_txt
 
     def test_untagged(self):
@@ -294,21 +294,25 @@ network={
         # log 2 on
         # test 1 good, 2 good.
         # log 2 off
-        # test 1 good, 2 bad.
+        # test 1 good, 2 bad
+        port_no1 = self.port_map['port_1']
+        port_no2 = self.port_map['port_2']
+        port_labels1 = self.port_labels(port_no1)
+        port_labels2 = self.port_labels(port_no2)
         tcpdump_txt_1 = self.try_8021x(
-            self.eapol1_host, 1, self.wpasupplicant_conf_1, and_logoff=False)
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(2), default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
 
         self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
 
         tcpdump_txt_2 = self.try_8021x(
-            self.eapol2_host, 2, self.wpasupplicant_conf_1, and_logoff=True)
+            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True)
 
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
 
@@ -321,28 +325,28 @@ network={
             self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(2), default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
         self.assertEqual(
             0,
             self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_failure_total', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels1, default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_failure_total', labels=self.port_labels(2), default=0))
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels2, default=0))
         self.assertEqual(
             1,
             self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels1, default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=self.port_labels(2), default=0))
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels2, default=0))
 
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
         wpa_ctrl_path = os.path.join(
@@ -566,27 +570,29 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
     """
 
     def test_untagged(self):
+        port_no = self.port_map['port_1']
         tcpdump_txt = self.try_8021x(
-            self.eapol1_host, 1, self.wpasupplicant_conf_1, and_logoff=False)
+            self.eapol1_host, port_no, self.wpasupplicant_conf_1, and_logoff=False)
         self.assertIn('Failure', tcpdump_txt)
+        port_labels = self.port_labels(port_no)
         self.assertEqual(
             0,
             self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels, default=0))
         self.assertEqual(
             0,
             self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels, default=0))
         self.assertEqual(
             1,
             self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_failure_total', labels=self.port_labels(1), default=0))
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels, default=0))
 
 
 class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
@@ -597,53 +603,41 @@ class Faucet8021XPortChangesTest(Faucet8021XSuccessTest):
 
         def get_actions_and_match(in_port, out_port):
             actions = ["SET_FIELD: {eth_src:01:80:c2:00:00:03}", 'OUTPUT:%d' % out_port]
-            match = {'in_port': in_port, 'dl_src': '00:00:00:00:00:%02x' % out_port}
+            match = {'in_port': in_port, 'dl_src': self._priv_mac(out_port)}
             return actions, match
 
-        actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(1), 'OUTPUT:4']
-        self.assertTrue(self.get_matching_flow(match=None, table_id=0, actions=actions))
+        port_no1 = self.port_map['port_1']
+        port_no2 = self.port_map['port_2']
+        port_no4 = self.port_map['port_4']
 
-        self.set_port_down(1)
+        actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no1), 'OUTPUT:%u' % port_no4]
+        self.wait_until_matching_flow(match=None, table_id=0, actions=actions)
+
+        self.set_port_down(port_no1)
         self.assertFalse(self.get_matching_flow(match=None, table_id=0, actions=actions))
+        self.set_port_up(port_no1)
+        self.wait_until_matching_flow(match=None, table_id=0, actions=actions)
 
-        self.set_port_up(1)
-        self.assertTrue(self.get_matching_flow(match=None, table_id=0, actions=actions))
+        actions, match = get_actions_and_match(port_no4, port_no1)
+        self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
 
-        actions, match = get_actions_and_match(4, 1)
-
-        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
-                        self.get_all_flows_from_dpid(self.dpid, 0))
-
-        self.set_port_down(4)
-        self.assertFalse(self.get_matching_flow(match=match, table_id=0, actions=actions),
-                         self.get_all_flows_from_dpid(self.dpid, 0))
-
-        self.set_port_up(4)
-        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
-                        self.get_all_flows_from_dpid(self.dpid, 0))
+        self.set_port_down(port_no4)
+        self.assertFalse(self.get_matching_flow(match=match, table_id=0, actions=actions))
+        self.set_port_up(port_no4)
+        self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
 
         # check only have rules for port 2 installed. after the nvf port comes up
-        self.set_port_down(1)
-        self.set_port_down(4)
-        self.set_port_up(4)
+        self.set_port_down(port_no4)
+        self.set_port_down(port_no1)
+        self.set_port_up(port_no4)
+        self.assertFalse(self.get_matching_flow(match=match, table_id=0, actions=actions))
+        actions, match = get_actions_and_match(port_no4, port_no2)
+        self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
 
-        self.assertFalse(self.get_matching_flow(match=match, table_id=0, actions=actions),
-                         self.get_all_flows_from_dpid(self.dpid, 0))
-
-        actions, match = get_actions_and_match(4, 2)
-
-        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
-                        self.get_all_flows_from_dpid(self.dpid, 0))
-
-        self.set_port_up(1)
-
-        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
-                        self.get_all_flows_from_dpid(self.dpid, 0))
-
-        actions, match = get_actions_and_match(4, 1)
-
-        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
-                        self.get_all_flows_from_dpid(self.dpid, 0))
+        self.set_port_up(port_no1)
+        self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
+        actions, match = get_actions_and_match(port_no4, port_no1)
+        self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
@@ -651,38 +645,32 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
     RADIUS_PORT = 1870
 
     def test_untagged(self):
-        p1_actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(1), 'OUTPUT:4']
-        p2_actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(2), 'OUTPUT:4']
+        port_no1 = self.port_map['port_1']
+        port_no2 = self.port_map['port_2']
+        port_no4 = self.port_map['port_4']
+        p1_actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no1), 'OUTPUT:%u' % port_no4]
+        p2_actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no2), 'OUTPUT:%u' % port_no4]
         from_nfv_match_1 = {
-            'dl_src': self._priv_mac(1), 'in_port': 4, 'dl_type': 34958}
+            'dl_src': self._priv_mac(1), 'in_port': port_no4, 'dl_type': 34958}
         from_nfv_match_2 = {
-            'dl_src': self._priv_mac(2), 'in_port': 4, 'dl_type': 34958}
-        from_nfv_actions_1 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:1']
-        from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:2']
+            'dl_src': self._priv_mac(2), 'in_port': port_no4, 'dl_type': 34958}
+        from_nfv_actions_1 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%u' % port_no1]
+        from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%u' % port_no2]
 
-        self.assertTrue(
-            self.get_matching_flow(match=None, table_id=0, actions=p1_actions))
-        self.assertTrue(
-            self.get_matching_flow(match=None, table_id=0, actions=p2_actions))
-        self.assertTrue(
-            self.get_matching_flow(
-                match=from_nfv_match_1, table_id=0, actions=from_nfv_actions_1))
-        self.assertTrue(
-            self.get_matching_flow(
-                match=from_nfv_match_2, table_id=0, actions=from_nfv_actions_2))
+        self.wait_until_matching_flow(None, table_id=0, actions=p1_actions)
+        self.wait_until_matching_flow(None, table_id=0, actions=p2_actions)
+        self.wait_until_matching_flow(from_nfv_match_1, table_id=0, actions=from_nfv_actions_1)
+        self.wait_until_matching_flow(match=from_nfv_match_2, table_id=0, actions=from_nfv_actions_2)
 
         conf = self._get_conf()
-        conf['dps'][self.DP_NAME]['interfaces'][1]['dot1x'] = False
+        conf['dps'][self.DP_NAME]['interfaces'][port_no1]['dot1x'] = False
 
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
-        self.assertTrue(
-            self.get_matching_flow(
-                match=None, table_id=0, actions=p2_actions))
-        self.assertTrue(self.get_matching_flow(
-            match=from_nfv_match_2, table_id=0, actions=from_nfv_actions_2))
+        self.wait_until_matching_flow(None, table_id=0, actions=p2_actions)
+        self.wait_until_matching_flow(from_nfv_match_2, table_id=0, actions=from_nfv_actions_2)
         self.assertFalse(
             self.get_matching_flow(
                 match=None, table_id=0, actions=p1_actions, timeout=2))
