@@ -1235,7 +1235,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 
     def scrape_port_counters(self, port, port_vars):
         port_counters = {}
-        port_labels = self.port_labels(port)
+        port_labels = self.port_labels(self.port_map['port_%u' % port])
         for port_var in port_vars:
             val = self.scrape_prometheus_var(
                 port_var, labels=port_labels, controller='gauge', dpid=True, retries=3)
@@ -1935,13 +1935,13 @@ vlans:
             {'dl_vlan': '100', 'in_port': int(self.port_map['port_2'])},
             table_id=self._ETH_SRC_TABLE)
         self.assertEqual(self.MAX_HOSTS, len(flows))
+        port_labels = self.port_labels(self.port_map['port_2'])
         self.assertGreater(
             self.scrape_prometheus_var(
-                'port_learn_bans', self.port_labels(2)), 0)
+                'port_learn_bans', port_labels), 0)
         learned_macs = [
             mac for _, mac in self.scrape_prometheus_var(
-                'learned_macs',
-                dict(self.port_labels(2), vlan=100),
+                'learned_macs', dict(port_labels, vlan=100),
                 multiple=True) if mac]
         self.assertEqual(self.MAX_HOSTS, len(learned_macs))
 
@@ -3105,8 +3105,9 @@ vlans:
     def total_port_bans(self):
         total_bans = 0
         for i in range(self.LINKS_PER_HOST * self.N_UNTAGGED):
+            port_labels = self.port_labels(self.port_map['port_%u' % (i + 1)])
             total_bans += self.scrape_prometheus_var(
-                'port_learn_bans', self.port_labels(i + 1), dpid=True, default=0)
+                'port_learn_bans', port_labels, dpid=True, default=0)
         return total_bans
 
     def test_untagged(self):
@@ -3226,7 +3227,7 @@ vlans:
         #        .0.. .... = Defaulted: No
         #        0... .... = Expired: No
         #    [Actor State Flags: **DCSGS*]
-        lag_ports = (self.port_map['port_1'], self.port_map['port_2'])
+        lag_ports = (1, 2)
         synced_state_txt = r"""
 Slave Interface: \S+-eth0
 MII Status: up
@@ -3285,8 +3286,9 @@ details partner lacp pdu:
         def prom_lag_status():
             lacp_up_ports = 0
             for lacp_port in lag_ports:
+                port_labels = self.port_labels(self.port_map['port_%u' % lacp_port])
                 lacp_up_ports += self.scrape_prometheus_var(
-                    'port_lacp_status', self.port_labels(lacp_port))
+                    'port_lacp_status', port_labels)
             return lacp_up_ports
 
         self.assertEqual(0, prom_lag_status())
@@ -6364,7 +6366,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.last_host = self.net.hosts[self.NUM_HOSTS + self.NUM_DPS]
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
-        labels = self.port_labels(port_no)
+        labels = self.port_labels(port_no, dpid)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         for _ in range(timeout):
             actual_status = self.scrape_prometheus_var(
