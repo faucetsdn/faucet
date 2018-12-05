@@ -119,7 +119,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     # Save the updated configuration state in separate dicts,
     # so if an error is found, the changes can simply be thrown away.
     new_top_confs = {}
-    for conf_name, curr_conf in list(top_confs.items()):
+    for conf_name, curr_conf in top_confs.items():
         new_top_confs[conf_name] = curr_conf.copy()
         try:
             new_top_confs[conf_name].update(conf.pop(conf_name, {}))
@@ -156,7 +156,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.
     config_hashes.update(new_config_hashes)
-    for conf_name, new_conf in list(new_top_confs.items()):
+    for conf_name, new_conf in new_top_confs.items():
         top_confs[conf_name].update(new_conf)
     return True
 
@@ -175,7 +175,7 @@ def config_changed(top_config_file, new_top_config_file, config_hashes):
         return True
     if config_hashes is None or new_top_config_file is None:
         return False
-    for config_file, config_hash in list(config_hashes.items()):
+    for config_file, config_hash in config_hashes.items():
         config_file_exists = os.path.isfile(config_file)
         # Config file not loaded but exists = reload.
         if config_hash is None and config_file_exists:

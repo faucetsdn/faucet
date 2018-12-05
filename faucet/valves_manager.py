@@ -38,7 +38,10 @@ class ConfigWatcher:
         if self.config_hashes:
             new_config_file_stats = stat_config_files(self.config_hashes)
             if self.config_file_stats:
-                if new_config_file_stats != self.config_file_stats:
+                # Check content as well in case mtime et al was cached.
+                if new_config_file_stats == self.config_file_stats:
+                    changed = self.content_changed(self.config_file)
+                else:
                     changed = True
             self.config_file_stats = new_config_file_stats
         return changed
