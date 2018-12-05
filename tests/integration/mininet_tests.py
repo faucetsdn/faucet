@@ -194,7 +194,7 @@ vlans:
     CONFIG = """
         dot1x:
             nfv_intf: NFV_INTF
-            nfv_sw_port: 4
+            nfv_sw_port: %(port_4)d
             radius_ip: 127.0.0.1
             radius_port: RADIUS_PORT
             radius_secret: SECRET
@@ -253,7 +253,7 @@ network={
     nfv_intf = None
 
     def _priv_mac(self, host_id):
-        return '00:00:00:00:00:%2.2u' % host_id
+        return '00:00:00:00:00:%2.2x' % host_id
 
     def _write_faucet_config(self):
         self.eapol1_host = self.net.hosts[0]
@@ -651,9 +651,9 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
         p1_actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no1), 'OUTPUT:%u' % port_no4]
         p2_actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no2), 'OUTPUT:%u' % port_no4]
         from_nfv_match_1 = {
-            'dl_src': self._priv_mac(1), 'in_port': port_no4, 'dl_type': 34958}
+            'dl_src': self._priv_mac(port_no1), 'in_port': port_no4, 'dl_type': 34958}
         from_nfv_match_2 = {
-            'dl_src': self._priv_mac(2), 'in_port': port_no4, 'dl_type': 34958}
+            'dl_src': self._priv_mac(port_no2), 'in_port': port_no4, 'dl_type': 34958}
         from_nfv_actions_1 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%u' % port_no1]
         from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%u' % port_no2]
 
