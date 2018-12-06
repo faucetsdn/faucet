@@ -1,0 +1,11 @@
+coverage:
+  precision: 2
+  round: nearest
+
+  status:
+    project:
+      default:
+        threshold: 0.5
+
+comment:
+  require_changes: yes
