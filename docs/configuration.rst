@@ -341,7 +341,7 @@ A brief overview of the current state of the implementation:
 
 Implemented:
 
-- EAP Types: MD5 & TTLS.
+- EAP Types: MD5, PEAP, TLS, TTLS.
 - Authentication session expiry default 3600 seconds.
   (configurable (per authentication) via returning the Session-Timeout attribute in the RADIUS Access-Accept message).
 - Faucet connects to a single RADIUS server, and passes through all EAP messages.
@@ -352,7 +352,7 @@ Not Supported (yet):
 - RADIUS Accounting.
 - Port status changes do not affect the authentication status.
 - Multiple RADIUS Servers.
-- Other EAP types. E.g. TLS, ...
+- Other EAP types. E.g. FAST, ...
 - Dynamic assignment of VLAN/ACL.
 
 802.1X port authentication is configured in the dp configuration block and in the interface
