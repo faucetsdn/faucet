@@ -350,9 +350,6 @@ def filter_test_hardware(test_obj, hw_config):
             # TODO: test other stacking combinations.
             if test_obj.NUM_HOSTS > 2:
                 return False
-        if test_links < REQUIRED_TEST_PORTS:
-            if test_hardware == 'ZodiacFX':
-                return True
 
     if test_obj.NUM_DPS == 1 and test_links < REQUIRED_TEST_PORTS:
         return False

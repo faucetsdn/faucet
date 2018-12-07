@@ -1708,19 +1708,6 @@ class FaucetUntaggedCDPTest(FaucetUntaggedTest):
         self.assertFalse(self.is_cdp_blocked())
 
 
-class FaucetZodiacUntaggedTest(FaucetUntaggedTest):
-    """Zodiac has only 3 ports available, and one controller so no Gauge."""
-
-    RUN_GAUGE = False
-    N_UNTAGGED = 3
-
-    def test_untagged(self):
-        """All hosts on the same untagged VLAN should have connectivity."""
-        self.ping_all_when_learned()
-        self.flap_all_switch_ports()
-        self.ping_all_when_learned()
-
-
 class FaucetTaggedAndUntaggedSameVlanTest(FaucetTest):
     """Test mixture of tagged and untagged hosts on the same VLAN."""
 
@@ -1817,44 +1804,6 @@ class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTe
                 description: "b4"
                 native_vlan: 100
 """
-
-
-class FaucetZodiacTaggedAndUntaggedSameVlanTest(FaucetUntaggedTest):
-
-    RUN_GAUGE = False
-    N_TAGGED = 1
-    N_UNTAGGED = 2
-    CONFIG_GLOBAL = """
-vlans:
-    100:
-        description: "mixed"
-"""
-
-    CONFIG = """
-        interfaces:
-            %(port_1)d:
-                name: b1
-                description: "b1"
-                tagged_vlans: [100]
-            %(port_2)d:
-                name: b2
-                description: "b2"
-                native_vlan: 100
-            %(port_3)d:
-                name: b3
-                description: "b3"
-                native_vlan: 100
-            %(port_4)d:
-                name: b4
-                description: "b4"
-                native_vlan: 100
-"""
-
-    def test_untagged(self):
-        """Test connectivity including after port flapping."""
-        self.ping_all_when_learned()
-        self.flap_all_switch_ports()
-        self.ping_all_when_learned()
 
 
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
@@ -2879,12 +2828,6 @@ vlans:
         self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
 
 
-class FaucetZodiacUntaggedIPv4RouteTest(FaucetUntaggedIPv4RouteTest):
-
-    RUN_GAUGE = False
-    N_UNTAGGED = 3
-
-
 class FaucetUntaggedVLanUnicastFloodTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -3830,18 +3773,6 @@ vlans:
             5002, first_host, second_host, table_id=self._VLAN_ACL_TABLE)
 
 
-class FaucetZodiacUntaggedACLTest(FaucetUntaggedACLTest):
-
-    RUN_GAUGE = False
-    N_UNTAGGED = 3
-
-    def test_untagged(self):
-        """All hosts on the same untagged VLAN should have connectivity."""
-        self.ping_all_when_learned()
-        self.flap_all_switch_ports()
-        self.ping_all_when_learned()
-
-
 class FaucetUntaggedOutputOnlyTest(FaucetUntaggedTest):
 
     CONFIG = """
@@ -3961,12 +3892,6 @@ acls:
     def test_untagged(self):
         first_host, second_host, mirror_host = self.net.hosts[0:3]
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
-
-
-class FaucetZodiacUntaggedACLMirrorTest(FaucetUntaggedACLMirrorTest):
-
-    RUN_GAUGE = False
-    N_UNTAGGED = 3
 
 
 class FaucetUntaggedACLMirrorDefaultAllowTest(FaucetUntaggedACLMirrorTest):
