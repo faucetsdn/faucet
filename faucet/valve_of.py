@@ -245,6 +245,15 @@ def is_packetout(ofmsg):
     """
     return isinstance(ofmsg, parser.OFPPacketOut)
 
+def is_output(ofmsg):
+    """Return True if flow message is an action output message.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a OFPActionOutput.
+    """
+    return isinstance(ofmsg, parser.OFPActionOutput)
 
 def is_flowdel(ofmsg):
     """Return True if flow message is a FlowMod and a delete.
@@ -260,7 +269,6 @@ def is_flowdel(ofmsg):
         return True
     return False
 
-
 def is_groupdel(ofmsg):
     """Return True if OF message is a GroupMod and command is delete.
 
@@ -273,7 +281,6 @@ def is_groupdel(ofmsg):
             (ofmsg.command == ofp.OFPGC_DELETE)):
         return True
     return False
-
 
 def is_meterdel(ofmsg):
     """Return True if OF message is a MeterMod and command is delete.
@@ -695,6 +702,18 @@ def bucket(weight=0, watch_port=ofp.OFPP_ANY,
         actions=actions)
 
 
+def build_group_flood_buckets(vlan_flood_acts):
+    """Return a list of group buckets to implement flooding on a VLAN."""
+    buckets = []
+    non_outputs = []
+    for act in vlan_flood_acts:
+        if is_output(act):
+            buckets.append(bucket(actions=non_outputs+[act]))
+        else:
+            non_outputs.append(act)
+    return buckets
+
+
 def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
     """Modify a group."""
     return parser.OFPGroupMod(
@@ -869,24 +888,13 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     return output_ofmsgs
 
 
-def group_flood_buckets(ports, untagged):
-    buckets = []
-    for port in ports:
-        out_actions = []
-        if untagged:
-            out_actions.append(pop_vlan())
-        out_actions.append(output_port(port.number))
-        buckets.append(bucket(actions=out_actions))
-    return buckets
-
-
 def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
     """Return list of actions necessary to flood to list of tagged ports."""
     flood_acts = []
     if ports:
         for port in ports:
             if in_port is not None and port == in_port:
-                if port.hairpin:
+                if in_port.hairpin:
                     flood_acts.append(output_in_port())
                 continue
             if exclude_ports and port in exclude_ports:
