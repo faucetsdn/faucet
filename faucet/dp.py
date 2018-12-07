@@ -662,6 +662,7 @@ configuration.
                     self.stack = {}
                 self.stack['root_dp'] = root_dp
                 self.stack['graph'] = graph
+                test_config_condition(self.group_table, 'stacking and groups not yet supported')
                 longest_path_to_root_len = 0
                 for dp in graph.nodes():
                     path_to_root_len = len(self.shortest_path(root_dp.name, src_dp=dp))

@@ -5918,6 +5918,7 @@ class FaucetStringOfDPTest(FaucetTest):
     LINKS_PER_HOST = 1
     VID = 100
     CONFIG = None
+    GROUP_TABLE = False
     dpids = None
     topo = None
 
@@ -6100,6 +6101,7 @@ class FaucetStringOfDPTest(FaucetTest):
                 'ofchannel_log': dpid_ofchannel_log,
                 'interfaces': {},
                 'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
+                'group_table': self.GROUP_TABLE,
             }
             interfaces_config = dp_config['interfaces']
 
