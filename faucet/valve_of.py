@@ -245,6 +245,15 @@ def is_packetout(ofmsg):
     """
     return isinstance(ofmsg, parser.OFPPacketOut)
 
+def is_output(ofmsg):
+    """Return True if flow message is an action output message.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a OFPActionOutput.
+    """
+    return isinstance(ofmsg, parser.OFPActionOutput)
 
 def is_flowdel(ofmsg):
     """Return True if flow message is a FlowMod and a delete.
@@ -260,7 +269,6 @@ def is_flowdel(ofmsg):
         return True
     return False
 
-
 def is_groupdel(ofmsg):
     """Return True if OF message is a GroupMod and command is delete.
 
@@ -273,7 +281,6 @@ def is_groupdel(ofmsg):
             (ofmsg.command == ofp.OFPGC_DELETE)):
         return True
     return False
-
 
 def is_meterdel(ofmsg):
     """Return True if OF message is a MeterMod and command is delete.
@@ -886,7 +893,7 @@ def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
     if ports:
         for port in ports:
             if in_port is not None and port == in_port:
-                if port.hairpin:
+                if in_port.hairpin:
                     flood_acts.append(output_in_port())
                 continue
             if exclude_ports and port in exclude_ports:
