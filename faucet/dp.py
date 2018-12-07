@@ -335,6 +335,8 @@ configuration.
             'L2 timeout must be > ARP timeout * 2'))
         test_config_condition(not (self.nd_neighbor_timeout < (self.timeout / 2)), (
             'L2 timeout must be > ND timeout * 2'))
+        test_config_condition(self.combinatorial_port_flood and self.group_table, (
+            'combinatorial_port_flood and group_table mutually exclusive'))
         if self.cache_update_guard_time == 0:
             self.cache_update_guard_time = int(self.timeout / 2)
         if self.learn_jitter == 0:
@@ -662,7 +664,6 @@ configuration.
                     self.stack = {}
                 self.stack['root_dp'] = root_dp
                 self.stack['graph'] = graph
-                test_config_condition(self.group_table, 'stacking and groups not yet supported')
                 longest_path_to_root_len = 0
                 for dp in graph.nodes():
                     path_to_root_len = len(self.shortest_path(root_dp.name, src_dp=dp))

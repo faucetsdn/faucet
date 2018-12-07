@@ -6334,6 +6334,12 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.verify_no_bcast_to_self()
 
 
+class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
+    """Test topology of stacked datapaths with untagged hosts."""
+
+    GROUP_TABLE = True
+
+
 class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
