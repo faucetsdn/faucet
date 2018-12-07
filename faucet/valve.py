@@ -780,7 +780,7 @@ class Valve:
 
             if port.dot1x \
                     or (self.dp.dot1x and port.number == self.dp.dot1x['nfv_sw_port']):
-                ofmsgs.extend(self.dot1x.get_port_acls(self, port))
+                ofmsgs.extend(self.dot1x.port_up(self, port))
 
             if not self.dp.dp_acls:
                 acl_ofmsgs = self._port_add_acl(port)
@@ -1486,12 +1486,18 @@ class Valve:
             priority=self.dp.highest_priority-1,
             inst=[port_acl_table.goto(self.dp.tables['vlan'])])]
 
-    def del_authed_mac(self, port_num, mac):
+    def del_authed_mac(self, port_num, mac=None):
         port_acl_table = self.dp.tables['port_acl']
+        if mac:
+            return [port_acl_table.flowdel(
+                port_acl_table.match(
+                    in_port=port_num,
+                    eth_src=mac),
+                priority=self.dp.highest_priority-1,
+                strict=True)]
         return [port_acl_table.flowdel(
             port_acl_table.match(
-                in_port=port_num,
-                eth_src=mac),
+                in_port=port_num),
             priority=self.dp.highest_priority-1,
             strict=True)]
 
