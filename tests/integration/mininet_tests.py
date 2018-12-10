@@ -4369,6 +4369,63 @@ vlans:
         self.ping_all_when_learned()
 
 
+class FaucetTaggedVLANPCPTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+acls:
+    1:
+        - rule:
+            vlan_vid: 100
+            vlan_pcp: 1
+            actions:
+                output:
+                    set_fields:
+                        - vlan_pcp: 2
+                allow: 1
+        - rule:
+            actions:
+                allow: 1
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                name: b1
+                description: "b1"
+                tagged_vlans: [100]
+                acl_in: 1
+            %(port_2)d:
+                name: b2
+                description: "b2"
+                tagged_vlans: [100]
+            %(port_3)d:
+                name: b3
+                description: "b3"
+                tagged_vlans: [100]
+            %(port_4)d:
+                name: b4
+                description: "b4"
+                tagged_vlans: [100]
+"""
+
+    def test_tagged(self):
+        first_host, second_host = self.net.hosts[:2]
+        self.quiet_commands(
+            first_host,
+            ['ip link set %s type vlan egress %u:1' % (
+                first_host.defaultIntf(), i) for i in range(0, 8)])
+        self.one_ipv4_ping(first_host, second_host.IP())
+        self.wait_nonzero_packet_count_flow(
+            {'vlan_vid': 100, 'vlan_pcp': 1}, table_id=self._PORT_ACL_TABLE)
+        tcpdump_filter = 'ether dst %s' % second_host.MAC()
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd('ping -c3 %s' % second_host.IP())], root_intf=True, packets=1)
+        self.assertTrue(re.search('vlan 100, p 2,', tcpdump_txt))
+
+
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
     STATIC_GW = False
