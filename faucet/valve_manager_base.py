@@ -16,3 +16,7 @@ class ValveManagerBase: # pylint: disable=too-few-public-methods
     def add_vlan(self, vlan):
         """install flows in response to a new vlan"""
         return []
+
+    def add_port(self, port):
+        """install flows in response to a new port"""
+        return []
