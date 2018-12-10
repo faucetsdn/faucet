@@ -193,11 +193,16 @@ class FaucetPromMetricsTable(tables.ListTable):
 
         faucet_metrics = faucet.faucet_metrics.FaucetMetrics(reg=CollectorRegistry())
         for metric in faucet_metrics._reg.collect():
+            if metric.type == "counter":
+                metric_name = "{}_total".format(metric.name)
+            else:
+                metric_name = metric.name
+
             self.block_text += """\
 * - {}
   - {}
   - {}
-""".format(metric.name, metric.type, metric.documentation)
+""".format(metric_name, metric.type, metric.documentation)
 
         self.content = StringList()
         for lineno, line in enumerate(self.block_text.split('\n')):
@@ -222,11 +227,16 @@ class GaugePromMetricsTable(tables.ListTable):
 
         gauge_metrics = faucet.gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
         for metric in gauge_metrics._reg.collect():
+            if metric.type == "counter":
+                metric_name = "{}_total".format(metric.name)
+            else:
+                metric_name = metric.name
+
             self.block_text += """\
 * - {}
   - {}
   - {}
-""".format(metric.name, metric.type, metric.documentation)
+""".format(metric_name, metric.type, metric.documentation)
 
         self.content = StringList()
         for lineno, line in enumerate(self.block_text.split('\n')):
