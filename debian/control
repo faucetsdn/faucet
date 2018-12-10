@@ -32,7 +32,7 @@ Depends: python3-oslo.config (>= 1:3.9~),
          python3-chewie (>= 0.0.10), python3-chewie (<< 0.0.11),
          python3-pytricia (>= 1.0.0),
          python3:any (>= 3.4~),
-Suggests: python-faucet-doc, faucet, gauge, oslo.config,
+Suggests: python-faucet-doc, faucet, gauge
 Description: source code for faucet and gauge (Python3)
  Python3 library that contains the source code for the Faucet open source
  OpenFlow controller, see faucet and gauge packages for further information.
@@ -43,7 +43,7 @@ Package: faucet
 Architecture: all
 Depends: adduser,
          python3-faucet (>= 1.7.0),
-Suggests: gauge,
+Suggests: gauge
 Description: This is a compact open source OpenFlow controller (Python 3)
  This is a compact open source OpenFlow controller, which enables network
  operators to run their networks the same way they do server clusters.
@@ -53,23 +53,18 @@ Description: This is a compact open source OpenFlow controller (Python 3)
  versus traditional router or switch embedded firmware,
  where those functions are easy to manage, test, and extend with modern
  systems management best practices and tools.
- .
- This package installs the library for Python 3.
 
 Package: gauge
 Architecture: all
 Depends: adduser,
          python3-faucet (>= 1.7.0),
-Suggests: python-faucet-doc,
-          faucet,
+Suggests: python-faucet-doc, faucet
 Description: This is a component the Faucet OpenFlow controller (Python 3)
  This is a component of the Faucet OpenFlow controller,
  maintains an OpenFlow connection to switches and monitors port and flow
  state (exporting it to Prometheus or InfluxDB, or even flat text log files).
  Gauge does not ever modify the switch’s state, so that switch monitoring
  functions can be upgraded, restarted, without impacting forwarding.
- .
- This package installs the library for Python 3.
 
 Package: faucet-all-in-one
 Architecture: all
@@ -78,10 +73,7 @@ Depends: faucet (>= 1.7.0),
          python3-faucet (>= 1.7.0),
          prometheus (>= 2.0.0),
          grafana,
-Suggests: python-faucet-doc,
+Suggests: python-faucet-doc
 Description: Metapackage to install all the component of faucet (Python 3)
  includes python3-faucet, faucet, gauge, grafana
  and prometheus.
- .
- This package installs the library for Python 3.
-
