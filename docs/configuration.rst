@@ -30,7 +30,7 @@ Top Level
 #########
 
 .. list-table:: Faucet.yaml
-    :widths: 31 15 15 60
+    :widths: 15 15 10 60
     :header-rows: 1
 
 
@@ -82,7 +82,7 @@ containing the configuration for one datapath. The keys can either be
 string names given to the datapath, or the OFP datapath id.
 
 .. list-table:: dps: <dp name or id>: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -268,7 +268,7 @@ configuration block. At the dp level the following attributes can be configured
 withing the configuration block 'stack':
 
 .. list-table:: dps: <dp name or id>: stack: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -295,7 +295,7 @@ The following attributes can be configured withing the 'lldp_beacon'
 configuration block at the dp level:
 
 .. list-table:: dps: <dp name or id>: lldp_beacon: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -359,7 +359,7 @@ configuration block. At the dp level the following attributes can be configured
 with the configuration block 'dot1x':
 
 .. list-table:: dps: <dp name or id>: dot1x: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -403,7 +403,7 @@ containing a comma separated list of OFP port numbers, interface names or with
 OFP port number ranges (eg. 1-6).
 
 .. list-table:: dps: <dp name or id>: interfaces: <interface name or OFP port number>: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -514,7 +514,7 @@ stacking. The configuration is found under the 'stack' attribute of an
 interface configuration block. The following attributes can be configured:
 
 .. list-table:: dps: <dp name or id>: interfaces: <interface name or port number: stack: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -537,7 +537,7 @@ LLDP (Interfaces)
 Interface specific configuration for LLDP.
 
 .. list-table:: dps: <dp name or id>: interfaces: <interface name or port number: lldp_beacon: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -571,7 +571,7 @@ in a list under lldp_beacons/org_tlvs at the interfaces level of configuration.
 Each list element contains a dictionary with the following elements:
 
 .. list-table:: dps: <dp name or id>: interfaces: <interface name or port number: lldp_beacon: org_tlvs: - {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -601,7 +601,7 @@ dictionary and is keyed by a name for the router. The following attributes can
 be configured:
 
 .. list-table:: routers: <router name>: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -622,7 +622,7 @@ the faucet config file. The config for each vlan is an entry keyed by its vid
 or a name. The following attributes can be configured:
 
 .. list-table:: vlans: <vlan name or vid>: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -723,7 +723,7 @@ keyed with the keyword 'route' and contains a dictionary configuration block as
 follows:
 
 .. list-table:: vlans: <vlan name or vid>: routes: - route: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -750,7 +750,7 @@ Meters are configured under the 'meters' configuration block. The meters block
 contains a dictionary of individual meters each keyed by its name.
 
 .. list-table:: meters: <meter name>:
-   :widths: 31 15 15 60
+   :widths: 30 15 15 40
    :header-rows: 1
 
    * - Attribute
@@ -767,7 +767,7 @@ contains a dictionary of individual meters each keyed by its name.
      - Defines the meter actions. Details Below.
 
 .. list-table:: : meters: <meter name>: entry:
-   :widths: 31 15 15 60
+   :widths: 30 15 15 40
    :header-rows: 1
 
    * - Attribute
@@ -784,7 +784,7 @@ contains a dictionary of individual meters each keyed by its name.
      -
 
 .. list-table:: : meters: <meter name>: entry: bands:
-   :widths: 31 15 15 60
+   :widths: 30 15 15 40
    :header-rows: 1
 
    * - Attribute
@@ -822,7 +822,7 @@ and actions. Matches are key/values based on the ryu RESTFul API. Actions
 is a dictionary of actions to apply upon match.
 
 .. list-table:: : acls: <acl name>: - rule: actions: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -858,7 +858,7 @@ is a dictionary of actions to apply upon match.
 The output action contains a dictionary with the following elements:
 
 .. list-table:: : acls: <acl name>: - rule: actions: output: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -901,7 +901,7 @@ The output action contains a dictionary with the following elements:
 Failover is an experimental option, but can be configured as follows:
 
 .. list-table:: : acls: <acl name>: - rule: actions: output: failover: {}
-    :widths: 31 15 15 60
+    :widths: 30 15 15 40
     :header-rows: 1
 
     * - Attribute
@@ -999,7 +999,7 @@ You can use environment variables to override default behaviour of faucet
 such as paths for configuration files and port numbers.
 
 .. list-table::
-    :widths: 31 15 15 60
+    :widths: 35 10 25 30
     :header-rows: 1
 
     * - Environment Variable
@@ -1008,7 +1008,8 @@ such as paths for configuration files and port numbers.
       - Description
     * - FAUCET_CONFIG
       - Colon-separated list of file paths
-      - /etc/faucet/faucet.yaml:/etc/ryu/faucet/faucet.yaml
+      - | /etc/faucet/faucet.yaml:
+        | /etc/ryu/faucet/faucet.yaml
       - Faucet will load it's configuration from the first valid file in list
     * - FAUCET_CONFIG_STAT_RELOAD
       - boolean
@@ -1020,11 +1021,13 @@ such as paths for configuration files and port numbers.
       - Log verbosity
     * - FAUCET_LOG
       - File path or STDOUT or STDERR
-      - /var/log/faucet/faucet.log
+      - | /var/log/faucet/
+        | faucet.log
       - Location for faucet to log messages to, can be special values STDOUT or STDERR
     * - FAUCET_EXCEPTION_LOG
       - File path  or STDOUT or STDERR
-      - /var/log/faucet/faucet_exception.log
+      - | /var/log/faucet/
+        | faucet_exception.log
       - Location for faucet log to log exceptions to, can be special values STDOUT or STDERR
     * - FAUCET_EVENT_SOCK
       - Socket path
@@ -1040,7 +1043,8 @@ such as paths for configuration files and port numbers.
       - IP address to listen on for faucet prometheus client
     * - GAUGE_CONFIG
       - Colon-separated list of file paths
-      - /etc/faucet/gauge.yaml:/etc/ryu/faucet/gauge.yaml
+      - | /etc/faucet/gauge.yaml:
+        | /etc/ryu/faucet/gauge.yaml
       - Guage will load it's configuration from the first valid file in list
     * - GAUGE_CONFIG_STAT_RELOAD
       - boolean
@@ -1052,11 +1056,13 @@ such as paths for configuration files and port numbers.
       - Log verbosity
     * - GAUGE_LOG
       - File path or STDOUT or STDERR
-      - /var/log/faucet/gauge.log
+      - | /var/log/faucet/
+        | gauge.log
       - Location for gauge to log messages to, can be special values STDOUT or STDERR
     * - GAUGE_EXCEPTION_LOG
       - File path or STDOUT or STDERR
-      - /var/log/faucet/gauge_exception.log
+      - | /var/log/faucet/
+        | gauge_exception.log
       - Location for faucet log to log exceptions to, can be special values STDOUT or STDERR
     * - GAUGE_PROMETHEUS_ADDR
       - IP address
