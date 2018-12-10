@@ -18,7 +18,7 @@ services:
         build:
             context: https://github.com/faucetsdn/docker-prometheus.git
             dockerfile: Dockerfile.pi
-        image: 'faucet/prometheus-pi:2.4.3'
+        image: 'faucet/prometheus-pi:2.5.0'
         user: 'root'
         ports:
             - '9090:9090'
@@ -32,7 +32,7 @@ services:
 
     grafana:
         restart: always
-        image: 'raymondmm/grafana:5.2.2-slim-arm32v7'
+        image: 'raymondmm/grafana:5.4.0-slim-arm32v7'
         user: 'root'
         ports:
             - '3000:3000'
