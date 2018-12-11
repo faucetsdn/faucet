@@ -140,6 +140,16 @@ class ValvePipeline(ValveManagerBase):
                 port, port.native_vlan))
         return ofmsgs
 
+    def del_port(self, port):
+        ofmsgs = []
+        if self.egress_table:
+            mask = faucet_md.PORT_METADATA_MASK
+            ofmsgs.append(self.egress_table.flowdel(self.egress_table.match(
+                metadata=port.number & mask,
+                metadata_mask=mask
+                )))
+        return ofmsgs
+
     def filter_packets(self, _target_table, match_dict):
         """get a list of flow modification messages to filter packets from
         the pipeline.
