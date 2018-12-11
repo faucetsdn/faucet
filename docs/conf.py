@@ -173,7 +173,7 @@ texinfo_documents = [
 
 def run_apidoc(_):
     """Call sphinx-apidoc on faucet module"""
-    from sphinx.apidoc import main as apidoc_main
+    from sphinx.ext.apidoc import main as apidoc_main
     apidoc_main(['-e', '-o', 'source/apidoc', '../faucet'])
 
 class FaucetPromMetricsTable(tables.ListTable):
