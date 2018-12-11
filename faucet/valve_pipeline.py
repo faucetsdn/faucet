@@ -134,7 +134,7 @@ class ValvePipeline(ValveManagerBase):
             return ofmsgs
         for vlan in port.tagged_vlans:
             ofmsgs.append(self._add_egress_table_rule(
-               port, vlan, pop_vlan=False))
+                port, vlan, pop_vlan=False))
         if port.native_vlan is not None:
             ofmsgs.append(self._add_egress_table_rule(
                 port, port.native_vlan))
