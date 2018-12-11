@@ -245,6 +245,8 @@ class GaugePromMetricsTable(tables.ListTable):
         return super(GaugePromMetricsTable, self).run()
 
 def setup(app):
+    # Add custom css
+    app.add_css_file("css/responsive-tables.css")
     """Over-ride Sphinx setup to trigger sphinx-apidoc."""
     app.connect('builder-inited', run_apidoc)
     app.add_directive('faucet-prom-metrics-table', FaucetPromMetricsTable)
