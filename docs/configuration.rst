@@ -455,8 +455,11 @@ OFP port number ranges (eg. 1-6).
     * - mirror
       - a list of integers or strings
       - None
-      - Mirror all packets recieved and transmitted on the ports
-        specified (by name or by port number), to this port.
+      - Mirror all allowed packets recieved from (subject to ACLs),
+        and all packets transmitted to, the ports specified
+        (by name or by port number), to this port. If mirroring
+        of denied by ACL packets is desired, use the ACL rule
+        mirror option.
     * - name
       - string
       - The configuration key.
@@ -846,7 +849,7 @@ is a dictionary of actions to apply upon match.
     * - mirror
       - string or integer
       - None
-      - Copy the packet, before any modifications, to the specified port (NOTE: mirroring is done in input direction only)
+      - Copy the packet, before any modifications, to the specified port (NOTE: ACL mirroring is done in input direction only)
     * - output
       - dictionary
       - None
