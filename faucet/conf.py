@@ -157,7 +157,7 @@ class Conf:
                 [self._finalize_val(v) for v in val])
         if isinstance(val, dict):
             return OrderedDict([
-                (k, self._finalize_val(v)) for k, v in sorted(val.items()), key=str)])
+                (k, self._finalize_val(v)) for k, v in sorted(val.items(), key=str)])
         return val
 
     def finalize(self):
