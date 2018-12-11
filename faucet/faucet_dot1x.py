@@ -40,7 +40,9 @@ def get_mac_str(valve_index, port_num):
     Returns:
         str
     """
-    return '00:00:00:00:%02x:%02x' % (valve_index, port_num)
+    two_byte_port_num = ("%04x" % port_num)
+    two_byte_port_num_formatted = two_byte_port_num[:2] + ':' + two_byte_port_num[2:]
+    return '00:00:00:%02x:%s' % (valve_index, two_byte_port_num_formatted)
 
 
 class FaucetDot1x:
