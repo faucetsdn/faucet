@@ -300,8 +300,8 @@ class Valve:
         ofmsgs = []
         if vlan.acls_in:
             acl_table = self.dp.tables['vlan_acl']
-            acl_allow_inst = acl_table.goto(self.dp.classification_table())
-            acl_force_port_vlan_inst = acl_table.goto(self.dp.output_table())
+            acl_allow_inst = self.pipeline.accept_to_classification()[0]
+            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()[0]
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 vlan.acls_in, acl_table,
                 acl_allow_inst, acl_force_port_vlan_inst,
@@ -710,8 +710,6 @@ class Valve:
         """
         ofmsgs = []
         vlans_with_ports_added = set()
-        eth_src_table = self.dp.tables['eth_src']
-        classification_table = self.dp.classification_table()
         vlan_table = self.dp.tables['vlan']
 
         for port_num in port_nums:
@@ -772,7 +770,7 @@ class Valve:
                 ofmsgs.append(vlan_table.flowmod(
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.low_priority,
-                    inst=[vlan_table.goto(classification_table)]))
+                    inst=self.pipeline.accept_to_classification()))
                 port_vlans = self.dp.vlans.values()
             else:
                 mirror_act = port.mirror_actions()
