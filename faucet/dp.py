@@ -355,8 +355,6 @@ configuration.
                 self.lldp_beacon['system_name'] = self.name
         if self.stack:
             self._check_conf_types(self.stack, self.stack_defaults_types)
-            # TODO: groups silently disabled when stacking until better tested.
-            self.group_table = False
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
         self._check_conf_types(self.table_sizes, self.default_table_sizes_types)
