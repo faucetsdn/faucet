@@ -6328,11 +6328,13 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
-        self.verify_stack_hosts()
-        self.verify_no_cable_errors()
-        self.verify_traveling_dhcp_mac()
-        self.verify_unicast_not_looped()
-        self.verify_no_bcast_to_self()
+        for _ in range(2):
+            self.verify_stack_hosts()
+            self.verify_no_cable_errors()
+            self.verify_traveling_dhcp_mac()
+            self.verify_unicast_not_looped()
+            self.verify_no_bcast_to_self()
+            self.flap_all_switch_ports()
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):

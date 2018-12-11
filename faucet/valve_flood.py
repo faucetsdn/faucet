@@ -154,21 +154,38 @@ class ValveFloodManager(ValveManagerBase):
     def _build_group_flood_rules(self, vlan, modify, command):
         """Build flooding rules for a VLAN using groups."""
         ofmsgs = []
-        for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
-            if unicast_eth_dst and not vlan.unicast_flood:
-                continue
-            vlan_flood_ofmsg, vlan_flood_acts = self._build_flood_rule_for_vlan(
-                vlan, eth_dst, eth_dst_mask,
-                unicast_eth_dst, command)
-            group_id = vlan.vid
-            if unicast_eth_dst:
-                group_id += valve_of.VLAN_GROUP_OFFSET
+        groups_by_unicast_eth = {}
+
+        _, vlan_flood_acts = self._build_flood_rule_for_vlan(
+            vlan, None, None, False, command)
+
+        group_id = vlan.vid
+        group = self.groups.get_entry(
+            group_id, valve_of.build_group_flood_buckets(vlan_flood_acts))
+        groups_by_unicast_eth[False] = group
+        groups_by_unicast_eth[True] = group
+
+        # Only configure unicast flooding group if has different output
+        # actions to non unicast flooding.
+        _, unicast_eth_vlan_flood_acts = self._build_flood_rule_for_vlan(
+            vlan, None, None, True, command)
+        if (self._output_ports_from_actions(unicast_eth_vlan_flood_acts) !=
+                self._output_ports_from_actions(vlan_flood_acts)):
+            group_id += valve_of.VLAN_GROUP_OFFSET
             group = self.groups.get_entry(
-                group_id, valve_of.build_group_flood_buckets(vlan_flood_acts))
+                group_id, valve_of.build_group_flood_buckets(unicast_eth_vlan_flood_acts))
+            groups_by_unicast_eth[True] = group
+
+        for group in groups_by_unicast_eth.values():
             if modify:
                 ofmsgs.append(group.modify())
             else:
                 ofmsgs.extend(group.add())
+
+        for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
+            if unicast_eth_dst and not vlan.unicast_flood:
+                continue
+            group = groups_by_unicast_eth[unicast_eth_dst]
             match = self.flood_table.match(
                 vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
             flood_priority = self._mask_flood_priority(eth_dst_mask)
