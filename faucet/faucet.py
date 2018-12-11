@@ -131,7 +131,7 @@ class Faucet(RyuAppBase):
         if notifier_thread is not None:
             self.threads.append(notifier_thread)
 
-        for service_event, service_pair in list(self._VALVE_SERVICES.items()):
+        for service_event, service_pair in self._VALVE_SERVICES.items():
             _, interval = service_pair
             self.threads.append(hub.spawn(
                 partial(self._thread_reschedule, service_event(), interval)))

@@ -128,7 +128,7 @@ def import_hw_config():
             'of_port': (int,),
             'gauge_of_port': (int,),
         }
-        for required_key, required_key_types in list(required_config.items()):
+        for required_key, required_key_types in required_config.items():
             if required_key not in config:
                 print('%s must be specified in %s to use HW switch.' % (
                     required_key, config_file_name))

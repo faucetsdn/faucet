@@ -1272,7 +1272,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
             updating = True
             for port, _ in enumerate(self.net.hosts, start=1):
                 port_counters = self.scrape_port_counters(port, port_vars)
-                for port_var, val in list(port_counters.items()):
+                for port_var, val in port_counters.items():
                     if not val > first_port_counters[port][port_var]:
                         updating = False
                         break
@@ -6130,10 +6130,11 @@ class FaucetStringOfDPTest(FaucetTest):
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
             if dpid == hw_dpid:
-                for interface, config in list(interfaces_config.items()):
-                    del interfaces_config[interface]
+                mapped_interfaces_config = {}
+                for interface, config in interfaces_config.items():
                     mapped_interface = self.port_map['port_%u' % interface]
-                    interfaces_config[mapped_interface] = config
+                    mapped_interfaces_config[mapped_interface] = config
+                interfaces_config = mapped_interfaces_config
 
             return dp_config
 

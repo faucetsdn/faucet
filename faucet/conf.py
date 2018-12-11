@@ -110,7 +110,7 @@ class Conf:
     def _conf_keys(conf, dyn=False, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
         conf_keys = []
-        for key, value in list(conf.__dict__.items()):
+        for key, value in conf.__dict__.items():
             if not dyn and key.startswith('dyn'):
                 continue
             if not subconf and isinstance(value, Conf):
@@ -157,13 +157,13 @@ class Conf:
                 [self._finalize_val(v) for v in val])
         if isinstance(val, dict):
             return OrderedDict([
-                (k, self._finalize_val(v)) for k, v in sorted(list(val.items()), key=str)])
+                (k, self._finalize_val(v)) for k, v in sorted(val.items()), key=str)])
         return val
 
     def finalize(self):
         """Configuration parsing marked complete."""
         self.__dict__.update(
-            {k: self._finalize_val(v) for k, v in list(self.__dict__.items())
+            {k: self._finalize_val(v) for k, v in self.__dict__.items()
              if not k.startswith('dyn')})
         self.dyn_finalized = True
 
