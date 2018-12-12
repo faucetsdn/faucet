@@ -661,6 +661,42 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
                            require_host_learned=False, expected_result=False)
 
 
+class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_labels1 = self.port_labels(port_no1)
+
+        # Attempt to authenticate (expected pass)
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertIn('logoff', tcpdump_txt_1)
+
+        # Port down - Auth (expected fail)
+        self.set_port_down(port_no1)
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+
+        self.assertIn('0 packets captured', tcpdump_txt_1)
+        self.assertIn('0 packets dropped by kernel', tcpdump_txt_1)
+
+
+        # Port Up - Auth (expected pass)
+        self.set_port_up(port_no1)
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
+        self.assertEqual(
+            2,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertIn('logoff', tcpdump_txt_1)
+
+
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
 
     RADIUS_PORT = 1870
