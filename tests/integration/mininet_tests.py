@@ -253,7 +253,9 @@ network={
     nfv_intf = None
 
     def _priv_mac(self, host_id):
-        return '00:00:00:00:00:%2.2x' % host_id
+        two_byte_port_num = ("%04x" % host_id)
+        two_byte_port_num_formatted = two_byte_port_num[:2] + ':' + two_byte_port_num[2:]
+        return '00:00:00:00:%s' % two_byte_port_num_formatted
 
     def _write_faucet_config(self):
         self.eapol1_host = self.net.hosts[0]
