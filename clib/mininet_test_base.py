@@ -234,7 +234,7 @@ class FaucetTestBase(unittest.TestCase):
         self.fail('load average %f consistently too high' % load)
 
     def _allocate_config_ports(self):
-        for port_name in list(self.config_ports.keys()):
+        for port_name in self.config_ports.keys():
             self.config_ports[port_name] = None
             for config in (self.CONFIG, self.CONFIG_GLOBAL, self.GAUGE_CONFIG_DBS):
                 if re.search(port_name, config):
@@ -384,7 +384,7 @@ class FaucetTestBase(unittest.TestCase):
         if not self._wait_controllers_healthy():
             return 'not all controllers healthy after initial switch connection'
         if self.config_ports:
-            for port_name, port in list(self.config_ports.items()):
+            for port_name, port in self.config_ports.items():
                 if port is not None and not port_name.startswith('gauge'):
                     if not self._get_controller().listen_port(port):
                         return 'faucet not listening on %u (%s)' % (
@@ -750,7 +750,7 @@ dbs:
                 'eth_type': 'dl_type',
             }
             if match is not None:
-                for new_match, old_match in list(old_matches.items()):
+                for new_match, old_match in old_matches.items():
                     if new_match in match:
                         match[old_match] = match[new_match]
                         del match[new_match]
@@ -1038,7 +1038,7 @@ dbs:
                 labels.update({'dp_id': '0x%x' % dpid, 'dp_name': self.DP_NAME})
             if labels:
                 label_values = []
-                for label, value in sorted(list(labels.items())):
+                for label, value in sorted(labels.items()):
                     label_values.append('%s="%s"' % (label, value))
                 label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         var_re = re.compile(r'^%s%s$' % (var, label_values_re))

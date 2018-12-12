@@ -56,7 +56,7 @@ class FaucetSwitch(OVSSwitch):
         ccmd = '-- --id=@%s create Controller target=\\"%s\\"'
         if self.reconnectms:
             ccmd += ' max_backoff=%d' % self.reconnectms
-        for param, value in list(self.controller_params.items()):
+        for param, value in self.controller_params.items():
             ccmd += ' %s=%s' % (param, value)
         cargs = ' '.join(ccmd % (name, target)
                          for name, target in clist)
@@ -351,7 +351,7 @@ socket_timeout=15
     def _command(self, env, tmpdir, name, args):
         """Wrap controller startup command in shell script with environment."""
         env_vars = []
-        for var, val in list(sorted(env.items())):
+        for var, val in sorted(env.items()):
             env_vars.append('='.join((var, val)))
         script_wrapper_name = os.path.join(tmpdir, 'start-%s.sh' % name)
         cprofile_args = ''
