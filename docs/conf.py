@@ -20,9 +20,6 @@
 import os
 import sys
 
-from docutils.parsers.rst.directives import tables
-from docutils.statemachine import StringList
-
 sys.path.insert(0, os.path.abspath('../'))
 
 autodoc_default_flags = ["members", "undoc-members", "show-inheritance"]
@@ -173,81 +170,59 @@ texinfo_documents = [
 
 def run_apidoc(_):
     """Call sphinx-apidoc on faucet module"""
+
     from sphinx.ext.apidoc import main as apidoc_main
     apidoc_main(['-e', '-o', 'source/apidoc', '../faucet'])
 
-class FaucetPromMetricsTable(tables.ListTable):
+def generate_prometheus_metric_table(_):
     """Autogen prometheus metrics documentation"""
 
-    options = {'header-rows': 1, 'widths': [31, 15, 15, 60]}
+    import faucet.faucet_metrics
+    import faucet.gauge_prom
+    from prometheus_client import CollectorRegistry
 
-    def run(self):
-        import faucet.faucet_metrics
-        from prometheus_client import CollectorRegistry
+    block_text = {}
+    output_path = {
+        'faucet': 'autogen/faucet_prometheus_metric_table.rst',
+        'gauge': 'autogen/gauge_prometheus_metric_table.rst'
+        }
 
-        self.block_text = """\
-* - Metric
-  - Type
-  - Description
-"""
+    metrics = {
+        'faucet': faucet.faucet_metrics.FaucetMetrics(reg=CollectorRegistry()),
+        'gauge': faucet.gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
+        }
 
-        faucet_metrics = faucet.faucet_metrics.FaucetMetrics(reg=CollectorRegistry())
-        for metric in faucet_metrics._reg.collect():
+    for module in ["faucet", "gauge"]:
+        block_text[module] = """\
+.. list-table:: {} prometheus metrics
+    :widths: 40 10 55
+    :header-rows: 1
+
+    * - Metric
+      - Type
+      - Description
+""".format(module.title())
+
+        for metric in metrics[module]._reg.collect():
             if metric.type == "counter":
                 metric_name = "{}_total".format(metric.name)
             else:
                 metric_name = metric.name
 
-            self.block_text += """\
-* - {}
-  - {}
-  - {}
+            block_text[module] += """\
+    * - {}
+      - {}
+      - {}
 """.format(metric_name, metric.type, metric.documentation)
 
-        self.content = StringList()
-        for lineno, line in enumerate(self.block_text.split('\n')):
-            self.content.append(line, __file__, lineno)
-
-        return super(FaucetPromMetricsTable, self).run()
-
-class GaugePromMetricsTable(tables.ListTable):
-    """Autogen prometheus metrics documentation"""
-
-    options = {'header-rows': 1, 'widths': [31, 15, 15, 60]}
-
-    def run(self):
-        import faucet.gauge_prom
-        from prometheus_client import CollectorRegistry
-
-        self.block_text = """\
-* - Metric
-  - Type
-  - Description
-"""
-
-        gauge_metrics = faucet.gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
-        for metric in gauge_metrics._reg.collect():
-            if metric.type == "counter":
-                metric_name = "{}_total".format(metric.name)
-            else:
-                metric_name = metric.name
-
-            self.block_text += """\
-* - {}
-  - {}
-  - {}
-""".format(metric_name, metric.type, metric.documentation)
-
-        self.content = StringList()
-        for lineno, line in enumerate(self.block_text.split('\n')):
-            self.content.append(line, __file__, lineno)
-
-        return super(GaugePromMetricsTable, self).run()
+        with open(output_path[module], 'w') as output_file:
+            output_file.write(block_text[module])
 
 def setup(app):
+    """ Add hooks into Sphinx to change behaviour and autogen documentation """
+
     # Add custom css
     app.add_css_file("css/responsive-tables.css")
-    """Over-ride Sphinx setup to trigger sphinx-apidoc."""
+    # Override Sphinx setup to trigger sphinx-apidoc.
     app.connect('builder-inited', run_apidoc)
-    app.add_directive('faucet-prom-metrics-table', FaucetPromMetricsTable)
-    app.add_directive('gauge-prom-metrics-table', GaugePromMetricsTable)
+    app.connect('builder-inited', generate_prometheus_metric_table)

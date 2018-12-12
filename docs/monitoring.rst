@@ -19,9 +19,9 @@ Below is a list of the metrics exported by faucet and gauge.
 Exported by faucet
 ~~~~~~~~~~~~~~~~~~
 
-.. faucet-prom-metrics-table::
+.. include:: autogen/faucet_prometheus_metric_table.rst
 
 Exported by gauge
 ~~~~~~~~~~~~~~~~~
 
-.. gauge-prom-metrics-table::
+.. include:: autogen/gauge_prometheus_metric_table.rst
