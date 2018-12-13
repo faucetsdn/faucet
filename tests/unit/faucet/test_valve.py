@@ -433,12 +433,16 @@ class ValveTestBases:
         def update_config(self, config, reload_type='cold', reload_expected=True):
             """Update FAUCET config with config as text."""
             before_dp_status = int(self.get_prom('dp_status'))
-            self.assertFalse(self.valves_manager.config_watcher.files_changed())
-            existing_config = os.path.exists(self.config_file)
+            existing_config = None
+            if os.path.exists(self.config_file):
+                with open(self.config_file) as config_file:
+                    existing_config = config_file.read()
             with open(self.config_file, 'w') as config_file:
                 config_file.write(config)
-            if existing_config:
-                self.assertTrue(self.valves_manager.config_watcher.files_changed())
+            content_change_expected = config != existing_config
+            self.assertEqual(
+                content_change_expected,
+                self.valves_manager.config_watcher.content_changed(self.config_file))
             self.last_flows_to_dp[self.DP_ID] = []
             var = 'faucet_config_reload_%s_total' % reload_type
             self.prom_inc(
