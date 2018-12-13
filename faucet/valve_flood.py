@@ -375,7 +375,7 @@ class ValveFloodStackManager(ValveFloodManager):
                         vlan=vlan,
                         eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
                         eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
-                    priority=self.bypass_priority + 1))
+                    priority=self.bypass_priority + 2))
                 # Because stacking uses reflected broadcasts from the root,
                 # don't try to learn broadcast sources from stacking ports.
                 if eth_dst is not None:
@@ -388,7 +388,7 @@ class ValveFloodStackManager(ValveFloodManager):
                         match=match,
                         command=command,
                         inst=[self.eth_src_table.goto(self.flood_table)],
-                        priority=self.bypass_priority))
+                        priority=self.bypass_priority + 1))
         return ofmsgs
 
     def _vlan_all_ports(self, vlan, exclude_unicast):

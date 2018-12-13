@@ -98,7 +98,7 @@ class ValvePipeline(ValveManagerBase):
                 ))
 
         ofmsgs.extend(self.filter_packets(
-            {'eth_type': valve_of.ECTP_ETH_TYPE}))
+            {'eth_type': valve_of.ECTP_ETH_TYPE}, priority_offset=10))
 
         # antispoof for FAUCET's MAC address
         # TODO: antispoof for controller IPs on this VLAN, too.
