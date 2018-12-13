@@ -170,3 +170,14 @@ class ValvePipeline(ValveManagerBase):
             self.classification_table.match(**match_dict),
             priority=self.select_priority,
             inst=inst)]
+
+    def remove_filter(self, match_dict, strict=True):
+        """retrieve flow mods to remove a filter from the classification table
+        """
+        priority = None
+        if strict:
+            priorty = self.filter_priority
+        return [self.classification_table.flowdel(
+            self.classification_table.match(**match_dict),
+            priority=priority,
+            strict=strict)]
