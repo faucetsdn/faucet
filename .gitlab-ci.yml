@@ -11,7 +11,7 @@ build-package:
     - mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
     - export DEBEMAIL='maintainers@faucet.nz' && export DEBFULLNAME='Faucet Maintainers'
     - debchange --newversion ${CI_COMMIT_REF_NAME} -b "New upstream release"
-    - fakeroot debian/rules binary
+    - dpkg-buildpackage -b -us -uc -rfakeroot
     - mkdir built-packages || true
     - mv ../*.deb built-packages/
   artifacts:
@@ -41,7 +41,7 @@ deploy-package:
 
 build-vm-image:
   stage: build-image
-  image: debian:stretch
+  image: faucet/dbuilder
   script:
     - cd images/vm/
     - apt-get update && apt-get upgrade -y
