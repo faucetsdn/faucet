@@ -37,17 +37,16 @@ class ValveFloodManager(ValveManagerBase):
         (False, valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)), # eth broadcasts
     )
 
-    def __init__(self, flood_table, eth_src_table, # pylint: disable=too-many-arguments
-                 flood_priority, bypass_priority,
-                 use_group_table, groups,
-                 combinatorial_port_flood):
+    def __init__(self, flood_table, pipeline,
+                 use_group_table, groups, combinatorial_port_flood):
         self.flood_table = flood_table
-        self.eth_src_table = eth_src_table
-        self.bypass_priority = bypass_priority
-        self.flood_priority = flood_priority
+        self.pipeline = pipeline
+        self.bypass_priority = self._FILTER_PRIORITY
+        self.flood_priority = self._MATCH_PRIORITY
         self.use_group_table = use_group_table
         self.groups = groups
         self.combinatorial_port_flood = combinatorial_port_flood
+        self.classification_offset = 0x100
 
     def initialise_tables(self):
         """Initialise the flood table with filtering flows."""
@@ -230,15 +229,13 @@ class ValveFloodManager(ValveManagerBase):
 class ValveFloodStackManager(ValveFloodManager):
     """Implement dataplane based flooding for stacked dataplanes."""
 
-    def __init__(self, flood_table, eth_src_table, # pylint: disable=too-many-arguments
-                 flood_priority, bypass_priority,
+    def __init__(self, flood_table, pipeline, # pylint: disable=too-many-arguments
                  use_group_table, groups,
                  combinatorial_port_flood,
                  stack, stack_ports,
                  dp_shortest_path_to_root, shortest_path_port):
         super(ValveFloodStackManager, self).__init__(
-            flood_table, eth_src_table,
-            flood_priority, bypass_priority,
+            flood_table, pipeline,
             use_group_table, groups,
             combinatorial_port_flood)
         self.stack = stack
@@ -373,26 +370,27 @@ class ValveFloodStackManager(ValveFloodManager):
             ofmsgs.append(port_flood_ofmsg)
             if not self._dp_is_root():
                 # Drop bridge local traffic immediately.
-                ofmsgs.append(self.eth_src_table.flowdrop(
-                    self.eth_src_table.match(
-                        in_port=port.number,
-                        vlan=vlan,
-                        eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
-                        eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
-                    priority=self.bypass_priority + 1))
+                bridge_local_match = {
+                    'in_port': port.number,
+                    'vlan': vlan,
+                    'eth_dst': valve_packet.BRIDGE_GROUP_ADDRESS,
+                    'eth_dst_mask': valve_packet.BRIDGE_GROUP_MASK
+                    }
+                ofmsgs.extend(self.pipeline.filter_packets(
+                    bridge_local_match, priority_offset=self.classification_offset))
                 # Because stacking uses reflected broadcasts from the root,
                 # don't try to learn broadcast sources from stacking ports.
                 if eth_dst is not None:
-                    match = self.eth_src_table.match(
-                        in_port=port.number,
-                        vlan=vlan,
-                        eth_dst=eth_dst,
-                        eth_dst_mask=eth_dst_mask)
-                    ofmsgs.append(self.eth_src_table.flowmod(
-                        match=match,
-                        command=command,
-                        inst=[self.eth_src_table.goto(self.flood_table)],
-                        priority=self.bypass_priority))
+                    match = {
+                        'in_port': port.number,
+                        'vlan': vlan,
+                        'eth_dst': eth_dst,
+                        'eth_dst_mask': eth_dst_mask
+                        }
+                    ofmsgs.extend(self.pipeline.select_packets(
+                        self.flood_table, match,
+                        priority_offset=self.classification_offset
+                        ))
         return ofmsgs
 
     def _vlan_all_ports(self, vlan, exclude_unicast):
