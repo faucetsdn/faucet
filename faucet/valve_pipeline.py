@@ -158,24 +158,25 @@ class ValvePipeline(ValveManagerBase):
         """
         return [self.classification_table.flowdrop(
             self.classification_table.match(**match_dict),
-            priority=(self.filter_priority + priority_offset))]
+            priority=self.filter_priority + priority_offset)]
 
-    def select_packets(self, target_table, match_dict, actions=None):
+    def select_packets(self, target_table, match_dict, actions=None,
+                       priority_offset=0):
         """retrieve rules to redirect packets matching match_dict to table"""
         inst = [target_table.goto_this()]
         if actions is not None:
             inst.append(valve_of.apply_actions(actions))
         return [self.classification_table.flowmod(
             self.classification_table.match(**match_dict),
-            priority=self.select_priority,
+            priority=self.select_priority + priority_offset,
             inst=inst)]
 
-    def remove_filter(self, match_dict, strict=True):
+    def remove_filter(self, match_dict, strict=True, priority_offset=0):
         """retrieve flow mods to remove a filter from the classification table
         """
         priority = None
         if strict:
-            priorty = self.filter_priority
+            priority = self.filter_priority + priority_offset
         return [self.classification_table.flowdel(
             self.classification_table.match(**match_dict),
             priority=priority,
