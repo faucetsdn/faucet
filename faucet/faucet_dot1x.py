@@ -186,12 +186,12 @@ class FaucetDot1x:
             return [
                 port_acl_table.flowmod(
                     inst=[valve_of.apply_actions([
-                        valve_of.set_field(eth_dst=mac),
+                        port_acl_table.set_field(eth_dst=mac),
                         valve_of.output_port(nfv_sw_port)])],
                     **FaucetDot1x.get_dot1x_port_match_priority(dot1x_port, port_acl_table, valve)),
                 port_acl_table.flowmod(
                     inst=[valve_of.apply_actions([
-                        valve_of.set_field(eth_src=EAPOL_DST),
+                        port_acl_table.set_field(eth_src=EAPOL_DST),
                         valve_of.output_port(dot1x_port.number)])],
                     **FaucetDot1x.get_nfv_sw_port_match_priority(mac, nfv_sw_port,
                                                                  port_acl_table, valve)

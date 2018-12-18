@@ -20,7 +20,7 @@
 import copy
 import logging
 
-from collections import defaultdict, deque
+from collections import deque
 
 from faucet import tfm_pipeline
 from faucet import valve_acl
@@ -35,7 +35,6 @@ from faucet import valve_pipeline
 
 from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
-from faucet.faucet_metadata import get_egress_metadata
 
 
 class ValveLogger:
@@ -113,6 +112,10 @@ class Valve:
         self.logger = None
         self.recent_ofmsgs = deque(maxlen=32)
         self._last_pipeline_flows = []
+        self._packet_in_count_sec = None
+        self._last_packet_in_sec = None
+        self._last_advertise_sec = None
+        self._last_fast_advertise_sec = None
         self.dp_init()
 
     def _port_vlan_labels(self, port, vlan):
@@ -181,13 +184,13 @@ class Valve:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         if self.dp.stack:
             self.flood_manager = valve_flood.ValveFloodStackManager(
-                self.dp.tables['flood'], self.pipeline, self.dp.group_table,
+                self.logger, self.dp.tables['flood'], self.pipeline, self.dp.group_table,
                 self.dp.groups, self.dp.combinatorial_port_flood,
                 self.dp.stack, self.dp.stack_ports,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port)
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
-                self.dp.tables['flood'], self.pipeline, self.dp.group_table,
+                self.logger, self.dp.tables['flood'], self.pipeline, self.dp.group_table,
                 self.dp.groups, self.dp.combinatorial_port_flood)
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
         host_manager_cl = valve_host.ValveHostManager
@@ -356,42 +359,38 @@ class Valve:
         table = valve_table.wildcard_table
         return [table.flowdel(match=table.match(vlan=vlan))]
 
+    def _get_all_configured_port_nos(self):
+        ports = set()
+        ports.update({
+            port.number for port in self.dp.stack_ports})
+        ports.update({
+            port.number for port in self.dp.output_only_ports})
+        for vlan in self.dp.vlans.values():
+            ports.update({port.number for port in vlan.get_ports()})
+        return ports
+
+    def _get_ports_status(self, discovered_up_port_nos, all_configured_port_nos):
+        port_status = {
+            port_no: (port_no in discovered_up_port_nos) for port_no in all_configured_port_nos}
+        all_up_port_nos = {port_no for port_no, status in port_status.items() if status}
+        return (port_status, all_up_port_nos)
+
     def _add_ports_and_vlans(self, discovered_up_port_nos):
         """Add all configured and discovered ports and VLANs."""
-        all_configured_port_nos = set()
+        all_configured_port_nos = self._get_all_configured_port_nos()
+        port_status, all_up_port_nos = self._get_ports_status(
+            discovered_up_port_nos, all_configured_port_nos)
 
-        all_configured_port_nos.update({
-            port.number for port in self.dp.stack_ports})
-        all_configured_port_nos.update({
-            port.number for port in self.dp.output_only_ports})
+        for port_no, status in port_status.items():
+            self._set_port_status(port_no, status)
+        self._notify({'PORTS_STATUS': port_status})
 
         ofmsgs = []
+        ofmsgs.extend(self.ports_add(
+            all_up_port_nos, cold_start=True, log_msg='configured'))
         for vlan in self.dp.vlans.values():
-            vlan_ports = vlan.get_ports()
-            if vlan_ports:
-                all_configured_port_nos.update({
-                    port.number for port in vlan_ports})
-                ofmsgs.extend(self._add_vlan(vlan))
+            ofmsgs.extend(self._add_vlan(vlan))
             vlan.reset_caches()
-
-        ports_status = defaultdict(bool)
-        ports_status.update({
-            port_no: True for port_no in discovered_up_port_nos
-            if port_no in all_configured_port_nos})
-        self._notify({'PORTS_STATUS': ports_status})
-
-        all_up_port_nos = set()
-        for port_no in all_configured_port_nos:
-            if ports_status[port_no]:
-                self._set_port_status(port_no, True)
-                all_up_port_nos.add(port_no)
-            else:
-                self._set_port_status(port_no, False)
-
-        ofmsgs.extend(
-            self.ports_add(
-                all_up_port_nos, cold_start=True, log_msg='configured'))
-        self.dp.dyn_up_ports = set(discovered_up_port_nos)
         return ofmsgs
 
     def ofdescstats_handler(self, body):
@@ -738,9 +737,9 @@ class Valve:
                     pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
                     ofmsgs.append(valve_of.packetout(port.number, pkt.data))
 
-            if port.dot1x \
-                    or (self.dp.dot1x and port.number == self.dp.dot1x['nfv_sw_port']):
-                ofmsgs.extend(self.dot1x.port_up(self, port))
+            if self.dp.dot1x:
+                if port.dot1x or port.number == self.dp.dot1x['nfv_sw_port']:
+                    ofmsgs.extend(self.dot1x.port_up(self, port))
 
             if not self.dp.dp_acls:
                 acl_ofmsgs = self._port_add_acl(port)
@@ -914,7 +913,9 @@ class Valve:
                 age = None
                 if pkt_meta.port.dyn_lacp_updated_time:
                     age = now - pkt_meta.port.dyn_lacp_updated_time
-                lacp_state_change = pkt_meta.port.dyn_lacp_up != lacp_pkt.actor_state_synchronization
+                lacp_state_change = (
+                    pkt_meta.port.dyn_lacp_up !=
+                    lacp_pkt.actor_state_synchronization)
                 lacp_pkt_change = (
                     pkt_meta.port.dyn_last_lacp_pkt is None or
                     str(lacp_pkt) != str(pkt_meta.port.dyn_last_lacp_pkt))
