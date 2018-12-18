@@ -89,6 +89,15 @@ GROUP_DP1_CONFIG = """
         combinatorial_port_flood: False
 """ + BASE_DP1_CONFIG
 
+DOT1X_CONFIG = """
+        dot1x:
+            nfv_intf: lo
+            nfv_sw_port: 2
+            radius_ip: 127.0.0.1
+            radius_port: 1234
+            radius_secret: SECRET
+""" + BASE_DP1_CONFIG
+
 CONFIG = """
 dps:
     s1:
@@ -1461,6 +1470,37 @@ dps:
                 'ipv4_src': '10.0.0.2',
                 'ipv4_dst': '10.0.0.3',
                 'vid': 0x100})
+
+
+class ValveDot1xSmokeTestCase(ValveTestBases.ValveTestSmall):
+    """Smoke test to check dot1x can be initialized."""
+
+    CONFIG = """
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                dot1x: true
+            p2:
+                number: 2
+                output_only: True
+vlans:
+    v100:
+        vid: 0x100
+""" % DOT1X_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_get_mac_str(self):
+        """Test NFV port formatter."""
+        self.assertEqual(
+           '00:00:00:0f:01:01',
+           faucet_dot1x.get_mac_str(15, 257))
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
