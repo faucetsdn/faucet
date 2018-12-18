@@ -443,6 +443,12 @@ configuration.
                 table_config.table_id = relative_table_id
             table_configs[name] = table_config
 
+        # Stacking with external ports, so need loop protection field.
+        if self.stack and self.stack['externals']:
+            flood_table = table_configs['flood']
+            flood_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
+            flood_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
+
         for table_name, table_config in table_configs.items():
             size = self.table_sizes.get(table_name, self.min_wildcard_table_size)
             if table_config.vlan_port_scale:
@@ -766,18 +772,26 @@ configuration.
 
         def resolve_stack_dps():
             """Resolve DP references in stacking config."""
-            port_stack_dp = {}
-            for port in self.stack_ports:
-                stack_dp = port.stack['dp']
-                test_config_condition(stack_dp not in dp_by_name, (
-                    'stack DP %s not defined' % stack_dp))
-                port_stack_dp[port] = dp_by_name[stack_dp]
-            for port, dp in port_stack_dp.items():
-                port.stack['dp'] = dp
-                stack_port = dp.resolve_port(port.stack['port'])
-                test_config_condition(stack_port is None, (
-                    'stack port %s not defined in DP %s' % (port.stack['port'], dp.name)))
-                port.stack['port'] = stack_port
+            if self.stack_ports:
+                if self.stack is None:
+                    self.stack = {}
+                self.stack['externals'] = False
+                port_stack_dp = {}
+                for port in self.stack_ports:
+                    stack_dp = port.stack['dp']
+                    test_config_condition(stack_dp not in dp_by_name, (
+                        'stack DP %s not defined' % stack_dp))
+                    port_stack_dp[port] = dp_by_name[stack_dp]
+                for port, dp in port_stack_dp.items():
+                    port.stack['dp'] = dp
+                    stack_port = dp.resolve_port(port.stack['port'])
+                    test_config_condition(stack_port is None, (
+                        'stack port %s not defined in DP %s' % (port.stack['port'], dp.name)))
+                    port.stack['port'] = stack_port
+                for vlan in vlan_by_name.values():
+                    if vlan.loop_protect_external_ports():
+                        self.stack['externals'] = True
+                        break
 
         def resolve_mirror_destinations():
             """Resolve mirror port references and destinations."""

@@ -496,6 +496,14 @@ class VLAN(Conf):
         """Return ports that are mirrored on this VLAN."""
         return tuple([port for port in self.get_ports() if port.mirror])
 
+    def loop_protect_external_ports(self):
+        """Return ports wth external loop protection set."""
+        return tuple([port for port in self.get_ports() if port.loop_protect_external])
+
+    def loop_protect_external_ports_up(self):
+        """Return up ports with external loop protection set."""
+        return tuple([port for port in self.loop_protect_external_ports() if port.dyn_phys_up])
+
     def lacp_ports(self):
         """Return ports that have LACP on this VLAN."""
         return tuple([port for port in self.get_ports() if port.lacp])

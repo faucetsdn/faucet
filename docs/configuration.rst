@@ -447,7 +447,11 @@ OFP port number ranges (eg. 1-6).
     * - loop_protect
       - boolean
       - False
-      - If True, do simple loop protection on this port.
+      - if True, do simple (host/access port) loop protection on this port.
+    * - loop_protect_external
+      - boolean
+      - False
+      - if True, do external (other switch) loop protection on this port.
     * - max_hosts
       - integer
       - 255

@@ -1228,16 +1228,20 @@ dbs:
             self.assertNotEqual(locations, new_locations)
             locations = new_locations
 
-    def verify_broadcast(self):
-        first_host = self.net.hosts[0]
-        last_host = self.net.hosts[-1]
+    def verify_broadcast(self, hosts=None, broadcast_expected=True):
+        host_a = self.net.hosts[0]
+        host_b = self.net.hosts[-1]
+        if hosts is not None:
+            host_a, host_b = hosts
         tcpdump_filter = (
             'ether dst host ff:ff:ff:ff:ff:ff and icmp and host %s' % self.ipv4_vip_bcast())
         tcpdump_txt = self.tcpdump_helper(
-            last_host, tcpdump_filter, [
-                partial(first_host.cmd, 'ping -b -c3 %s' % self.ipv4_vip_bcast())])
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt))
+            host_b, tcpdump_filter, [
+                partial(host_a.cmd, 'ping -b -c3 -t1 %s' % self.ipv4_vip_bcast())],
+            packets=1)
+        self.assertEqual(
+            broadcast_expected,
+            re.search('%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt) is not None)
 
     def verify_no_bcast_to_self(self, timeout=3):
         for host in self.net.hosts:
@@ -1725,10 +1729,14 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
-    def port_labels(self, port_no, dpid=None):
+    def remap_portno(self, port_no, dpid):
         remapped_port_no = port_no
         if dpid is None or dpid == int(self.dpid):
             remapped_port_no = self.port_map_rev.get(port_no, port_no)
+        return remapped_port_no
+
+    def port_labels(self, port_no, dpid=None):
+        remapped_port_no = self.remap_portno(port_no, dpid)
         port_name = 'b%u' % remapped_port_no
         return {'port': port_name, 'port_description': port_name}
 
@@ -1902,13 +1910,13 @@ dbs:
         # self.verify_ipv6_host_learned_mac(
         #    host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
-    def retry_net_ping(self, hosts=None, required_loss=0, retries=3):
+    def retry_net_ping(self, hosts=None, required_loss=0, retries=3, timeout=2):
         loss = None
         for _ in range(retries):
             if hosts is None:
-                loss = self.net.pingAll()
+                loss = self.net.pingAll(timeout=timeout)
             else:
-                loss = self.net.ping(hosts)
+                loss = self.net.ping(hosts, timeout=timeout)
             if loss <= required_loss:
                 return
             time.sleep(1)
