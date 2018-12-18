@@ -4758,6 +4758,38 @@ class FaucetTaggedBroadcastTest(FaucetTaggedTest):
         self.verify_no_bcast_to_self()
 
 
+class FaucetTaggedExtLoopProtectTest(FaucetTaggedTest):
+
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                name: b1
+                description: "b1"
+                tagged_vlans: [100]
+                loop_protect_external: True
+            %(port_2)d:
+                name: b2
+                description: "b2"
+                tagged_vlans: [100]
+                loop_protect_external: True
+            %(port_3)d:
+                name: b3
+                description: "b3"
+                tagged_vlans: [100]
+            %(port_4)d:
+                name: b4
+                description: "b4"
+                tagged_vlans: [100]
+"""
+
+    def test_tagged(self):
+        ext_port1, ext_port2, int_port1, int_port2 = self.net.hosts
+        self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
+
+
 class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):
 
     N_UNTAGGED = 0
@@ -5939,7 +5971,7 @@ class FaucetStringOfDPTest(FaucetTest):
                   include=None, include_optional=None,
                   acls=None, acl_in_dp=None,
                   switch_to_switch_links=1, hw_dpid=None,
-                  stack_ring=False, lacp=False):
+                  stack_ring=False, lacp=False, first_external=False):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
@@ -5980,13 +6012,14 @@ class FaucetStringOfDPTest(FaucetTest):
             acl_in_dp,
             stack_ring,
             lacp,
+            first_external,
         )
         self._write_faucet_config()
 
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
                    include=None, include_optional=None, acls=None, acl_in_dp=None, stack_ring=False,
-                   lacp=False):
+                   lacp=False, first_external=False):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
         if dpids is None:
             dpids = []
@@ -6020,7 +6053,7 @@ class FaucetStringOfDPTest(FaucetTest):
             if name in acl_in_dp and port in acl_in_dp[name]:
                 interfaces_config[port]['acl_in'] = acl_in_dp[name][port]
 
-        def add_dp_to_dp_ports(dp_config, port, interfaces_config, i,
+        def add_dp_to_dp_ports(name, dp_config, port, interfaces_config, i,
                                dpid_count, stack, n_tagged, tagged_vid,
                                n_untagged, untagged_vid):
 
@@ -6060,10 +6093,7 @@ class FaucetStringOfDPTest(FaucetTest):
                         peer_stack_port_base = first_stack_port + self.topo.switch_to_switch_links
                     for stack_dp_port in range(self.topo.switch_to_switch_links):
                         peer_port = peer_stack_port_base + stack_dp_port
-                        interfaces_config[port] = {
-                            'name': 'b%u' % port,
-                            'description': 'b%u' % port,
-                        }
+                        interfaces_config[port] = {}
                         if stack:
                             # make this a stacking link.
                             interfaces_config[port].update(
@@ -6073,7 +6103,7 @@ class FaucetStringOfDPTest(FaucetTest):
                                     'receive_lldp': True,
                                     'stack': {
                                         'dp': dp_name(peer_dp),
-                                        'port': 'b%u' % peer_port}
+                                        'port': peer_port}
                                 })
                         else:
                             # not a stack - make this a trunk.
@@ -6094,7 +6124,8 @@ class FaucetStringOfDPTest(FaucetTest):
                         port += 1
 
         def add_dp(name, dpid, hw_dpid, i, dpid_count, stack,
-                   n_tagged, tagged_vid, n_untagged, untagged_vid):
+                   n_tagged, tagged_vid, n_untagged, untagged_vid,
+                   dpname_to_dpkey, first_external):
             dpid_ofchannel_log = None
             if ofchannel_log is not None:
                 dpid_ofchannel_log = ofchannel_log + str(i)
@@ -6115,8 +6146,7 @@ class FaucetStringOfDPTest(FaucetTest):
             for _ in range(n_tagged):
                 interfaces_config[port] = {
                     'tagged_vlans': [tagged_vid],
-                    'name': 'b%i' % port,
-                    'description': 'b%i' % port,
+                    'loop_protect_external': (first_external and port == 1),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
@@ -6124,22 +6154,35 @@ class FaucetStringOfDPTest(FaucetTest):
             for _ in range(n_untagged):
                 interfaces_config[port] = {
                     'native_vlan': untagged_vid,
-                    'name': 'b%i' % port,
-                    'description': 'b%i' % port,
+                    'loop_protect_external': (first_external and port == 1),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
 
             add_dp_to_dp_ports(
-                dp_config, port, interfaces_config, i, dpid_count, stack,
+                name, dp_config, port, interfaces_config, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
-            if dpid == hw_dpid:
-                mapped_interfaces_config = {}
-                for interface, config in interfaces_config.items():
-                    mapped_interface = self.port_map['port_%u' % interface]
-                    mapped_interfaces_config[mapped_interface] = config
-                interfaces_config = mapped_interfaces_config
+            for portno, config in list(interfaces_config.items()):
+                if dpid == hw_dpid:
+                    remapped_portno = self.port_map['port_%u' % portno]
+                    if remapped_portno != portno:
+                        del interfaces_config[portno]
+                        portno = remapped_portno
+                        interfaces_config[portno] = config
+                port_name = 'b%u' % portno
+                interfaces_config[portno].update({
+                    'name': port_name,
+                    'description': port_name})
+                stack = config.get('stack', None)
+                if stack:
+                    peer_dp = stack['dp']
+                    peer_portno = stack['port']
+                    peer_dpid, _ = dpname_to_dpkey[peer_dp]
+                    if hw_dpid == peer_dpid:
+                        peer_portno = self.port_map['port_%u' % portno]
+                    interfaces_config[portno]['stack'].update({
+                        'port': 'b%u' % peer_portno})
 
             return dp_config
 
@@ -6158,12 +6201,15 @@ class FaucetStringOfDPTest(FaucetTest):
 
         dpid_count = len(dpids)
         config['dps'] = {}
+        dpname_to_dpkey = {
+            dp_name(i): (dpid, i) for i, dpid in enumerate(dpids, start=0)}
 
-        for i, dpid in enumerate(dpids):
-            name = dp_name(i)
+        for name, dpkey in dpname_to_dpkey.items():
+            dpid, i = dpkey
             config['dps'][name] = add_dp(
                 name, dpid, hw_dpid, i, dpid_count, stack,
-                n_tagged, tagged_vid, n_untagged, untagged_vid)
+                n_tagged, tagged_vid, n_untagged, untagged_vid,
+                dpname_to_dpkey, (first_external and i == 0))
 
         return yaml.dump(config, default_flow_style=False)
 
@@ -6341,6 +6387,25 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
             self.verify_unicast_not_looped()
             self.verify_no_bcast_to_self()
             self.flap_all_switch_ports()
+
+
+class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStackStringOfDPUntaggedTest):
+    """Test topology of stacked datapaths with untagged hosts."""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+
+    def setUp(self): # pylint: disable=invalid-name
+        super(FaucetStackStringOfDPExtLoopProtUntaggedTest, self).setUp()
+        self.build_net(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            untagged_vid=self.VID,
+            switch_to_switch_links=2,
+            hw_dpid=self.hw_dpid,
+            first_external=True)
+        self.start_net()
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):

@@ -68,7 +68,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         """Return set field action."""
         for field in kwds.keys():
             assert (self.table_id == valve_of.ofp.OFPTT_ALL or
-                    field in self.set_fields), (
+                    (self.set_fields and field in self.set_fields)), (
                         '%s not configured as set field in %s' % (field, self.name))
         return valve_of.set_field(**kwds)
 
@@ -87,12 +87,13 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
     def match(in_port=None, vlan=None, # pylint: disable=too-many-arguments
               eth_type=None, eth_src=None, eth_dst=None, eth_dst_mask=None,
               icmpv6_type=None, nw_proto=None, nw_dst=None, metadata=None,
-              metadata_mask=None):
+              metadata_mask=None, vlan_pcp=None):
         """Compose an OpenFlow match rule."""
         match_dict = valve_of.build_match_dict(
             in_port, vlan, eth_type, eth_src,
             eth_dst, eth_dst_mask, icmpv6_type,
-            nw_proto, nw_dst, metadata, metadata_mask)
+            nw_proto, nw_dst, metadata, metadata_mask,
+            vlan_pcp)
         return valve_of.match(match_dict)
 
     def _verify_flowmod(self, flowmod):
