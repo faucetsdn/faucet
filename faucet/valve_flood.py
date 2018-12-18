@@ -507,13 +507,6 @@ class ValveFloodStackManager(ValveFloodManager):
         """Return True if this datapath is the root of the stack."""
         return 'priority' in self.stack
 
-    def _port_is_dp_local(self, port):
-        """Return True if port is on this datapath."""
-        if (port in self.away_from_root_stack_ports or
-                port in self.towards_root_stack_ports):
-            return False
-        return True
-
     def _edge_dp_for_host(self, other_valves, pkt_meta):
         """Simple distributed unicast learning.
 
