@@ -940,7 +940,7 @@ class Valve:
                     other_actor_system = other_lag_port.dyn_last_lacp_pkt.actor_system
                     if actor_system != other_actor_system:
                         self.logger.error(
-                            'actor system mismatch %s: %s, %s %s' % (
+                            'LACP actor system mismatch %s: %s, %s %s' % (
                                 pkt_meta.port, actor_system,
                                 other_lag_port, other_actor_system))
         return ofmsgs
