@@ -4435,7 +4435,7 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     ETH_TYPE = IPV4_ETH
 
     def _vids():
-        return [i for i in range(100, 164)]
+        return [i for i in range(100, 148)]
 
     def global_vid():
         return 2047
@@ -4476,11 +4476,11 @@ vlans:
     CONFIG = """
         global_vlan: %u 
         proactive_learn_v4: True
-        max_wildcard_table_size: 512
+        max_wildcard_table_size: 1024
         table_sizes:
-            vlan: 256
-            vip: 128
-            flood: 384
+            vlan: %u
+            vip: %u
+            flood: %u
         interfaces:
             %s:
                 name: b3
@@ -4498,7 +4498,11 @@ vlans:
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
-""" % (global_vid(), '%(port_3)d', '%(port_1)d', '%(port_1)d',
+""" % (global_vid(),
+        len(STR_VIDS) * 3, # VLAN
+        len(STR_VIDS) * 2, # VIP
+        len(STR_VIDS) * 12, # Flood
+        '%(port_3)d', '%(port_1)d', '%(port_1)d',
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
