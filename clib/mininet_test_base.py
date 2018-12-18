@@ -2082,6 +2082,15 @@ dbs:
             return [log_line for log_line in log_file if exp_re.match(log_line)]
         return []
 
+    def wait_until_matching_lines_from_file(self, exp, log_name, timeout=30):
+        """Require matching lines to be present in file."""
+        for _ in range(timeout):
+            lines = self.matching_lines_from_file(exp, log_name)
+            if lines:
+                return lines
+            time.sleep(1)
+        self.fail('%s not found in %s' % (exp, log_name))
+
     def exabgp_updates(self, exabgp_log, timeout=60):
         """Verify that exabgp process has received BGP updates."""
         controller = self._get_controller()
@@ -2098,11 +2107,8 @@ dbs:
 
     def wait_exabgp_sent_updates(self, exabgp_log_name):
         """Verify that exabgp process has sent BGP updates."""
-        for _ in range(60):
-            if self.matching_lines_from_file(r'.+>> [1-9]+[0-9]* UPDATE.+', exabgp_log_name):
-                return
-            time.sleep(1)
-        self.fail('exabgp did not send BGP updates')
+        self.wait_until_matching_lines_from_file(
+            r'.+>> [1-9]+[0-9]* UPDATE.+', exabgp_log_name, timeout=60)
 
     def start_wpasupplicant(self, host, wpasupplicant_conf, timeout=10, log_prefix='',
                             wpa_ctrl_socket_path=''):

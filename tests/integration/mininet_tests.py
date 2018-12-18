@@ -1384,11 +1384,8 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         if timeout is None:
             timeout = self.DB_TIMEOUT * 3 * 2
         gauge_log_name = self.env['gauge']['GAUGE_LOG']
-        for _ in range(timeout):
-            if self.matching_lines_from_file(r'.+error shipping.+', gauge_log_name):
-                return
-            time.sleep(1)
-        self.fail('Influx error not noted in %s' % gauge_log_name)
+        self.wait_until_matching_lines_from_file(
+            r'.+error shipping.+', gauge_log_name, timeout=timeout)
 
     def _verify_influx_log(self):
         self.assertTrue(os.path.exists(self.influx_log))
@@ -3276,6 +3273,28 @@ details partner lacp pdu:
         self.assertEqual(2, prom_lag_status())
         self.one_ipv4_ping(
             first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+
+
+class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
+    """Ensure remote LACP system ID mismatch is logged."""
+
+    def test_untagged(self):
+        first_host = self.net.hosts[0]
+        orig_ip = first_host.IP()
+        switch = self.net.switches[0]
+        bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
+        for i, bond_member in enumerate(bond_members):
+            bond = 'bond%u' % i
+            self.quiet_commands(first_host, (
+                'ip link set %s down' % bond_member,
+                'ip address flush dev %s' % bond_member,
+                ('ip link add %s address 0e:00:00:00:00:%2.2x '
+                 'type bond mode 802.3ad lacp_rate fast miimon 100') % (bond, i*2+i),
+                'ip add add %s/24 dev %s' % (orig_ip, bond),
+                'ip link set %s up' % bond,
+                'ip link set dev %s master %s' % (bond_member, bond)))
+        log_file = os.path.join(self.tmpdir, 'faucet.log')
+        self.wait_until_matching_lines_from_file(r'actor system mismatch', log_file)
 
 
 class FaucetUntaggedIPv4ControlPlaneFuzzTest(FaucetUntaggedTest):
@@ -5422,15 +5441,9 @@ routers:
         self.one_ipv4_ping(first_host, second_host_ip.ip)
         self.one_ipv4_ping(second_host, first_host_ip.ip)
         second_host.cmd('ifconfig %s down' % second_host.defaultIntf().name)
-        log_file_name = os.path.join(self.tmpdir, 'faucet.log')
+        log_file = os.path.join(self.tmpdir, 'faucet.log')
         expired_re = r'.+expiring dead route %s.+' % second_host_ip.ip
-        found_expired = False
-        for _ in range(30):
-            if self.matching_lines_from_file(expired_re, log_file_name):
-                found_expired = True
-                break
-            time.sleep(1)
-        self.assertTrue(found_expired, msg=expired_re)
+        self.wait_until_matching_lines_from_file(expired_re, log_file)
         second_host.cmd('ifconfig %s up' % second_host.defaultIntf().name)
         self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
         self.one_ipv4_ping(second_host, first_host_ip.ip)
