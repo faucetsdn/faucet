@@ -3294,7 +3294,7 @@ class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
                 'ip link set %s up' % bond,
                 'ip link set dev %s master %s' % (bond_member, bond)))
         log_file = os.path.join(self.tmpdir, 'faucet.log')
-        self.wait_until_matching_lines_from_file(r'actor system mismatch', log_file)
+        self.wait_until_matching_lines_from_file(r'.+actor system mismatch.+', log_file)
 
 
 class FaucetUntaggedIPv4ControlPlaneFuzzTest(FaucetUntaggedTest):
