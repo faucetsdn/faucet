@@ -56,8 +56,8 @@ def load_tables(dp, valve_cl): # pylint: disable=invalid-name
         # Set fields and apply actions
         if valve_table.set_fields:
             apply_actions.add(valve_of.ofp.OFPAT_SET_FIELD)
-            # TODO: only select push_vlan when VLAN VID in set_fields.
-            apply_actions.add(valve_of.ofp.OFPAT_PUSH_VLAN)
+            if 'vlan_vid' in valve_table.set_fields:
+                apply_actions.add(valve_of.ofp.OFPAT_PUSH_VLAN)
             oxm_ids = [
                 valve_of.parser.OFPOxmId(type_=field, hasmask=False)
                 for field in valve_table.set_fields]

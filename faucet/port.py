@@ -59,7 +59,9 @@ class Port(Conf):
         'lacp_active': False,
         # experimental active LACP
         'loop_protect': False,
-        # if True, do simple loop protection on this port.
+        # if True, do simple (host/access port) loop protection on this port.
+        'loop_protect_external': False,
+        # if True, do external (other switch) loop protection on this port.
         'output_only': False,
         # if True, all packets input from this port are dropped.
         'lldp_beacon': {},
@@ -95,6 +97,7 @@ class Port(Conf):
         'lacp': int,
         'lacp_active': bool,
         'loop_protect': bool,
+        'loop_protect_external': bool,
         'output_only': bool,
         'lldp_beacon': dict,
         'opstatus_reconf': bool,
@@ -134,6 +137,7 @@ class Port(Conf):
         self.lacp = None
         self.lacp_active = None
         self.loop_protect = None
+        self.loop_protect_external = None
         self.max_hosts = None
         self.max_lldp_lost = None
         self.mirror = None
