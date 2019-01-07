@@ -18,6 +18,7 @@
 # limitations under the License.
 
 from faucet import valve_of
+from faucet.valve_manager_base import ValveManagerBase
 from faucet.conf import InvalidConfigError
 
 
@@ -175,3 +176,27 @@ def build_acl_ofmsgs(acls, acl_table,
             ofmsgs.append(flowmod)
             acl_rule_priority -= 1
     return ofmsgs
+
+class ValveAclManager(ValveManagerBase):
+    """Handle installation of ACLs on a DP"""
+
+    def __init__(self, port_acl_table, vlan_acl_table, pipeline, meters,
+                 dp_acls=None):
+        self.dp_acls = dp_acls
+        self.port_acl_table = port_acl_table
+        self.vlan_acl_table = vlan_acl_table
+        self.pipeline = pipeline
+        self.acl_priority = self._FILTER_PRIORITY
+        self.meters = meters
+
+    def initialise_tables(self):
+        """Install dp acls if configured"""
+        ofmsgs = []
+        if self.dp_acls:
+            acl_allow_inst = self.pipeline.accept_to_vlan()
+            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
+            ofmsgs.extend(build_acl_ofmsgs(
+                self.dp_acls, self.port_acl_table, acl_allow_inst,
+                acl_force_port_vlan_inst, self.acl_priority, self.meters,
+                False))
+        return ofmsgs

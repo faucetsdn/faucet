@@ -202,6 +202,12 @@ class Valve:
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.cache_update_guard_time, self.dp.idle_dst)
+        if 'port_acl' in self.dp.tables or 'vlan_acl' in self.dp.tables:
+            self.acl_manager = valve_acl.ValveAclManager(
+                self.dp.tables.get('port_acl'), self.dp.tables.get('vlan_acl'),
+                self.pipeline, self.dp.meters, self.dp.dp_acls)
+        else:
+            self.acl_manager = None
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
@@ -213,7 +219,8 @@ class Valve:
             self.host_manager,
             self._route_manager_by_ipv.get(4),
             self._route_manager_by_ipv.get(6),
-            self.flood_manager
+            self.flood_manager,
+            self.acl_manager
             )
         for manager in managers:
             if manager is not None:
@@ -317,20 +324,6 @@ class Valve:
                 valve_of.controller_pps_meteradd(pps=self.dp.packetin_pps)]
         return []
 
-    def _add_dp_acls(self):
-        """Add dataplane ACLs, if any."""
-        ofmsgs = []
-        if self.dp.dp_acls:
-            port_acl_table = self.dp.tables['port_acl']
-            acl_allow_inst = self.pipeline.accept_to_vlan()
-            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
-            ofmsgs.extend(valve_acl.build_acl_ofmsgs(
-                self.dp.dp_acls, port_acl_table,
-                acl_allow_inst, acl_force_port_vlan_inst,
-                self.dp.highest_priority, self.dp.meters,
-                False)) # TODO: exact match support for DP ACLs.
-        return ofmsgs
-
     def _add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
         ofmsgs = []
@@ -340,7 +333,6 @@ class Valve:
             for meter in self.dp.meters.values():
                 ofmsgs.append(meter.entry_msg)
         ofmsgs.extend(self._add_default_drop_flows())
-        ofmsgs.extend(self._add_dp_acls())
         return ofmsgs
 
     def _add_vlan(self, vlan):
