@@ -300,8 +300,8 @@ class Valve:
         ofmsgs = []
         if vlan.acls_in:
             acl_table = self.dp.tables['vlan_acl']
-            acl_allow_inst = self.pipeline.accept_to_classification()[0]
-            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()[0]
+            acl_allow_inst = self.pipeline.accept_to_classification()
+            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 vlan.acls_in, acl_table,
                 acl_allow_inst, acl_force_port_vlan_inst,
@@ -322,8 +322,8 @@ class Valve:
         ofmsgs = []
         if self.dp.dp_acls:
             port_acl_table = self.dp.tables['port_acl']
-            acl_allow_inst = port_acl_table.goto(self.dp.tables['vlan'])
-            acl_force_port_vlan_inst = port_acl_table.goto(self.dp.output_table())
+            acl_allow_inst = self.pipeline.accept_to_vlan()
+            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
             ofmsgs.extend(valve_acl.build_acl_ofmsgs(
                 self.dp.dp_acls, port_acl_table,
                 acl_allow_inst, acl_force_port_vlan_inst,
@@ -628,8 +628,8 @@ class Valve:
             return ofmsgs
         acl_table = self.dp.tables['port_acl']
         in_port_match = acl_table.match(in_port=port.number)
-        acl_allow_inst = acl_table.goto(self.dp.tables['vlan'])
-        acl_force_port_vlan_inst = acl_table.goto(self.dp.output_table())
+        acl_allow_inst = self.pipeline.accept_to_vlan()
+        acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
         if cold_start:
             ofmsgs.append(acl_table.flowdel(in_port_match))
         if port.acls_in:
@@ -642,7 +642,7 @@ class Valve:
             ofmsgs.append(acl_table.flowmod(
                 in_port_match,
                 priority=self.dp.highest_priority,
-                inst=[acl_allow_inst]))
+                inst=acl_allow_inst))
         return ofmsgs
 
     def _port_add_vlan_rules(self, port, vlan, mirror_act, push_vlan=True):
