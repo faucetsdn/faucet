@@ -200,3 +200,15 @@ class ValveAclManager(ValveManagerBase):
                 acl_force_port_vlan_inst, self.acl_priority, self.meters,
                 False))
         return ofmsgs
+
+    def add_vlan(self, vlan):
+        """Install vlan acls if configured"""
+        ofmsgs = []
+        if vlan.acls_in:
+            acl_allow_inst = self.pipeline.accept_to_classification()
+            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
+            ofmsgs = build_acl_ofmsgs(
+                vlan.acls_in, self.vlan_acl_table, acl_allow_inst,
+                acl_force_port_vlan_inst, self.acl_priority, self.meters,
+                vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
+        return ofmsgs

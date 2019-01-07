@@ -303,19 +303,6 @@ class Valve:
                     priority=self.dp.lowest_priority))
         return ofmsgs
 
-    def _vlan_add_acl(self, vlan):
-        ofmsgs = []
-        if vlan.acls_in:
-            acl_table = self.dp.tables['vlan_acl']
-            acl_allow_inst = self.pipeline.accept_to_classification()
-            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
-            ofmsgs = valve_acl.build_acl_ofmsgs(
-                vlan.acls_in, acl_table,
-                acl_allow_inst, acl_force_port_vlan_inst,
-                self.dp.highest_priority, self.dp.meters,
-                vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
-        return ofmsgs
-
     def _add_packetin_meter(self):
         """Add rate limiting of packet in pps (not supported by many DPs)."""
         if self.dp.packetin_pps:
@@ -339,8 +326,6 @@ class Valve:
         """Configure a VLAN."""
         ofmsgs = []
         self.logger.info('Configuring %s' % vlan)
-        # add ACL rules
-        ofmsgs.extend(self._vlan_add_acl(vlan))
         for manager in self._get_managers():
             ofmsgs.extend(manager.add_vlan(vlan))
         return ofmsgs
