@@ -599,29 +599,6 @@ class Valve:
         self._inc_var('of_dp_disconnections')
         self._reset_dp_status()
 
-    def _port_add_acl(self, port, cold_start=False):
-        ofmsgs = []
-        if 'port_acl' not in self.dp.tables:
-            return ofmsgs
-        acl_table = self.dp.tables['port_acl']
-        in_port_match = acl_table.match(in_port=port.number)
-        acl_allow_inst = self.pipeline.accept_to_vlan()
-        acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
-        if cold_start:
-            ofmsgs.append(acl_table.flowdel(in_port_match))
-        if port.acls_in:
-            ofmsgs.extend(valve_acl.build_acl_ofmsgs(
-                port.acls_in, acl_table,
-                acl_allow_inst, acl_force_port_vlan_inst,
-                self.dp.highest_priority, self.dp.meters,
-                port.acls_in[0].exact_match, port_num=port.number))
-        elif not port.dot1x:
-            ofmsgs.append(acl_table.flowmod(
-                in_port_match,
-                priority=self.dp.highest_priority,
-                inst=acl_allow_inst))
-        return ofmsgs
-
     def _port_add_vlan_rules(self, port, vlan, mirror_act, push_vlan=True):
         vlan_table = self.dp.tables['vlan']
         actions = copy.copy(mirror_act)
@@ -717,10 +694,6 @@ class Valve:
             if self.dp.dot1x:
                 if port.dot1x or port.number == self.dp.dot1x['nfv_sw_port']:
                     ofmsgs.extend(self.dot1x.port_up(self, port))
-
-            if not self.dp.dp_acls:
-                acl_ofmsgs = self._port_add_acl(port)
-                ofmsgs.extend(acl_ofmsgs)
 
             port_vlans = port.vlans()
 
@@ -1379,8 +1352,7 @@ class Valve:
             self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
-                ofmsgs.extend(self._port_add_acl(port, cold_start=True))
-
+                ofmsgs.extend(self.acl_manager.cold_start_port(port))
         return False, ofmsgs
 
     def reload_config(self, now, new_dp):

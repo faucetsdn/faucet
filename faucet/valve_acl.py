@@ -201,6 +201,37 @@ class ValveAclManager(ValveManagerBase):
                 False))
         return ofmsgs
 
+    def add_port(self, port):
+        """Install port acls if configured"""
+        ofmsgs = []
+        if self.port_acl_table is None or self.dp_acls is not None:
+            return ofmsgs
+
+        in_port_match = self.port_acl_table.match(in_port=port.number)
+        acl_allow_inst = self.pipeline.accept_to_vlan()
+        acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
+        if port.acls_in:
+            ofmsgs.extend(build_acl_ofmsgs(
+                port.acls_in, self.port_acl_table,
+                acl_allow_inst, acl_force_port_vlan_inst,
+                self.acl_priority, self.meters,
+                port.acls_in[0].exact_match, port_num=port.number))
+        elif not port.dot1x:
+            ofmsgs.append(self.port_acl_table.flowmod(
+                in_port_match,
+                priority=self.acl_priority,
+                inst=acl_allow_inst))
+        return ofmsgs
+
+    def cold_start_port(self, port):
+        """Reload acl for a port by deleting existing rules and calling
+        add_port"""
+        ofmsgs = []
+        in_port_match = self.port_acl_table.match(in_port=port.number)
+        ofmsgs.append(self.port_acl_table.flowdel(in_port_match))
+        ofmsgs.extend(self.add_port(port))
+        return ofmsgs
+
     def add_vlan(self, vlan):
         """Install vlan acls if configured"""
         ofmsgs = []
