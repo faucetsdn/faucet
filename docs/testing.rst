@@ -92,16 +92,31 @@ to the dataplane, and one for the CPN for OpenFlow. You will need to assign
 an IP address to the CPN interface on the host, and configure the switch
 with a CPN IP address and establish that they can reach each other (eg via ping).
 
-NOTE: it is very important to disable any process that cause any traffic
-on the dataplane test interfaces, as this may interfere with the tests.
-For example, the test interfaces should have all IPv4/IPv6 dynamic
-address assignment disabled. To achieve this, on Ubuntu for example, you
-can set the interfaces to "unmanaged" in Network Manager, and make sure
-processes like `Avahi <http://manpages.ubuntu.com/manpages/xenial/en/man5/avahi-daemon.conf.5.html>`_ ignores those interfaces.
-
 You will need to configure the switch with two OpenFlow controllers, both
 with the host's CPN IP address, but with different ports (defaults are given
 below for *of_port* and *gauge_of_port*).
+
+  .. note::
+     It is very important to disable any process that could cause any
+     traffic on the dataplane test interfaces, and the test interfaces
+     should have all IPv4/IPv6 dynamic address assignment disabled.
+     To achieve this, on Ubuntu for example, you can set the interfaces
+     to "unmanaged" in Network Manager, and make sure processes like
+     `Avahi <http://manpages.ubuntu.com/manpages/xenial/en/man5/avahi-daemon.conf.5.html>`_
+     ignores the test interfaces.
+
+  .. note::
+     Hardware tests must not be run from virtualized hosts (such as under
+     VMware). The tests need to control physical port status, and need
+     low level L2 packet access (eg. to rewrite Ethernet source and
+     destination addresses) which virtualization may interfere with.
+
+  .. note::
+     Hardware tests require the test switch to have all non-OpenFlow
+     switching/other features (eg. RSTP, DHCP) disabled on the
+     dataplane test interfaces. These features will conflict with
+     the functions FAUCET itself provides (and in turn the tests).
+
 
 It is assumed that you execute all following commands from your FAUCET
 source code directory (eg one you have git cloned).
