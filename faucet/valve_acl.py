@@ -243,3 +243,22 @@ class ValveAclManager(ValveManagerBase):
                 acl_force_port_vlan_inst, self.acl_priority, self.meters,
                 vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
         return ofmsgs
+
+    def add_authed_mac(self, port_num, mac):
+        """Add authed mac address"""
+        return [self.port_acl_table.flowmod(
+            self.port_acl_table.match(in_port=port_num, eth_src=mac),
+            priority=self.acl_priority,
+            inst=self.pipeline.accept_to_vlan())]
+
+    def del_authed_mac(self, port_num, mac=None):
+        """remove authed mac address"""
+        if mac:
+            return [self.port_acl_table.flowdel(
+                self.port_acl_table.match(in_port=port_num, eth_src=mac),
+                priority=self.acl_priority,
+                strict=True)]
+        return [self.port_acl_table.flowdel(
+            self.port_acl_table.match(in_port=port_num),
+            priority=self.acl_priority,
+            strict=True)]
