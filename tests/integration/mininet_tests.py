@@ -6269,6 +6269,27 @@ class FaucetStringOfDPTest(FaucetTest):
                     {'dl_dst': '01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
                     dpid=dpid, table_id=self._FLOOD_TABLE, ofa_match=False)
 
+    def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
+        labels = self.port_labels(port_no)
+        labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
+        for _ in range(timeout):
+            actual_status = self.scrape_prometheus_var(
+                'port_stack_state', labels=labels, default=None)
+            if actual_status == status:
+                return
+            time.sleep(1)
+        self.assertEqual(
+            status, actual_status, msg='expected dpid %x port %u port_stack_state %u != actual %s' % (
+                int(dpid), port_no, status, str(actual_status)))
+
+    def verify_all_stack_up(self):
+        port_base = self.NUM_HOSTS + 1
+        for i, dpid in enumerate(self.dpids, start=1):
+            dp_name = 'faucet-%u' % i
+            for port_no in range(self.topo.switch_to_switch_links):
+                self.wait_for_stack_port_status(
+                    dpid, dp_name, port_base + port_no, 3) # up
+
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
@@ -6445,29 +6466,8 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.start_net()
         self.first_host = self.net.hosts[0]
         self.second_host = self.net.hosts[1]
-        self.fifth_host = self.net.hosts[self.NUM_HOSTS + self.NUM_DPS - 1]
-        self.last_host = self.net.hosts[self.NUM_HOSTS + self.NUM_DPS]
-
-    def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
-        labels = self.port_labels(port_no, dpid)
-        labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
-        for _ in range(timeout):
-            actual_status = self.scrape_prometheus_var(
-                'port_stack_state', labels=labels, default=None)
-            if actual_status == status:
-                return
-            time.sleep(1)
-        self.assertEqual(
-            status, actual_status, msg='expected dpid %x port %u port_stack_state %u != actual %s' % (
-                int(dpid), port_no, status, str(actual_status)))
-
-    def verify_all_stack_up(self):
-        port_base = self.NUM_HOSTS + 1
-        for i, dpid in enumerate(self.dpids, start=1):
-            dp_name = 'faucet-%u' % i
-            for port_no in range(self.topo.switch_to_switch_links):
-                self.wait_for_stack_port_status(
-                    dpid, dp_name, port_base + port_no, 3) # up
+        self.fifth_host = self.net.hosts[4]
+        self.last_host = self.net.hosts[self.NUM_HOSTS * self.NUM_DPS - 1]
 
     def verify_stack_has_no_loop(self):
         tcpdump_filter = 'ether src %s' % self.first_host.MAC()
@@ -6741,6 +6741,82 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self.verify_no_cable_errors()
+
+
+class FaucetTunnelTest(FaucetStringOfDPTest):
+
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+    SWITCH_TO_SWITCH_LINKS = 2
+    VID = 100
+    ACLS = {
+        1: [
+            {'rule': {
+                'dl_type': IPV4_ETH,
+                'ip_proto': 1,
+                'actions': {
+                    'allow': 0,
+                    'output': {
+                        'tunnel': {'type': 'vlan', 'tunnel_id': 200, 'dp': 'faucet-2', 'port': 1}
+                    }
+                }
+            }}
+        ]
+    }
+    
+    # DP-to-acl_in port mapping.
+    ACL_IN_DP = {
+        'faucet-1': {
+            # Port 1, acl_in = 1
+            1: 1,
+        }
+    }
+
+    def setUp(self): # pylint: disable=invalid-name
+        super(FaucetTunnelTest, self).setUp()
+        self.build_net(
+            stack=True,
+            n_dps = self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            untagged_vid=self.VID,
+            acls=self.ACLS,
+            acl_in_dp=self.ACL_IN_DP,
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+        )
+        self.start_net()
+
+    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=1):
+        """check if a tunnel is created by pinging from src->other and seeing request in dst"""
+        tcpdump_filter = 'icmp'
+        tcpdump_text = self.tcpdump_helper(
+            dst_host, tcpdump_filter, [
+                lambda: src_host.cmd('ping -c%u %s' % (packets, other_host.IP()))
+            ],
+        )
+        self.assertFalse(re.search(
+            '%s: ICMP echo request' % other_host.IP(), tcpdump_text
+        ), 'Tunnel was not established')
+
+    def test_tunnel_established(self):
+        """test a tunnel path can be created"""
+        self.verify_all_stack_up()
+        src_host = self.net.hosts[0]
+        dst_host = self.net.hosts[2]
+        other_host = self.net.hosts[1]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+
+    def test_tunnel_path_rerouted(self):
+        """test a tunnel path is rerouted when a stack is down"""
+        self.verify_all_stack_up()
+        self.one_stack_port_down(3)
+        src_host = self.net.hosts[0]
+        dst_host = self.net.hosts[2]
+        other_host = self.net.hosts[1]
+        self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
+    
+    def one_stack_port_down(self, stack_port):
+        self.set_port_down(stack_port, self.dpid)
+        self.wait_for_stack_port_status(self.dpid, self.DP_NAME, stack_port, 2)
 
 
 class FaucetGroupTableTest(FaucetUntaggedTest):

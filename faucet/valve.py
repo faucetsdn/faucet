@@ -553,6 +553,50 @@ class Valve:
             port_stack_up = port.is_stack_up()
             for valve in [self] + other_valves:
                 valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+                valve.update_tunnel_flowrules()
+
+    def update_tunnel_flowrules(self):
+        """Update tunnel ACL rules because the stack topology has changed"""
+        if self.dp.tunnel_acls:
+            for tunnel_id, tunnel_acl in self.dp.tunnel_acls.items():
+                updated = tunnel_acl.update_tunnel_acl_conf(self.dp)
+                if updated:
+                    self.dp.tunnel_updated_flags[tunnel_id] = True
+                    self.logger.info('%s updated tunnel %s' % (self.dp.name, tunnel_id))
+
+    def get_tunnel_flowmods(self):
+        """Returns flowmods for the tunnels"""
+        ofmsgs = []
+        if self.dp.tunnel_acls:
+            for tunnel_id, tunnel_acl in self.dp.tunnel_acls.items():
+                if not self.dp.tunnel_updated_flags[tunnel_id]:
+                    continue
+                self.logger.info('Applying tunnel %s' % tunnel_id)
+                in_port_match = tunnel_acl.get_in_port_match(tunnel_id)
+                vlan_match = None
+                if in_port_match is None:
+                    vlan_match = tunnel_id
+                    vlan_table = self.dp.tables['vlan']
+                    acl_table = self.dp.tables['vlan_acl']
+                    acl_allow_inst = None
+                    acl_force_port_vlan_inst = None
+                    ofmsgs.append(vlan_table.flowmod(
+                        match=vlan_table.match(vlan=tunnel_id),
+                        priority=self.dp.highest_priority,
+                        inst=[vlan_table.goto(acl_table)]
+                    ))
+                else:
+                    acl_table = self.dp.tables['port_acl']
+                    acl_allow_inst = self.pipeline.accept_to_vlan()
+                    acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
+                ofmsgs.extend(valve_acl.build_acl_ofmsgs(
+                    [tunnel_acl], acl_table,
+                    acl_allow_inst, acl_force_port_vlan_inst,
+                    self.dp.highest_priority, self.dp.meters, False,
+                    in_port_match, vlan_match
+                ))
+                self.dp.tunnel_updated_flags[tunnel_id] = False
+        return ofmsgs
 
     def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""
@@ -1215,8 +1259,11 @@ class Valve:
                 lacp_ofmsgs = self.lacp_handler(now, pkt_meta)
                 if lacp_ofmsgs:
                     return lacp_ofmsgs
-            self.lldp_handler(now, pkt_meta, other_valves)
             # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
+            self.lldp_handler(now, pkt_meta, other_valves)
+            tunnel_ofmsgs = self.get_tunnel_flowmods()
+            if tunnel_ofmsgs:
+                return tunnel_ofmsgs
             return ofmsgs
 
         self._inc_var('of_vlan_packet_ins')
