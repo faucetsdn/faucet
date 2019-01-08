@@ -80,6 +80,7 @@ class Valve:
         'flood_manager',
         'host_manager',
         'pipeline',
+        'acl_manager',
         'logger',
         'logname',
         'metrics',
