@@ -34,6 +34,7 @@ class ValvePipeline(ValveManagerBase):
 
     def __init__(self, dp):
         self.dp = dp
+        self.vlan_table = dp.tables['vlan']
         self.classification_table = dp.classification_table()
         self.output_table = dp.output_table()
         self.egress_table = None
@@ -47,6 +48,16 @@ class ValvePipeline(ValveManagerBase):
         if actions is not None:
             inst.append(valve_of.apply_actions(actions))
         return inst
+
+    def accept_to_vlan(self, actions=None):
+        """Get instructions to forward packet through the pipeline to
+        vlan table.
+        args:
+            actions: (optional) list of actions to apply to packet.
+        returns:
+            list of instructions
+        """
+        return self._accept_to_table(self.vlan_table, actions)
 
     def accept_to_classification(self, actions=None):
         """Get instructions to forward packet through the pipeline to

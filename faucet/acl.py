@@ -158,8 +158,8 @@ The output action contains a dictionary with the following elements:
             try:
                 ofmsgs = valve_acl.build_acl_ofmsgs(
                     [self], wildcard_table,
-                    valve_of.goto_table(wildcard_table),
-                    valve_of.goto_table(wildcard_table),
+                    [valve_of.goto_table(wildcard_table)],
+                    [valve_of.goto_table(wildcard_table)],
                     2**16-1, meters, self.exact_match,
                     vlan_vid=vid, port_num=port_num)
             except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:

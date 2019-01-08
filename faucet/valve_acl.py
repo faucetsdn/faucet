@@ -136,7 +136,7 @@ def build_acl_entry(acl_table, rule_conf, meters,
                     continue
 
             if allow:
-                acl_inst.append(allow_inst)
+                acl_inst.extend(allow_inst)
         else:
             acl_match_dict[attrib] = attrib_value
     if port_num is not None:
