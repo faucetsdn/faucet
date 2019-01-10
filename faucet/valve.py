@@ -693,8 +693,14 @@ class Valve:
                     ofmsgs.append(valve_of.packetout(port.number, pkt.data))
 
             if self.dp.dot1x:
-                if port.dot1x or port.number == self.dp.dot1x['nfv_sw_port']:
-                    ofmsgs.extend(self.dot1x.port_up(self, port))
+                nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
+                if port == nfv_sw_port:
+                    ofmsgs.extend(self.dot1x.nfv_sw_port_up(
+                        self.dp.dp_id, self.dp.dot1x_ports(), nfv_sw_port,
+                        self.acl_manager))
+                elif port.dot1x:
+                    ofmsgs.extend(self.dot1x.port_up(
+                        self.dp.dp_id, port, nfv_sw_port, self.acl_manager))
 
             port_vlans = port.vlans()
 
@@ -758,7 +764,12 @@ class Valve:
             vlans_with_deleted_ports.update({vlan for vlan in port.vlans()})
 
             if port.dot1x:
-                ofmsgs.extend(self.dot1x.port_down(self, port))
+                ofmsgs.extend(self.dot1x.port_down(
+                    self.dp.dp_id,
+                    port,
+                    self.dp.ports[self.dp.dot1x['nfv_sw_port']],
+                    self.acl_manager
+                    ))
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
             else:
