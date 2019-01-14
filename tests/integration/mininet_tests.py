@@ -1835,7 +1835,7 @@ vlans:
     CONFIG = CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
-        self.net.pingAll()
+        self.pingAll()
         learned_hosts = [
             host for host in self.net.hosts if self.host_learned(host)]
         self.assertEqual(2, len(learned_hosts))
@@ -2491,7 +2491,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.ping_all_when_learned(hard_timeout=0)
         original_third_host_mac = third_host.MAC()
         third_host.setMAC(first_host.MAC())
-        self.assertEqual(100.0, self.net.ping((second_host, third_host)))
+        self.assertEqual(100.0, self.ping((second_host, third_host)))
         self.retry_net_ping(hosts=(first_host, second_host))
         third_host.setMAC(original_third_host_mac)
         self.ping_all_when_learned(hard_timeout=0)
@@ -2566,7 +2566,7 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
 """
 
     def _verify_hosts_learned(self, hosts):
-        self.net.pingAll()
+        self.pingAll()
         for host in hosts:
             self.require_host_learned(host)
         self.assertEqual(len(hosts), self.scrape_prometheus_var(
@@ -2952,7 +2952,7 @@ class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
         first_host, second_host = self.net.hosts[0:2]
         self.retry_net_ping(hosts=(first_host, second_host))
         self.swap_host_macs(first_host, second_host)
-        self.net.ping((first_host, second_host))
+        self.ping((first_host, second_host))
         for host, in_port in (
                 (first_host, self.port_map['port_1']),
                 (second_host, self.port_map['port_2'])):
@@ -2997,7 +2997,7 @@ vlans:
         # 3rd host impersonates 1st but 1st host still OK
         original_third_host_mac = third_host.MAC()
         third_host.setMAC(first_host.MAC())
-        self.assertEqual(100.0, self.net.ping((second_host, third_host)))
+        self.assertEqual(100.0, self.ping((second_host, third_host)))
         self.assertTrue(self.prom_mac_learned(first_host.MAC(), port=self.port_map['port_1']))
         self.assertFalse(self.prom_mac_learned(first_host.MAC(), port=self.port_map['port_3']))
         self.retry_net_ping(hosts=(first_host, second_host))
@@ -3574,7 +3574,7 @@ vlans:
         self.retry_net_ping(hosts=untagged_host_pair)
         # hosts cannot ping hosts in other VLANs
         self.assertEqual(
-            100, self.net.ping([tagged_host_pair[0], untagged_host_pair[0]]))
+            100, self.ping([tagged_host_pair[0], untagged_host_pair[0]]))
 
 
 class FaucetUntaggedACLTest(FaucetUntaggedTest):
@@ -3840,8 +3840,8 @@ class FaucetUntaggedOutputOnlyTest(FaucetUntaggedTest):
             table_id=self._VLAN_TABLE,
             actions=[])
         first_host, second_host, third_host = self.net.hosts[:3]
-        self.assertEqual(100.0, self.net.ping((first_host, second_host)))
-        self.assertEqual(0, self.net.ping((third_host, second_host)))
+        self.assertEqual(100.0, self.ping((first_host, second_host)))
+        self.assertEqual(0, self.ping((third_host, second_host)))
 
 
 class FaucetUntaggedACLMirrorTest(FaucetUntaggedTest):
@@ -4474,7 +4474,7 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def fping(self, macvlan_int, ipg):
         return 'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
-    def ping(self, host, ipa, macvlan_int):
+    def macvlan_ping(self, host, ipa, macvlan_int):
         return self.one_ipv4_ping(host, ipa, intf=macvlan_int)
 
     def ip(self, args):
@@ -4593,8 +4593,8 @@ vlans:
             macvlan_int = 'macvlan%u' % vid
             first_host_ip = self.netbase(vid, 1)
             second_host_ip = self.netbase(vid, 2)
-            self.ping(first_host, second_host_ip.ip, macvlan_int)
-            self.ping(second_host, first_host_ip.ip, macvlan_int)
+            self.macvlan_ping(first_host, second_host_ip.ip, macvlan_int)
+            self.macvlan_ping(second_host, first_host_ip.ip, macvlan_int)
 
         # verify L3 hairpin reachability
         macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
@@ -4614,7 +4614,7 @@ vlans:
         setup_cmds.append(
             self.ip('route add %s via %s' % (macvlan2_ip, macvlan1_gw.ip)))
         self.quiet_commands(first_host, setup_cmds)
-        self.ping(first_host, macvlan2_ip.ip, macvlan1_int)
+        self.macvlan_ping(first_host, macvlan2_ip.ip, macvlan1_int)
 
         # Verify mirror.
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
@@ -4648,7 +4648,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     def fping(self, macvlan_int, ipg):
         return 'fping6 -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
-    def ping(self, host, ipa, macvlan_int):
+    def macvlan_ping(self, host, ipa, macvlan_int):
         return self.one_ipv6_ping(host, ipa, intf=macvlan_int, timeout=2)
 
     def ip(self, args):

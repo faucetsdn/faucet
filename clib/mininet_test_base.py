@@ -1457,7 +1457,7 @@ dbs:
 
     def verify_ping_mirrored(self, first_host, second_host, mirror_host, both_mirrored=False):
         """Verify that unicast traffic to and from a mirrored port is mirrored."""
-        self.net.ping((first_host, second_host))
+        self.ping((first_host, second_host))
         for host in (first_host, second_host):
             self.require_host_learned(host)
         self.retry_net_ping(hosts=(first_host, second_host))
@@ -1481,7 +1481,7 @@ dbs:
 
     def verify_bcast_ping_mirrored(self, first_host, second_host, mirror_host, tagged=False):
         """Verify that broadcast to a mirrored port, is mirrored."""
-        self.net.ping((first_host, second_host))
+        self.ping((first_host, second_host))
         for host in (first_host, second_host):
             self.require_host_learned(host)
         self.retry_net_ping(hosts=(first_host, second_host))
@@ -1520,7 +1520,7 @@ dbs:
 
         # Prepare our ping pairs
         for hosts in ping_pairs:
-            self.net.ping(hosts)
+            self.ping(hosts)
         for hosts in ping_pairs:
             for host in hosts:
                 self.require_host_learned(host)
@@ -1561,7 +1561,7 @@ dbs:
                         msg=tcpdump_txt)
 
     def verify_eapol_mirrored(self, first_host, second_host, mirror_host):
-        self.net.ping((first_host, second_host))
+        self.ping((first_host, second_host))
         for host in (first_host, second_host):
             self.require_host_learned(host)
         self.retry_net_ping(hosts=(first_host, second_host))
@@ -1595,7 +1595,7 @@ dbs:
             first_host, unicast_flood_filter,
             [lambda: second_host.cmd(static_bogus_arp),
              lambda: second_host.cmd(curl_first_host),
-             lambda: self.net.ping(hosts=(second_host, third_host))])
+             lambda: self.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
     def verify_lldp_blocked(self, hosts=None):
@@ -1910,11 +1910,19 @@ dbs:
         # self.verify_ipv6_host_learned_mac(
         #    host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
+    def pingAll(self, timeout=3):
+        """Provide reasonable timeout default to Mininet's pingAll()."""
+        return self.net.pingAll(timeout=timeout)
+
+    def ping(self, hosts, timeout=3):
+        """Provide reasonable timeout default to Mininet's ping().""" 
+        return self.net.ping(hosts, timeout=timeout)
+
     def retry_net_ping(self, hosts=None, required_loss=0, retries=3, timeout=2):
         loss = None
         for _ in range(retries):
             if hosts is None:
-                loss = self.net.pingAll(timeout=timeout)
+                loss = self.pingAll(timeout=timeout)
             else:
                 loss = self.net.ping(hosts, timeout=timeout)
             if loss <= required_loss:
@@ -2145,10 +2153,10 @@ dbs:
         return wpasupplicant_log
 
     def ping_all_when_learned(self, retries=3, hard_timeout=1):
-        """Verify all hosts can ping each other once FAUCET has learned all."""
+        """Verify all hosts can ping each other once FAUCET has learned them all."""
         # Cause hosts to send traffic that FAUCET can use to learn them.
         for _ in range(retries):
-            loss = self.net.pingAll()
+            loss = self.pingAll()
             # we should have learned all hosts now, so should have no loss.
             for host in self.net.hosts:
                 self.require_host_learned(host, hard_timeout=hard_timeout)
