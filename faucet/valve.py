@@ -80,6 +80,7 @@ class Valve:
         'flood_manager',
         'host_manager',
         'pipeline',
+        'acl_manager',
         'logger',
         'logname',
         'metrics',
@@ -202,6 +203,12 @@ class Valve:
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.cache_update_guard_time, self.dp.idle_dst)
+        if 'port_acl' in self.dp.tables or 'vlan_acl' in self.dp.tables:
+            self.acl_manager = valve_acl.ValveAclManager(
+                self.dp.tables.get('port_acl'), self.dp.tables.get('vlan_acl'),
+                self.pipeline, self.dp.meters, self.dp.dp_acls)
+        else:
+            self.acl_manager = None
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
@@ -213,7 +220,8 @@ class Valve:
             self.host_manager,
             self._route_manager_by_ipv.get(4),
             self._route_manager_by_ipv.get(6),
-            self.flood_manager
+            self.flood_manager,
+            self.acl_manager
             )
         for manager in managers:
             if manager is not None:
@@ -296,19 +304,6 @@ class Valve:
                     priority=self.dp.lowest_priority))
         return ofmsgs
 
-    def _vlan_add_acl(self, vlan):
-        ofmsgs = []
-        if vlan.acls_in:
-            acl_table = self.dp.tables['vlan_acl']
-            acl_allow_inst = self.pipeline.accept_to_classification()
-            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
-            ofmsgs = valve_acl.build_acl_ofmsgs(
-                vlan.acls_in, acl_table,
-                acl_allow_inst, acl_force_port_vlan_inst,
-                self.dp.highest_priority, self.dp.meters,
-                vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
-        return ofmsgs
-
     def _add_packetin_meter(self):
         """Add rate limiting of packet in pps (not supported by many DPs)."""
         if self.dp.packetin_pps:
@@ -316,20 +311,6 @@ class Valve:
                 valve_of.controller_pps_meterdel(),
                 valve_of.controller_pps_meteradd(pps=self.dp.packetin_pps)]
         return []
-
-    def _add_dp_acls(self):
-        """Add dataplane ACLs, if any."""
-        ofmsgs = []
-        if self.dp.dp_acls:
-            port_acl_table = self.dp.tables['port_acl']
-            acl_allow_inst = self.pipeline.accept_to_vlan()
-            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
-            ofmsgs.extend(valve_acl.build_acl_ofmsgs(
-                self.dp.dp_acls, port_acl_table,
-                acl_allow_inst, acl_force_port_vlan_inst,
-                self.dp.highest_priority, self.dp.meters,
-                False)) # TODO: exact match support for DP ACLs.
-        return ofmsgs
 
     def _add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
@@ -340,15 +321,12 @@ class Valve:
             for meter in self.dp.meters.values():
                 ofmsgs.append(meter.entry_msg)
         ofmsgs.extend(self._add_default_drop_flows())
-        ofmsgs.extend(self._add_dp_acls())
         return ofmsgs
 
     def _add_vlan(self, vlan):
         """Configure a VLAN."""
         ofmsgs = []
         self.logger.info('Configuring %s' % vlan)
-        # add ACL rules
-        ofmsgs.extend(self._vlan_add_acl(vlan))
         for manager in self._get_managers():
             ofmsgs.extend(manager.add_vlan(vlan))
         return ofmsgs
@@ -622,29 +600,6 @@ class Valve:
         self._inc_var('of_dp_disconnections')
         self._reset_dp_status()
 
-    def _port_add_acl(self, port, cold_start=False):
-        ofmsgs = []
-        if 'port_acl' not in self.dp.tables:
-            return ofmsgs
-        acl_table = self.dp.tables['port_acl']
-        in_port_match = acl_table.match(in_port=port.number)
-        acl_allow_inst = self.pipeline.accept_to_vlan()
-        acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
-        if cold_start:
-            ofmsgs.append(acl_table.flowdel(in_port_match))
-        if port.acls_in:
-            ofmsgs.extend(valve_acl.build_acl_ofmsgs(
-                port.acls_in, acl_table,
-                acl_allow_inst, acl_force_port_vlan_inst,
-                self.dp.highest_priority, self.dp.meters,
-                port.acls_in[0].exact_match, port_num=port.number))
-        elif not port.dot1x:
-            ofmsgs.append(acl_table.flowmod(
-                in_port_match,
-                priority=self.dp.highest_priority,
-                inst=acl_allow_inst))
-        return ofmsgs
-
     def _port_add_vlan_rules(self, port, vlan, mirror_act, push_vlan=True):
         vlan_table = self.dp.tables['vlan']
         actions = copy.copy(mirror_act)
@@ -738,12 +693,14 @@ class Valve:
                     ofmsgs.append(valve_of.packetout(port.number, pkt.data))
 
             if self.dp.dot1x:
-                if port.dot1x or port.number == self.dp.dot1x['nfv_sw_port']:
-                    ofmsgs.extend(self.dot1x.port_up(self, port))
-
-            if not self.dp.dp_acls:
-                acl_ofmsgs = self._port_add_acl(port)
-                ofmsgs.extend(acl_ofmsgs)
+                nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
+                if port == nfv_sw_port:
+                    ofmsgs.extend(self.dot1x.nfv_sw_port_up(
+                        self.dp.dp_id, self.dp.dot1x_ports(), nfv_sw_port,
+                        self.acl_manager))
+                elif port.dot1x:
+                    ofmsgs.extend(self.dot1x.port_up(
+                        self.dp.dp_id, port, nfv_sw_port, self.acl_manager))
 
             port_vlans = port.vlans()
 
@@ -807,7 +764,12 @@ class Valve:
             vlans_with_deleted_ports.update({vlan for vlan in port.vlans()})
 
             if port.dot1x:
-                ofmsgs.extend(self.dot1x.port_down(self, port))
+                ofmsgs.extend(self.dot1x.port_down(
+                    self.dp.dp_id,
+                    port,
+                    self.dp.ports[self.dp.dot1x['nfv_sw_port']],
+                    self.acl_manager
+                    ))
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
             else:
@@ -1402,8 +1364,7 @@ class Valve:
             self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
-                ofmsgs.extend(self._port_add_acl(port, cold_start=True))
-
+                ofmsgs.extend(self.acl_manager.cold_start_port(port))
         return False, ofmsgs
 
     def reload_config(self, now, new_dp):
@@ -1450,28 +1411,10 @@ class Valve:
     def add_authed_mac(self, port_num, mac):
         """Add authed mac address"""
         # TODO: track dynamic auth state.
-        port_acl_table = self.dp.tables['port_acl']
-        return [port_acl_table.flowmod(
-            port_acl_table.match(
-                in_port=port_num,
-                eth_src=mac),
-            priority=self.dp.highest_priority-1,
-            inst=[port_acl_table.goto(self.dp.tables['vlan'])])]
+        return self.acl_manager.add_authed_mac(port_num, mac)
 
     def del_authed_mac(self, port_num, mac=None):
-        port_acl_table = self.dp.tables['port_acl']
-        if mac:
-            return [port_acl_table.flowdel(
-                port_acl_table.match(
-                    in_port=port_num,
-                    eth_src=mac),
-                priority=self.dp.highest_priority-1,
-                strict=True)]
-        return [port_acl_table.flowdel(
-            port_acl_table.match(
-                in_port=port_num),
-            priority=self.dp.highest_priority-1,
-            strict=True)]
+        return self.acl_manager.del_authed_mac(port_num, mac)
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""

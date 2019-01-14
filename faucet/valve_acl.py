@@ -18,6 +18,8 @@
 # limitations under the License.
 
 from faucet import valve_of
+from faucet import valve_packet
+from faucet.valve_manager_base import ValveManagerBase
 from faucet.conf import InvalidConfigError
 
 
@@ -175,3 +177,135 @@ def build_acl_ofmsgs(acls, acl_table,
             ofmsgs.append(flowmod)
             acl_rule_priority -= 1
     return ofmsgs
+
+class ValveAclManager(ValveManagerBase):
+    """Handle installation of ACLs on a DP"""
+
+    def __init__(self, port_acl_table, vlan_acl_table, pipeline, meters,
+                 dp_acls=None):
+        self.dp_acls = dp_acls
+        self.port_acl_table = port_acl_table
+        self.vlan_acl_table = vlan_acl_table
+        self.pipeline = pipeline
+        self.acl_priority = self._FILTER_PRIORITY
+        self.auth_priority = self._HIGH_PRIORITY
+        self.meters = meters
+
+    def initialise_tables(self):
+        """Install dp acls if configured"""
+        ofmsgs = []
+        if self.dp_acls:
+            acl_allow_inst = self.pipeline.accept_to_vlan()
+            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
+            ofmsgs.extend(build_acl_ofmsgs(
+                self.dp_acls, self.port_acl_table, acl_allow_inst,
+                acl_force_port_vlan_inst, self.acl_priority, self.meters,
+                False))
+        return ofmsgs
+
+    def add_port(self, port):
+        """Install port acls if configured"""
+        ofmsgs = []
+        if self.port_acl_table is None or self.dp_acls is not None\
+                or port.output_only:
+            return ofmsgs
+
+        in_port_match = self.port_acl_table.match(in_port=port.number)
+        acl_allow_inst = self.pipeline.accept_to_vlan()
+        acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
+        if port.acls_in:
+            ofmsgs.extend(build_acl_ofmsgs(
+                port.acls_in, self.port_acl_table,
+                acl_allow_inst, acl_force_port_vlan_inst,
+                self.acl_priority, self.meters,
+                port.acls_in[0].exact_match, port_num=port.number))
+        elif not port.dot1x:
+            ofmsgs.append(self.port_acl_table.flowmod(
+                in_port_match,
+                priority=self.acl_priority,
+                inst=acl_allow_inst))
+        return ofmsgs
+
+    def cold_start_port(self, port):
+        """Reload acl for a port by deleting existing rules and calling
+        add_port"""
+        ofmsgs = []
+        in_port_match = self.port_acl_table.match(in_port=port.number)
+        ofmsgs.append(self.port_acl_table.flowdel(in_port_match))
+        ofmsgs.extend(self.add_port(port))
+        return ofmsgs
+
+    def add_vlan(self, vlan):
+        """Install vlan acls if configured"""
+        ofmsgs = []
+        if vlan.acls_in:
+            acl_allow_inst = self.pipeline.accept_to_classification()
+            acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
+            ofmsgs = build_acl_ofmsgs(
+                vlan.acls_in, self.vlan_acl_table, acl_allow_inst,
+                acl_force_port_vlan_inst, self.acl_priority, self.meters,
+                vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
+        return ofmsgs
+
+    def add_authed_mac(self, port_num, mac):
+        """Add authed mac address"""
+        return [self.port_acl_table.flowmod(
+            self.port_acl_table.match(in_port=port_num, eth_src=mac),
+            priority=self.auth_priority,
+            inst=self.pipeline.accept_to_vlan())]
+
+    def del_authed_mac(self, port_num, mac=None):
+        """remove authed mac address"""
+        if mac:
+            return [self.port_acl_table.flowdel(
+                self.port_acl_table.match(in_port=port_num, eth_src=mac),
+                priority=self.auth_priority,
+                strict=True)]
+        return [self.port_acl_table.flowdel(
+            self.port_acl_table.match(in_port=port_num),
+            priority=self.auth_priority,
+            strict=True)]
+
+    def create_dot1x_flow_pair(self, dot1x_port, nfv_sw_port, mac):
+        ofmsgs = [
+            self.port_acl_table.flowmod(
+                match=self.port_acl_table.match(
+                    in_port=dot1x_port.number,
+                    eth_type=valve_packet.ETH_EAPOL),
+                priority=self.acl_priority,
+                inst=[valve_of.apply_actions([
+                    self.port_acl_table.set_field(eth_dst=mac),
+                    valve_of.output_port(nfv_sw_port.number)])],
+                ),
+            self.port_acl_table.flowmod(
+                match=self.port_acl_table.match(
+                    in_port=nfv_sw_port.number,
+                    eth_type=valve_packet.ETH_EAPOL,
+                    eth_src=mac),
+                priority=self.acl_priority,
+                inst=[valve_of.apply_actions([
+                    self.port_acl_table.set_field(
+                        eth_src=valve_packet.EAPOL_ETH_DST),
+                    valve_of.output_port(dot1x_port.number)
+                    ])],
+                )
+            ]
+        return ofmsgs
+
+    def del_dot1x_flow_pair(self, dot1x_port, nfv_sw_port, mac):
+        ofmsgs = [
+            self.port_acl_table.flowdel(
+                match=self.port_acl_table.match(
+                    in_port=nfv_sw_port.number,
+                    eth_type=valve_packet.ETH_EAPOL,
+                    eth_src=mac),
+                priority=self.acl_priority,
+                ),
+            self.port_acl_table.flowdel(
+                match=self.port_acl_table.match(
+                    in_port=dot1x_port.number,
+                    eth_type=valve_packet.ETH_EAPOL),
+                priority=self.acl_priority,
+                )
+            ]
+        return ofmsgs
