@@ -4474,7 +4474,7 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def fping(self, macvlan_int, ipg):
         return 'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
-    def ping(self, host, ipa, macvlan_int):
+    def macvlan_ping(self, host, ipa, macvlan_int):
         return self.one_ipv4_ping(host, ipa, intf=macvlan_int)
 
     def ip(self, args):
@@ -4593,8 +4593,8 @@ vlans:
             macvlan_int = 'macvlan%u' % vid
             first_host_ip = self.netbase(vid, 1)
             second_host_ip = self.netbase(vid, 2)
-            self.ping(first_host, second_host_ip.ip, macvlan_int)
-            self.ping(second_host, first_host_ip.ip, macvlan_int)
+            self.macvlan_ping(first_host, second_host_ip.ip, macvlan_int)
+            self.macvlan_ping(second_host, first_host_ip.ip, macvlan_int)
 
         # verify L3 hairpin reachability
         macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
@@ -4614,7 +4614,7 @@ vlans:
         setup_cmds.append(
             self.ip('route add %s via %s' % (macvlan2_ip, macvlan1_gw.ip)))
         self.quiet_commands(first_host, setup_cmds)
-        self.ping(first_host, macvlan2_ip.ip, macvlan1_int)
+        self.macvlan_ping(first_host, macvlan2_ip.ip, macvlan1_int)
 
         # Verify mirror.
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
@@ -4648,7 +4648,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     def fping(self, macvlan_int, ipg):
         return 'fping6 -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
-    def ping(self, host, ipa, macvlan_int):
+    def macvlan_ping(self, host, ipa, macvlan_int):
         return self.one_ipv6_ping(host, ipa, intf=macvlan_int, timeout=2)
 
     def ip(self, args):
