@@ -479,10 +479,12 @@ class ValveTestBases:
             self.assertTrue(self.valve.dp.to_conf())
 
         def port_labels(self, port_no):
+            """Get port labels"""
             port = self.valve.dp.ports[port_no]
             return {'port': port.name, 'port_description': port.description}
 
         def port_expected_status(self, port_no, exp_status):
+            """Verify port has status"""
             if port_no not in self.valve.dp.ports:
                 return
             labels = self.port_labels(port_no)
@@ -577,7 +579,7 @@ class ValveTestBases:
                 in_port = self.valve.dp.ports[in_port_number]
 
                 if ('vlan_vid' in match and
-                        match['vlan_vid'] & ofp.OFPVID_PRESENT is not 0):
+                        match['vlan_vid'] & ofp.OFPVID_PRESENT != 0):
                     valve_vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
                 else:
                     valve_vlan = in_port.native_vlan
@@ -1213,6 +1215,7 @@ class ValveTestBases:
                 msg='Packet not output after port add')
 
         def test_dp_acl_deny(self):
+            """Test DP acl denies forwarding"""
             acl_config = """
 dps:
     s1:
@@ -1505,9 +1508,7 @@ vlans:
 
     def test_get_mac_str(self):
         """Test NFV port formatter."""
-        self.assertEqual(
-           '00:00:00:0f:01:01',
-           faucet_dot1x.get_mac_str(15, 257))
+        self.assertEqual('00:00:00:0f:01:01', faucet_dot1x.get_mac_str(15, 257))
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
@@ -1735,6 +1736,7 @@ class ValveOFErrorTestCase(ValveTestBases.ValveTestSmall):
         self.setup_valve(CONFIG)
 
     def test_oferror_parser(self):
+        """Test OF error parser works"""
         for type_code, error_tuple in valve_of.OFERROR_TYPE_CODE.items():
             self.assertTrue(isinstance(type_code, int))
             type_str, error_codes = error_tuple
@@ -2157,8 +2159,10 @@ vlans:
 
 
 class ValveStackGraphUpdateTestCase(ValveStackProbeTestCase):
+    """Valve test for updating the stack graph"""
 
     def test_update_stack_graph(self):
+        """Test stack graph port UP and DOWN updates"""
         def all_stack_up():
             for valve in self.valves_manager.valves.values():
                 valve.dp.dyn_running = True
@@ -2275,6 +2279,7 @@ dps:
         self.setup_valve(self.CONFIG)
 
     def all_stack_up(self):
+        """Force stack ports UP and enabled"""
         for valve in self.valves_manager.valves.values():
             valve.dp.dyn_running = True
             for port in valve.dp.stack_ports:
@@ -2285,6 +2290,7 @@ dps:
                 port.dyn_finalized = True
 
     def down_stack_port(self, port):
+        """Force stack port DOWN"""
         peer_port = port.stack['port']
         peer_port.stack_down()
         port.dyn_finalized = False
@@ -2293,14 +2299,17 @@ dps:
         port.dyn_finalized = True
 
     def update_all_flowrules(self):
+        """Update all valve tunnel flowrules"""
         for valve in self.valves_manager.valves.values():
             valve.update_tunnel_flowrules()
 
     def update_all_tunnels(self, state):
+        """Force DP tunnel updated flag state"""
         for valve in self.valves_manager.valves.values():
             valve.dp.tunnel_updated_flags[self.TUNNEL_ID] = state
 
     def get_valve(self, dp_id):
+        """Get valve with dp_id"""
         return self.valves_manager.valves[dp_id]
 
     def test_tunnel_update_on_stack_link_up(self):
