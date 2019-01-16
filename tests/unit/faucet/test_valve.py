@@ -2342,6 +2342,24 @@ dps:
         self.assertEqual(len(self.get_valve(0x2).get_tunnel_flowmods()), 1)
         self.assertEqual(len(self.get_valve(0x3).get_tunnel_flowmods()), 2)
 
+    def test_tunnel_flowmods(self):
+        """Test flowmod push and pop tunnel id as VID"""
+        src_table = FakeOFTable(self.NUM_TABLES)
+        fwd_table = FakeOFTable(self.NUM_TABLES)
+        dst_table = FakeOFTable(self.NUM_TABLES)
+        src_packet = {'in_port': 1, 'eth_src': self.P1_V100_MAC, 'eth_dst': self.P2_V200_MAC, 
+            'ipv4_src': '10.0.0.2', 'ipv4_dst': '10.0.0.3'}
+        self.all_stack_up()
+        self.update_all_flowrules()
+        src_table.apply_ofmsgs(self.get_valve(0x2).get_tunnel_flowmods())
+        self.assertTrue(src_table.is_output(src_packet, None, self.TUNNEL_ID))
+        packet = src_table.apply_instructions_to_packet(src_packet)
+        fwd_table.apply_ofmsgs(self.get_valve(0x1).get_tunnel_flowmods())
+        self.assertTrue(fwd_table.is_output(packet, None, self.TUNNEL_ID))
+        packet = fwd_table.apply_instructions_to_packet(packet)
+        dst_table.apply_ofmsgs(self.get_valve(0x3).get_tunnel_flowmods())
+        self.assertTrue(dst_table.is_output(packet, None, 0))
+
 
 class ValveGroupTestCase(ValveTestBases.ValveTestSmall):
     """Tests for datapath with group support."""

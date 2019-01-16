@@ -311,7 +311,7 @@ class ValveAclManager(ValveManagerBase):
         return ofmsgs
 
     def create_acl_tunnel(self, dp):
-        """ 
+        """
         Create tunnel acls from ACLs that require applying in DP \
             Returns flowmods for the tunnel
         Args:

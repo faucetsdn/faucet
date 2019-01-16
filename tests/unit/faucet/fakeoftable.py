@@ -210,7 +210,7 @@ class FakeOFTable:
                         mask_compl = mask ^ 0xFFFFFFFFFFFFFFFF
                         packet_dict['metadata'] = (metadata & mask_compl)\
                             | (instruction.metadata & mask)
-        return instructions
+        return (instructions, packet_dict)
 
     def is_output(self, match, port=None, vid=None):
         """Return true if packets with match fields is output to port with
@@ -255,7 +255,7 @@ class FakeOFTable:
         vid_stack = []
         if match_vid & ofp.OFPVID_PRESENT != 0:
             vid_stack.append(match_vid)
-        instructions = self.lookup(match)
+        instructions, _ = self.lookup(match)
 
         for instruction in instructions:
             if instruction.type != ofp.OFPIT_APPLY_ACTIONS:
@@ -282,6 +282,18 @@ class FakeOFTable:
                                 if output_result is not None:
                                     return output_result
         return False
+
+    def apply_instructions_to_packet(self, match):
+        """
+        Send packet through the fake OF table pipeline
+        Args:
+            match (dict): A dict keyed by header fields with values, represents a packet
+        Returns:
+            dict: Modified match dict, represents packet that has been through the pipeline \
+                with values possibly altered
+        """
+        _, packet_dict = self.lookup(match)
+        return packet_dict
 
     def __str__(self):
         string = ''
