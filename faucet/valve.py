@@ -203,7 +203,7 @@ class Valve:
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.cache_update_guard_time, self.dp.idle_dst)
-        if 'port_acl' in self.dp.tables or 'vlan_acl' in self.dp.tables:
+        if 'port_acl' in self.dp.tables or 'vlan_acl' in self.dp.tables or self.dp.tunnel_acls:
             self.acl_manager = valve_acl.ValveAclManager(
                 self.dp.tables.get('port_acl'), self.dp.tables.get('vlan_acl'),
                 self.pipeline, self.dp.meters, self.dp.dp_acls)
@@ -566,37 +566,9 @@ class Valve:
 
     def get_tunnel_flowmods(self):
         """Returns flowmods for the tunnels"""
-        ofmsgs = []
-        if self.dp.tunnel_acls:
-            for tunnel_id, tunnel_acl in self.dp.tunnel_acls.items():
-                if not self.dp.tunnel_updated_flags[tunnel_id]:
-                    continue
-                self.logger.info('Applying tunnel %s' % tunnel_id)
-                in_port_match = tunnel_acl.get_in_port_match(tunnel_id)
-                vlan_match = None
-                if in_port_match is None:
-                    vlan_match = tunnel_id
-                    vlan_table = self.dp.tables['vlan']
-                    acl_table = self.dp.tables['vlan_acl']
-                    acl_allow_inst = None
-                    acl_force_port_vlan_inst = None
-                    ofmsgs.append(vlan_table.flowmod(
-                        match=vlan_table.match(vlan=tunnel_id),
-                        priority=self.dp.highest_priority,
-                        inst=[vlan_table.goto(acl_table)]
-                    ))
-                else:
-                    acl_table = self.dp.tables['port_acl']
-                    acl_allow_inst = self.pipeline.accept_to_vlan()
-                    acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
-                ofmsgs.extend(valve_acl.build_acl_ofmsgs(
-                    [tunnel_acl], acl_table,
-                    acl_allow_inst, acl_force_port_vlan_inst,
-                    self.dp.highest_priority, self.dp.meters, False,
-                    in_port_match, vlan_match
-                ))
-                self.dp.tunnel_updated_flags[tunnel_id] = False
-        return ofmsgs
+        if self.acl_manager:
+            return self.acl_manager.create_acl_tunnel(self.dp)
+        return []
 
     def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""

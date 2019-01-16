@@ -309,3 +309,39 @@ class ValveAclManager(ValveManagerBase):
                 )
             ]
         return ofmsgs
+
+    def create_acl_tunnel(self, dp):
+        """ 
+        Create tunnel acls from ACLs that require applying in DP \
+            Returns flowmods for the tunnel
+        Args:
+            dp (DP): DP that contains the tunnel acls to build
+        """
+        ofmsgs = []
+        if dp.tunnel_acls:
+            for tunnel_id, tunnel_acl in dp.tunnel_acls.items():
+                if not dp.tunnel_updated_flags[tunnel_id]:
+                    continue
+                in_port_match = tunnel_acl.get_in_port_match(tunnel_id)
+                vlan_match = None
+                if in_port_match is None:
+                    vlan_match = tunnel_id
+                    vlan_table = dp.tables.get('vlan')
+                    acl_table = self.vlan_acl_table
+                    acl_allow_inst = None
+                    acl_force_port_vlan_inst = None
+                    ofmsgs.append(vlan_table.flowmod(
+                        match=vlan_table.match(vlan=tunnel_id),
+                        priority=self.auth_priority,
+                        inst=[vlan_table.goto(acl_table)]
+                    ))
+                else:
+                    acl_table = self.port_acl_table
+                    acl_allow_inst = self.pipeline.accept_to_vlan()
+                    acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
+                ofmsgs.extend(build_acl_ofmsgs(
+                    [tunnel_acl], acl_table, acl_allow_inst,
+                    acl_force_port_vlan_inst, self.acl_priority,
+                    self.meters, False, in_port_match, vlan_match
+                ))
+        return ofmsgs
