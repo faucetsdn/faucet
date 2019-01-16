@@ -186,7 +186,7 @@ class ValvesManager:
             return
         with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
                 **valve.dp.base_prom_labels()).time():
-            ofmsgs = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
-        if ofmsgs:
+            ofmsgs_by_valve = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
+        valve.update_metrics(now, pkt_meta.port, rate_limited=True)
+        for valve, ofmsgs in ofmsgs_by_valve.items():
             self.send_flows_to_dp_by_id(valve, ofmsgs)
-            valve.update_metrics(now, pkt_meta.port, rate_limited=True)
