@@ -493,13 +493,13 @@ class ValveTestBases:
         def set_port_down(self, port_no):
             """Set port status of port to down."""
             self.table.apply_ofmsgs(self.valve.port_status_handler(
-                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN))
+                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN)[self.valve])
             self.port_expected_status(port_no, 0)
 
         def set_port_up(self, port_no):
             """Set port status of port to up."""
             self.table.apply_ofmsgs(self.valve.port_status_handler(
-                port_no, ofp.OFPPR_ADD, 0))
+                port_no, ofp.OFPPR_ADD, 0)[self.valve])
             self.port_expected_status(port_no, 1)
 
         def flap_port(self, port_no):
@@ -844,10 +844,10 @@ class ValveTestBases:
                 valve_vlan, ip_gw, ip_dst)
             self.assertFalse(route_add_replies)
             resolve_replies = self.valve.resolve_gateways(
-                time.time(), None)
+                time.time(), None)[self.valve]
             self.assertFalse(resolve_replies)
             resolve_replies = self.valve.resolve_gateways(
-                time.time() + 99, None)
+                time.time() + 99, None)[self.valve]
             self.assertTrue(resolve_replies)
 
         def test_add_del_route(self):
@@ -1341,7 +1341,7 @@ meters:
         def test_lldp_beacon(self):
             """Test LLDP beacon service."""
             # TODO: verify LLDP packet content.
-            self.assertTrue(self.valve.fast_advertise(time.time(), None))
+            self.assertTrue(self.valve.fast_advertise(time.time(), None)[self.valve])
 
         def test_unknown_port(self):
             """Test port status change for unknown port handled."""
@@ -1351,7 +1351,7 @@ meters:
             """Set port status modify."""
             for port_status in (0, 1):
                 self.table.apply_ofmsgs(self.valve.port_status_handler(
-                    1, ofp.OFPPR_MODIFY, port_status))
+                    1, ofp.OFPPR_MODIFY, port_status)[self.valve])
 
         def test_unknown_port_status(self):
             """Test unknown port status message."""
@@ -1359,7 +1359,7 @@ meters:
             unknown_messages = list(set(range(0, len(known_messages) + 1)) - known_messages)
             self.assertTrue(unknown_messages)
             self.assertFalse(self.valve.port_status_handler(
-                1, unknown_messages[0], 1))
+                1, unknown_messages[0], 1)[self.valve])
 
         def test_move_port(self):
             """Test host moves a port."""

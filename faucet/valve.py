@@ -437,21 +437,22 @@ class Valve:
                 else:
                     self.logger.warning('Unhandled port status %s/state %s for %s' % (
                         reason, state, port))
-        return ofmsgs
+        return {self: ofmsgs}
 
     def advertise(self, now, _other_values):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
-        ofmsgs = []
         if (not self.dp.advertise_interval or
                 now - self._last_advertise_sec < self.dp.advertise_interval):
-            return ofmsgs
+            return {}
+
+        ofmsgs = []
         self._last_advertise_sec = now
 
         for route_manager in self._route_manager_by_ipv.values():
             for vlan in self.dp.vlans.values():
                 ofmsgs.extend(route_manager.advertise(vlan))
 
-        return ofmsgs
+        return {self: ofmsgs}
 
     def _send_lldp_beacon_on_port(self, port, now):
         chassis_id = str(self.dp.faucet_dp_mac)
@@ -481,10 +482,11 @@ class Valve:
         # It is used also by stacking to verify stacking links.
         # TODO: in the stacking case, provide an authentication scheme for the probes
         # so they cannot be forged.
-        ofmsgs = []
         if (not self.dp.fast_advertise_interval or
                 now - self._last_fast_advertise_sec < self.dp.fast_advertise_interval):
-            return ofmsgs
+            return {}
+
+        ofmsgs = []
         self._last_fast_advertise_sec = now
 
         for port in self.dp.lacp_active_ports:
@@ -495,7 +497,7 @@ class Valve:
         ports = self.dp.lldp_beacon_send_ports(now)
         ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
 
-        return ofmsgs
+        return {self: ofmsgs}
 
     def _next_stack_link_state(self, port, now):
         if port.is_stack_admin_down():
@@ -1250,16 +1252,13 @@ class Valve:
         #        pkt_meta.port.number,
         #        pkt_meta.vlan))
 
-        ofmsgs_by_valve = {}
-
+        ofmsgs = []
         if pkt_meta.vlan is None:
             ofmsgs = self._rcv_non_vlan_packet(pkt_meta, now, other_valves)
         else:
             ofmsgs = self._rcv_vlan_packet(pkt_meta, now, other_valves)
 
-        if ofmsgs:
-            ofmsgs_by_valve[self] = ofmsgs
-        return ofmsgs_by_valve
+        return {self: ofmsgs}
 
     def _lacp_state_expire(self, vlan, now):
         """Expire controller state for LACP.
@@ -1282,7 +1281,7 @@ class Valve:
         """Expire controller caches/state (e.g. hosts learned).
 
         Return:
-            list: OpenFlow messages, if any.
+            dict: OpenFlow messages, if any, by Valve instance.
         """
         ofmsgs = []
         if self.dp.dyn_running:
@@ -1300,7 +1299,7 @@ class Valve:
                 self._lacp_state_expire(vlan, now)
                 for route_manager in self._route_manager_by_ipv.values():
                     ofmsgs.extend(route_manager.resolve_expire_hosts(vlan, now))
-        return ofmsgs
+        return {self: ofmsgs}
 
     def _pipeline_change(self):
         def table_msgs(tfm_flow):
@@ -1446,14 +1445,14 @@ class Valve:
         """Call route managers to re/resolve gateways.
 
         Returns:
-            list: OpenFlow messages, if any.
+            dict: OpenFlow messages, if any, by Valve instance.
         """
         ofmsgs = []
         if self.dp.dyn_running:
             for route_manager in self._route_manager_by_ipv.values():
                 for vlan in self.dp.vlans.values():
                     ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
-        return ofmsgs
+        return {self: ofmsgs}
 
     def oferror(self, msg):
         """Correlate OFError message with flow we sent, if any.

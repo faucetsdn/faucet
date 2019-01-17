@@ -141,6 +141,11 @@ class ValvesManager:
         """Send an event notification."""
         self.notifier.notify(0, str(0), event_dict)
 
+    def _send_ofmsgs_by_valve(self, ofmsgs_by_valve):
+        if ofmsgs_by_valve is not None:
+            for valve, ofmsgs in ofmsgs_by_valve.items():
+                self.send_flows_to_dp_by_id(valve, ofmsgs)
+
     def request_reload_configs(self, now, new_config_file, delete_dp=None):
         """Process a request to load config changes."""
         if self.config_watcher.content_changed(new_config_file):
@@ -165,9 +170,13 @@ class ValvesManager:
             valve_service_func = getattr(valve, valve_service)
             with self.metrics.faucet_valve_service_secs.labels( # pylint: disable=no-member
                     **valve_service_labels).time():
-                ofmsgs = valve_service_func(now, other_valves)
-            if ofmsgs:
-                self.send_flows_to_dp_by_id(valve, ofmsgs)
+                ofmsgs_by_valve = valve_service_func(now, other_valves)
+            self._send_ofmsgs_by_valve(ofmsgs_by_valve)
+
+    def valve_port_status_handler(self, valve, msg):
+        ofmsgs_by_valve = valve.port_status_handler(
+            msg.desc.port_no, msg.reason, msg.desc.state)
+        self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 
     def _other_running_valves(self, valve):
         return [other_valve for other_valve in self.valves.values()
@@ -188,5 +197,4 @@ class ValvesManager:
                 **valve.dp.base_prom_labels()).time():
             ofmsgs_by_valve = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
         valve.update_metrics(now, pkt_meta.port, rate_limited=True)
-        for valve, ofmsgs in ofmsgs_by_valve.items():
-            self.send_flows_to_dp_by_id(valve, ofmsgs)
+        self._send_ofmsgs_by_valve(ofmsgs_by_valve)
