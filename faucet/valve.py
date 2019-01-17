@@ -355,6 +355,10 @@ class Valve:
 
     def _add_ports_and_vlans(self, discovered_up_port_nos):
         """Add all configured and discovered ports and VLANs."""
+        always_up_port_nos = {
+            port.number for port in self.dp.ports.values() if not port.opstatus_reconf}
+        discovered_up_port_nos = discovered_up_port_nos.union(always_up_port_nos)
+
         all_configured_port_nos = self._get_all_configured_port_nos()
         port_status, all_up_port_nos = self._get_ports_status(
             discovered_up_port_nos, all_configured_port_nos)
@@ -384,15 +388,15 @@ class Valve:
 
     def _set_port_status(self, port_no, port_status):
         """Set port operational status."""
+        if port_status:
+            self.dp.dyn_up_port_nos.add(port_no)
+        else:
+            self.dp.dyn_up_port_nos -= set([port_no])
         port = self.dp.ports.get(port_no, None)
         if port is None:
             return
         port_labels = self.dp.port_labels(port.number)
         self._set_var('port_status', port_status, labels=port_labels)
-        if port_status:
-            self.dp.dyn_up_ports.add(port_no)
-        else:
-            self.dp.dyn_up_ports -= set([port_no])
 
     def port_status_handler(self, port_no, reason, state):
         """Return OpenFlow messages responding to port operational status change."""
@@ -566,7 +570,7 @@ class Valve:
 
         Args:
             now (float): current epoch time.
-            discovered_up_ports (list): datapath port numbers that are up.
+            discovered_up_ports (set): datapath port numbers that are up.
         Returns:
             list: OpenFlow messages to send to datapath.
         """
@@ -1333,7 +1337,7 @@ class Valve:
 
         all_up_port_nos = [
             port for port in changed_ports
-            if port in self.dp.dyn_up_ports]
+            if port in self.dp.dyn_up_port_nos]
 
         ofmsgs = []
 
@@ -1385,12 +1389,12 @@ class Valve:
             ofmsgs (list): OpenFlow messages.
         """
         dp_running = self.dp.dyn_running
-        up_ports = self.dp.dyn_up_ports
+        up_ports = self.dp.dyn_up_port_nos
         coldstart_time = self.dp.dyn_last_coldstart_time
         cold_start, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
         self.dp.dyn_running = dp_running
-        self.dp.dyn_up_ports = up_ports
+        self.dp.dyn_up_port_nos = up_ports
         self.dp.dyn_last_coldstart_time = coldstart_time
         restart_type = 'none'
         if self.dp.dyn_running:

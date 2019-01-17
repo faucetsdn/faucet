@@ -466,7 +466,7 @@ class ValveTestBases:
         def connect_dp(self):
             """Call DP connect and set all ports to up."""
             self.assertEqual(0, int(self.get_prom('dp_status')))
-            discovered_up_ports = [port_no for port_no in range(1, self.NUM_PORTS + 1)]
+            discovered_up_ports = {port_no for port_no in range(1, self.NUM_PORTS + 1)}
             self.table.apply_ofmsgs(
                 self.valve.switch_features(None) +
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
@@ -697,7 +697,7 @@ class ValveTestBases:
             self.assertTrue(
                 isinstance(self.valve, TfmValve),
                 msg=type(self.valve))
-            discovered_up_ports = [port_no for port_no in range(1, self.NUM_PORTS + 1)]
+            discovered_up_ports = {port_no for port_no in range(1, self.NUM_PORTS + 1)}
             flows = self.valve.datapath_connect(time.time(), discovered_up_ports)
             tfm_flows = [
                 flow for flow in flows if isinstance(

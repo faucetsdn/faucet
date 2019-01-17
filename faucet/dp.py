@@ -253,7 +253,7 @@ configuration.
         self.drop_spoofed_faucet_mac = None
         self.dyn_last_coldstart_time = None
         self.dyn_running = False
-        self.dyn_up_ports = None
+        self.dyn_up_port_nos = None
         self.egress_pipeline = None
         self.faucet_dp_mac = None
         self.global_vlan = None
@@ -313,7 +313,7 @@ configuration.
         self.meters = {}
         self.lldp_beacon = {}
         self.table_sizes = {}
-        self.dyn_up_ports = set()
+        self.dyn_up_port_nos = set()
         super(DP, self).__init__(_id, dp_id, conf)
 
     def __str__(self):
