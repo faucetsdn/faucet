@@ -99,7 +99,7 @@ The output action contains a dictionary with the following elements:
     }
     tunnel_types = {
         'type': str,
-        'tunnel_id': int,
+        'tunnel_id': (str, int),
         'dp': str,
         'port': (str, int),
     }
@@ -125,7 +125,7 @@ The output action contains a dictionary with the following elements:
         #       ID to represent the tunnel
         #   type: str ('vlan')
         #       tunnel type specification
-        self.tunnel = {}
+        self.tunnel_info = {}
 
         for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
             self.rule_types.update({match: (str, int) for match in match_fields.keys()})
@@ -238,7 +238,7 @@ The output action contains a dictionary with the following elements:
         Returns:
             int OR None: src_port number if it exists, None otherwise
         """
-        return self.tunnel[tunnel_id]['src_port']
+        return self.tunnel_info[tunnel_id]['src_port']
 
     def get_tunnel_id(self, rule_index):
         """
@@ -259,10 +259,10 @@ The output action contains a dictionary with the following elements:
         Returns:
             (src_dp, src_port, dst_dp, dst_port): Tunnel information
         """
-        src_dp = self.tunnel[tunnel_id]['src_dp']
-        src_port = self.tunnel[tunnel_id]['src_port']
-        dst_dp = self.tunnel[tunnel_id]['dst_dp']
-        dst_port = self.tunnel[tunnel_id]['dst_port']
+        src_dp = self.tunnel_info[tunnel_id]['src_dp']
+        src_port = self.tunnel_info[tunnel_id]['src_port']
+        dst_dp = self.tunnel_info[tunnel_id]['dst_dp']
+        dst_port = self.tunnel_info[tunnel_id]['dst_port']
         return (src_dp, src_port, dst_dp, dst_port)
 
     def get_tunnel_rule_indices(self):
@@ -282,26 +282,27 @@ The output action contains a dictionary with the following elements:
             i += 1
         return rules
 
-    def remove_tunnel_matches(self):
+    def remove_non_tunnel_rules(self):
         """
-        Removes all match fields & allow action from the tunnel conf
+        Removes all non-tunnel rules from the ACL \
+            and removes all match fields and non-tunnel required actions from the tunnel rules
         """
-        for index in self.get_tunnel_rule_indices():
-            tunnel_id = self.get_tunnel_id(index)
-            src_dp, src_port, dst_dp, dst_port = self.unpack_tunnel(tunnel_id)
-            tunnel_rule = self.rules[index]
+        new_rules = []
+        tunnel_indices = self.get_tunnel_rule_indices()
+        for index in range(len(tunnel_indices)):
             new_rule = {}
-            new_rule['actions'] = tunnel_rule['actions']
-            if 'allow' in new_rule['actions']:
-                new_rule['actions'].pop('allow')
-            self.rules[index] = new_rule
+            new_rule['actions'] = {}
+            new_rule['actions']['output'] = {}
+            new_rule['actions']['output']['tunnel'] = self.get_tunnel_id(tunnel_indices[index])
+            new_rules.append(new_rule)
+        self.rules = new_rules
 
     def verify_tunnel_compatibility_rules(self, dp):
         """
         Verify the actions in the tunnel ACL to by making sure the user hasn't specified an \
             action/match that will create a clash.
         Args:
-            dp (DP):
+            dp (DP): The dp that this tunnel acl object belongs to
         TODO: Choose what combinations of matches & actions to disallow with a tunnel
         """
         for index in self.get_tunnel_rule_indices():
@@ -318,13 +319,13 @@ The output action contains a dictionary with the following elements:
                 self.matches['vlan_vid'] = False
                 if dp == dst_dp:
                     self.set_fields.add('pop_vlans')
-                self.remove_tunnel_matches()
+                self.remove_non_tunnel_rules()
 
     def update_tunnel_acl_conf(self, dp):
         """
         Update the ACL rule conf if the DP is in the path
         Args:
-            dp (DP):
+            dp (DP): The dp that this tunnel acl object belongs to
         Returns:
             bool: True if any value was updated
         """
@@ -351,9 +352,6 @@ The output action contains a dictionary with the following elements:
                 elif dp == dst_dp:
                     #DP is DST DP
                     output_rule = tunnel_rule['actions']['output']
-                    if not 'dl_vlan' in tunnel_rule:
-                        tunnel_rule['dl_vlan'] = tunnel_id
-                        updated = True
                     if not 'pop_vlans' in output_rule:
                         output_rule['pop_vlans'] = 1
                         updated = True
@@ -381,18 +379,18 @@ The output action contains a dictionary with the following elements:
             if output_action == 'tunnel':
                 tunnel = output_action_values
                 self._check_conf_types(tunnel, self.tunnel_types)
-                src_dp, src_port, dst_dp, dst_port = resolve_tunnel_objects(
+                src_dp, src_port, dst_dp, dst_port, tunnel_id = resolve_tunnel_objects(
                     tunnel['dp'], tunnel['port'], tunnel['tunnel_id'])
                 tunnel_dict = {
                     'src_dp': src_dp,
                     'src_port': src_port,
                     'dst_dp': dst_dp,
                     'dst_port': dst_port,
-                    'tunnel_id': tunnel['tunnel_id'],
+                    'tunnel_id': tunnel_id,
                     'type': tunnel['type'],
                 }
-                self.tunnel[tunnel['tunnel_id']] = tunnel_dict
-                result[output_action] = tunnel['tunnel_id']
+                self.tunnel_info[tunnel_id] = tunnel_dict
+                result[output_action] = tunnel_id
             elif output_action == 'port':
                 port_name = output_action_values
                 port = resolve_port_cb(port_name)

@@ -707,19 +707,19 @@ configuration.
         """
         remove_ids = []
         for tunnel_id, tunnel_acl in self.tunnel_acls.items():
-            asrc_dp = tunnel_acl.tunnel[tunnel_id]['src_dp']
+            asrc_dp = tunnel_acl.tunnel_info[tunnel_id]['src_dp']
             if asrc_dp is not None:
                 continue
             for dp in dps:
                 if tunnel_id in dp.tunnel_acls:
                     other_acl = dp.tunnel_acls[tunnel_id]
-                    bsrc_dp = other_acl.tunnel[tunnel_id]['src_dp']
+                    bsrc_dp = other_acl.tunnel_info[tunnel_id]['src_dp']
                     if bsrc_dp is not None:
-                        tunnel_acl.tunnel[tunnel_id]['src_dp'] = bsrc_dp
+                        tunnel_acl.tunnel_info[tunnel_id]['src_dp'] = bsrc_dp
                         break
                     else:
                         continue
-            if tunnel_acl.tunnel[tunnel_id]['src_dp'] is None:
+            if tunnel_acl.tunnel_info[tunnel_id]['src_dp'] is None:
                 remove_ids.append(tunnel_id)
                 continue
         for tunnel_id in remove_ids:
@@ -793,7 +793,7 @@ configuration.
         self.vlans = {}
         for vlan in vlans.values():
             vlan.reset_ports(self.ports.values())
-            if vlan.get_ports():
+            if vlan.get_ports() or vlan.reserved_internal_vlan:
                 self.vlans[vlan.vid] = vlan
 
     def resolve_port(self, port_name):
@@ -899,25 +899,36 @@ configuration.
             acl = self.acls[acl_in]
 
             def resolve_port_cb(port_name):
+                """Resolve port"""
                 port = self.resolve_port(port_name)
                 if port:
                     return port.number
                 return port
 
-            def resolve_tunnel_objects(dst_dp_name, dst_port_name, tunnel_id):
+            def resolve_tunnel_objects(dst_dp_name, dst_port_name, tunnel_id_name):
                 """
                 Resolves the names of the tunnel src and dst (DP & port) pairs into the correct \
                     objects
                 Args:
                     dst_dp (str): DP of the tunnel's destination port
                     dst_port (int): Destination port of the tunnel
-                    tunnel_id (int): Tunnel identification number (used as VLAN tag for QinQ tunnel)
+                    tunnel_id_name (int or str): Tunnel identification number or VLAN reference
                 Returns:
                     src_dp, src_port, dst_dp, dst_port (4-Tuple): Resolved
                         src_dp DP obj, src_port PORT obj, dst_dp DP obj and dst_port PORT obj
                 """
-                test_config_condition(not VLAN.vid_valid(tunnel_id), (
-                    'VLAN tunnel ID %s is invalid' % tunnel_id))
+                tunnel_vlan = resolve_vlan(tunnel_id_name)
+                if tunnel_vlan:
+                    test_config_condition(not tunnel_vlan.reserved_internal_vlan, (
+                        'VLAN %s is required for use by tunnel %s but is not reserved' % (
+                            tunnel_vlan.name, tunnel_id_name)))
+                else:
+                    test_config_condition(isinstance(tunnel_id_name, str), (
+                        'Tunnel VLAN (%s) does not exist' % tunnel_id_name))
+                    tunnel_vlan = VLAN(tunnel_id_name, self.dp_id, None)
+                    tunnel_vlan.reserved_internal_vlan = True
+                    self.vlans[tunnel_vlan.vid] = tunnel_vlan
+                tunnel_id = tunnel_vlan.vid
                 test_config_condition(tunnel_id in self.tunnel_acls, (
                     'Tunnel ID %s is already applied to DP %s' % (tunnel_id, self.name)))
                 test_config_condition(dst_dp_name not in dp_by_name, (
@@ -947,8 +958,9 @@ configuration.
                     #Forwarding ACL
                     src_dp = None
                     src_port = None
+                    tunnel_vlan.acls_in = [acl]
                 self.tunnel_acls[tunnel_id] = acl
-                return (src_dp, src_port, dst_dp, dst_port)
+                return (src_dp, src_port, dst_dp, dst_port, tunnel_id)
 
             acl.resolve_ports(resolve_port_cb, resolve_tunnel_objects)
             for meter_name in acl.get_meters():
@@ -960,6 +972,7 @@ configuration.
             return acl.build(self.meters, vid, port_num)
 
         def verify_acl_exact_match(acls):
+            """Verify ACLs have equal exact matches"""
             for acl in acls:
                 test_config_condition(acl.exact_match != acls[0].exact_match, (
                     'ACLs when used together must have consistent exact_match'))
@@ -1000,12 +1013,7 @@ configuration.
                     resolve_acl(acl, None)
                     resolved.append(acl)
             if self.tunnel_acls:
-                for tunnel_id, tunnel_acl in self.tunnel_acls.items():
-                    test_config_condition(tunnel_id in self.vlans, (
-                        'VLAN %s is already initialized' % tunnel_id))
-                    tunnel_vlan = VLAN(tunnel_id, self.dp_id, None)
-                    tunnel_vlan.acls_in = [tunnel_acl]
-                    self.vlans[tunnel_id] = tunnel_vlan
+                for tunnel_acl in self.tunnel_acls.values():
                     tunnel_acl.verify_tunnel_compatibility_rules(self)
 
         def resolve_vlan_names_in_routers():

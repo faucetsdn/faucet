@@ -1073,6 +1073,96 @@ dps:
             }
         self._check_table_names_numbers(dp, tables)
 
+    def test_tunnel_config_valid_accepted(self):
+        """Test config is accepted when tunnel acl is valid"""
+        config = """
+acls:
+    tunnel-acl:
+        - rule:
+            actions:
+                output:
+                    tunnel: {type: 'vlan', tunnel_id: 200, dp: sw3, port: 2}
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel-acl]
+            2:
+                stack:
+                    dp: sw2
+                    port: 2
+    sw2:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack:
+                    dp: sw1
+                    port: 2
+            3:
+                stack:
+                    dp: sw3
+                    port: 1
+    sw3:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 3
+            2:
+                native_vlan: vlan100
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_tunnel_id_by_vlan_name(self):
+        """Test config success by referencing tunnel id by a vlan name"""
+        config = """
+acls:
+    tunnel-acl:
+        - rule:
+            actions:
+                output:
+                    tunnel: {type: 'vlan', tunnel_id: tunnelvlan, dp: sw2, port: 2}
+vlans:
+    vlan100:
+        vid: 100
+    tunnelvlan:
+        vid: 200
+        reserved_internal_vlan: True
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel-acl]
+            2:
+                stack:
+                    dp: sw2
+                    port: 1
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 2
+            2:
+                native_vlan: vlan100
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_creating_tunnel_rule_conf(self):
         """Test acl creates correct initial tunnel rule conf"""
         config = """
@@ -1135,26 +1225,19 @@ dps:
             enable_dp_ports(dp)
             self.assertIsNotNone(dp.tunnel_acls, 'Did not generate tunnel acls')
             tunnel_acl = dp.tunnel_acls[tunnel_id]
-            self.assertIsNotNone(tunnel_acl.tunnel[tunnel_id]['src_dp'], (
+            self.assertIsNotNone(tunnel_acl.tunnel_info[tunnel_id]['src_dp'], (
                 'Did not resolve tunnel src_dp'))
             tunnel_acl.update_tunnel_acl_conf(dp)
             tunnel_rule = tunnel_acl.rules[0]
             output_rule = tunnel_rule['actions']['output']
+            self.assertIn('port', output_rule, (
+                'missing output port in initial tunnel'))
             if dp is dps[0x1]:
                 self.assertIn('vlan_vid', output_rule, (
                     'missing output vlan in initial tunnel'))
-                self.assertIn('port', output_rule, (
-                    'missing output port in initial tunnel'))
-            elif dp is dps[0x2]:
-                self.assertIn('port', output_rule, (
-                    'missing output port in initial tunnel'))
             elif dp is dps[0x3]:
-                self.assertIn('dl_vlan', tunnel_rule, (
-                    'missing vlan match in initial tunnel'))
                 self.assertIn('pop_vlans', output_rule, (
                     'missing pop vlan output in initial tunnel'))
-                self.assertIn('port', output_rule, (
-                    'missing output port in initial tunnel'))
 
     def test_updating_tunnel_acl_rule(self):
         """Test updating output port (stack info) in tunnel rule conf"""
@@ -3047,7 +3130,7 @@ acls:
         - rule:
             actions:
                 output:
-                    tunnel: {type: 'vlan', tunnel_id: 100, dp: sw2, port: 3}
+                    tunnel: {type: 'vlan', tunnel_id: 100, dp: sw2, port: 2}
 vlans:
     vlan100:
         vid: 100
@@ -3076,15 +3159,15 @@ dps:
         """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_tunnel_config_valid_accepted(self):
-        """Test config is accepted when tunnel acl is valid"""
+    def test_tunnel_id_by_nonexistant_vlan_name_failure(self):
+        """Test config failure by referencing tunnel id by a vlan name that doesn't exist"""
         config = """
 acls:
     tunnel-acl:
         - rule:
             actions:
                 output:
-                    tunnel: {type: 'vlan', tunnel_id: 200, dp: sw3, port: 2}
+                    tunnel: {type: 'vlan', tunnel_id: tunnelvlan, dp: sw2, port: 2}
 vlans:
     vlan100:
         vid: 100
@@ -3100,31 +3183,18 @@ dps:
             2:
                 stack:
                     dp: sw2
-                    port: 2
-    sw2:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: vlan100
-            2:
-                stack:
-                    dp: sw1
-                    port: 2
-            3:
-                stack:
-                    dp: sw3
                     port: 1
-    sw3:
+    sw2:
         dp_id: 0x2
         interfaces:
             1:
                 stack:
-                    dp: sw2
-                    port: 3
+                    dp: sw1
+                    port: 2
             2:
                 native_vlan: vlan100
 """
-        self.check_config_success(config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
 
 if __name__ == "__main__":

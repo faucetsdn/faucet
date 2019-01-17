@@ -330,6 +330,9 @@ class ValveAclManager(ValveManagerBase):
                     acl_table = self.vlan_acl_table
                     acl_allow_inst = None
                     acl_force_port_vlan_inst = None
+                    #TODO: This will be handled by the vlan manager
+                    #       VLANs with reserved_internal_vlan=True will
+                    #       handle creating this flow for us
                     ofmsgs.append(vlan_table.flowmod(
                         match=vlan_table.match(vlan=tunnel_id),
                         priority=self.auth_priority,
