@@ -267,6 +267,7 @@ class ValveAclManager(ValveManagerBase):
             strict=True)]
 
     def create_dot1x_flow_pair(self, dot1x_port, nfv_sw_port, mac):
+        """Create dot1x flow pair"""
         ofmsgs = [
             self.port_acl_table.flowmod(
                 match=self.port_acl_table.match(
@@ -293,6 +294,7 @@ class ValveAclManager(ValveManagerBase):
         return ofmsgs
 
     def del_dot1x_flow_pair(self, dot1x_port, nfv_sw_port, mac):
+        """Deletes dot1x flow pair"""
         ofmsgs = [
             self.port_acl_table.flowdel(
                 match=self.port_acl_table.match(
