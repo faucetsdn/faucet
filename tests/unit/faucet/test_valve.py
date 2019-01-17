@@ -380,10 +380,11 @@ class ValveTestBases:
                 self.bgp, self.dot1x, self.send_flows_to_dp_by_id)
             self.last_flows_to_dp[self.DP_ID] = []
             self.notifier.start()
-            self.update_config(config, reload_expected=False)
+            initial_ofmsgs = self.update_config(config, reload_expected=False)
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self.sock.connect(self.faucet_event_sock)
             self.connect_dp()
+            return initial_ofmsgs
 
         def teardown_valve(self):
             """Tear down test DP."""
@@ -462,11 +463,12 @@ class ValveTestBases:
                 reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
                 self.table.apply_ofmsgs(reload_ofmsgs)
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
+            return reload_ofmsgs
 
         def connect_dp(self):
             """Call DP connect and set all ports to up."""
             self.assertEqual(0, int(self.get_prom('dp_status')))
-            discovered_up_ports = [port_no for port_no in range(1, self.NUM_PORTS + 1)]
+            discovered_up_ports = {port_no for port_no in range(1, self.NUM_PORTS + 1)}
             self.table.apply_ofmsgs(
                 self.valve.switch_features(None) +
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
@@ -511,6 +513,11 @@ class ValveTestBases:
         def packet_outs_from_flows(flows):
             """Return flows that are packetout actions."""
             return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPPacketOut)]
+
+        @staticmethod
+        def flowmods_from_flows(flows):
+            """Return flows that are flowmods actions."""
+            return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPFlowMod)]
 
         def learn_hosts(self):
             """Learn some hosts."""
@@ -697,7 +704,7 @@ class ValveTestBases:
             self.assertTrue(
                 isinstance(self.valve, TfmValve),
                 msg=type(self.valve))
-            discovered_up_ports = [port_no for port_no in range(1, self.NUM_PORTS + 1)]
+            discovered_up_ports = {port_no for port_no in range(1, self.NUM_PORTS + 1)}
             flows = self.valve.datapath_connect(time.time(), discovered_up_ports)
             tfm_flows = [
                 flow for flow in flows if isinstance(
@@ -1586,6 +1593,53 @@ dps:
     def test_port_delete(self):
         """Test port can be deleted."""
         self.update_config(self.LESS_CONFIG, reload_type='cold')
+
+
+class ValveAddPortTestCase(ValveTestBases.ValveTestSmall):
+    """Test addition of a port."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+""" % DP1_CONFIG
+
+    MORE_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+            p3:
+                number: 3
+                tagged_vlans: [0x100]
+""" % DP1_CONFIG
+
+    def _inport_flows(self, in_port, ofmsgs):
+        return [
+            ofmsg for ofmsg in self.flowmods_from_flows(ofmsgs)
+            if ofmsg.match.get('in_port') == in_port]
+
+    def setUp(self):
+        initial_ofmsgs = self.setup_valve(self.CONFIG)
+        self.assertFalse(self._inport_flows(3, initial_ofmsgs))
+
+    def test_port_add(self):
+        """Test port can be added."""
+        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='cold')
+        self.assertTrue(self._inport_flows(3, reload_ofmsgs))
 
 
 class ValveWarmStartVLANTestCase(ValveTestBases.ValveTestSmall):
