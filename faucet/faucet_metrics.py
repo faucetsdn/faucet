@@ -27,11 +27,14 @@ from faucet.prom_client import PromClient
 class FaucetMetrics(PromClient):
     """Container class for objects that can be exported to Prometheus."""
 
-    _dpid_counters = {} # type: dict
-    _dpid_gauges = {} # type: dict
+    _dpid_counters = None # type: dict
+    _dpid_gauges = None # type: dict
 
     def __init__(self, reg=None):
         super(FaucetMetrics, self).__init__(reg=reg)
+        self.PORT_REQUIRED_LABELS = self.REQUIRED_LABELS + ['port', 'port_description']
+        self._dpid_counters = {}
+        self._dpid_gauges = {}
         self.faucet_config_reload_requests = self._counter(
             'faucet_config_reload_requests',
             'number of config reload requests', [])
@@ -46,7 +49,10 @@ class FaucetMetrics(PromClient):
             'number of cold, complete reprovision config reloads executed')
         self.of_ignored_packet_ins = self._dpid_counter(
             'of_ignored_packet_ins',
-            'number of OF packet_ins received but ignored from DP')
+            'number of OF packet_ins received but ignored from DP (due to rate limiting)')
+        self.of_unexpected_packet_ins = self._dpid_counter(
+            'of_unexpected_packet_ins',
+            'number of OF packet_ins received that are unexpected from DP (e.g. for VLAN that is not configured)')
         self.of_packet_ins = self._dpid_counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP')
@@ -75,7 +81,7 @@ class FaucetMetrics(PromClient):
         self.port_vlan_hosts_learned = self._gauge(
             'port_vlan_hosts_learned',
             'number of hosts learned on a port and VLAN',
-            self.REQUIRED_LABELS + ['vlan', 'port'])
+            self.PORT_REQUIRED_LABELS + ['vlan'])
         self.vlan_neighbors = self._gauge(
             'vlan_neighbors',
             'number of L3 neighbors on a VLAN (whether resolved to L2 addresses, or not)',
@@ -93,6 +99,11 @@ class FaucetMetrics(PromClient):
             'FAUCET packet in processing time',
             self.REQUIRED_LABELS,
             (0.0001, 0.001, 0.01, 0.1, 1))
+        self.faucet_valve_service_secs = self._histogram(
+            'faucet_valve_service_secs',
+            'FAUCET valve service processing time',
+            self.REQUIRED_LABELS + ['valve_service'],
+            (0.0001, 0.001, 0.01, 0.1, 1))
         self.bgp_neighbor_uptime_seconds = self._gauge(
             'bgp_neighbor_uptime',
             'BGP neighbor uptime in seconds',
@@ -105,23 +116,23 @@ class FaucetMetrics(PromClient):
             'learned_macs',
             ('MAC address stored as 64bit number to DP ID, port, VLAN, '
              'and n (discrete index)'),
-            self.REQUIRED_LABELS + ['port', 'vlan', 'n'])
+            self.PORT_REQUIRED_LABELS + ['vlan', 'n'])
         self.port_status = self._gauge(
             'port_status',
             'status of switch ports',
-            self.REQUIRED_LABELS + ['port'])
+            self.PORT_REQUIRED_LABELS)
         self.port_stack_state = self._gauge(
             'port_stack_state',
             'state of stacking on a port',
-            self.REQUIRED_LABELS + ['port'])
+            self.PORT_REQUIRED_LABELS)
         self.port_learn_bans = self._gauge(
             'port_learn_bans',
             'number of times learning was banned on a port',
-            self.REQUIRED_LABELS + ['port'])
+            self.PORT_REQUIRED_LABELS)
         self.port_lacp_status = self._gauge(
             'port_lacp_status',
             'status of LACP on port',
-            self.REQUIRED_LABELS + ['port'])
+            self.PORT_REQUIRED_LABELS)
         self.dp_status = self._dpid_gauge(
             'dp_status',
             'status of datapaths')
@@ -135,7 +146,27 @@ class FaucetMetrics(PromClient):
         self.stack_probes_received = self._dpid_counter(
             'stack_probes_received',
             'number of stacking messages received')
-
+        self.dp_dot1x_success = self._dpid_counter(
+            'dp_dot1x_success',
+            'number of successful authentications on dp')
+        self.dp_dot1x_failure = self._dpid_counter(
+            'dp_dot1x_failure',
+            'number of authentications attempts failed on dp')
+        self.dp_dot1x_logoff = self._dpid_counter(
+            'dp_dot1x_logoff',
+            'number of eap-logoff events on dp')
+        self.port_dot1x_success = self._counter(
+            'port_dot1x_success',
+            'number of successful authentications on port',
+            self.PORT_REQUIRED_LABELS)
+        self.port_dot1x_failure = self._counter(
+            'port_dot1x_failure',
+            'number of authentications attempts failed on port',
+            self.PORT_REQUIRED_LABELS)
+        self.port_dot1x_logoff = self._counter(
+            'port_dot1x_logoff',
+            'number of eap-logoff events on port',
+            self.PORT_REQUIRED_LABELS)
 
     def _counter(self, var, var_help, labels):
         return Counter(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
@@ -158,7 +189,12 @@ class FaucetMetrics(PromClient):
 
     def reset_dpid(self, dp_labels):
         """Set all DPID-only counter/gauges to 0."""
-        for counter in list(self._dpid_counters.values()):
+        for counter in self._dpid_counters.values():
             counter.labels(**dp_labels).inc(0)
-        for gauge in list(self._dpid_gauges.values()):
+        for gauge in self._dpid_gauges.values():
             gauge.labels(**dp_labels).set(0)
+
+    def inc_var(self, var, labels, val=1):
+        assert labels is not None
+        metrics_var = getattr(self, var)
+        metrics_var.labels(**labels).inc(val)

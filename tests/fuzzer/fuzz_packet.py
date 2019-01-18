@@ -8,36 +8,40 @@ from ryu.controller import dpset
 from faucet import faucet
 from faucet import faucet_experimental_api
 import afl
-import Fake
+import fake_packet
 
-
+ROUNDS = 1
 logging.disable(logging.CRITICAL)
 
 
 def main():
-    # run faucet
+    """Run AFL repeatedly with externally supplied generated packet from STDIN."""
     application = faucet.Faucet(
         dpset=dpset.DPSet(),
         faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())
     application.start()
 
     # make sure dps are running
-    for valve in list(application.valves_manager.valves.values()):
-        valve.dp.running = True
+    if application.valves_manager is not None:
+        for valve in list(application.valves_manager.valves.values()):
+            state = valve.dp.dyn_finalized
+            valve.dp.dyn_finalized = False
+            valve.dp.running = True
+            valve.dp.dyn_finalized = state
 
-    while afl.loop(1000):
+    while afl.loop(ROUNDS):
         # receive input from afl
         rcv = sys.stdin.read()
         data = None
         try:
-            data = bytearray.fromhex(rcv)
+            data = bytearray.fromhex(rcv) # pytype: disable=missing-parameter
         except (ValueError, TypeError):
             continue
 
         # create fake packet
-        dp = Fake.Datapath(1)
-        msg = Fake.Message(datapath=dp, cookie=1524372928, port=1, data=data, in_port=1)
-        pkt = Fake.RyuEvent(msg)
+        _dp = fake_packet.Datapath(1)
+        msg = fake_packet.Message(datapath=_dp, cookie=15243729, port=1, data=data, in_port=1)
+        pkt = fake_packet.RyuEvent(msg)
 
         # send fake packet to faucet
         application.packet_in_handler(pkt)

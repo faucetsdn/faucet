@@ -1,35 +1,33 @@
 sudo: required
-dist: trusty
+dist: xenial
 language: python
 python:
+  - '3.4'
   - '3.6'
 services:
   - docker
 before_install:
-  - sudo ./docker/retrycmd.sh "apt-get -qy update"
-  - sudo ./docker/retrycmd.sh "apt-get install -qy openvswitch-switch"
-  - sudo ./docker/retrycmd.sh "apt-cache madison docker-ce"
-  - sudo ./docker/retrycmd.sh "apt-get install docker-ce=18.03.1~ce-0~ubuntu"
+  - sudo modprobe openvswitch
 cache:
   pip: true
-# Run with 4 test shards (can't seem to schedule more).
 env:
   global:
     - FAUCET_TEST_IMG=faucet/tests
-    - MATRIX_SHARDS=4
+    - MATRIX_SHARDS=5
   matrix:
     - MATRIX_SHARD=sanity
     - MATRIX_SHARD=0
     - MATRIX_SHARD=1
     - MATRIX_SHARD=2
     - MATRIX_SHARD=3
+    - MATRIX_SHARD=4
 install:
   - ./docker/pip_deps.sh
   - python3 setup.py -q sdist
   - pip3 install -q dist/*tar.gz
   - pip3 show faucet
 script:
-  - ./run-travis-test.sh
+  - ./travis/runtests.sh
 deploy:
   provider: pypi
   user: faucet

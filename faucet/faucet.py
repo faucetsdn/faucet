@@ -42,39 +42,39 @@ from faucet import faucet_metrics
 from faucet import valve_of
 
 
-class EventFaucetExperimentalAPIRegistered(event.EventBase):
+class EventFaucetExperimentalAPIRegistered(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to notify that the API is registered with Faucet."""
     pass
 
 
-class EventFaucetResolveGateways(event.EventBase):
-    """Event used to trigger gateway re/resolution."""
-    pass
-
-
-class EventFaucetStateExpire(event.EventBase):
-    """Event used to trigger expiration of state in controller."""
-    pass
-
-
-class EventFaucetMetricUpdate(event.EventBase):
+class EventFaucetMetricUpdate(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to trigger update of metrics."""
     pass
 
 
-class EventFaucetAdvertise(event.EventBase):
+class EventFaucetResolveGateways(event.EventBase): # pylint: disable=too-few-public-methods
+    """Event used to trigger gateway re/resolution."""
+    pass
+
+
+class EventFaucetStateExpire(event.EventBase): # pylint: disable=too-few-public-methods
+    """Event used to trigger expiration of state in controller."""
+    pass
+
+class EventFaucetFastStateExpire(event.EventBase): # pylint: disable=too-few-public-methods
+    """Event used to trigger fast expiration of state in controller."""
+    pass
+
+
+class EventFaucetAdvertise(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to trigger periodic network advertisements (eg IPv6 RAs)."""
     pass
 
 
-class EventFaucetLLDPAdvertise(event.EventBase):
-    """Event used to trigger periodic LLDP beacons."""
+class EventFaucetFastAdvertise(event.EventBase): # pylint: disable=too-few-public-methods
+    """Event used to trigger periodic fast network advertisements (eg LACP)."""
     pass
 
-
-class EventFaucetStackLinkStates(event.EventBase):
-    """Event used to update link stack states."""
-    pass
 
 
 class Faucet(RyuAppBase):
@@ -92,9 +92,9 @@ class Faucet(RyuAppBase):
         EventFaucetMetricUpdate: (None, 5),
         EventFaucetResolveGateways: ('resolve_gateways', 2),
         EventFaucetStateExpire: ('state_expire', 5),
-        EventFaucetAdvertise: ('advertise', 5),
-        EventFaucetLLDPAdvertise: ('send_lldp_beacons', 5),
-        EventFaucetStackLinkStates: ('update_stack_link_states', 2),
+        EventFaucetFastStateExpire: ('fast_state_expire', 2),
+        EventFaucetAdvertise: ('advertise', 15),
+        EventFaucetFastAdvertise: ('fast_advertise', 5),
     }
     logname = 'faucet'
     exc_logname = logname + '.exception'
@@ -107,7 +107,8 @@ class Faucet(RyuAppBase):
         super(Faucet, self).__init__(*args, **kwargs)
         self.api = kwargs['faucet_experimental_api']
         self.metrics = faucet_metrics.FaucetMetrics(reg=self._reg)
-        self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
+        self.bgp = faucet_bgp.FaucetBgp(
+            self.logger, self.exc_logname, self.metrics, self._send_flow_msgs)
         self.dot1x = faucet_dot1x.FaucetDot1x(
             self.logger, self.metrics, self._send_flow_msgs)
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
@@ -130,7 +131,7 @@ class Faucet(RyuAppBase):
         if notifier_thread is not None:
             self.threads.append(notifier_thread)
 
-        for service_event, service_pair in list(self._VALVE_SERVICES.items()):
+        for service_event, service_pair in self._VALVE_SERVICES.items():
             _, interval = service_pair
             self.threads.append(hub.spawn(
                 partial(self._thread_reschedule, service_event(), interval)))
@@ -177,14 +178,14 @@ class Faucet(RyuAppBase):
             ryu_event (ryu.controller.event.Event): event
             require_running (bool): require DP to be running.
         Returns:
-            valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and Ryu msg (if any)
+            valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and msg (if any)
         """
         valve, ryu_dp, msg = self._get_datapath_obj(
             self.valves_manager.valves, ryu_event)
         if valve:
             if msg:
                 valve.ofchannel_log([msg])
-            if require_running and not valve.dp.running:
+            if require_running and not valve.dp.dyn_running:
                 valve = None
         return (valve, ryu_dp, msg)
 
@@ -199,9 +200,9 @@ class Faucet(RyuAppBase):
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetFastStateExpire, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
-    @set_ev_cls(EventFaucetLLDPAdvertise, MAIN_DISPATCHER)
-    @set_ev_cls(EventFaucetStackLinkStates, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetFastAdvertise, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _valve_flow_services(self, ryu_event):
         """Call a method on all Valves and send any resulting flows."""
@@ -269,11 +270,11 @@ class Faucet(RyuAppBase):
         valve, ryu_dp, _ = self._get_valve(ryu_event)
         if valve is None:
             return
-        discovered_up_ports = [
+        discovered_up_ports = {
             port.port_no for port in list(ryu_dp.ports.values())
-            if valve_of.port_status_from_state(port.state) and not valve_of.ignore_port(port.port_no)]
+            if (valve_of.port_status_from_state(port.state) and
+                not valve_of.ignore_port(port.port_no))}
         self._send_flow_msgs(valve, valve.datapath_connect(now, discovered_up_ports))
-        self.valves_manager.stack_topo_change(now, valve)
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_event):
@@ -286,7 +287,6 @@ class Faucet(RyuAppBase):
         if valve is None:
             return
         valve.datapath_disconnect()
-        self.valves_manager.stack_topo_change(time.time(), valve)
 
     @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

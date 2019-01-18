@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "5.0.3"
+      "version": "5.3.4"
     },
     {
       "type": "datasource",
@@ -525,6 +525,7 @@
               "type": "fill"
             }
           ],
+          "instant": true,
           "intervalFactor": 2,
           "orderByTime": "ASC",
           "policy": "default",
@@ -547,7 +548,7 @@
           "tags": []
         }
       ],
-      "timeFrom": "1s",
+      "timeFrom": null,
       "title": "Datapath Inventory",
       "transform": "table",
       "type": "table"
@@ -642,6 +643,7 @@
               "type": "fill"
             }
           ],
+          "instant": true,
           "intervalFactor": 2,
           "orderByTime": "ASC",
           "policy": "default",
@@ -664,7 +666,7 @@
           "tags": []
         }
       ],
-      "timeFrom": "1s",
+      "timeFrom": null,
       "title": "Controller Inventory",
       "transform": "table",
       "type": "table"
@@ -819,6 +821,7 @@
               "type": "fill"
             }
           ],
+          "instant": true,
           "intervalFactor": 2,
           "orderByTime": "ASC",
           "policy": "default",
@@ -841,7 +844,7 @@
           "tags": []
         }
       ],
-      "timeFrom": "1s",
+      "timeFrom": null,
       "title": "Python Inventory",
       "transform": "table",
       "type": "table"
@@ -886,6 +889,6 @@
   },
   "timezone": "",
   "title": "Faucet Inventory",
-  "uid": "000000023",
-  "version": 10
+  "uid": "faucet-inventory",
+  "version": 1
 }

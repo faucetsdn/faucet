@@ -4,83 +4,96 @@ UNITTESTS=1
 DEPCHECK=1
 MINCOVERAGE=85
 
-cd /faucet-src
+set -e  # quit on error
 
-if [ -d /var/tmp/pip-cache ] ; then
-  cp -r /var/tmp/pip-cache /var/tmp/pip-cache-local || exit 1
-fi
-./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache-local" || exit 1
-
-# if -n passed, don't check dependencies/lint/type/documentation.
-# wrapper script only cares about -n, others passed to test suite.
-while getopts "cdjknsxi" o $FAUCET_TESTS; do
+# allow user to skip parts of docker test
+# this wrapper script only cares about -n, -u, -i, others passed to test suite.
+while getopts "cdijknsux" o $FAUCET_TESTS; do
   case "${o}" in
-        n)
-            DEPCHECK=0
-            ;;
         i)
+            # run only integration tests
             UNITTESTS=0
             DEPCHECK=0
+            ;;
+        n)
+            # skip code check
+            DEPCHECK=0
+            ;;
+        u)
+            # skip unit tests
+            UNITTESTS=0
             ;;
         *)
             ;;
     esac
 done
 
+cd /faucet-src
+
+if [ -d /var/tmp/pip-cache ] ; then
+  echo Using pip cache
+  cp -r /var/tmp/pip-cache /var/tmp/pip-cache-local
+fi
+./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache-local"
+
 echo "========== checking IPv4/v6 localhost is up ====="
-ping6 -c 1 ::1 || exit 1
-ping -c 1 127.0.0.1 || exit 1
+ping6 -c 1 ::1
+ping -c 1 127.0.0.1
 
 echo "========== Starting OVS ========================="
 export OVS_LOGDIR=/usr/local/var/log/openvswitch
-/usr/local/share/openvswitch/scripts/ovs-ctl start || exit 1
-ovs-vsctl show || exit 1
+/usr/local/share/openvswitch/scripts/ovs-ctl start
+ovs-vsctl show
 ovs-vsctl --no-wait set Open_vSwitch . other_config:max-idle=50000
 # Needed to support double tagging.
 ovs-vsctl --no-wait set Open_vSwitch . other_config:vlan-limit=2
 
 cd /faucet-src/tests
 
-./sysctls_for_tests.sh
+./sysctls_for_tests.sh || true
+
+# TODO: need to force UTF-8 as POSIX causes python3/pytype errors.
+locale-gen en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.en
+export LC_ALL=en_US.UTF-8
+
+export PYTHONPATH=/faucet-src:/faucet-src/faucet:/faucet-src/clib
 
 if [ "$UNITTESTS" == 1 ] ; then
     echo "========== Running faucet unit tests =========="
     cd /faucet-src/tests
-    ./run_unit_tests.sh || exit 1
-    # TODO: enable under travis
-    # codecov || true
+    time ./run_unit_tests.sh
 fi
+
 
 if [ "$DEPCHECK" == 1 ] ; then
     echo "========== Building documentation =========="
     cd /faucet-src/docs
-    make html || exit 1
+    time make html
     rm -rf _build
 
     cd /faucet-src/tests/codecheck
-    echo "============ Running pytype analyzer ============"
-    # TODO: need to force UTF-8 as POSIX causes pytype errors
-    locale-gen en_US.UTF-8 || exit 1
-    LANG=en_US.UTF-8 LANGUAGE=en_US.en LC_ALL=en_US.UTF-8 ./pytype.sh || exit 1
-
     echo "============ Running pylint analyzer ============"
-    PYTHONPATH=../.. ./pylint.sh || exit 1
+    time ./pylint.sh $PY_FILES_CHANGED
+    echo "============ Running pytype analyzer ============"
+    time ./pytype.sh $PY_FILES_CHANGED
 fi
 
 echo "========== Starting docker container =========="
-service docker start
+service docker start || true
 
 echo "========== Running faucet system tests =========="
 test_failures=
 export FAUCET_DIR=/faucet-src/faucet
-export PYTHONPATH=/faucet-src
+export http_proxy=
 
 cd /faucet-src/tests/integration
-python2 ./mininet_main.py -c
-http_proxy="" python2 ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
+./mininet_main.py -c
+time ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
 
 cd /faucet-src/clib
-http_proxy="" python2 ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
+time ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
 
 if [ -n "$test_failures" ]; then
     echo Test failures: $test_failures

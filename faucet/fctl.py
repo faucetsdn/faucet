@@ -79,21 +79,20 @@ def report_label_match_metrics(report_metrics, metrics, display_labels=None,
     report_output = []
     for metric in metrics:
         if not report_metrics or metric.name in report_metrics:
-            for _, labels, value in metric.samples:
+            for sample in metric.samples:
+                labels = sample.labels
+                value = sample.value
                 if (label_matches is None or
                         (label_matches and set(
                             label_matches.items()).issubset(set(labels.items())))):
                     if nonzero_only and int(value) == 0:
                         continue
-
-                    sorted_labels = []
-                    for key, val in sorted(labels.items()):
-                        if not display_labels or key in display_labels:
-                            sorted_labels.append((key, val))
+                    sorted_labels = [
+                        (key, val) for key, val in sorted(labels.items())
+                        if not display_labels or key in display_labels]
                     value = decode_value(metric.name, value)
                     report_output.append(
-                        delim.join((metric.name, str(sorted_labels), str(value)))
-                        )
+                        delim.join((metric.name, str(sorted_labels), str(value))))
     report_output = '\n'.join(report_output)
     return report_output
 

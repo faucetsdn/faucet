@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
+
 
 class InvalidConfigError(Exception):
     """This error is thrown when the config file is not valid."""
@@ -23,15 +25,17 @@ class InvalidConfigError(Exception):
 
 
 def test_config_condition(cond, msg):
+    """Evaluate condition and raise InvalidConfigError if condition not True."""
     if cond:
         raise InvalidConfigError(msg)
 
 
-class Conf(object):
+class Conf:
     """Base class for FAUCET configuration."""
 
-    defaults = {} # type: dict
-    defaults_types = {} # type: dict
+    mutable_attrs = frozenset() # type: frozenset
+    defaults = None # type: dict
+    defaults_types = None # type: dict
     dyn_finalized = False
     dyn_hash = None
 
@@ -40,15 +44,24 @@ class Conf(object):
         self.dp_id = dp_id
         if conf is None:
             conf = {}
+        if self.defaults is not None and self.defaults_types is not None:
+            diff = set(self.defaults.keys()).symmetric_difference(set(self.defaults_types.keys()))
+            assert not diff, diff
         # TODO: handle conf as a sequence. # pylint: disable=fixme
         if isinstance(conf, dict):
             self.update(conf)
             self.set_defaults()
         self.check_config()
 
+    def __setattr__(self, name, value):
+        if not self.dyn_finalized or name.startswith('dyn') or name in self.mutable_attrs:
+            super(Conf, self).__setattr__(name, value)
+        else:
+            raise ValueError('cannot update %s on finalized Conf object' % name)
+
     def set_defaults(self):
         """Set default values and run any basic sanity checks."""
-        for key, value in list(self.defaults.items()):
+        for key, value in self.defaults.items():
             self._set_default(key, value)
 
     def _check_unknown_conf(self, conf):
@@ -60,17 +73,22 @@ class Conf(object):
 
     def _check_conf_types(self, conf, conf_types):
         """Check that conf value is of the correct type."""
-        for conf_key, conf_value in list(conf.items()):
-            test_config_condition(conf_key not in conf_types, '%s field unknown in %s (known types %s)' % (
-                conf_key, self._id, conf_types))
+        test_config_condition(not isinstance(conf, dict), (
+            'Conf object must be type %s not %s' % (dict, type(conf))))
+        for conf_key, conf_value in conf.items():
+            test_config_condition(
+                conf_key not in conf_types, '%s field unknown in %s (known types %s)' % (
+                    conf_key, self._id, conf_types))
             if conf_value is not None:
                 conf_type = conf_types[conf_key]
-                test_config_condition(not isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
-                    conf_key, conf_value, conf_type, type(conf_value))) # pytype: disable=invalid-typevar
+                test_config_condition(
+                    not isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
+                        conf_key, conf_value,
+                        conf_type, type(conf_value))) # pytype: disable=invalid-typevar
 
     @staticmethod
     def _set_unknown_conf(conf, conf_types):
-        for conf_key, conf_type in list(conf_types.items()):
+        for conf_key, conf_type in conf_types.items():
             if conf_key not in conf:
                 if conf_type == list:
                     conf[conf_key] = []
@@ -86,13 +104,13 @@ class Conf(object):
 
     def check_config(self):
         """Check config at instantiation time for errors, typically via assert."""
-        return
+        pass
 
     @staticmethod
     def _conf_keys(conf, dyn=False, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
         conf_keys = []
-        for key, value in list(conf.__dict__.items()):
+        for key, value in conf.__dict__.items():
             if not dyn and key.startswith('dyn'):
                 continue
             if not subconf and isinstance(value, Conf):
@@ -104,20 +122,18 @@ class Conf(object):
 
     def merge_dyn(self, other_conf):
         """Merge dynamic state from other conf object."""
-        for key, value in self._conf_keys(other_conf, dyn=True):
-            self.__dict__[key] = value
+        self.__dict__.update(
+            {k: v for k, v in self._conf_keys(other_conf, dyn=True)})
 
     def _set_default(self, key, value):
-        if key not in self.__dict__ or self.__dict__[key] is None:
+        assert key in self.__dict__, key
+        if self.__dict__[key] is None:
             self.__dict__[key] = value
 
     def to_conf(self):
         """Return configuration as a dict."""
-        result = {}
-        for key in self.defaults:
-            if key != 'name':
-                result[key] = self.__dict__[str(key)]
-        return result
+        return {
+            k: self.__dict__[str(k)] for k in self.defaults.keys() if k != 'name'}
 
     def conf_hash(self, dyn=False, subconf=True, ignore_keys=None):
         """Return hash of keys configurably filtering attributes."""
@@ -132,8 +148,23 @@ class Conf(object):
             self.dyn_hash = dyn_hash
         return dyn_hash
 
+    def _finalize_val(self, val):
+        if isinstance(val, list):
+            return tuple(
+                [self._finalize_val(v) for v in val])
+        if isinstance(val, set):
+            return frozenset(
+                [self._finalize_val(v) for v in val])
+        if isinstance(val, dict):
+            return OrderedDict([
+                (k, self._finalize_val(v)) for k, v in sorted(val.items(), key=str)])
+        return val
+
     def finalize(self):
         """Configuration parsing marked complete."""
+        self.__dict__.update(
+            {k: self._finalize_val(v) for k, v in self.__dict__.items()
+             if not k.startswith('dyn')})
         self.dyn_finalized = True
 
     def ignore_subconf(self, other, ignore_keys=None):

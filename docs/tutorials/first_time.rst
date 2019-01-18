@@ -39,6 +39,8 @@ Package installation
 
            sudo apt-get install faucet-all-in-one
 
+.. _tutorial-configure-prometheus:
+
 Configure prometheus
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -180,7 +182,105 @@ of a single switch with two ports.
 
        .. code:: json
 
-           {'drop_spoofed_faucet_mac': True, 'hardware': 'Open vSwitch', 'lowest_priority': 0, 'highest_priority': 9099, 'faucet_dp_mac': '0e:00:00:00:00:01', 'metrics_rate_limit_sec': 0, 'use_idle_timeout': False, 'max_resolve_backoff_time': 32, 'high_priority': 9001, 'timeout': 300, 'pipeline_config_dir': '/etc/faucet', 'drop_lldp': True, 'learn_ban_timeout': 10, 'ofchannel_log': None, 'drop_broadcast_source_address': True, 'max_hosts_per_resolve_cycle': 5, 'proactive_learn': True, 'lldp_beacon': {}, 'cookie': 1524372928, 'stack': None, 'dp_id': 1, 'priority_offset': 0, 'description': 'sw1', 'max_host_fib_retry_count': 10, 'learn_jitter': 10, 'interfaces': {'p1': {'lldp_beacon': {}, 'unicast_flood': True, 'enabled': True, 'tagged_vlans': [], 'number': 1, 'description': 'port1', 'acls_in': None, 'mirror': None, 'acl_in': None, 'opstatus_reconf': True, 'hairpin': False, 'native_vlan': VLAN office vid:100 ports:Port 1,Port 2, 'loop_protect': False, 'stack': None, 'lacp': 0, 'override_output_port': None, 'receive_lldp': False, 'max_hosts': 255, 'permanent_learn': False, 'output_only': False}, 'p2': {'lldp_beacon': {}, 'unicast_flood': True, 'enabled': True, 'tagged_vlans': [], 'number': 2, 'description': 'port2', 'acls_in': None, 'mirror': None, 'acl_in': None, 'opstatus_reconf': True, 'hairpin': False, 'native_vlan': VLAN office vid:100 ports:Port 1,Port 2, 'loop_protect': False, 'stack': None, 'lacp': 0, 'override_output_port': None, 'receive_lldp': False, 'max_hosts': 255, 'permanent_learn': False, 'output_only': False}}, 'combinatorial_port_flood': True, 'packetin_pps': 0, 'ignore_learn_ins': 10, 'interface_ranges': {}, 'group_table_routing': False, 'advertise_interval': 30, 'group_table': False, 'low_priority': 9000, 'arp_neighbor_timeout': 250, 'drop_bpdu': True}
+           [{'advertise_interval': 30,
+             'arp_neighbor_timeout': 30,
+             'cache_update_guard_time': 150,
+             'combinatorial_port_flood': False,
+             'cookie': 1524372928,
+             'description': 'sw1',
+             'dot1x': None,
+             'dp_acls': None,
+             'dp_id': 1,
+             'drop_broadcast_source_address': True,
+             'drop_spoofed_faucet_mac': True,
+             'egress_pipeline': False,
+             'fast_advertise_interval': 5,
+             'faucet_dp_mac': '0e:00:00:00:00:01',
+             'global_vlan': 0,
+             'group_table': False,
+             'hardware': 'Open vSwitch',
+             'high_priority': 9001,
+             'highest_priority': 9099,
+             'idle_dst': True,
+             'ignore_learn_ins': 10,
+             'interface_ranges': OrderedDict(),
+             'interfaces': {'host1': {'acl_in': None,
+                                      'acls_in': None,
+                                      'description': 'host1 network namespace',
+                                      'dot1x': False,
+                                      'enabled': True,
+                                      'hairpin': False,
+                                      'hairpin_unicast': False,
+                                      'lacp': 0,
+                                      'lacp_active': False,
+                                      'lldp_beacon': OrderedDict(),
+                                      'loop_protect': False,
+                                      'loop_protect_external': False,
+                                      'max_hosts': 255,
+                                      'max_lldp_lost': 3,
+                                      'mirror': None,
+                                      'native_vlan': 'office',
+                                      'number': 1,
+                                      'opstatus_reconf': True,
+                                      'output_only': False,
+                                      'override_output_port': None,
+                                      'permanent_learn': False,
+                                      'receive_lldp': False,
+                                      'stack': OrderedDict(),
+                                      'tagged_vlans': [],
+                                      'unicast_flood': True},
+                            'host2': {'acl_in': None,
+                                      'acls_in': None,
+                                      'description': 'host2 network namespace',
+                                      'dot1x': False,
+                                      'enabled': True,
+                                      'hairpin': False,
+                                      'hairpin_unicast': False,
+                                      'lacp': 0,
+                                      'lacp_active': False,
+                                      'lldp_beacon': OrderedDict(),
+                                      'loop_protect': False,
+                                      'loop_protect_external': False,
+                                      'max_hosts': 255,
+                                      'max_lldp_lost': 3,
+                                      'mirror': None,
+                                      'native_vlan': 'office',
+                                      'number': 2,
+                                      'opstatus_reconf': True,
+                                      'output_only': False,
+                                      'override_output_port': None,
+                                      'permanent_learn': False,
+                                      'receive_lldp': False,
+                                      'stack': OrderedDict(),
+                                      'tagged_vlans': [],
+                                      'unicast_flood': True}},
+             'lacp_timeout': 30,
+             'learn_ban_timeout': 51,
+             'learn_jitter': 51,
+             'lldp_beacon': OrderedDict(),
+             'low_priority': 9000,
+             'lowest_priority': 0,
+             'max_host_fib_retry_count': 10,
+             'max_hosts_per_resolve_cycle': 5,
+             'max_resolve_backoff_time': 64,
+             'max_wildcard_table_size': 1280,
+             'metrics_rate_limit_sec': 0,
+             'min_wildcard_table_size': 32,
+             'multi_out': True,
+             'nd_neighbor_timeout': 30,
+             'ofchannel_log': None,
+             'packetin_pps': None,
+             'priority_offset': 0,
+             'proactive_learn_v4': True,
+             'proactive_learn_v6': True,
+             'stack': None,
+             'strict_packet_in_cookie': True,
+             'table_sizes': OrderedDict(),
+             'timeout': 300,
+             'use_classification': False,
+             'use_idle_timeout': False}]
+
+
 
     3. Reload faucet
 
@@ -282,24 +382,11 @@ production-grade software switch with very good OpenFlow support.
        First let's define some useful bash functions by coping and pasting the
        following definitions into our bash terminal:
 
-       .. code:: bash
+       .. literalinclude:: ../_static/tutorial/create_ns
+          :language: bash
 
-           create_ns () {
-               NETNS=$1
-               IP=$2
-               sudo ip netns add ${NETNS}
-               sudo ip link add dev veth-${NETNS} type veth peer name veth0 netns $NETNS
-               sudo ip link set dev veth-${NETNS} up
-               sudo ip netns exec $NETNS ip link set dev veth0 up
-               sudo ip netns exec $NETNS ip addr add dev veth0 $IP
-               sudo ip netns exec $NETNS ip link set dev lo up
-           }
-
-           as_ns () {
-               NETNS=$1
-               shift
-               sudo ip netns exec $NETNS $@
-           }
+       .. literalinclude:: ../_static/tutorial/as_ns
+          :language: bash
 
        Now we will create ``host1`` and ``host2`` and assign them some IPs:
 
@@ -367,8 +454,8 @@ production-grade software switch with very good OpenFlow support.
        .. code:: console
 
            sudo apt-get install iperf3
-           as_ns host1 iperf3 -s &
-           as_ns host2 iperf3 -c 192.168.0.1
+           as_ns host1 iperf3 --server --pidfile /run/iperf3-host1.pid --daemon
+           as_ns host2 iperf3 --client 192.168.0.1
 
 Further steps
 ^^^^^^^^^^^^^
@@ -378,7 +465,7 @@ environment you can build on this tutorial and start to make more interesting
 topologies by adding more Open vSwitch bridges, ports and network namespaces.
 Check out the faucet :doc:`../configuration` document for more information on
 features you can turn on and off. In future we will publish additional tutorials
-on layer 3 routing, inter-vlan routing, ACLs.
+on layer 3 routing, inter-VLAN routing, ACLs.
 
 You can also easily add real hardware into the mix as well instead of using
 a software switch. See the :doc:`../vendors/index` section for information on how

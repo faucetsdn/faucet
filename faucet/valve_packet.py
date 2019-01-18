@@ -20,15 +20,17 @@
 import ipaddress
 import socket
 import struct
+from netaddr import EUI
 
 from ryu.lib import addrconv
+from ryu.lib.mac import BROADCAST, is_multicast, haddr_to_bin
 from ryu.lib.packet import (
     arp, bpdu, ethernet,
     icmp, icmpv6, ipv4, ipv6,
     lldp, slow, packet, vlan)
 from ryu.lib.packet.stream_parser import StreamParser
 
-from faucet.valve_util import btos
+from faucet import valve_util
 from faucet import valve_of
 
 FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
@@ -36,9 +38,16 @@ FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
 ETH_HEADER_SIZE = 14
 ETH_VLAN_HEADER_SIZE = ETH_HEADER_SIZE + 4 # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
 IPV4_HEADER_SIZE = 20 # https://en.wikipedia.org/wiki/IPv4#Header
+ICMP_ECHO_REQ_SIZE = 8 + 64 # https://en.wikipedia.org/wiki/Ping_(networking_utility)#ICMP_packet
 IPV6_HEADER_SIZE = 40 # https://en.wikipedia.org/wiki/IPv6_packet#Fixed_header
-ARP_PKT_SIZE = 28 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
+ARP_REQ_PKT_SIZE = 28
+ARP_PKT_SIZE = 46 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
+VLAN_ARP_REQ_PKT_SIZE = ETH_VLAN_HEADER_SIZE + ARP_REQ_PKT_SIZE
+VLAN_ARP_PKT_SIZE = ETH_VLAN_HEADER_SIZE + ARP_PKT_SIZE
+VLAN_ICMP_ECHO_REQ_SIZE = ETH_VLAN_HEADER_SIZE + IPV4_HEADER_SIZE + ICMP_ECHO_REQ_SIZE
 
+ETH_EAPOL = 0x888e
+EAPOL_ETH_DST = '01:80:c2:00:00:03'
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
 BRIDGE_GROUP_MASK = 'ff:ff:ff:ff:ff:f0'
@@ -46,12 +55,35 @@ LLDP_MAC_NEAREST_BRIDGE = lldp.LLDP_MAC_NEAREST_BRIDGE
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
-IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
-IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
+IPV6_ALL_NODES = ipaddress.IPv6Address('ff02::1')
 IPV6_MAX_HOP_LIM = 255
+IPV6_RA_HOP_LIM = 64
 
 LLDP_FAUCET_DP_ID = 1
 LLDP_FAUCET_STACK_STATE = 2
+
+LACP_SIZE = 124
+
+EUI_BITS = len(EUI(0).packed*8)
+MAC_MASK_BITMAP = {(2**EUI_BITS - 2**i): (EUI_BITS - i) for i in range(0, EUI_BITS + 1)}
+
+
+def mac_mask_bits(mac_mask):
+    """Return number of bits in MAC mask or 0."""
+    if mac_mask is not None:
+        return MAC_MASK_BITMAP.get(EUI(mac_mask).value, 0)
+    return 0
+
+
+def int_from_mac(mac):
+    int_hi, int_lo = [int(i, 16) for i in mac.split(':')[-2:]]
+    return (int_hi << 8) + int_lo
+
+
+def int_in_mac(mac, to_int):
+    int_mac = mac.split(':')[:4] + [
+        '%x' % (to_int >> 8), '%x' % (to_int & 0xff)]
+    return ':'.join(int_mac)
 
 
 def ipv4_parseable(ip_header_data):
@@ -94,17 +126,6 @@ def parse_eth_pkt(pkt):
     return pkt.get_protocol(ethernet.ethernet)
 
 
-def parse_vlan_pkt(pkt):
-    """Return parsed VLAN header.
-
-    Args:
-        pkt (ryu.lib.packet.packet): packet received from dataplane.
-    Returns:
-        ryu.lib.packet.vlan: VLAN header.
-    """
-    return pkt.get_protocol(vlan.vlan)
-
-
 def parse_lacp_pkt(pkt):
     """Return parsed LACP packet.
 
@@ -127,7 +148,7 @@ def parse_lldp(pkt):
     return pkt.get_protocol(lldp.lldp)
 
 
-def parse_packet_in_pkt(data, max_len):
+def parse_packet_in_pkt(data, max_len, eth_pkt=None, vlan_pkt=None):
     """Parse a packet received via packet in from the dataplane.
 
     Args:
@@ -140,7 +161,6 @@ def parse_packet_in_pkt(data, max_len):
         int: VLAN VID (or None if no VLAN)
     """
     pkt = None
-    eth_pkt = None
     eth_type = None
     vlan_vid = None
 
@@ -150,21 +170,22 @@ def parse_packet_in_pkt(data, max_len):
     try:
         # Packet may or may not have a VLAN tag - whether it is user
         # traffic, or control like LACP/LLDP.
-        pkt = packet.Packet(data[:ETH_HEADER_SIZE])
-        eth_pkt = parse_eth_pkt(pkt)
-        eth_type = eth_pkt.ethertype
-        if eth_type == valve_of.ether.ETH_TYPE_8021Q:
-            pkt = packet.Packet(data[:ETH_VLAN_HEADER_SIZE])
-            vlan_pkt = parse_vlan_pkt(pkt)
-            if vlan_pkt:
-                vlan_vid = vlan_pkt.vid
-                eth_type = vlan_pkt.ethertype
+        if vlan_pkt is None:
+            if eth_pkt is None:
+                pkt = packet.Packet(data[:ETH_HEADER_SIZE])
+                eth_pkt = parse_eth_pkt(pkt)
+            eth_type = eth_pkt.ethertype
+            if eth_type == valve_of.ether.ETH_TYPE_8021Q:
+                pkt, vlan_pkt = packet.Packet(data[:ETH_VLAN_HEADER_SIZE])
+        if vlan_pkt:
+            vlan_vid = vlan_pkt.vid
+            eth_type = vlan_pkt.ethertype
         if len(data) > ETH_VLAN_HEADER_SIZE:
             pkt = packet.Packet(data)
     except (AttributeError, AssertionError, StreamParser.TooSmallException):
         pass
 
-    return (pkt, eth_pkt, eth_type, vlan_vid)
+    return (pkt, eth_pkt, eth_type, vlan_pkt, vlan_vid)
 
 
 def mac_addr_is_unicast(mac_addr):
@@ -175,8 +196,10 @@ def mac_addr_is_unicast(mac_addr):
     Returns:
         bool: True if a unicast Ethernet address.
     """
-    msb = mac_addr.split(':')[0]
-    return msb[-1] in '02468aAcCeE'
+    mac_bin = haddr_to_bin(mac_addr)
+    if mac_bin == BROADCAST:
+        return False
+    return not is_multicast(mac_bin)
 
 
 def build_pkt_header(vid, eth_src, eth_dst, dl_type):
@@ -275,18 +298,71 @@ def faucet_lldp_stack_state_tlvs(dp, port):
     return tlvs
 
 
+def tlvs_by_type(tlvs, tlv_type):
+    """Return list of TLVs with matching type."""
+    return [tlv for tlv in tlvs if tlv.tlv_type == tlv_type]
+
+
+def tlvs_by_subtype(tlvs, subtype):
+    """Return list of TLVs with matching type."""
+    return [tlv for tlv in tlvs if tlv.subtype == subtype]
+
+
+def tlv_cast(tlvs, tlv_attr, cast_func):
+    """Return cast'd attribute of first TLV or None."""
+    tlv_val = None
+    if tlvs:
+        try:
+            tlv_val = cast_func(getattr(tlvs[0], tlv_attr))
+        except (AttributeError, ValueError, TypeError):
+            pass
+    return tlv_val
+
+
+def faucet_tlvs(lldp_pkt, faucet_dp_mac):
+    """Return list of TLVs with FAUCET OUI."""
+    return [tlv for tlv in tlvs_by_type(
+        lldp_pkt.tlvs, lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC)
+            if tlv.oui == faucet_oui(faucet_dp_mac)]
+
+
+def parse_faucet_lldp(lldp_pkt, faucet_dp_mac):
+    """Parse and return FAUCET TLVs from LLDP packet."""
+    remote_dp_id = None
+    remote_dp_name = None
+    remote_port_id = None
+    remote_port_state = None
+
+    tlvs = faucet_tlvs(lldp_pkt, faucet_dp_mac)
+    if tlvs:
+        dp_id_tlvs = tlvs_by_subtype(tlvs, LLDP_FAUCET_DP_ID)
+        dp_name_tlvs = tlvs_by_type(lldp_pkt.tlvs, lldp.LLDP_TLV_SYSTEM_NAME)
+        port_id_tlvs = tlvs_by_type(lldp_pkt.tlvs, lldp.LLDP_TLV_PORT_ID)
+        port_state_tlvs = tlvs_by_subtype(tlvs, LLDP_FAUCET_STACK_STATE)
+        remote_dp_id = tlv_cast(dp_id_tlvs, 'info', int)
+        remote_port_id = tlv_cast(port_id_tlvs, 'port_id', int)
+        remote_port_state = tlv_cast(port_state_tlvs, 'info', int)
+        remote_dp_name = tlv_cast(dp_name_tlvs, 'system_name', valve_util.utf8_decode)
+    return (remote_dp_id, remote_dp_name, remote_port_id, remote_port_state)
+
+
 def lacp_reqreply(eth_src,
                   actor_system, actor_key, actor_port,
-                  partner_system, partner_key, partner_port,
-                  partner_system_priority, partner_port_priority,
-                  partner_state_defaulted,
-                  partner_state_expired,
-                  partner_state_timeout,
-                  partner_state_collecting,
-                  partner_state_distributing,
-                  partner_state_aggregation,
-                  partner_state_synchronization,
-                  partner_state_activity):
+                  actor_state_synchronization=0,
+                  actor_state_activity=0,
+                  partner_system='00:00:00:00:00:00',
+                  partner_key=0,
+                  partner_port=0,
+                  partner_system_priority=0,
+                  partner_port_priority=0,
+                  partner_state_defaulted=0,
+                  partner_state_expired=0,
+                  partner_state_timeout=0,
+                  partner_state_collecting=0,
+                  partner_state_distributing=0,
+                  partner_state_aggregation=0,
+                  partner_state_synchronization=0,
+                  partner_state_activity=0):
     """Return a LACP frame.
 
     Args:
@@ -294,6 +370,8 @@ def lacp_reqreply(eth_src,
         actor_system (str): actor system ID (MAC address)
         actor_key (int): actor's LACP key assigned to this port.
         actor_port (int): actor port number.
+        actor_state_synchronization (int): 1 if we will use this link.
+        actor_state_activity (int): 1 if actively sending LACP.
         partner_system (str): partner system ID (MAC address)
         partner_key (int): partner's LACP key assigned to this port.
         partner_port (int): partner port number.
@@ -336,28 +414,29 @@ def lacp_reqreply(eth_src,
         partner_state_distributing=partner_state_distributing,
         actor_state_aggregation=1,
         partner_state_aggregation=partner_state_aggregation,
-        actor_state_synchronization=1,
+        actor_state_synchronization=actor_state_synchronization,
         partner_state_synchronization=partner_state_synchronization,
-        actor_state_activity=0,
+        actor_state_activity=actor_state_activity,
         partner_state_activity=partner_state_activity)
     pkt.add_protocol(lacp_pkt)
     pkt.serialize()
     return pkt
 
 
-def arp_request(vid, eth_src, src_ip, dst_ip):
+def arp_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return an ARP request packet.
 
     Args:
         vid (int or None): VLAN VID to use (or None).
         eth_src (str): Ethernet source address.
+        eth_dst (str): Ethernet destination address.
         src_ip (ipaddress.IPv4Address): source IPv4 address.
         dst_ip (ipaddress.IPv4Address): requested IPv4 address.
     Returns:
         ryu.lib.packet.arp: serialized ARP request packet.
     """
     pkt = build_pkt_header(
-        vid, eth_src, valve_of.mac.BROADCAST_STR, valve_of.ether.ETH_TYPE_ARP)
+        vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_ARP)
     arp_pkt = arp.arp(
         opcode=arp.ARP_REQUEST, src_mac=eth_src,
         src_ip=str(src_ip), dst_mac=valve_of.mac.DONTCARE_STR, dst_ip=str(dst_ip))
@@ -422,13 +501,7 @@ def ipv6_link_eth_mcast(dst_ip):
         str: Ethernet multicast address.
     """
     mcast_mac_bytes = b'\x33\x33\xff' + dst_ip.packed[-3:]
-    mcast_mac_octets = []
-    for i in mcast_mac_bytes:
-        if isinstance(i, int):
-            mcast_mac_octets.append(i)
-        else:
-            mcast_mac_octets.append(ord(i))
-    mcast_mac = ':'.join(['%02X' % x for x in mcast_mac_octets])
+    mcast_mac = ':'.join(['%02X' % x for x in mcast_mac_bytes])
     return mcast_mac
 
 
@@ -442,28 +515,33 @@ def ipv6_solicited_node_from_ucast(ucast):
     Returns:
        ipaddress.IPv6Address: IPv6 solicited node multicast address.
     """
-    link_mcast_prefix = ipaddress.ip_interface(btos('ff02::1:ff00:0/104'))
+    link_mcast_prefix = ipaddress.ip_interface('ff02::1:ff00:0/104')
     mcast_bytes = link_mcast_prefix.packed[:13] + ucast.packed[-3:]
     link_mcast = ipaddress.IPv6Address(mcast_bytes)
     return link_mcast
 
 
-def nd_request(vid, eth_src, src_ip, dst_ip):
+def nd_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return IPv6 neighbor discovery request packet.
 
     Args:
         vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
+        eth_dst (str): Ethernet destination address.
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         dst_ip (ipaddress.IPv6Address): requested IPv6 address.
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 neighbor discovery packet.
     """
-    nd_mac = ipv6_link_eth_mcast(dst_ip)
-    ip_gw_mcast = ipv6_solicited_node_from_ucast(dst_ip)
+    if mac_addr_is_unicast(eth_dst):
+        nd_mac = eth_dst
+        nd_ip = dst_ip
+    else:
+        nd_mac = ipv6_link_eth_mcast(dst_ip)
+        nd_ip = ipv6_solicited_node_from_ucast(dst_ip)
     pkt = build_pkt_header(vid, eth_src, nd_mac, valve_of.ether.ETH_TYPE_IPV6)
     ipv6_pkt = ipv6.ipv6(
-        src=str(src_ip), dst=ip_gw_mcast, nxt=valve_of.inet.IPPROTO_ICMPV6)
+        src=str(src_ip), dst=nd_ip, nxt=valve_of.inet.IPPROTO_ICMPV6)
     pkt.add_protocol(ipv6_pkt)
     icmpv6_pkt = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_SOLICIT,
@@ -516,7 +594,7 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
             src_ip (ipaddress.IPv6Address): source IPv6 address.
             dst_ip (ipaddress.IPv6Address): destination IPv6 address.
             hop_limit (int): IPv6 hop limit.
-            id\_ (int): identifier for echo reply.
+            id_ (int): identifier for echo reply.
             seq (int): sequence number for echo reply.
             data (str): payload for echo reply.
         Returns:
@@ -540,7 +618,7 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
 
 def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
                   vips, pi_flags=0x6):
-    """Return IPv6 ICMP echo reply packet.
+    """Return IPv6 ICMP Router Advert.
 
     Args:
         vid (int or None): VLAN VID to use (or None).
@@ -576,15 +654,31 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
         type_=icmpv6.ND_ROUTER_ADVERT,
         data=icmpv6.nd_router_advert(
             rou_l=1800,
-            ch_l=IPV6_MAX_HOP_LIM,
+            ch_l=IPV6_RA_HOP_LIM,
             options=options))
     pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()
     return pkt
 
 
-class PacketMeta(object):
+class PacketMeta:
     """Original, and parsed Ethernet packet metadata."""
+
+    __slots__ = [
+        'data',
+        'orig_len',
+        'pkt',
+        'eth_pkt',
+        'vlan_pkt',
+        'port',
+        'vlan',
+        'eth_src',
+        'eth_dst',
+        'eth_type',
+        'l3_pkt',
+        'l3_src',
+        'l3_dst',
+    ]
 
     ETH_TYPES_PARSERS = {
         valve_of.ether.ETH_TYPE_IP: (4, ipv4_parseable, ipv4.ipv4),
@@ -593,16 +687,23 @@ class PacketMeta(object):
     }
 
     MIN_ETH_TYPE_PKT_SIZE = {
-        valve_of.ether.ETH_TYPE_ARP: ETH_VLAN_HEADER_SIZE + ARP_PKT_SIZE,
+        valve_of.ether.ETH_TYPE_ARP: VLAN_ARP_REQ_PKT_SIZE,
         valve_of.ether.ETH_TYPE_IP: ETH_VLAN_HEADER_SIZE + IPV4_HEADER_SIZE,
         valve_of.ether.ETH_TYPE_IPV6: ETH_VLAN_HEADER_SIZE + IPV6_HEADER_SIZE,
     }
 
-    def __init__(self, data, orig_len, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
+    MAX_ETH_TYPE_PKT_SIZE = {
+        valve_of.ether.ETH_TYPE_ARP: VLAN_ARP_PKT_SIZE,
+        valve_of.ether.ETH_TYPE_IP: VLAN_ICMP_ECHO_REQ_SIZE,
+    }
+
+    def __init__(self, data, orig_len, pkt, eth_pkt, vlan_pkt, port, valve_vlan,
+                 eth_src, eth_dst, eth_type):
         self.data = data
         self.orig_len = orig_len
         self.pkt = pkt
         self.eth_pkt = eth_pkt
+        self.vlan_pkt = vlan_pkt
         self.port = port
         self.vlan = valve_vlan
         self.eth_src = eth_src
@@ -612,14 +713,26 @@ class PacketMeta(object):
         self.l3_src = None
         self.l3_dst = None
 
+    def log(self):
+        vlan_msg = ''
+        if self.vlan:
+            vlan_msg = 'VLAN %u' % self.vlan.vid
+        return '%s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) %s %s' % (
+            self.eth_src, self.eth_type, self.l3_src, self.l3_dst,
+            self.port, vlan_msg)
+
     def reparse(self, max_len):
         """Reparse packet using data up to the specified maximum length."""
-        pkt, eth_pkt, eth_type, _ = parse_packet_in_pkt(
-            self.data, max_len)
+        pkt, eth_pkt, eth_type, vlan_pkt, _ = parse_packet_in_pkt(
+            self.data, max_len, eth_pkt=self.eth_pkt, vlan_pkt=self.vlan_pkt)
         if pkt is None or eth_type is None:
             return
+        right_size = self.MAX_ETH_TYPE_PKT_SIZE.get(eth_type, len(self.data))
+        if len(self.data) > right_size:
+            self.data = self.data[:right_size]
         self.pkt = pkt
         self.eth_pkt = eth_pkt
+        self.vlan_pkt = vlan_pkt
 
     def reparse_all(self):
         """Reparse packet with all available data."""
@@ -640,7 +753,7 @@ class PacketMeta(object):
             if ip_ver is not None:
                 if ip_ver != self.ip_ver():
                     return
-                if self.vlan.minimum_ip_size_check:
+                if self.vlan is not None and self.vlan.minimum_ip_size_check:
                     if len(self.data) < header_size:
                         return
                 ip_header_data = self.data[ETH_VLAN_HEADER_SIZE:]
@@ -656,6 +769,8 @@ class PacketMeta(object):
                 elif hasattr(self.l3_pkt, 'src_ip'):
                     self.l3_src = self.l3_pkt.src_ip
                     self.l3_dst = self.l3_pkt.dst_ip
+                self.l3_src = ipaddress.ip_address(self.l3_src)
+                self.l3_dst = ipaddress.ip_address(self.l3_dst)
 
     def packet_complete(self):
         """True if we have the complete packet."""

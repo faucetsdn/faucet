@@ -22,6 +22,7 @@ Setup
 System & Network Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+ * NOTE: Do not configure IPv6 management of the switch! This will cause IPv6 under OpenFlow control to break.
  * Use Serial Console cable to login to the box.
  * Use ``minicom`` for serial terminal @ 115Kbps.  Minicom is available on Linux and MacOS (macports) systems.
  * Connected Port 1 of Switch to Top of the Rack (TOR) switch which had DHCP and DNS enabled.  Mac Address was programmed into DNS/DHCP Server so that IP address of 10.20.5.11 was provided to this box.
@@ -366,50 +367,6 @@ On the FAUCET configuration file (``/etc/faucet/faucet.yaml``), add the datapath
 	                native_vlan: 100
 	                name: "port2"
 
-
-You will also need to install pipeline configuration files (these files instruct FAUCET to configure the switch with the right OpenFlow tables - these files and FAUCET's pipeline must match).
-
-.. code:: console
-
-       $ sudo cp etc/faucet/ofproto_to_ryu.json /etc/faucet
-       $ sudo cp etc/faucet/aruba_pipeline.json /etc/faucet
-
-
-Scale
------
-
-Most tables in the current FAUCET pipeline need wildcards and hence use TCAMs in hardware.
-There are 2000 entries available globally for the whole pipeline. Currently, it has been
-distributed amongst the 9 tables as follows:
-
-+----------------+------------------+
-| Table          | Maximum Entries  |
-+================+==================+
-| Port ACL       | 50               |
-+----------------+------------------+
-| VLAN           | 300              |
-+----------------+------------------+
-| VLAN ACL       | 50               |
-+----------------+------------------+
-| ETH_SRC        | 500              |
-+----------------+------------------+
-| IPv4 FIB       | 300              |
-+----------------+------------------+
-| IPv6 FIB       | 10               |
-+----------------+------------------+
-| VIP            | 10               |
-+----------------+------------------+
-| ETH_DST        | 500              |
-+----------------+------------------+
-| FLOOD          | 300              |
-+----------------+------------------+
-
-Based on one's deployment needs, these numbers can be updated for each table (update max_entries in ``$(REPO_ROOT)/faucet/aruba/aruba_pipeline.json``).
-
-.. note::
-
-    The summation of max entries across all 9 tables cannot cross 2000 and the minimum size of a given table has to be 2.
-    You need to restart FAUCET for the new numbers to reflect on the switch.
 
 Limitations
 -----------

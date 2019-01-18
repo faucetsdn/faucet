@@ -49,10 +49,10 @@ PROM_FLOW_VARS = (
 class GaugePrometheusClient(PromClient):
     """Wrapper for Prometheus client that is shared between all pollers."""
 
-    metrics = {} # type: dict
-
     def __init__(self, reg=None):
         super(GaugePrometheusClient, self).__init__(reg=reg)
+        self.table_tags = collections.defaultdict(set)
+        self.metrics = {}
         self.dp_status = Gauge( # pylint: disable=unexpected-keyword-arg
             'dp_status',
             'status of datapaths',
@@ -62,10 +62,12 @@ class GaugePrometheusClient(PromClient):
             exported_prom_var = PROM_PREFIX_DELIM.join(
                 (PROM_PORT_PREFIX, prom_var))
             self.metrics[exported_prom_var] = Gauge( # pylint: disable=unexpected-keyword-arg
-                exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'],
+                exported_prom_var, '',
+                self.REQUIRED_LABELS + ['port', 'port_description'],
                 registry=self._reg)
 
     def reregister_flow_vars(self, table_name, table_tags):
+        """Register the flow variables needed for this client"""
         for prom_var in PROM_FLOW_VARS:
             table_prom_var = PROM_PREFIX_DELIM.join((prom_var, table_name))
             try:
@@ -97,8 +99,7 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
     def update(self, rcv_time, dp_id, msg):
         super(GaugePortStatsPrometheusPoller, self).update(rcv_time, dp_id, msg)
         for stat in msg.body:
-            port_name = self._stat_port_name(msg, stat, dp_id)
-            port_labels = dict(dp_id=hex(dp_id), dp_name=self.dp.name, port_name=port_name)
+            port_labels = self.dp.port_labels(stat.port_no)
             for stat_name, stat_val in self._format_port_stats(
                     PROM_PREFIX_DELIM, stat):
                 self.prom_client.metrics[stat_name].labels(**port_labels).set(stat_val)
@@ -110,19 +111,18 @@ class GaugePortStatePrometheusPoller(GaugePortStatePoller):
     def update(self, rcv_time, dp_id, msg):
         super(GaugePortStatePrometheusPoller, self).update(rcv_time, dp_id, msg)
         port_no = msg.desc.port_no
-        if port_no in self.dp.ports:
-            port_name = self.dp.ports[port_no].name
-            port_labels = dict(dp_id=hex(dp_id), dp_name=self.dp.name, port_name=port_name)
-            for prom_var in PROM_PORT_STATE_VARS:
-                exported_prom_var = PROM_PREFIX_DELIM.join((PROM_PORT_PREFIX, prom_var))
-                msg_value = msg.reason if prom_var == 'reason' else getattr(msg.desc, prom_var)
-                self.prom_client.metrics[exported_prom_var].labels(**port_labels).set(msg_value)
+        port = self.dp.ports.get(port_no, None)
+        if port is None:
+            return
+        port_labels = self.dp.port_labels(port_no)
+        for prom_var in PROM_PORT_STATE_VARS:
+            exported_prom_var = PROM_PREFIX_DELIM.join((PROM_PORT_PREFIX, prom_var))
+            msg_value = msg.reason if prom_var == 'reason' else getattr(msg.desc, prom_var)
+            self.prom_client.metrics[exported_prom_var].labels(**port_labels).set(msg_value)
 
 
 class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
     """Export flow table entries to Prometheus."""
-
-    table_tags = collections.defaultdict(set) # type: dict
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugeFlowTablePrometheusPoller, self).update(rcv_time, dp_id, msg)
@@ -133,18 +133,26 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
             # Work around this by unregistering/registering the entire variable.
             for var, tags, count in self._parse_flow_stats(stats):
                 table_id = int(tags['table_id'])
-                table_name = self.dp.tables_by_id[table_id].name
-                table_prom_var = PROM_PREFIX_DELIM.join((var, table_name))
+                table_name = self.dp.table_by_id(table_id).name
+                table_tags = self.prom_client.table_tags[table_name]
                 tags_keys = set(tags.keys())
-                if tags_keys != self.table_tags[table_id]:
-                    if not tags_keys.issubset(self.table_tags[table_id]):
-                        self.logger.info('re-initializing tags for table_id %u from %s to %s' % (
-                            table_id, self.table_tags[table_id], tags_keys))
-                        self.table_tags[table_id] = self.table_tags[table_id].union(tags_keys)
+                if tags_keys != table_tags:
+                    unreg_tags = tags_keys - table_tags
+                    if unreg_tags:
+                        table_tags.update(unreg_tags)
                         self.prom_client.reregister_flow_vars(
-                            table_name, self.table_tags[table_id])
-                    # Add blank tags for any tags missing,
-                    for tag in self.table_tags[table_id]:
-                        if tag not in tags:
-                            tags[tag] = ''
-                self.prom_client.metrics[table_prom_var].labels(**tags).set(count)
+                            table_name, table_tags)
+                        self.logger.info( # pylint: disable=logging-not-lazy
+                            'Adding tags %s to %s for table %s' % (
+                                unreg_tags, table_tags, table_name))
+                    # Add blank tags for any tags not present.
+                    missing_tags = table_tags - tags_keys
+                    for tag in missing_tags:
+                        tags[tag] = ''
+                table_prom_var = PROM_PREFIX_DELIM.join((var, table_name))
+                try:
+                    self.prom_client.metrics[table_prom_var].labels(**tags).set(count)
+                except ValueError:
+                    self.logger.error( # pylint: disable=logging-not-lazy
+                        'labels %s versus %s incorrect on %s' % (
+                            tags, table_tags, table_prom_var))

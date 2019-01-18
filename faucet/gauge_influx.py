@@ -18,13 +18,11 @@
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
-# pytype: disable=pyi-error
-from requests.exceptions import ConnectionError, ReadTimeout
-
+import requests # pytype: disable=pyi-error
 from faucet.gauge_pollers import GaugePortStatePoller, GaugeFlowTablePoller, GaugePortStatsPoller
 
 
-class InfluxShipper(object):
+class InfluxShipper:
     """Convenience class for shipping values to InfluxDB.
 
     Inheritors must have a WatcherConf object as conf.
@@ -52,7 +50,8 @@ class InfluxShipper(object):
                 if not client.write_points(points=points, time_precision='s'):
                     self.logger.warning('%s failed to update InfluxDB' % self.ship_error_prefix)
                     return False
-            except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError) as err:
+            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout,
+                    InfluxDBClientError, InfluxDBServerError) as err:
                 self.logger.warning('%s %s' % (self.ship_error_prefix, err))
                 return False
             return True
@@ -161,7 +160,7 @@ Example:
         super(GaugePortStatsInfluxDBLogger, self).update(rcv_time, dp_id, msg)
         points = []
         for stat in msg.body:
-            port_name = self._stat_port_name(msg, stat, dp_id)
+            port_name = str(stat.port_no)
             for stat_name, stat_val in self._format_port_stats('_', stat):
                 points.append(
                     self.make_port_point(

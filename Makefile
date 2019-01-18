@@ -18,7 +18,7 @@ GIT_REL_TAG := $(shell $(GIT) describe --abbrev=0 --tags)
 GIT_NUM_COMMITS := $(shell $(GIT) rev-list  `$(GIT) rev-list --tags --no-walk --max-count=1`..HEAD --count)
 GIT_LOC := $(shell $(GIT) diff --shortstat `$(GIT) rev-list --tags --no-walk --max-count=1`)
 GIT_BRANCH := $(shell $(GIT) rev-parse --abbrev-ref HEAD)
-GIT_REMOTE := $(shell $(GIT) remote
+GIT_REMOTE := $(shell $(GIT) remote)
 
 PROJECT_NAME = faucet
 
@@ -32,18 +32,19 @@ docs: uml dot
 
 uml:
 	$(MKDIR) $(DIST_DIR)/doc
-	$(PYREVERSE) -ASmn -o png -p $(PROJECT_NAME) $(SRC_DIR)/faucet/*py $(SRC_DIR)/faucet/aruba/*py
+	$(PYREVERSE) -ASmn -o png -p $(PROJECT_NAME) $(SRC_DIR)/faucet/*py
 	$(MV) classes*png $(DIST_DIR)/doc
 	$(MV) packages*png $(DIST_DIR)/doc
 
 codefmt:
 	@echo Run below command manually to inline replace current code with newly formatted code per “pep8” guidelines
-	@echo $(YAPF) --style pep8 -i \*py
+	@echo $(YAPF) --style pep8 -ri $(SRC_DIR)/faucet/
 
 codeerrors:
 	@echo Finding errors in code now ...
 	$(MKDIR) $(DIST_DIR)
-	$(PYLINT) $(SRC_DIR)/faucet/*py $(SRC_DIR)/faucet/aruba/*py > $(DIST_DIR)/error_report.out
+	@# ; true to continue on code failing Pylint
+	$(PYLINT) $(SRC_DIR)/faucet/*py > $(DIST_DIR)/error_report.out ; true
 	@echo Code error report available at $(DIST_DIR)/error_report.out
 
 stats:

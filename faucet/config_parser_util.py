@@ -37,13 +37,17 @@ class UniqueKeyLoader(Loader):
         try:
             key_value_pairs = [
                 (self.construct_object(key_node, deep=deep),
-                 self.construct_object(value_node, deep=deep)) for key_node, value_node in node.value]
+                 self.construct_object(value_node, deep=deep))
+                for key_node, value_node in node.value]
         except TypeError as err:
             raise ConstructorError('invalid key type: %s' % err)
         mapping = {}
         for key, value in key_value_pairs:
-            if key in mapping:
-                raise ConstructorError('duplicate key: %s' % key)
+            try:
+                if key in mapping:
+                    raise ConstructorError('duplicate key: %s' % key)
+            except TypeError:
+                raise ConstructorError('unhashable key: %s' % key)
             mapping[key] = value
         return mapping
 
@@ -68,7 +72,7 @@ def read_config(config_file, logname):
             PermissionError, ValueError) as err: # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
         return None
-    except FileNotFoundError as err:
+    except FileNotFoundError as err: # pytype: disable=name-error
         logger.error('Could not find requested file: %s', config_file)
         return None
     return conf
@@ -115,7 +119,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     # Save the updated configuration state in separate dicts,
     # so if an error is found, the changes can simply be thrown away.
     new_top_confs = {}
-    for conf_name, curr_conf in list(top_confs.items()):
+    for conf_name, curr_conf in top_confs.items():
         new_top_confs[conf_name] = curr_conf.copy()
         try:
             new_top_confs[conf_name].update(conf.pop(conf_name, {}))
@@ -135,6 +139,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
                 include_file = str(include_file)
 
             include_path = dp_config_path(include_file, parent_file=config_file)
+            logger.info('including file: %s', include_path)
             if include_path in config_hashes:
                 logger.error(
                     'include file %s already loaded, include loop found in file: %s',
@@ -145,14 +150,13 @@ def dp_include(config_hashes, config_file, logname, top_confs):
                 if file_required:
                     logger.error('unable to load required include file: %s', include_path)
                     return False
-                else:
-                    new_config_hashes[include_path] = None
-                    logger.warning('skipping optional include file: %s', include_path)
+                new_config_hashes[include_path] = None
+                logger.warning('skipping optional include file: %s', include_path)
 
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.
     config_hashes.update(new_config_hashes)
-    for conf_name, new_conf in list(new_top_confs.items()):
+    for conf_name, new_conf in new_top_confs.items():
         top_confs[conf_name].update(new_conf)
     return True
 
@@ -171,7 +175,7 @@ def config_changed(top_config_file, new_top_config_file, config_hashes):
         return True
     if config_hashes is None or new_top_config_file is None:
         return False
-    for config_file, config_hash in list(config_hashes.items()):
+    for config_file, config_hash in config_hashes.items():
         config_file_exists = os.path.isfile(config_file)
         # Config file not loaded but exists = reload.
         if config_hash is None and config_file_exists:
@@ -180,7 +184,8 @@ def config_changed(top_config_file, new_top_config_file, config_hashes):
         if config_hash and not config_file_exists:
             return True
         # Config file hash has changed = reload.
-        new_config_hash = config_file_hash(config_file)
-        if new_config_hash != config_hash:
-            return True
+        if config_file_exists:
+            new_config_hash = config_file_hash(config_file)
+            if new_config_hash != config_hash:
+                return True
     return False

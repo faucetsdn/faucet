@@ -25,7 +25,7 @@ from faucet.valve_of import devid_present
 from faucet.valve_of_old import OLD_MATCH_FIELDS
 
 
-class GaugePoller(object):
+class GaugePoller:
     """Abstraction for a poller for statistics."""
 
     def __init__(self, conf, logname, prom_client):
@@ -33,6 +33,7 @@ class GaugePoller(object):
         self.conf = conf
         self.prom_client = prom_client
         self.reply_pending = False
+        self.ryudp = None
         self.logger = logging.getLogger(
             logname + '.{0}'.format(self.conf.type)
             )
@@ -58,9 +59,9 @@ class GaugePoller(object):
         """Return True if the poller is running."""
         return self._running
 
-    def is_active(self):
-        """Return True if the poller is controlling the requiest loop for its
-        stat"""
+    @staticmethod
+    def is_active():
+        """Return True if the poller is controlling the request loop for its stat"""
         return False
 
     def send_req(self):
@@ -98,17 +99,6 @@ class GaugePoller(object):
         # super call to update
         pass
 
-    def _stat_port_name(self, msg, stat, dp_id):
-        """Return port name as string based on port number."""
-        if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
-            return 'CONTROLLER'
-        elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
-            return 'LOCAL'
-        elif stat.port_no in self.dp.ports:
-            return self.dp.ports[stat.port_no].name
-        self.logger.debug('stats for unknown port %u', stat.port_no)
-        return str(stat.port_no)
-
     @staticmethod
     def _format_port_stats(delim, stat):
         formatted_port_stats = []
@@ -120,11 +110,13 @@ class GaugePoller(object):
                 (('dropped', 'out'), stat.tx_dropped),
                 (('dropped', 'in'), stat.rx_dropped),
                 (('errors', 'in'), stat.rx_errors)):
+            stat_name = delim.join(stat_name_list)
             # For openvswitch, unsupported statistics are set to
             # all-1-bits (UINT64_MAX), skip reporting them
             if stat_val != 2**64-1:
-                stat_name = delim.join(stat_name_list)
                 formatted_port_stats.append((stat_name, stat_val))
+            else:
+                formatted_port_stats.append((stat_name, 0))
         return formatted_port_stats
 
 
@@ -241,11 +233,10 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
             oxm_tlv = oxm_match['OXMTlv']
             mask = oxm_tlv['mask']
             val = oxm_tlv['value']
-            field = oxm_tlv['field']
+            orig_field = oxm_tlv['field']
             if mask is not None:
                 val = '/'.join((str(val), str(mask)))
-            if field in OLD_MATCH_FIELDS:
-                field = OLD_MATCH_FIELDS[field]
+            field = OLD_MATCH_FIELDS.get(orig_field, orig_field)
             tags[field] = val
             if field == 'vlan_vid' and mask is None:
                 tags['vlan'] = devid_present(int(val))

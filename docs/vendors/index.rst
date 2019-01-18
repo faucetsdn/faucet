@@ -8,6 +8,7 @@ Vendor-specific Documentation
    hpe/README_Aruba.rst
    lagopus/README_Lagopus.rst
    northboundnetworks/README_ZodiacFX.rst
+   northboundnetworks/README_ZodiacGX.rst
    noviflow/README_noviflow.rst
    cisco/README_Cisco.rst
    ovs/README_OVS-DPDK.rst

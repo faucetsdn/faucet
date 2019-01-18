@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Standalone utility functions for Mininet tests."""
 
@@ -17,7 +17,8 @@ GETPORT = 'GETPORT'
 PUTPORTS = 'PUTPORTS'
 GETSERIAL = 'GETSERIAL'
 LISTPORTS = 'LISTPORTS'
-LOCALHOST = u'127.0.0.1'
+LOCALHOST = '127.0.0.1'
+LOCALHOSTV6 = '::1'
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
 MIN_PORT_AGE = max(int(open(
@@ -60,7 +61,7 @@ def receive_sock_line(sock):
     """Receive a \n terminated line from a socket."""
     buf = ''
     while buf.find('\n') <= -1:
-        buf += str(sock.recv(2**10))
+        buf += sock.recv(2**10).decode()
     return buf.strip()
 
 
@@ -78,13 +79,14 @@ def test_server_request(ports_socket, name, command):
     assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
-    sock.sendall(b'%s,%s\n' % (command, name))
+    sock.sendall(('%s,%s\n' % (command, name)).encode())
+    output('%s %s\n' % (name, command))
     buf = receive_sock_line(sock)
     responses = [int(i) for i in buf.split('\n')]
     sock.close()
     if len(responses) == 1:
         responses = responses[0]
-    output('%s %s: %u' % (name, command, responses))
+    output('%s %s: %u\n' % (name, command, responses))
     return responses
 
 
@@ -137,13 +139,13 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             port = get_port()
             ports_q.append(port)
             port_age[port] = time.time()
-            time.sleep(0.1)
 
     queue_free_ports(start_free_ports)
     ports_by_name = collections.defaultdict(set)
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(ports_socket)
     sock.listen(1)
+    cold_start = True
 
     while True:
         connection, _ = sock.accept()
@@ -160,26 +162,27 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
                 port_age[port] = time.time()
             del ports_by_name[name]
             response = ports_returned
+            if ports_returned:
+                cold_start = False
         elif command == GETPORT:
             while True:
                 port = ports_q.popleft()
-                if time.time() - port_age[port] > MIN_PORT_AGE:
+                if time.time() - port_age[port] > MIN_PORT_AGE or cold_start:
                     break
                 ports_q.append(port)
                 time.sleep(1)
             ports_by_name[name].add(port)
             response = port
+            queue_free_ports(min_free_ports)
         elif command == LISTPORTS:
             response = list(ports_by_name[name])
         if response is not None:
             response_str = ''
             if isinstance(response, int):
                 response = [response]
-            response_str = bytes(''.join(['%u\n' % i for i in response]))
-            connection.sendall(response_str) # pylint: disable=no-member
+            response_str = ''.join(['%u\n' % i for i in response])
+            connection.sendall(response_str.encode()) # pylint: disable=no-member
         connection.close()
-        if len(ports_q) < min_free_ports:
-            queue_free_ports(len(ports_q) + 1)
 
 
 def timeout_cmd(cmd, timeout):

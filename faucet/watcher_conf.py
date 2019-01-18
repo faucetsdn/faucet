@@ -19,8 +19,9 @@
 # limitations under the License.
 
 
+import os
 from copy import deepcopy
-from faucet.conf import Conf
+from faucet.conf import Conf, test_config_condition
 
 
 class WatcherConf(Conf):
@@ -76,22 +77,11 @@ For Prometheus:
        Defaults to '127.0.0.1'.
 """
 
-    db = None # pylint: disable=invalid-name
-    dp = None # pylint: disable=invalid-name
-    all_dps = None
-    prom_client = None
-
-    defaults = {
-        'name': None,
+    db_defaults = {
         'type': None,
-        'dps': None,
-        'all_dps': False,
-        'interval': 30,
-        'db': None,
-        'dbs': None,
-        'db_type': 'text',
         'file': None,
-        'compress': False,   # compress flow table file
+        'compress': False,
+        # compress flow table file
         'influx_db': 'faucet',
         # influx database name
         'influx_host': 'localhost',
@@ -111,15 +101,8 @@ For Prometheus:
         'prometheus_test_thread': False,
     }
 
-    defaults_types = {
-        'name': str,
+    db_defaults_types = {
         'type': str,
-        'dps': list,
-        'all_dps': bool,
-        'interval': int,
-        'db': str,
-        'dbs': list,
-        'db_type': str,
         'file': str,
         'compress': bool,
         'influx_db': str,
@@ -134,18 +117,74 @@ For Prometheus:
         'prometheus_test_thread': bool,
     }
 
+    defaults = {
+        'name': None,
+        'type': None,
+        'dps': None,
+        'all_dps': False,
+        'interval': 30,
+        'db': None,
+        'dbs': None,
+        'db_type': 'text',
+    }
+
+    defaults_types = {
+        'name': str,
+        'type': str,
+        'dps': list,
+        'all_dps': bool,
+        'interval': int,
+        'db': str,
+        'dbs': list,
+        'db_type': str,
+    }
+
     def __init__(self, _id, dp_id, conf, prom_client):
+        self.db = None # pylint: disable=invalid-name
+        self.dbs = None
+        self.dp = None # pylint: disable=invalid-name
+        self.all_dps = None
+        self.type = None
+        self.interval = None
+        self.db_type = None
+        self.dps = None
+        self.compress = None
+        self.file = None
+        self.influx_db = None
+        self.influx_host = None
+        self.influx_port = None
+        self.influx_user = None
+        self.influx_pwd = None
+        self.influx_timeout = None
+        self.influx_retries = None
+        self.name = None
+        self.prometheus_port = None
+        self.prometheus_addr = None
+        self.prometheus_test_thread = None
+        self.defaults.update(self.db_defaults)
+        self.defaults_types.update(self.db_defaults_types)
         super(WatcherConf, self).__init__(_id, dp_id, conf)
-        self.prom_client = prom_client
         self.name = str(self._id)
+        self.prom_client = prom_client
 
     def add_db(self, db_conf):
         """Add database config to this watcher."""
+        self._check_conf_types(db_conf, self.db_defaults_types)
         db_conf = deepcopy(db_conf)
         db_type = db_conf.pop('type')
         db_conf['db_type'] = db_type
         self.update(db_conf)
+        test_config_condition(
+            self.file is not None and not
+            (os.path.dirname(self.file) and os.access(os.path.dirname(self.file), os.W_OK)),
+            '%s is not writable' % self.file)
 
     def add_dp(self, dp): # pylint: disable=invalid-name
         """Add a datapath to this watcher."""
         self.dp = dp # pylint: disable=invalid-name
+
+    def check_config(self):
+        super(WatcherConf, self).check_config()
+        test_config_condition(
+            self.all_dps and self.dps is not None,
+            'all_dps and dps cannot be set together')

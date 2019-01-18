@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Mininet tests for clib client library functionality.
 
@@ -10,8 +10,8 @@ It is strongly recommended to run these tests via Docker, to ensure you have
 all dependencies correctly installed. See ../docs/.
 """
 
-from mininet_test import test_main
-import clib_mininet_test_unit
+from clib_mininet_test_main import test_main
+import clib_mininet_tests
 
 if __name__ == '__main__':
-    test_main(clib_mininet_test_unit.__name__)
+    test_main(clib_mininet_tests.__name__)

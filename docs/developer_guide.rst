@@ -7,22 +7,63 @@ testing and style.
 Before submitting a PR
 ----------------------
 
--  All unit and integration tests must pass (please use the docker based tests; see
-   :ref:`docker-sw-testing`).
+-  If you have general questions, feel free to reach out to the faucet-dev mailing list.
+-  If you are new to FAUCET, or are contemplating a major change, it's recommended to
+   open a github issue with the proposed change. This will enable broad understanding of
+   your work including being able to catch any potential snags very early (for example,
+   adding new dependencies). Architectural and approach questions are best
+   settled at this stage before any code is written.
+-  Please send relatively small, tightly scoped PRs (approx 200-300 LOC or less).
+   This makes review and analysis easier and lowers risk, including risk of merge
+   conflicts with other PRs. Larger changes must be refactored into incremental changes.
 -  You must add a test if FAUCET's functionality changes (ie. a new
    feature, or correcting a bug).
+-  All unit and integration tests must pass (please use the docker based tests; see
+   :ref:`docker-sw-testing`). Where hardware is available, please also run the hardware
+   based integration tests also.
+-  In order to speed up acceptance of your PR we recommend enabling TravisCI on your
+   own github repo, and linking the test results in the body of the PR. This enables
+   the maintainers to quickly verify that your changes pass all tests in a pristine
+   environment while conserving our TravisCI resources on the main branch (by minimizing
+   resources used on potentially failing test runs which could be caught before opening
+   a PR on the main branch).
+-  You must use the github feature branches (see https://gist.github.com/vlandham/3b2b79c40bc7353ae95a),
+   for your change and squash commits (https://blog.github.com/2016-04-01-squash-your-commits/)
+   when creating the PR.
 -  Please use the supplied git pre-commit hook (see ``../git-hook/pre-commit``),
-   to automatically run the unit tests and pylint for you at git commit time.
--  Please enable TravisCI testing on your repo, which enables the maintainers
-   to quickly verify that your changes pass all tests in a pristine environment.
+   to automatically run the unit tests and pylint for you at git commit time,
+   which will save you TravisCI resources also.
 -  pylint must show no new errors or warnings.
 -  Code must conform to the style guide (see below).
+
+PR handling guidelines
+----------------------
+
+This section documents general guidelines for the maintainers in handling PRs.
+The overall intent is, to enable quality contributions with as low overhead as possible,
+maximizing the use of tools such as static analysis and unit/integration testing,
+and supporting rapid and safe advancement of the overall project.
+
+In addition to the above PR submission guidelines, above:
+
+-  PRs require a positive review per github's built in gating feature. The approving
+   reviewer executes the merge.
+-  PRs that should not be merged until some other criteria are met (e.g. not
+   until release day) must include DO NOT MERGE in the title, with the details
+   in PR comments.
+-  A typical PR review/adjust/merge cycle should be 2-3 days (timezones, weekends, etc
+   permitting). If a PR upon review appears too complex or requires further
+   discussion it is recommended it be refactored into smaller PRs or
+   discussed in another higher bandwidth forum (e.g. a VC) as appropriate.
+-  A PR can be submitted at any time, but to simplify release logistics PR merges
+   might not be done before release, on release days.
+
 
 Code style
 ----------
 
 Please use the coding style documented at
-http://google.github.io/styleguide/pyguide.html. Existing code not using
+https://github.com/google/styleguide/blob/gh-pages/pyguide.md. Existing code not using
 this style will be incrementally migrated to comply with it. New code
 should comply.
 
@@ -76,9 +117,10 @@ Finally, click ``Ok`` again to get back to the main screen of PyCharm.
 Install requirements
 ~~~~~~~~~~~~~~~~~~~~
 
-Inside the PyCharm editor window we should now get a bar at the top of the
-window telling us of missing package requirements, click the
-``Install requirements`` option to install the dependencies for faucet.
+Inside the PyCharm editor window if we open one of the code files for faucet
+(e.g. faucet/faucet.py) we should now get a bar at the top of the window
+telling us of missing package requirements, click the ``Install requirements``
+option to install the dependencies for faucet.
 
 Create log and configuration directories
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -99,25 +141,28 @@ Copy the sample gauge configuration file from
 ``/Dev/faucet/etc/faucet/gauge.yaml`` to ``/Dev/faucet/venv/etc/faucet/`` and
 edit this configuration file as necessary.
 
-Configure PyCharm to run faucet
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Configure PyCharm to run faucet and gauge
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Now we need to configure PyCharm to run faucet, gauge and the unit tests.
 
 First, click the ``Run -> Run..`` menu, then select the
 ``Edit Configurations...`` option to get to the build settings dialog.
 
-We will edit the default ``faucet`` run configuration that has been created
-for us. First change the ``Script path`` to point to ryu-manager inside the
-virtualenv, for me this was ``../venv/bin/ryu-manager``. Then set the
-``Parameters`` to ``faucet.faucet``. Make sure the working directory is
+We will now add run configuration for starting ``faucet`` and ``gauge``.
+Click the ``+`` button in the top left hand corner of the window. First, change
+the name from ``Unnamed`` to ``faucet``. Change the ``Script path`` to point to
+ryu-manager inside the virtualenv, for me this was ``../venv/bin/ryu-manager``.
+Then set the ``Parameters`` to ``faucet.faucet``. Make sure the working
+directory is set to ``/Dev/faucet/faucet/``.
+
+We will use the same steps as above to add a run configuration for ``gauge``.
+Changing the ``Script path`` to ``../venv/bin/ryu-manager`` and setting the
+``Parameters`` this time to ``faucet.gauge``. Make sure the working directory is
 set to ``/Dev/faucet/faucet/``.
 
-We will also add a ``gauge`` run configuration for starting gauge.
-First change the ``Script path`` to point to ryu-manager inside the
-virtualenv, for me this was ``../venv/bin/ryu-manager``. Then set the
-``Parameters`` to ``faucet.gauge``. Make sure the working directory is
-set to ``/Dev/faucet/faucet/``.
+Configure PyCharm to run unit tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For running tests we need a few additional dependencies installed, I
 couldn't work out how to do this through PyCharm so run this command from a
@@ -127,11 +172,16 @@ terminal window to install the correct dependencies inside the virtualenv:
 
        /Dev/faucet/venv/bin/pip3 install -r /Dev/faucet/test-requirements.txt
 
-Click the green plus icon to add a new build configuration, select
-``Python tests -> Unittests``. You can provide a ``Name`` of
-``Faucet Unit Tests`` for the run configuration. For ``Target`` select
-``Script path`` and enter the path ``/Dev/faucet/tests/unit``. For ``Pattern``
-enter ``test_*.py``.
+To add the test run configuration we will again click the ``+`` button in the
+top left hand corner, select ``Python tests -> Unittests``.
+You can provide a ``Name`` of ``Faucet Unit Tests`` for the run configuration.
+For ``Target`` select ``Script path`` and enter the path
+``/Dev/faucet/tests/unit/faucet``. For ``Pattern`` enter ``test_*.py``.
+
+We will also add test run configuration for gauge using the same steps as above.
+Use ``Gauge Unit Tests`` as the ``Name`` and for ``Target`` select
+``Script path`` and enter the path ``/Dev/faucet/tests/unit/gauge``.
+For ``Pattern`` enter ``test_*.py``.
 
 You can click ``Apply`` and ``Close`` now that we've added all our new
 run configuration.

@@ -1,13 +1,13 @@
-chewie==0.0.2
+chewie==0.0.12
 datadiff
-eventlet==0.22.1
+eventlet==0.22.1 # pyup: ignore
 influxdb
-ipaddress
 msgpack
 msgpack-python
 networkx
 pbr>=1.9
-prometheus_client
+prometheus_client==0.4.2
 pyyaml
-ryu==4.26
+ryu==4.30
 beka==0.3.3
+pytricia

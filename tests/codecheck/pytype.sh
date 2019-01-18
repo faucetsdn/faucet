@@ -1,23 +1,15 @@
 #!/bin/bash
 
+PYV="3.5"
 FAUCETHOME=`dirname $0`"/../.."
-PARARGS="parallel --delay 1 --bar"
-PYTYPEARGS="pytype -d pyi-error,import-error"
+TMPDIR=`mktemp -d -p /var/tmp`
+CONFIG="$FAUCETHOME/setup.cfg"
+PARARGS="parallel --delay 1 --bar --halt now,fail=1 -j 2"
 PYTYPE=`which pytype`
+PYTYPEARGS="python$PYV $PYTYPE --config $CONFIG -o $TMPDIR/{/} {}"
 PYHEADER=`head -1 $PYTYPE`
-
+SRCFILES="$FAUCETHOME/tests/codecheck/src_files.sh $*"
 echo "Using $PYTYPE (header $PYHEADER)"
 
-PY2=""
-PY3=""
-for i in `$FAUCETHOME/tests/codecheck/src_files.sh|shuf` ; do
-  # mininet requires python2
-  if grep -qn "import mininet" $i ; then
-    PY2+="$i\n"
-  else
-    PY3+="$i\n"
-  fi
-done
-
-echo -ne $PY2 | $PARARGS $PYTYPEARGS -V2.7 || exit 1
-echo -ne $PY3 | $PARARGS $PYTYPEARGS -V3.5 || exit 1
+$SRCFILES | shuf | $PARARGS $PYTYPEARGS || exit 1
+rm -rf $TMPDIR

@@ -121,7 +121,7 @@ def build_ryu_args(argv):
     if args.verbose:
         ryu_args.append('--verbose')
 
-    for arg, val in list(vars(args).items()):
+    for arg, val in vars(args).items():
         if not val or not arg.startswith('ryu'):
             continue
         if arg == 'ryu_app':

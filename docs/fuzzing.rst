@@ -4,7 +4,7 @@ Fuzzing
 Fuzzing faucet config with docker
 ---------------------------------
 
-First, get yourself setup with docker based on our :doc:`docker` documentation.
+First, get yourself setup with docker based on our :ref:`docker-install` documentation.
 
 Then you can build and run the afl-fuzz tests:
 

@@ -4,17 +4,25 @@ groups:
 
   # Convert OF stats to rates
   - record: instance_dpid:of_packet_ins:rate1m
-    expr: rate(of_packet_ins[1m])
+    expr: rate(of_packet_ins_total[1m])
   - record: instance_dpid:ignored_packet_ins:rate1m
-    expr: rate(of_ignored_packet_ins[1m])
+    expr: rate(of_ignored_packet_ins_total[1m])
+  - record: instance_dpid:of_unexpected_packet_ins:rate1m
+    expr: rate(of_unexpected_packet_ins_total[1m])
   - record: instance_dpid:of_flowmsgs_sent:rate1m
-    expr: rate(of_flowmsgs_sent[1m])
+    expr: rate(of_flowmsgs_sent_total[1m])
 
   # Sum hosts learned on VLANs
-  - record: instance:vlan_hosts_learned:sum
+  - record: instance_vlan:vlan_hosts_learned:sum
     expr: sum(vlan_hosts_learned) BY (instance, vlan)
-  - record: instance:learned_macs:sum
-    expr: count(count_values("mac", learned_macs != 0) BY (vlan)) BY (vlan)
+  - record: instance_vlan_dpid:vlan_hosts_learned:sum
+    expr: sum(vlan_hosts_learned) BY (instance, vlan, dp_id, dp_name)
+
+  # Sum hosts learned on ports
+  - record: port_dpid:port_vlan_hosts_learned:sum
+    expr: sum(port_vlan_hosts_learned) BY (instance, port, dp_id, dp_name)
+  - record: port_vlan_dpid:port_vlan_hosts_learned:sum
+    expr: sum(port_vlan_hosts_learned) BY (instance, port, vlan, dp_id, dp_name)
 
   # Convert Port stats to rates
   - record: instance_port:of_port_rx_packets:rate1m

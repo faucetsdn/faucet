@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.controller import ofp_event
@@ -23,8 +25,10 @@ from ryu.controller import ofp_event
 from faucet import valve_of
 from faucet.conf import InvalidConfigError
 from faucet.config_parser import watcher_parser
+from faucet.gauge_pollers import GaugePortStatePoller
 from faucet.gauge_prom import GaugePrometheusClient
 from faucet.valves_manager import ConfigWatcher
+from faucet.valve_of import ofp, parser
 from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
 from faucet.watcher import watcher_factory
@@ -66,7 +70,7 @@ class Gauge(RyuAppBase):
             self.logger.error('invalid config: %s', err)
             return
 
-        for old_watchers in list(self.watchers.values()):
+        for old_watchers in self.watchers.values():
             self._stop_watchers(old_watchers)
 
         new_watchers = {}
@@ -81,10 +85,11 @@ class Gauge(RyuAppBase):
                 new_watchers[watcher_dpid][watcher_type] = []
             new_watchers[watcher_dpid][watcher_type].append(watcher)
 
-        for watcher_dpid, watchers in list(new_watchers.items()):
+        timestamp = time.time()
+        for watcher_dpid, watchers in new_watchers.items():
             ryu_dp = self.dpset.get(watcher_dpid)
             if ryu_dp:
-                self._start_watchers(ryu_dp, watchers)
+                self._start_watchers(ryu_dp, watchers, timestamp)
 
         self.watchers = new_watchers
         self.config_watcher.update(self.config_file)
@@ -109,12 +114,17 @@ class Gauge(RyuAppBase):
         super(Gauge, self).reload_config(ryu_event)
         self._load_config()
 
-    def _start_watchers(self, ryu_dp, watchers):
+    def _start_watchers(self, ryu_dp, watchers, timestamp):
         """Start watchers for DP if active."""
-        for watchers_by_name in list(watchers.values()):
+        for watchers_by_name in watchers.values():
             for i, watcher in enumerate(watchers_by_name):
                 is_active = i == 0
                 watcher.report_dp_status(1)
+                if isinstance(watcher, GaugePortStatePoller):
+                    for port in ryu_dp.ports.values():
+                        msg = parser.OFPPortStatus(
+                            ryu_dp, desc=port, reason=ofp.OFPPR_ADD)
+                        watcher.update(timestamp, ryu_dp.id, msg)
                 watcher.start(ryu_dp, is_active)
 
     @kill_on_exception(exc_logname)
@@ -130,11 +140,11 @@ class Gauge(RyuAppBase):
         self.logger.info('%s up', dpid_log(ryu_dp.id))
         ryu_dp.send_msg(valve_of.faucet_config(datapath=ryu_dp))
         ryu_dp.send_msg(valve_of.faucet_async(datapath=ryu_dp, packet_in=False))
-        self._start_watchers(ryu_dp, watchers)
+        self._start_watchers(ryu_dp, watchers, time.time())
 
     def _stop_watchers(self, watchers):
         """Stop watchers for DP."""
-        for watchers_by_name in list(watchers.values()):
+        for watchers_by_name in watchers.values():
             for watcher in watchers_by_name:
                 watcher.report_dp_status(0)
                 if watcher.is_active():

@@ -79,7 +79,6 @@ DEFAULTS = {
     'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/faucet/faucet_exception.log',
     'FAUCET_PROMETHEUS_PORT': '9302',
     'FAUCET_PROMETHEUS_ADDR': '0.0.0.0',
-    'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/faucet' + ':' + _PREFIX + '/etc/ryu/faucet',
     'GAUGE_CONFIG': ''.join((
         _PREFIX,
         '/etc/faucet/gauge.yaml',
@@ -170,11 +169,6 @@ def close_logger(logger):
 def dpid_log(dpid):
     """Log a DP ID as hex/decimal."""
     return 'DPID %u (0x%x)' % (dpid, dpid)
-
-
-def btos(b_str):
-    """Return byte array/string as string."""
-    return b_str.encode('utf-8').decode('utf-8', 'strict')
 
 
 def stat_config_files(config_hashes):

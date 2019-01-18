@@ -24,41 +24,9 @@ STACK_STATE_INIT = 1
 STACK_STATE_DOWN = 2
 STACK_STATE_UP = 3
 
+
 class Port(Conf):
     """Stores state for ports, including the configuration."""
-
-    name = None
-    number = None
-    dp_id = None
-    description = None
-    enabled = None
-    permanent_learn = None
-    unicast_flood = None
-    mirror = None
-    native_vlan = None
-    tagged_vlans = [] # type: list
-    acl_in = None
-    acls_in = None
-    stack = {} # type: dict
-    max_hosts = None
-    hairpin = None
-    loop_protect = None
-    output_only = None
-    lldp_beacon = {} # type: dict
-    op_status_reconf = None
-    receive_lldp = None
-    override_output_port = None
-    max_lldp_lost = None
-
-    dyn_learn_ban_count = 0
-    dyn_phys_up = False
-    dyn_last_lacp_pkt = None
-    dyn_lacp_up = None
-    dyn_lacp_updated_time = None
-    dyn_last_ban_time = None
-    dyn_last_lldp_beacon_time = None
-    dyn_stack_current_state = STACK_STATE_DOWN
-    dyn_stack_probe_info = None
 
     defaults = {
         'number': None,
@@ -83,11 +51,17 @@ class Port(Conf):
         'max_hosts': 255,
         # maximum number of hosts
         'hairpin': False,
-        # if True, then switch between hosts on this port (eg WiFi radio).
+        # if True, then switch unicast and flood between hosts on this port (eg WiFi radio).
+        'hairpin_unicast': False,
+        # if True, then switch unicast between hosts on this port (eg WiFi radio).
         'lacp': 0,
         # if non 0 (LAG ID), experimental LACP support enabled on this port.
+        'lacp_active': False,
+        # experimental active LACP
         'loop_protect': False,
-        # if True, do simple loop protection on this port.
+        # if True, do simple (host/access port) loop protection on this port.
+        'loop_protect_external': False,
+        # if True, do external (other switch) loop protection on this port.
         'output_only': False,
         # if True, all packets input from this port are dropped.
         'lldp_beacon': {},
@@ -119,14 +93,18 @@ class Port(Conf):
         'stack': dict,
         'max_hosts': int,
         'hairpin': bool,
+        'hairpin_unicast': bool,
         'lacp': int,
+        'lacp_active': bool,
         'loop_protect': bool,
+        'loop_protect_external': bool,
         'output_only': bool,
         'lldp_beacon': dict,
         'opstatus_reconf': bool,
         'receive_lldp': bool,
         'override_output_port': (str, int),
         'dot1x': bool,
+        'max_lldp_lost': int,
     }
 
     stack_defaults_types = {
@@ -148,9 +126,46 @@ class Port(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
-        super(Port, self).__init__(_id, dp_id, conf)
+        self.acl_in = None
+        self.acls_in = None
+        self.description = None
+        self.dot1x = None
+        self.dp_id = None
+        self.enabled = None
+        self.hairpin = None
+        self.hairpin_unicast = None
+        self.lacp = None
+        self.lacp_active = None
+        self.loop_protect = None
+        self.loop_protect_external = None
+        self.max_hosts = None
+        self.max_lldp_lost = None
+        self.mirror = None
+        self.name = None
+        self.native_vlan = None
+        self.number = None
+        self.op_status_reconf = None
+        self.opstatus_reconf = None
+        self.output_only = None
+        self.override_output_port = None
+        self.permanent_learn = None
+        self.receive_lldp = None
+        self.stack = {}
+        self.unicast_flood = None
+
+        self.dyn_lacp_up = None
+        self.dyn_lacp_updated_time = None
+        self.dyn_last_ban_time = None
+        self.dyn_last_lacp_pkt = None
+        self.dyn_last_lldp_beacon_time = None
+        self.dyn_learn_ban_count = 0
         self.dyn_phys_up = False
+        self.dyn_stack_current_state = STACK_STATE_DOWN
         self.dyn_stack_probe_info = {}
+
+        self.tagged_vlans = []
+        self.lldp_beacon = {}
+        super(Port, self).__init__(_id, dp_id, conf)
 
         # If the port is mirrored convert single attributes to a array
         if self.mirror and not isinstance(self.mirror, list):
@@ -173,6 +188,12 @@ class Port(Conf):
         super(Port, self).check_config()
         test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
             not valve_of.ignore_port(self.number))), ('Port number invalid: %s' % self.number))
+        test_config_condition(
+            self.hairpin and self.hairpin_unicast,
+            'Cannot have both hairpin and hairpin_unicast enabled')
+        if self.dot1x:
+            test_config_condition(self.number > 65535, (
+                '802.1x not supported on ports > 65535'))
         if self.mirror:
             test_config_condition(self.tagged_vlans or self.native_vlan, (
                 'mirror port %s cannot have any VLANs assigned' % self))
@@ -213,7 +234,8 @@ class Port(Conf):
             self.acl_in = None
         if self.acls_in:
             for acl in self.acls_in:
-                test_config_condition(not isinstance(acl, (int, str)), 'acl names must be int or')
+                test_config_condition(not isinstance(acl, (int, str)),
+                                      'ACL names must be int or str')
 
     def finalize(self):
         test_config_condition(not (self.vlans() or self.stack or self.output_only), (
@@ -223,6 +245,7 @@ class Port(Conf):
         if self.native_vlan:
             test_config_condition(self.native_vlan in self.tagged_vlans, (
                 'cannot have same native and tagged VLAN on same port'))
+        self.tagged_vlans = tuple(self.tagged_vlans)
         super(Port, self).finalize()
 
     def running(self):
@@ -232,7 +255,7 @@ class Port(Conf):
     def to_conf(self):
         result = super(Port, self).to_conf()
         if result is not None:
-            if 'stack' in result and result['stack'] is not None:
+            if 'stack' in result and result['stack']:
                 result['stack'] = {}
                 for stack_config in list(self.stack_defaults_types.keys()):
                     result['stack'][stack_config] = self.stack[stack_config]
@@ -242,10 +265,10 @@ class Port(Conf):
         return result
 
     def vlans(self):
-        """Return list of all VLANs this port is in."""
+        """Return all VLANs this port is in."""
         if self.native_vlan is not None:
-            return [self.native_vlan] + self.tagged_vlans
-        return self.tagged_vlans
+            return (self.native_vlan,) + tuple(self.tagged_vlans)
+        return tuple(self.tagged_vlans)
 
     def hosts(self, vlans=None):
         """Return all host cache entries this port has learned (on all or specified VLANs)."""

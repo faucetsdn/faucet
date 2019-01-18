@@ -12,8 +12,9 @@ from functools import reduce
 # pylint: disable=no-name-in-module
 from mininet.log import error, debug
 from mininet.node import Host
+from mininet.util import quietRun, errRun
 
-from mininet_test_util import DEVNULL
+from clib.mininet_test_util import DEVNULL
 
 DEFAULT_NETWORK = 'none'
 DEFAULT_PREFIX = 'mininet'
@@ -63,7 +64,18 @@ class DockerHost(Host):
         self.vol_maps = vol_maps
         self.network = network
         self.startup_timeout_ms = startup_timeout_ms
+        self.name = name
+        self.pullImage()
         Host.__init__(self, name, **kwargs)
+
+    def pullImage(self): # pylint: disable=invalid-name
+        "Pull docker image if necessary"
+        if self.image not in quietRun('docker images'):
+            error('%s: docker image' % self.name, self.image,
+                  'not available locally - pulling\n')
+            _out, err, code = errRun('docker', 'pull', self.image)
+            if err or code:
+                error('docker pull failed with error', code, err, '\n')
 
     # pylint: disable=invalid-name
     def startShell(self, mnopts=None):
@@ -96,7 +108,7 @@ class DockerHost(Host):
         debug('docker command "%s", fd %d, fd %d' % (' '.join(cmd), self.master, self.slave))
         try:
             self.shell = self._popen(cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave)
-            self.stdin = os.fdopen(self.master, 'rw')
+            self.stdin = os.fdopen(self.master, 'r')
             self.stdout = self.stdin
             self.pollOut = select.poll() # pylint: disable=invalid-name
             self.pollOut.register(self.stdout) # pylint: disable=no-member
@@ -171,7 +183,7 @@ class DockerHost(Host):
             config_json = inspect_pipe.stdout.readlines()
             inspect_pipe.stdout.close()
             assert len(config_json) == 1, "Expected 1 config line, found %s" % len(config_json)
-            config = json.loads(config_json[0])
+            config = json.loads(config_json[0].decode())
             entryconfig = config['Entrypoint']
             entrypoint = entryconfig if entryconfig else ['/usr/bin/env']
             cmd = config['Cmd'] if 'Cmd' in config else []
@@ -198,7 +210,7 @@ class DockerHost(Host):
     def wait(self):
         """Wait for an activated container to terminate."""
         try:
-            if self.active_pipe_returncode != None:
+            if self.active_pipe_returncode is not None:
                 return self.active_pipe_returncode
             debug('Waiting for container %s.' % self.container)
             assert self.active_pipe, "container not activated"
@@ -297,5 +309,6 @@ def make_docker_host(image, prefix=DEFAULT_PREFIX, network=DEFAULT_NETWORK,
                 env_val = os.environ['DOCKER_STARTUP_TIMEOUT_MS']
                 if env_val:
                     kwargs['startup_timeout_ms'] = int(env_val)
-            DockerHost.__init__(self, *args, **kwargs)
+            super(_ImageHost, self).__init__(*args, **kwargs)
+
     return _ImageHost

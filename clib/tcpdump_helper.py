@@ -6,14 +6,12 @@ import subprocess
 import os
 import re
 
-import mininet_test_util
-
-# pylint: disable=import-error
-# pylint: disable=no-name-in-module
 from mininet.log import error, debug
 
+from clib import mininet_test_util
 
-class TcpdumpHelper(object):
+
+class TcpdumpHelper:
     """Run tcpdump on interface, then a list of functions, and return tcpdump's parsed output."""
 
     pipe = None
@@ -47,7 +45,8 @@ class TcpdumpHelper(object):
             stdin=mininet_test_util.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            close_fds=True)
+            close_fds=True,
+            shell=False)
 
         if self.stream():
             debug('tcpdump_helper stream fd %s %s' % (
@@ -92,7 +91,7 @@ class TcpdumpHelper(object):
 
         try:
             debug('tcpdump_helper terminate fd %s' % self.stream().fileno())
-            self.pipe.kill()
+            self.pipe.terminate()
             result = self.pipe.wait()
             if result == 124:
                 # Mask valid result from timeout command.
@@ -110,7 +109,7 @@ class TcpdumpHelper(object):
         fileno = self.pipe.stdout.fileno()
         while '\n' not in self.readbuf:
             try:
-                read = str(os.read(fileno, 2**10))
+                read = os.read(fileno, 2**10)
             except OSError as err:
                 if err.errno != errno.EAGAIN or not self.blocking:
                     raise
@@ -119,7 +118,7 @@ class TcpdumpHelper(object):
                 line = self.readbuf
                 self.readbuf = ''
                 return line
-            self.readbuf += read
+            self.readbuf += read.decode()
         pos = self.readbuf.find('\n') + 1
         line = self.readbuf[0:pos]
         self.readbuf = self.readbuf[pos:]
@@ -132,12 +131,12 @@ class TcpdumpHelper(object):
                 line = self.readline()
             except OSError as err:
                 if err.errno == errno.EWOULDBLOCK or err.errno == errno.EAGAIN:
-                    return None
+                    return ''
                 raise
             assert line or self.started, 'tcpdump did not start: %s' % self.last_line.strip()
             if self.started:
                 return line
-            elif re.search('listening on %s' % self.intf_name, line):
+            if re.search('listening on %s' % self.intf_name, line):
                 self.started = True
                 # When we see tcpdump start, then call provided functions.
                 if self.funcs is not None:
