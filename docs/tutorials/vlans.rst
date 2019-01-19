@@ -1,4 +1,4 @@
-VLAN Tutorial
+VLAN tutorial
 =============
 
 Next we are going to introduce VLANs.
@@ -14,20 +14,17 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-.. literalinclude:: ../_static/tutorial/create_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/create_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/as_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/as_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/cleanup
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/cleanup
+       :language: bash
 
-
-- to add a tagged network interface to a host namespaces
-
-.. literalinclude:: ../_static/tutorial/add_tagged_interface
-    :language: bash
+    .. literalinclude:: ../_static/tutorial/add_tagged_interface
+        :language: bash
 
 Overview
 ^^^^^^^^

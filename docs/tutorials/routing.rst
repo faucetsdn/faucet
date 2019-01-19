@@ -1,4 +1,4 @@
-Routing Tutorial
+Routing tutorial
 ================
 
 This tutorial will cover routing with Faucet.
@@ -18,21 +18,20 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-.. literalinclude::  ../_static/tutorial/create_ns
-   :language: bash
+    .. literalinclude::  ../_static/tutorial/create_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/as_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/as_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/cleanup
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/cleanup
+       :language: bash
 
+- Run the cleanup script to remove old namespaces and switches:
 
-Run the cleanup script to remove old namespaces and switches:
+    .. code:: console
 
-.. code:: console
-
-    cleanup
+        cleanup
 
 .. _tutorial-ivr:
 
@@ -157,7 +156,7 @@ we wanted to change this and restrict communication to a few different IP
 addresses or TCP/UDP ports, we could apply a VLAN ACL to each VLAN to limit the
 types of traffic that may pass and what should be dropped.
 
-Static Routing
+Static routing
 ^^^^^^^^^^^^^^
 
 For this we will set-up a Faucet switch with three hosts.
@@ -280,7 +279,7 @@ And we should now be able to ping our IP alias.
     as_ns host1 ping 192.0.2.1
 
 
-BGP Routing
+BGP routing
 ^^^^^^^^^^^
 
 For this section we are going to change our static routes from above into BGP routes.
