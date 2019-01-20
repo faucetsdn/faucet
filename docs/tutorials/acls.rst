@@ -16,11 +16,11 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-.. literalinclude:: ../_static/tutorial/create_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/create_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/as_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/as_ns
+       :language: bash
 
 .. note:: If not continuing on from the 'Installing Faucet for first time tutorial' to setup the hosts and switch run:
 
@@ -75,7 +75,7 @@ Matches are any packet field such as MAC/IP/transport source/destination fields.
 For a full list visit the
 `Ryu documentation <https://ryu.readthedocs.io/en/latest/ofproto_v1_3_ref.html#flow-match-structure>`_.
 
-Actions are used to control what the packet does, for example normal l2
+Actions are used to control what the packet does, for example normal L2
 forwarding ('allow'). Apply a 'meter' to rate limit traffic, and manipulation of
 the packet contents and output. Full list is available in the
 :ref:`configuration-meters` section of the documentation.
@@ -91,7 +91,7 @@ conjunction with the other actions to let the traffic flow with the expected
 layer 2 forwarding behaviour AND be mirrored to another port.
 
 
-Network Setup
+Network setup
 -------------
 
 We are going to create the following network:
@@ -174,7 +174,7 @@ But the other three hosts should be fine:
     as_ns host1 ping 192.168.0.4
 
 
-ACL Actions
+ACL actions
 -----------
 
 Mirroring

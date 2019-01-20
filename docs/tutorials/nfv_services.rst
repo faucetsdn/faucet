@@ -1,4 +1,4 @@
-NFV Services Tutorial
+NFV services tutorial
 =====================
 
 This tutorial will cover using faucet with Network Function Virtualisation (NFV)
@@ -24,23 +24,23 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-.. literalinclude:: ../_static/tutorial/create_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/create_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/as_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/as_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/cleanup
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/cleanup
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/add_tagged_interface
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/add_tagged_interface
+       :language: bash
 
-Let's start by run the cleanup script to remove old namespaces and switches.
+- Run the cleanup script to remove old namespaces and switches:
 
-.. code:: console
+    .. code:: console
 
-    cleanup
+        cleanup
 
 Network setup
 ^^^^^^^^^^^^^
@@ -87,7 +87,7 @@ Then create an Open vSwitch bridge and connect all hosts to it.
     -- set-controller br0 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
 
 
-Dnsmasq Setup
+Dnsmasq setup
 ^^^^^^^^^^^^^
 
 We will use `dnsmasq <http://www.thekelleys.org.uk/dnsmasq/doc.html>`_ to assign

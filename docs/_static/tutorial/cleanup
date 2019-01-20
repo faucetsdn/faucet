@@ -1,3 +1,4 @@
+# Clean up namespaces, bridges and processes created during faucet tutorial
 cleanup () {
     for NETNS in $(sudo ip netns list | grep "faucet-" | awk '{print $1}'); do
         [ -n "$NETNS" ] || continue
