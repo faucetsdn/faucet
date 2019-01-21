@@ -347,7 +347,8 @@ class Valve:
             ports.update({port.number for port in vlan.get_ports()})
         return ports
 
-    def _get_ports_status(self, discovered_up_port_nos, all_configured_port_nos):
+    @staticmethod
+    def _get_ports_status(discovered_up_port_nos, all_configured_port_nos):
         port_status = {
             port_no: (port_no in discovered_up_port_nos) for port_no in all_configured_port_nos}
         all_up_port_nos = {port_no for port_no, status in port_status.items() if status}
@@ -419,28 +420,30 @@ class Valve:
                 'state': state,
                 'status': port_status}})
         self._set_port_status(port_no, port_status)
+
+        if not self.dp.port_no_valid(port_no):
+            return []
+        port = self.dp.ports[port_no]
+        if not port.opstatus_reconf:
+            return []
+        if not reason in port_status_codes:
+            self.logger.warning('Unhandled port status %s/state %s for %s' % (
+                reason, state, port))
+            return []
+
         ofmsgs = []
-        if self.dp.port_no_valid(port_no):
-            port = self.dp.ports[port_no]
-            if port.opstatus_reconf:
-                if reason in port_status_codes:
-                    self.logger.info('%s up status %s reason %s state %s' % (
-                        port, port_status, _decode_port_status(reason), state))
-                    new_port_status = False
-                    if (reason == valve_of.ofp.OFPPR_ADD or
-                            (reason == valve_of.ofp.OFPPR_MODIFY and port_status)):
-                        new_port_status = True
-                    if new_port_status:
-                        if port.dyn_phys_up:
-                            self.logger.info(
-                                '%s already up, assuming flap as missing down event' % port)
-                            ofmsgs.extend(self.port_delete(port_no))
-                        ofmsgs.extend(self.port_add(port_no))
-                    else:
-                        ofmsgs.extend(self.port_delete(port_no))
-                else:
-                    self.logger.warning('Unhandled port status %s/state %s for %s' % (
-                        reason, state, port))
+        self.logger.info('%s up status %s reason %s state %s' % (
+            port, port_status, _decode_port_status(reason), state))
+        new_port_status = (
+            reason == valve_of.ofp.OFPPR_ADD or
+            (reason == valve_of.ofp.OFPPR_MODIFY and port_status))
+        if new_port_status:
+            if port.dyn_phys_up:
+                self.logger.info('%s already up, assuming flap as missing down event' % port)
+                ofmsgs.extend(self.port_delete(port_no))
+            ofmsgs.extend(self.port_add(port_no))
+        else:
+            ofmsgs.extend(self.port_delete(port_no))
         return ofmsgs
 
     def advertise(self, now, _other_values):
@@ -795,6 +798,9 @@ class Valve:
     def lacp_down(self, port, cold_start=False):
         """Return OpenFlow messages when LACP is down on a port."""
         ofmsgs = []
+        if port.dyn_lacp_up != 0:
+            self.logger.info('LAG %u port %s down (previous state %s)' % (
+                port.lacp, port, port.dyn_lacp_up))
         if not cold_start:
             ofmsgs.extend(self._port_delete_flows_state(port))
             for vlan in port.vlans():
@@ -827,6 +833,7 @@ class Valve:
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         port.dyn_lacp_up = 1
         self._reset_lacp_status(port)
+        self.logger.info('LAG %s port %s up' % (port.lacp, port.dyn_lacp_up))
         return ofmsgs
 
     def _lacp_pkt(self, lacp_pkt, port):
@@ -1249,20 +1256,20 @@ class Valve:
         ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
         return ofmsgs
 
-    def _lacp_state_expire(self, vlan, now):
+    def _lacp_state_expire(self, now):
         """Expire controller state for LACP.
 
         Args:
-            vlan (VLAN instance): VLAN with LAGs.
             now (float): current epoch time.
         Return:
             list: OpenFlow messages, if any.
         """
         ofmsgs = []
-        for port in vlan.lacp_up_ports():
+        lacp_up_ports = [port for port in self.dp.ports.values() if port.lacp and port.dyn_lacp_up]
+        for port in lacp_up_ports:
             lacp_age = now - port.dyn_lacp_updated_time
             if lacp_age > self.dp.lacp_timeout:
-                self.logger.info('LACP on %s expired' % port)
+                self.logger.info('LACP on %s expired (age %u)' % (port, lacp_age))
                 ofmsgs.extend(self.lacp_down(port))
         return ofmsgs
 
@@ -1274,6 +1281,7 @@ class Valve:
         """
         ofmsgs = []
         if self.dp.dyn_running:
+            self._lacp_state_expire(now)
             for vlan in self.dp.vlans.values():
                 expired_hosts = self.host_manager.expire_hosts_from_vlan(vlan, now)
                 if not self.dp.idle_dst:
@@ -1285,7 +1293,6 @@ class Valve:
                             'port_no': entry.port.number,
                             'vid': vlan.vid,
                             'eth_src': entry.eth_src}})
-                self._lacp_state_expire(vlan, now)
                 for route_manager in self._route_manager_by_ipv.values():
                     ofmsgs.extend(route_manager.resolve_expire_hosts(vlan, now))
         return ofmsgs
