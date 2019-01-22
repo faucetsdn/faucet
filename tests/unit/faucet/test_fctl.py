@@ -126,6 +126,25 @@ class FctlClassTestCase(FctlTestCaseBase):
                 fctl.scrape_prometheus(
                     ['http://127.0.0.1:23'], err_output_file=err_output_file))
 
+    def test_bad_url(self):
+        """Test unparseable URL."""
+        with open(os.devnull, 'w') as err_output_file:
+            self.assertEqual(
+                None,
+                fctl.scrape_prometheus(
+                    ['not/a$#@/valid_URL'], err_output_file=err_output_file))
+
+    def test_bad_content(self):
+        """Test bad content."""
+        bad_input_file_name = os.path.join(self.tmpdir, 'bad_content.txt')
+        with open(bad_input_file_name, 'w') as bad_input_file:
+            bad_input_file.write('NOT/_prometheus_data')
+        with open(os.devnull, 'w') as err_output_file:
+            self.assertEqual(
+                None,
+                fctl.scrape_prometheus(
+                    ['file://%s' % bad_input_file_name], err_output_file=err_output_file))
+
     def test_macs(self):
         """Test reporting of learned MACs."""
         prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
