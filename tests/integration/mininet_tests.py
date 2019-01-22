@@ -404,12 +404,12 @@ network={
                     return
 
     def start_freeradius(self):
-        with open('/etc/freeradius/users', 'w') as f:
-            f.write('''user   Cleartext-Password := "microphone"
+        with open('/etc/freeradius/users', 'w') as users:
+            users.write('''user   Cleartext-Password := "microphone"
 admin   Cleartext-Password:= "megaphone"''')
 
-        with open('/etc/freeradius/clients.conf', 'w') as f:
-            f.write('''client localhost {
+        with open('/etc/freeradius/clients.conf', 'w') as clients:
+            clients.write('''client localhost {
     ipaddr = 127.0.0.1
     secret = SECRET
 }''')
@@ -3119,6 +3119,7 @@ vlans:
 
     CONFIG = """
         max_resolve_backoff_time: 1
+        lacp_timeout: 3
         interfaces:
             %(port_1)d:
                 name: b1
@@ -3231,6 +3232,9 @@ details partner lacp pdu:
     port number: %d
     port state: 62
 """.strip() % tuple([self.port_map['port_%u' % i] for i in lag_ports])
+
+        lacp_timeout = 5
+
         def prom_lag_status():
             lacp_up_ports = 0
             for lacp_port in lag_ports:
@@ -3238,6 +3242,27 @@ details partner lacp pdu:
                 lacp_up_ports += self.scrape_prometheus_var(
                     'port_lacp_status', port_labels)
             return lacp_up_ports
+
+        def require_lag_status(status):
+            for _ in range(lacp_timeout*2):
+                if prom_lag_status() == status:
+                    break
+                time.sleep(1)
+            self.assertEqual(prom_lag_status(), status)
+
+        def require_linux_bond_up():
+            for _retries in range(lacp_timeout*2):
+                result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
+                result = '\n'.join([line.rstrip() for line in result.splitlines()])
+                with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
+                    state_file.write(result)
+                if re.search(synced_state_txt, result):
+                    break
+                time.sleep(1)
+            self.assertTrue(
+                re.search(synced_state_txt, result),
+                msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
+                    result, synced_state_txt))
 
         self.assertEqual(0, prom_lag_status())
         orig_ip = first_host.IP()
@@ -3258,21 +3283,17 @@ details partner lacp pdu:
         for bond_member in bond_members:
             self.quiet_commands(first_host, (
                 'ip link set dev %s master %s' % (bond_member, bond),))
-        for _retries in range(10):
-            result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
-            result = '\n'.join([line.rstrip() for line in result.splitlines()])
-            with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
-                state_file.write(result)
-            if re.search(synced_state_txt, result):
-                break
-            time.sleep(1)
-        self.assertTrue(
-            re.search(synced_state_txt, result),
-            msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
-                result, synced_state_txt))
-        self.assertEqual(2, prom_lag_status())
-        self.one_ipv4_ping(
-            first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+
+        for _flaps in range(2):
+            for port in lag_ports:
+                self.set_port_down(self.port_map['port_%u' % port])
+            require_lag_status(0)
+            for port in lag_ports:
+                self.set_port_up(self.port_map['port_%u' % port])
+            require_lag_status(2)
+            require_linux_bond_up()
+            self.one_ipv4_ping(
+                first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
 
 
 class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
@@ -4518,10 +4539,10 @@ vlans:
                 tagged_vlans: [%s]
                 hairpin_unicast: True
 """ % (global_vid(),
-        len(STR_VIDS) * 3, # VLAN
-        len(STR_VIDS) * 2, # VIP
-        len(STR_VIDS) * 12, # Flood
-        '%(port_3)d', '%(port_1)d', '%(port_1)d',
+       len(STR_VIDS) * 3, # VLAN
+       len(STR_VIDS) * 2, # VIP
+       len(STR_VIDS) * 12, # Flood
+       '%(port_3)d', '%(port_1)d', '%(port_1)d',
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
