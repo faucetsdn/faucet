@@ -1194,6 +1194,54 @@ class Valve:
                         _update_port(vlan, port)
                     vlan.dyn_last_updated_metrics_sec = now
 
+    def _non_vlan_rcv_packet(self, now, other_valves, pkt_meta):
+        self._inc_var('of_non_vlan_packet_ins')
+        if pkt_meta.port.lacp:
+            lacp_ofmsgs = self.lacp_handler(now, pkt_meta)
+            if lacp_ofmsgs:
+                return lacp_ofmsgs
+        # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
+        self.lldp_handler(now, pkt_meta, other_valves)
+        return []
+
+    def _router_rcv_packet(self, now, _other_valves, pkt_meta):
+        if not pkt_meta.vlan.faucet_vips:
+            return []
+        route_manager = self._route_manager_by_eth_type.get(
+            pkt_meta.eth_type, None)
+        if not (route_manager and route_manager.active):
+            return []
+        pkt_meta.reparse_ip()
+        if not pkt_meta.l3_pkt:
+            return []
+        control_plane_ofmsgs = self._control_plane_handler(
+            now, pkt_meta, route_manager)
+        ofmsgs = []
+        if control_plane_ofmsgs:
+            ofmsgs.extend(control_plane_ofmsgs)
+        else:
+            ofmsgs.extend(
+                route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
+            # No CPN activity, run resolver.
+            ofmsgs.extend(
+                route_manager.resolve_gateways(
+                    pkt_meta.vlan, now, resolve_all=False))
+            ofmsgs.extend(
+                route_manager.resolve_expire_hosts(
+                    pkt_meta.vlan, now, resolve_all=False))
+        return ofmsgs
+
+    def _vlan_rcv_packet(self, now, other_valves, pkt_meta):
+        self._inc_var('of_vlan_packet_ins')
+        ban_rules = self.host_manager.ban_rules(pkt_meta)
+        if ban_rules:
+            return ban_rules
+
+        ofmsgs = []
+        ofmsgs.extend(self._router_rcv_packet(now, other_valves, pkt_meta))
+        ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
+        return ofmsgs
+
     def rcv_packet(self, now, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
 
@@ -1207,8 +1255,6 @@ class Valve:
         Return:
             list: OpenFlow messages, if any.
         """
-        ofmsgs = []
-
         # TODO: expensive, even at non-debug level.
         # self.logger.debug(
         #    'Packet_in src:%s in_port:%d VLAN:%s' % (
@@ -1217,44 +1263,8 @@ class Valve:
         #        pkt_meta.vlan))
 
         if pkt_meta.vlan is None:
-            self._inc_var('of_non_vlan_packet_ins')
-            if pkt_meta.port.lacp:
-                lacp_ofmsgs = self.lacp_handler(now, pkt_meta)
-                if lacp_ofmsgs:
-                    return lacp_ofmsgs
-            self.lldp_handler(now, pkt_meta, other_valves)
-            # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
-            return ofmsgs
-
-        self._inc_var('of_vlan_packet_ins')
-
-        ban_rules = self.host_manager.ban_rules(pkt_meta)
-        if ban_rules:
-            return ban_rules
-
-        if pkt_meta.vlan.faucet_vips:
-            route_manager = self._route_manager_by_eth_type.get(
-                pkt_meta.eth_type, None)
-            if route_manager and route_manager.active:
-                pkt_meta.reparse_ip()
-                if pkt_meta.l3_pkt:
-                    control_plane_ofmsgs = self._control_plane_handler(
-                        now, pkt_meta, route_manager)
-                    if control_plane_ofmsgs:
-                        ofmsgs.extend(control_plane_ofmsgs)
-                    else:
-                        ofmsgs.extend(
-                            route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
-                        # No CPN activity, run resolver.
-                        ofmsgs.extend(
-                            route_manager.resolve_gateways(
-                                pkt_meta.vlan, now, resolve_all=False))
-                        ofmsgs.extend(
-                            route_manager.resolve_expire_hosts(
-                                pkt_meta.vlan, now, resolve_all=False))
-
-        ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
-        return ofmsgs
+            return self._non_vlan_rcv_packet(now, other_valves, pkt_meta)
+        return self._vlan_rcv_packet(now, other_valves, pkt_meta)
 
     def _lacp_state_expire(self, now):
         """Expire controller state for LACP.
