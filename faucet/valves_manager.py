@@ -173,6 +173,12 @@ class ValvesManager:
         return [other_valve for other_valve in self.valves.values()
                 if valve != other_valve and other_valve.dp.dyn_running]
 
+    def port_status_handler(self, valve, msg):
+        """Handle a port status change message."""
+        ofmsgs = valve.port_status_handler(msg.desc.port_no, msg.reason, msg.desc.state)
+        if ofmsgs:
+            self.send_flows_to_dp_by_id(valve, ofmsgs)
+
     def valve_packet_in(self, now, valve, msg):
         """Time a call to Valve packet in handler."""
         self.metrics.of_packet_ins.labels( # pylint: disable=no-member
