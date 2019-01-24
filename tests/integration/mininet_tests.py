@@ -6174,7 +6174,8 @@ class FaucetStringOfDPTest(FaucetTest):
                 'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
                 'group_table': self.GROUP_TABLE,
             }
-            interfaces_config = dp_config['interfaces']
+
+            interfaces_config = {}
 
             port = 1
             for _ in range(n_tagged):
@@ -6197,13 +6198,14 @@ class FaucetStringOfDPTest(FaucetTest):
                 name, dp_config, port, interfaces_config, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
-            for portno, config in list(interfaces_config.items()):
-                if dpid == hw_dpid:
+            if dpid == hw_dpid:
+                remapped_interfaces_config = {}
+                for portno, config in list(interfaces_config.items()):
                     remapped_portno = self.port_map['port_%u' % portno]
-                    if remapped_portno != portno:
-                        del interfaces_config[portno]
-                        portno = remapped_portno
-                        interfaces_config[portno] = config
+                    remapped_interfaces_config[remapped_portno] = config
+                interfaces_config = remapped_interfaces_config
+
+            for portno, config in list(interfaces_config.items()):
                 port_name = 'b%u' % portno
                 interfaces_config[portno].update({
                     'name': port_name,
@@ -6217,6 +6219,8 @@ class FaucetStringOfDPTest(FaucetTest):
                         peer_portno = self.port_map['port_%u' % portno]
                     interfaces_config[portno]['stack'].update({
                         'port': 'b%u' % peer_portno})
+
+            dp_config['interfaces'] = interfaces_config
 
             return dp_config
 
