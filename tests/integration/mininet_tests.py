@@ -6427,7 +6427,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
             self.flap_all_switch_ports()
 
 
-class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStackStringOfDPUntaggedTest):
+class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
@@ -6444,6 +6444,16 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStackStringOfDPUntagged
             hw_dpid=self.hw_dpid,
             first_external=True)
         self.start_net()
+
+    def test_untagged(self):
+        """All untagged hosts in stack topology can reach each other."""
+        for _ in range(2):
+            self.verify_stack_hosts()
+            self.verify_no_cable_errors()
+            self.verify_traveling_dhcp_mac()
+            self.verify_unicast_not_looped()
+            self.verify_no_bcast_to_self()
+            self.flap_all_switch_ports()
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
