@@ -833,7 +833,7 @@ class Valve:
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         port.dyn_lacp_up = 1
         self._reset_lacp_status(port)
-        self.logger.info('LAG %s port %s up' % (port.lacp, port.dyn_lacp_up))
+        self.logger.info('LAG %s port %s up' % (port.lacp, port.number))
         return ofmsgs
 
     def _lacp_pkt(self, lacp_pkt, port):
