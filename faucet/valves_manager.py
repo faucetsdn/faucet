@@ -174,7 +174,8 @@ class ValvesManager:
             valve_service_func = getattr(valve, valve_service)
             with self.metrics.faucet_valve_service_secs.labels( # pylint: disable=no-member
                     **valve_service_labels).time():
-                ofmsgs_by_valve[valve].extend(valve_service_func(now, other_valves))
+                for service_valve, ofmsgs in valve_service_func(now, other_valves).items():
+                    ofmsgs_by_valve[service_valve].extend(ofmsgs)
         self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 
     def _other_running_valves(self, valve):
