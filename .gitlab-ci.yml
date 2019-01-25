@@ -26,16 +26,7 @@ deploy-package:
   image: faucet/dbuilder
   script:
     - cd built-packages/
-    - echo "{\"url\":\"https://packagecloud.io\",\"token\":\"$PACKAGECLOUD_TOKEN\"}" > ~/.packagecloud
-    - package_cloud push faucetsdn/faucet/debian/jessie *.deb || true
-    - package_cloud push faucetsdn/faucet/debian/stretch *.deb || true
-    - package_cloud push faucetsdn/faucet/debian/buster *.deb || true
-    - package_cloud push faucetsdn/faucet/raspbian/jessie *.deb || true
-    - package_cloud push faucetsdn/faucet/raspbian/stretch *.deb || true
-    - package_cloud push faucetsdn/faucet/raspbian/buster *.deb || true
-    - package_cloud push faucetsdn/faucet/ubuntu/xenial *.deb || true
-    - package_cloud push faucetsdn/faucet/ubuntu/artful *.deb || true
-    - package_cloud push faucetsdn/faucet/ubuntu/bionic *.deb || true
+    - ../gitlab/deploy_deb.sh
   only:
     - tags
 
