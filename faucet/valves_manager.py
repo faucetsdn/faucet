@@ -17,6 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import defaultdict
+
 from faucet.conf import InvalidConfigError
 from faucet.config_parser_util import config_changed
 from faucet.config_parser import dp_parser
@@ -165,15 +167,15 @@ class ValvesManager:
 
     def valve_flow_services(self, now, valve_service):
         """Call a method on all Valves and send any resulting flows."""
+        ofmsgs_by_valve = defaultdict(list)
         for valve in self.valves.values():
             other_valves = self._other_running_valves(valve)
             valve_service_labels = dict(valve.dp.base_prom_labels(), valve_service=valve_service)
             valve_service_func = getattr(valve, valve_service)
             with self.metrics.faucet_valve_service_secs.labels( # pylint: disable=no-member
                     **valve_service_labels).time():
-                ofmsgs = valve_service_func(now, other_valves)
-            if ofmsgs:
-                self.send_flows_to_dp_by_id(valve, ofmsgs)
+                ofmsgs_by_valve[valve].extend(valve_service_func(now, other_valves))
+        self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 
     def _other_running_valves(self, valve):
         return [other_valve for other_valve in self.valves.values()

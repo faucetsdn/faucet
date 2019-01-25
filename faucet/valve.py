@@ -448,17 +448,18 @@ class Valve:
 
     def advertise(self, now, _other_values):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
-        ofmsgs = []
         if (not self.dp.advertise_interval or
                 now - self._last_advertise_sec < self.dp.advertise_interval):
-            return ofmsgs
+            return {}
         self._last_advertise_sec = now
 
+        ofmsgs = []
         for route_manager in self._route_manager_by_ipv.values():
             for vlan in self.dp.vlans.values():
                 ofmsgs.extend(route_manager.advertise(vlan))
-
-        return ofmsgs
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
     def _send_lldp_beacon_on_port(self, port, now):
         chassis_id = str(self.dp.faucet_dp_mac)
@@ -488,12 +489,12 @@ class Valve:
         # It is used also by stacking to verify stacking links.
         # TODO: in the stacking case, provide an authentication scheme for the probes
         # so they cannot be forged.
-        ofmsgs = []
         if (not self.dp.fast_advertise_interval or
                 now - self._last_fast_advertise_sec < self.dp.fast_advertise_interval):
-            return ofmsgs
+            return {}
         self._last_fast_advertise_sec = now
 
+        ofmsgs = []
         for port in self.dp.lacp_active_ports:
             if port.running():
                 pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
@@ -502,7 +503,9 @@ class Valve:
         ports = self.dp.lldp_beacon_send_ports(now)
         ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
 
-        return ofmsgs
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
     def _next_stack_link_state(self, port, now):
         if port.is_stack_admin_down():
@@ -561,6 +564,7 @@ class Valve:
         """Called periodically to verify the state of stack ports."""
         for port in self.dp.stack_ports:
             self._update_stack_link_state(port, now, other_valves)
+        return {}
 
     def _reset_dp_status(self):
         if self.dp.dyn_running:
@@ -1252,7 +1256,7 @@ class Valve:
         Args:
             other_valves (list): all Valves other than this one.
             pkt_meta (PacketMeta): packet for control plane.
-        Return:
+        Returns:
             dict: OpenFlow messages, if any by Valve.
         """
         # TODO: expensive, even at non-debug level.
@@ -1309,7 +1313,9 @@ class Valve:
                             'eth_src': entry.eth_src}})
                 for route_manager in self._route_manager_by_ipv.values():
                     ofmsgs.extend(route_manager.resolve_expire_hosts(vlan, now))
-        return ofmsgs
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
     def _pipeline_change(self):
         def table_msgs(tfm_flow):
@@ -1455,14 +1461,16 @@ class Valve:
         """Call route managers to re/resolve gateways.
 
         Returns:
-            list: OpenFlow messages, if any.
+            dict: OpenFlow messages, if any by Valve.
         """
         ofmsgs = []
         if self.dp.dyn_running:
             for route_manager in self._route_manager_by_ipv.values():
                 for vlan in self.dp.vlans.values():
                     ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
-        return ofmsgs
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
     def oferror(self, msg):
         """Correlate OFError message with flow we sent, if any.
