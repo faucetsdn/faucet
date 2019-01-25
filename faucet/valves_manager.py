@@ -137,6 +137,12 @@ class ValvesManager:
         self.dot1x.reset(self.valves)
         return True
 
+    def _send_ofmsgs_by_valve(self, ofmsgs_by_valve):
+        if ofmsgs_by_valve:
+            for valve, ofmsgs in ofmsgs_by_valve.items():
+                if ofmsgs:
+                    self.send_flows_to_dp_by_id(valve, ofmsgs)
+
     def _notify(self, event_dict):
         """Send an event notification."""
         self.notifier.notify(0, str(0), event_dict)
@@ -175,9 +181,8 @@ class ValvesManager:
 
     def port_status_handler(self, valve, msg):
         """Handle a port status change message."""
-        ofmsgs = valve.port_status_handler(msg.desc.port_no, msg.reason, msg.desc.state)
-        if ofmsgs:
-            self.send_flows_to_dp_by_id(valve, ofmsgs)
+        ofmsgs_by_valve = valve.port_status_handler(msg.desc.port_no, msg.reason, msg.desc.state)
+        self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 
     def valve_packet_in(self, now, valve, msg):
         """Time a call to Valve packet in handler."""
@@ -192,7 +197,7 @@ class ValvesManager:
             return
         with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
                 **valve.dp.base_prom_labels()).time():
-            ofmsgs = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
-        if ofmsgs:
-            self.send_flows_to_dp_by_id(valve, ofmsgs)
+            ofmsgs_by_valve = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
+        if ofmsgs_by_valve:
+            self._send_ofmsgs_by_valve(ofmsgs_by_valve)
             valve.update_metrics(now, pkt_meta.port, rate_limited=True)

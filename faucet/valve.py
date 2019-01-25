@@ -422,14 +422,14 @@ class Valve:
         self._set_port_status(port_no, port_status)
 
         if not self.dp.port_no_valid(port_no):
-            return []
+            return {}
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
-            return []
+            return {}
         if not reason in port_status_codes:
             self.logger.warning('Unhandled port status %s/state %s for %s' % (
                 reason, state, port))
-            return []
+            return {}
 
         ofmsgs = []
         self.logger.info('%s up status %s reason %s state %s' % (
@@ -444,7 +444,7 @@ class Valve:
             ofmsgs.extend(self.port_add(port_no))
         else:
             ofmsgs.extend(self.port_delete(port_no))
-        return ofmsgs
+        return {self: ofmsgs}
 
     def advertise(self, now, _other_values):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
@@ -1253,7 +1253,7 @@ class Valve:
             other_valves (list): all Valves other than this one.
             pkt_meta (PacketMeta): packet for control plane.
         Return:
-            list: OpenFlow messages, if any.
+            dict: OpenFlow messages, if any by Valve.
         """
         # TODO: expensive, even at non-debug level.
         # self.logger.debug(
@@ -1263,8 +1263,12 @@ class Valve:
         #        pkt_meta.vlan))
 
         if pkt_meta.vlan is None:
-            return self._non_vlan_rcv_packet(now, other_valves, pkt_meta)
-        return self._vlan_rcv_packet(now, other_valves, pkt_meta)
+            ofmsgs = self._non_vlan_rcv_packet(now, other_valves, pkt_meta)
+        else:
+            ofmsgs = self._vlan_rcv_packet(now, other_valves, pkt_meta)
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
     def _lacp_state_expire(self, now):
         """Expire controller state for LACP.
