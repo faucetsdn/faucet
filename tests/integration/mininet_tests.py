@@ -6385,6 +6385,19 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
 
+    def test_lacp_port_down(self):
+        """LACP to switch to a working port when the primary port fails."""
+        first_lacp_port = self.NUM_HOSTS + 1
+        second_lacp_port = first_lacp_port + 1
+        match_bcast = {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
+        action_str = 'OUTPUT:%u'
+        self.wait_until_matching_flow(
+                match_bcast, self._FLOOD_TABLE, actions=[action_str % first_lacp_port])
+        self.set_port_down(first_lacp_port)
+        self.wait_until_matching_flow(
+                match_bcast, self._FLOOD_TABLE, actions=[action_str % second_lacp_port])
+        self.retry_net_ping()
+
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
