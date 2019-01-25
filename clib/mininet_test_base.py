@@ -393,6 +393,7 @@ class FaucetTestBase(unittest.TestCase):
 
     def _start_faucet(self, controller_intf):
         last_error_txt = ''
+        assert self.net is None # _start_faucet() can't be multiply called
         for _ in range(3):
             mininet_test_util.return_free_ports(
                 self.ports_sock, self._test_name())
