@@ -6385,14 +6385,29 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
 
+    def wait_for_lacp_port_up(self, port_no, timeout=10):
+        controller = self._get_controller()
+        count = 0
+        for _ in range(timeout):
+            count = controller.cmd(
+                    'grep -c "LAG.*port %u up" %s' % (port_no, self.env['faucet']['FAUCET_LOG']))
+            if int(count) != 0:
+                break
+            time.sleep(1)
+        self.assertGreaterEqual(int(count), 1, 'LACP port %u not up' % port_no)
+
     def test_lacp_port_down(self):
         """LACP to switch to a working port when the primary port fails."""
         first_lacp_port = self.NUM_HOSTS + 1
         second_lacp_port = first_lacp_port + 1
         match_bcast = {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
         action_str = 'OUTPUT:%u'
+        # wait for all lacp ports up
+        self.wait_for_lacp_port_up(first_lacp_port)
+        self.wait_for_lacp_port_up(second_lacp_port)
         self.wait_until_matching_flow(
                 match_bcast, self._FLOOD_TABLE, actions=[action_str % first_lacp_port])
+        self.retry_net_ping()
         self.set_port_down(first_lacp_port)
         self.wait_until_matching_flow(
                 match_bcast, self._FLOOD_TABLE, actions=[action_str % second_lacp_port])
