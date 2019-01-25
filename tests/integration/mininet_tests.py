@@ -3877,7 +3877,7 @@ acls:
         - rule:
             actions:
                 allow: 1
-                mirror: b3 
+                mirror: b3
 """
 
     CONFIG = """
@@ -3965,7 +3965,7 @@ acls:
     1:
         - rule:
             actions:
-                mirror: b3 
+                mirror: b3
 """
 
     CONFIG = """
@@ -4119,7 +4119,7 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [123, 456]
-                    port: b2 
+                    port: b2
 """
 
     CONFIG = """
@@ -4175,7 +4175,7 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [{vid: 123, eth_type: 0x88a8}, 456]
-                    port: b2 
+                    port: b2
 """
 
     CONFIG = """
@@ -4514,7 +4514,7 @@ vlans:
          '        description: "tagged"',
          '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
-        global_vlan: %u 
+        global_vlan: %u
         proactive_learn_v4: True
         max_wildcard_table_size: 1024
         table_sizes:
@@ -4688,7 +4688,7 @@ vlans:
          '        description: "tagged"',
          '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
     CONFIG = """
-        global_vlan: %u 
+        global_vlan: %u
         proactive_learn_v6: True
         max_wildcard_table_size: 512
         table_sizes:
@@ -6246,15 +6246,6 @@ class FaucetStringOfDPTest(FaucetTest):
                 dpname_to_dpkey, (first_external and i == 0))
 
         return yaml.dump(config, default_flow_style=False)
-
-    def matching_flow_present(self, match, timeout=10, table_id=None, actions=None):
-        """Find the first DP that has a flow that matches match."""
-        for dpid in self.dpids:
-            if self.matching_flow_present_on_dpid(
-                    dpid, match, timeout=timeout,
-                    table_id=table_id, actions=actions):
-                return True
-        return False
 
     def verify_no_cable_errors(self):
         i = 0
