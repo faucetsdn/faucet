@@ -3877,7 +3877,7 @@ acls:
         - rule:
             actions:
                 allow: 1
-                mirror: b3 
+                mirror: b3
 """
 
     CONFIG = """
@@ -3965,7 +3965,7 @@ acls:
     1:
         - rule:
             actions:
-                mirror: b3 
+                mirror: b3
 """
 
     CONFIG = """
@@ -4119,7 +4119,7 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [123, 456]
-                    port: b2 
+                    port: b2
 """
 
     CONFIG = """
@@ -4175,7 +4175,7 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [{vid: 123, eth_type: 0x88a8}, 456]
-                    port: b2 
+                    port: b2
 """
 
     CONFIG = """
@@ -4514,7 +4514,7 @@ vlans:
          '        description: "tagged"',
          '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
-        global_vlan: %u 
+        global_vlan: %u
         proactive_learn_v4: True
         max_wildcard_table_size: 1024
         table_sizes:
@@ -4688,7 +4688,7 @@ vlans:
          '        description: "tagged"',
          '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
     CONFIG = """
-        global_vlan: %u 
+        global_vlan: %u
         proactive_learn_v6: True
         max_wildcard_table_size: 512
         table_sizes:
@@ -6251,15 +6251,6 @@ class FaucetStringOfDPTest(FaucetTest):
 
         return yaml.dump(config, default_flow_style=False)
 
-    def matching_flow_present(self, match, timeout=10, table_id=None, actions=None):
-        """Find the first DP that has a flow that matches match."""
-        for dpid in self.dpids:
-            if self.matching_flow_present_on_dpid(
-                    dpid, match, timeout=timeout,
-                    table_id=table_id, actions=actions):
-                return True
-        return False
-
     def verify_no_cable_errors(self):
         i = 0
         for dpid in self.dpids:
@@ -6397,6 +6388,34 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         for _ in range(3):
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
+
+    def wait_for_lacp_port_up(self, port_no, timeout=10):
+        controller = self._get_controller()
+        count = 0
+        for _ in range(timeout):
+            count = controller.cmd(
+                    'grep -c "LAG.*port %u up" %s' % (port_no, self.env['faucet']['FAUCET_LOG']))
+            if int(count) != 0:
+                break
+            time.sleep(1)
+        self.assertGreaterEqual(int(count), 1, 'LACP port %u not up' % port_no)
+
+    def test_lacp_port_down(self):
+        """LACP to switch to a working port when the primary port fails."""
+        first_lacp_port = self.NUM_HOSTS + 1
+        second_lacp_port = first_lacp_port + 1
+        match_bcast = {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
+        action_str = 'OUTPUT:%u'
+        # wait for all lacp ports up
+        self.wait_for_lacp_port_up(first_lacp_port)
+        self.wait_for_lacp_port_up(second_lacp_port)
+        self.wait_until_matching_flow(
+                match_bcast, self._FLOOD_TABLE, actions=[action_str % first_lacp_port])
+        self.retry_net_ping()
+        self.set_port_down(first_lacp_port)
+        self.wait_until_matching_flow(
+                match_bcast, self._FLOOD_TABLE, actions=[action_str % second_lacp_port])
+        self.retry_net_ping()
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
