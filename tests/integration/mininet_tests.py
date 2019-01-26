@@ -6389,16 +6389,10 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
 
-    def wait_for_lacp_port_up(self, port_no, timeout=10):
-        controller = self._get_controller()
-        count = 0
-        for _ in range(timeout):
-            count = controller.cmd(
-                    'grep -c "LAG.*port %u up" %s' % (port_no, self.env['faucet']['FAUCET_LOG']))
-            if int(count) != 0:
-                break
-            time.sleep(1)
-        self.assertGreaterEqual(int(count), 1, 'LACP port %u not up' % port_no)
+    def wait_for_lacp_port_up(self, port_no):
+        log_file = self.env['faucet']['FAUCET_LOG']
+        lacp_up_re = r'.+LAG.+port %u up$' % port_no
+        self.wait_until_matching_lines_from_file(lacp_up_re, log_file)
 
     def test_lacp_port_down(self):
         """LACP to switch to a working port when the primary port fails."""
@@ -7005,17 +6999,10 @@ vlans:
             time.sleep(1)
         self.fail('Not received OFPFlowRemoved for host %s' % mac)
 
-    def wait_for_host_log_msg(self, host_mac, msg, timeout=15):
-        controller = self._get_controller()
-        count = 0
-        for _ in range(timeout):
-            count = controller.cmd('grep -c "%s %s" %s' % (
-                msg, host_mac, self.env['faucet']['FAUCET_LOG']))
-            if int(count) != 0:
-                break
-            time.sleep(1)
-        self.assertGreaterEqual(
-            int(count), 1, 'log msg "%s" for host %s not found' % (msg, host_mac))
+    def wait_for_host_log_msg(self, host_mac, msg):
+        log_file = self.env['faucet']['FAUCET_LOG']
+        host_log_re = r'.*%s %s.*' % (msg, host_mac)
+        self.wait_until_matching_lines_from_file(host_log_re, log_file)
 
     def test_untagged(self):
         self.ping_all_when_learned()
