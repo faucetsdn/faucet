@@ -79,7 +79,7 @@ class ValvePipeline(ValveManagerBase):
         """
         return self._accept_to_table(self.output_table, actions)
 
-    def output(self, port, vlan, hairpin=False):
+    def output(self, port, vlan, hairpin=False, loop_protect_field=None):
         """Get instructions list to output a packet through the regular
         pipeline.
 
@@ -97,7 +97,9 @@ class ValvePipeline(ValveManagerBase):
             instructions.extend(valve_of.metadata_goto_table(
                 metadata, metadata_mask, self.egress_table))
         else:
-            instructions.append(valve_of.apply_actions(vlan.output_port(port, hairpin=hairpin)))
+            instructions.append(valve_of.apply_actions(vlan.output_port(
+                port, hairpin=hairpin, output_table=self.output_table,
+                loop_protect_field=loop_protect_field)))
         return instructions
 
     def initialise_tables(self):
