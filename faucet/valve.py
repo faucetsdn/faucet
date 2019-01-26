@@ -879,10 +879,10 @@ class Valve:
             now (float): current epoch time.
             pkt_meta (PacketMeta): packet for control plane.
         Returns:
-            list: OpenFlow messages, if any.
+            dict: OpenFlow messages, if any by Valve.
         """
         # TODO: ensure config consistent between LAG ports.
-        ofmsgs = []
+        ofmsgs_by_valve = defaultdict(list)
         if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
                 pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW and
                 pkt_meta.port.lacp):
@@ -907,11 +907,11 @@ class Valve:
                             lacp_pkt.actor_system, pkt_meta.port.lacp,
                             pkt_meta.log()))
                     if lacp_pkt.actor_state_synchronization:
-                        ofmsgs.extend(self.lacp_up(pkt_meta.port))
+                        ofmsgs_by_valve[self].extend(self.lacp_up(pkt_meta.port))
                 # TODO: make LACP response rate limit configurable.
                 if lacp_pkt_change or (age is not None and age > 1):
                     pkt = self._lacp_pkt(lacp_pkt, pkt_meta.port)
-                    ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
+                    ofmsgs_by_valve[self].append(valve_of.packetout(pkt_meta.port.number, pkt.data))
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
                 pkt_meta.port.dyn_lacp_updated_time = now
                 other_lag_ports = [
@@ -925,7 +925,7 @@ class Valve:
                             'LACP actor system mismatch %s: %s, %s %s' % (
                                 pkt_meta.port, actor_system,
                                 other_lag_port, other_actor_system))
-        return ofmsgs
+        return ofmsgs_by_valve
 
     def _verify_stack_lldp(self, port, now, other_valves,
                            remote_dp_id, remote_dp_name,
@@ -1205,12 +1205,12 @@ class Valve:
     def _non_vlan_rcv_packet(self, now, other_valves, pkt_meta):
         self._inc_var('of_non_vlan_packet_ins')
         if pkt_meta.port.lacp:
-            lacp_ofmsgs = self.lacp_handler(now, pkt_meta)
-            if lacp_ofmsgs:
-                return lacp_ofmsgs
+            lacp_ofmsgs_by_valve = self.lacp_handler(now, pkt_meta)
+            if lacp_ofmsgs_by_valve:
+                return lacp_ofmsgs_by_valve
         # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
         self.lldp_handler(now, pkt_meta, other_valves)
-        return []
+        return {}
 
     def _router_rcv_packet(self, now, _other_valves, pkt_meta):
         if not pkt_meta.vlan.faucet_vips:
@@ -1243,12 +1243,12 @@ class Valve:
         self._inc_var('of_vlan_packet_ins')
         ban_rules = self.host_manager.ban_rules(pkt_meta)
         if ban_rules:
-            return ban_rules
+            return {self: ban_rules}
 
         ofmsgs = []
         ofmsgs.extend(self._router_rcv_packet(now, other_valves, pkt_meta))
         ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
-        return ofmsgs
+        return {self: ofmsgs}
 
     def rcv_packet(self, now, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
@@ -1271,20 +1271,17 @@ class Valve:
         #        pkt_meta.vlan))
 
         if pkt_meta.vlan is None:
-            ofmsgs = self._non_vlan_rcv_packet(now, other_valves, pkt_meta)
-        else:
-            ofmsgs = self._vlan_rcv_packet(now, other_valves, pkt_meta)
-        if ofmsgs:
-            return {self: ofmsgs}
-        return {}
+            return self._non_vlan_rcv_packet(now, other_valves, pkt_meta)
+        return self._vlan_rcv_packet(now, other_valves, pkt_meta)
 
     def _lacp_state_expire(self, now, other_valves):
         """Expire controller state for LACP.
 
         Args:
             now (float): current epoch time.
+            other_valves (list): all Valves other than this one.
         Return:
-            list: OpenFlow messages, if any.
+            dict: OpenFlow messages, if any by Valve.
         """
         ofmsgs = []
         lacp_up_ports = [port for port in self.dp.ports.values() if port.lacp and port.dyn_lacp_up]
@@ -1300,8 +1297,11 @@ class Valve:
     def state_expire(self, now, other_valves):
         """Expire controller caches/state (e.g. hosts learned).
 
+        Args:
+            now (float): current epoch time.
+            other_valves (list): all Valves other than this one.
         Return:
-            list: OpenFlow messages, if any.
+            dict: OpenFlow messages, if any by Valve.
         """
         ofmsgs_by_valve = defaultdict(list)
         if self.dp.dyn_running:
