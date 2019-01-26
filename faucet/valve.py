@@ -399,7 +399,7 @@ class Valve:
         port_labels = self.dp.port_labels(port.number)
         self._set_var('port_status', port_status, labels=port_labels)
 
-    def port_status_handler(self, port_no, reason, state):
+    def port_status_handler(self, port_no, reason, state, _other_valves):
         """Return OpenFlow messages responding to port operational status change."""
 
         port_status_codes = {
