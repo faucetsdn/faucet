@@ -33,6 +33,7 @@ from faucet import valve_table
 from faucet import valve_util
 from faucet import valve_pipeline
 
+from faucet.faucet_pipeline import STACK_LOOP_PROTECT_FIELD
 from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
 
@@ -619,6 +620,9 @@ class Valve:
             actions.extend(valve_of.push_vlan_act(
                 vlan_table, vlan.vid))
             match_vlan = NullVLAN()
+        elif self.dp.stack and self.dp.stack.get('externals', False) and port.loop_protect_external:
+            # Ensure loop protection field cleared on external port.
+            actions.append(valve_of.set_field(**{STACK_LOOP_PROTECT_FIELD: 0}))
         inst = [
             valve_of.apply_actions(actions),
             vlan_table.goto(self._find_forwarding_table(vlan))]
