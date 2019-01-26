@@ -23,6 +23,7 @@ import netaddr
 
 from faucet import valve_of
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
+from faucet.faucet_pipeline import STACK_LOOP_PROTECT_FIELD
 from faucet.valve_packet import FAUCET_MAC
 
 
@@ -557,10 +558,12 @@ class VLAN(Conf):
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged, exclude_unicast)
 
-    def output_port(self, port, hairpin=False):
+    def output_port(self, port, hairpin=False, output_table=None, loop_protect_field=None):
         actions = port.mirror_actions()
         if self.port_is_untagged(port):
             actions.append(valve_of.pop_vlan())
+        elif loop_protect_field is not None:
+            actions.append(output_table.set_field(**{STACK_LOOP_PROTECT_FIELD: loop_protect_field}))
         if hairpin:
             actions.append(valve_of.output_port(valve_of.OFP_IN_PORT))
         else:
