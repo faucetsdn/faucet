@@ -147,7 +147,8 @@ class ValveFloodManager(ValveManagerBase):
                 ofmsgs.append(vlan_flood_ofmsg)
             vlan_output_ports = self._output_ports_from_actions(vlan_flood_acts)
             for port in self._vlan_all_ports(vlan, exclude_unicast):
-                if not port.hairpin:
+                # Cull port-specific logic to prevent unnecessary O(n^2) calculations.
+                if not port.hairpin or not port.dyn_phys_up:
                     continue
                 port_flood_ofmsg, port_flood_acts = self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask,
