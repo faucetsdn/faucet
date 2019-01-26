@@ -20,7 +20,7 @@
 import copy
 import logging
 
-from collections import deque
+from collections import defaultdict, deque
 
 from faucet import tfm_pipeline
 from faucet import valve_acl
@@ -1278,7 +1278,7 @@ class Valve:
             return {self: ofmsgs}
         return {}
 
-    def _lacp_state_expire(self, now):
+    def _lacp_state_expire(self, now, other_valves):
         """Expire controller state for LACP.
 
         Args:
@@ -1293,22 +1293,25 @@ class Valve:
             if lacp_age > self.dp.lacp_timeout:
                 self.logger.info('LACP on %s expired (age %u)' % (port, lacp_age))
                 ofmsgs.extend(self.lacp_down(port))
-        return ofmsgs
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
-    def state_expire(self, now, _other_valves):
+    def state_expire(self, now, other_valves):
         """Expire controller caches/state (e.g. hosts learned).
 
         Return:
             list: OpenFlow messages, if any.
         """
-        ofmsgs = []
+        ofmsgs_by_valve = defaultdict(list)
         if self.dp.dyn_running:
-            self._lacp_state_expire(now)
+            ofmsgs_by_valve.update(self._lacp_state_expire(now, other_valves))
             for vlan in self.dp.vlans.values():
                 expired_hosts = self.host_manager.expire_hosts_from_vlan(vlan, now)
                 if not self.dp.idle_dst:
                     for entry in expired_hosts:
-                        ofmsgs.extend(self.host_manager.delete_host_from_vlan(entry.eth_src, vlan))
+                        ofmsgs_by_valve[self].extend(
+                            self.host_manager.delete_host_from_vlan(entry.eth_src, vlan))
                 for entry in expired_hosts:
                     self._notify(
                         {'L2_EXPIRE': {
@@ -1316,10 +1319,8 @@ class Valve:
                             'vid': vlan.vid,
                             'eth_src': entry.eth_src}})
                 for route_manager in self._route_manager_by_ipv.values():
-                    ofmsgs.extend(route_manager.resolve_expire_hosts(vlan, now))
-        if ofmsgs:
-            return {self: ofmsgs}
-        return {}
+                    ofmsgs_by_valve[self].extend(route_manager.resolve_expire_hosts(vlan, now))
+        return ofmsgs_by_valve
 
     def _pipeline_change(self):
         def table_msgs(tfm_flow):
