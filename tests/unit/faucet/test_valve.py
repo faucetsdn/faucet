@@ -2328,6 +2328,7 @@ dps:
     s1:
         hardware: 'GenericTFM'
 %s
+        lacp_timeout: 5
         interfaces:
             p1:
                 number: 1
@@ -2373,6 +2374,25 @@ vlans:
             1, int(self.get_prom('port_lacp_status', labels=labels)))
         self.learn_hosts()
         self.verify_expiry()
+
+    def test_lacp_timeout(self):
+        """Test LACP comes up and then times out."""
+        test_port = 1
+        labels = self.port_labels(test_port)
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_status', labels=labels)))
+        self.rcv_packet(test_port, 0, {
+            'actor_system': '0e:00:00:00:00:02',
+            'partner_system': FAUCET_MAC,
+            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
+            'eth_src': '0e:00:00:00:00:02'})
+        self.assertEqual(
+            1, int(self.get_prom('port_lacp_status', labels=labels)))
+        future_now = time.time() + 10
+        expire_ofmsgs = self.valve.state_expire(future_now, None)
+        self.assertTrue(expire_ofmsgs)
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_status', labels=labels)))
 
 
 class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):
