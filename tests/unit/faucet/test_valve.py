@@ -2395,6 +2395,66 @@ vlans:
             0, int(self.get_prom('port_lacp_status', labels=labels)))
 
 
+class ValveActiveLACPTestCase(ValveTestBases.ValveTestSmall):
+    """Test LACP."""
+
+    CONFIG = """
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        lacp_timeout: 5
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                lacp: 1
+                lacp_active: True
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                tagged_vlans: [v300]
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+    v300:
+        vid: 0x300
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_lacp(self):
+        """Test LACP comes up."""
+        test_port = 1
+        labels = self.port_labels(test_port)
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_status', labels=labels)))
+        # Ensure LACP packet sent.
+        ofmsgs = self.valve.fast_advertise(time.time(), None)[self.valve]
+        self.assertTrue(self.packet_outs_from_flows(ofmsgs))
+        self.rcv_packet(test_port, 0, {
+            'actor_system': '0e:00:00:00:00:02',
+            'partner_system': FAUCET_MAC,
+            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
+            'eth_src': '0e:00:00:00:00:02'})
+        self.assertEqual(
+            1, int(self.get_prom('port_lacp_status', labels=labels)))
+        self.learn_hosts()
+        self.verify_expiry()
+
+
 class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):
     """Repeats the tests after a config reload."""
 
