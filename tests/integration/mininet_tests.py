@@ -1188,6 +1188,10 @@ class FaucetSanityTest(FaucetUntaggedTest):
                     in_port, dp_port))
             self.verify_dp_port_healthy(dp_port)
             self.require_host_learned(host, in_port=dp_port)
+        learned = self.prom_macs_learned()
+        self.assertEqual(len(self.net.hosts), len(learned),
+            msg='test requires exactly %u hosts learned (got %s)' % (
+                len(self.net.hosts), learned))
 
     def test_listening(self):
         msg_template = (
