@@ -326,18 +326,25 @@ class FaucetTestBase(unittest.TestCase):
     def _attach_physical_switch(self):
         """Bridge a physical switch into test topology."""
         switch = self.net.switches[0]
+        # TODO: provide ebtables in test image
+        have_ebtables = switch.cmd('ebtables --f OUTPUT') == ''
         mapped_base = max(len(self.switch_map), len(self.port_map))
         phys_macs = set()
         for i, test_host_port in enumerate(sorted(self.switch_map)):
             port_i = i + 1
             mapped_port_i = mapped_base + port_i
             phys_port = Intf(self.switch_map[test_host_port], node=switch)
+            phys_mac = netifaces.ifaddresses(phys_port.name)[netifaces.AF_LINK][0]['addr']
+            self.assertFalse(phys_mac in phys_macs, 'duplicate physical MAC %s' % phys_mac)
+            phys_macs.add(phys_mac)
             for phys_cmd in (
                     'ip link set dev %s up' % phys_port,
-                    'sysctl -w net.ipv6.conf.%s.disable_ipv6=1' % phys_port,
                     'ip -4 addr flush dev %s' % phys_port,
                     'ip -6 addr flush dev %s' % phys_port):
-                switch.cmd(phys_cmd)
+                self.assertEqual('', switch.cmd(phys_cmd))
+            if have_ebtables:
+                self.assertEqual('', switch.cmd(
+                    'ebtables -A OUTPUT -s %s -o %s -j DROP' % (phys_mac, phys_port)))
             switch.cmd(
                 ('ovs-vsctl add-port %s %s -- '
                  'set Interface %s ofport_request=%u') % (
@@ -345,9 +352,6 @@ class FaucetTestBase(unittest.TestCase):
                      phys_port.name,
                      phys_port.name,
                      mapped_port_i))
-            phys_mac = netifaces.ifaddresses(phys_port.name)[netifaces.AF_LINK][0]['addr']
-            self.assertFalse(phys_mac in phys_macs, 'duplicate physical MAC %s' % phys_mac)
-            phys_macs.add(phys_mac)
             switch.cmd('%s add-flow %s in_port=%u,eth_src=%s,priority=2,actions=drop' % (
                 self.OFCTL, switch.name, mapped_port_i, phys_mac))
             switch.cmd('%s add-flow %s in_port=%u,eth_dst=%s,priority=2,actions=drop' % (
