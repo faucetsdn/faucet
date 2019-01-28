@@ -203,7 +203,7 @@ class Valve:
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.cache_update_guard_time, self.dp.idle_dst)
-        if 'port_acl' in self.dp.tables or 'vlan_acl' in self.dp.tables:
+        if 'port_acl' in self.dp.tables or 'vlan_acl' in self.dp.tables or self.dp.tunnel_acls:
             self.acl_manager = valve_acl.ValveAclManager(
                 self.dp.tables.get('port_acl'), self.dp.tables.get('vlan_acl'),
                 self.pipeline, self.dp.meters, self.dp.dp_acls)
@@ -559,6 +559,22 @@ class Valve:
             port_stack_up = port.is_stack_up()
             for valve in [self] + other_valves:
                 valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+                valve.update_tunnel_flowrules()
+
+    def update_tunnel_flowrules(self):
+        """Update tunnel ACL rules because the stack topology has changed"""
+        if self.dp.tunnel_acls:
+            for tunnel_id, tunnel_acl in self.dp.tunnel_acls.items():
+                updated = tunnel_acl.update_tunnel_acl_conf(self.dp)
+                if updated:
+                    self.dp.tunnel_updated_flags[tunnel_id] = True
+                    self.logger.info('%s updated tunnel %s' % (self.dp.name, tunnel_id))
+
+    def get_tunnel_flowmods(self):
+        """Returns flowmods for the tunnels"""
+        if self.acl_manager:
+            return self.acl_manager.create_acl_tunnel(self.dp)
+        return []
 
     def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""
@@ -1206,6 +1222,9 @@ class Valve:
                 return lacp_ofmsgs
         # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
         self.lldp_handler(now, pkt_meta, other_valves)
+        tunnel_ofmsgs = self.get_tunnel_flowmods()
+        if tunnel_ofmsgs:
+            return tunnel_ofmsgs
         return []
 
     def _router_rcv_packet(self, now, _other_valves, pkt_meta):
