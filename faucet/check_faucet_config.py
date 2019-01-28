@@ -38,19 +38,23 @@ def check_config(conf_files, debug_level, check_output_file):
     logger.setLevel(debug_level)
     check_output = []
 
-    for conf_file in conf_files:
-        check_result = False
+    if conf_files:
+        for conf_file in conf_files:
+            check_result = False
 
-        try:
-            _, dps = dp_parser(conf_file, logname)
-            if dps is not None:
-                dps_conf = [(valve.valve_factory(dp), dp.to_conf()) for dp in dps]
-                check_output.extend([conf for _, conf in dps_conf])
-                check_result = True
-                continue
-        except InvalidConfigError as config_err:
-            check_output = [config_err]
-        break
+            try:
+                _, dps = dp_parser(conf_file, logname)
+                if dps is not None:
+                    dps_conf = [(valve.valve_factory(dp), dp.to_conf()) for dp in dps]
+                    check_output.extend([conf for _, conf in dps_conf])
+                    check_result = True
+                    continue
+            except InvalidConfigError as config_err:
+                check_output = [config_err]
+            break
+    else:
+        check_result = False
+        check_output = ['no files specified']
 
     pprint.pprint(check_output, stream=check_output_file)
     return check_result

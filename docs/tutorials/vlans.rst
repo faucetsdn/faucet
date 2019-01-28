@@ -1,4 +1,4 @@
-VLAN Tutorial
+VLAN tutorial
 =============
 
 Next we are going to introduce VLANs.
@@ -14,20 +14,17 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-.. literalinclude:: ../_static/tutorial/create_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/create_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/as_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/as_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/cleanup
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/cleanup
+       :language: bash
 
-
-- to add a tagged network interface to a host namespaces
-
-.. literalinclude:: ../_static/tutorial/add_tagged_dev_ns
-    :language: bash
+    .. literalinclude:: ../_static/tutorial/add_tagged_interface
+        :language: bash
 
 Overview
 ^^^^^^^^
@@ -35,17 +32,18 @@ Overview
 In this tutorial we will look at how to do the following tasks using Faucet:
 
 - Use VLANs to segment traffic.
-- Create Trunk links.
-- ACLs for a particular VLAN.
+- Create VLAN Trunks.
+- Apply an ACL to an entire VLAN.
 
 .. note::
 
    We cover :ref:`tutorial-ivr` in a later tutorial.
 
 A port can be in several VLAN modes:
-1. native - where packets come into the switch with no 802.1Q tag.
-2. tagged - where packets come into the switch with a 802.1Q tag.
-3. Both native and tagged.
+
+    1. Native - where packets come into the switch with no 802.1Q tag.
+    2. Tagged - where packets come into the switch with a 802.1Q tag.
+    3. Mixed - where both native and tagged packets appear on the same port.
 
 If a packet comes in with a tag for a VLAN that the port is not configured for
 it will be dropped.
@@ -58,24 +56,25 @@ To demonstrate these tasks we will use a demo network where a single switch br0
 connects to 9 hosts.
 
 Ports 1, 2, 5, 6 will be native (untagged) ports.
-While ports 3 & 4, 7 & 8, and 9 will be tagged ports.
+While ports 3, 4, 7, 8, and 9 will be tagged ports.
 
 Here is the structure of the demo setup.
 
-.. image:: ../_static/images/vlans.svg
+.. figure:: ../_static/images/tutorial-vlans.svg
     :alt: VLAN Network Diagram
     :align: center
+    :width: 80%
+
 
 .. tip::
 
-    Keep a piece of paper with the network layout and hosts' names, VLANs, IPs
-    to simplify following the rest of the tutorial.
+    Keep this diagram nearby to simplify following the rest of the tutorial.
 
 
 Network setup
 -------------
 
-Let's start. Keep host1, host2 on the native vlan 100 (office vlan) as in the
+Let's start. Keep host1, host2 on the native VLAN 100 (office VLAN) as in the
 first and second tutorials.
 
 .. note:: To create the hosts and switch again run
@@ -93,49 +92,44 @@ first and second tutorials.
         -- add-port br0 veth-host2 -- set interface veth-host2 ofport_request=2 \
         -- set-controller br0 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
 
-Then add the following hosts with the corresponding vlan:
+Then add the following hosts with the corresponding VLAN:
 
-- Assign host3 and host4 a vlan interface (vid:100) as they are on a tagged port.
+- Assign host3 and host4 a VLAN interface (vid:100) as they are on a tagged port.
+
+.. code:: console
+
+    create_ns host3 0.0.0.0
+    create_ns host4 0.0.0.0
+    add_tagged_interface host3 192.168.0.3/24 100
+    add_tagged_interface host4 192.168.0.4/24 100
+
 - Assign host5 and host6 an IP address from the VLAN 200 range.
-- Assign host7 and host8 a vlan interface (vid:300) as they are on a tagged port.
-- Add host9 to all vlans (100, 200, 300) to work as a NFV host.
-
-
-Tagged vlan 100
 
 .. code:: console
 
-    create_ns  host3 0
-    create_ns  host4 0
-    add_tagged_dev_ns host3 192.168.0.3/24 100
-    add_tagged_dev_ns host4 192.168.0.4/24 100
+    create_ns host5 192.168.2.5/24
+    create_ns host6 192.168.2.6/24
 
-Native vlan 200
+- Assign host7 and host8 a VLAN interface (vid:300) as they are on a tagged port.
 
 .. code:: console
 
-    create_ns  host5 192.168.2.5/24
-    create_ns  host6 192.168.2.6/24
+    create_ns host7 0.0.0.0
+    create_ns host8 0.0.0.0
+    add_tagged_interface host7 192.168.3.7/24 300
+    add_tagged_interface host8 192.168.3.8/24 300
 
-Tagged vlan 300
-
-.. code:: console
-
-    create_ns  host7 0
-    create_ns  host8 0
-    add_tagged_dev_ns host7 192.168.3.7/24 300
-    add_tagged_dev_ns  host8 192.168.3.8/24 300
-
-Trunk link for host9
+- Add host9 to all VLANs (100, 200, 300) to work as a NFV host.
 
 .. code:: console
 
-    create_ns  host9 0
-    add_tagged_dev_ns host9 192.168.0.9/24 100
-    add_tagged_dev_ns host9 192.168.2.9/24 200
-    add_tagged_dev_ns host9 192.168.3.9/24 300
+    create_ns host9 0.0.0.0
+    add_tagged_interface host9 192.168.0.9/24 100
+    add_tagged_interface host9 192.168.2.9/24 200
+    add_tagged_interface host9 192.168.3.9/24 300
 
-Then  connect all the hosts to the switch (br0)
+
+Then connect all the hosts to the switch (br0)
 
 .. code:: console
 
@@ -151,7 +145,7 @@ Now we have everything to start working with faucet through its configuration fi
 Each time we will only need to change the configuration file and restart faucet
 (or send it HUP signal to reload the configuration file).
 
-Basic vlan settings
+Basic VLAN settings
 -------------------
 
 Change /etc/faucet/faucet.yaml to reflect our setting.
@@ -211,7 +205,7 @@ new configuration in /var/log/faucet/faucet.log
 
 Let's do the following simple tests:
 
-1. Ping between hosts in the same vlan
+1. Ping between hosts in the same VLAN (all should work)
 
 .. code:: console
 
@@ -220,31 +214,24 @@ Let's do the following simple tests:
     as_ns host5 ping 192.168.2.6
     as_ns host7 ping 192.168.3.8
 
-All should work.
-
-2. Ping between hosts in the same vlan where the port's vlan mode is both native
-   and tagged. In particular between host1 (native vlan100) to host3 (tagged vlan100).
+2. Ping between hosts in the same VLAN where the one host is native
+   and the other is tagged should work also. In particular between host1
+   (native VLAN 100) to host3 (tagged VLAN 100).
 
 .. code:: console
 
     as_ns host1 ping 192.168.0.3
 
-3. Ping between hosts in different vlans. Let's change host5 (native vlan200) ip
-   to be 192.168.0.5 and try to ping it from host1 (native vlan100).
+3. Ping between hosts in different VLANs should fail. To test that let's add the
+   IP address 192.168.0.5 to host5 (native VLAN 200) and try to ping it from
+   host1 (native VLAN 100).
 
 .. code:: console
 
-    as_ns host5 ifconfig veth0 192.168.0.5
+    as_ns host5 ip address add 192.168.0.5 dev veth0
     as_ns host1 ping 192.168.0.5
 
-It will not ping as they are in different vlans.
-Let's set host5's IP back.
-
-.. code:: console
-
-    as_ns host5 ifconfig veth0 192.168.2.5
-
-4. Test the trunk link to host9 from different vlans
+4. Now we can test the trunk link to host9 from different VLANs (all should work)
 
 .. code:: console
 
@@ -253,14 +240,12 @@ Let's set host5's IP back.
     as_ns host5 ping 192.168.2.9
     as_ns host7 ping 192.168.3.9
 
-All of this traffic should go through to host9 as it is connected through the trunk link.
 
-
-Vlan ACL
+VLAN ACL
 --------
 
-Let's apply an ACL on a particular vlan (e.g. vlan300). We will block any ICMP packets on vlan300.
-First create an ACL to block the ping.
+Let's apply an ACL on a particular VLAN (e.g. VLAN 300). We will block any ICMP
+packets on VLAN 300. First create an ACL to block the ping.
 Open /etc/faucet/faucet.yaml and add the 'acls' section.
 
 .. code-block:: yaml
@@ -279,7 +264,7 @@ Open /etc/faucet/faucet.yaml and add the 'acls' section.
                 actions:
                     allow: False
 
-Then apply this ACL on vlan300.
+Then apply this ACL on VLAN 300.
 
 .. code-block:: yaml
     :caption: /etc/faucet/faucet.yaml
@@ -287,15 +272,14 @@ Then apply this ACL on vlan300.
     vlans:
         vlan100:
             vid: 100
-            faucet_vips: ["192.168.0.254/24"]
         vlan200:
             vid: 200
-            faucet_vips: ["192.168.2.254/24"]
         vlan300:
             vid: 300
-            acls_in: [block-ping] # Acl apply only on vlan300
+            acls_in: [block-ping] # Apply ACL only on vlan300
 
-Just before we reload the configuration file. Let's verify that pinging is working between hosts in vlan300.
+Just before we reload the configuration file. Let's verify that pinging is
+working between hosts in VLAN 300.
 
 .. code:: console
 
@@ -307,7 +291,7 @@ Now let's apply the configuration, send SIGHUP signal to reload the configuratio
 
     sudo systemctl reload faucet
 
-Now if you try to ping from host7 and host8, it will not work as it is specified by their vlan acl.
+Now if you try to ping from host7 and host8, it will not work as it is specified by their VLAN ACL.
 
 .. code:: console
 

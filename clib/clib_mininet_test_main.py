@@ -468,7 +468,7 @@ def report_tests(test_status, test_list):
     tests_json = {}
     for test_class, test_text in test_list:
         test_text = test_text.replace('\n', '\t')
-        print('\t'.join((test_class.id(), test_status, test_text)))
+        test_text = test_text.replace('"', '\'')
         tests_json.update({
             test_class.id(): {'status': test_status, 'output': test_text}})
     return tests_json
@@ -481,18 +481,18 @@ def report_results(results, hw_config, report_json_filename):
         print('\n')
         print(report_title)
         print('=' * len(report_title))
-        print('\n')
         for result in results:
             test_lists = [
                 ('ERROR', result.errors),
                 ('FAIL', result.failures),
+                ('SKIPPED', result.skipped),
             ]
             if hasattr(result, 'successes'):
                 test_lists.append(
                     ('OK', result.successes))
             for test_status, test_list in test_lists:
                 tests_json.update(report_tests(test_status, test_list))
-        print('\n')
+        print(yaml.dump(tests_json, default_flow_style=False, explicit_start=True, explicit_end=True))
         if report_json_filename:
             report_json = {
                 'hw_config': hw_config,
@@ -507,9 +507,9 @@ def run_test_suites(report_json_filename, hw_config, root_tmpdir,
     print('running %u tests in parallel and %u tests serial' % (
         parallel_tests.countTestCases(), single_tests.countTestCases()))
     results = []
+    results.append(sanity_result)
     results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
     results.extend(run_single_test_suites(root_tmpdir, resultclass, single_tests))
-    results.append(sanity_result)
     report_results(results, hw_config, report_json_filename)
     successful_results = [result for result in results if result.wasSuccessful()]
     return len(results) == len(successful_results)
@@ -612,6 +612,8 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
         all_successful = run_test_suites(
             report_json_filename, hw_config, root_tmpdir,
             resultclass, single_tests, parallel_tests, sanity_result)
+    else:
+        report_results([sanity_result], hw_config, report_json_filename)
     os.remove(ports_sock)
     decoded_pcap_logs = glob.glob(os.path.join(
         os.path.join(root_tmpdir, '*'), '*of.cap.txt'))

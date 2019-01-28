@@ -347,7 +347,8 @@ class Valve:
             ports.update({port.number for port in vlan.get_ports()})
         return ports
 
-    def _get_ports_status(self, discovered_up_port_nos, all_configured_port_nos):
+    @staticmethod
+    def _get_ports_status(discovered_up_port_nos, all_configured_port_nos):
         port_status = {
             port_no: (port_no in discovered_up_port_nos) for port_no in all_configured_port_nos}
         all_up_port_nos = {port_no for port_no, status in port_status.items() if status}
@@ -419,43 +420,46 @@ class Valve:
                 'state': state,
                 'status': port_status}})
         self._set_port_status(port_no, port_status)
+
+        if not self.dp.port_no_valid(port_no):
+            return {}
+        port = self.dp.ports[port_no]
+        if not port.opstatus_reconf:
+            return {}
+        if not reason in port_status_codes:
+            self.logger.warning('Unhandled port status %s/state %s for %s' % (
+                reason, state, port))
+            return {}
+
         ofmsgs = []
-        if self.dp.port_no_valid(port_no):
-            port = self.dp.ports[port_no]
-            if port.opstatus_reconf:
-                if reason in port_status_codes:
-                    self.logger.info('%s up status %s reason %s state %s' % (
-                        port, port_status, _decode_port_status(reason), state))
-                    new_port_status = False
-                    if (reason == valve_of.ofp.OFPPR_ADD or
-                            (reason == valve_of.ofp.OFPPR_MODIFY and port_status)):
-                        new_port_status = True
-                    if new_port_status:
-                        if port.dyn_phys_up:
-                            self.logger.info(
-                                '%s already up, assuming flap as missing down event' % port)
-                            ofmsgs.extend(self.port_delete(port_no))
-                        ofmsgs.extend(self.port_add(port_no))
-                    else:
-                        ofmsgs.extend(self.port_delete(port_no))
-                else:
-                    self.logger.warning('Unhandled port status %s/state %s for %s' % (
-                        reason, state, port))
-        return ofmsgs
+        self.logger.info('%s up status %s reason %s state %s' % (
+            port, port_status, _decode_port_status(reason), state))
+        new_port_status = (
+            reason == valve_of.ofp.OFPPR_ADD or
+            (reason == valve_of.ofp.OFPPR_MODIFY and port_status))
+        if new_port_status:
+            if port.dyn_phys_up:
+                self.logger.info('%s already up, assuming flap as missing down event' % port)
+                ofmsgs.extend(self.port_delete(port_no))
+            ofmsgs.extend(self.port_add(port_no))
+        else:
+            ofmsgs.extend(self.port_delete(port_no))
+        return {self: ofmsgs}
 
     def advertise(self, now, _other_values):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
-        ofmsgs = []
         if (not self.dp.advertise_interval or
                 now - self._last_advertise_sec < self.dp.advertise_interval):
-            return ofmsgs
+            return {}
         self._last_advertise_sec = now
 
+        ofmsgs = []
         for route_manager in self._route_manager_by_ipv.values():
             for vlan in self.dp.vlans.values():
                 ofmsgs.extend(route_manager.advertise(vlan))
-
-        return ofmsgs
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
     def _send_lldp_beacon_on_port(self, port, now):
         chassis_id = str(self.dp.faucet_dp_mac)
@@ -485,12 +489,12 @@ class Valve:
         # It is used also by stacking to verify stacking links.
         # TODO: in the stacking case, provide an authentication scheme for the probes
         # so they cannot be forged.
-        ofmsgs = []
         if (not self.dp.fast_advertise_interval or
                 now - self._last_fast_advertise_sec < self.dp.fast_advertise_interval):
-            return ofmsgs
+            return {}
         self._last_fast_advertise_sec = now
 
+        ofmsgs = []
         for port in self.dp.lacp_active_ports:
             if port.running():
                 pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
@@ -499,7 +503,9 @@ class Valve:
         ports = self.dp.lldp_beacon_send_ports(now)
         ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
 
-        return ofmsgs
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
     def _next_stack_link_state(self, port, now):
         if port.is_stack_admin_down():
@@ -574,6 +580,7 @@ class Valve:
         """Called periodically to verify the state of stack ports."""
         for port in self.dp.stack_ports:
             self._update_stack_link_state(port, now, other_valves)
+        return {}
 
     def _reset_dp_status(self):
         if self.dp.dyn_running:
@@ -811,6 +818,9 @@ class Valve:
     def lacp_down(self, port, cold_start=False):
         """Return OpenFlow messages when LACP is down on a port."""
         ofmsgs = []
+        if port.dyn_lacp_up != 0:
+            self.logger.info('LAG %u port %s down (previous state %s)' % (
+                port.lacp, port, port.dyn_lacp_up))
         if not cold_start:
             ofmsgs.extend(self._port_delete_flows_state(port))
             for vlan in port.vlans():
@@ -839,10 +849,11 @@ class Valve:
         ofmsgs.append(vlan_table.flowdel(
             match=vlan_table.match(in_port=port.number),
             priority=self.dp.high_priority, strict=True))
+        port.dyn_lacp_up = 1
         for vlan in port.vlans():
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
-        port.dyn_lacp_up = 1
         self._reset_lacp_status(port)
+        self.logger.info('LAG %s port %s up' % (port.lacp, port.number))
         return ofmsgs
 
     def _lacp_pkt(self, lacp_pkt, port):
@@ -1203,6 +1214,57 @@ class Valve:
                         _update_port(vlan, port)
                     vlan.dyn_last_updated_metrics_sec = now
 
+    def _non_vlan_rcv_packet(self, now, other_valves, pkt_meta):
+        self._inc_var('of_non_vlan_packet_ins')
+        if pkt_meta.port.lacp:
+            lacp_ofmsgs = self.lacp_handler(now, pkt_meta)
+            if lacp_ofmsgs:
+                return lacp_ofmsgs
+        # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
+        self.lldp_handler(now, pkt_meta, other_valves)
+        tunnel_ofmsgs = self.get_tunnel_flowmods()
+        if tunnel_ofmsgs:
+            return tunnel_ofmsgs
+        return []
+
+    def _router_rcv_packet(self, now, _other_valves, pkt_meta):
+        if not pkt_meta.vlan.faucet_vips:
+            return []
+        route_manager = self._route_manager_by_eth_type.get(
+            pkt_meta.eth_type, None)
+        if not (route_manager and route_manager.active):
+            return []
+        pkt_meta.reparse_ip()
+        if not pkt_meta.l3_pkt:
+            return []
+        control_plane_ofmsgs = self._control_plane_handler(
+            now, pkt_meta, route_manager)
+        ofmsgs = []
+        if control_plane_ofmsgs:
+            ofmsgs.extend(control_plane_ofmsgs)
+        else:
+            ofmsgs.extend(
+                route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
+            # No CPN activity, run resolver.
+            ofmsgs.extend(
+                route_manager.resolve_gateways(
+                    pkt_meta.vlan, now, resolve_all=False))
+            ofmsgs.extend(
+                route_manager.resolve_expire_hosts(
+                    pkt_meta.vlan, now, resolve_all=False))
+        return ofmsgs
+
+    def _vlan_rcv_packet(self, now, other_valves, pkt_meta):
+        self._inc_var('of_vlan_packet_ins')
+        ban_rules = self.host_manager.ban_rules(pkt_meta)
+        if ban_rules:
+            return ban_rules
+
+        ofmsgs = []
+        ofmsgs.extend(self._router_rcv_packet(now, other_valves, pkt_meta))
+        ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
+        return ofmsgs
+
     def rcv_packet(self, now, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
 
@@ -1213,11 +1275,9 @@ class Valve:
         Args:
             other_valves (list): all Valves other than this one.
             pkt_meta (PacketMeta): packet for control plane.
-        Return:
-            list: OpenFlow messages, if any.
+        Returns:
+            dict: OpenFlow messages, if any by Valve.
         """
-        ofmsgs = []
-
         # TODO: expensive, even at non-debug level.
         # self.logger.debug(
         #    'Packet_in src:%s in_port:%d VLAN:%s' % (
@@ -1226,62 +1286,27 @@ class Valve:
         #        pkt_meta.vlan))
 
         if pkt_meta.vlan is None:
-            self._inc_var('of_non_vlan_packet_ins')
-            if pkt_meta.port.lacp:
-                lacp_ofmsgs = self.lacp_handler(now, pkt_meta)
-                if lacp_ofmsgs:
-                    return lacp_ofmsgs
-            # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
-            self.lldp_handler(now, pkt_meta, other_valves)
-            tunnel_ofmsgs = self.get_tunnel_flowmods()
-            if tunnel_ofmsgs:
-                return tunnel_ofmsgs
-            return ofmsgs
+            ofmsgs = self._non_vlan_rcv_packet(now, other_valves, pkt_meta)
+        else:
+            ofmsgs = self._vlan_rcv_packet(now, other_valves, pkt_meta)
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
-        self._inc_var('of_vlan_packet_ins')
-
-        ban_rules = self.host_manager.ban_rules(pkt_meta)
-        if ban_rules:
-            return ban_rules
-
-        if pkt_meta.vlan.faucet_vips:
-            route_manager = self._route_manager_by_eth_type.get(
-                pkt_meta.eth_type, None)
-            if route_manager and route_manager.active:
-                pkt_meta.reparse_ip()
-                if pkt_meta.l3_pkt:
-                    control_plane_ofmsgs = self._control_plane_handler(
-                        now, pkt_meta, route_manager)
-                    if control_plane_ofmsgs:
-                        ofmsgs.extend(control_plane_ofmsgs)
-                    else:
-                        ofmsgs.extend(
-                            route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
-                        # No CPN activity, run resolver.
-                        ofmsgs.extend(
-                            route_manager.resolve_gateways(
-                                pkt_meta.vlan, now, resolve_all=False))
-                        ofmsgs.extend(
-                            route_manager.resolve_expire_hosts(
-                                pkt_meta.vlan, now, resolve_all=False))
-
-        ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
-        return ofmsgs
-
-    def _lacp_state_expire(self, vlan, now):
+    def _lacp_state_expire(self, now):
         """Expire controller state for LACP.
 
         Args:
-            vlan (VLAN instance): VLAN with LAGs.
             now (float): current epoch time.
         Return:
             list: OpenFlow messages, if any.
         """
         ofmsgs = []
-        for port in vlan.lacp_up_ports():
+        lacp_up_ports = [port for port in self.dp.ports.values() if port.lacp and port.dyn_lacp_up]
+        for port in lacp_up_ports:
             lacp_age = now - port.dyn_lacp_updated_time
             if lacp_age > self.dp.lacp_timeout:
-                self.logger.info('LACP on %s expired' % port)
+                self.logger.info('LACP on %s expired (age %u)' % (port, lacp_age))
                 ofmsgs.extend(self.lacp_down(port))
         return ofmsgs
 
@@ -1293,6 +1318,7 @@ class Valve:
         """
         ofmsgs = []
         if self.dp.dyn_running:
+            self._lacp_state_expire(now)
             for vlan in self.dp.vlans.values():
                 expired_hosts = self.host_manager.expire_hosts_from_vlan(vlan, now)
                 if not self.dp.idle_dst:
@@ -1304,10 +1330,11 @@ class Valve:
                             'port_no': entry.port.number,
                             'vid': vlan.vid,
                             'eth_src': entry.eth_src}})
-                self._lacp_state_expire(vlan, now)
                 for route_manager in self._route_manager_by_ipv.values():
                     ofmsgs.extend(route_manager.resolve_expire_hosts(vlan, now))
-        return ofmsgs
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
     def _pipeline_change(self):
         def table_msgs(tfm_flow):
@@ -1453,14 +1480,16 @@ class Valve:
         """Call route managers to re/resolve gateways.
 
         Returns:
-            list: OpenFlow messages, if any.
+            dict: OpenFlow messages, if any by Valve.
         """
         ofmsgs = []
         if self.dp.dyn_running:
             for route_manager in self._route_manager_by_ipv.values():
                 for vlan in self.dp.vlans.values():
                     ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
-        return ofmsgs
+        if ofmsgs:
+            return {self: ofmsgs}
+        return {}
 
     def oferror(self, msg):
         """Correlate OFError message with flow we sent, if any.

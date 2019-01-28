@@ -16,14 +16,11 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-.. literalinclude:: ../_static/tutorial/create_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/create_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/as_ns
-   :language: bash
-
-.. literalinclude:: ../_static/tutorial/cleanup
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/as_ns
+       :language: bash
 
 .. note:: If not continuing on from the 'Installing Faucet for first time tutorial' to setup the hosts and switch run:
 
@@ -78,7 +75,7 @@ Matches are any packet field such as MAC/IP/transport source/destination fields.
 For a full list visit the
 `Ryu documentation <https://ryu.readthedocs.io/en/latest/ofproto_v1_3_ref.html#flow-match-structure>`_.
 
-Actions are used to control what the packet does, for example normal l2
+Actions are used to control what the packet does, for example normal L2
 forwarding ('allow'). Apply a 'meter' to rate limit traffic, and manipulation of
 the packet contents and output. Full list is available in the
 :ref:`configuration-meters` section of the documentation.
@@ -94,13 +91,15 @@ conjunction with the other actions to let the traffic flow with the expected
 layer 2 forwarding behaviour AND be mirrored to another port.
 
 
-Network Setup
+Network setup
 -------------
+
 We are going to create the following network:
 
-.. image:: ../_static/images/acls.svg
+.. figure:: ../_static/images/tutorial-acls.svg
     :alt: ACL network diagram
     :align: center
+    :width: 80%
 
 First we will add two new hosts to our network:
 
@@ -114,11 +113,11 @@ And connect them to br0
 .. code-block:: console
 
     sudo ovs-vsctl add-port br0 veth-host3 -- set interface veth-host3 ofport_request=3 \
-        -- add-port br0 veth-host4 -- set interface veth-host4 ofport_request=4
+                -- add-port br0 veth-host4 -- set interface veth-host4 ofport_request=4
 
 
 The configuration below will block ICMP on traffic coming in on port 3, and allow everything else.
-Add this to /etc/faucet/faucet.yaml below the 'dps'.
+Add this to ``/etc/faucet/faucet.yaml`` below the 'dps'.
 
 .. code-block:: yaml
     :caption: /etc/faucet/faucet.yaml
@@ -161,17 +160,21 @@ But a better way is to send Faucet a SIGHUP signal.
     sudo systemctl reload faucet
 
 
-Now pings to/from host3 should fail, but the other three hosts should be fine.
-
-Test this with
+Pings to/from host3 should now fail:
 
 .. code:: console
 
     as_ns host1 ping 192.168.0.3
+
+But the other three hosts should be fine:
+
+.. code:: console
+
+    as_ns host1 ping 192.168.0.2
     as_ns host1 ping 192.168.0.4
 
 
-ACL Actions
+ACL actions
 -----------
 
 Mirroring
@@ -186,7 +189,7 @@ port.
 
 .. note:: Mirroring is done in input direction only.
 
-Let's add the mirror action to our block-ping ACL /etc/faucet/faucet.yaml
+Let's add the mirror action to our block-ping ACL ``/etc/faucet/faucet.yaml``
 
 .. code-block:: yaml
     :caption: /etc/faucet/faucet.yaml
@@ -231,6 +234,7 @@ Ping should have 100% packet loss.
 .. code:: console
 
     $ as_ns host4 tcpdump -l -e -n -i veth0
+
     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
     listening on veth0, link-type EN10MB (Ethernet), capture size 262144 bytes
     13:24:36.848331 2e:d4:1a:ca:54:4b > 06:5f:14:fc:47:02, ethertype IPv4 (0x0800), length 98: 192.168.0.3 > 192.168.0.1: ICMP echo reply, id 23660, seq 16, length 64
@@ -317,6 +321,7 @@ Here we can see ICMP echo requests are coming from the MAC address
 .. code:: console
 
     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+
     listening on veth0, link-type EN10MB (Ethernet), capture size 262144 bytes
     13:53:41.248235 00:00:00:00:00:02 > 06:5f:14:fc:47:02, ethertype IPv4 (0x0800), length 98: 192.168.0.2 > 192.168.0.1: ICMP echo request, id 23711, seq 1, length 64
     13:53:41.248283 06:5f:14:fc:47:02 > ce:bb:23:ce:d5:a0, ethertype IPv4 (0x0800), length 98: 192.168.0.1 > 192.168.0.2: ICMP echo reply, id 23711, seq 1, length 64
@@ -358,11 +363,12 @@ To do this we will use both the 'port' & 'vlan_vid' output fields.
 
 Again reload Faucet, start a tcpdump on host4, and ping from host1 to host3.
 Ping should still not be allowed through and the tcpdump output should be
-similar to below (Note the 802.1Q tag and vlan 3):
+similar to below (Note the 802.1Q tag and VLAN 3):
 
 .. code:: console
 
     $ as_ns host4 tcpdump -l -e -n -i veth0
+
     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
     listening on veth0, link-type EN10MB (Ethernet), capture size 262144 bytes
     14:14:15.285329 2e:d4:1a:ca:54:4b > 06:5f:14:fc:47:02, ethertype 802.1Q (0x8100), length 102: vlan 3, p 0, ethertype IPv4, 192.168.0.3 > 192.168.0.1: ICMP echo reply, id 23747, seq 1, length 64

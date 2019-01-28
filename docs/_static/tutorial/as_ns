@@ -1,5 +1,7 @@
+# Run command inside network namespace
 as_ns () {
-    NETNS=$1
+    NAME=$1
+    NETNS=faucet-${NAME}
     shift
     sudo ip netns exec $NETNS $@
 }

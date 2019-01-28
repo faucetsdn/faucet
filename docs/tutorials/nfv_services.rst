@@ -1,16 +1,16 @@
-NFV Services Tutorial
+NFV services tutorial
 =====================
 
-This tutorial will cover using faucet with Network Function Virtualisation (NFV) services.
+This tutorial will cover using faucet with Network Function Virtualisation (NFV)
+style services.
 
 NFV services that will be demonstrated in this tutorial are:
 
-- DHCP server
-- NAT Gateway
-- `BRO <https://www.bro.org/>`_ Intrusion Detection System (IDS)
+    - DHCP/DNS server
+    - `Zeek <https://www.zeek.org/>`_ (formerly known as Bro) Intrusion Detection System (IDS)
 
 This tutorial demonstrates how the previous topics in this tutorial series can
-be integrated with other services on our network.
+be combined to run real world services on our network.
 
 
 Prerequisites
@@ -24,70 +24,54 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-.. literalinclude:: ../_static/tutorial/create_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/create_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/as_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/as_ns
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/cleanup
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/cleanup
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/add_tagged_dev_ns
-   :language: bash
+    .. literalinclude:: ../_static/tutorial/add_tagged_interface
+       :language: bash
 
-.. literalinclude:: ../_static/tutorial/clear_ns
-   :language: bash
+- Run the cleanup script to remove old namespaces and switches:
 
+    .. code:: console
 
-Let's start by run the cleanup script to remove old namespaces and switches.
-
-.. code:: console
-
-    cleanup
+        cleanup
 
 Network setup
 ^^^^^^^^^^^^^
 
-We will create a switch and attach seven hosts like so:
+The network will be divided into three VLANs, two of which are client VLANs
+(200 & 300), with two clients in each and a DHCP/DNS server. There is also a
+separate VLAN 100 for the Zeek server which we will mirror traffic two from the
+other two VLANs.
 
-.. image:: ../_static/images/nfv-l1.svg
-    :alt: Layer 1 NFV Network Diagram
+.. figure:: ../_static/images/tutorial-nfv-services.svg
+    :alt: NFV Network Diagram
     :align: center
+    :width: 80%
 
-
-The network will be divided into 3 VLANs like so, 2 client vlans (200 & 300)
-with two clients each (host4-7), and a VLAN for the Bro server.
-The layer 2 & 3 diagram looks like:
-
-.. image:: ../_static/images/nfv-l2+3.svg
-    :alt: Layer 2 & 3 NFV Network Diagram
-    :align: center
-
+To start, let's create our hosts and dnsmasq namespaces.
 
 .. code:: console
 
-    # BRO
-    create_ns host1 192.168.0.1/24
+    # DHCP/DNS server
+    create_ns dnsmasq 0.0.0.0
+    add_tagged_interface dnsmasq 192.168.2.1/24 200 # to serve VLAN 200
+    add_tagged_interface dnsmasq 192.168.3.1/24 300 # to serve VLAN 300
 
-    # DHCP server
-    create_ns host2 0
-    add_tagged_dev_ns host2 192.168.2.2/24 200 # to serve vlan 200
-    add_tagged_dev_ns host2 192.168.3.2/24 300 # to serve vlan 300
+    # VLAN 200 hosts
+    create_ns host1 0.0.0.0
+    create_ns host2 0.0.0.0
+    # VLAN 300 hosts
+    create_ns host3 0.0.0.0
+    create_ns host4 0.0.0.0
 
-    # Gateway
-    create_ns host3 0
-    add_tagged_dev_ns host3 192.168.2.3/24 200 # to serve vlan 200
-    add_tagged_dev_ns host3 192.168.3.3/24 300 # to serve vlan 200
-
-    # vlan 200 hosts
-    create_ns host4 0
-    create_ns host5 0
-    # vlan 300 hosts
-    create_ns host6 0
-    create_ns host7 0
-
-Then create an OpenvSwitch and connect all hosts to it.
+Then create an Open vSwitch bridge and connect all hosts to it.
 
 .. code:: console
 
@@ -99,60 +83,77 @@ Then create an OpenvSwitch and connect all hosts to it.
     -- add-port br0 veth-host2 -- set interface veth-host2 ofport_request=2 \
     -- add-port br0 veth-host3 -- set interface veth-host3 ofport_request=3 \
     -- add-port br0 veth-host4 -- set interface veth-host4 ofport_request=4 \
-    -- add-port br0 veth-host5 -- set interface veth-host5 ofport_request=5 \
-    -- add-port br0 veth-host6 -- set interface veth-host6 ofport_request=6 \
-    -- add-port br0 veth-host7 -- set interface veth-host7 ofport_request=7 \
+    -- add-port br0 veth-dnsmasq -- set interface veth-dnsmasq ofport_request=5 \
     -- set-controller br0 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
 
 
-DHCP Server
-^^^^^^^^^^^
+Dnsmasq setup
+^^^^^^^^^^^^^
 
-We will use `dnsmasq <http://www.thekelleys.org.uk/dnsmasq/doc.html>`_ as our DHCP server.
+We will use `dnsmasq <http://www.thekelleys.org.uk/dnsmasq/doc.html>`_ to assign
+IP addresses to our host namespaces via the DHCP protocol. It will also serve as
+our DNS resolver for the hosts.
 
 First install dnsmasq:
 
 .. code:: console
 
     sudo apt-get install dnsmasq
+    sudo systemctl stop dnsmasq
 
-Let's run two services one for vlan 200 and another for vlan 300 as following
+Run the following two commands to start two dnsmasq instances inside the dnsmasq
+namespace. One instance will serve hosts on VLAN 200 and the other VLAN 300. We
+will be providing DHCP leases in the supplied ranges, the lease will set the
+gateway for each host to point at faucet's virtual IP and set dnsmasq as the
+DNS resolver. We also provide a fake ``does.it.work`` DNS name which we will
+later use to demonstrate DNS is working as expected.
 
 .. code:: console
 
-    # 192.168.2.0/24 for vlan 200
-    as_ns host2 dnsmasq --no-ping -p 0 -k \
-                        --dhcp-range=192.168.2.10,192.168.2.20 \
-                        --dhcp-sequential-ip \
-                        --dhcp-option=option:router,192.168.2.3 \
-                        -O option:dns-server,8.8.8.8 \
-                        -I lo -z -l /tmp/nfv-dhcp-vlan200.leases \
-                        -8 /tmp/nfv.dhcp-vlan200.log -i veth0.200  --conf-file= &
+    # 192.168.2.0/24 for VLAN 200
+    as_ns dnsmasq dnsmasq \
+                       --dhcp-range=192.168.2.10,192.168.2.20 \
+                       --dhcp-sequential-ip \
+                       --dhcp-option=option:router,192.168.2.254 \
+                       --no-resolv \
+                       --txt-record=does.it.work,yes \
+                       --bind-interfaces \
+                       --except-interface=lo --interface=veth0.200 \
+                       --dhcp-leasefile=/tmp/nfv-dhcp-vlan200.leases \
+                       --log-facility=/tmp/nfv-dhcp-vlan200.log \
+                       --pid-file=/run/dnsmasq-vlan200.pid \
+                       --conf-file=
 
-    # 192.168.3.0/24 for vlan 300
-    as_ns host2 dnsmasq --no-ping -p 0 -k \
-                        --dhcp-range=192.168.3.10,192.168.3.20 \
-                        --dhcp-sequential-ip \
-                        --dhcp-option=option:router,192.168.3.3 \
-                        -O option:dns-server,8.8.8.8 \
-                        -I lo -z -l /tmp/nfv-dhcp-vlan300.leases \
-                        -8 /tmp/nfv.dhcp-vlan300.log -i veth0.300  --conf-file= &
+    # 192.168.3.0/24 for VLAN 300
+    as_ns dnsmasq dnsmasq \
+                       --dhcp-range=192.168.3.10,192.168.3.20 \
+                       --dhcp-sequential-ip \
+                       --dhcp-option=option:router,192.168.3.254 \
+                       --no-resolv \
+                       --txt-record=does.it.work,yes \
+                       --bind-interfaces \
+                       --except-interface=lo --interface=veth0.300 \
+                       --dhcp-leasefile=/tmp/nfv-dhcp-vlan300.leases \
+                       --log-facility=/tmp/nfv-dhcp-vlan300.log \
+                       --pid-file=/run/dnsmasq-vlan300.pid \
+                       --conf-file=
 
-Now let's configure faucet yaml file (/etc/faucet/faucet.yaml)
+Now let's configure faucet.yaml.
 
 .. code-block:: yaml
     :caption: /etc/faucet/faucet.yaml
 
     vlans:
-        bro-vlan:
-            vid: 100
-            description: "bro network"
         vlan200:
             vid: 200
             description: "192.168.2.0/24 network"
+            faucet_vips: ["192.168.2.254/24"]
+            faucet_mac: "00:00:00:00:00:22"
         vlan300:
             vid: 300
             description: "192.168.3.0/24 network"
+            faucet_vips: ["192.168.3.254/24"]
+            faucet_mac: "00:00:00:00:00:33"
     dps:
         sw1:
             dp_id: 0x1
@@ -160,32 +161,24 @@ Now let's configure faucet yaml file (/etc/faucet/faucet.yaml)
             interfaces:
                 1:
                     name: "host1"
-                    description: "BRO network namespace"
-                    native_vlan: bro-vlan
+                    description: "host1 network namespace"
+                    native_vlan: vlan200
                 2:
                     name: "host2"
-                    description: "DHCP server  network namespace"
-                    tagged_vlans: [vlan200, vlan300]
+                    description: "host2 network namespace"
+                    native_vlan: vlan200
                 3:
                     name: "host3"
-                    description: "gateway network namespace"
-                    tagged_vlans: [vlan200, vlan300]
+                    description: "host3 network namespace"
+                    native_vlan: vlan300
                 4:
                     name: "host4"
                     description: "host4 network namespace"
-                    native_vlan: vlan200
+                    native_vlan: vlan300
                 5:
-                    name: "host5"
-                    description: "host5 network namespace"
-                    native_vlan: vlan200
-                6:
-                    name: "host6"
-                    description: "host6 network namespace"
-                    native_vlan: vlan300
-                7:
-                    name: "host7"
-                    description: "host7 network namespace"
-                    native_vlan: vlan300
+                    name: "dnsmasq"
+                    description: "dnsmasq server network namespace"
+                    tagged_vlans: [vlan200, vlan300]
 
 Now reload faucet configuration file.
 
@@ -193,142 +186,195 @@ Now reload faucet configuration file.
 
     sudo systemctl reload faucet
 
-Use dhclient to configure host4 to host7 using DHCP (it may take a few seconds,
+Use dhclient to configure host1 to host4 using DHCP (it may take a few seconds,
 but should return when successful).
 
 .. code:: console
 
-    as_ns host4 dhclient veth0
-    as_ns host5 dhclient veth0
-    as_ns host6 dhclient veth0
-    as_ns host7 dhclient veth0
+    as_ns host1 dhclient -v -pf /run/dhclient-host1.pid -lf /run/dhclient-host1.leases veth0
+    as_ns host2 dhclient -v -pf /run/dhclient-host2.pid -lf /run/dhclient-host2.leases veth0
+    as_ns host3 dhclient -v -pf /run/dhclient-host3.pid -lf /run/dhclient-host3.leases veth0
+    as_ns host4 dhclient -v -pf /run/dhclient-host4.pid -lf /run/dhclient-host4.leases veth0
 
-You can check */tmp/nfv-dhcp<vlanid>.leases* and */tmp/nfv.dhcp<vlanid>.log* to
-find their IPs. e.g. file /tmp/nfv-dhcp-vlan300.leases
+If dhclient is unable to obtain an address you can check
+*/tmp/nfv-dhcp-vlan<vlanid>.log* (e.g /tmp/nfv-dhcp-vlan300.leases) to check the log
+messages from dnsmasq.
 
-.. code-block:: text
-    :caption: output:
-
-    1525938604 7e:bb:f0:46:6a:e8 192.168.3.11 ubuntu *
-    1525938567 76:58:6c:26:78:44 192.168.3.10 * *
-
-
-Alternatively:
+To look up the address for each namespace we can run the following commands:
 
 .. code:: console
 
-    as_ns host4 ip addr show
-    as_ns host5 ip addr show
-    as_ns host6 ip addr show
-    as_ns host7 ip addr show
+    as_ns host1 ip address show dev veth0
+    as_ns host2 ip address show dev veth0
+    as_ns host3 ip address show dev veth0
+    as_ns host4 ip address show dev veth0
 
-If the hosts have IPs then great our DHCP works,
+If the hosts have IPs then great our DHCP server works.
 
-Try to ping between them
-
-.. code:: console
-
-    as_ns host4 ping <ip of host5> # both in vlan200 should work
-    as_ns host6 ping <ip of host7> # both in vlan300 should work
-    as_ns host4 ping <ip of host6> # each in different vlan should not work
-
-Ping between hosts vlan 200 and vlan 300 works because host3 (gateway) forwards
-the traffic by default. So we will fix this for the next sections by changing
-iptables on host3 to not route traffic by default.
+At the moment we should be able to ping inside VLAN 200 and VLAN 300:
 
 .. code:: console
 
-    as_ns host3 iptables -P FORWARD DROP
+    as_ns host1 ping <ip of host2> # both in VLAN 200 should work
+    as_ns host3 ping <ip of host4> # both in VLAN 300 should work
 
-Now the ping should fail
+Pinging between VLANs will not currently work as we didn't turn on
+inter-VLAN routing in our faucet configuration.
 
-.. code:: console
+DNS
+^^^
 
-    as_ns host4 ping <host7 ip addr>
+We can use faucet to enforce where protocols such as DNS go on the network. In
+this section we will use a faucet ACL to rewrite DNS packets to allow our
+dnsmasq namespace to answer DNS queries for any IP address.
 
-
-Gateway (NAT)
-^^^^^^^^^^^^^
-
-In this section we will configure host3 as a gateway (NAT) to provide internet
-connection for our network.
-
-.. code-block:: console
-    :caption: Define some variables we will use\:
-
-    NS=host3        # gateway host namespace
-    TO_DEF=to_def   # to the internet
-    TO_NS=to_${NS}  # to gw (host3)
-    OUT_INTF=enp0s3 # host machine interface for internet connection.
-
-.. code-block:: console
-    :caption: Enable forwarding in the hosted machine and in the host3 namespace.
-
-    sudo sysctl net.ipv4.ip_forward=1
-    as_ns ${NS} sysctl net.ipv4.ip_forward=1
-
-.. code-block:: console
-    :caption: Create the link to bridge the two namespaces
-
-    sudo ip link add name ${TO_NS} type veth peer name ${TO_DEF} netns ${NS}
-    sudo ip addr add 192.168.100.1/30 dev ${TO_NS}
-    sudo ip link set ${TO_NS} up
-
-.. code-block:: console
-    :caption: Configure link towards the root namespace on the GW host's namespace.
-
-    as_ns ${NS} ip addr add 192.168.100.2/30 dev ${TO_DEF}
-    as_ns ${NS} ip link set ${TO_DEF} up
-    as_ns ${NS} ip route add default via 192.168.100.1
-
-
-.. code-block:: console
-    :caption: Do not allow routing between vlan300 & vlan200 on the gateway host. Allow each vlan to be sent to/from the gateway interface while being NAT-ed.
-
-    as_ns ${NS} iptables -P FORWARD DROP
-
-    as_ns ${NS} iptables -A FORWARD -i veth0.200 -o ${TO_DEF} -j ACCEPT
-    as_ns ${NS} iptables -A FORWARD -i veth0.300 -o ${TO_DEF} -j ACCEPT
-    as_ns ${NS} iptables -A FORWARD -i ${TO_DEF} -o veth0.200 -j ACCEPT
-    as_ns ${NS} iptables -A FORWARD -i ${TO_DEF} -o veth0.300 -j ACCEPT
-
-    as_ns ${NS} iptables -t nat -F
-    as_ns ${NS} iptables -t nat -A POSTROUTING -o ${TO_DEF} -j MASQUERADE
-
-.. code-block:: console
-    :caption: Assuming the host does not have other NAT rules. Setup the final forward towards the internet.
-
-    sudo iptables -P FORWARD DROP
-    sudo iptables -F FORWARD
-    sudo iptables -t nat -F
-    sudo iptables -t nat -A POSTROUTING -s 192.168.100.0/30 -o ${OUT_INTF} -j MASQUERADE
-    sudo iptables -A FORWARD -i ${OUT_INTF} -o ${TO_NS} -j ACCEPT
-    sudo iptables -A FORWARD -i ${TO_NS} -o ${OUT_INTF} -j ACCEPT
-
-
-Now try to ping google.com from any host, it should work as the gateway and DNS is now configured.
+Firstly, we can see that our dnsmasq server is correctly responding to DNS
+requests by manually querying them:
 
 .. code:: console
 
-    as_ns host4 ping www.google.com
-    as_ns host7 ping www.google.com
+    as_ns host1 host -t txt does.it.work 192.168.2.1
+    as_ns host3 host -t txt does.it.work 192.168.3.1
 
+Both commands should return:
 
-BRO IDS
-^^^^^^^
+.. code:: console
 
-BRO installation
-----------------
+    does.it.work descriptive text "yes"
 
-We need first to install bro. We will use the binary package version 2.5.3 for this test.
+But if we tried to query say ``8.8.8.8`` we would see this fail:
+
+.. code:: console
+
+    as_ns host1 host -t txt does.it.work 8.8.8.8
+
+To make this work we first need the MAC address of the dnsmasq container:
+
+.. code:: console
+
+    as_ns dnsmasq cat /sys/class/net/veth0/address
+
+    00:11:22:33:44:55
+
+We now replace our previous faucet configuration with the configuration below
+which adds an ACL that rewrites the MAC address of all DNS packets from the host
+namespaces and sends these to our dnsmasq namespace. Make sure to update the
+example MAC address of ``00:11:22:33:44:55`` with the one you get from running
+the previous command.
+
+.. code-block:: yaml
+    :caption: /etc/faucet/faucet.yaml
+
+    vlans:
+        vlan200:
+            vid: 200
+            description: "192.168.2.0/24 network"
+            faucet_vips: ["192.168.2.254/24"]
+            faucet_mac: "00:00:00:00:00:22"
+        vlan300:
+            vid: 300
+            description: "192.168.3.0/24 network"
+            faucet_vips: ["192.168.3.254/24"]
+            faucet_mac: "00:00:00:00:00:33"
+    dps:
+        sw1:
+            dp_id: 0x1
+            hardware: "Open vSwitch"
+            interfaces:
+                1:
+                    name: "host1"
+                    description: "host1 network namespace"
+                    native_vlan: vlan200
+                    acls_in: [nfv-dns, allow-all]
+                2:
+                    name: "host2"
+                    description: "host2 network namespace"
+                    native_vlan: vlan200
+                    acls_in: [nfv-dns, allow-all]
+                3:
+                    name: "host3"
+                    description: "host3 network namespace"
+                    native_vlan: vlan300
+                    acls_in: [nfv-dns, allow-all]
+                4:
+                    name: "host4"
+                    description: "host4 network namespace"
+                    native_vlan: vlan300
+                    acls_in: [nfv-dns, allow-all]
+                5:
+                    name: "dnsmasq"
+                    description: "dnsmasq server network namespace"
+                    tagged_vlans: [vlan200, vlan300]
+    acls:
+        nfv-dns:
+            # Force UDP DNS to our DNS server
+            - rule:
+                dl_type: 0x800      # ipv4
+                nw_proto: 17        # udp
+                udp_dst: 53         # dns
+                actions:
+                    output:
+                        set_fields:
+                            - eth_dst: "00:11:22:33:44:55" # MAC address of dnsmasq namespace
+                    allow: True
+            # Force TCP DNS to our DNS server
+            - rule:
+                dl_type: 0x800      # ipv4
+                nw_proto: 6         # tcp
+                tcp_dst: 53         # dns
+                actions:
+                    output:
+                        set_fields:
+                            - eth_dst: "00:11:22:33:44:55" # MAC address of dnsmasq namespace
+                    allow: True
+        allow-all:
+            - rule:
+                actions:
+                    allow: True
+
+As usual reload faucet configuration file.
+
+.. code:: console
+
+    sudo systemctl reload faucet
+
+The next step is to configure the namespace to be able to handle incoming DNS
+packets with any IP, this can be done by adding some rules to iptables that
+will NAT all DNS traffic to the IP address of the VLAN interface:
+
+.. code:: console
+
+    as_ns dnsmasq iptables -t nat -A PREROUTING -i veth0.200 -p udp --dport 53 -j DNAT --to-destination 192.168.2.1
+    as_ns dnsmasq iptables -t nat -A PREROUTING -i veth0.200 -p tcp --dport 53 -j DNAT --to-destination 192.168.2.1
+    as_ns dnsmasq iptables -t nat -A PREROUTING -i veth0.300 -p udp --dport 53 -j DNAT --to-destination 192.168.3.1
+    as_ns dnsmasq iptables -t nat -A PREROUTING -i veth0.300 -p tcp --dport 53 -j DNAT --to-destination 192.168.3.1
+
+Now we should be able to query any IP address from the hosts and get a valid
+DNS response:
+
+.. code:: console
+
+    as_ns host1 host -t txt does.it.work 8.8.8.8
+    as_ns host2 host -t txt does.it.work 8.8.4.4
+
+Zeek IDS
+^^^^^^^^
+
+We will now add an IDS to our network on it's on separate VLAN and use faucet
+to mirror packets from VLAN 200 and 300 to the IDS VLAN.
+
+Zeek installation
+-----------------
+
+We need first to install Zeek (formerly known as Bro).
 
 .. code:: console
 
     sudo apt-get install bro broctl
 
 
-Configure BRO
--------------
+Configure Zeek
+--------------
 
 In /etc/bro/node.cfg, set veth0 as the interface to monitor
 
@@ -345,38 +391,47 @@ Comment out MailTo in /etc/bro/broctl.cfg
 .. code-block:: cfg
     :caption: /etc/bro/broctl.cfg
 
-    # Recipient address for all emails sent out by Bro and BroControl.
+    # Recipient address for all emails sent out by bro and BroControl.
     # MailTo = root@localhost
 
-Run bro in host2
-----------------
+Run Zeek
+--------
 
-Since this is the first-time use of the bro command shell application, perform
+Firstly, let's create a namespace to run Zeek inside:
+
+.. code:: console
+
+    create_ns zeek 192.168.0.1
+    sudo ovs-vsctl add-port br0 veth-zeek -- set interface veth-zeek ofport_request=6
+
+Since this is the first-time use of the Zeek command shell application, perform
 an initial installation of the BroControl configuration:
 
 .. code:: console
 
-    as_ns host1 broctl install
+    as_ns zeek broctl install
 
 
-Then start bro instant
-
-.. code:: console
-
-    as_ns host1 broctl start
-
-Check bro status
+Then start Zeek instant
 
 .. code:: console
 
-    as_ns host1 broctl status
+    as_ns zeek broctl start
+
+Check Zeek status
+
+.. code:: console
+
+    as_ns zeek broctl status
+
     Name         Type       Host          Status    Pid    Started
     bro          standalone localhost     running   15052  07 May 09:03:59
 
 
-Now let's add a mirror ACL so all vlan200 & vlan300 traffic is sent to BRO.
+Now let's add a mirror ACL so all VLAN 200 & VLAN 300 traffic is sent to Zeek.
 
-We will use vlan acls (more about acl and vlan check vlan and acl tutorials).
+We will use a VLAN ACLs similar to the previous VLAN tutorial. Copy and paste
+the entire configuration below into faucet.yaml.
 
 .. code-block:: yaml
     :caption: /etc/faucet/faucet.yaml
@@ -386,18 +441,22 @@ We will use vlan acls (more about acl and vlan check vlan and acl tutorials).
             - rule:
                 actions:
                     allow: true
-                    mirror: 1
+                    mirror: zeek
     vlans:
-        bro-vlan:
+        zeek-vlan:
             vid: 100
-            description: "bro network"
+            description: "Zeek IDS network"
         vlan200:
             vid: 200
             description: "192.168.2.0/24 network"
+            faucet_vips: ["192.168.2.254/24"]
+            faucet_mac: "00:00:00:00:00:22"
             acls_in: [mirror-acl]
         vlan300:
             vid: 300
             description: "192.168.3.0/24 network"
+            faucet_vips: ["192.168.3.254/24"]
+            faucet_mac: "00:00:00:00:00:33"
             acls_in: [mirror-acl]
     dps:
         sw1:
@@ -406,32 +465,28 @@ We will use vlan acls (more about acl and vlan check vlan and acl tutorials).
             interfaces:
                 1:
                     name: "host1"
-                    description: "BRO network namespace"
-                    native_vlan: bro-vlan
+                    description: "host1 network namespace"
+                    native_vlan: vlan200
                 2:
                     name: "host2"
-                    description: "DHCP server  network namespace"
-                    tagged_vlans: [vlan200, vlan300]
+                    description: "host2 network namespace"
+                    native_vlan: vlan200
                 3:
                     name: "host3"
-                    description: "gateway network namespace"
-                    tagged_vlans: [vlan200, vlan300]
+                    description: "host3 network namespace"
+                    native_vlan: vlan300
                 4:
                     name: "host4"
                     description: "host4 network namespace"
-                    native_vlan: vlan200
+                    native_vlan: vlan300
                 5:
-                    name: "host5"
-                    description: "host5 network namespace"
-                    native_vlan: vlan200
+                    name: "dnsmasq"
+                    description: "dnsmasq server network namespace"
+                    tagged_vlans: [vlan200, vlan300]
                 6:
-                    name: "host6"
-                    description: "host6 network namespace"
-                    native_vlan: vlan300
-                7:
-                    name: "host7"
-                    description: "host7 network namespace"
-                    native_vlan: vlan300
+                    name: "zeek"
+                    description: "Zeek network namespace"
+                    native_vlan: zeek-vlan
 
 As usual reload faucet configuration file.
 
@@ -440,30 +495,25 @@ As usual reload faucet configuration file.
     sudo systemctl reload faucet
 
 
-If we generate some DHCP traffic on either of the hosts VLANs
+If we generate some DNS traffic on either of the hosts VLANs
 
 .. code:: console
 
-    as_ns host4 dhclient veth0
+    as_ns host4 host -t txt does.it.work 192.168.3.1
 
-Then if we inspect the bro logs, we should see that bro has learnt about the two
-DHCP Servers. If the file does not exist check that faucet has successfully
-reloaded, and try the dhclient command again.
-
-.. code::
-
-    sudo cat /var/log/bro/current/known_services.log
+Then if we inspect the Zeek logs for DNS ``/var/log/bro/current/dns.log``, we
+should see that Zeek has seen the DNS queries and logged these.
 
 .. code-block:: text
-    :caption: output:
+    :caption: /var/log/bro/current/dns.log
 
     #separator \x09
-    #set_separator  ,
-    #empty_field    (empty)
-    #unset_field    -
-    #path   known_services
-    #open   2018-05-10-12-09-05
-    #fields ts      host    port_num        port_proto      service
-    #types  time    addr    port    enum    set[string]
-    1525910945.405356       192.168.3.2     67      udp     DHCP
-    1525910975.329404       192.168.2.2     67      udp     DHCP
+    #set_separator	,
+    #empty_field	(empty)
+    #unset_field	-
+    #path	dns
+    #open	2019-01-17-17-43-56
+    #fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	proto	trans_id	rtt	query	qclass	qclass_name	qtype	qtype_name	rcode	rcode_name	AA	TC	RD	RA	Z	answers	TTLs	rejected
+    #types	time	string	addr	port	addr	port	enum	count	interval	string	count	string	count	string	count	string	bool	bool	bool	bool	count	vector[string]	vector[interval]	bool
+    1547700236.794299	CsulWM1Px7fIyPpCVi	192.168.3.10	43428	192.168.3.1	53	udp	14288	0.006973does.it.work	1	C_INTERNET	16	TXT	0	NOERROR	T	F	T	T	2	TXT 3 yes	0.000000	F
+    1547700379.311319	CZa11oBd3CgWBmgS8	192.168.3.11	45089	192.168.3.1	53	udp	64001	0.000336does.it.work	1	C_INTERNET	16	TXT	0	NOERROR	T	F	T	T	0	TXT 3 yes	0.000000	F

@@ -441,12 +441,13 @@ socket_timeout=15
 
     def stop(self):
         """Stop controller."""
-        while self.healthy():
+        try:
             if self.CPROFILE:
                 os.kill(self.ryu_pid(), 2)
             else:
                 os.kill(self.ryu_pid(), 15)
-            time.sleep(1)
+        except ProcessLookupError:
+            pass
         self._stop_cap()
         super(BaseFAUCET, self).stop()
         if os.path.exists(self.logname()):

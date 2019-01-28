@@ -404,12 +404,12 @@ network={
                     return
 
     def start_freeradius(self):
-        with open('/etc/freeradius/users', 'w') as f:
-            f.write('''user   Cleartext-Password := "microphone"
+        with open('/etc/freeradius/users', 'w') as users:
+            users.write('''user   Cleartext-Password := "microphone"
 admin   Cleartext-Password:= "megaphone"''')
 
-        with open('/etc/freeradius/clients.conf', 'w') as f:
-            f.write('''client localhost {
+        with open('/etc/freeradius/clients.conf', 'w') as clients:
+            clients.write('''client localhost {
     ipaddr = 127.0.0.1
     secret = SECRET
 }''')
@@ -3119,6 +3119,7 @@ vlans:
 
     CONFIG = """
         max_resolve_backoff_time: 1
+        lacp_timeout: 3
         interfaces:
             %(port_1)d:
                 name: b1
@@ -3231,6 +3232,9 @@ details partner lacp pdu:
     port number: %d
     port state: 62
 """.strip() % tuple([self.port_map['port_%u' % i] for i in lag_ports])
+
+        lacp_timeout = 5
+
         def prom_lag_status():
             lacp_up_ports = 0
             for lacp_port in lag_ports:
@@ -3238,6 +3242,27 @@ details partner lacp pdu:
                 lacp_up_ports += self.scrape_prometheus_var(
                     'port_lacp_status', port_labels)
             return lacp_up_ports
+
+        def require_lag_status(status):
+            for _ in range(lacp_timeout*2):
+                if prom_lag_status() == status:
+                    break
+                time.sleep(1)
+            self.assertEqual(prom_lag_status(), status)
+
+        def require_linux_bond_up():
+            for _retries in range(lacp_timeout*2):
+                result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
+                result = '\n'.join([line.rstrip() for line in result.splitlines()])
+                with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
+                    state_file.write(result)
+                if re.search(synced_state_txt, result):
+                    break
+                time.sleep(1)
+            self.assertTrue(
+                re.search(synced_state_txt, result),
+                msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
+                    result, synced_state_txt))
 
         self.assertEqual(0, prom_lag_status())
         orig_ip = first_host.IP()
@@ -3258,21 +3283,17 @@ details partner lacp pdu:
         for bond_member in bond_members:
             self.quiet_commands(first_host, (
                 'ip link set dev %s master %s' % (bond_member, bond),))
-        for _retries in range(10):
-            result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
-            result = '\n'.join([line.rstrip() for line in result.splitlines()])
-            with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
-                state_file.write(result)
-            if re.search(synced_state_txt, result):
-                break
-            time.sleep(1)
-        self.assertTrue(
-            re.search(synced_state_txt, result),
-            msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
-                result, synced_state_txt))
-        self.assertEqual(2, prom_lag_status())
-        self.one_ipv4_ping(
-            first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+
+        for _flaps in range(2):
+            for port in lag_ports:
+                self.set_port_down(self.port_map['port_%u' % port])
+            require_lag_status(0)
+            for port in lag_ports:
+                self.set_port_up(self.port_map['port_%u' % port])
+            require_lag_status(2)
+            require_linux_bond_up()
+            self.one_ipv4_ping(
+                first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
 
 
 class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
@@ -3856,7 +3877,7 @@ acls:
         - rule:
             actions:
                 allow: 1
-                mirror: b3 
+                mirror: b3
 """
 
     CONFIG = """
@@ -3944,7 +3965,7 @@ acls:
     1:
         - rule:
             actions:
-                mirror: b3 
+                mirror: b3
 """
 
     CONFIG = """
@@ -4098,7 +4119,7 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [123, 456]
-                    port: b2 
+                    port: b2
 """
 
     CONFIG = """
@@ -4154,7 +4175,7 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [{vid: 123, eth_type: 0x88a8}, 456]
-                    port: b2 
+                    port: b2
 """
 
     CONFIG = """
@@ -4493,7 +4514,7 @@ vlans:
          '        description: "tagged"',
          '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
-        global_vlan: %u 
+        global_vlan: %u
         proactive_learn_v4: True
         max_wildcard_table_size: 1024
         table_sizes:
@@ -4518,10 +4539,10 @@ vlans:
                 tagged_vlans: [%s]
                 hairpin_unicast: True
 """ % (global_vid(),
-        len(STR_VIDS) * 3, # VLAN
-        len(STR_VIDS) * 2, # VIP
-        len(STR_VIDS) * 12, # Flood
-        '%(port_3)d', '%(port_1)d', '%(port_1)d',
+       len(STR_VIDS) * 3, # VLAN
+       len(STR_VIDS) * 2, # VIP
+       len(STR_VIDS) * 12, # Flood
+       '%(port_3)d', '%(port_1)d', '%(port_1)d',
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
@@ -4667,7 +4688,7 @@ vlans:
          '        description: "tagged"',
          '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
     CONFIG = """
-        global_vlan: %u 
+        global_vlan: %u
         proactive_learn_v6: True
         max_wildcard_table_size: 512
         table_sizes:
@@ -6153,7 +6174,8 @@ class FaucetStringOfDPTest(FaucetTest):
                 'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
                 'group_table': self.GROUP_TABLE,
             }
-            interfaces_config = dp_config['interfaces']
+
+            interfaces_config = {}
 
             port = 1
             for _ in range(n_tagged):
@@ -6176,13 +6198,14 @@ class FaucetStringOfDPTest(FaucetTest):
                 name, dp_config, port, interfaces_config, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
-            for portno, config in list(interfaces_config.items()):
-                if dpid == hw_dpid:
+            if dpid == hw_dpid:
+                remapped_interfaces_config = {}
+                for portno, config in list(interfaces_config.items()):
                     remapped_portno = self.port_map['port_%u' % portno]
-                    if remapped_portno != portno:
-                        del interfaces_config[portno]
-                        portno = remapped_portno
-                        interfaces_config[portno] = config
+                    remapped_interfaces_config[remapped_portno] = config
+                interfaces_config = remapped_interfaces_config
+
+            for portno, config in list(interfaces_config.items()):
                 port_name = 'b%u' % portno
                 interfaces_config[portno].update({
                     'name': port_name,
@@ -6196,6 +6219,8 @@ class FaucetStringOfDPTest(FaucetTest):
                         peer_portno = self.port_map['port_%u' % portno]
                     interfaces_config[portno]['stack'].update({
                         'port': 'b%u' % peer_portno})
+
+            dp_config['interfaces'] = interfaces_config
 
             return dp_config
 
@@ -6225,15 +6250,6 @@ class FaucetStringOfDPTest(FaucetTest):
                 dpname_to_dpkey, (first_external and i == 0))
 
         return yaml.dump(config, default_flow_style=False)
-
-    def matching_flow_present(self, match, timeout=10, table_id=None, actions=None):
-        """Find the first DP that has a flow that matches match."""
-        for dpid in self.dpids:
-            if self.matching_flow_present_on_dpid(
-                    dpid, match, timeout=timeout,
-                    table_id=table_id, actions=actions):
-                return True
-        return False
 
     def verify_no_cable_errors(self):
         i = 0
@@ -6394,6 +6410,34 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
 
+    def wait_for_lacp_port_up(self, port_no, timeout=10):
+        controller = self._get_controller()
+        count = 0
+        for _ in range(timeout):
+            count = controller.cmd(
+                    'grep -c "LAG.*port %u up" %s' % (port_no, self.env['faucet']['FAUCET_LOG']))
+            if int(count) != 0:
+                break
+            time.sleep(1)
+        self.assertGreaterEqual(int(count), 1, 'LACP port %u not up' % port_no)
+
+    def test_lacp_port_down(self):
+        """LACP to switch to a working port when the primary port fails."""
+        first_lacp_port = self.NUM_HOSTS + 1
+        second_lacp_port = first_lacp_port + 1
+        match_bcast = {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
+        action_str = 'OUTPUT:%u'
+        # wait for all lacp ports up
+        self.wait_for_lacp_port_up(first_lacp_port)
+        self.wait_for_lacp_port_up(second_lacp_port)
+        self.wait_until_matching_flow(
+                match_bcast, self._FLOOD_TABLE, actions=[action_str % first_lacp_port])
+        self.retry_net_ping()
+        self.set_port_down(first_lacp_port)
+        self.wait_until_matching_flow(
+                match_bcast, self._FLOOD_TABLE, actions=[action_str % second_lacp_port])
+        self.retry_net_ping()
+
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
@@ -6423,7 +6467,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
             self.flap_all_switch_ports()
 
 
-class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStackStringOfDPUntaggedTest):
+class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
@@ -6440,6 +6484,16 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStackStringOfDPUntagged
             hw_dpid=self.hw_dpid,
             first_external=True)
         self.start_net()
+
+    def test_untagged(self):
+        """All untagged hosts in stack topology can reach each other."""
+        for _ in range(2):
+            self.verify_stack_hosts()
+            self.verify_no_cable_errors()
+            self.verify_traveling_dhcp_mac()
+            self.verify_unicast_not_looped()
+            self.verify_no_bcast_to_self()
+            self.flap_all_switch_ports()
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):

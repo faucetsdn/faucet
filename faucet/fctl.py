@@ -62,15 +62,19 @@ def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
                     response = urllib.request.urlopen(endpoint) # pytype: disable=module-attr
                     content = response.read().decode('utf-8', 'strict')
                     break
-            except requests.exceptions.ConnectionError as exception:
+            except (requests.exceptions.ConnectionError, ValueError) as exception:
                 err = exception
                 time.sleep(1)
         if err is not None:
             err_output_file.write(str(err))
             return None
-        endpoint_metrics = parser.text_string_to_metric_families(
-            content)
-        metrics.extend(endpoint_metrics)
+        try:
+            endpoint_metrics = parser.text_string_to_metric_families(
+                content)
+            metrics.extend(endpoint_metrics)
+        except ValueError as err:
+            err_output_file.write(str(err))
+            return None
     return metrics
 
 def report_label_match_metrics(report_metrics, metrics, display_labels=None,

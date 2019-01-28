@@ -222,7 +222,7 @@ class ValveHostManager(ValveManagerBase):
             ofmsgs.append(self.eth_dst_hairpin_table.flowmod(
                 self.eth_dst_hairpin_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
                 priority=self.host_priority,
-                inst=[valve_of.apply_actions(vlan.output_port(port, hairpin=True))],
+                inst=self.pipeline.output(port, vlan, hairpin=True),
                 idle_timeout=dst_rule_idle_timeout))
 
         return ofmsgs

@@ -543,7 +543,8 @@ class VLAN(Conf):
             for lag, ports in lags.items():
                 ports_up = lags_up[lag]
                 if ports_up:
-                    exclude_ports.update(ports[1:])
+                    ports.remove(ports_up[0])
+                    exclude_ports.update(ports)
                 else:
                     exclude_ports.update(ports)
         return exclude_ports

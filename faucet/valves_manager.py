@@ -17,6 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import defaultdict
+
 from faucet.conf import InvalidConfigError
 from faucet.config_parser_util import config_changed
 from faucet.config_parser import dp_parser
@@ -137,6 +139,12 @@ class ValvesManager:
         self.dot1x.reset(self.valves)
         return True
 
+    def _send_ofmsgs_by_valve(self, ofmsgs_by_valve):
+        if ofmsgs_by_valve:
+            for valve, ofmsgs in ofmsgs_by_valve.items():
+                if ofmsgs:
+                    self.send_flows_to_dp_by_id(valve, ofmsgs)
+
     def _notify(self, event_dict):
         """Send an event notification."""
         self.notifier.notify(0, str(0), event_dict)
@@ -159,19 +167,25 @@ class ValvesManager:
 
     def valve_flow_services(self, now, valve_service):
         """Call a method on all Valves and send any resulting flows."""
+        ofmsgs_by_valve = defaultdict(list)
         for valve in self.valves.values():
             other_valves = self._other_running_valves(valve)
             valve_service_labels = dict(valve.dp.base_prom_labels(), valve_service=valve_service)
             valve_service_func = getattr(valve, valve_service)
             with self.metrics.faucet_valve_service_secs.labels( # pylint: disable=no-member
                     **valve_service_labels).time():
-                ofmsgs = valve_service_func(now, other_valves)
-            if ofmsgs:
-                self.send_flows_to_dp_by_id(valve, ofmsgs)
+                for service_valve, ofmsgs in valve_service_func(now, other_valves).items():
+                    ofmsgs_by_valve[service_valve].extend(ofmsgs)
+        self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 
     def _other_running_valves(self, valve):
         return [other_valve for other_valve in self.valves.values()
                 if valve != other_valve and other_valve.dp.dyn_running]
+
+    def port_status_handler(self, valve, msg):
+        """Handle a port status change message."""
+        ofmsgs_by_valve = valve.port_status_handler(msg.desc.port_no, msg.reason, msg.desc.state)
+        self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 
     def valve_packet_in(self, now, valve, msg):
         """Time a call to Valve packet in handler."""
@@ -186,7 +200,7 @@ class ValvesManager:
             return
         with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
                 **valve.dp.base_prom_labels()).time():
-            ofmsgs = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
-        if ofmsgs:
-            self.send_flows_to_dp_by_id(valve, ofmsgs)
+            ofmsgs_by_valve = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
+        if ofmsgs_by_valve:
+            self._send_ofmsgs_by_valve(ofmsgs_by_valve)
             valve.update_metrics(now, pkt_meta.port, rate_limited=True)
