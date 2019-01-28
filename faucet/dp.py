@@ -29,6 +29,7 @@ from faucet import faucet_pipeline
 from faucet import valve_of
 from faucet import valve_packet
 from faucet.acl import PORT_ACL_8021X
+from faucet.vlan import VLAN
 from faucet.conf import Conf, test_config_condition
 from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve import SUPPORTED_HARDWARE
@@ -314,6 +315,18 @@ configuration.
         self.lldp_beacon = {}
         self.table_sizes = {}
         self.dyn_up_port_nos = set()
+
+        #tunnel_id: int
+        #   ID of the tunnel, for now this will be the VLAN ID
+        #acl: ACL object
+        #   ACL rule to create the relevant tunnel conditions
+        #updated: bool
+        #   Whether the object has been updated, which will imply that it needs
+        #   to be applied by building the ofmsgs
+        #{tunnel_id: ACL}
+        self.tunnel_acls = {}
+        self.tunnel_updated_flags = {}
+
         super(DP, self).__init__(_id, dp_id, conf)
 
     def __str__(self):
@@ -482,6 +495,7 @@ configuration.
         self._set_default('description', self.name)
 
     def table_by_id(self, table_id):
+        """Gets first table with table id"""
         tables = [table for table in self.tables.values() if table_id == table.table_id]
         if tables:
             return tables[0]
@@ -512,6 +526,7 @@ configuration.
         return dict(self.base_prom_labels(), port=port_name, port_description=port_description)
 
     def classification_table(self):
+        """Returns classification table"""
         if self.use_classification:
             return self.tables['classification']
         return self.tables['eth_src']
@@ -523,6 +538,7 @@ configuration.
         return (self.tables['eth_dst'],)
 
     def output_table(self):
+        """Returns first output table"""
         return self.output_tables()[0]
 
     def match_tables(self, match_type):
@@ -642,7 +658,8 @@ configuration.
                 stack_dps.append(dp)
                 if 'priority' in dp.stack:
                     test_config_condition(not isinstance(dp.stack['priority'], int), (
-                        'stack priority must be type %s not %s' % (int, type(dp.stack['priority']))))
+                        'stack priority must be type %s not %s' % (
+                            int, type(dp.stack['priority']))))
                     test_config_condition(dp.stack['priority'] <= 0, (
                         'stack priority must be > 0'))
                     test_config_condition(root_dp is not None, 'cannot have multiple stack roots')
@@ -681,6 +698,37 @@ configuration.
                         path_to_root_len, longest_path_to_root_len)
                 self.stack['longest_path_to_root_len'] = longest_path_to_root_len
 
+        if self.tunnel_acls:
+            self.finalize_tunnel_acls(dps)
+
+    def finalize_tunnel_acls(self, dps):
+        """
+        Turn off ACLs not in use and resolve the src dp & port for relevant ACLs
+        Args:
+            dps (list):
+        """
+        remove_ids = []
+        for tunnel_id, tunnel_acl in self.tunnel_acls.items():
+            asrc_dp = tunnel_acl.tunnel_info[tunnel_id]['src_dp']
+            if asrc_dp is not None:
+                continue
+            for dp in dps:
+                if tunnel_id in dp.tunnel_acls:
+                    other_acl = dp.tunnel_acls[tunnel_id]
+                    bsrc_dp = other_acl.tunnel_info[tunnel_id]['src_dp']
+                    if bsrc_dp is not None:
+                        tunnel_acl.tunnel_info[tunnel_id]['src_dp'] = bsrc_dp
+                        break
+                    else:
+                        continue
+            if tunnel_acl.tunnel_info[tunnel_id]['src_dp'] is None:
+                remove_ids.append(tunnel_id)
+                continue
+        for tunnel_id in remove_ids:
+            self.tunnel_acls.pop(tunnel_id)
+        for tunnel_id, tunnel_acl in self.tunnel_acls.items():
+            self.tunnel_updated_flags[tunnel_id] = False
+
     def shortest_path(self, dest_dp, src_dp=None):
         """Return shortest path to a DP, as a list of DPs."""
         if src_dp is None:
@@ -689,7 +737,7 @@ configuration.
             try:
                 return networkx.shortest_path(
                     self.stack['graph'], src_dp, dest_dp)
-            except networkx.exception.NetworkXNoPath:
+            except (networkx.exception.NetworkXNoPath, networkx.exception.NodeNotFound):
                 pass
         return []
 
@@ -727,13 +775,27 @@ configuration.
                 return peer_dp_ports[0]
         return None
 
+    def is_in_path(self, src_dp, dst_dp):
+        """
+        Returns true if the current DP is in the path from src_dp to dst_dp
+        Args:
+            src_dp (DP):
+            dst_dp (DP):
+        Returns:
+            bool: True if self is in the path from the src_dp to the dst_dp
+                  False otherwise
+        """
+        path = self.shortest_path(dst_dp.name, src_dp.name)
+        return self.name in path
+
     def reset_refs(self, vlans=None):
+        """Resets vlan references"""
         if vlans is None:
             vlans = self.vlans
         self.vlans = {}
         for vlan in vlans.values():
             vlan.reset_ports(self.ports.values())
-            if vlan.get_ports():
+            if vlan.get_ports() or vlan.reserved_internal_vlan:
                 self.vlans[vlan.vid] = vlan
 
     def resolve_port(self, port_name):
@@ -823,19 +885,86 @@ configuration.
                         'override_output_port port not defined'))
                     self.ports[port_no] = port
 
-        def resolve_acl(acl_in, vid=None, port_num=None):
-            """Resolve an individual ACL."""
+        def resolve_acl(acl_in, dp=None, vid=None, port_num=None): #pylint: disable=invalid-name
+            """
+            Resolve an individual ACL
+            Args:
+                acl_in (str): ACL name to find reference in the acl list
+                dp (DP): DP the ACL is being applied to
+                vid (int): VID of the VLAN the ACL is being applied to
+                port_num (int): The number of the port the ACl is being applied to
+            Returns:
+                matches, set_fields, meter (3-Tuple): ACL matches, set fields and meter values
+            """
             test_config_condition(acl_in not in self.acls, (
                 'missing ACL %s in DP: %s' % (acl_in, self.name)))
             acl = self.acls[acl_in]
+
             def resolve_port_cb(port_name):
+                """Resolve port"""
                 port = self.resolve_port(port_name)
                 if port:
                     return port.number
                 return port
 
-            acl.resolve_ports(resolve_port_cb)
+            def resolve_tunnel_objects(dst_dp_name, dst_port_name, tunnel_id_name):
+                """
+                Resolves the names of the tunnel src and dst (DP & port) pairs into the correct \
+                    objects
+                Args:
+                    dst_dp (str): DP of the tunnel's destination port
+                    dst_port (int): Destination port of the tunnel
+                    tunnel_id_name (int or str): Tunnel identification number or VLAN reference
+                Returns:
+                    src_dp, src_port, dst_dp, dst_port (4-Tuple): Resolved
+                        src_dp DP obj, src_port PORT obj, dst_dp DP obj and dst_port PORT obj
+                """
+                tunnel_vlan = resolve_vlan(tunnel_id_name)
+                if tunnel_vlan:
+                    test_config_condition(not tunnel_vlan.reserved_internal_vlan, (
+                        'VLAN %s is required for use by tunnel %s but is not reserved' % (
+                            tunnel_vlan.name, tunnel_id_name)))
+                else:
+                    test_config_condition(isinstance(tunnel_id_name, str), (
+                        'Tunnel VLAN (%s) does not exist' % tunnel_id_name))
+                    tunnel_vlan = VLAN(tunnel_id_name, self.dp_id, None)
+                    tunnel_vlan.reserved_internal_vlan = True
+                    self.vlans[tunnel_vlan.vid] = tunnel_vlan
+                tunnel_id = tunnel_vlan.vid
+                test_config_condition(tunnel_id in self.tunnel_acls, (
+                    'Tunnel ID %s is already applied to DP %s' % (tunnel_id, self.name)))
+                test_config_condition(dst_dp_name not in dp_by_name, (
+                    'Could not find referenced destination DP (%s) for tunnel ACL %s' % (
+                        dst_dp_name, acl_in)))
+                dst_dp = dp_by_name[dst_dp_name]
+                dst_port = dst_dp.resolve_port(dst_port_name)
+                test_config_condition(dst_port is None, (
+                    'Could not find referenced destination port (%s) for tunnel ACL %s' % (
+                        dst_port_name, acl_in)))
+                dst_port = dst_port.number
+                if vid is not None:
+                    #VLAN ACL
+                    test_config_condition(True, 'Tunnels do not support VLAN-ACLs')
+                elif dp is not None:
+                    #DP ACL
+                    test_config_condition(True, 'Tunnels do not support DP-ACLs')
+                elif port_num is not None:
+                    #Port ACL
+                    src_dp = self
+                    src_port = src_dp.resolve_port(port_num)
+                    test_config_condition(src_port is None, (
+                        'Could not find source port (%s) in source DP (%s) for tunnel ACL %s' % (
+                            port_num, src_dp.name, acl_in)))
+                    src_port = src_port.number
+                elif vid is None and port_num is None:
+                    #Forwarding ACL
+                    src_dp = None
+                    src_port = None
+                    tunnel_vlan.acls_in = [acl]
+                self.tunnel_acls[tunnel_id] = acl
+                return (src_dp, src_port, dst_dp, dst_port, tunnel_id)
 
+            acl.resolve_ports(resolve_port_cb, resolve_tunnel_objects)
             for meter_name in acl.get_meters():
                 test_config_condition(meter_name not in self.meters, (
                     'meter %s is not configured' % meter_name))
@@ -845,6 +974,7 @@ configuration.
             return acl.build(self.meters, vid, port_num)
 
         def verify_acl_exact_match(acls):
+            """Verify ACLs have equal exact matches"""
             for acl in acls:
                 test_config_condition(acl.exact_match != acls[0].exact_match, (
                     'ACLs when used together must have consistent exact_match'))
@@ -852,12 +982,14 @@ configuration.
         def resolve_acls():
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
+            resolved = []
             for vlan in self.vlans.values():
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
-                        resolve_acl(acl, vlan.vid)
+                        resolve_acl(acl, vid=vlan.vid)
                         acls.append(self.acls[acl])
+                        resolved.append(acl)
                     vlan.acls_in = acls
                     verify_acl_exact_match(acls)
             for port in self.ports.values():
@@ -868,14 +1000,23 @@ configuration.
                     for acl in port.acls_in:
                         resolve_acl(acl, port_num=port.number)
                         acls.append(self.acls[acl])
+                        resolved.append(acl)
                     port.acls_in = acls
                     verify_acl_exact_match(acls)
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
-                    resolve_acl(acl, None)
+                    resolve_acl(acl, dp=self)
                     acls.append(self.acls[acl])
+                    resolved.append(acl)
                 self.dp_acls = acls
+            for acl in self.acls:
+                if acl not in resolved and self.acls[acl].get_tunnel_rule_indices():
+                    resolve_acl(acl, None)
+                    resolved.append(acl)
+            if self.tunnel_acls:
+                for tunnel_acl in self.tunnel_acls.values():
+                    tunnel_acl.verify_tunnel_compatibility_rules(self)
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""

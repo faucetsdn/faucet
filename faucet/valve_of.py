@@ -635,12 +635,16 @@ def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
     if in_port is not None:
         match_dict['in_port'] = in_port
     if vlan is not None:
-        if vlan.vid == ofp.OFPVID_NONE:
+        if isinstance(vlan, int):
+            vid = vlan
+        else:
+            vid = vlan.vid
+        if vid == ofp.OFPVID_NONE:
             match_dict['vlan_vid'] = int(ofp.OFPVID_NONE)
-        elif vlan.vid == ofp.OFPVID_PRESENT:
+        elif vid == ofp.OFPVID_PRESENT:
             match_dict['vlan_vid'] = (ofp.OFPVID_PRESENT, ofp.OFPVID_PRESENT)
         else:
-            match_dict['vlan_vid'] = vid_present(vlan.vid)
+            match_dict['vlan_vid'] = vid_present(vid)
     if eth_src is not None:
         match_dict['eth_src'] = eth_src
     if eth_dst is not None:

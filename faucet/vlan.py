@@ -113,6 +113,8 @@ class VLAN(Conf):
         # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
         'minimum_ip_size_check': True,
         # If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
+        'reserved_internal_vlan': False,
+        # VLANs that are internally reserved will forward packets from the VLAN flowtable to the VLAN_ACL flowtable matching the VID
         }
 
     defaults_types = {
@@ -140,6 +142,7 @@ class VLAN(Conf):
         'proactive_nd_limit': int,
         'targeted_gw_resolution': bool,
         'minimum_ip_size_check': bool,
+        'reserved_internal_vlan': bool,
     }
 
     def __init__(self, _id, dp_id, conf=None):
@@ -161,6 +164,7 @@ class VLAN(Conf):
         self.faucet_vips = None
         self.max_hosts = None
         self.minimum_ip_size_check = None
+        self.reserved_internal_vlan = None
         self.name = None
         self.proactive_arp_limit = None
         self.proactive_nd_limit = None
