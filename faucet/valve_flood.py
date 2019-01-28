@@ -87,8 +87,8 @@ class ValveFloodManager(ValveManagerBase):
             exclude_ports=exclude_ports)
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port, exclude_all_external=False):
-        return self._build_flood_local_rule_actions(
-            vlan, exclude_unicast, in_port, exclude_all_external)
+        return valve_of.dedupe_ofmsgs(self._build_flood_local_rule_actions(
+            vlan, exclude_unicast, in_port, exclude_all_external))
 
     def _build_flood_rule(self, match, command, flood_acts, flood_priority):
         return self.flood_table.flowmod(
@@ -451,12 +451,14 @@ class ValveFloodStackManager(ValveFloodManager):
             self.towards_root_stack_ports, in_port)
 
         if self.stack_size == 2:
-            return self._flood_actions_size2(
+            flood_acts = self._flood_actions_size2(
                 in_port, external_ports, away_flood_actions, toward_flood_actions,
                 local_flood_actions)
-        return self._flood_actions(
-            in_port, external_ports, away_flood_actions, toward_flood_actions,
-            local_flood_actions)
+        else:
+            flood_acts = self._flood_actions(
+                in_port, external_ports, away_flood_actions, toward_flood_actions,
+                local_flood_actions)
+        return valve_of.dedupe_ofmsgs(flood_acts)
 
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                 exclude_unicast, command):
