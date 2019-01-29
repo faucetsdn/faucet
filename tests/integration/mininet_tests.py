@@ -6217,6 +6217,8 @@ class FaucetStringOfDPTest(FaucetTest):
                     peer_dpid, _ = dpname_to_dpkey[peer_dp]
                     if hw_dpid == peer_dpid:
                         peer_portno = self.port_map['port_%u' % portno]
+                    if 'stack' not in interfaces_config[portno]:
+                        interfaces_config[portno]['stack'] = {}
                     interfaces_config[portno]['stack'].update({
                         'port': 'b%u' % peer_portno})
 
