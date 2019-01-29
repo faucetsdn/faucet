@@ -2489,18 +2489,6 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             orig_conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=False)
 
-    def test_port_down_flow_gone(self):
-        last_host = self.net.hosts[-1]
-        self.ping_all_when_learned()
-        second_host_dst_match = {'eth_dst': last_host.MAC()}
-        self.wait_until_matching_flow(
-            second_host_dst_match, table_id=self._ETH_DST_TABLE)
-        self.change_port_config(
-            self.port_map['port_4'], None, None,
-            restart=True, cold_start=False)
-        self.assertFalse(self.get_matching_flows_on_dpid(
-            self.dpid, second_host_dst_match, table_id=self._ETH_DST_TABLE))
-
     def test_port_change_vlan(self):
         first_host, second_host = self.net.hosts[:2]
         third_host, fourth_host = self.net.hosts[2:]
