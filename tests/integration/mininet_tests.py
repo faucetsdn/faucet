@@ -1188,6 +1188,10 @@ class FaucetSanityTest(FaucetUntaggedTest):
                     in_port, dp_port))
             self.verify_dp_port_healthy(dp_port)
             self.require_host_learned(host, in_port=dp_port)
+        learned = self.prom_macs_learned()
+        self.assertEqual(len(self.net.hosts), len(learned),
+            msg='test requires exactly %u hosts learned (got %s)' % (
+                len(self.net.hosts), learned))
 
     def test_listening(self):
         msg_template = (
@@ -6114,6 +6118,9 @@ class FaucetStringOfDPTest(FaucetTest):
                     if last_dp and stack and stack_ring:
                         peer_dps.append(0)
 
+                # TODO: make per test configurable
+                dp_config['lacp_timeout'] = 10
+
                 # TODO: make the stacking root configurable
                 if stack and first_dp:
                     dp_config['stack'] = {
@@ -6410,30 +6417,24 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
 
-    def wait_for_lacp_port_up(self, port_no, timeout=10):
-        controller = self._get_controller()
-        count = 0
-        for _ in range(timeout):
-            count = controller.cmd(
-                    'grep -c "LAG.*port %u up" %s' % (port_no, self.env['faucet']['FAUCET_LOG']))
-            if int(count) != 0:
-                break
-            time.sleep(1)
-        self.assertGreaterEqual(int(count), 1, 'LACP port %u not up' % port_no)
+    def wait_for_lacp_port_up(self, dpname, port_no):
+        log_file = self.env['faucet']['FAUCET_LOG']
+        lacp_up_re = r'.+%s.+LAG.+port %u up$' % (dpname, port_no)
+        self.wait_until_matching_lines_from_file(lacp_up_re, log_file)
 
     def test_lacp_port_down(self):
         """LACP to switch to a working port when the primary port fails."""
-        first_lacp_port = self.NUM_HOSTS + 1
-        second_lacp_port = first_lacp_port + 1
+        first_lacp_port = self.port_map['port_%u' % 3]
+        second_lacp_port = self.port_map['port_%u' % 4]
         match_bcast = {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
         action_str = 'OUTPUT:%u'
-        # wait for all lacp ports up
-        self.wait_for_lacp_port_up(first_lacp_port)
-        self.wait_for_lacp_port_up(second_lacp_port)
+        # wait for all LACP ports up
+        self.wait_for_lacp_port_up(self.DP_NAME, first_lacp_port)
+        self.wait_for_lacp_port_up(self.DP_NAME, second_lacp_port)
         self.wait_until_matching_flow(
                 match_bcast, self._FLOOD_TABLE, actions=[action_str % first_lacp_port])
         self.retry_net_ping()
-        self.set_port_down(first_lacp_port)
+        self.set_port_down(first_lacp_port, wait=False)
         self.wait_until_matching_flow(
                 match_bcast, self._FLOOD_TABLE, actions=[action_str % second_lacp_port])
         self.retry_net_ping()
@@ -7081,17 +7082,10 @@ vlans:
             time.sleep(1)
         self.fail('Not received OFPFlowRemoved for host %s' % mac)
 
-    def wait_for_host_log_msg(self, host_mac, msg, timeout=15):
-        controller = self._get_controller()
-        count = 0
-        for _ in range(timeout):
-            count = controller.cmd('grep -c "%s %s" %s' % (
-                msg, host_mac, self.env['faucet']['FAUCET_LOG']))
-            if int(count) != 0:
-                break
-            time.sleep(1)
-        self.assertGreaterEqual(
-            int(count), 1, 'log msg "%s" for host %s not found' % (msg, host_mac))
+    def wait_for_host_log_msg(self, host_mac, msg):
+        log_file = self.env['faucet']['FAUCET_LOG']
+        host_log_re = r'.*%s %s.*' % (msg, host_mac)
+        self.wait_until_matching_lines_from_file(host_log_re, log_file)
 
     def test_untagged(self):
         self.ping_all_when_learned()

@@ -497,13 +497,13 @@ class ValveTestBases:
         def set_port_down(self, port_no):
             """Set port status of port to down."""
             self.table.apply_ofmsgs(self.valve.port_status_handler(
-                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN).get(self.valve, []))
+                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN, []).get(self.valve, []))
             self.port_expected_status(port_no, 0)
 
         def set_port_up(self, port_no):
             """Set port status of port to up."""
             self.table.apply_ofmsgs(self.valve.port_status_handler(
-                port_no, ofp.OFPPR_ADD, 0).get(self.valve, []))
+                port_no, ofp.OFPPR_ADD, 0, []).get(self.valve, []))
             self.port_expected_status(port_no, 1)
 
         def flap_port(self, port_no):
@@ -1361,7 +1361,7 @@ meters:
             """Set port status modify."""
             for port_status in (0, 1):
                 self.table.apply_ofmsgs(self.valve.port_status_handler(
-                    1, ofp.OFPPR_MODIFY, port_status)[self.valve])
+                    1, ofp.OFPPR_MODIFY, port_status, [])[self.valve])
 
         def test_unknown_port_status(self):
             """Test unknown port status message."""
@@ -1369,7 +1369,7 @@ meters:
             unknown_messages = list(set(range(0, len(known_messages) + 1)) - known_messages)
             self.assertTrue(unknown_messages)
             self.assertFalse(self.valve.port_status_handler(
-                1, unknown_messages[0], 1).get(self.valve, []))
+                1, unknown_messages[0], 1, []).get(self.valve, []))
 
         def test_move_port(self):
             """Test host moves a port."""
@@ -2484,6 +2484,7 @@ dps:
     s1:
         hardware: 'GenericTFM'
 %s
+        lacp_timeout: 5
         interfaces:
             p1:
                 number: 1
@@ -2520,6 +2521,85 @@ vlans:
         labels = self.port_labels(test_port)
         self.assertEqual(
             0, int(self.get_prom('port_lacp_status', labels=labels)))
+        self.rcv_packet(test_port, 0, {
+            'actor_system': '0e:00:00:00:00:02',
+            'partner_system': FAUCET_MAC,
+            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
+            'eth_src': '0e:00:00:00:00:02'})
+        self.assertEqual(
+            1, int(self.get_prom('port_lacp_status', labels=labels)))
+        self.learn_hosts()
+        self.verify_expiry()
+
+    def test_lacp_timeout(self):
+        """Test LACP comes up and then times out."""
+        test_port = 1
+        labels = self.port_labels(test_port)
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_status', labels=labels)))
+        self.rcv_packet(test_port, 0, {
+            'actor_system': '0e:00:00:00:00:02',
+            'partner_system': FAUCET_MAC,
+            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
+            'eth_src': '0e:00:00:00:00:02'})
+        self.assertEqual(
+            1, int(self.get_prom('port_lacp_status', labels=labels)))
+        future_now = time.time() + 10
+        expire_ofmsgs = self.valve.state_expire(future_now, None)
+        self.assertTrue(expire_ofmsgs)
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_status', labels=labels)))
+
+
+class ValveActiveLACPTestCase(ValveTestBases.ValveTestSmall):
+    """Test LACP."""
+
+    CONFIG = """
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        lacp_timeout: 5
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                lacp: 1
+                lacp_active: True
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                tagged_vlans: [v300]
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+    v300:
+        vid: 0x300
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_lacp(self):
+        """Test LACP comes up."""
+        test_port = 1
+        labels = self.port_labels(test_port)
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_status', labels=labels)))
+        # Ensure LACP packet sent.
+        ofmsgs = self.valve.fast_advertise(time.time(), None)[self.valve]
+        self.assertTrue(self.packet_outs_from_flows(ofmsgs))
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
