@@ -1202,7 +1202,10 @@ dbs:
                            hup=True):
         if conf is None:
             conf = self._get_conf()
-        conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
+        if config_name is None:
+            del conf['dps'][self.DP_NAME]['interfaces'][port]
+        else:
+            conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
         self.reload_conf(
             conf, self.faucet_config_path,
             restart, cold_start, hup=hup)
