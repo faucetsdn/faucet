@@ -123,12 +123,12 @@ The output action contains a dictionary with the following elements:
         #       final destination dp
         #   tunnel_id: int
         #       ID to represent the tunnel
-        #   type: str ('vlan')
+        #   tunnel_type: str ('vlan')
         #       tunnel type specification
         self.tunnel_info = {}
 
         for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
-            self.rule_types.update({match: (str, int) for match in match_fields.keys()})
+            self.rule_types.update({match: (str, int) for match in match_fields})
         conf = copy.deepcopy(conf)
         if isinstance(conf, dict):
             rules = conf.get('rules', [])
@@ -307,10 +307,10 @@ The output action contains a dictionary with the following elements:
         """
         for index in self.get_tunnel_rule_indices():
             tunnel_id = self.get_tunnel_id(index)
-            src_dp, src_port, dst_dp, dst_port = self.unpack_tunnel(tunnel_id)
+            src_dp, _src_port, dst_dp, _dst_port = self.unpack_tunnel(tunnel_id) # pylint: disable=unused-variable
             tunnel_rule = self.rules[index]
             action_rule = tunnel_rule['actions']
-            output_rule = action_rule['output']
+            _output_rule = action_rule['output'] # pylint: disable=unused-variable
             self.set_fields.add('port')
             if dp == src_dp:
                 self.matches['in_port'] = False
@@ -332,7 +332,7 @@ The output action contains a dictionary with the following elements:
         updated = False
         for index in self.get_tunnel_rule_indices():
             tunnel_id = self.get_tunnel_id(index)
-            src_dp, src_port, dst_dp, dst_port = self.unpack_tunnel(tunnel_id)
+            src_dp, _src_port, dst_dp, dst_port = self.unpack_tunnel(tunnel_id) # pylint: disable=unused-variable
             tunnel_rule = self.rules[index]
             if dp.is_in_path(src_dp, dst_dp):
                 if dp == src_dp:
@@ -459,5 +459,6 @@ The output action contains a dictionary with the following elements:
 PORT_ACL_8021X = ACL(
     'port_acl_8021x', 0,
     {'rules': [{'eth_type': 1, 'eth_src': '01:02:03:04:05:06', 'actions': {
-        'output': {'set_fields': [{'eth_src': '01:02:03:04:05:06'}, {'eth_dst': '01:02:03:04:05:06'}]}}}]})
+        'output': {'set_fields': [
+            {'eth_src': '01:02:03:04:05:06'}, {'eth_dst': '01:02:03:04:05:06'}]}}}]})
 PORT_ACL_8021X.build({}, None, 1)

@@ -955,7 +955,8 @@ configuration.
                     test_config_condition(src_port is None, (
                         'Could not find source port (%s) in source DP (%s) for tunnel ACL %s' % (
                             port_num, src_dp.name, acl_in)))
-                    src_port = src_port.number
+                    if src_port is not None:
+                        src_port = src_port.number
                 elif vid is None and port_num is None:
                     #Forwarding ACL
                     src_dp = None
