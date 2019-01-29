@@ -672,6 +672,8 @@ class Valve:
     def _port_delete_flows_state(self, port):
         """Delete flows/state for a port."""
         ofmsgs = []
+        for route_manager in self._route_manager_by_ipv.values():
+            ofmsgs.extend(route_manager.expire_port_nexthops(port))
         ofmsgs.extend(self._delete_all_port_match_flows(port))
         ofmsgs.extend(self._port_delete_manager_state(port))
         return ofmsgs

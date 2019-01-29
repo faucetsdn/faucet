@@ -2902,6 +2902,17 @@ vlans:
         self.assertTrue(re.search('10.0.1.0/24 next-hop 10.0.0.1', updates))
         self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
         self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
+        # test nexthop expired when port goes down
+        first_host = self.net.hosts[0]
+        self.one_ipv4_controller_ping(first_host)
+        match, table = self.match_table(ipaddress.IPv4Network('10.0.0.1/32'))
+        self.assertTrue(self.get_matching_flow(match, table_id=table))
+        self.set_port_down(self.port_map['port_1'])
+        for _ in range(5):
+            if not self.get_matching_flow(match, table_id=table):
+                return
+            time.sleep(1)
+        self.fail('host route %s still present' % match)
 
 
 class FaucetUntaggedVLanUnicastFloodTest(FaucetUntaggedTest):
