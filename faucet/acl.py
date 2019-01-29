@@ -123,7 +123,7 @@ The output action contains a dictionary with the following elements:
         #       final destination dp
         #   tunnel_id: int
         #       ID to represent the tunnel
-        #   type: str ('vlan')
+        #   tunneltype: str ('vlan')
         #       tunnel type specification
         self.tunnel_info = {}
 
