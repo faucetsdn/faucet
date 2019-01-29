@@ -217,7 +217,7 @@ class ValveRouteManager(ValveManagerBase):
             nexthop_cache = self._vlan_nexthop_cache(vlan)
             dead_nexthops = [
                 (ip_gw, nexthop_cache_entry) for ip_gw, nexthop_cache_entry in nexthop_cache.items()
-                if port.number == nexthop_cache_entry.port.number]
+                if nexthop_cache_entry and port.number == nexthop_cache_entry.port.number]
             for ip_gw, nexthop_cache_entry in dead_nexthops:
                 self.logger.info('marking %s as a dead nexthop' % nexthop_cache_entry.eth_src)
                 ofmsgs.extend(self._expire_gateway_flows(ip_gw, nexthop_cache_entry, vlan, now))
