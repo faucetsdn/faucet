@@ -353,7 +353,6 @@ class VLAN(Conf):
     def clear_cache_hosts_on_port(self, port):
         """Clear all hosts learned on a port."""
         for entry in self.cached_hosts_on_port(port):
-
             self.expire_cache_host(entry.eth_src)
 
     def expire_cache_hosts(self, now, learn_timeout):

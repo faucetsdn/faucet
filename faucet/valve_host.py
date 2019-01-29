@@ -105,6 +105,13 @@ class ValveHostManager(ValveManagerBase):
             for entry in port.hosts():
                 ofmsgs.extend(self.pipeline.remove_filter(
                     {'eth_src': entry.eth_src}))
+        for vlan in port.vlans():
+            vlan.clear_cache_hosts_on_port(port)
+            for table in (self.eth_dst_table, self.eth_dst_hairpin_table):
+                if table:
+                    # per OF 1.3.5 B.6.23, the OFA will match flows
+                    # that have an action targeting this port.
+                    table.flowdel(table.match(vlan=vlan), out_port=port.number)
         return ofmsgs
 
     def initialise_tables(self):
@@ -124,11 +131,12 @@ class ValveHostManager(ValveManagerBase):
 
     def delete_host_from_vlan(self, eth_src, vlan):
         """Delete a host from a VLAN."""
-        return [
-            self.eth_src_table.flowdel(
-                self.eth_src_table.match(vlan=vlan, eth_src=eth_src)),
-            self.eth_dst_table.flowdel(
-                self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src))]
+        ofmsgs = [self.eth_src_table.flowdel(
+            self.eth_src_table.match(vlan=vlan, eth_src=eth_src))]
+        for table in (self.eth_dst_table, self.eth_dst_hairpin_table):
+            if table:
+                ofmsgs.append(table.flowdel(table.match(vlan=vlan, eth_dst=eth_src)))
+        return ofmsgs
 
     def expire_hosts_from_vlan(self, vlan, now):
         """Expire hosts from VLAN cache."""

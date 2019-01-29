@@ -663,14 +663,17 @@ class Valve:
                 port, port.native_vlan, mirror_act))
         return ofmsgs
 
+    def _port_delete_manager_state(self, port):
+        ofmsgs = []
+        for manager in self._get_managers():
+            ofmsgs.extend(manager.del_port(port))
+        return ofmsgs
+
     def _port_delete_flows_state(self, port):
         """Delete flows/state for a port."""
         ofmsgs = []
         ofmsgs.extend(self._delete_all_port_match_flows(port))
-        for manager in self._get_managers():
-            ofmsgs.extend(manager.del_port(port))
-        for vlan in port.vlans():
-            vlan.clear_cache_hosts_on_port(port)
+        ofmsgs.extend(self._port_delete_manager_state(port))
         return ofmsgs
 
     def ports_add(self, port_nums, cold_start=False, log_msg='up'):

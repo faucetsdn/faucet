@@ -2424,6 +2424,49 @@ acls:
         self.start_net()
 
 
+class FaucetDelPortTest(FaucetConfigReloadTestBase):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+    200:
+        description: "untagged"
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                name: b1
+                description: "b1"
+                native_vlan: 100
+                acl_in: allow
+            %(port_2)d:
+                name: b2
+                description: "b2"
+                native_vlan: 100
+            %(port_3)d:
+                name: b3
+                description: "b3"
+                native_vlan: 100
+            %(port_4)d:
+                name: b4
+                description: "b4"
+                native_vlan: 200
+"""
+
+    def test_port_down_flow_gone(self):
+        last_host = self.net.hosts[-1]
+        self.require_host_learned(last_host)
+        second_host_dst_match = {'eth_dst': last_host.MAC()}
+        self.wait_until_matching_flow(
+            second_host_dst_match, table_id=self._ETH_DST_TABLE)
+        self.change_port_config(
+            self.port_map['port_4'], None, None,
+            restart=True, cold_start=False)
+        self.assertFalse(self.get_matching_flows_on_dpid(
+            self.dpid, second_host_dst_match, table_id=self._ETH_DST_TABLE))
+
+
 class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
 
     def test_add_unknown_dp(self):
@@ -2445,6 +2488,18 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.reload_conf(
             orig_conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=False)
+
+    def test_port_down_flow_gone(self):
+        last_host = self.net.hosts[-1]
+        self.ping_all_when_learned()
+        second_host_dst_match = {'eth_dst': last_host.MAC()}
+        self.wait_until_matching_flow(
+            second_host_dst_match, table_id=self._ETH_DST_TABLE)
+        self.change_port_config(
+            self.port_map['port_4'], None, None,
+            restart=True, cold_start=False)
+        self.assertFalse(self.get_matching_flows_on_dpid(
+            self.dpid, second_host_dst_match, table_id=self._ETH_DST_TABLE))
 
     def test_port_change_vlan(self):
         first_host, second_host = self.net.hosts[:2]
@@ -5383,7 +5438,6 @@ vlans:
             self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddress.IPv4Network('10.99.99.0/24'), vlan_vid=300)
-
 
 
 class FaucetUntaggedIPv4InterVLANRouteTest(FaucetUntaggedTest):
