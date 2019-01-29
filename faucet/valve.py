@@ -1410,7 +1410,7 @@ class Valve:
                 ofmsgs.extend(self._add_vlan(vlan))
         if changed_ports:
             ofmsgs.extend(self.ports_add(all_up_port_nos))
-        if changed_acl_ports:
+        if self.acl_manager and changed_acl_ports:
             self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
