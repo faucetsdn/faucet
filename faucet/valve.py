@@ -1453,13 +1453,13 @@ class Valve:
         self.dp.dyn_up_port_nos = up_ports
         self.dp.dyn_last_coldstart_time = coldstart_time
         restart_type = None
-        if self.dp.dyn_running:
-            if cold_start:
+        if cold_start:
+            restart_type = 'cold'
+            if self.dp.dyn_running:
                 self.logger.info('forcing DP reconnection to ensure ports are synchronized')
-                restart_type = 'cold'
                 ofmsgs = None
-            elif ofmsgs:
-                restart_type = 'warm'
+        elif self.dp.dyn_running and ofmsgs:
+            restart_type = 'warm'
         else:
             ofmsgs = []
         if restart_type is not None:
