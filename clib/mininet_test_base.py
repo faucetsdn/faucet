@@ -1687,13 +1687,19 @@ dbs:
         self.assertNotEqual(
             start_configure_count, configure_count, 'FAUCET did not reconfigure')
         self.wait_dp_status(1)
-        new_count = int(
-            self.scrape_prometheus_var(var, dpid=True, default=0))
         if change_expected:
+            for _ in range(timeout):
+                new_count = int(
+                    self.scrape_prometheus_var(var, dpid=True, default=0))
+                if new_count > old_count:
+                    break
+                time.sleep(1)
             self.assertTrue(
                 new_count > old_count,
                 msg='%s did not increment: %u' % (var, new_count))
         else:
+            new_count = int(
+                self.scrape_prometheus_var(var, dpid=True, default=0))
             self.assertEqual(
                 old_count, new_count,
                 msg='%s incremented: %u' % (var, new_count))
