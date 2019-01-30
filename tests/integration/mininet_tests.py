@@ -5507,6 +5507,72 @@ routers:
                 'vlanb', 'vid', vlanb_vid, restart=True, cold_start=True)
 
 
+class FaucetUntaggedPortSwapIPv4InterVLANRouteTest(FaucetUntaggedTest):
+
+    FAUCET_MAC2 = '0e:00:00:00:00:02'
+
+    CONFIG_GLOBAL = """
+vlans:
+    vlana:
+        vid: 100
+        faucet_vips: ["10.100.0.254/24", "169.254.1.1/24"]
+    vlanb:
+        vid: 200
+        faucet_vips: ["10.200.0.254/24", "169.254.2.1/24"]
+        faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlana, vlanb]
+""" % FAUCET_MAC2
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        proactive_learn_v4: True
+        interfaces:
+            %(port_1)d:
+                name: b1
+                description: "b1"
+                native_vlan: vlana
+            %(port_2)d:
+                name: b2
+                description: "b2"
+                native_vlan: vlanb
+"""
+
+    def test_untagged(self):
+        first_host_ip = ipaddress.ip_interface('10.100.0.1/24')
+        first_faucet_vip = ipaddress.ip_interface('10.100.0.254/24')
+        second_host_ip = ipaddress.ip_interface('10.200.0.1/24')
+        second_faucet_vip = ipaddress.ip_interface('10.200.0.254/24')
+        first_host, second_host, third_host = self.net.hosts[:3]
+        first_host.setIP(str(first_host_ip.ip), prefixLen=24)
+        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
+        self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
+        self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
+        self.one_ipv4_ping(first_host, second_host_ip.ip)
+        self.one_ipv4_ping(second_host, first_host_ip.ip)
+        self.assertEqual(
+            self._ip_neigh(first_host, first_faucet_vip.ip, 4), self.FAUCET_MAC)
+        self.assertEqual(
+            self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
+        # Delete port 2
+        self.change_port_config(
+            self.port_map['port_2'], None, None,
+            restart=False, cold_start=False)
+        # Add port 3
+        self.add_port_config(
+            self.port_map['port_3'],
+            {'name': 'b3', 'description': 'b3', 'native_vlan': 'vlanb'},
+            restart=True, cold_start=True)
+        third_host.setIP(str(second_host_ip.ip), prefixLen=24)
+        self.add_host_route(third_host, first_host_ip, second_faucet_vip.ip)
+        self.one_ipv4_ping(first_host, second_host_ip.ip)
+        self.one_ipv4_ping(third_host, first_host_ip.ip)
+        self.assertEqual(
+            self._ip_neigh(third_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
+
+
 class FaucetUntaggedExpireIPv4InterVLANRouteTest(FaucetUntaggedTest):
 
     FAUCET_MAC2 = '0e:00:00:00:00:02'

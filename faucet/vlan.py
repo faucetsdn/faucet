@@ -588,16 +588,15 @@ class VLAN(Conf):
             if ports:
                 pkt = packet_builder(vid, *args)
                 exclude_ports = self.exclude_same_lag_member_ports()
-                running_ports = [
-                    port for port in ports if port.running() and port not in exclude_ports]
-                random.shuffle(running_ports)
-                if multi_out:
-                    ofmsgs.append(valve_of.packetouts(
-                        [port.number for port in running_ports], pkt.data))
-                else:
-                    ofmsgs.extend(
-                        [valve_of.packetout(port.number, pkt.data)
-                         for port in running_ports])
+                running_port_nos = [
+                    port.number for port in ports if port.running() and port not in exclude_ports]
+                if running_port_nos:
+                    random.shuffle(running_port_nos)
+                    if multi_out:
+                        ofmsgs.append(valve_of.packetouts(running_port_nos, pkt.data))
+                    else:
+                        ofmsgs.extend(
+                            [valve_of.packetout(port_no, pkt.data) for port_no in running_port_nos])
         return ofmsgs
 
     def port_is_tagged(self, port):

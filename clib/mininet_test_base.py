@@ -1197,6 +1197,16 @@ dbs:
             config = yaml.safe_load(config_file.read())
         return config
 
+    def add_port_config(self, port, port_config, conf=None,
+                        restart=True, cold_start=False,
+                        hup=True):
+        if conf is None:
+            conf = self._get_conf()
+        conf['dps'][self.DP_NAME]['interfaces'][port] = port_config
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart, cold_start, hup=hup)
+
     def change_port_config(self, port, config_name, config_value,
                            conf=None, restart=True, cold_start=False,
                            hup=True):
@@ -1676,16 +1686,23 @@ dbs:
             time.sleep(1)
         self.assertNotEqual(
             start_configure_count, configure_count, 'FAUCET did not reconfigure')
-        new_count = int(
-            self.scrape_prometheus_var(var, dpid=True, default=0))
         if change_expected:
-            self.assertEqual(
-                old_count + 1, new_count,
+            for _ in range(timeout):
+                new_count = int(
+                    self.scrape_prometheus_var(var, dpid=True, default=0))
+                if new_count > old_count:
+                    break
+                time.sleep(1)
+            self.assertTrue(
+                new_count > old_count,
                 msg='%s did not increment: %u' % (var, new_count))
         else:
+            new_count = int(
+                self.scrape_prometheus_var(var, dpid=True, default=0))
             self.assertEqual(
                 old_count, new_count,
                 msg='%s incremented: %u' % (var, new_count))
+        self.wait_dp_status(1)
 
     def force_faucet_reload(self, new_config):
         """Force FAUCET to reload by adding new line to config file."""

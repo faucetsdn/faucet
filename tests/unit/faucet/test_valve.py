@@ -437,8 +437,8 @@ class ValveTestBases:
         def send_flows_to_dp_by_id(self, valve, flows):
             """Callback for ValvesManager to simulate sending flows to DP."""
             valve = self.valves_manager.valves[self.DP_ID]
-            prepared_flows = valve.prepare_send_flows(flows)
-            self.last_flows_to_dp[valve.dp.dp_id] = prepared_flows
+            flows = valve.prepare_send_flows(flows)
+            self.last_flows_to_dp[valve.dp.dp_id] = flows
 
         def update_config(self, config, reload_type='cold', reload_expected=True):
             """Update FAUCET config with config as text."""
@@ -461,22 +461,25 @@ class ValveTestBases:
             self.valve = self.valves_manager.valves[self.DP_ID]
             if self.DP_ID in self.last_flows_to_dp:
                 reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
-                self.table.apply_ofmsgs(reload_ofmsgs)
+                # DP requested reconnection
+                if reload_ofmsgs is None:
+                    reload_ofmsgs = self.connect_dp()
+                else:
+                    self.table.apply_ofmsgs(reload_ofmsgs)
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
             return reload_ofmsgs
 
         def connect_dp(self):
             """Call DP connect and set all ports to up."""
-            self.assertEqual(0, int(self.get_prom('dp_status')))
             discovered_up_ports = {port_no for port_no in range(1, self.NUM_PORTS + 1)}
-            self.table.apply_ofmsgs(
-                self.valve.switch_features(None) +
-                self.valve.datapath_connect(time.time(), discovered_up_ports))
+            connect_msgs = self.valve.switch_features(None) + self.valve.datapath_connect(time.time(), discovered_up_ports)
+            self.table.apply_ofmsgs(connect_msgs)
             self.assertEqual(1, int(self.get_prom('dp_status')))
             for port_no in discovered_up_ports:
                 if port_no in self.valve.dp.ports:
                     self.set_port_up(port_no)
             self.assertTrue(self.valve.dp.to_conf())
+            return connect_msgs
 
         def port_labels(self, port_no):
             """Get port labels"""
@@ -2347,18 +2350,18 @@ dps:
         src_table = FakeOFTable(self.NUM_TABLES)
         fwd_table = FakeOFTable(self.NUM_TABLES)
         dst_table = FakeOFTable(self.NUM_TABLES)
-        src_packet = {'in_port': 1, 'eth_src': self.P1_V100_MAC, 'eth_dst': self.P2_V200_MAC, 
-            'ipv4_src': '10.0.0.2', 'ipv4_dst': '10.0.0.3'}
+        src_packet = {'in_port': 1, 'eth_src': self.P1_V100_MAC, 'eth_dst': self.P2_V200_MAC,
+                      'ipv4_src': '10.0.0.2', 'ipv4_dst': '10.0.0.3'}
         self.all_stack_up()
         self.update_all_flowrules()
         src_table.apply_ofmsgs(self.get_valve(0x2).get_tunnel_flowmods())
         self.assertTrue(src_table.is_output(src_packet, None, self.TUNNEL_ID))
-        packet = src_table.apply_instructions_to_packet(src_packet)
+        tun_packet = src_table.apply_instructions_to_packet(src_packet)
         fwd_table.apply_ofmsgs(self.get_valve(0x1).get_tunnel_flowmods())
-        self.assertTrue(fwd_table.is_output(packet, None, self.TUNNEL_ID))
-        packet = fwd_table.apply_instructions_to_packet(packet)
+        self.assertTrue(fwd_table.is_output(tun_packet, None, self.TUNNEL_ID))
+        tun_packet = fwd_table.apply_instructions_to_packet(tun_packet)
         dst_table.apply_ofmsgs(self.get_valve(0x3).get_tunnel_flowmods())
-        self.assertTrue(dst_table.is_output(packet, None, 0))
+        self.assertTrue(dst_table.is_output(tun_packet, None, 0))
 
 
 class ValveGroupTestCase(ValveTestBases.ValveTestSmall):
