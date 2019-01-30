@@ -1686,7 +1686,6 @@ dbs:
             time.sleep(1)
         self.assertNotEqual(
             start_configure_count, configure_count, 'FAUCET did not reconfigure')
-        self.wait_dp_status(1)
         if change_expected:
             for _ in range(timeout):
                 new_count = int(
@@ -1703,6 +1702,7 @@ dbs:
             self.assertEqual(
                 old_count, new_count,
                 msg='%s incremented: %u' % (var, new_count))
+        self.wait_dp_status(1)
 
     def force_faucet_reload(self, new_config):
         """Force FAUCET to reload by adding new line to config file."""
