@@ -1197,6 +1197,16 @@ dbs:
             config = yaml.safe_load(config_file.read())
         return config
 
+    def add_port_config(self, port, port_config, conf=None,
+                        restart=True, cold_start=False,
+                        hup=True):
+        if conf is None:
+            conf = self._get_conf()
+        conf['dps'][self.DP_NAME]['interfaces'][port] = port_config
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart, cold_start, hup=hup)
+
     def change_port_config(self, port, config_name, config_value,
                            conf=None, restart=True, cold_start=False,
                            hup=True):

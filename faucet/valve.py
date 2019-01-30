@@ -1298,12 +1298,12 @@ class Valve:
             return self._non_vlan_rcv_packet(now, other_valves, pkt_meta)
         return self._vlan_rcv_packet(now, other_valves, pkt_meta)
 
-    def _lacp_state_expire(self, now, other_valves):
+    def _lacp_state_expire(self, now, _other_valves):
         """Expire controller state for LACP.
 
         Args:
             now (float): current epoch time.
-            other_valves (list): all Valves other than this one.
+            _other_valves (list): all Valves other than this one.
         Return:
             dict: OpenFlow messages, if any by Valve.
         """
@@ -1427,7 +1427,7 @@ class Valve:
                 ofmsgs.extend(self.acl_manager.cold_start_port(port))
         return False, ofmsgs
 
-    def reload_config(self, now, new_dp):
+    def reload_config(self, _now, new_dp):
         """Reload configuration new_dp.
 
         Following config changes are currently supported:
@@ -1452,19 +1452,19 @@ class Valve:
         self.dp.dyn_running = dp_running
         self.dp.dyn_up_port_nos = up_ports
         self.dp.dyn_last_coldstart_time = coldstart_time
-        restart_type = 'none'
+        restart_type = None
         if self.dp.dyn_running:
             if cold_start:
-                # Need to reprovision pipeline on cold start.
-                ofmsgs = self.datapath_connect(now, up_ports)
-            if ofmsgs:
+                self.logger.info('forcing DP reconnection to ensure ports are synchronized')
                 restart_type = 'cold'
-                if not cold_start:
-                    restart_type = 'warm'
-                self._inc_var('faucet_config_reload_%s' % restart_type)
-                self.logger.info('%s starting' % restart_type)
+                ofmsgs = None
+            elif ofmsgs:
+                restart_type = 'warm'
         else:
             ofmsgs = []
+        if restart_type is not None:
+            self._inc_var('faucet_config_reload_%s' % restart_type)
+            self.logger.info('%s starting' % restart_type)
         self._notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
         return ofmsgs
 
@@ -1528,6 +1528,8 @@ class Valve:
         Args:
             flow_msgs (list): OpenFlow messages to send.
         """
+        if flow_msgs is None:
+            return flow_msgs
         reordered_flow_msgs = valve_of.valve_flowreorder(
             flow_msgs, use_barriers=self.USE_BARRIERS)
         self.ofchannel_log(reordered_flow_msgs)
@@ -1536,15 +1538,18 @@ class Valve:
         return reordered_flow_msgs
 
     def send_flows(self, ryu_dp, flow_msgs):
-        """Send flows to datapath.
+        """Send flows to datapath (or disconnect an OF session).
 
         Args:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
             flow_msgs (list): OpenFlow messages to send.
         """
-        for flow_msg in self.prepare_send_flows(flow_msgs):
-            flow_msg.datapath = ryu_dp
-            ryu_dp.send_msg(flow_msg)
+        if flow_msgs is None:
+            ryu_dp.close()
+        else:
+            for flow_msg in self.prepare_send_flows(flow_msgs):
+                flow_msg.datapath = ryu_dp
+                ryu_dp.send_msg(flow_msg)
 
     def flow_timeout(self, now, table_id, match):
         """Call flow timeout message handler:

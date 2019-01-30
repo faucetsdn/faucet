@@ -122,8 +122,7 @@ class ValvesManager:
                 self.logger.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
                 valve = self.valves[dp_id]
                 ofmsgs = valve.reload_config(now, new_dp)
-                if ofmsgs:
-                    self.send_flows_to_dp_by_id(valve, ofmsgs)
+                self.send_flows_to_dp_by_id(valve, ofmsgs)
             else:
                 self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
                 valve = self.new_valve(new_dp)
@@ -142,8 +141,7 @@ class ValvesManager:
     def _send_ofmsgs_by_valve(self, ofmsgs_by_valve):
         if ofmsgs_by_valve:
             for valve, ofmsgs in ofmsgs_by_valve.items():
-                if ofmsgs:
-                    self.send_flows_to_dp_by_id(valve, ofmsgs)
+                self.send_flows_to_dp_by_id(valve, ofmsgs)
 
     def _notify(self, event_dict):
         """Send an event notification."""
