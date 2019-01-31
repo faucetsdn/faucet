@@ -3304,11 +3304,11 @@ details partner lacp pdu:
             for lacp_port in lag_ports:
                 port_labels = self.port_labels(self.port_map['port_%u' % lacp_port])
                 lacp_up_ports += self.scrape_prometheus_var(
-                    'port_lacp_status', port_labels)
+                    'port_lacp_status', port_labels, default=0)
             return lacp_up_ports
 
         def require_lag_status(status):
-            for _ in range(lacp_timeout*2):
+            for _ in range(lacp_timeout*10):
                 if prom_lag_status() == status:
                     break
                 time.sleep(1)
@@ -3350,14 +3350,14 @@ details partner lacp pdu:
 
         for _flaps in range(2):
             for port in lag_ports:
-                self.set_port_down(self.port_map['port_%u' % port])
-            require_lag_status(0)
-            for port in lag_ports:
                 self.set_port_up(self.port_map['port_%u' % port])
             require_lag_status(2)
             require_linux_bond_up()
             self.one_ipv4_ping(
                 first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+            for port in lag_ports:
+                self.set_port_down(self.port_map['port_%u' % port])
+            require_lag_status(0)
 
 
 class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
