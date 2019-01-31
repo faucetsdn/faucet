@@ -908,7 +908,7 @@ dbs:
             'vlan': r'\d+',
         }
         if port:
-            labels['port'] = 'b%u' % port
+            labels.update(self.port_labels(port))
         if vlan:
             labels['vlan'] = str(vlan)
         port_learned_macs_prom = self.scrape_prometheus_var(
@@ -1331,9 +1331,10 @@ dbs:
         prom_macs_learned = 0
         for port in ports:
             port_no = self.port_map['port_%u' % port]
+            labels = {'vlan': str(vlan)}
+            labels.update(self.port_labels(port_no))
             port_vlan_hosts_learned += self.scrape_prometheus_var(
-                'port_vlan_hosts_learned', {'vlan': str(vlan), 'port': 'b%u' % port_no},
-                default=0)
+                'port_vlan_hosts_learned', labels, default=0)
             prom_macs_learned += len(self.prom_macs_learned(
                 vlan=vlan, port=port_no))
         self.assertEqual(vlan_hosts_learned, port_vlan_hosts_learned)
