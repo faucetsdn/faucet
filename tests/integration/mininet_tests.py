@@ -6927,6 +6927,9 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
 class FaucetTunnelTest(FaucetStringOfDPTest):
 
+    # TODO: fix hardcoded port references for hardware testing.
+    SOFTWARE_ONLY = True
+
     NUM_DPS = 2
     NUM_HOSTS = 2
     SWITCH_TO_SWITCH_LINKS = 2
