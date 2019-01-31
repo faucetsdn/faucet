@@ -845,12 +845,10 @@ dbs:
                                       actions=None, hard_timeout=0, cookie=None,
                                       ofa_match=True):
         """Return True if matching flow is present on a DPID."""
-        if self.get_matching_flow_on_dpid(
-                dpid, match, table_id, timeout=timeout,
-                actions=actions, hard_timeout=hard_timeout, cookie=cookie,
-                ofa_match=ofa_match):
-            return True
-        return False
+        return self.get_matching_flow_on_dpid(
+            dpid, match, table_id, timeout=timeout,
+            actions=actions, hard_timeout=hard_timeout, cookie=cookie,
+            ofa_match=ofa_match)
 
     def matching_flow_present(self, match, table_id, timeout=10,
                               actions=None, hard_timeout=0, cookie=None,
@@ -863,11 +861,13 @@ dbs:
 
     def wait_until_matching_flow(self, match, table_id, timeout=10,
                                  actions=None, hard_timeout=0, cookie=None,
-                                 ofa_match=True):
+                                 ofa_match=True, dpid=None):
         """Wait (require) for flow to be present on default DPID."""
+        if dpid is None:
+            dpid = self.dpid
         self.assertTrue(
-            self.matching_flow_present(
-                match, table_id, timeout=timeout,
+            self.matching_flow_present_on_dpid(
+                dpid, match, table_id, timeout=timeout,
                 actions=actions, hard_timeout=hard_timeout, cookie=cookie,
                 ofa_match=ofa_match),
             msg=('match: %s table_id: %u actions: %s' % (match, table_id, actions)))

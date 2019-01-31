@@ -1189,7 +1189,8 @@ class FaucetSanityTest(FaucetUntaggedTest):
             self.verify_dp_port_healthy(dp_port)
             self.require_host_learned(host, in_port=dp_port)
         learned = self.prom_macs_learned()
-        self.assertEqual(len(self.net.hosts), len(learned),
+        self.assertEqual(
+            len(self.net.hosts), len(learned),
             msg='test requires exactly %u hosts learned (got %s)' % (
                 len(self.net.hosts), learned))
 
@@ -6549,6 +6550,12 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         lacp_up_re = r'.+%s.+LAG.+port %u up$' % (dpname, port_no)
         self.wait_until_matching_lines_from_file(lacp_up_re, log_file)
 
+    def wait_for_lacp_port_down(self, dpname, port_no, previous_state):
+        log_file = self.env['faucet']['FAUCET_LOG']
+        lacp_down_re = r'.+%s.+LAG.+port.+%u down \(previous state %s\)$' % (
+            dpname, port_no, previous_state)
+        self.wait_until_matching_lines_from_file(lacp_down_re, log_file)
+
     def test_lacp_port_down(self):
         """LACP to switch to a working port when the primary port fails."""
         first_lacp_port = self.port_map['port_%u' % 3]
@@ -6559,12 +6566,18 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.wait_for_lacp_port_up(self.DP_NAME, first_lacp_port)
         self.wait_for_lacp_port_up(self.DP_NAME, second_lacp_port)
         self.wait_until_matching_flow(
-                match_bcast, self._FLOOD_TABLE, actions=[action_str % first_lacp_port])
+            match_bcast, self._FLOOD_TABLE, actions=[action_str % first_lacp_port])
         self.retry_net_ping()
         self.set_port_down(first_lacp_port, wait=False)
         self.wait_until_matching_flow(
-                match_bcast, self._FLOOD_TABLE, actions=[action_str % second_lacp_port])
+            match_bcast, self._FLOOD_TABLE, actions=[action_str % second_lacp_port])
+        # Wait for other DP to expire LACP - even when testing hardware this DP will be OVS.
+        self.wait_for_lacp_port_down(self.dpids[1], 3, 1)
+        # Other DP should use output to the LACP up port.
+        self.wait_until_matching_flow(
+            match_bcast, self._FLOOD_TABLE, actions=[action_str % 4], dpid=self.dpids[1])
         self.retry_net_ping()
+        self.set_port_up(first_lacp_port, wait=False)
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
@@ -6945,7 +6958,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
             }}
         ]
     }
-    
+
     # DP-to-acl_in port mapping.
     ACL_IN_DP = {
         'faucet-1': {
@@ -6958,7 +6971,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         super(FaucetTunnelTest, self).setUp()
         self.build_net(
             stack=True,
-            n_dps = self.NUM_DPS,
+            n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
             acls=self.ACLS,
@@ -6995,7 +7008,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         dst_host = self.net.hosts[2]
         other_host = self.net.hosts[1]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
-    
+
     def one_stack_port_down(self, stack_port):
         self.set_port_down(stack_port, self.dpid)
         self.wait_for_stack_port_status(self.dpid, self.DP_NAME, stack_port, 2)
