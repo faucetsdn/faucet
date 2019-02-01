@@ -830,6 +830,9 @@ class Valve:
         if port.dyn_lacp_up != 0:
             self.logger.info('LAG %u port %s down (previous state %s)' % (
                 port.lacp, port, port.dyn_lacp_up))
+        port.dyn_lacp_up = 0
+        port.dyn_last_lacp_pkt = None
+        port.dyn_lacp_updated_time = None
         if not cold_start:
             ofmsgs.extend(self._port_delete_flows_state(port))
             for vlan in port.vlans():
@@ -845,9 +848,6 @@ class Valve:
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
             priority=self.dp.highest_priority,
             max_len=valve_packet.LACP_SIZE))
-        port.dyn_lacp_up = 0
-        port.dyn_last_lacp_pkt = None
-        port.dyn_lacp_updated_time = None
         self._reset_lacp_status(port)
         return ofmsgs
 
