@@ -929,6 +929,8 @@ class Valve:
                             pkt_meta.log()))
                     if lacp_pkt.actor_state_synchronization:
                         ofmsgs_by_valve[self].extend(self.lacp_up(pkt_meta.port))
+                    else:
+                        ofmsgs_by_valve[self].extend(self.lacp_down(pkt_meta.port))
                 # TODO: make LACP response rate limit configurable.
                 if lacp_pkt_change or (age is not None and age > 1):
                     pkt = self._lacp_pkt(lacp_pkt, pkt_meta.port)
