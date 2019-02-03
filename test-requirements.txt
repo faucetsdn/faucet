@@ -11,4 +11,4 @@ pylint
 pytest-cov
 pytype==2019.1.30
 requests
-scapy==2.4.0
+scapy==2.4.2
