@@ -20,7 +20,6 @@
 import random
 
 from faucet import valve_of
-from faucet.faucet_metadata import get_egress_metadata
 from faucet.valve_manager_base import ValveManagerBase
 
 
@@ -111,7 +110,7 @@ class ValveHostManager(ValveManagerBase):
                 if table:
                     # per OF 1.3.5 B.6.23, the OFA will match flows
                     # that have an action targeting this port.
-                    table.flowdel(table.match(vlan=vlan), out_port=port.number)
+                    ofmsgs.append(table.flowdel(table.match(vlan=vlan), out_port=port.number))
         return ofmsgs
 
     def initialise_tables(self):
