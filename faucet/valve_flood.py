@@ -109,26 +109,31 @@ class ValveFloodManager(ValveManagerBase):
             vlan, exclude_unicast, None)
         return (self._build_flood_rule(match, command, flood_acts, flood_priority), flood_acts)
 
+    @staticmethod
+    def _output_ports_from_actions(flood_acts):
+        return {act.port for act in flood_acts if valve_of.is_output(act)}
+
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                    exclude_unicast, command, port,
                                    add_match=None, preflood_acts=None,
                                    exclude_all_external=False):
-        if add_match is None:
-            add_match = {}
-        if preflood_acts is None:
-            preflood_acts = []
-        flood_priority = self._vlan_flood_priority(eth_dst_mask) + 1
-        match = self.flood_table.match(
-            vlan=vlan, in_port=port.number,
-            eth_dst=eth_dst, eth_dst_mask=eth_dst_mask,
-            **add_match)
-        flood_acts = preflood_acts + self._build_flood_rule_actions(
-            vlan, exclude_unicast, port, exclude_all_external)
-        return (self._build_flood_rule(match, command, flood_acts, flood_priority), flood_acts)
-
-    @staticmethod
-    def _output_ports_from_actions(flood_acts):
-        return {act.port for act in flood_acts if valve_of.is_output(act)}
+        ofmsgs = []
+        flood_acts = []
+        if port.hairpin or port.dyn_phys_up:
+            if add_match is None:
+                add_match = {}
+            if preflood_acts is None:
+                preflood_acts = []
+            flood_priority = self._vlan_flood_priority(eth_dst_mask) + 1
+            match = self.flood_table.match(
+                vlan=vlan, in_port=port.number,
+                eth_dst=eth_dst, eth_dst_mask=eth_dst_mask,
+                **add_match)
+            flood_acts = preflood_acts + self._build_flood_rule_actions(
+                vlan, exclude_unicast, port, exclude_all_external)
+            if self._output_ports_from_actions(flood_acts):
+                ofmsgs = self._build_flood_rule(match, command, flood_acts, flood_priority)
+        return (ofmsgs, flood_acts)
 
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                 exclude_unicast, command):
@@ -138,6 +143,8 @@ class ValveFloodManager(ValveManagerBase):
                 port_flood_ofmsg, _ = self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask,
                     exclude_unicast, command, port)
+                if not port_flood_ofmsg:
+                    continue
                 ofmsgs.append(port_flood_ofmsg)
         else:
             vlan_flood_ofmsg, vlan_flood_acts = self._build_flood_rule_for_vlan(
@@ -147,12 +154,11 @@ class ValveFloodManager(ValveManagerBase):
                 ofmsgs.append(vlan_flood_ofmsg)
             vlan_output_ports = self._output_ports_from_actions(vlan_flood_acts)
             for port in self._vlan_all_ports(vlan, exclude_unicast):
-                # Cull port-specific logic to prevent unnecessary O(n^2) calculations.
-                if not port.hairpin or not port.dyn_phys_up:
-                    continue
                 port_flood_ofmsg, port_flood_acts = self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask,
                     exclude_unicast, command, port)
+                if not port_flood_ofmsg:
+                    continue
                 port_output_ports = self._output_ports_from_actions(port_flood_acts)
                 port_output_ports.add(port.number)
                 if vlan_output_ports != port_output_ports:
@@ -477,11 +483,15 @@ class ValveFloodStackManager(ValveFloodManager):
                         exclude_unicast, command, port,
                         add_match={STACK_LOOP_PROTECT_FIELD: ext_port_flag},
                         exclude_all_external=exclude_all_external)
+                    if not port_flood_ofmsg:
+                        continue
                     ofmsgs.append(port_flood_ofmsg)
             else:
                 port_flood_ofmsg, _ = self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask,
                     exclude_unicast, command, port)
+                if not port_flood_ofmsg:
+                    continue
                 ofmsgs.append(port_flood_ofmsg)
             if not self._dp_is_root():
                 # Drop bridge local traffic immediately.
