@@ -4651,18 +4651,23 @@ vlans:
             self.quiet_commands(host, setup_commands)
 
         # verify drop rules present for down hosts
-        drop_rules = self.get_matching_flows_on_dpid(
-            self.dpid, {'dl_type': self.ETH_TYPE, 'dl_vlan': str(self.GLOBAL_VID)},
-            table_id=self.fib_table(), actions=[])
-        self.assertTrue(drop_rules)
-        for drop_rule in drop_rules:
-            match = drop_rule['match']
-            del match['dl_type']
-            del match['dl_vlan']
-            self.assertEqual(1, len(match))
-            ipd = list(match.values())[0].split('/')[0]
-            required_ipds.remove(ipd)
-        self.assertFalse(required_ipds)
+        for _ in range(5):
+            drop_rules = self.get_matching_flows_on_dpid(
+                self.dpid, {'dl_type': self.ETH_TYPE, 'dl_vlan': str(self.GLOBAL_VID)},
+                table_id=self.fib_table(), actions=[])
+            if drop_rules:
+                for drop_rule in drop_rules:
+                    match = drop_rule['match']
+                    del match['dl_type']
+                    del match['dl_vlan']
+                    self.assertEqual(1, len(match))
+                    ipd = list(match.values())[0].split('/')[0]
+                    if ipd in required_ipds:
+                        required_ipds.remove(ipd)
+                if not required_ipds:
+                    break
+            time.sleep(1)
+        self.assertFalse(required_ipds, msg='no drop rules for %s' % required_ipds)
 
         # verify routing performance
         for first_host_ip, second_host_ip in (
