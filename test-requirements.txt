@@ -2,6 +2,7 @@
 bitstring
 codecov
 concurrencytest
+python-debian==0.1.33
 deb_pkg_tools
 exabgp
 importlab>=0.3.1
