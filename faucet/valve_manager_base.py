@@ -9,6 +9,13 @@ class ValveManagerBase: # pylint: disable=too-few-public-methods
 
     Ideally each datapath table should be controlled by 1 manager only."""
 
+    _MISS_PRIORITY = 0
+    _LOW_PRIORITY = 0x1000
+    _MATCH_PRIORITY = 0x2000
+    _LPM_PRIORITY = 0x3000
+    _HIGH_PRIORITY = 0x4000
+    _FILTER_PRIORITY = 0x5000
+
     def initialise_tables(self):
         '''initialise tables controlled by this manager'''
         return []

@@ -23,6 +23,7 @@ import netaddr
 
 from faucet import valve_of
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
+from faucet.faucet_pipeline import STACK_LOOP_PROTECT_FIELD
 from faucet.valve_packet import FAUCET_MAC
 
 
@@ -112,6 +113,8 @@ class VLAN(Conf):
         # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
         'minimum_ip_size_check': True,
         # If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
+        'reserved_internal_vlan': False,
+        # VLANs that are internally reserved will forward packets from the VLAN flowtable to the VLAN_ACL flowtable matching the VID
         }
 
     defaults_types = {
@@ -139,6 +142,7 @@ class VLAN(Conf):
         'proactive_nd_limit': int,
         'targeted_gw_resolution': bool,
         'minimum_ip_size_check': bool,
+        'reserved_internal_vlan': bool,
     }
 
     def __init__(self, _id, dp_id, conf=None):
@@ -160,6 +164,7 @@ class VLAN(Conf):
         self.faucet_vips = None
         self.max_hosts = None
         self.minimum_ip_size_check = None
+        self.reserved_internal_vlan = None
         self.name = None
         self.proactive_arp_limit = None
         self.proactive_nd_limit = None
@@ -348,7 +353,6 @@ class VLAN(Conf):
     def clear_cache_hosts_on_port(self, port):
         """Clear all hosts learned on a port."""
         for entry in self.cached_hosts_on_port(port):
-
             self.expire_cache_host(entry.eth_src)
 
     def expire_cache_hosts(self, now, learn_timeout):
@@ -496,6 +500,14 @@ class VLAN(Conf):
         """Return ports that are mirrored on this VLAN."""
         return tuple([port for port in self.get_ports() if port.mirror])
 
+    def loop_protect_external_ports(self):
+        """Return ports wth external loop protection set."""
+        return tuple([port for port in self.get_ports() if port.loop_protect_external])
+
+    def loop_protect_external_ports_up(self):
+        """Return up ports with external loop protection set."""
+        return tuple([port for port in self.loop_protect_external_ports() if port.dyn_phys_up])
+
     def lacp_ports(self):
         """Return ports that have LACP on this VLAN."""
         return tuple([port for port in self.get_ports() if port.lacp])
@@ -531,7 +543,8 @@ class VLAN(Conf):
             for lag, ports in lags.items():
                 ports_up = lags_up[lag]
                 if ports_up:
-                    exclude_ports.update(ports[1:])
+                    ports.remove(ports_up[0])
+                    exclude_ports.update(ports)
                 else:
                     exclude_ports.update(ports)
         return exclude_ports
@@ -548,10 +561,12 @@ class VLAN(Conf):
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged, exclude_unicast)
 
-    def output_port(self, port, hairpin=False):
+    def output_port(self, port, hairpin=False, output_table=None, loop_protect_field=None):
         actions = port.mirror_actions()
         if self.port_is_untagged(port):
             actions.append(valve_of.pop_vlan())
+        elif loop_protect_field is not None:
+            actions.append(output_table.set_field(**{STACK_LOOP_PROTECT_FIELD: loop_protect_field}))
         if hairpin:
             actions.append(valve_of.output_port(valve_of.OFP_IN_PORT))
         else:
@@ -573,16 +588,15 @@ class VLAN(Conf):
             if ports:
                 pkt = packet_builder(vid, *args)
                 exclude_ports = self.exclude_same_lag_member_ports()
-                running_ports = [
-                    port for port in ports if port.running() and port not in exclude_ports]
-                random.shuffle(running_ports)
-                if multi_out:
-                    ofmsgs.append(valve_of.packetouts(
-                        [port.number for port in running_ports], pkt.data))
-                else:
-                    ofmsgs.extend(
-                        [valve_of.packetout(port.number, pkt.data)
-                         for port in running_ports])
+                running_port_nos = [
+                    port.number for port in ports if port.running() and port not in exclude_ports]
+                if running_port_nos:
+                    random.shuffle(running_port_nos)
+                    if multi_out:
+                        ofmsgs.append(valve_of.packetouts(running_port_nos, pkt.data))
+                    else:
+                        ofmsgs.extend(
+                            [valve_of.packetout(port_no, pkt.data) for port_no in running_port_nos])
         return ofmsgs
 
     def port_is_tagged(self, port):

@@ -270,10 +270,10 @@ class Faucet(RyuAppBase):
         valve, ryu_dp, _ = self._get_valve(ryu_event)
         if valve is None:
             return
-        discovered_up_ports = [
+        discovered_up_ports = {
             port.port_no for port in list(ryu_dp.ports.values())
             if (valve_of.port_status_from_state(port.state) and
-                not valve_of.ignore_port(port.port_no))]
+                not valve_of.ignore_port(port.port_no))}
         self._send_flow_msgs(valve, valve.datapath_connect(now, discovered_up_ports))
 
     @kill_on_exception(exc_logname)
@@ -312,8 +312,7 @@ class Faucet(RyuAppBase):
         valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
-        self._send_flow_msgs(valve, valve.port_status_handler(
-            msg.desc.port_no, msg.reason, msg.desc.state))
+        self.valves_manager.port_status_handler(valve, msg)
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

@@ -52,6 +52,8 @@ The key 'actions' contains a dictionary with keys/values as follows:
 
 The output action contains a dictionary with the following elements:
 
+ * tunnel (dict): the tunnel formation, creates a tunnel from the applied port(s) \
+       to the specified destination
  * port (int or string): the port to output the packet to
  * ports (list): a list of the ports (int or string) to output the packet to
  * set_fields (list): a list of fields to set with values
@@ -84,6 +86,7 @@ The output action contains a dictionary with the following elements:
         'force_port_vlan': int,
     }
     output_actions_types = {
+        'tunnel': dict,
         'port': (str, int),
         'ports': list,
         'failover': dict,
@@ -94,6 +97,12 @@ The output action contains a dictionary with the following elements:
         'vlan_vid': int,
         'vlan_vids': list,
     }
+    tunnel_types = {
+        'type': str,
+        'tunnel_id': (str, int),
+        'dp': str,
+        'port': (str, int),
+    }
 
     def __init__(self, _id, dp_id, conf):
         self.rules = []
@@ -101,8 +110,25 @@ The output action contains a dictionary with the following elements:
         self.meter = False
         self.matches = {}
         self.set_fields = set()
+
+        #TODO: Would be possible to save the names instead of the DP and port objects
+        # TUNNEL:
+        #   src_port: PORT object / port number
+        #       source port
+        #   src_dp: DP object
+        #       source dp
+        #   dst_port: PORT object / port number
+        #       final destination port
+        #   dst_dp: DP object
+        #       final destination dp
+        #   tunnel_id: int
+        #       ID to represent the tunnel
+        #   tunnel_type: str ('vlan')
+        #       tunnel type specification
+        self.tunnel_info = {}
+
         for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
-            self.rule_types.update({match: (str, int) for match in match_fields.keys()})
+            self.rule_types.update({match: (str, int) for match in match_fields})
         conf = copy.deepcopy(conf)
         if isinstance(conf, dict):
             rules = conf.get('rules', [])
@@ -158,8 +184,8 @@ The output action contains a dictionary with the following elements:
             try:
                 ofmsgs = valve_acl.build_acl_ofmsgs(
                     [self], wildcard_table,
-                    valve_of.goto_table(wildcard_table),
-                    valve_of.goto_table(wildcard_table),
+                    [valve_of.goto_table(wildcard_table)],
+                    [valve_of.goto_table(wildcard_table)],
                     2**16-1, meters, self.exact_match,
                     vlan_vid=vid, port_num=port_num)
             except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
@@ -203,10 +229,169 @@ The output action contains a dictionary with the following elements:
                 continue
             yield rule['actions']['mirror']
 
-    def _resolve_output_ports(self, action_conf, resolve_port_cb):
+    def get_in_port_match(self, tunnel_id):
+        """
+        Returns a port number of the src_port of the tunnel that the ingress tunnel ACL \
+            will need to match to.
+        Args:
+            tunnel_id (int): tunnel identifier to obtain the src_port
+        Returns:
+            int OR None: src_port number if it exists, None otherwise
+        """
+        return self.tunnel_info[tunnel_id]['src_port']
+
+    def get_tunnel_id(self, rule_index):
+        """
+        Gets the tunnel ID for the rule
+        Args:
+            rule_index (int): Index of the tunnel rule in the self.rules list
+        Returns:
+            tunnel_id (int): Identifier for the tunnel
+        """
+        tunnel_conf = self.rules[rule_index]
+        return tunnel_conf['actions']['output']['tunnel']
+
+    def unpack_tunnel(self, tunnel_id):
+        """
+        Retrieves the information from the tunnel dict for the tunnel with id
+        Args:
+            tunnel_id (int): Identifier for the tunnel
+        Returns:
+            (src_dp, src_port, dst_dp, dst_port): Tunnel information
+        """
+        src_dp = self.tunnel_info[tunnel_id]['src_dp']
+        src_port = self.tunnel_info[tunnel_id]['src_port']
+        dst_dp = self.tunnel_info[tunnel_id]['dst_dp']
+        dst_port = self.tunnel_info[tunnel_id]['dst_port']
+        return (src_dp, src_port, dst_dp, dst_port)
+
+    def get_tunnel_rule_indices(self):
+        """
+        Get the rules from the rule conf that contain tunnel outputs
+        Returns:
+            rules (list): list of integer indices into the self.rules rule list that \
+                contain tunnel information
+        """
+        rules = []
+        i = 0
+        for rule_conf in self.rules:
+            if 'actions' in rule_conf:
+                if 'output' in rule_conf['actions']:
+                    if 'tunnel' in rule_conf['actions']['output']:
+                        rules.append(i)
+            i += 1
+        return rules
+
+    def remove_non_tunnel_rules(self):
+        """
+        Removes all non-tunnel rules from the ACL \
+            and removes all match fields and non-tunnel required actions from the tunnel rules
+        """
+        new_rules = []
+        tunnel_indices = self.get_tunnel_rule_indices()
+        for index in range(len(tunnel_indices)):
+            new_rule = {}
+            new_rule['actions'] = {}
+            new_rule['actions']['output'] = {}
+            new_rule['actions']['output']['tunnel'] = self.get_tunnel_id(tunnel_indices[index])
+            new_rules.append(new_rule)
+        self.rules = new_rules
+
+    def verify_tunnel_compatibility_rules(self, dp):
+        """
+        Verify the actions in the tunnel ACL to by making sure the user hasn't specified an \
+            action/match that will create a clash.
+        Args:
+            dp (DP): The dp that this tunnel acl object belongs to
+        TODO: Choose what combinations of matches & actions to disallow with a tunnel
+        """
+        for index in self.get_tunnel_rule_indices():
+            tunnel_id = self.get_tunnel_id(index)
+            src_dp, _src_port, dst_dp, _dst_port = self.unpack_tunnel(tunnel_id) # pylint: disable=unused-variable
+            tunnel_rule = self.rules[index]
+            action_rule = tunnel_rule['actions']
+            _output_rule = action_rule['output'] # pylint: disable=unused-variable
+            self.set_fields.add('port')
+            if dp == src_dp:
+                self.matches['in_port'] = False
+                self.set_fields.add('vlan_vid')
+            else:
+                self.matches['vlan_vid'] = False
+                if dp == dst_dp:
+                    self.set_fields.add('pop_vlans')
+                self.remove_non_tunnel_rules()
+
+    def update_tunnel_acl_conf(self, dp):
+        """
+        Update the ACL rule conf if the DP is in the path
+        Args:
+            dp (DP): The dp that this tunnel acl object belongs to
+        Returns:
+            bool: True if any value was updated
+        """
+        updated = False
+        for index in self.get_tunnel_rule_indices():
+            tunnel_id = self.get_tunnel_id(index)
+            src_dp, _src_port, dst_dp, dst_port = self.unpack_tunnel(tunnel_id) # pylint: disable=unused-variable
+            tunnel_rule = self.rules[index]
+            if dp.is_in_path(src_dp, dst_dp):
+                if dp == src_dp:
+                    #DP is SRC DP
+                    output_port = dp.shortest_path_port(dst_dp.name)
+                    if output_port is None:
+                        continue
+                    port_number = output_port.number
+                    output_rule = tunnel_rule['actions']['output']
+                    output_rule['vlan_vid'] = tunnel_id
+                    if 'port' not in output_rule:
+                        output_rule['port'] = port_number
+                        updated = True
+                    elif port_number != output_rule['port']:
+                        output_rule['port'] = port_number
+                        updated = True
+                elif dp == dst_dp:
+                    #DP is DST DP
+                    output_rule = tunnel_rule['actions']['output']
+                    if not 'pop_vlans' in output_rule:
+                        output_rule['pop_vlans'] = 1
+                        updated = True
+                    if not 'port' in output_rule:
+                        output_rule['port'] = dst_port
+                        updated = True
+                else:
+                    #DP is forwarding DP
+                    output_port = dp.shortest_path_port(dst_dp.name)
+                    if output_port is None:
+                        continue
+                    port_number = output_port.number
+                    output_rule = tunnel_rule['actions']['output']
+                    if 'port' not in output_rule:
+                        output_rule['port'] = port_number
+                        updated = True
+                    elif port_number != output_rule['port']:
+                        output_rule['port'] = port_number
+                        updated = True
+        return updated
+
+    def _resolve_output_ports(self, action_conf, resolve_port_cb, resolve_tunnel_objects):
         result = {}
         for output_action, output_action_values in action_conf.items():
-            if output_action == 'port':
+            if output_action == 'tunnel':
+                tunnel = output_action_values
+                self._check_conf_types(tunnel, self.tunnel_types)
+                src_dp, src_port, dst_dp, dst_port, tunnel_id = resolve_tunnel_objects(
+                    tunnel['dp'], tunnel['port'], tunnel['tunnel_id'])
+                tunnel_dict = {
+                    'src_dp': src_dp,
+                    'src_port': src_port,
+                    'dst_dp': dst_dp,
+                    'dst_port': dst_port,
+                    'tunnel_id': tunnel_id,
+                    'type': tunnel['type'],
+                }
+                self.tunnel_info[tunnel_id] = tunnel_dict
+                result[output_action] = tunnel_id
+            elif output_action == 'port':
                 port_name = output_action_values
                 port = resolve_port_cb(port_name)
                 test_config_condition(
@@ -245,7 +430,7 @@ The output action contains a dictionary with the following elements:
                 result[output_action] = output_action_values
         return result
 
-    def resolve_ports(self, resolve_port_cb):
+    def resolve_ports(self, resolve_port_cb, resolve_tunnel_objects):
         for rule_conf in self.rules:
             if 'actions' in rule_conf:
                 actions_conf = rule_conf['actions']
@@ -263,7 +448,7 @@ The output action contains a dictionary with the following elements:
                         resolved_actions[action_name] = resolved_port
                     elif action_name == 'output':
                         resolved_action = self._resolve_output_ports(
-                            action_conf, resolve_port_cb)
+                            action_conf, resolve_port_cb, resolve_tunnel_objects)
                         resolved_actions[action_name] = resolved_action
                     else:
                         resolved_actions[action_name] = action_conf
@@ -274,5 +459,6 @@ The output action contains a dictionary with the following elements:
 PORT_ACL_8021X = ACL(
     'port_acl_8021x', 0,
     {'rules': [{'eth_type': 1, 'eth_src': '01:02:03:04:05:06', 'actions': {
-        'output': {'set_fields': [{'eth_src': '01:02:03:04:05:06'}, {'eth_dst': '01:02:03:04:05:06'}]}}}]})
+        'output': {'set_fields': [
+            {'eth_src': '01:02:03:04:05:06'}, {'eth_dst': '01:02:03:04:05:06'}]}}}]})
 PORT_ACL_8021X.build({}, None, 1)

@@ -18,6 +18,9 @@
 
 from faucet.faucet_metadata import EGRESS_METADATA_MASK
 
+STACK_LOOP_PROTECT_FIELD = 'vlan_pcp'
+
+
 class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Configuration for a single table."""
 
@@ -47,7 +50,9 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
 
     def __str__(self):
         field_strs = ' '.join([
-            '%s: %s' % (key, val) for key, val in sorted(self.__dict__.items())])
+            '%s: %s' % (key, val)
+            for key, val in sorted(self.__dict__.items())
+            if val])
         return 'table config %s' % field_strs
 
     def __repr__(self):
@@ -149,7 +154,7 @@ FLOOD_DEFAULT_CONFIG = ValveTableConfig(
 EGRESS_DEFAULT_CONFIG = ValveTableConfig(
     'egress',
     FLOOD_DEFAULT_CONFIG.table_id + 1,
-    match_types=(('metadata', True),('vlan_vid', False)),
+    match_types=(('metadata', True), ('vlan_vid', False)),
     vlan_port_scale=1.5,
     metadata_match=EGRESS_METADATA_MASK
     )

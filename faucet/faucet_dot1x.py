@@ -28,9 +28,6 @@ from faucet import valve_of # pylint: disable=wrong-import-position
 from faucet import valve_packet # pylint: disable=wrong-import-position
 
 
-EAPOL_DST = '01:80:c2:00:00:03'
-
-
 def get_mac_str(valve_index, port_num):
     """Gets the mac address string for the valve/port combo
     Args:
@@ -144,11 +141,13 @@ class FaucetDot1x:
         self.mac_to_port[mac_str] = (valve, port)
         return mac_str
 
-    def port_up(self, valve, dot1x_port):
-        """Setup the dot1x forward port acls.
+    def nfv_sw_port_up(self, dp_id, dot1x_ports, nfv_sw_port, acl_manager):
+        """Setup the dot1x forward port acls when the nfv_sw_port comes up.
         Args:
-            dot1x_port:
-            valve:
+            dp_id (int):
+            dot1x_ports (Iterable of Port objects):
+            nfv_sw_port (Port):
+            acl_manager (ValveAclManager):
 
         Returns:
             list of flowmods
@@ -157,110 +156,72 @@ class FaucetDot1x:
                                                  dot1x_port.number))
         nfv_sw_port = valve.dp.dot1x['nfv_sw_port']
 
-        if dot1x_port.number == nfv_sw_port:
-            ret = []
-            for port in valve.dp.dot1x_ports():
-                ret.extend(
-                    self.create_flow_pair(port, nfv_sw_port, valve))
-            return ret
+        ret = []
+        for port in dot1x_ports:
+            ret.extend(self.create_flow_pair(
+                dp_id, port, nfv_sw_port, acl_manager))
+        return ret
 
-        return self.create_flow_pair(dot1x_port, nfv_sw_port, valve)
-
-    def create_flow_pair(self, dot1x_port, nfv_sw_port, valve):
-        """Creates the pair of flows that redirects the eapol packets to/from the supplicant and
-        nfv port
-
+    def port_up(self, dp_id, dot1x_port, nfv_sw_port, acl_manager):
+        """Setup the dot1x forward port acls.
         Args:
+            dp_id (int):
             dot1x_port (Port):
-            nfv_sw_port (int):
-            valve (Valve):
-
-        Returns:
-            list
-        """
-        port_acl_table = valve.dp.tables['port_acl']
-        valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
-        mac = get_mac_str(valve_index, dot1x_port.number)
-
-        if dot1x_port.running():
-            return [
-                port_acl_table.flowmod(
-                    inst=[valve_of.apply_actions([
-                        valve_of.set_field(eth_dst=mac),
-                        valve_of.output_port(nfv_sw_port)])],
-                    **FaucetDot1x.get_dot1x_port_match_priority(dot1x_port, port_acl_table, valve)),
-                port_acl_table.flowmod(
-                    inst=[valve_of.apply_actions([
-                        valve_of.set_field(eth_src=EAPOL_DST),
-                        valve_of.output_port(dot1x_port.number)])],
-                    **FaucetDot1x.get_nfv_sw_port_match_priority(mac, nfv_sw_port,
-                                                                 port_acl_table, valve)
-                )]
-        return []
-
-    def port_down(self, valve, dot1x_port):
-        """
-        Remove the acls added by FaucetDot1x.get_port_acls
-        Args:
-            valve:
-            dot1x_port:
+            nfv_sw_port (Port):
+            acl_manager (ValveAclManager):
 
         Returns:
             list of flowmods
         """
-        self.dot1x_speaker.port_down(get_mac_str(self.dp_id_to_valve_index[valve.dp.dp_id],
+        self.dot1x_speaker.port_down(
+            get_mac_str(self.dp_id_to_valve_index[dp_id], dot1x_port.number))
+
+        return self.create_flow_pair(
+            dp_id, dot1x_port, nfv_sw_port, acl_manager)
+
+    def create_flow_pair(self, dp_id, dot1x_port, nfv_sw_port, acl_manager):
+        """Creates the pair of flows that redirects the eapol packets to/from
+        the supplicant and nfv port
+
+        Args:
+            dp_id (int):
+            dot1x_port (Port):
+            nfv_sw_port (Port):
+            acl_manager (ValveAclManager):
+
+        Returns:
+            list
+        """
+        valve_index = self.dp_id_to_valve_index[dp_id]
+        mac = get_mac_str(valve_index, dot1x_port.number)
+
+        if dot1x_port.running():
+            return acl_manager.create_dot1x_flow_pair(
+                dot1x_port, nfv_sw_port, mac)
+        return []
+
+    def port_down(self, dp_id, dot1x_port, nfv_sw_port, acl_manager):
+        """
+        Remove the acls added by FaucetDot1x.get_port_acls
+        Args:
+            dp_id (int):
+            dot1x_port (Port):
+            nfv_sw_port (Port):
+            acl_manager (ValveAclManager):
+
+        Returns:
+            list of flowmods
+        """
+        self.dot1x_speaker.port_down(get_mac_str(self.dp_id_to_valve_index[dp_id],
                                                  dot1x_port.number))
-        flowmods = valve.del_authed_mac(
+        flowmods = acl_manager.del_authed_mac(
             dot1x_port.number)
 
-        port_acl_table = valve.dp.tables['port_acl']
-        nfv_sw_port = valve.dp.dot1x['nfv_sw_port']
-        valve_index = self.dp_id_to_valve_index[valve.dp.dp_id]
+        valve_index = self.dp_id_to_valve_index[dp_id]
         mac = get_mac_str(valve_index, dot1x_port.number)
-        # Strictly speaking these deletes aren't needed, as the caller
-        # clears the port_acl table for # the port that is down.
-        flowmods.extend([
-            port_acl_table.flowdel(
-                **FaucetDot1x.get_dot1x_port_match_priority(dot1x_port, port_acl_table, valve)),
-            port_acl_table.flowdel(
-                **FaucetDot1x.get_nfv_sw_port_match_priority(mac, nfv_sw_port,
-                                                             port_acl_table, valve)
-                )])
+        flowmods.extend(
+            acl_manager.del_dot1x_flow_pair(dot1x_port, nfv_sw_port, mac))
         return flowmods
-
-    @staticmethod
-    def get_nfv_sw_port_match_priority(mac, nfv_sw_port, port_acl_table, valve):
-        """Create the match for eapol coming from the nfv_sw_port.
-        Args:
-            mac (str): the MacAddress of the dot1x (supplicant port)
-            nfv_sw_port (int):
-            port_acl_table (ValveTable):
-            valve (Valve):
-
-        Returns:
-            dict containing a match and priority.
-        """
-        return {'match': port_acl_table.match(
-            in_port=nfv_sw_port,
-            eth_type=valve_packet.ETH_EAPOL,
-            eth_src=mac),
-                'priority': valve.dp.highest_priority}
-
-    @staticmethod
-    def get_dot1x_port_match_priority(dot1x_port, port_acl_table, valve):
-        """Create the match for eapol coming from the supplicant's port.
-        Args:
-            dot1x_port (Port): supplicant port.
-            port_acl_table (ValveTable):
-            valve (Valve):
-
-        Returns:
-            dict containing a match and priority.
-        """
-        return {'match': port_acl_table.match(
-            in_port=dot1x_port.number,
-            eth_type=valve_packet.ETH_EAPOL),
-                'priority': valve.dp.highest_priority}
 
     def reset(self, valves):
         """Set up a dot1x speaker."""

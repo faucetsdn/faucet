@@ -184,7 +184,8 @@ def config_changed(top_config_file, new_top_config_file, config_hashes):
         if config_hash and not config_file_exists:
             return True
         # Config file hash has changed = reload.
-        new_config_hash = config_file_hash(config_file)
-        if new_config_hash != config_hash:
-            return True
+        if config_file_exists:
+            new_config_hash = config_file_hash(config_file)
+            if new_config_hash != config_hash:
+                return True
     return False

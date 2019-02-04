@@ -630,17 +630,21 @@ def _match_ip_masked(ipa):
 def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
                      eth_dst=None, eth_dst_mask=None, icmpv6_type=None,
                      nw_proto=None, nw_dst=None, metadata=None,
-                     metadata_mask=None):
+                     metadata_mask=None, vlan_pcp=None):
     match_dict = {}
     if in_port is not None:
         match_dict['in_port'] = in_port
     if vlan is not None:
-        if vlan.vid == ofp.OFPVID_NONE:
+        if isinstance(vlan, int):
+            vid = vlan
+        else:
+            vid = vlan.vid
+        if vid == ofp.OFPVID_NONE:
             match_dict['vlan_vid'] = int(ofp.OFPVID_NONE)
-        elif vlan.vid == ofp.OFPVID_PRESENT:
+        elif vid == ofp.OFPVID_PRESENT:
             match_dict['vlan_vid'] = (ofp.OFPVID_PRESENT, ofp.OFPVID_PRESENT)
         else:
-            match_dict['vlan_vid'] = vid_present(vlan.vid)
+            match_dict['vlan_vid'] = vid_present(vid)
     if eth_src is not None:
         match_dict['eth_src'] = eth_src
     if eth_dst is not None:
@@ -667,6 +671,8 @@ def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
             match_dict['metadata'] = (metadata, metadata_mask)
         else:
             match_dict['metadata'] = metadata
+    if vlan_pcp is not None:
+        match_dict['vlan_pcp'] = vlan_pcp
     return match_dict
 
 

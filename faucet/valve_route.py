@@ -19,6 +19,7 @@
 
 from collections import defaultdict, deque
 import random
+import time
 
 import ipaddress
 
@@ -115,7 +116,7 @@ class ValveRouteManager(ValveManagerBase):
     def __init__(self, logger, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl, multi_out,
-                 fib_table, vip_table, pipeline, route_priority, routers):
+                 fib_table, vip_table, pipeline, routers):
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
         self.neighbor_timeout = neighbor_timeout
@@ -128,7 +129,7 @@ class ValveRouteManager(ValveManagerBase):
         self.fib_table = fib_table
         self.vip_table = vip_table
         self.pipeline = pipeline
-        self.route_priority = route_priority
+        self.route_priority = self._LPM_PRIORITY
         self.routers = routers
         self.active = False
         self.global_routing = self._global_routing()
@@ -207,6 +208,21 @@ class ValveRouteManager(ValveManagerBase):
 
     def _vlan_nexthop_cache(self, vlan):
         return vlan.neigh_cache_by_ipv(self.IPV)
+
+    def expire_port_nexthops(self, port):
+        """Expire all hosts on a port."""
+        ofmsgs = []
+        now = time.time()
+        for vlan in port.vlans():
+            nexthop_cache = self._vlan_nexthop_cache(vlan)
+            dead_nexthops = [
+                (ip_gw, nexthop_cache_entry) for ip_gw, nexthop_cache_entry in nexthop_cache.items()
+                if nexthop_cache_entry and nexthop_cache_entry.port and
+                port.number == nexthop_cache_entry.port.number]
+            for ip_gw, nexthop_cache_entry in dead_nexthops:
+                self.logger.info('marking %s as a dead nexthop' % nexthop_cache_entry.eth_src)
+                ofmsgs.extend(self._expire_gateway_flows(ip_gw, nexthop_cache_entry, vlan, now))
+        return ofmsgs
 
     def _vlan_nexthop_cache_entry(self, vlan, ip_gw):
         nexthop_cache = self._vlan_nexthop_cache(vlan)

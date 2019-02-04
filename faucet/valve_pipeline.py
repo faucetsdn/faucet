@@ -34,19 +34,30 @@ class ValvePipeline(ValveManagerBase):
 
     def __init__(self, dp):
         self.dp = dp
+        self.vlan_table = dp.tables['vlan']
         self.classification_table = dp.classification_table()
         self.output_table = dp.output_table()
         self.egress_table = None
         if dp.egress_pipeline:
             self.egress_table = dp.tables['egress']
-        self.filter_priority = dp.highest_priority + 1
-        self.select_priority = dp.highest_priority
+        self.filter_priority = self._FILTER_PRIORITY
+        self.select_priority = self._HIGH_PRIORITY
 
     def _accept_to_table(self, table, actions):
         inst = [table.goto_this()]
         if actions is not None:
             inst.append(valve_of.apply_actions(actions))
         return inst
+
+    def accept_to_vlan(self, actions=None):
+        """Get instructions to forward packet through the pipeline to
+        vlan table.
+        args:
+            actions: (optional) list of actions to apply to packet.
+        returns:
+            list of instructions
+        """
+        return self._accept_to_table(self.vlan_table, actions)
 
     def accept_to_classification(self, actions=None):
         """Get instructions to forward packet through the pipeline to
@@ -68,13 +79,14 @@ class ValvePipeline(ValveManagerBase):
         """
         return self._accept_to_table(self.output_table, actions)
 
-    def output(self, port, vlan):
+    def output(self, port, vlan, hairpin=False, loop_protect_field=None):
         """Get instructions list to output a packet through the regular
         pipeline.
 
         args:
             port: Port object of port to output packet to
             vlan: Vlan object of vlan to output packet on
+            hairpin: if True, hairpinning is required
         returns:
             list of Instructions
         """
@@ -85,7 +97,9 @@ class ValvePipeline(ValveManagerBase):
             instructions.extend(valve_of.metadata_goto_table(
                 metadata, metadata_mask, self.egress_table))
         else:
-            instructions.append(valve_of.apply_actions(vlan.output_port(port)))
+            instructions.append(valve_of.apply_actions(vlan.output_port(
+                port, hairpin=hairpin, output_table=self.output_table,
+                loop_protect_field=loop_protect_field)))
         return instructions
 
     def initialise_tables(self):
@@ -94,19 +108,18 @@ class ValvePipeline(ValveManagerBase):
         # drop broadcast sources
         if self.dp.drop_broadcast_source_address:
             ofmsgs.extend(self.filter_packets(
-                self.classification_table,
                 {'eth_src': valve_of.mac.BROADCAST_STR}
                 ))
 
         ofmsgs.extend(self.filter_packets(
-            self.classification_table, {'eth_type': valve_of.ECTP_ETH_TYPE}))
+            {'eth_type': valve_of.ECTP_ETH_TYPE}, priority_offset=10))
 
         # antispoof for FAUCET's MAC address
         # TODO: antispoof for controller IPs on this VLAN, too.
         if self.dp.drop_spoofed_faucet_mac:
             for vlan in list(self.dp.vlans.values()):
                 ofmsgs.extend(self.filter_packets(
-                    self.classification_table, {'eth_src': vlan.faucet_mac}))
+                    {'eth_src': vlan.faucet_mac}))
 
         return ofmsgs
 
@@ -150,33 +163,34 @@ class ValvePipeline(ValveManagerBase):
                 )))
         return ofmsgs
 
-    def filter_packets(self, _target_table, match_dict):
+    def filter_packets(self, match_dict, priority_offset=0):
         """get a list of flow modification messages to filter packets from
         the pipeline.
         args:
-            _target_table: the table requesting the filtering
             match_dict: a dictionary specifying the match fields
+            priority_offset: used to prevent overlapping entries
         """
         return [self.classification_table.flowdrop(
             self.classification_table.match(**match_dict),
-            priority=(self.filter_priority))]
+            priority=self.filter_priority + priority_offset)]
 
-    def select_packets(self, target_table, match_dict, actions=None):
+    def select_packets(self, target_table, match_dict, actions=None,
+                       priority_offset=0):
         """retrieve rules to redirect packets matching match_dict to table"""
         inst = [target_table.goto_this()]
         if actions is not None:
             inst.append(valve_of.apply_actions(actions))
         return [self.classification_table.flowmod(
             self.classification_table.match(**match_dict),
-            priority=self.select_priority,
+            priority=self.select_priority + priority_offset,
             inst=inst)]
 
-    def remove_filter(self, match_dict, strict=True):
+    def remove_filter(self, match_dict, strict=True, priority_offset=0):
         """retrieve flow mods to remove a filter from the classification table
         """
         priority = None
         if strict:
-            priorty = self.filter_priority
+            priority = self.filter_priority + priority_offset
         return [self.classification_table.flowdel(
             self.classification_table.match(**match_dict),
             priority=priority,

@@ -86,16 +86,15 @@ class FakeOFTable:
             # entries which will cause ambiguous behaviour. This is
             # obviously unnacceptable so we will assume this is
             # always set
-            add = True
             for fte in table:
                 if flowmod.fte_matches(fte, strict=True):
                     table.remove(fte)
                     break
                 elif flowmod.overlaps(fte):
-                    add = False
-                    break
-            if add:
-                table.append(flowmod)
+                    raise FakeOFTableException(
+                        'Overlapping flowmods {} and {}'.format(
+                            flowmod, fte))
+            table.append(flowmod)
 
         def _del(table, flowmod):
             removals = [fte for fte in table if flowmod.fte_matches(fte)]
@@ -211,7 +210,7 @@ class FakeOFTable:
                         mask_compl = mask ^ 0xFFFFFFFFFFFFFFFF
                         packet_dict['metadata'] = (metadata & mask_compl)\
                             | (instruction.metadata & mask)
-        return instructions
+        return (instructions, packet_dict)
 
     def is_output(self, match, port=None, vid=None):
         """Return true if packets with match fields is output to port with
@@ -256,7 +255,7 @@ class FakeOFTable:
         vid_stack = []
         if match_vid & ofp.OFPVID_PRESENT != 0:
             vid_stack.append(match_vid)
-        instructions = self.lookup(match)
+        instructions, _ = self.lookup(match)
 
         for instruction in instructions:
             if instruction.type != ofp.OFPIT_APPLY_ACTIONS:
@@ -283,6 +282,18 @@ class FakeOFTable:
                                 if output_result is not None:
                                     return output_result
         return False
+
+    def apply_instructions_to_packet(self, match):
+        """
+        Send packet through the fake OF table pipeline
+        Args:
+            match (dict): A dict keyed by header fields with values, represents a packet
+        Returns:
+            dict: Modified match dict, represents packet that has been through the pipeline \
+                with values possibly altered
+        """
+        _, packet_dict = self.lookup(match)
+        return packet_dict
 
     def __str__(self):
         string = ''

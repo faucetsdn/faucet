@@ -12,5 +12,6 @@ Building documentation
 
 .. code:: console
 
+  sudo apt-get install librsvg2-bin
   sudo pip3 install -r requirements.txt
   make html
