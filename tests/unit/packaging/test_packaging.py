@@ -53,7 +53,7 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
             elif faucet_dpkg:
                 if not line:
                     break
-                faucet_dpkg += "{}\n".format(line)
+                faucet_dpkg += "\n{}".format(line)
 
         faucet_dpkg = parse_control_fields(deb822_from_string(faucet_dpkg))
         self.faucet_dpkg_deps = {}
