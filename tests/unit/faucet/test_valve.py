@@ -294,7 +294,7 @@ def build_pkt(pkt):
             partner_state_distributing=1,
             actor_state_aggregation=1,
             partner_state_aggregation=1,
-            actor_state_synchronization=1,
+            actor_state_synchronization=pkt['actor_state_synchronization'],
             partner_state_synchronization=1,
             actor_state_activity=0,
             partner_state_activity=0))
@@ -2528,11 +2528,37 @@ vlans:
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
-            'eth_src': '0e:00:00:00:00:02'})
+            'eth_src': '0e:00:00:00:00:02',
+            'actor_state_synchronization': 1})
         self.assertEqual(
             1, int(self.get_prom('port_lacp_status', labels=labels)))
         self.learn_hosts()
         self.verify_expiry()
+
+    def test_lacp_flap(self):
+        """Test LACP handles state 0->1->0."""
+        test_port = 1
+        labels = self.port_labels(test_port)
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_status', labels=labels)))
+        self.rcv_packet(test_port, 0, {
+            'actor_system': '0e:00:00:00:00:02',
+            'partner_system': FAUCET_MAC,
+            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
+            'eth_src': '0e:00:00:00:00:02',
+            'actor_state_synchronization': 1})
+        self.assertEqual(
+            1, int(self.get_prom('port_lacp_status', labels=labels)))
+        self.learn_hosts()
+        self.verify_expiry()
+        self.rcv_packet(test_port, 0, {
+            'actor_system': '0e:00:00:00:00:02',
+            'partner_system': FAUCET_MAC,
+            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
+            'eth_src': '0e:00:00:00:00:02',
+            'actor_state_synchronization': 0})
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_status', labels=labels)))
 
     def test_lacp_timeout(self):
         """Test LACP comes up and then times out."""
@@ -2544,7 +2570,8 @@ vlans:
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
-            'eth_src': '0e:00:00:00:00:02'})
+            'eth_src': '0e:00:00:00:00:02',
+            'actor_state_synchronization': 1})
         self.assertEqual(
             1, int(self.get_prom('port_lacp_status', labels=labels)))
         future_now = time.time() + 10
@@ -2607,7 +2634,8 @@ vlans:
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
-            'eth_src': '0e:00:00:00:00:02'})
+            'eth_src': '0e:00:00:00:00:02',
+            'actor_state_synchronization': 1})
         self.assertEqual(
             1, int(self.get_prom('port_lacp_status', labels=labels)))
         self.learn_hosts()
