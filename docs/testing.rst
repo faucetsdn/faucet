@@ -170,8 +170,8 @@ Running the tests
 
   docker build --pull -t faucet/tests -f Dockerfile.tests .
   apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
-  modprobe openvswitch
-  sudo docker run --privileged --net=host \
+  modprobe openvswitch ebtables
+  sudo docker run --privileged --net=host --cap-add=NET_ADMIN \
       -v $HOME/.cache/pip:/var/tmp/pip-cache \
       -v /etc/faucet:/etc/faucet \
       -v /var/tmp:/var/tmp \
