@@ -117,4 +117,7 @@ Table 9: FLOOD
 Faucet Architecture
 -------------------
 
-.. image:: /_static/images/faucet-architecture.png
+.. figure:: /_static/images/faucet-architecture.svg
+    :alt: Faucet architecture diagram
+    :align: center
+    :width: 80%
