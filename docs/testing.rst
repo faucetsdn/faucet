@@ -166,11 +166,28 @@ switch:
 Running the tests
 ~~~~~~~~~~~~~~~~~
 
+Before starting the hardware test suite for the first time, you will need to
+install ebtables on the host machine:
+
 .. code:: console
 
-  docker build --pull -t faucet/tests -f Dockerfile.tests .
-  apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
-  modprobe openvswitch ebtables
+  sudo apt-get install ebtables
+
+After every reboot of your host machine you will also need to manually load the
+``openvswitch`` and ``ebtables`` kernel modules. If using apparmor you will also
+need to disable the profile for tcpdump:
+
+.. code:: console
+
+  sudo modprobe openvswitch
+  sudo modprobe ebtables
+  sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+
+Then you can build and run the test suite:
+
+.. code:: console
+
+  sudo docker build --pull -t faucet/tests -f Dockerfile.tests .
   sudo docker run --privileged --net=host --cap-add=NET_ADMIN \
       -v $HOME/.cache/pip:/var/tmp/pip-cache \
       -v /etc/faucet:/etc/faucet \
