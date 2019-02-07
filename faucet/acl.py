@@ -290,10 +290,10 @@ The output action contains a dictionary with the following elements:
         new_rules = []
         tunnel_indices = self.get_tunnel_rule_indices()
         for index in range(len(tunnel_indices)):
-            new_rule = {}
-            new_rule['actions'] = {}
-            new_rule['actions']['output'] = {}
-            new_rule['actions']['output']['tunnel'] = self.get_tunnel_id(tunnel_indices[index])
+            new_rule = {
+                'actions': {
+                    'output': {
+                        'tunnel': self.get_tunnel_id(tunnel_indices[index])}}}
             new_rules.append(new_rule)
         self.rules = new_rules
 
@@ -308,17 +308,11 @@ The output action contains a dictionary with the following elements:
         for index in self.get_tunnel_rule_indices():
             tunnel_id = self.get_tunnel_id(index)
             src_dp, _src_port, dst_dp, _dst_port = self.unpack_tunnel(tunnel_id) # pylint: disable=unused-variable
-            tunnel_rule = self.rules[index]
-            action_rule = tunnel_rule['actions']
-            _output_rule = action_rule['output'] # pylint: disable=unused-variable
-            self.set_fields.add('port')
             if dp == src_dp:
                 self.matches['in_port'] = False
                 self.set_fields.add('vlan_vid')
             else:
                 self.matches['vlan_vid'] = False
-                if dp == dst_dp:
-                    self.set_fields.add('pop_vlans')
                 self.remove_non_tunnel_rules()
 
     def update_tunnel_acl_conf(self, dp):

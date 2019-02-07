@@ -6982,6 +6982,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
             acls=self.ACLS,
             acl_in_dp=self.ACL_IN_DP,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+            hw_dpid=self.hw_dpid,
         )
         self.start_net()
 

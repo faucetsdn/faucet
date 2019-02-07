@@ -420,8 +420,15 @@ configuration.
         # TODO: dynamically configure output attribue
         return table_config
 
-    def _configure_tables(self, valve_cl):
+    def _configure_tables(self):
         """Configure FAUCET pipeline with tables."""
+        valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
+        test_config_condition(
+            not valve_cl, 'hardware %s must be in %s' % (
+                self.hardware, SUPPORTED_HARDWARE.keys()))
+        if valve_cl is None:
+            return
+
         tables = {}
         self.groups = ValveGroupTable()
         relative_table_id = 0
@@ -464,7 +471,19 @@ configuration.
             vlan_table = table_configs['vlan']
             vlan_table.set_fields += (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
 
+        oxm_fields = set(valve_of.MATCH_FIELDS.keys())
+
         for table_name, table_config in table_configs.items():
+            if table_config.set_fields:
+                set_fields = set(table_config.set_fields)
+                test_config_condition(
+                    not set_fields.issubset(oxm_fields),
+                    'set_fields not all OpenFlow OXM fields %s' % (set_fields - oxm_fields))
+            if table_config.match_types:
+                matches = set(match for match, _ in table_config.match_types)
+                test_config_condition(
+                    not matches.issubset(oxm_fields),
+                    'matches not all OpenFlow OXM fields %s' % (matches - oxm_fields))
             size = self.table_sizes.get(table_name, self.min_wildcard_table_size)
             if table_config.vlan_port_scale:
                 vlan_port_factor = len(self.vlans) * len(self.ports)
@@ -1047,10 +1066,6 @@ configuration.
             self.routers = dp_routers
 
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
-        valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
-        test_config_condition(
-            not valve_cl, 'hardware %s must be in %s' % (
-                self.hardware, SUPPORTED_HARDWARE.keys()))
 
         for dp in dps:
             dp_by_name[dp.name] = dp
@@ -1066,7 +1081,7 @@ configuration.
         resolve_vlan_names_in_routers()
         resolve_acls()
 
-        self._configure_tables(valve_cl)
+        self._configure_tables()
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:
@@ -1082,6 +1097,8 @@ configuration.
                 test_config_condition(vlan.bgp_server_addresses != (
                     bgp_vlans[0].bgp_server_addresses), (
                         'BGP server addresses must all be the same'))
+
+        self._configure_tables()
 
         for port in self.ports.values():
             port.finalize()
