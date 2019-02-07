@@ -420,8 +420,13 @@ configuration.
         # TODO: dynamically configure output attribue
         return table_config
 
-    def _configure_tables(self, valve_cl):
+    def _configure_tables(self):
         """Configure FAUCET pipeline with tables."""
+        valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
+        test_config_condition(
+            not valve_cl, 'hardware %s must be in %s' % (
+                self.hardware, SUPPORTED_HARDWARE.keys()))
+
         tables = {}
         self.groups = ValveGroupTable()
         relative_table_id = 0
@@ -1047,10 +1052,6 @@ configuration.
             self.routers = dp_routers
 
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
-        valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
-        test_config_condition(
-            not valve_cl, 'hardware %s must be in %s' % (
-                self.hardware, SUPPORTED_HARDWARE.keys()))
 
         for dp in dps:
             dp_by_name[dp.name] = dp
@@ -1066,7 +1067,7 @@ configuration.
         resolve_vlan_names_in_routers()
         resolve_acls()
 
-        self._configure_tables(valve_cl)
+        self._configure_tables()
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:
@@ -1082,6 +1083,8 @@ configuration.
                 test_config_condition(vlan.bgp_server_addresses != (
                     bgp_vlans[0].bgp_server_addresses), (
                         'BGP server addresses must all be the same'))
+
+        self._configure_tables()
 
         for port in self.ports.values():
             port.finalize()
