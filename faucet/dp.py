@@ -426,6 +426,8 @@ configuration.
         test_config_condition(
             not valve_cl, 'hardware %s must be in %s' % (
                 self.hardware, SUPPORTED_HARDWARE.keys()))
+        if valve_cl is None:
+            return
 
         tables = {}
         self.groups = ValveGroupTable()
