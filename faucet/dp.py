@@ -469,7 +469,19 @@ configuration.
             vlan_table = table_configs['vlan']
             vlan_table.set_fields += (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
 
+        oxm_fields = set(valve_of.MATCH_FIELDS.keys())
+
         for table_name, table_config in table_configs.items():
+            if table_config.set_fields:
+                set_fields = set(table_config.set_fields)
+                test_config_condition(
+                    not set_fields.issubset(oxm_fields),
+                    'set_fields not all OpenFlow OXM fields %s' % (set_fields - oxm_fields))
+            if table_config.match_types:
+                matches = set(match for match, _ in table_config.match_types)
+                test_config_condition(
+                    not matches.issubset(oxm_fields),
+                    'matches not all OpenFlow OXM fields %s' % (matches - oxm_fields))
             size = self.table_sizes.get(table_name, self.min_wildcard_table_size)
             if table_config.vlan_port_scale:
                 vlan_port_factor = len(self.vlans) * len(self.ports)
