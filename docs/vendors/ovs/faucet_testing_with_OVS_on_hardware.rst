@@ -4,9 +4,10 @@ Faucet Testing with OVS on Hardware
 Setup
 -----
 
-.. image:: faucet_ovs_test.png
-
-.. _example:
+.. figure:: faucet_ovs_test.png
+    :alt: Open vSwitch testing diagram
+    :align: center
+    :width: 80%
 
 Faucet configuration file
 -------------------------

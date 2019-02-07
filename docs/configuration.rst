@@ -333,9 +333,10 @@ the others ignored.
 
 A basic network and configuration with two hosts may look like:
 
-.. image:: ./_static/images/8021X-conf-diagram.svg
+.. figure:: ./_static/images/8021X-conf-diagram.svg
     :alt: ACL network diagram
     :align: center
+    :width: 80%
 
 A brief overview of the current state of the implementation:
 
