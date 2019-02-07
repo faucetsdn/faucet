@@ -28,9 +28,10 @@ will be provisioned.
 
 See also canonical pipeline definitions in faucet_pipeline.py
 
-
-.. image:: /_static/images/faucet-pipeline.png
-
+.. figure:: ./_static/images/faucet-pipeline.png
+    :alt: Faucet OpenFlow Packet Processing Pipeline
+    :align: center
+    :width: 80%
 
 Table 0: PORT_ACL
 ~~~~~~~~~~~~~~~~~
@@ -117,7 +118,7 @@ Table 9: FLOOD
 Faucet Architecture
 -------------------
 
-.. figure:: /_static/images/faucet-architecture.svg
+.. figure:: ./_static/images/faucet-architecture.svg
     :alt: Faucet architecture diagram
     :align: center
     :width: 80%
