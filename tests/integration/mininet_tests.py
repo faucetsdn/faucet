@@ -2482,13 +2482,16 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
 
     def test_tabs_are_bad(self):
         self.ping_all_when_learned()
+        self.assertEqual(1, self.scrape_prometheus_var('faucet_config_valid', dpid=False))
         orig_conf = self._get_conf()
         self.force_faucet_reload(
             '\t'.join(('tabs', 'are', 'bad')))
+        self.assertEqual(0, self.scrape_prometheus_var('faucet_config_valid', dpid=False))
         self.ping_all_when_learned()
         self.reload_conf(
             orig_conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=False)
+        self.assertEqual(1, self.scrape_prometheus_var('faucet_config_valid', dpid=False))
 
     def test_port_change_vlan(self):
         first_host, second_host = self.net.hosts[:2]
