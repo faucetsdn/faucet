@@ -38,9 +38,9 @@ class FaucetMetrics(PromClient):
         self.faucet_config_reload_requests = self._counter(
             'faucet_config_reload_requests',
             'number of config reload requests', [])
-        self.faucet_config_valid = self._gauge(
-            'faucet_config_valid',
-            '1 configuration is valid, 0 if invalid', [])
+        self.faucet_config_load_error = self._gauge(
+            'faucet_config_load_error',
+            '1 if last attempt to re/load config failed', [])
         self.faucet_event_id = self._gauge(
             'faucet_event_id',
             'highest/most recent event ID to be sent', [])
