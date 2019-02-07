@@ -569,7 +569,7 @@ class Valve:
                 updated = tunnel_acl.update_tunnel_acl_conf(self.dp)
                 if updated:
                     self.dp.tunnel_updated_flags[tunnel_id] = True
-                    self.logger.info('%s updated tunnel %s' % (self.dp.name, tunnel_id))
+                    self.logger.info('updated tunnel %s' % tunnel_id)
 
     def get_tunnel_flowmods(self):
         """Returns flowmods for the tunnels"""
