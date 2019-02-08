@@ -92,8 +92,10 @@ class ValvesManager:
         try:
             new_config_hashes, new_dps = dp_parser(new_config_file, self.logname)
             self.config_watcher.update(new_config_file, new_config_hashes)
+            self.metrics.faucet_config_load_error.set(0)
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
+            self.metrics.faucet_config_load_error.set(1)
             return None
         return new_dps
 
