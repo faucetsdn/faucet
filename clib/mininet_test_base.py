@@ -1275,8 +1275,7 @@ dbs:
                 tcpdump_txt = self.tcpdump_helper(
                     host, tcpdump_filter, [partial(host.cmd, bcast_cmd)],
                     timeout=timeout, vflags='-vv', packets=1)
-                self.assertTrue(
-                    re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
+                self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
 
     def verify_unicast_not_looped(self):
         unicast_mac1 = '0e:00:00:00:00:02'
@@ -1305,8 +1304,7 @@ dbs:
                             host.defaultIntf(),
                             count=3)))],
                 timeout=5, vflags='-vv', packets=1)
-            self.assertTrue(
-                re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
+            self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
@@ -1476,8 +1474,7 @@ dbs:
                     partial(first_host.cmd, 'arp -d %s' % second_host.IP()),
                     partial(first_host.cmd, 'ping -c1 %s' % second_host.IP())],
                 packets=1)
-            self.assertTrue(
-                re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
+            self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
 
     def verify_ping_mirrored(self, first_host, second_host, mirror_host, both_mirrored=False):
         """Verify that unicast traffic to and from a mirrored port is mirrored."""
@@ -1584,6 +1581,9 @@ dbs:
             '%d packets received by filter' % expected_pings, tcpdump_txt),
                         msg=tcpdump_txt)
 
+    def tcpdump_rx_bytes(self, tcpdump_txt, packets=0):
+        return re.search(r'%u packets received by filter' % packets, tcpdump_txt)
+
     def verify_eapol_mirrored(self, first_host, second_host, mirror_host):
         self.ping((first_host, second_host))
         for host in (first_host, second_host):
@@ -1620,7 +1620,7 @@ dbs:
             [lambda: second_host.cmd(static_bogus_arp),
              lambda: second_host.cmd(curl_first_host),
              lambda: self.ping(hosts=(second_host, third_host))])
-        return not re.search('0 packets captured', tcpdump_txt)
+        return not self.tcpdump_rx_bytes(tcpdump_txt, 0)
 
     def verify_lldp_blocked(self, hosts=None):
         lldp_filter = 'ether proto 0x88cc'
@@ -1633,23 +1633,22 @@ dbs:
             send_lldp = '%s -L -o %s' % (
                 mininet_test_util.timeout_cmd(self.LADVD, 5),
                 other_host.defaultIntf())
+            lldp_filter = 'ether proto 0x88cc and ether src %s' % other_host.MAC()
             tcpdump_txt = self.tcpdump_helper(
                 first_host, lldp_filter,
                 [partial(other_host.cmd, ladvd_mkdir),
                  partial(other_host.cmd, send_lldp),
                  partial(other_host.cmd, send_lldp),
                  partial(other_host.cmd, send_lldp)],
-                timeout=5, packets=1)
-            if re.search(other_host.MAC(), tcpdump_txt):
-                return False
-        return True
+                timeout=10, packets=1)
+            self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
 
-    def is_cdp_blocked(self):
+    def verify_cdp_blocked(self):
         first_host, second_host = self.net.hosts[0:2]
-        cdp_filter = 'ether host 01:00:0c:cc:cc:cc and ether[20:2]==0x2000'
+        cdp_filter = 'ether dst host 01:00:0c:cc:cc:cc and ether[20:2]==0x2000'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
         send_cdp = '%s -C -o %s' % (
-            mininet_test_util.timeout_cmd(self.LADVD, 30),
+            mininet_test_util.timeout_cmd(self.LADVD, 5),
             second_host.defaultIntf())
         tcpdump_txt = self.tcpdump_helper(
             first_host,
@@ -1658,11 +1657,10 @@ dbs:
              partial(second_host.cmd, send_cdp),
              partial(second_host.cmd, send_cdp),
              partial(second_host.cmd, send_cdp)],
-            timeout=20, packets=5)
-
-        if re.search(second_host.MAC(), tcpdump_txt):
-            return False
-        return True
+            timeout=20, packets=1)
+        self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
+        self.wait_nonzero_packet_count_flow(
+            {'dl_dst': '01:00:0c:cc:cc:cc'}, self._FLOOD_TABLE, actions=[], ofa_match=False)
 
     def verify_faucet_reconf(self, timeout=10,
                              cold_start=True, change_expected=True,
