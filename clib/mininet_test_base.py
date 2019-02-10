@@ -1582,7 +1582,7 @@ dbs:
                         msg=tcpdump_txt)
 
     def tcpdump_rx_bytes(self, tcpdump_txt, packets=0):
-        return re.search(r'%u packets received by filter' % packets, tcpdump_txt)
+        return re.search(r'%u packets captured' % packets, tcpdump_txt)
 
     def verify_eapol_mirrored(self, first_host, second_host, mirror_host):
         self.ping((first_host, second_host))
