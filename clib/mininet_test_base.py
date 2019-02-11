@@ -1020,7 +1020,7 @@ dbs:
                 prom_line for prom_line in prom_lines if prom_line.startswith(var)]
         return prom_lines
 
-    _PROM_LINE_RE = re.compile(r'^(.+)\s+([0-9\.\-e]+)$')
+    _PROM_LINE_RE = re.compile(r'^(.+)\s+([0-9\.\-\+e]+)$')
 
     def parse_prom_var(self, prom_line):
         prom_line_match = self._PROM_LINE_RE.match(prom_line)
