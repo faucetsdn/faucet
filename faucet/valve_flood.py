@@ -54,6 +54,7 @@ class ValveFloodManager(ValveManagerBase):
         """Initialise the flood table with filtering flows."""
         ofmsgs = []
         for eth_dst, eth_dst_mask in (
+                (valve_packet.CISCO_CDP_VTP_UDLD_ADDRESS, valve_packet.mac_byte_mask(6)),
                 (valve_packet.CISCO_SPANNING_GROUP_ADDRESS, valve_packet.mac_byte_mask(6)),
                 (valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.BRIDGE_GROUP_MASK)):
             ofmsgs.append(self.flood_table.flowdrop(

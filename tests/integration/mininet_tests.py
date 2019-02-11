@@ -1716,7 +1716,7 @@ class FaucetUntaggedLLDPBlockedTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         self.ping_all_when_learned()
-        self.assertTrue(self.verify_lldp_blocked())
+        self.verify_lldp_blocked()
         # Verify 802.1x flood block triggered.
         self.wait_nonzero_packet_count_flow(
             {'dl_dst': '01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
@@ -1727,7 +1727,7 @@ class FaucetUntaggedCDPTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         self.ping_all_when_learned()
-        self.assertFalse(self.is_cdp_blocked())
+        self.verify_cdp_blocked()
 
 
 class FaucetTaggedAndUntaggedSameVlanTest(FaucetTest):
