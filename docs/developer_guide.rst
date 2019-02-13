@@ -73,7 +73,11 @@ Faucet Development Environment
 A common way of developing faucet is inside a `virtualenv <https://virtualenv.pypa.io>`_
 with an IDE such as `PyCharm <https://www.jetbrains.com/pycharm/>`_.
 
-Instructions on setting up PyCharm for developing faucet are as follows:
+Instructions on setting up PyCharm for developing faucet are below.
+
+If you would rather develop on the command line directly, a short summary
+of the command line setup for development in a ``venv`` with Python 3.6+
+is included after the PyCharm instructions.
 
 Create a new project in PyCharm
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -189,6 +193,76 @@ run configuration.
 Now that everything is setup you can run either the faucet controller, gauge
 controller and test suite from the ``Run`` menu.
 
+Developing with a Python 3.6+ venv
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you would prefer not to use PyCharm and are comfortable developing
+Python directly on the command line, these steps should get you started.
+They have been tested with Ubuntu 18.04 LTS, which includes Python 3.6,
+but similar instructions should work on other platforms that include
+Python 3.6+.
+
+Install C/C++ compilers and Python development environment packages:
+
+    .. code:: console
+
+       sudo apt-get install python3-venv libpython3.6-dev gcc g++ make
+
+If you have not already, clone the faucet git repository:
+
+    .. code:: console
+
+       git clone https://github.com/faucetsdn/faucet.git
+
+Then create a Python ``venv`` environment within it:
+
+    .. code:: console
+
+       cd faucet
+       python3 -m venv "${PWD}/venv"
+
+and activate that virtual environment for all following steps:
+
+       . venv/bin/activate
+
+Ensure that the faucet config is present within the virtual environment,
+copying from the default config files if required:
+
+    .. code:: console
+
+       mkdir -p "${VIRTUAL_ENV}/var/log/faucet"
+       mkdir -p "${VIRTUAL_ENV}/etc/faucet"
+
+       for FILE in {faucet,gauge}.yaml; do
+         if [ -f "${VIRTUAL_ENV}/etc/faucet/${FILE}" ]; then
+           echo "Preserving existing ${FILE}"
+         else
+           echo "Installing template ${FILE}"
+           cp -p "etc/faucet/${FILE}" "${VIRTUAL_ENV}/etc/faucet/${FILE}"
+         fi
+       done
+
+Then install the runtime and development requirements
+
+    .. code:: console
+
+       "${VIRTUAL_ENV}/bin/pip3" install wheel   # For bdist_wheel targets
+       "${VIRTUAL_ENV}/bin/pip3" install -r "${VIRTUAL_ENV}/../test-requirements.txt"
+
+Finally install faucet in an editable form:
+
+    .. code:: console
+
+       pip install -e .
+
+And then confirm that you can run the unit tests:
+
+    .. code:: console
+
+       pytest tests/unit/faucet/
+       pytest tests/unit/gauge/
+
+
 Makefile
 --------
 
@@ -207,6 +281,31 @@ To *directly install* faucet from the cloned git repo, you could use ``sudo pyth
 To *build pip installable package*, you could use ``python setup.py sdist`` command from the root of the directory.
 
 To *remove* any temporarily created directories and files, you could use ``rm -rf dist *egg-info`` command.
+
+
+Building Documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+The documentation is built with Sphinx, from within the ``docs`` directory.
+
+To be able to build the documentation ensure you have the relevant packages
+installed:
+
+    .. code:: console
+
+       cd docs
+       sudo apt-get install librsvg2-bin make
+       pip3 install -r requirements.txt
+
+and then you can build HTML documentation with:
+
+    .. code:: console
+
+       cd docs
+       make html
+
+and the documentation will be found under ``_build/html`` in the ``docs``
+directory.
 
 
 Key architectural concepts/assumptions:
