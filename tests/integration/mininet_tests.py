@@ -662,6 +662,9 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
 
 
 class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
+
+    RADIUS_PORT = 1880
+
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         port_labels1 = self.port_labels(port_no1)
