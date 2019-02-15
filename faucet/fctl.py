@@ -77,27 +77,61 @@ def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
             return None
     return metrics
 
-def report_label_match_metrics(report_metrics, metrics, display_labels=None,
-                               nonzero_only=False, delim='\t', label_matches=None):
-    """Text report on a list of Prometheus metrics."""
-    report_output = []
+def _get_samples_from_metrics(metrics, metric_name, label_matches,
+                                        nonzero_only=False):
+    result = []
     for metric in metrics:
-        if not report_metrics or metric.name in report_metrics:
+        if metric_name is None or metric.name == metric_name:
             for sample in metric.samples:
                 labels = sample.labels
                 value = sample.value
-                if (label_matches is None or
-                        (label_matches and set(
-                            label_matches.items()).issubset(set(labels.items())))):
+                if label_matches is None or set(label_matches.items()).issubset(
+                        set(labels.items())):
                     if nonzero_only and int(value) == 0:
                         continue
-                    sorted_labels = [
-                        (key, val) for key, val in sorted(labels.items())
-                        if not display_labels or key in display_labels]
-                    value = decode_value(metric.name, value)
-                    report_output.append(
-                        delim.join((metric.name, str(sorted_labels), str(value))))
-    report_output = '\n'.join(report_output)
+                    result.append(sample)
+    return result
+
+def get_samples(endpoints, metric_name, label_matches, nonzero_only=False,
+                retries=3):
+    """return a list of Prometheus samples for a given metric
+
+    Prometheus Sample objects are named tuples with the fields: name, labels,
+    value, timestamp, exemplar.
+
+    Arguments:
+        endpoints (list of strings): the prometheus endpoints to query
+        metric_name (string): the metric to retrieve
+        label_matches (dict): filters results by label
+        nonzero_only (bool): only return samples with non-zero values
+        retries (int): number of retries when querying
+    Returns:
+        list of Prometheus Sample objects"""
+    metrics = scrape_prometheus(endpoints, retries)
+    if metrics is None:
+        return None
+    return _get_samples_from_metrics(
+        metrics, metric_name, label_matches, nonzero_only)
+
+def report_label_match_metrics(report_metrics, metrics, display_labels=None,
+                               nonzero_only=False, delim='\t',
+                               label_matches=None):
+    """Text report on a list of Prometheus metrics."""
+    report_output = []
+    if report_metrics is None:
+        report_metrics = [None]
+    for metric_name in report_metrics:
+        for sample in _get_samples_from_metrics(
+                metrics, metric_name, label_matches, nonzero_only):
+            labels = sample.labels
+            value = sample.value
+            sorted_labels = [
+                (key, val) for key, val in sorted(labels.items())
+                if not display_labels or key in display_labels]
+            value = decode_value(metric_name, value)
+            report_output.append(
+                delim.join((metric_name, str(sorted_labels), str(value))))
+        report_output = '\n'.join(report_output)
     return report_output
 
 

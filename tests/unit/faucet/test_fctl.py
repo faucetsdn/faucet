@@ -145,11 +145,13 @@ class FctlClassTestCase(FctlTestCaseBase):
                 fctl.scrape_prometheus(
                     ['file://%s' % bad_input_file_name], err_output_file=err_output_file))
 
+    def write_prom_input_file(self, input_data):
+        with open(self.prom_input_file_name, 'w') as prom_input_file:
+            prom_input_file.write(input_data)
+
     def test_macs(self):
         """Test reporting of learned MACs."""
-        prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
-        with open(prom_input_file_name, 'w') as prom_input_file:
-            prom_input_file.write(self.learned_macs_prom())
+        self.write_prom_input_file(self.learned_macs_prom())
         (
             endpoints,
             report_metrics,
@@ -164,6 +166,13 @@ class FctlClassTestCase(FctlTestCaseBase):
             label_matches=label_matches,
             nonzero_only=nonzero_only)
         self.assertEqual(report_out, self.learned_macs_result())
+
+    def test_get_samples(self):
+        """Test querying with get_samples"""
+        self.write_prom_input_file(self.learned_macs_prom())
+        samples = fctl.get_samples(
+            ['file://' + self.prom_input_file_name], 'learned_macs', {})
+        self.assertEqual(samples[0].value, self.DEFAULT_VALUES['value'])
 
 
 if __name__ == "__main__":
