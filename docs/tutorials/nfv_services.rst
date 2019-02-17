@@ -517,3 +517,26 @@ should see that Zeek has seen the DNS queries and logged these.
     #types	time	string	addr	port	addr	port	enum	count	interval	string	count	string	count	string	count	string	bool	bool	bool	bool	count	vector[string]	vector[interval]	bool
     1547700236.794299	CsulWM1Px7fIyPpCVi	192.168.3.10	43428	192.168.3.1	53	udp	14288	0.006973does.it.work	1	C_INTERNET	16	TXT	0	NOERROR	T	F	T	T	2	TXT 3 yes	0.000000	F
     1547700379.311319	CZa11oBd3CgWBmgS8	192.168.3.11	45089	192.168.3.1	53	udp	64001	0.000336does.it.work	1	C_INTERNET	16	TXT	0	NOERROR	T	F	T	T	0	TXT 3 yes	0.000000	F
+
+You can also check if the traffic is being mirrored as expected using
+``tcpdump`` in the ``zeek`` network namespace:
+
+.. code:: console
+
+    as_ns zeek sudo tcpdump -i veth0 -n -l
+
+in one window, and then generating some more DNS traffic, eg:
+
+.. code:: console
+
+    as_ns host4 host -t txt does.it.work 192.168.3.1
+
+then you should see something like:
+
+.. code-block:: text
+    :caption: zeek namespace tcpdump output
+
+    tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+    listening on veth0, link-type EN10MB (Ethernet), capture size 262144 bytes
+    12:19:24.624244 IP 192.168.3.13.38174 > 192.168.3.1.53: 64571+ TXT? does.it.work. (30)
+    12:19:24.625109 IP 192.168.3.1.53 > 192.168.3.13.38174: 64571* 1/0/0 TXT "yes" (46)
