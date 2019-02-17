@@ -34,7 +34,7 @@ def main():
         rcv = sys.stdin.read()
         data = None
         try:
-            data = bytearray.fromhex(rcv) # pytype: disable=missing-parameter
+            data = bytearray.fromhex(rcv) # pytype: disable=missing-parameter, wrong-arg-types
         except (ValueError, TypeError):
             continue
 
