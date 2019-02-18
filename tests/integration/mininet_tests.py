@@ -351,8 +351,7 @@ network={
             self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels2, default=0))
 
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
-        wpa_ctrl_path = os.path.join(
-            self.tmpdir, '%s/%s-wpasupplicant' % (self.tmpdir, host.name))
+        wpa_ctrl_path = self.get_wpa_ctrl_path(host)
         self.start_wpasupplicant(
             host, conf,
             timeout=10, wpa_ctrl_socket_path=wpa_ctrl_path)
@@ -362,11 +361,7 @@ network={
             for _ in range(5):
                 if eap_state == 'SUCCESS':
                     break
-                status = host.cmdPrint('wpa_cli -p %s status' % wpa_ctrl_path)
-                for line in status.split("\n"):
-                    if line.startswith('EAP state'):
-                        eap_state = line.split('=')[1].strip()
-                        break
+                eap_state = self.get_wpa_status(host, wpa_ctrl_path)
                 time.sleep(1)
 
             self.assertEqual(eap_state, 'SUCCESS')
@@ -385,6 +380,19 @@ network={
 
             self.one_ipv4_ping(host, self.ping_host.IP(),
                                require_host_learned=False, expected_result=False)
+
+    def get_wpa_ctrl_path(self, host):
+        wpa_ctrl_path = os.path.join(
+            self.tmpdir, '%s/%s-wpasupplicant' % (self.tmpdir, host.name))
+        return wpa_ctrl_path
+
+    def get_wpa_status(self, host, wpa_ctrl_path):
+        status = host.cmdPrint('wpa_cli -p %s status' % wpa_ctrl_path)
+        for line in status.split("\n"):
+            if line.startswith('EAP state'):
+                return line.split('=')[1].strip()
+                break
+        return None
 
     def wait_for_radius(self, radius_log_path, timeout=10):
         for _ in range(timeout):
@@ -681,12 +689,14 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
 
         # Port down - Auth (expected fail)
         self.set_port_down(port_no1)
-        tcpdump_txt_1 = self.try_8021x(
+        self.try_8021x(
             self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
 
-        self.assertIn('0 packets captured', tcpdump_txt_1)
-        self.assertIn('0 packets dropped by kernel', tcpdump_txt_1)
+        self.one_ipv4_ping(self.eapol1_host, self.nfv_host,
+                           require_host_learned=False, expected_result=False)
 
+        self.assertNotEqual(self.get_wpa_status(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host)),
+                            'SUCCESS')
 
         # Port Up - Auth (expected pass)
         self.set_port_up(port_no1)
