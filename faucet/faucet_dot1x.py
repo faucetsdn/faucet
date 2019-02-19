@@ -172,7 +172,7 @@ class FaucetDot1x:
         Returns:
             list of flowmods
         """
-        self.dot1x_speaker.port_down(
+        self.dot1x_speaker.port_up(
             get_mac_str(self.dp_id_to_valve_index[dp_id], dot1x_port.number))
 
         return self.create_flow_pair(
