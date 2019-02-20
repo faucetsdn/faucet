@@ -1768,8 +1768,10 @@ dbs:
             remapped_port_no = self.port_map_rev.get(port_no, port_no)
         return remapped_port_no
 
-    def port_labels(self, port_no, dpid=None):
-        remapped_port_no = self.remap_portno(port_no, dpid)
+    def port_labels(self, port_no, dpid=None, remap=True):
+        remapped_port_no = port_no
+        if remap:
+            remapped_port_no = self.remap_portno(port_no, dpid)
         port_name = 'b%u' % remapped_port_no
         return {'port': port_name, 'port_description': port_name}
 
