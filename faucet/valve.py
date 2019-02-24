@@ -1173,6 +1173,13 @@ class Valve:
         for table in tables:
             table_id = table.table_id
             next_tables = [table_id_to_name[t] for t in table.next_tables]
+
+            # Also add table miss destination as possible next table, if set
+            if table.table_config.miss_goto:
+                miss_table = table.table_config.miss_goto
+                if miss_table not in next_tables:
+                    next_tables.append(miss_table)
+
             self._set_var(
                 'faucet_config_table_names',
                 table_id,
