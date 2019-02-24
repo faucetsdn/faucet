@@ -1165,12 +1165,19 @@ class Valve:
         """Update table names for configuration."""
         self.metrics.reset_dpid(self.dp.base_prom_labels())
         self._reset_dp_status()
-        for table in self.dp.tables.values():
+
+        # Map table ids to table names
+        tables = self.dp.tables.values()
+        table_id_to_name = { table.table_id: table.name for table in tables }
+
+        for table in tables:
             table_id = table.table_id
+            next_tables = [table_id_to_name[t] for t in table.next_tables]
             self._set_var(
                 'faucet_config_table_names',
                 table_id,
-                labels=dict(self.dp.base_prom_labels(), table_name=table.name))
+                labels=dict(self.dp.base_prom_labels(), table_name=table.name,
+                            next_tables=",".join(next_tables)))
 
     def update_metrics(self, now, updated_port=None, rate_limited=False):
         """Update Gauge/metrics."""
