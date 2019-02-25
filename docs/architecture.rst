@@ -22,23 +22,27 @@ See unit and integration tests for working configuration examples.
 Faucet Openflow Switch Pipeline
 -------------------------------
 
-This summarizes the global FAUCET pipeline; however, certain tables may be omitted (adjusting table IDs accordingly)
+This summarizes the global FAUCET pipeline; however, certain tables may be omitted
 if the functionality is not required. For example, if routing is not configured, neither FIB table nor the VIP table
 will be provisioned.
 
-See also canonical pipeline definitions in faucet_pipeline.py
+Usually the OpenFlow table IDs will be allocated sequentially for the
+tables actually used, so tables should be referenced by their name
+rather than the table ID in this diagram.
+
+See also canonical pipeline definitions in ``faucet_pipeline.py``.
 
 .. figure:: ./_static/images/faucet-pipeline.png
     :alt: Faucet OpenFlow Packet Processing Pipeline
     :align: center
     :width: 80%
 
-Table 0: PORT_ACL
-~~~~~~~~~~~~~~~~~
+PORT_ACL Table
+~~~~~~~~~~~~~~
 - Apply user supplied ACLs to a port and send to next table
 
-Table 1: VLAN
-~~~~~~~~~~~~~
+VLAN Table
+~~~~~~~~~~
 - Match fields: ``eth_dst, eth_type, in_port, vlan_vid``
 - Operations:
     - Drop unwanted L2 protocol traffic (and spoofing of Faucet's virtual MAC)
@@ -49,20 +53,20 @@ Table 1: VLAN
     - Interception of L2 control traffic (e.g. LACP, LLDP if configured).
     - Unknown traffic is dropped
 
-Table 2: VLAN_ACL
-~~~~~~~~~~~~~~~~~
+VLAN_ACL Table
+~~~~~~~~~~~~~~
 - Apply user supplied ACLs to a VLAN and send to next table
 
-Table 3: ETH_SRC
-~~~~~~~~~~~~~~~~
+ETH_SRC Table
+~~~~~~~~~~~~~
 - Match fields: ``eth_dst, eth_src, eth_type, in_port, vlan_vid``
 - Operations:
     - For IPv4/IPv6 traffic where Faucet is the next hop, send to IPV4_FIB or IPV6_FIB (route)
     - For known source MAC, send to ETH_DST (switch)
     - For unknown source MACs, copy header to controller via packet in (for learning) and send to FLOOD
 
-Table 4: IPV4_FIB
-~~~~~~~~~~~~~~~~~
+IPV4_FIB Table
+~~~~~~~~~~~~~~
 - Match fields: ``eth_type, ipv4_dst, vlan_vid``
 - Operations:
     - Route IPv4 traffic to a next-hop for each route we have learned
@@ -72,8 +76,8 @@ Table 4: IPV4_FIB
     - Send to ETH_DST/HAIRPIN/VIP table
     - Unknown traffic is dropped
 
-Table 5: IPV6_FIB
-~~~~~~~~~~~~~~~~~
+IPV6_FIB Table
+~~~~~~~~~~~~~~
 - Match fields: ``eth_type, ipv6_dst, vlan_vid``
 - Operations:
     - Route IPv4 traffic to a next-hop for each route we have learned
@@ -83,31 +87,31 @@ Table 5: IPV6_FIB
     - Send to ETH_DST/HAIRPIN/VIP table
     - Unknown traffic is dropped
 
-Table 6: VIP
-~~~~~~~~~~~~
+VIP Table
+~~~~~~~~~
 - Match fields: ``arp_tpa, eth_dst, eth_type, icmpv6_type, ip_proto``
 - Operations:
     - Send traffic destined for FAUCET VIPs including IPv4 ARP and IPv6 ND to the controller, and traffic for unresolved hosts in connected IP subnets (if proactively learning).
     - IPv4 ARP/IPv6 ND traffic may be flooded also (sent to FLOOD)
 
-Table 7: ETH_DST_HAIRPIN
-~~~~~~~~~~~~~~~~~~~~~~~~
+ETH_DST_HAIRPIN Table
+~~~~~~~~~~~~~~~~~~~~~
 - Exact match (no wildcards)
 - Match fields: ``eth_dst, in_port, vlan_vid``
 - Operations:
     - For destination MAC addresses we have learned output packet towards that host (popping VLAN frame if we are outputting on an untagged port), and where hairpinning is desired (e.g. routing between hosts on the same port, but different VLANS).
     - Unknown traffic is sent to ETH_DST table.
 
-Table 8: ETH_DST
-~~~~~~~~~~~~~~~~
+ETH_DST Table
+~~~~~~~~~~~~~
 - Exaxct match (no wildcards)
 - Match fields: ``eth_dst, vlan_vid``
 - Operations:
     - For destination MAC addresses we have learned output packet towards that host (popping VLAN frame if we are outputting on an untagged port)
     - Unknown traffic is sent to FLOOD table
 
-Table 9: FLOOD
-~~~~~~~~~~~~~~
+FLOOD Table
+~~~~~~~~~~~
 - Match fields: ``eth_dst, in_port, vlan_vid``
 - Operations:
     - Flood broadcast within VLAN

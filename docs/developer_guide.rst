@@ -145,6 +145,17 @@ Copy the sample gauge configuration file from
 ``/Dev/faucet/etc/faucet/gauge.yaml`` to ``/Dev/faucet/venv/etc/faucet/`` and
 edit this configuration file as necessary.
 
+If you are using the sample configuration "as is" you will also need to copy
+``/Dev/faucet/etc/faucet/acls.yaml`` to ``/Dev/faucet/venv/etc/faucet/`` as
+that included by the sample ``faucet.yaml`` file, and without it the sample
+``faucet.yaml`` file cannot be loaded.
+
+You may also wish to copy
+``/Dev/faucet/etc/faucet/ryu.conf`` to ``/Dev/faucet/venv/etc/faucet/`` as
+well so everything can be referenced in one directory inside the Python
+virtual environment.
+
+
 Configure PyCharm to run faucet and gauge
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -223,6 +234,8 @@ Then create a Python ``venv`` environment within it:
 
 and activate that virtual environment for all following steps:
 
+    .. code:: console
+
        . venv/bin/activate
 
 Ensure that the faucet config is present within the virtual environment,
@@ -233,7 +246,7 @@ copying from the default config files if required:
        mkdir -p "${VIRTUAL_ENV}/var/log/faucet"
        mkdir -p "${VIRTUAL_ENV}/etc/faucet"
 
-       for FILE in {faucet,gauge}.yaml; do
+       for FILE in {acls,faucet,gauge}.yaml ryu.conf; do
          if [ -f "${VIRTUAL_ENV}/etc/faucet/${FILE}" ]; then
            echo "Preserving existing ${FILE}"
          else
