@@ -30,6 +30,10 @@ done
 
 cd /faucet-src
 
+if [ -f /venv/bin/activate ]; then
+  source /venv/bin/activate
+fi
+
 if [ -d /var/tmp/pip-cache ] ; then
   echo Using pip cache
   cp -r /var/tmp/pip-cache /var/tmp/pip-cache-local
