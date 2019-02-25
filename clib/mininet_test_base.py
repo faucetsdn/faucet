@@ -1775,10 +1775,10 @@ dbs:
         port_name = 'b%u' % remapped_port_no
         return {'port': port_name, 'port_description': port_name}
 
-    def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10):
+    def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10, remap=True):
         for _ in range(timeout):
             port_status = self.scrape_prometheus_var(
-                'port_status', self.port_labels(port_no, dpid), default=None, dpid=dpid)
+                'port_status', self.port_labels(port_no, dpid, remap=remap), default=None, dpid=dpid)
             if port_status is not None and port_status == expected_status:
                 return
             self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
@@ -1786,7 +1786,7 @@ dbs:
         self.fail('dpid %x port %s status %s != expected %u' % (
             dpid, port_no, port_status, expected_status))
 
-    def set_port_status(self, dpid, port_no, status, wait):
+    def set_port_status(self, dpid, port_no, status, wait, remap):
         if dpid is None:
             dpid = self.dpid
         expected_status = 1
@@ -1794,13 +1794,13 @@ dbs:
             expected_status = 0
         self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
         if wait:
-            self.wait_port_status(int(dpid), port_no, status, expected_status)
+            self.wait_port_status(int(dpid), port_no, status, expected_status, remap=remap)
 
-    def set_port_down(self, port_no, dpid=None, wait=True):
-        self.set_port_status(dpid, port_no, OFPPC_PORT_DOWN, wait)
+    def set_port_down(self, port_no, dpid=None, wait=True, remap=True):
+        self.set_port_status(dpid, port_no, OFPPC_PORT_DOWN, wait, remap)
 
-    def set_port_up(self, port_no, dpid=None, wait=True):
-        self.set_port_status(dpid, port_no, 0, wait)
+    def set_port_up(self, port_no, dpid=None, wait=True, remap=True):
+        self.set_port_status(dpid, port_no, 0, wait, remap)
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=30):
         for _ in range(timeout):
@@ -1833,8 +1833,7 @@ dbs:
         self._FLOOD_TABLE = self._get_tableid('flood')
 
     def _dp_ports(self):
-        port_count = self.N_TAGGED + self.N_UNTAGGED
-        return list(sorted(self.port_map.values()))[:port_count]
+        return list(sorted(self.port_map.values()))
 
     def flap_port(self, port_no, flap_time=1):
         self.set_port_down(port_no)

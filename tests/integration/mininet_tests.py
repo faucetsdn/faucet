@@ -7071,7 +7071,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
     def one_stack_port_down(self, stack_port):
-        self.set_port_down(self.port_map['port_%u' % stack_port], self.dpid)
+        self.set_port_down(self.port_map['port_%u' % stack_port], self.dpid, remap=False)
         self.wait_for_stack_port_status(self.dpid, self.DP_NAME, stack_port, 2)
 
 
