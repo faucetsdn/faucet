@@ -4,10 +4,11 @@
 
 import logging
 import sys
+
+import afl
 from ryu.controller import dpset
 from faucet import faucet
 from faucet import faucet_experimental_api
-import afl
 import fake_packet
 
 ROUNDS = 1
@@ -29,7 +30,7 @@ def main():
             valve.dp.running = True
             valve.dp.dyn_finalized = state
 
-    while afl.loop(ROUNDS):
+    while afl.loop(ROUNDS): # pylint: disable=c-extension-no-member
         # receive input from afl
         rcv = sys.stdin.read()
         data = None
