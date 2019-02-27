@@ -6478,11 +6478,13 @@ class FaucetStringOfDPTest(FaucetTest):
                     dpid=dpid, table_id=self._FLOOD_TABLE, ofa_match=False)
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
-        labels = self.port_labels(port_no)
+        if dpid == self.hw_dpid:
+            port_no = self.port_map['port_%u' % port_no]
+        labels = self.port_labels(port_no, remap=False)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         for _ in range(timeout):
             actual_status = self.scrape_prometheus_var(
-                'port_stack_state', labels=labels, default=None)
+                'port_stack_state', labels=labels, default=None, dpid=False)
             if actual_status == status:
                 return
             time.sleep(1)
@@ -6494,9 +6496,10 @@ class FaucetStringOfDPTest(FaucetTest):
         port_base = self.NUM_HOSTS + 1
         for i, dpid in enumerate(self.dpids, start=1):
             dp_name = 'faucet-%u' % i
-            for port_no in range(self.topo.switch_to_switch_links):
+            for switch_port_no in range(self.topo.switch_to_switch_links):
+                port_no = port_base + switch_port_no
                 self.wait_for_stack_port_status(
-                    dpid, dp_name, port_base + port_no, 3) # up
+                    dpid, dp_name, port_no, 3) # up
 
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
@@ -7068,7 +7071,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
     def one_stack_port_down(self, stack_port):
-        self.set_port_down(stack_port, self.dpid)
+        self.set_port_down(self.port_map['port_%u' % stack_port], self.dpid, remap=False)
         self.wait_for_stack_port_status(self.dpid, self.DP_NAME, stack_port, 2)
 
 
