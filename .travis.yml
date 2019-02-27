@@ -35,7 +35,6 @@ jobs:
       python: 3.6
       env:
         - MATRIX_SHARD=unittest
-        - RUN_CODECHECKS=true
         - BUILD_DOCS=true
         - CODECOV_UPLOAD=true
     - stage: test

@@ -35,13 +35,6 @@ if [ "${MATRIX_SHARD}" == "unittest" ] ; then
     codecov || true
   fi
 
-  if [ "${RUN_CODECHECKS}" == "true" ] ; then
-    cd ./tests/codecheck
-    ./pylint.sh $PY_FILES_CHANGED
-    ./pytype.sh $PY_FILES_CHANGED
-    cd ../..
-  fi
-
   if [ "${BUILD_DOCS}" == "true" ] ; then
     cd ./docs
     make html || exit 1
@@ -91,7 +84,7 @@ sudo modprobe openvswitch
 sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   -v /var/local/lib/docker:/var/lib/docker \
   -v $HOME/.cache/pip:/var/tmp/pip-cache \
-  -e FAUCET_TESTS="-i ${FAUCET_TESTS}" \
+  -e FAUCET_TESTS="${FAUCET_TESTS}" \
   -e PY_FILES_CHANGED="${PY_FILES_CHANGED}" \
   -t ${FAUCET_TEST_IMG} || exit 1
 exit 0
