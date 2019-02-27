@@ -75,6 +75,7 @@ jobs:
     - stage: deploy
       language: python
       python: 3.6
+      script: skip
       deploy:
         provider: pypi
         user: faucet
