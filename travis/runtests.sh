@@ -37,8 +37,8 @@ if [ "${MATRIX_SHARD}" == "unittest" ] ; then
 
   if [ "${RUN_CODECHECKS}" == "true" ] ; then
     cd ./tests/codecheck
-    ./pylint.sh $PY_FILES_CHANGED
-    ./pytype.sh $PY_FILES_CHANGED
+    ./pylint.sh $PY_FILES_CHANGED || exit 1
+    ./pytype.sh $PY_FILES_CHANGED || exit 1
     cd ../..
   fi
 
