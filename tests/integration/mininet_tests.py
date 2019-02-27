@@ -402,162 +402,79 @@ network={
         else:
             self.fail('could not open radius log after %d seconds' % timeout)
 
-        with open(radius_log_path, 'r') as log:
-            while True:
-                line = log.readline()
-                if not line:
-                    time.sleep(1)
-                    continue
-                if line.strip() == 'Ready to process requests.':
-                    return
+        self.wait_until_matching_lines_from_file(r'.*Ready to process requests',
+                                                 radius_log_path)
 
     def start_freeradius(self):
-        with open('/etc/freeradius/users', 'w') as users:
-            users.write('''user   Cleartext-Password := "microphone"
-admin   Cleartext-Password:= "megaphone"''')
-
-        with open('/etc/freeradius/clients.conf', 'w') as clients:
-            clients.write('''client localhost {
-    ipaddr = 127.0.0.1
-    secret = SECRET
-}''')
-
         radius_log_path = '%s/radius.log' % self.tmpdir
-        shutil.copytree('/etc/freeradius/', '%s/freeradius' % self.tmpdir)
         os.system('chmod o+rx %s' % self.root_tmpdir)
-        os.system('chown -R root:freerad %s/freeradius/*' % self.tmpdir)
-        os.system('chown root:freerad %s/freeradius' % self.tmpdir)
 
-        with open('%s/freeradius/radiusd.conf' % self.tmpdir, 'w') as radiusd_file:
-            new_config = """prefix = /usr
-exec_prefix = /usr
-sysconfdir = /etc
-localstatedir = /var
-sbindir = ${exec_prefix}/sbin
-logdir = /var/log/freeradius
-raddbdir = /etc/freeradius
-radacctdir = ${logdir}/radacct
-name = freeradius
-confdir = ${raddbdir}
-run_dir = ${localstatedir}/run/${name}
-db_dir = ${raddbdir}
-libdir = /usr/lib/freeradius
-pidfile = ${run_dir}/${name}.pid
-user = freerad
-group = freerad
-max_request_time = 30
-cleanup_delay = 5
-max_requests = 1024
-listen {
+        listen_match = r'(listen {[^}]*(limit {[^}]*})[^}]*})|(listen {[^}]*})'
+        listen_config = """listen {
         type = auth
         ipaddr = *
         port = %s
 }
 listen {
+        type = acct
         ipaddr = *
         port = %d
-        type = acct
-}
-hostname_lookups = no
-allow_core_dumps = no
-regular_expressions     = yes
-extended_expressions    = yes
-log {
-        destination = files
-        file = ${logdir}/radius.log
-        syslog_facility = daemon
-        stripped_names = no
-        auth = no
-        auth_badpass = no
-        auth_goodpass = no
-}
-checkrad = ${sbindir}/checkrad
-security {
-        max_attributes = 200
-        reject_delay = 1
-        status_server = yes
-        allow_vulnerable_openssl = no
-}
-proxy_requests  = yes
-#$INCLUDE proxy.conf
-$INCLUDE clients.conf
-thread pool {
-        start_servers = 5
-        max_servers = 32
-        min_spare_servers = 3
-        max_spare_servers = 10
-        max_requests_per_server = 0
-}
-modules {
-        $INCLUDE ${confdir}/modules/
-        $INCLUDE eap.conf
-}
-instantiate {
-        exec
-        expr
-        expiration
-        logintime
+}""" % (self.RADIUS_PORT, self.RADIUS_PORT + 1)
 
-}
-$INCLUDE policy.conf
-$INCLUDE sites-enabled/
-""" % (self.RADIUS_PORT, self.RADIUS_PORT + 1)
-            radiusd_file.write(new_config)
+        if os.path.isfile('/etc/freeradius/users'):
+            # Assume we are dealing with freeradius 2 configuration
+            shutil.copytree('/etc/freeradius/', '%s/freeradius' % self.tmpdir)
+            users_path = '%s/freeradius/users' % self.tmpdir
 
-        with open('%s/freeradius/sites-enabled/inner-tunnel' % self.tmpdir, 'w') as innertunnel_file:
+            with open('%s/freeradius/radiusd.conf' % self.tmpdir, 'r+') as default_site:
+                default_config = default_site.read()
+                default_config = re.sub(listen_match, '', default_config)
+                default_site.seek(0)
+                default_site.write(default_config)
+                default_site.write(listen_config)
+                default_site.truncate()
+        else:
+            # Assume we are dealing with freeradius >=3 configuration
+            freerad_version = os.popen(
+                'freeradius -v | egrep -o -m 1 "Version ([0-9]\.[0.9])"').read().rstrip()
+            freerad_major_version = freerad_version.split(' ')[1]
+            shutil.copytree('/etc/freeradius/%s/' % freerad_major_version,
+                            '%s/freeradius' % self.tmpdir)
+            users_path = '%s/freeradius/mods-config/files/authorize' % self.tmpdir
 
-            new_config = '''server inner-tunnel {
-listen {
+            with open('%s/freeradius/sites-enabled/default' % self.tmpdir, 'r+') as default_site:
+                default_config = default_site.read()
+                default_config = re.sub(listen_match, '', default_config)
+                default_config = re.sub(r'server default {', 'server default {\n'+listen_config, default_config)
+                default_site.seek(0)
+                default_site.write(default_config)
+                default_site.truncate()
+
+        with open(users_path, 'w') as users_file:
+            users_file.write('''user   Cleartext-Password := "microphone"
+admin  Cleartext-Password := "megaphone"''')
+
+        with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
+            clients.write('''client localhost {
+    ipaddr = 127.0.0.1
+    secret = SECRET
+}''')
+
+        with open('%s/freeradius/sites-enabled/inner-tunnel' % self.tmpdir, 'r+') as innertunnel_site:
+            tunnel_config = innertunnel_site.read()
+            listen_config = """listen {
        ipaddr = 127.0.0.1
        port = %d
        type = auth
-}
-authorize {
-        chap
-        mschap
-        suffix
-        update control {
-               Proxy-To-Realm := LOCAL
-        }
-        eap {
-                ok = return
-        }
-        files
-        expiration
-        logintime
-        pap
-}
-authenticate {
-        Auth-Type PAP {
-                pap
-        }
-        Auth-Type CHAP {
-                chap
-        }
-        Auth-Type MS-CHAP {
-                mschap
-        }
-        unix
-        eap
-}
-session {
-        radutmp
-}
-post-auth {
-        Post-Auth-Type REJECT {
-                attr_filter.access_reject
-        }
-}
-pre-proxy {
-}
-post-proxy {
-        eap
-}
-} # inner-tunnel server block
-''' % (self.RADIUS_PORT + 2)
-            innertunnel_file.write(new_config)
+}""" % (self.RADIUS_PORT + 2)
+            tunnel_config = re.sub(listen_match, listen_config, tunnel_config)
+            innertunnel_site.seek(0)
+            innertunnel_site.write(tunnel_config)
+            innertunnel_site.truncate()
 
-        self.nfv_host.cmd('freeradius -sxx -l %s -d %s/freeradius &' % (radius_log_path, self.tmpdir))
+        os.system('chown -R root:freerad %s/freeradius/' % self.tmpdir)
+
+        self.nfv_host.cmd('freeradius -X -l %s -d %s/freeradius &' % (radius_log_path, self.tmpdir))
 
         self.freeradius_pid = self.nfv_host.lastPid
         self.wait_for_radius(radius_log_path)
@@ -815,7 +732,7 @@ class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
         # Confirm controller can see switch interface with traffic.
         ifconfig_output = self.net.controllers[0].cmd('ifconfig %s' % self.last_host_switch_intf)
         self.assertTrue(
-            re.search('(R|T)X packets:[1-9]', ifconfig_output),
+                re.search('(R|T)X packets[: ][1-9]', ifconfig_output),
             msg=ifconfig_output)
 
 
@@ -1125,7 +1042,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
                  'ip link set %s up' % macvlan2_intf)):
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
         self.quiet_commands(first_host, setup_cmds)
-        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
+        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_ipv4)
         self.one_ipv4_ping(first_host, second_host.IP())
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
@@ -4666,6 +4583,8 @@ vlans:
         first_host, second_host, mirror_host = self.net.hosts[:3]
         hosts = (first_host, second_host)
         required_ipds = set()
+        ipd_to_macvlan = {}
+
         for i, host in enumerate(hosts, start=1):
             setup_commands = []
             for vid in self.NEW_VIDS:
@@ -4675,6 +4594,7 @@ vlans:
                 ipg = self.netbase(vid, 254)
                 ipd = self.netbase(vid, 253)
                 required_ipds.add(str(ipd.ip))
+                ipd_to_macvlan[str(ipd.ip)] = macvlan_int
                 setup_commands.extend([
                     self.ip('link add link %s name %s type vlan id %u' % (
                         host.intf_root_name, vlan_int, vid)),
@@ -4685,14 +4605,7 @@ vlans:
                     self.ip('route add default via %s table %u' % (ipg.ip, vid)),
                     self.ip('rule add from %s table %u priority 100' % (ipa, vid)),
                     # stimulate learning attempts for down host.
-                    self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int)),
-                    self.fping(macvlan_int, ipd.ip)])
-                if self.STATIC_GW:
-                    setup_commands.append(
-                        self.ip('neigh add %s lladdr %s dev %s' % (ipg.ip, self.FAUCET_MAC, macvlan_int)))
-                else:
-                    setup_commands.append(
-                        self.fping(macvlan_int, ipg.ip))
+                    self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int))])
                 # next host routes via FAUCET for other host in same connected subnet
                 # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
@@ -4700,10 +4613,18 @@ vlans:
                         other_ip = self.netbase(vid, j)
                         setup_commands.append(
                             self.ip('route add %s via %s table %u' % (other_ip, ipg.ip, vid)))
+                if self.STATIC_GW:
+                    setup_commands.append(
+                        self.ip('neigh add %s lladdr %s dev %s' % (ipg.ip, self.FAUCET_MAC, macvlan_int)))
+                else:
+                    setup_commands.append(
+                        self.fping(macvlan_int, ipg.ip))
+                setup_commands.append(self.fping(macvlan_int, ipd.ip))
+
             self.quiet_commands(host, setup_commands)
 
         # verify drop rules present for down hosts
-        for _ in range(5):
+        for _ in range(10):
             drop_rules = self.get_matching_flows_on_dpid(
                 self.dpid, {'dl_type': self.ETH_TYPE, 'dl_vlan': str(self.GLOBAL_VID)},
                 table_id=self.fib_table(), actions=[])
@@ -4718,6 +4639,8 @@ vlans:
                         required_ipds.remove(ipd)
                 if not required_ipds:
                     break
+                for ipd in required_ipds:
+                    host.cmd(self.fping(ipd_to_macvlan[ipd], ipd))
             time.sleep(1)
         self.assertFalse(required_ipds, msg='no drop rules for %s' % required_ipds)
 

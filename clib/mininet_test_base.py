@@ -1344,19 +1344,24 @@ dbs:
             msg=fping_out)
 
     def verify_learn_counters(self, vlan, ports, verify_neighbors=False):
-        vlan_hosts_learned = self.scrape_prometheus_var(
-            'vlan_hosts_learned',
-            {'vlan': str(vlan)})
-        port_vlan_hosts_learned = 0
-        prom_macs_learned = 0
-        for port in ports:
-            port_no = self.port_map['port_%u' % port]
-            labels = {'vlan': str(vlan)}
-            labels.update(self.port_labels(port_no))
-            port_vlan_hosts_learned += self.scrape_prometheus_var(
-                'port_vlan_hosts_learned', labels, default=0)
-            prom_macs_learned += len(self.prom_macs_learned(
-                vlan=vlan, port=port_no))
+        for _ in range(3):
+            vlan_hosts_learned = self.scrape_prometheus_var(
+                'vlan_hosts_learned',
+                {'vlan': str(vlan)})
+            port_vlan_hosts_learned = 0
+            prom_macs_learned = 0
+            for port in ports:
+                port_no = self.port_map['port_%u' % port]
+                labels = {'vlan': str(vlan)}
+                labels.update(self.port_labels(port_no))
+                port_vlan_hosts_learned += self.scrape_prometheus_var(
+                    'port_vlan_hosts_learned', labels, default=0)
+                prom_macs_learned += len(self.prom_macs_learned(
+                    vlan=vlan, port=port_no))
+            if (vlan_hosts_learned == port_vlan_hosts_learned and
+                    vlan_hosts_learned == prom_macs_learned):
+                break
+            time.sleep(1)
         self.assertEqual(vlan_hosts_learned, port_vlan_hosts_learned)
         self.assertEqual(vlan_hosts_learned, prom_macs_learned)
         if verify_neighbors:
@@ -1882,18 +1887,14 @@ dbs:
             mac = ''
         else:
             mac = 'address %s' % mac
-        self.assertEqual(
-            '',
-            host.cmd('ip link add link %s %s %s type macvlan mode %s' % (
-                host.defaultIntf(), mac, macvlan_intf, mode)))
-        self.assertEqual(
-            '',
-            host.cmd('ip link set dev %s up' % macvlan_intf))
+        add_cmds = [
+            'ip link add %s link %s %s type macvlan mode %s' % (
+                macvlan_intf, host.defaultIntf(), mac, mode),
+            'ip link set dev %s up' % macvlan_intf]
         if ipa:
-            self.assertEqual(
-                '',
-                host.cmd('ip address add %s/%s brd + dev %s' % (
-                    ipa, ipm, macvlan_intf)))
+            add_cmds.append(
+                'ip address add %s/%s brd + dev %s' % (ipa, ipm, macvlan_intf))
+        self.quiet_commands(host, add_cmds)
 
     def del_macvlan(self, host, macvlan_intf):
         self.assertEqual(
