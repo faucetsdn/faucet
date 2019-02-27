@@ -20,6 +20,8 @@ import time
 import unittest
 import yaml
 
+import netaddr
+import netifaces
 import requests
 
 from mininet.link import TCLink # pylint: disable=import-error
@@ -27,8 +29,6 @@ from mininet.log import error, output # pylint: disable=import-error
 from mininet.net import Mininet # pylint: disable=import-error
 from mininet.node import Intf # pylint: disable=import-error
 from mininet.util import dumpNodeConnections, pmonitor # pylint: disable=import-error
-
-import netifaces
 
 from clib import mininet_test_util
 from clib import mininet_test_topo
@@ -769,8 +769,30 @@ dbs:
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.log' % dpid)
         match = to_old_match(match)
         match_set = None
+        exact_mask_match_set = None
         if match:
+            # Different OFAs handle matches with an exact mask, different.
+            # Most (including OVS) drop the redundant exact mask. But others
+            # include an exact mask. So we must handle both.
+            mac_exact = str(netaddr.EUI(2**48-1)).replace('-', ':').lower()
             match_set = frozenset(match.items())
+            exact_mask_match = {}
+            for field, value in match.items():
+                if isinstance(value, str) and not '/' in value:
+                    value_mac = None
+                    value_ip = None
+                    try:
+                        value_mac = netaddr.EUI(value)
+                        value_ip = ipaddress.ip_address(value)
+                    except (ValueError, netaddr.core.AddrFormatError):
+                        pass
+                    if value_mac:
+                        value = '/'.join((value, mac_exact))
+                    elif value_ip:
+                        ip_exact = str(ipaddress.ip_address(2**value_ip.max_prefixlen-1))
+                        value = '/'.join((value, ip_exact))
+                exact_mask_match[field] = value
+            exact_mask_match_set = frozenset(exact_mask_match.items())
         actions_set = None
         if actions:
             actions_set = frozenset(actions)
@@ -803,7 +825,7 @@ dbs:
                             continue
                 if not ofa_match and match is not None:
                     flow_match_set = frozenset(flow_dict['match'].items())
-                    if not match_set.issubset(flow_match_set): # pytype: disable=attribute-error
+                    if not (match_set.issubset(flow_match_set) or exact_mask_match_set.issubset(flow_match_set)): # pytype: disable=attribute-error
                         continue
                 flow_dicts.append(flow_dict)
             if flow_dicts:
