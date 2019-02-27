@@ -732,7 +732,7 @@ class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
         # Confirm controller can see switch interface with traffic.
         ifconfig_output = self.net.controllers[0].cmd('ifconfig %s' % self.last_host_switch_intf)
         self.assertTrue(
-            re.search('(R|T)X packets:[1-9]', ifconfig_output),
+                re.search('(R|T)X packets[: ][1-9]', ifconfig_output),
             msg=ifconfig_output)
 
 
@@ -1042,7 +1042,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
                  'ip link set %s up' % macvlan2_intf)):
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
         self.quiet_commands(first_host, setup_cmds)
-        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
+        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_ipv4)
         self.one_ipv4_ping(first_host, second_host.IP())
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
@@ -4583,6 +4583,8 @@ vlans:
         first_host, second_host, mirror_host = self.net.hosts[:3]
         hosts = (first_host, second_host)
         required_ipds = set()
+        ipd_to_macvlan = {}
+
         for i, host in enumerate(hosts, start=1):
             setup_commands = []
             for vid in self.NEW_VIDS:
@@ -4592,6 +4594,7 @@ vlans:
                 ipg = self.netbase(vid, 254)
                 ipd = self.netbase(vid, 253)
                 required_ipds.add(str(ipd.ip))
+                ipd_to_macvlan[str(ipd.ip)] = macvlan_int
                 setup_commands.extend([
                     self.ip('link add link %s name %s type vlan id %u' % (
                         host.intf_root_name, vlan_int, vid)),
@@ -4602,14 +4605,7 @@ vlans:
                     self.ip('route add default via %s table %u' % (ipg.ip, vid)),
                     self.ip('rule add from %s table %u priority 100' % (ipa, vid)),
                     # stimulate learning attempts for down host.
-                    self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int)),
-                    self.fping(macvlan_int, ipd.ip)])
-                if self.STATIC_GW:
-                    setup_commands.append(
-                        self.ip('neigh add %s lladdr %s dev %s' % (ipg.ip, self.FAUCET_MAC, macvlan_int)))
-                else:
-                    setup_commands.append(
-                        self.fping(macvlan_int, ipg.ip))
+                    self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int))])
                 # next host routes via FAUCET for other host in same connected subnet
                 # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
@@ -4617,10 +4613,18 @@ vlans:
                         other_ip = self.netbase(vid, j)
                         setup_commands.append(
                             self.ip('route add %s via %s table %u' % (other_ip, ipg.ip, vid)))
+                if self.STATIC_GW:
+                    setup_commands.append(
+                        self.ip('neigh add %s lladdr %s dev %s' % (ipg.ip, self.FAUCET_MAC, macvlan_int)))
+                else:
+                    setup_commands.append(
+                        self.fping(macvlan_int, ipg.ip))
+                setup_commands.append(self.fping(macvlan_int, ipd.ip))
+
             self.quiet_commands(host, setup_commands)
 
         # verify drop rules present for down hosts
-        for _ in range(5):
+        for _ in range(10):
             drop_rules = self.get_matching_flows_on_dpid(
                 self.dpid, {'dl_type': self.ETH_TYPE, 'dl_vlan': str(self.GLOBAL_VID)},
                 table_id=self.fib_table(), actions=[])
@@ -4635,6 +4639,8 @@ vlans:
                         required_ipds.remove(ipd)
                 if not required_ipds:
                     break
+                for ipd in required_ipds:
+                    host.cmd(self.fping(ipd_to_macvlan[ipd], ipd))
             time.sleep(1)
         self.assertFalse(required_ipds, msg='no drop rules for %s' % required_ipds)
 
