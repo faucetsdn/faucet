@@ -778,7 +778,7 @@ dbs:
             match_set = frozenset(match.items())
             exact_mask_match = {}
             for field, value in match.items():
-                if not '/' in value:
+                if isinstance(value, str) and not '/' in value:
                     value_mac = None
                     value_ip = None
                     try:
