@@ -187,17 +187,76 @@ class FaucetTestBase(unittest.TestCase):
     def _set_vars(self):
         self._set_prom_port()
 
-    def _write_faucet_config(self):
+    def _read_yaml(self, yaml_path):
+        with open(yaml_path) as yaml_file:
+            content = yaml.safe_load(yaml_file.read())
+        return content
+
+    def _get_faucet_conf(self):
+        return self._read_yaml(self.faucet_config_path)
+
+    def _remap_ports_conf(self, yaml_conf):
+        """Automatically remap port numbers in config for hardware, and add name/description."""
+        if 'dps' not in yaml_conf:
+            return yaml_conf
+        yaml_conf_remap = copy.deepcopy(yaml_conf)
+        for dp_key, dp_yaml in yaml_conf['dps'].items():
+            if 'interfaces' not in dp_yaml:
+                continue
+            interfaces_yaml = dp_yaml['interfaces']
+            remap_interfaces_yaml = {}
+            for intf_key, intf_val in interfaces_yaml.items():
+                if self.hw_dpid and int(self.hw_dpid) == dp_yaml['dp_id']:
+                    if type(intf_key) == int:
+                        intf_key = self.port_map.get('port_%u' % intf_key, intf_key)
+                        port_no = intf_key
+                    intf_number = intf_val.get('number', None)
+                    if type(intf_number) == int:
+                        intf_number = self.port_map.get('port_%u' % intf_number, intf_number)
+                        port_no = intf_number
+                        intf_val['number'] = intf_number
+                    assert port_no in self.port_map.values(), '%u not in known hw ports' % port_no
+                if type(intf_key) == int:
+                    port_no = intf_key
+                else:
+                    port_no = intf_val.get('number', None)
+                assert port_no is not None, '%s: %s' % (intf_key, intf_val)
+                intf_val['name'] = 'b%u' % port_no
+                intf_val['description'] = intf_val['name']
+                remap_interfaces_yaml[intf_key] = intf_val
+            yaml_conf_remap['dps'][dp_key]['interfaces'] = remap_interfaces_yaml
+        return yaml_conf_remap
+
+    def _write_yaml_conf(self, yaml_path, yaml_conf):
+        assert type(yaml_conf) == dict
+        new_conf_str = yaml.dump(yaml_conf).encode()
+        with tempfile.NamedTemporaryFile(
+                prefix=os.path.basename(yaml_path),
+                dir=os.path.dirname(yaml_path),
+                delete=False) as conf_file_tmp:
+            conf_file_tmp_name = conf_file_tmp.name
+            conf_file_tmp.write(new_conf_str)
+        with open(conf_file_tmp_name, 'rb') as conf_file_tmp:
+            conf_file_tmp_str = conf_file_tmp.read()
+            assert new_conf_str == conf_file_tmp_str
+        if os.path.exists(yaml_path):
+            shutil.copyfile(yaml_path, '%s.%f' % (yaml_path, time.time()))
+        os.rename(conf_file_tmp_name, yaml_path)
+
+    def _init_faucet_config(self):
         faucet_config = '\n'.join((
             self.get_config_header(
-                self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
-            self.CONFIG % self.port_map))
-        if self.config_ports:
-            faucet_config = faucet_config % self.config_ports
-        with open(self.faucet_config_path, 'w') as faucet_config_file:
-            faucet_config_file.write(faucet_config)
+                self.CONFIG_GLOBAL,
+                self.debug_log_path, self.dpid, self.hardware),
+            self.CONFIG))
+        config_vars = {}
+        for config_var in (self.config_ports, self.port_map):
+            config_vars.update(config_var)
+        faucet_config = faucet_config % config_vars
+        yaml_conf = self._remap_ports_conf(yaml.safe_load(faucet_config))
+        self._write_yaml_conf(self.faucet_config_path, yaml_conf)
 
-    def _write_gauge_config(self):
+    def _init_gauge_config(self):
         gauge_config = self.get_gauge_config(
             self.faucet_config_path,
             self.monitor_stats_file,
@@ -205,8 +264,7 @@ class FaucetTestBase(unittest.TestCase):
             self.monitor_flow_table_file)
         if self.config_ports:
             gauge_config = gauge_config % self.config_ports
-        with open(self.gauge_config_path, 'w') as gauge_config_file:
-            gauge_config_file.write(gauge_config)
+        self._write_yaml_conf(self.gauge_config_path, yaml.safe_load(gauge_config))
 
     def _test_name(self):
         return mininet_test_util.flat_test_name(self.id())
@@ -427,7 +485,7 @@ class FaucetTestBase(unittest.TestCase):
                     test_name=self._test_name()))
             if self.RUN_GAUGE:
                 self._allocate_gauge_ports()
-                self._write_gauge_config()
+                self._init_gauge_config()
                 self.gauge_controller = mininet_test_topo.Gauge(
                     name='gauge', tmpdir=self.tmpdir,
                     env=self.env['gauge'],
@@ -437,7 +495,7 @@ class FaucetTestBase(unittest.TestCase):
                     ca_certs=self.ca_certs,
                     port=self.gauge_of_port)
                 self.net.addController(self.gauge_controller)
-            self._write_faucet_config()
+            self._init_faucet_config()
             self.net.start()
             self._wait_load()
             last_error_txt = self._start_check()
@@ -524,9 +582,8 @@ class FaucetTestBase(unittest.TestCase):
         return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
 
     def _get_ofchannel_logs(self):
-        with open(self.env['faucet']['FAUCET_CONFIG']) as config_file:
-            config = yaml.safe_load(config_file)
         ofchannel_logs = []
+        config = self._get_faucet_conf()
         for dp_name, dp_config in config['dps'].items():
             if 'ofchannel_log' in dp_config:
                 debug_log = dp_config['ofchannel_log']
@@ -894,6 +951,21 @@ dbs:
                 ofa_match=ofa_match),
             msg=('match: %s table_id: %u actions: %s' % (match, table_id, actions)))
 
+    def wait_until_no_matching_flow(self, match, table_id, timeout=10,
+                                    actions=None, hard_timeout=0, cookie=None,
+                                    ofa_match=True, dpid=None):
+        """Wait for a flow not to be present."""
+        if dpid is None:
+            dpid = self.dpid
+        for _ in range(timeout):
+            matching_flow = self.matching_flow_present_on_dpid(
+                dpid, match, table_id, timeout=1,
+                actions=actions, hard_timeout=hard_timeout, cookie=cookie,
+                ofa_match=ofa_match)
+            if not matching_flow:
+                return
+        self.fail('%s present' % matching_flow)
+
     def wait_until_controller_flow(self):
         self.wait_until_matching_flow(
             None, table_id=self._ETH_SRC_TABLE, actions=['OUTPUT:CONTROLLER'])
@@ -1153,17 +1225,8 @@ dbs:
 
         def _update_conf(conf_path, yaml_conf):
             if yaml_conf:
-                new_conf_str = yaml.dump(yaml_conf).encode()
-                with tempfile.NamedTemporaryFile(
-                        prefix=os.path.basename(conf_path),
-                        dir=os.path.dirname(conf_path),
-                        delete=False) as config_file_tmp:
-                    config_file_tmp_name = config_file_tmp.name
-                    config_file_tmp.write(new_conf_str)
-                with open(config_file_tmp_name, 'rb') as config_file_tmp:
-                    assert new_conf_str == config_file_tmp.read()
-                shutil.copyfile(conf_path, '%s.%f' % (conf_path, time.time()))
-                os.rename(config_file_tmp_name, conf_path)
+                yaml_conf = self._remap_ports_conf(yaml_conf)
+                self._write_yaml_conf(conf_path, yaml_conf)
 
         update_conf_func = partial(_update_conf, conf_path, yaml_conf)
         verify_faucet_reconf_func = partial(
@@ -1195,8 +1258,7 @@ dbs:
         update_conf_func()
 
     def coldstart_conf(self, hup=True):
-        with open(self.faucet_config_path) as orig_conf_file:
-            orig_conf = yaml.safe_load(orig_conf_file.read())
+        orig_conf = self._get_faucet_conf()
         cold_start_conf = copy.deepcopy(orig_conf)
         used_vids = set()
         for vlan_name, vlan_conf in cold_start_conf['vlans'].items():
@@ -1214,16 +1276,11 @@ dbs:
                 conf, self.faucet_config_path,
                 restart=True, cold_start=True, hup=hup)
 
-    def _get_conf(self):
-        with open(self.faucet_config_path) as config_file:
-            config = yaml.safe_load(config_file.read())
-        return config
-
     def add_port_config(self, port, port_config, conf=None,
                         restart=True, cold_start=False,
                         hup=True):
         if conf is None:
-            conf = self._get_conf()
+            conf = self._get_faucet_conf()
         conf['dps'][self.DP_NAME]['interfaces'][port] = port_config
         self.reload_conf(
             conf, self.faucet_config_path,
@@ -1233,7 +1290,7 @@ dbs:
                            conf=None, restart=True, cold_start=False,
                            hup=True):
         if conf is None:
-            conf = self._get_conf()
+            conf = self._get_faucet_conf()
         if config_name is None:
             del conf['dps'][self.DP_NAME]['interfaces'][port]
         else:
@@ -1246,7 +1303,7 @@ dbs:
                            conf=None, restart=True, cold_start=False,
                            hup=True):
         if conf is None:
-            conf = self._get_conf()
+            conf = self._get_faucet_conf()
         conf['vlans'][vlan][config_name] = config_value
         self.reload_conf(
             conf, self.faucet_config_path,
@@ -1731,8 +1788,8 @@ dbs:
         self.wait_dp_status(1)
 
     def force_faucet_reload(self, new_config):
-        """Force FAUCET to reload by adding new line to config file."""
-        with open(self.env['faucet']['FAUCET_CONFIG'], 'a') as config_file:
+        """Force FAUCET to reload."""
+        with open(self.faucet_config_path, 'w') as config_file:
             config_file.write(new_config)
         self.verify_faucet_reconf(change_expected=False)
 
@@ -1789,23 +1846,14 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
-    def remap_portno(self, port_no, dpid):
-        remapped_port_no = port_no
-        if dpid is None or dpid == int(self.dpid):
-            remapped_port_no = self.port_map_rev.get(port_no, port_no)
-        return remapped_port_no
-
-    def port_labels(self, port_no, dpid=None, remap=True):
-        remapped_port_no = port_no
-        if remap:
-            remapped_port_no = self.remap_portno(port_no, dpid)
-        port_name = 'b%u' % remapped_port_no
+    def port_labels(self, port_no):
+        port_name = 'b%u' % port_no
         return {'port': port_name, 'port_description': port_name}
 
-    def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10, remap=True):
+    def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10):
         for _ in range(timeout):
             port_status = self.scrape_prometheus_var(
-                'port_status', self.port_labels(port_no, dpid, remap=remap), default=None, dpid=dpid)
+                'port_status', self.port_labels(port_no), default=None, dpid=dpid)
             if port_status is not None and port_status == expected_status:
                 return
             self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
@@ -1813,7 +1861,7 @@ dbs:
         self.fail('dpid %x port %s status %s != expected %u' % (
             dpid, port_no, port_status, expected_status))
 
-    def set_port_status(self, dpid, port_no, status, wait, remap):
+    def set_port_status(self, dpid, port_no, status, wait):
         if dpid is None:
             dpid = self.dpid
         expected_status = 1
@@ -1821,13 +1869,13 @@ dbs:
             expected_status = 0
         self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
         if wait:
-            self.wait_port_status(int(dpid), port_no, status, expected_status, remap=remap)
+            self.wait_port_status(int(dpid), port_no, status, expected_status)
 
-    def set_port_down(self, port_no, dpid=None, wait=True, remap=True):
-        self.set_port_status(dpid, port_no, OFPPC_PORT_DOWN, wait, remap)
+    def set_port_down(self, port_no, dpid=None, wait=True):
+        self.set_port_status(dpid, port_no, OFPPC_PORT_DOWN, wait)
 
-    def set_port_up(self, port_no, dpid=None, wait=True, remap=True):
-        self.set_port_status(dpid, port_no, 0, wait, remap)
+    def set_port_up(self, port_no, dpid=None, wait=True):
+        self.set_port_status(dpid, port_no, 0, wait)
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=30):
         for _ in range(timeout):
@@ -1897,18 +1945,16 @@ dbs:
         self.quiet_commands(host, add_cmds)
 
     def del_macvlan(self, host, macvlan_intf):
-        self.assertEqual(
-            '',
+        self.quiet_commands(host, [
             host.cmd('ip link del link %s %s' % (
-                host.defaultIntf(), macvlan_intf)))
+                host.defaultIntf(), macvlan_intf))])
 
     def add_host_ipv6_address(self, host, ip_v6, intf=None):
         """Add an IPv6 address to a Mininet host."""
         if intf is None:
             intf = host.intf()
-        self.assertEqual(
-            '',
-            host.cmd('ip -6 addr add %s dev %s' % (ip_v6, intf)))
+        self.quiet_commands(host, [
+            host.cmd('ip -6 addr add %s dev %s' % (ip_v6, intf))])
 
     def add_host_route(self, host, ip_dst, ip_gw):
         """Add an IP route to a Mininet host."""

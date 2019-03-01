@@ -157,6 +157,7 @@ class ValvesManager:
             self._notify({'CONFIG_CHANGE': {'success': result}})
         else:
             self.logger.info('configuration is unchanged, not reloading')
+            self.metrics.faucet_config_load_error.set(0)
         self.metrics.faucet_config_reload_requests.inc() # pylint: disable=no-member
 
     def update_metrics(self, now):
