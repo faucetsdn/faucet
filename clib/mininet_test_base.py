@@ -1685,11 +1685,12 @@ dbs:
             'wpa_supplicant -c%s -Dwired -i%s -d' % (
                 tmp_eap_conf,
                 first_host.defaultIntf().name),
-            5)
+            10)
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
                 partial(first_host.cmd, eap_conf_cmd),
-                partial(first_host.cmd, wpa_supplicant_cmd)])
+                partial(first_host.cmd, wpa_supplicant_cmd)],
+            timeout=10, packets=1)
         self.assertTrue(
             re.search('01:80:c2:00:00:03, ethertype EAPOL', tcpdump_txt),
             msg=tcpdump_txt)
