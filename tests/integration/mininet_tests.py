@@ -261,7 +261,15 @@ network={
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
                 lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
-            timeout=10, vflags='-vvv', packets=10)
+            timeout=15, vflags='-vvv', packets=10)
+        return tcpdump_txt
+
+    def retry_8021x(self, host, port_num, conf, and_logoff=False, retries=2):
+        for _ in range(retries):
+            tcpdump_txt = self.try_8021x(host, port_num, conf, and_logoff)
+            if 'Success' in tcpdump_txt:
+                return tcpdump_txt
+            time.sleep(1)
         return tcpdump_txt
 
     def test_untagged(self):
@@ -532,7 +540,7 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
         self.wait_8021x_flows(port_no1)
 
         # When the port goes down, and up the host should not be authenticated anymore.
-        tcpdump_txt_1 = self.try_8021x(
+        tcpdump_txt_1 = self.retry_8021x(
             self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
         self.assertIn('Success', tcpdump_txt_1)
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
@@ -562,7 +570,7 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
 
             self.set_port_up(port_no1)
             self.wait_8021x_flows(port_no1)
-            tcpdump_txt_1 = self.try_8021x(
+            tcpdump_txt_1 = self.retry_8021x(
                 self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
             self.assertIn('Success', tcpdump_txt_1)
             self.assertIn('logoff', tcpdump_txt_1)
@@ -6022,7 +6030,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             lacp=True)
         self.start_net()
 
-    def wait_for_lacp_status(self, port_no, wanted_status, dpid, dp_name, timeout=15):
+    def wait_for_lacp_status(self, port_no, wanted_status, dpid, dp_name, timeout=20):
         labels = self.port_labels(port_no)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         for _ in range(timeout):
