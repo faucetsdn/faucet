@@ -202,15 +202,16 @@ def _config_parser_v2(config_file, logname):
     if not config_parser_util.dp_include(
             config_hashes, config_path, logname, top_confs):
         raise InvalidConfigError('Error found while loading config file: %s' % config_path)
-    elif not top_confs['dps']:
+
+    if not top_confs['dps']:
         raise InvalidConfigError('DPs not configured in file: %s' % config_path)
-    else:
-        dps = _dp_parser_v2(
-            top_confs['acls'],
-            top_confs['dps'],
-            top_confs['meters'],
-            top_confs['routers'],
-            top_confs['vlans'])
+
+    dps = _dp_parser_v2(
+        top_confs['acls'],
+        top_confs['dps'],
+        top_confs['meters'],
+        top_confs['routers'],
+        top_confs['vlans'])
     return (config_hashes, dps)
 
 
