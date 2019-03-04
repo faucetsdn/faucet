@@ -834,7 +834,8 @@ class Valve:
         port.dyn_last_lacp_pkt = None
         port.dyn_lacp_updated_time = None
         if not cold_start:
-            ofmsgs.extend(self._port_delete_flows_state(port))
+            # Expire all hosts on this port.
+            ofmsgs.extend(self.host_manager.del_port(port))
             for vlan in port.vlans():
                 ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         vlan_table = self.dp.tables['vlan']
