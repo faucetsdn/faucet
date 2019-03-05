@@ -352,7 +352,10 @@ network={
                     os.kill(int(pid), 15)
                 except (ValueError, ProcessLookupError):
                     pass
-            shutil.rmtree(wpa_ctrl_path)
+            try:
+                shutil.rmtree(wpa_ctrl_path)
+            except FileNotFoundError:
+                pass
         self.start_wpasupplicant(
             host, conf,
             timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path)
