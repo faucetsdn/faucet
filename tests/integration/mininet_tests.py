@@ -348,7 +348,10 @@ network={
         if os.path.exists(wpa_ctrl_path):
             host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
             for pid in host.cmd('lsof -t %s' % wpa_ctrl_path).splitlines():
-                os.kill(int(pid), 15)
+                try:
+                    os.kill(int(pid), 15)
+                except (ValueError, ProcessLookupError):
+                    pass
             shutil.rmtree(wpa_ctrl_path)
         self.start_wpasupplicant(
             host, conf,
