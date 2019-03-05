@@ -15,7 +15,7 @@ stages:
 env:
   global:
     - FAUCET_TEST_IMG=faucet/tests
-    - MATRIX_SHARDS=5
+    - MATRIX_SHARDS=6
 script:
   - ./travis/runtests.sh
 matrix:
@@ -68,6 +68,11 @@ jobs:
         - docker
     - stage: test
       env: MATRIX_SHARD=4
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=5
       language: bash
       services:
         - docker
