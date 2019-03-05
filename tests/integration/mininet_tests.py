@@ -346,6 +346,7 @@ network={
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff, timeout=10):
         wpa_ctrl_path = self.get_wpa_ctrl_path(host)
         if os.path.exists(wpa_ctrl_path):
+            host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
             for pid in host.cmd('lsof -t %s' % wpa_ctrl_path).splitlines():
                 os.kill(int(pid), 15)
             shutil.rmtree(wpa_ctrl_path)
@@ -363,7 +364,6 @@ network={
             self.one_ipv4_ping(
                 host, self.ping_host.IP(),
                 require_host_learned=False, expected_result=False)
-        host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
 
     def get_wpa_ctrl_path(self, host):
         wpa_ctrl_path = os.path.join(
