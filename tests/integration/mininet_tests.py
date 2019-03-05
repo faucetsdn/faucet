@@ -343,12 +343,22 @@ network={
         self.wait_until_matching_flow(None, table_id=0, actions=port_actions)
         self.wait_until_matching_flow(from_nfv_match, table_id=0, actions=from_nfv_actions)
 
-    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
+    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff, timeout=10):
         wpa_ctrl_path = self.get_wpa_ctrl_path(host)
+        if os.path.exists(wpa_ctrl_path):
+            host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
+            for pid in host.cmd('lsof -t %s' % wpa_ctrl_path).splitlines():
+                try:
+                    os.kill(int(pid), 15)
+                except (ValueError, ProcessLookupError):
+                    pass
+            try:
+                shutil.rmtree(wpa_ctrl_path)
+            except FileNotFoundError:
+                pass
         self.start_wpasupplicant(
             host, conf,
-            timeout=10, wpa_ctrl_socket_path=wpa_ctrl_path)
-        host.cmd('wpa_cli -p %s logon' % wpa_ctrl_path)
+            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path)
         if and_logoff:
             self.wait_for_eap_success(host, wpa_ctrl_path)
             self.wait_until_matching_flow(
