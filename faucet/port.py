@@ -202,6 +202,11 @@ class Port(Conf):
             for stack_config in list(self.stack_defaults_types.keys()):
                 test_config_condition(stack_config not in self.stack, (
                     'stack %s must be defined' % stack_config))
+            # LLDP always enabled for stack ports.
+            self.receive_lldp = True
+            if not self.lldp_beacon_enabled():
+                self.lldp_beacon.update({'enable': True})
+
         if self.lldp_beacon:
             self._check_conf_types(
                 self.lldp_beacon, self.lldp_beacon_defaults_types)
