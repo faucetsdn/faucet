@@ -1533,7 +1533,7 @@ dbs:
                 mininet_hosts = len(self.net.hosts)
                 target_hosts = learn_hosts + mininet_hosts
                 return self.wait_for_prometheus_var(
-                    'vlan_hosts_learned', target_hosts, labels={'vlan': '100'})
+                    'vlan_hosts_learned', target_hosts, labels={'vlan': '100'}, timeout=10)
 
             if verify_connectivity(learn_hosts):
                 learn_time = time.time() - start_time
