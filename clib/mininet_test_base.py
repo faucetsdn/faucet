@@ -1125,6 +1125,18 @@ dbs:
         prom_val = int(float(prom_line_match.group(2)))
         return (prom_var, prom_val)
 
+    def wait_for_prometheus_var(self, var, result_wanted, labels=None, any_labels=False, default=None,
+                                dpid=True, multiple=False, controller='faucet', retries=3,
+                                timeout=5):
+        for _ in range(timeout):
+            result = self.scrape_prometheus_var(
+                var, labels=labels, any_labels=any_labels, default=default,
+                dpid=dpid, multiple=multiple, controller=controller, retries=retries)
+            if result == result_wanted:
+                return True
+            time.sleep(1)
+        return False
+
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
                               dpid=True, multiple=False, controller='faucet', retries=3):
         if dpid:
@@ -1520,19 +1532,8 @@ dbs:
 
                 mininet_hosts = len(self.net.hosts)
                 target_hosts = learn_hosts + mininet_hosts
-                for _ in range(10):
-                    vlan_hosts_learned = self.scrape_prometheus_var(
-                        'vlan_hosts_learned', labels={'vlan': '100'},
-                        default=0)
-                    if vlan_hosts_learned == target_hosts:
-                        break
-                    time.sleep(1)
-                if vlan_hosts_learned != target_hosts:
-                    error('FAUCET host learned count disagree %u != %u\n' % (
-                        vlan_hosts_learned, target_hosts))
-                    return False
-                error('\n')
-                return True
+                return self.wait_for_prometheus_var(
+                    'vlan_hosts_learned', target_hosts, labels={'vlan': '100'})
 
             if verify_connectivity(learn_hosts):
                 learn_time = time.time() - start_time
@@ -1874,13 +1875,8 @@ dbs:
         self.set_port_status(dpid, port_no, 0, wait)
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=30):
-        for _ in range(timeout):
-            dp_status = self.scrape_prometheus_var(
-                'dp_status', any_labels=True, controller=controller, default=None)
-            if dp_status is not None and dp_status == expected_status:
-                return True
-            time.sleep(1)
-        return False
+        return self.wait_for_prometheus_var(
+            'dp_status', expected_status, any_labels=True, controller=controller, default=None)
 
     def _get_tableid(self, name):
         return self.scrape_prometheus_var(
