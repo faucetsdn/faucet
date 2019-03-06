@@ -207,16 +207,16 @@ class FaucetTestBase(unittest.TestCase):
             remap_interfaces_yaml = {}
             for intf_key, intf_val in interfaces_yaml.items():
                 if self.hw_dpid and int(self.hw_dpid) == dp_yaml['dp_id']:
-                    if type(intf_key) == int:
+                    if isinstance(intf_key, int):
                         intf_key = self.port_map.get('port_%u' % intf_key, intf_key)
                         port_no = intf_key
                     intf_number = intf_val.get('number', None)
-                    if type(intf_number) == int:
+                    if isinstance(intf_number, int):
                         intf_number = self.port_map.get('port_%u' % intf_number, intf_number)
                         port_no = intf_number
                         intf_val['number'] = intf_number
                     assert port_no in self.port_map.values(), '%u not in known hw ports' % port_no
-                if type(intf_key) == int:
+                if isinstance(intf_key, int):
                     port_no = intf_key
                 else:
                     port_no = intf_val.get('number', None)
@@ -228,7 +228,7 @@ class FaucetTestBase(unittest.TestCase):
         return yaml_conf_remap
 
     def _write_yaml_conf(self, yaml_path, yaml_conf):
-        assert type(yaml_conf) == dict
+        assert isinstance(yaml_conf, dict)
         new_conf_str = yaml.dump(yaml_conf).encode()
         with tempfile.NamedTemporaryFile(
                 prefix=os.path.basename(yaml_path),
@@ -292,7 +292,7 @@ class FaucetTestBase(unittest.TestCase):
         self.fail('load average %f consistently too high' % load)
 
     def _allocate_config_ports(self):
-        for port_name in self.config_ports.keys():
+        for port_name in self.config_ports:
             self.config_ports[port_name] = None
             for config in (self.CONFIG, self.CONFIG_GLOBAL, self.GAUGE_CONFIG_DBS):
                 if re.search(port_name, config):
@@ -1125,6 +1125,18 @@ dbs:
         prom_val = int(float(prom_line_match.group(2)))
         return (prom_var, prom_val)
 
+    def wait_for_prometheus_var(self, var, result_wanted, labels=None, any_labels=False, default=None,
+                                dpid=True, multiple=False, controller='faucet', retries=3,
+                                timeout=5):
+        for _ in range(timeout):
+            result = self.scrape_prometheus_var(
+                var, labels=labels, any_labels=any_labels, default=default,
+                dpid=dpid, multiple=multiple, controller=controller, retries=retries)
+            if result == result_wanted:
+                return True
+            time.sleep(1)
+        return False
+
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
                               dpid=True, multiple=False, controller='faucet', retries=3):
         if dpid:
@@ -1520,19 +1532,8 @@ dbs:
 
                 mininet_hosts = len(self.net.hosts)
                 target_hosts = learn_hosts + mininet_hosts
-                for _ in range(10):
-                    vlan_hosts_learned = self.scrape_prometheus_var(
-                        'vlan_hosts_learned', labels={'vlan': '100'},
-                        default=0)
-                    if vlan_hosts_learned == target_hosts:
-                        break
-                    time.sleep(1)
-                if vlan_hosts_learned != target_hosts:
-                    error('FAUCET host learned count disagree %u != %u\n' % (
-                        vlan_hosts_learned, target_hosts))
-                    return False
-                error('\n')
-                return True
+                return self.wait_for_prometheus_var(
+                    'vlan_hosts_learned', target_hosts, labels={'vlan': '100'}, timeout=10)
 
             if verify_connectivity(learn_hosts):
                 learn_time = time.time() - start_time
@@ -1709,43 +1710,36 @@ dbs:
              lambda: self.ping(hosts=(second_host, third_host))])
         return not self.tcpdump_rx_bytes(tcpdump_txt, 0)
 
-    def verify_lldp_blocked(self, hosts=None):
-        lldp_filter = 'ether proto 0x88cc'
+    def ladvd_cmd(self, ladvd_args, repeats=1, timeout=3):
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
+        ladvd_all_args = ['%s %s' % (
+            mininet_test_util.timeout_cmd(self.LADVD, timeout), ladvd_args)] * repeats
+        ladvd_cmd = ';'.join([ladvd_mkdir] + ladvd_all_args)
+        return ladvd_cmd
+
+    def ladvd_noisemaker(self, send_cmd, tcpdump_filter, hosts=None, timeout=3, repeats=3):
         if hosts is None:
             hosts = self.net.hosts[:2]
         first_host = hosts[0]
         other_hosts = hosts[1:]
+        other_host_cmds = []
         for other_host in other_hosts:
-            send_lldp = '%s -L -o %s' % (
-                mininet_test_util.timeout_cmd(self.LADVD, 5),
-                other_host.defaultIntf())
-            lldp_filter = 'ether proto 0x88cc and ether src %s' % other_host.MAC()
-            tcpdump_txt = self.tcpdump_helper(
-                first_host, lldp_filter,
-                [partial(other_host.cmd, ladvd_mkdir),
-                 partial(other_host.cmd, send_lldp),
-                 partial(other_host.cmd, send_lldp),
-                 partial(other_host.cmd, send_lldp)],
-                timeout=10, packets=1)
-            self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
-
-    def verify_cdp_blocked(self):
-        first_host, second_host = self.net.hosts[0:2]
-        cdp_filter = 'ether dst host 01:00:0c:cc:cc:cc and ether[20:2]==0x2000'
-        ladvd_mkdir = 'mkdir -p /var/run/ladvd'
-        send_cdp = '%s -C -o %s' % (
-            mininet_test_util.timeout_cmd(self.LADVD, 5),
-            second_host.defaultIntf())
+            other_host_cmds.append(partial(other_host.cmd, self.ladvd_cmd(
+                send_cmd % other_host.defaultIntf(), repeats=3, timeout=timeout)))
         tcpdump_txt = self.tcpdump_helper(
-            first_host,
-            cdp_filter,
-            [partial(second_host.cmd, ladvd_mkdir),
-             partial(second_host.cmd, send_cdp),
-             partial(second_host.cmd, send_cdp),
-             partial(second_host.cmd, send_cdp)],
-            timeout=20, packets=1)
+            first_host, tcpdump_filter, other_host_cmds,
+            timeout=(timeout*repeats*len(hosts)), packets=1)
         self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
+
+    def verify_lldp_blocked(self, hosts=None, timeout=3):
+        self.ladvd_noisemaker(
+            '-L -o %s', 'ether proto 0x88cc',
+            hosts, timeout=timeout)
+
+    def verify_cdp_blocked(self, hosts=None, timeout=3):
+        self.ladvd_noisemaker(
+            '-C -o %s', 'ether dst host 01:00:0c:cc:cc:cc and ether[20:2]==0x2000',
+            hosts, timeout=timeout)
         self.wait_nonzero_packet_count_flow(
             {'dl_dst': '01:00:0c:cc:cc:cc'}, self._FLOOD_TABLE, actions=[], ofa_match=False)
 
@@ -1881,13 +1875,8 @@ dbs:
         self.set_port_status(dpid, port_no, 0, wait)
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=30):
-        for _ in range(timeout):
-            dp_status = self.scrape_prometheus_var(
-                'dp_status', any_labels=True, controller=controller, default=None)
-            if dp_status is not None and dp_status == expected_status:
-                return True
-            time.sleep(1)
-        return False
+        return self.wait_for_prometheus_var(
+            'dp_status', expected_status, any_labels=True, controller=controller, default=None)
 
     def _get_tableid(self, name):
         return self.scrape_prometheus_var(

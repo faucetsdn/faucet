@@ -441,8 +441,10 @@ listen {
 
             with open('%s/freeradius/sites-enabled/default' % self.tmpdir, 'r+') as default_site:
                 default_config = default_site.read()
-                default_config = re.sub(listen_match, '', default_config)
-                default_config = re.sub(r'server default {', 'server default {\n'+listen_config, default_config)
+                default_config = re.sub(
+                    listen_match, '', default_config)
+                default_config = re.sub(
+                    r'server default {', 'server default {\n'+listen_config, default_config)
                 default_site.seek(0)
                 default_site.write(default_config)
                 default_site.truncate()
@@ -4141,7 +4143,8 @@ acls:
         tcpdump_filter = 'ether dst %s' % second_host.MAC()
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping -c3 %s' % second_host.IP())], root_intf=True, packets=1)
+                lambda: first_host.cmd(
+                    'ping -c3 %s' % second_host.IP())], root_intf=True, packets=1)
         self.assertTrue(re.search('vlan 100, p 2,', tcpdump_txt))
 
 
@@ -5891,9 +5894,11 @@ class FaucetStringOfDPTest(FaucetTest):
             i += 1
             labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': 'faucet-%u' % i}
             self.assertEqual(
-                0, self.scrape_prometheus_var(var='stack_cabling_errors_total', labels=labels, default=None))
+                0, self.scrape_prometheus_var(
+                    var='stack_cabling_errors_total', labels=labels, default=None))
             self.assertGreater(
-                self.scrape_prometheus_var(var='stack_probes_received_total', labels=labels), 0)
+                self.scrape_prometheus_var(
+                    var='stack_probes_received_total', labels=labels), 0)
 
     def verify_stack_hosts(self, verify_bridge_local_rule=True, retries=3):
         lldp_cap_files = []
@@ -5922,15 +5927,11 @@ class FaucetStringOfDPTest(FaucetTest):
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         labels = self.port_labels(port_no)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
-        for _ in range(timeout):
-            actual_status = self.scrape_prometheus_var(
-                'port_stack_state', labels=labels, default=None, dpid=False)
-            if actual_status == status:
-                return
-            time.sleep(1)
-        self.assertEqual(
-            status, actual_status, msg='expected dpid %x port %u port_stack_state %u != actual %s' % (
-                int(dpid), port_no, status, str(actual_status)))
+        if not self.wait_for_prometheus_var(
+                'port_stack_state', status, labels=labels,
+                default=None, dpid=False, timeout=timeout):
+            self.fail('did not get expected dpid %x port %u port_stack_state %u' % (
+                int(dpid), port_no, status))
 
     def verify_all_stack_up(self):
         port_base = self.NUM_HOSTS + 1
@@ -6043,13 +6044,10 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
     def wait_for_lacp_status(self, port_no, wanted_status, dpid, dp_name, timeout=20):
         labels = self.port_labels(port_no)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
-        for _ in range(timeout):
-            status = self.scrape_prometheus_var('port_lacp_status', labels, dpid=False)
-            if status == wanted_status:
-                return
-            time.sleep(1)
-        self.fail('wanted LACP status for %s to be %u but got %u' % (
-            labels, wanted_status, status))
+        if not self.wait_for_prometheus_var(
+                'port_lacp_status', wanted_status,
+                labels=labels, dpid=False, timeout=timeout):
+            self.fail('wanted LACP status for %s to be %u' % (labels, wanted_status))
 
     def wait_for_lacp_port_down(self, port_no, dpid, dp_name):
         self.wait_for_lacp_status(port_no, 0, dpid, dp_name)
