@@ -207,16 +207,16 @@ class FaucetTestBase(unittest.TestCase):
             remap_interfaces_yaml = {}
             for intf_key, intf_val in interfaces_yaml.items():
                 if self.hw_dpid and int(self.hw_dpid) == dp_yaml['dp_id']:
-                    if type(intf_key) == int:
+                    if isinstance(intf_key, int):
                         intf_key = self.port_map.get('port_%u' % intf_key, intf_key)
                         port_no = intf_key
                     intf_number = intf_val.get('number', None)
-                    if type(intf_number) == int:
+                    if isinstance(intf_number, int):
                         intf_number = self.port_map.get('port_%u' % intf_number, intf_number)
                         port_no = intf_number
                         intf_val['number'] = intf_number
                     assert port_no in self.port_map.values(), '%u not in known hw ports' % port_no
-                if type(intf_key) == int:
+                if isinstance(intf_key, int):
                     port_no = intf_key
                 else:
                     port_no = intf_val.get('number', None)
@@ -228,7 +228,7 @@ class FaucetTestBase(unittest.TestCase):
         return yaml_conf_remap
 
     def _write_yaml_conf(self, yaml_path, yaml_conf):
-        assert type(yaml_conf) == dict
+        assert isinstance(yaml_conf, dict)
         new_conf_str = yaml.dump(yaml_conf).encode()
         with tempfile.NamedTemporaryFile(
                 prefix=os.path.basename(yaml_path),
@@ -292,7 +292,7 @@ class FaucetTestBase(unittest.TestCase):
         self.fail('load average %f consistently too high' % load)
 
     def _allocate_config_ports(self):
-        for port_name in self.config_ports.keys():
+        for port_name in self.config_ports:
             self.config_ports[port_name] = None
             for config in (self.CONFIG, self.CONFIG_GLOBAL, self.GAUGE_CONFIG_DBS):
                 if re.search(port_name, config):
@@ -1727,7 +1727,7 @@ dbs:
                 send_cmd % other_host.defaultIntf(), repeats=3, timeout=timeout)))
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, other_host_cmds,
-            timeout=(timeout*len(hosts)), packets=1)
+            timeout=(timeout*repeats*len(hosts)), packets=1)
         self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
 
     def verify_lldp_blocked(self, hosts=None, timeout=3):
