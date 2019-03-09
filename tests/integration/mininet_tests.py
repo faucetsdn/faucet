@@ -5911,10 +5911,7 @@ class FaucetStringOfDPTest(FaucetTest):
         for _ in range(retries):
             self.retry_net_ping(retries=retries)
         # hosts should see no LLDP probes
-        for lldp_cap_file in lldp_cap_files:
-            self.quiet_commands(
-                self.net.controllers[0],
-                ['tcpdump -n -r %s 2> /dev/null' % lldp_cap_file])
+        self.verify_empty_caps(lldp_cap_files)
         # should not flood LLDP from hosts
         self.verify_lldp_blocked(self.net.hosts)
         if verify_bridge_local_rule:

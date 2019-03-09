@@ -1357,16 +1357,27 @@ dbs:
             broadcast_expected,
             re.search('%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt) is not None)
 
+    def verify_empty_caps(self, cap_files):
+        cap_file_cmds = [
+            'tcpdump -n -r %s 2> /dev/null' % cap_file for cap_file in cap_files]
+        self.quiet_commands(self.net.controllers[0], cap_file_cmds)
+
     def verify_no_bcast_to_self(self, timeout=3):
+        bcast_cap_files = []
+        tcpdump_timeout = timeout * len(self.net.hosts) * 2
         for host in self.net.hosts:
             tcpdump_filter = '-Q in ether src %s' % host.MAC()
+            bcast_cap_file = os.path.join(self.tmpdir, '%s-bcast.cap' % host)
+            bcast_cap_files.append(bcast_cap_file)
+            host.cmd(mininet_test_util.timeout_cmd(
+                'tcpdump -U -n -c 1 -i %s -w %s %s &' % (
+                    host.defaultIntf(), bcast_cap_file, tcpdump_filter), tcpdump_timeout))
+        for host in self.net.hosts:
             for bcast_cmd in (
                     ('ndisc6 -w1 fe80::1 %s' % host.defaultIntf()),
                     ('ping -b -i0.1 -c3 %s' % self.ipv4_vip_bcast())):
-                tcpdump_txt = self.tcpdump_helper(
-                    host, tcpdump_filter, [partial(host.cmd, bcast_cmd)],
-                    timeout=timeout, vflags='-vv', packets=1)
-                self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
+                host.cmd(mininet_test_util.timeout_cmd(bcast_cmd, timeout))
+        self.verify_empty_caps(bcast_cap_files)
 
     def verify_unicast_not_looped(self):
         unicast_mac1 = '0e:00:00:00:00:02'
@@ -1395,7 +1406,7 @@ dbs:
                             host.defaultIntf(),
                             count=3)))],
                 timeout=5, vflags='-vv', packets=1)
-            self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
+            self.verify_no_packets(tcpdump_txt)
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
@@ -1559,7 +1570,7 @@ dbs:
                     partial(first_host.cmd, 'arp -d %s' % second_host.IP()),
                     partial(first_host.cmd, 'ping -c1 %s' % second_host.IP())],
                 packets=1)
-            self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
+            self.verify_no_packets(tcpdump_txt)
 
     def verify_ping_mirrored(self, first_host, second_host, mirror_host, both_mirrored=False):
         """Verify that unicast traffic to and from a mirrored port is mirrored."""
@@ -1669,6 +1680,9 @@ dbs:
     def tcpdump_rx_bytes(self, tcpdump_txt, packets=0):
         return re.search(r'%u packets captured' % packets, tcpdump_txt)
 
+    def verify_no_packets(self, tcpdump_txt):
+        self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, packets=0), msg=tcpdump_txt)
+
     def verify_eapol_mirrored(self, first_host, second_host, mirror_host):
         self.ping((first_host, second_host))
         for host in (first_host, second_host):
@@ -1729,7 +1743,7 @@ dbs:
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, other_host_cmds,
             timeout=(timeout*repeats*len(hosts)), packets=1)
-        self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, 0), msg=tcpdump_txt)
+        self.verify_no_packets(tcpdump_txt)
 
     def verify_lldp_blocked(self, hosts=None, timeout=3):
         self.ladvd_noisemaker(
