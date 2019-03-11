@@ -1254,7 +1254,7 @@ configuration.
                         changed_ports.add(port_no)
                         try:
                             config_diff = diff(old_port.to_conf(), new_port.to_conf(), context=1)
-                        except NotSequence, err:
+                        except NotSequence as err:
                             config_diff = 'error producing diff: %s' % err
                         logger.info('port %s reconfigured (%s)' % (port_no, config_diff)
                 elif new_port.acls_in:
