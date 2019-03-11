@@ -22,7 +22,7 @@ import random
 import math
 import netaddr
 
-from datadiff import diff
+from datadiff import diff, NotSequence
 import networkx
 
 from faucet import faucet_pipeline
@@ -1252,8 +1252,11 @@ configuration.
                                 port_no, old_acl_ids, new_acl_ids))
                     else:
                         changed_ports.add(port_no)
-                        logger.info('port %s reconfigured (%s)' % (
-                            port_no, diff(old_port.to_conf(), new_port.to_conf(), context=1)))
+                        try:
+                            config_diff = diff(old_port.to_conf(), new_port.to_conf(), context=1)
+                        except NotSequence as err:
+                            config_diff = 'error producing diff: %s' % err
+                        logger.info('port %s reconfigured (%s)' % (port_no, config_diff))
                 elif new_port.acls_in:
                     port_acls_changed = [acl for acl in new_port.acls_in if acl in changed_acls]
                     if port_acls_changed:
