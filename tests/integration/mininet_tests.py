@@ -5778,9 +5778,6 @@ class FaucetStringOfDPTest(FaucetTest):
                             # make this a stacking link.
                             interfaces_config[port].update(
                                 {
-                                    'lldp_beacon': {
-                                        'enable': True},
-                                    'receive_lldp': True,
                                     'stack': {
                                         'dp': dp_name(peer_dp),
                                         'port': peer_port}
