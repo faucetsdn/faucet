@@ -432,7 +432,7 @@ class Valve:
                 reason, state, port))
             return {}
 
-        ofmsgs = []
+        ofmsgs_by_valve = {self: []}
         self.logger.info('%s up status %s reason %s state %s' % (
             port, port_status, _decode_port_status(reason), state))
         new_port_status = (
@@ -441,11 +441,11 @@ class Valve:
         if new_port_status:
             if port.dyn_phys_up:
                 self.logger.info('%s already up, assuming flap as missing down event' % port)
-                ofmsgs.extend(self.port_delete(port_no))
-            ofmsgs.extend(self.port_add(port_no))
+                ofmsgs_by_valve[self].extend(self.port_delete(port_no))
+            ofmsgs_by_valve[self].extend(self.port_add(port_no))
         else:
-            ofmsgs.extend(self.port_delete(port_no))
-        return {self: ofmsgs}
+            ofmsgs_by_valve[self].extend(self.port_delete(port_no))
+        return ofmsgs_by_valve
 
     def advertise(self, now, _other_values):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
@@ -1052,18 +1052,19 @@ class Valve:
         learn_port = self.flood_manager.edge_learn_port(
             other_valves, pkt_meta)
         if learn_port is not None:
-            learn_flows, previous_port = self.host_manager.learn_host_on_vlan_ports(
+            learn_flows, previous_port, update_cache = self.host_manager.learn_host_on_vlan_ports(
                 now, learn_port, pkt_meta.vlan, pkt_meta.eth_src,
                 last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
-            if learn_flows:
-                if pkt_meta.l3_pkt is None:
-                    pkt_meta.reparse_ip()
-                previous_port_no = None
+            if update_cache:
                 port_move_text = ''
+                previous_port_no = None
                 if previous_port is not None:
                     previous_port_no = previous_port.number
                     if pkt_meta.port.number != previous_port_no:
                         port_move_text = ', moved from port %u' % previous_port_no
+                pkt_meta.vlan.add_cache_host(pkt_meta.eth_src, pkt_meta.port, now)
+                if pkt_meta.l3_pkt is None:
+                    pkt_meta.reparse_ip()
                 self.logger.info(
                     'L2 learned %s %s (%u hosts total)' % (
                         pkt_meta.log(), port_move_text, pkt_meta.vlan.hosts_count()))
@@ -1076,7 +1077,7 @@ class Valve:
                         'eth_type': pkt_meta.eth_type,
                         'l3_src_ip': str(pkt_meta.l3_src),
                         'l3_dst_ip': str(pkt_meta.l3_dst)}})
-                return learn_flows
+            return learn_flows
         return []
 
     def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt, vlan_pkt):

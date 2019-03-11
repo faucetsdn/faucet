@@ -771,7 +771,7 @@ configuration.
 
     def is_stack_root(self):
         """Return True if this DP is the root of the stack."""
-        return 'priority' in self.stack
+        return self.stack and 'priority' in self.stack
 
     def is_stack_edge(self):
         """Return True if this DP is a stack edge."""
@@ -1080,8 +1080,6 @@ configuration.
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
         resolve_acls()
-
-        self._configure_tables()
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:

@@ -266,7 +266,7 @@ class ValveHostManager(ValveManagerBase):
         if cache_port == port or same_lag:
             # if we very very recently learned this host, don't do anything.
             if cache_age < self.cache_update_guard_time:
-                return (ofmsgs, cache_port)
+                return (ofmsgs, cache_port, False)
             # skip delete if host didn't change ports or on same LAG.
             delete_existing = False
             refresh_rules = True
@@ -295,7 +295,7 @@ class ValveHostManager(ValveManagerBase):
                 port.dyn_last_ban_time = now
                 ofmsgs.append(self._temp_ban_host_learning(
                     self.eth_src_table.match(in_port=port.number)))
-                return (ofmsgs, cache_port)
+                return (ofmsgs, cache_port, False)
 
         (src_rule_idle_timeout,
          src_rule_hard_timeout,
@@ -306,8 +306,7 @@ class ValveHostManager(ValveManagerBase):
             src_rule_idle_timeout, src_rule_hard_timeout,
             dst_rule_idle_timeout))
 
-        vlan.add_cache_host(eth_src, port, now)
-        return (ofmsgs, cache_port)
+        return (ofmsgs, cache_port, True)
 
     def flow_timeout(self, _now, _table_id, _match):
         """Handle a flow timed out message from dataplane."""

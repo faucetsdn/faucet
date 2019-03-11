@@ -114,6 +114,11 @@ class ValveFloodManager(ValveManagerBase):
     def _output_ports_from_actions(flood_acts):
         return {act.port for act in flood_acts if valve_of.is_output(act)}
 
+    @staticmethod
+    def _non_output_port_actions(flood_acts):
+        str_pop_vlan = str(valve_of.pop_vlan())
+        return {str(act) for act in flood_acts if not valve_of.is_output(act) and str(act) != str_pop_vlan}
+
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                    exclude_unicast, command, port,
                                    add_match=None, preflood_acts=None,
@@ -154,6 +159,7 @@ class ValveFloodManager(ValveManagerBase):
             if not self.use_group_table:
                 ofmsgs.append(vlan_flood_ofmsg)
             vlan_output_ports = self._output_ports_from_actions(vlan_flood_acts)
+            vlan_non_output_acts = self._non_output_port_actions(vlan_flood_acts)
             for port in self._vlan_all_ports(vlan, exclude_unicast):
                 port_flood_ofmsg, port_flood_acts = self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask,
@@ -161,9 +167,12 @@ class ValveFloodManager(ValveManagerBase):
                 if not port_flood_ofmsg:
                     continue
                 port_output_ports = self._output_ports_from_actions(port_flood_acts)
+                port_non_output_acts = self._non_output_port_actions(port_flood_acts)
                 port_output_ports.add(port.number)
-                if vlan_output_ports != port_output_ports:
-                    ofmsgs.append(port_flood_ofmsg)
+                if (vlan_output_ports == port_output_ports and
+                        vlan_non_output_acts == port_non_output_acts):
+                    continue
+                ofmsgs.append(port_flood_ofmsg)
         return ofmsgs
 
     def _build_multiout_flood_rules(self, vlan, command):
