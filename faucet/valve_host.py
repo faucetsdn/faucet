@@ -255,7 +255,7 @@ class ValveHostManager(ValveManagerBase):
             if entry.port != port:
                 ofmsgs.extend(self.pipeline.filter_packets(
                     {'eth_src': eth_src, 'in_port': port.number}))
-            return (ofmsgs, entry.port)
+            return (ofmsgs, entry.port, False)
         else:
             cache_age = now - entry.cache_time
             cache_port = entry.port
