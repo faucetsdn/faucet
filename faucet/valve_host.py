@@ -28,7 +28,7 @@ class ValveHostManager(ValveManagerBase):
 
     def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
                  eth_dst_hairpin_table, pipeline, learn_timeout, learn_jitter,
-                 learn_ban_timeout, cache_update_guard_time, idle_dst):
+                 learn_ban_timeout, cache_update_guard_time, idle_dst, stack):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
@@ -44,6 +44,7 @@ class ValveHostManager(ValveManagerBase):
         self.cache_update_guard_time = cache_update_guard_time
         self.output_table = self.eth_dst_table
         self.idle_dst = idle_dst
+        self.stack = stack
         if self.eth_dst_hairpin_table:
             self.output_table = self.eth_dst_hairpin_table
 
@@ -201,6 +202,11 @@ class ValveHostManager(ValveManagerBase):
         if port.override_output_port:
             inst = valve_of.apply_actions([
                 valve_of.output_port(port.override_output_port.number)])
+
+        loop_protect_field = None
+        if port.tagged_vlans and port.loop_protect_external and self.stack:
+            loop_protect_field = 0
+
         ofmsgs.append(self.eth_src_table.flowmod(
             match=src_match,
             priority=src_priority,
@@ -218,7 +224,7 @@ class ValveHostManager(ValveManagerBase):
         ofmsgs.append(self.eth_dst_table.flowmod(
             self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
             priority=self.host_priority,
-            inst=self.pipeline.output(port, vlan),
+            inst=self.pipeline.output(port, vlan, loop_protect_field=loop_protect_field),
             idle_timeout=dst_rule_idle_timeout))
 
         # If port is in hairpin mode, install a special rule

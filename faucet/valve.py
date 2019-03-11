@@ -203,7 +203,7 @@ class Valve:
             self.dp.vlans, self.dp.tables['eth_src'],
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.cache_update_guard_time, self.dp.idle_dst)
+            self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack)
         if 'port_acl' in self.dp.tables or 'vlan_acl' in self.dp.tables or self.dp.tunnel_acls:
             self.acl_manager = valve_acl.ValveAclManager(
                 self.dp.tables.get('port_acl'), self.dp.tables.get('vlan_acl'),

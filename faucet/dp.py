@@ -470,6 +470,9 @@ configuration.
             flood_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
             vlan_table = table_configs['vlan']
             vlan_table.set_fields += (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
+            vlan_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
+            eth_dst_table = table_configs['eth_dst']
+            eth_dst_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
 
         oxm_fields = set(valve_of.MATCH_FIELDS.keys())
 
@@ -807,7 +810,7 @@ configuration.
         path = self.shortest_path(dst_dp.name, src_dp.name)
         return self.name in path
 
-    def reset_refs(self, vlans=None):
+    def reset_refs(self, vlans=None, root_dp=None):
         """Resets vlan references"""
         if vlans is None:
             vlans = self.vlans
@@ -816,6 +819,8 @@ configuration.
             vlan.reset_ports(self.ports.values())
             if vlan.get_ports() or vlan.reserved_internal_vlan:
                 self.vlans[vlan.vid] = vlan
+        if root_dp is not None:
+            self.stack['root_dp'] = root_dp
 
     def resolve_port(self, port_name):
         """Resolve a port by number or name."""
@@ -833,6 +838,7 @@ configuration.
 
         dp_by_name = {}
         vlan_by_name = {}
+        external_ports = False
 
         def resolve_ports(port_names):
             """Resolve list of ports, by port by name or number."""
@@ -858,7 +864,7 @@ configuration.
             if self.stack_ports:
                 if self.stack is None:
                     self.stack = {}
-                self.stack['externals'] = False
+                self.stack['externals'] = external_ports
                 port_stack_dp = {}
                 for port in self.stack_ports:
                     stack_dp = port.stack['dp']
@@ -871,10 +877,6 @@ configuration.
                     test_config_condition(stack_port is None, (
                         'stack port %s not defined in DP %s' % (port.stack['port'], dp.name)))
                     port.stack['port'] = stack_port
-                for vlan in vlan_by_name.values():
-                    if vlan.loop_protect_external_ports():
-                        self.stack['externals'] = True
-                        break
 
         def resolve_mirror_destinations():
             """Resolve mirror port references and destinations."""
@@ -1074,6 +1076,11 @@ configuration.
             if self.global_vlan:
                 test_config_condition(
                     self.global_vlan == vlan.vid, 'VLAN %u is reserved by global_vlan' % vlan.vid)
+
+        for vlan in vlan_by_name.values():
+            if vlan.loop_protect_external_ports():
+                external_ports = True
+                break
 
         resolve_stack_dps()
         resolve_mirror_destinations()
