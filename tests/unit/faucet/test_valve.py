@@ -1513,6 +1513,16 @@ vlans:
         """Test NFV port formatter."""
         self.assertEqual('00:00:00:0f:01:01', faucet_dot1x.get_mac_str(15, 257))
 
+    def test_handlers(self):
+        valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]
+        port_no = 1
+        for handler in (
+                self.dot1x.auth_handler,
+                self.dot1x.logoff_handler,
+                self.dot1x.failure_handler):
+            handler(
+                '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
+
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
     """Test changes to config on ports."""
