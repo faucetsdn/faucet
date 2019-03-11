@@ -5908,13 +5908,9 @@ class FaucetStringOfDPTest(FaucetTest):
             host.cmd(mininet_test_util.timeout_cmd(
                 'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC &' % (
                     host.defaultIntf(), lldp_cap_file), 60))
-        for _ in range(retries):
-            self.retry_net_ping(retries=retries)
+        self.retry_net_ping(retries=retries)
         # hosts should see no LLDP probes
-        for lldp_cap_file in lldp_cap_files:
-            self.quiet_commands(
-                self.net.controllers[0],
-                ['tcpdump -n -r %s 2> /dev/null' % lldp_cap_file])
+        self.verify_empty_caps(lldp_cap_files)
         # should not flood LLDP from hosts
         self.verify_lldp_blocked(self.net.hosts)
         if verify_bridge_local_rule:
@@ -5943,6 +5939,16 @@ class FaucetStringOfDPTest(FaucetTest):
                     port_no = self.port_map['port_%u' % port_no]
                 self.wait_for_stack_port_status(
                     dpid, dp_name, port_no, 3) # up
+
+    def verify_all_stack_hosts(self):
+        for _ in range(2):
+            self.verify_all_stack_up()
+            self.verify_no_cable_errors()
+            self.verify_stack_hosts()
+            self.verify_traveling_dhcp_mac()
+            self.verify_unicast_not_looped()
+            self.verify_no_bcast_to_self()
+            self.flap_all_switch_ports()
 
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
@@ -6108,13 +6114,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
-        for _ in range(2):
-            self.verify_stack_hosts()
-            self.verify_no_cable_errors()
-            self.verify_traveling_dhcp_mac()
-            self.verify_unicast_not_looped()
-            self.verify_no_bcast_to_self()
-            self.flap_all_switch_ports()
+        self.verify_all_stack_hosts()
 
 
 class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
@@ -6137,13 +6137,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
-        for _ in range(2):
-            self.verify_stack_hosts()
-            self.verify_no_cable_errors()
-            self.verify_traveling_dhcp_mac()
-            self.verify_unicast_not_looped()
-            self.verify_no_bcast_to_self()
-            self.flap_all_switch_ports()
+        self.verify_all_stack_hosts()
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
