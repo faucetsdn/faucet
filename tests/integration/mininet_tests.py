@@ -4493,6 +4493,13 @@ class FaucetTaggedExtLoopProtectTest(FaucetTaggedTest):
         self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
         self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
+        self.one_ipv4_ping(ext_port1, int_port2.IP())
+        tcpdump_filter = 'ether dst %s' % int_port2.MAC()
+        tcpdump_txt = self.tcpdump_helper(
+            ext_port1, tcpdump_filter, [
+                lambda: ext_port1.cmd(
+                    'ping -c3 %s' % int_port2.IP())], root_intf=True, packets=1)
+        self.assertTrue(re.search('vlan 100, p 0,', tcpdump_txt))
 
 
 class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):
