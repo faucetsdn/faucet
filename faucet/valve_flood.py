@@ -110,7 +110,8 @@ class ValveFloodManager(ValveManagerBase):
             vlan, exclude_unicast, None)
         return (self._build_flood_rule(match, command, flood_acts, flood_priority), flood_acts)
 
-    def _output_non_output_actions(self, flood_acts):
+    @staticmethod
+    def _output_non_output_actions(flood_acts):
         output_ports = set()
         nonoutput_actions = set()
         str_pop_vlan = str(valve_of.pop_vlan())
@@ -209,7 +210,7 @@ class ValveFloodManager(ValveManagerBase):
             vlan, None, None, True, command)
         unicast_output_ports, _ = self._output_non_output_actions(unicast_eth_vlan_flood_acts)
         vlan_output_ports, _ = self._output_non_output_actions(vlan_flood_acts)
-        if (unicast_output_ports != vlan_output_ports):
+        if unicast_output_ports != vlan_output_ports:
             group_id += valve_of.VLAN_GROUP_OFFSET
             group = self.groups.get_entry(
                 group_id, valve_of.build_group_flood_buckets(unicast_eth_vlan_flood_acts))
@@ -286,6 +287,10 @@ class ValveFloodStackManager(ValveFloodManager):
         self.shortest_path_port = shortest_path_port
         self.dp_shortest_path_to_root = dp_shortest_path_to_root
         self._reset_peer_distances()
+        self._flood_actions_func = self._flood_actions
+        if self.stack_size == 2:
+            self._flood_actions_func = self._flood_actions_size2
+
 
     def _set_ext_flag(self, ext_flag):
         return self.flood_table.set_field(**{STACK_LOOP_PROTECT_FIELD: ext_flag})
@@ -469,15 +474,9 @@ class ValveFloodStackManager(ValveFloodManager):
             self.away_from_root_stack_ports, in_port, exclude_ports=exclude_ports)
         toward_flood_actions = valve_of.flood_tagged_port_outputs(
             self.towards_root_stack_ports, in_port)
-
-        if self.stack_size == 2:
-            flood_acts = self._flood_actions_size2(
-                in_port, external_ports, away_flood_actions, toward_flood_actions,
-                local_flood_actions)
-        else:
-            flood_acts = self._flood_actions(
-                in_port, external_ports, away_flood_actions, toward_flood_actions,
-                local_flood_actions)
+        flood_acts = self._flood_actions_func(
+            in_port, external_ports, away_flood_actions,
+            toward_flood_actions, local_flood_actions)
         return valve_of.dedupe_ofmsgs(flood_acts)
 
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
