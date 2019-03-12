@@ -2245,7 +2245,7 @@ dps:
                 native_vlan: 0x100
 """ % (p, p)
         pstats, pstats_text = self.profile(partial(self.update_config, self.CONFIG, reload_type='cold'))
-        self.assertTrue(pstats.total_tt < 2.5, msg=pstats_text)
+        self.assertTrue(pstats.total_tt < 2.5, msg=pstats_text) # pytype: disable=attribute-error
 
 
 class ValveTestTunnel(ValveTestBases.ValveTestSmall):
