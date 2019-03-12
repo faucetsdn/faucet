@@ -139,7 +139,8 @@ class ValveFloodManager(ValveManagerBase):
         if port.dyn_phys_up:
             flood_acts = self._build_flood_rule_actions(
                 vlan, exclude_unicast, port, exclude_all_external)
-            flood_acts, port_output_ports, port_non_output_acts = self._output_non_output_actions(flood_acts)
+            flood_acts, port_output_ports, port_non_output_acts = self._output_non_output_actions(
+                flood_acts)
         return (flood_acts, port_output_ports, port_non_output_acts)
 
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
@@ -172,7 +173,8 @@ class ValveFloodManager(ValveManagerBase):
                 exclude_unicast, command)
             if not self.use_group_table:
                 ofmsgs.append(vlan_flood_ofmsg)
-            flood_acts, vlan_output_ports, vlan_non_output_acts = self._output_non_output_actions(vlan_flood_acts)
+            flood_acts, vlan_output_ports, vlan_non_output_acts = self._output_non_output_actions(
+                vlan_flood_acts)
             for port in self._vlan_all_ports(vlan, exclude_unicast):
                 flood_acts, port_output_ports, port_non_output_acts = self._build_flood_acts_for_port(
                     vlan, exclude_unicast, port)
@@ -215,7 +217,8 @@ class ValveFloodManager(ValveManagerBase):
         # actions to non unicast flooding.
         _, unicast_eth_vlan_flood_acts = self._build_flood_rule_for_vlan(
             vlan, None, None, True, command)
-        unicast_eth_vlan_flood_acts, unicast_output_ports, _ = self._output_non_output_actions(unicast_eth_vlan_flood_acts)
+        unicast_eth_vlan_flood_acts, unicast_output_ports, _ = self._output_non_output_actions(
+            unicast_eth_vlan_flood_acts)
         vlan_flood_acts, vlan_output_ports, _ = self._output_non_output_actions(vlan_flood_acts)
         if unicast_output_ports != vlan_output_ports:
             group_id += valve_of.VLAN_GROUP_OFFSET
