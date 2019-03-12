@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export DIB_RELEASE=xenial
+export DIB_RELEASE=bionic
 export ELEMENTS_PATH=elements
 
 GIT_ID=$(git describe --tags)
