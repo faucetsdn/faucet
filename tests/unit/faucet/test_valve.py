@@ -409,7 +409,7 @@ class ValveTestBases:
             prof_stream = io.StringIO()
             prof_stats = pstats.Stats(prof, stream=prof_stream).sort_stats(sortby)
             prof_stats.print_stats(amount)
-            print(prof_stream.getvalue())
+            return (prof_stats, prof_stream.getvalue())
 
         def get_prom(self, var, labels=None):
             """Return a Prometheus variable value."""
@@ -2220,6 +2220,32 @@ class ValveStackGraphUpdateTestCase(ValveStackProbeTestCase):
             verify_stack_learn_edges(num_edges, edge, self.assertFalse)
         up_stack_port(ports[0])
         verify_stack_learn_edges(2, edges[0], self.assertTrue)
+
+
+class ValveReloadConfigProfile(ValveTestBases.ValveTestSmall):
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_profile_reload(self):
+        for p in range(2, 100):
+            self.CONFIG += """
+            p%u:
+                number: %u
+                native_vlan: 0x100
+""" % (p, p)
+        pstats, pstats_text = self.profile(partial(self.update_config, self.CONFIG, reload_type='cold'))
+        self.assertTrue(pstats.total_tt < 2.5, msg=pstats_text) # pytype: disable=attribute-error
 
 
 class ValveTestTunnel(ValveTestBases.ValveTestSmall):
