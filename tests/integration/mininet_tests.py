@@ -251,16 +251,33 @@ network={
         super(Faucet8021XSuccessTest, self).setUp()
         self.host_drop_all_ips(self.nfv_host)
         self.radius_log_path = self.start_freeradius()
+        self.eapol1_host.cmd('tcpdump -w %s/%s-start.pcap ether proto 0x888e &' %
+                             (self.tmpdir, self.eapol1_host.name))
+        self.eapol1_tcpdump_pid = self.eapol1_host.lastPid
+
+        self.nfv_host.cmd('tcpdump -i %s-eth0 -w %s/eap-lo.pcap ether proto 0x888e &'
+                          % (self.nfv_host.name, self.tmpdir))
+        self.radius_tcpdump_pid = self.nfv_host.lastPid
+
+        self.nfv_host.cmd('tcpdump -i lo -w %s/radius.pcap udp port %d &'
+                          % (self.tmpdir, self.RADIUS_PORT))
+        self.eap_tcpdump_pid = self.nfv_host.lastPid
+        # self.nfv_host.cmd(
+        #     'tcpdump -i lo -w %s/nfv_eap.pcap udp port %d &' % (self.tmpdir, self.RADIUS_PORT))
+        # self.nfv_eap_tcpdump_pid = self.nfv_host.lastPid
 
     def tearDown(self):
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
+        self.nfv_host.cmd('kill -sigint %d' % self.radius_tcpdump_pid)
+        self.nfv_host.cmd('kill -sigint %d' % self.eap_tcpdump_pid)
+        self.eapol1_host.cmd('kill -sigint %d' % self.eapol1_tcpdump_pid)
         super(Faucet8021XSuccessTest, self).tearDown()
 
     def try_8021x(self, host, port_num, conf, and_logoff=False):
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
-                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
+                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff, timeout=60)],
             timeout=15, vflags='-vvv', packets=10)
         return tcpdump_txt
 
@@ -343,10 +360,18 @@ network={
         self.wait_until_matching_flow(None, table_id=0, actions=port_actions)
         self.wait_until_matching_flow(from_nfv_match, table_id=0, actions=from_nfv_actions)
 
+    def wait_8021x_success_flows(self, host, port_no):
+
+        from_hostactions = [
+            'GOTO_TABLE:1']
+        from_host_match = {
+            'in_port': port_no, 'dl_src': host.MAC()}
+        self.wait_until_matching_flow(from_host_match, table_id=0, actions=from_hostactions)
+
     def wpa_supplicant_callback(self, host, port_num, conf, and_logoff, timeout=10):
         wpa_ctrl_path = self.get_wpa_ctrl_path(host)
         if os.path.exists(wpa_ctrl_path):
-            host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
+            self.terminate_wpasupplicant(host)
             for pid in host.cmd('lsof -t %s' % wpa_ctrl_path).splitlines():
                 try:
                     os.kill(int(pid), 15)
@@ -356,9 +381,10 @@ network={
                 shutil.rmtree(wpa_ctrl_path)
             except FileNotFoundError:
                 pass
+        log_prefix = host.name + "_"
         self.start_wpasupplicant(
             host, conf,
-            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path)
+            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path, log_prefix=log_prefix)
         if and_logoff:
             self.wait_for_eap_success(host, wpa_ctrl_path)
             self.wait_until_matching_flow(
@@ -370,6 +396,10 @@ network={
             self.one_ipv4_ping(
                 host, self.ping_host.IP(),
                 require_host_learned=False, expected_result=False)
+
+    def terminate_wpasupplicant(self, host):
+        wpa_ctrl_path = self.get_wpa_ctrl_path(host)
+        host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
 
     def get_wpa_ctrl_path(self, host):
         wpa_ctrl_path = os.path.join(
@@ -589,7 +619,6 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
             self.assertEqual(
                 expected_successes,
                 self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-
             self.set_port_down(port_no1)
             self.try_8021x(
                 self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
@@ -598,6 +627,53 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
                 require_host_learned=False, expected_result=False)
             wpa_status = self.get_wpa_status(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
             self.assertNotEqual('SUCCESS', wpa_status)
+            # Kill supplicant so cant reply to the port up identity request.
+            # self.terminate_wpasupplicant(self.eapol1_host)
+
+
+class Faucet8021XIdentityOnPortUpTest(Faucet8021XSuccessTest):
+    RADIUS_PORT = 1890
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_labels1 = self.port_labels(port_no1)
+
+        # start wpa sup, logon, then send id request. should then be 2 success.
+        self.set_port_up(port_no1)
+        self.wait_8021x_flows(port_no1)
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+        self.wait_for_eap_success(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertNotIn('logoff', tcpdump_txt_1)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.set_port_down(port_no1)
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=False)
+
+        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_txt = self.tcpdump_helper(
+            self.eapol1_host, tcpdump_filter, [
+                lambda: self.set_port_up(port_no1)],
+            timeout=40, vflags='-vvv', packets=10)
+        # assume that this is the identity request
+        self.assertIn("len 5, Request (1)", tcpdump_txt)
+        # supplicant replies with username.
+        self.assertIn("Identity: user", tcpdump_txt)
+        # supplicant success
+        self.assertIn("Success", tcpdump_txt)
+        self.wait_8021x_success_flows(self.eapol1_host, port_no1)
+
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=True, retries=10)
+
+        self.assertEqual(
+            2,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
