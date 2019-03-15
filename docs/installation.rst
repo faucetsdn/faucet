@@ -371,8 +371,8 @@ Once you have booted up the Raspberry Pi and logged in using the default credent
 
 .. _faucet-vm-install:
 
-Intalling with Virtual Machine image
-------------------------------------
+Installing with Virtual Machine image
+-------------------------------------
 
 We provide a VM image for running FAUCET for development and learning purposes.
 The VM comes pre-installed with FAUCET, GAUGE, prometheus and grafana.
