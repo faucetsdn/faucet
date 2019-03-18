@@ -338,14 +338,6 @@ class VLAN(Conf):
         other_vips = vips - link_local_vips
         return (link_local_vips, other_vips)
 
-    def bgp_neighbor_addresses_by_ipv(self, ipv):
-        """Return BGP neighbor addresses with specified IP version on this VLAN."""
-        return self._by_ipv(self.bgp_neighbor_addresses, ipv)
-
-    def bgp_server_addresses_by_ipv(self, ipv):
-        """Return BGP server addresses with specified IP version on this VLAN."""
-        return self._by_ipv(self.bgp_server_addresses, ipv)
-
     def ipvs(self):
         """Return IP versions configured on this VLAN."""
         return self._ipvs(self.faucet_vips)
@@ -353,6 +345,14 @@ class VLAN(Conf):
     def bgp_ipvs(self):
         """Return list of IP versions for BGP configured on this VLAN."""
         return self._ipvs(self.bgp_server_addresses)
+
+    def bgp_neighbor_addresses_by_ipv(self, ipv):
+        """Return BGP neighbor addresses with specified IP version on this VLAN."""
+        return self._by_ipv(self.bgp_neighbor_addresses, ipv)
+
+    def bgp_server_addresses_by_ipv(self, ipv):
+        """Return BGP server addresses with specified IP version on this VLAN."""
+        return self._by_ipv(self.bgp_server_addresses, ipv)
 
     def routes_by_ipv(self, ipv):
         """Return route table for specified IP version on this VLAN."""
