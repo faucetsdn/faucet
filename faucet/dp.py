@@ -240,7 +240,6 @@ configuration.
         self.fast_advertise_interval = None
         self.arp_neighbor_timeout = None
         self.nd_neighbor_timeout = None
-        self.bgp_local_address = None
         self.bgp_neighbor_as = None
         self.bgp_routerid = None
         self.combinatorial_port_flood = None

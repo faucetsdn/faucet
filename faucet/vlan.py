@@ -91,7 +91,6 @@ class VLAN(Conf):
         'faucet_mac': FAUCET_MAC,
         # set MAC for FAUCET VIPs on this VLAN
         'unicast_flood': True,
-        'bgp_local_address': None,
         'bgp_server_addresses': ['0.0.0.0', '::'],
         'bgp_neighbour_addresses': [],
         'bgp_neighbor_addresses': [],
@@ -119,7 +118,6 @@ class VLAN(Conf):
         'faucet_vips': list,
         'faucet_mac': str,
         'unicast_flood': bool,
-        'bgp_local_address': str,
         'bgp_server_addresses': list,
         'bgp_neighbour_addresses': list,
         'bgp_neighbor_addresses': list,
@@ -136,7 +134,6 @@ class VLAN(Conf):
     def __init__(self, _id, dp_id, conf=None):
         self.acl_in = None
         self.acls_in = None
-        self.bgp_local_address = None
         self.bgp_neighbour_addresses = []
         self.bgp_neighbor_addresses = []
         self.bgp_server_addresses = []

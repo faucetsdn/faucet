@@ -652,10 +652,6 @@ or a name. The following attributes can be configured:
       - string
       - "both"
       - Whether to try to connect to natives ("active"), listen only ("passive"), or "both".
-    * - bgp_local_address
-      - string (IP Address)
-      - None
-      - The local address to use when speaking BGP
     * - bgp_neighbour_addresses
       - list of strings (IP Addresses)
       - None
