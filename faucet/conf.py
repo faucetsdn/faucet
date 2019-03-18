@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ipaddress
 from collections import OrderedDict
 
 
@@ -177,3 +178,18 @@ class Conf:
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    @staticmethod
+    def _check_ip_str(ip_str, ip_method=ipaddress.ip_address):
+        try:
+            return ip_method(ip_str)
+        except (ValueError, AttributeError, TypeError) as err:
+            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
+
+    @staticmethod
+    def _ipvs(ipas):
+        return frozenset([ipa.version for ipa in ipas])
+
+    @staticmethod
+    def _by_ipv(ipas, ipv):
+        return frozenset([ipa for ipa in ipas if ipa.version == ipv])

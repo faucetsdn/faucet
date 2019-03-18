@@ -207,13 +207,6 @@ class VLAN(Conf):
         self._set_default(
             'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
-    @staticmethod
-    def _check_ip_str(ip_str, ip_method=ipaddress.ip_address):
-        try:
-            return ip_method(ip_str)
-        except (ValueError, AttributeError, TypeError) as err:
-            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
-
     def check_config(self):
         super(VLAN, self).check_config()
         test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
@@ -371,14 +364,6 @@ class VLAN(Conf):
                 self.dyn_oldest_host_time = min(
                     [entry.cache_time for entry in self.dyn_host_cache.values()])
         return expired_hosts
-
-    @staticmethod
-    def _ipvs(ipas):
-        return frozenset([ipa.version for ipa in ipas])
-
-    @staticmethod
-    def _by_ipv(ipas, ipv):
-        return frozenset([ipa for ipa in ipas if ipa.version == ipv])
 
     def faucet_vips_by_ipv(self, ipv):
         """Return VIPs with specified IP version on this VLAN."""
