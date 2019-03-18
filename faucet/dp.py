@@ -1089,20 +1089,19 @@ configuration.
         resolve_vlan_names_in_routers()
         resolve_acls()
 
-        # bgp_vlans = self.bgp_vlans()
-        # if bgp_vlans:
-        #    for vlan in bgp_vlans:
-        #        vlan_dps = [dp for dp in dps if vlan.vid in dp.vlans]
-        #        test_config_condition(len(vlan_dps) != 1, (
-        #            'DPs %s sharing a BGP speaker VLAN is unsupported'))
-        #        test_config_condition(vlan.bgp_server_addresses != (
-        #            bgp_vlans[0].bgp_server_addresses), (
-        #                'BGP server addresses must all be the same'))
-        #    bgp_routers = self.bgp_routers()
-        #    router_ids = {bgp_router.bgp_routerid for bgp_router in bgp_routers}
-        #    test_config_condition(len(router_ids) != 1, 'BGP router IDs must all be the same: %s' % router_ids)
-        #    bgp_ports = {bgp_router.bgp_port for bgp_router in bgp_routers}
-        #    test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
+        bgp_routers = self.bgp_routers()
+        if bgp_routers:
+            for bgp_router in bgp_routers:
+                vlan_dps = [dp for dp in dps if bgp_router.bgp_vlan.vid in dp.vlans]
+                test_config_condition(len(vlan_dps) != 1, (
+                    'DPs %s sharing a BGP speaker VLAN is unsupported'))
+                test_config_condition(bgp_router.bgp_server_addresses != (
+                    bgp_routers[0].bgp_server_addresses), (
+                        'BGP server addresses must all be the same'))
+            router_ids = {bgp_router.bgp_routerid for bgp_router in bgp_routers}
+            test_config_condition(len(router_ids) != 1, 'BGP router IDs must all be the same: %s' % router_ids)
+            bgp_ports = {bgp_router.bgp_port for bgp_router in bgp_routers}
+            test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
 
         self._configure_tables()
 
@@ -1125,11 +1124,7 @@ configuration.
 
     def bgp_routers(self):
         """Return list of routers with BGP enabled."""
-        return tuple([router for router in self.routers.values() if router.bgp_as])
-
-    def bgp_vlans(self):
-        """Return list of VLANs with BGP enabled."""
-        return tuple([vlan for vlan in self.vlans.values() if vlan.bgp_server_addresses])
+        return tuple([router for router in self.routers.values() if router.bgp_as and router.bgp_vlan])
 
     def dot1x_ports(self):
         """Return list of ports with 802.1x enabled."""
