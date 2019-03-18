@@ -617,6 +617,30 @@ be configured:
       - list of integers or strings
       - None
       - Enables inter-vlan routing on the given vlans
+    * - bgp_as
+      - integer
+      - None
+      - The local AS number to used when speaking BGP
+    * - bgp_connect_mode
+      - string
+      - "passive"
+      - Must be "passive"
+    * - bgp_neighbour_addresses
+      - list of strings (IP Addresses)
+      - None
+      - The list of BGP neighbours
+    * - bgp_neighbour_as
+      - integer
+      - None
+      - The AS Number for the BGP neighbours
+    * - bgp_port
+      - integer
+      - 9179
+      - Port to use for bgp sessions
+    * - bgp_vlan
+      - string
+      - None
+      - The VLAN to add/remove BGP routes from.
 
 
 VLAN
@@ -644,26 +668,6 @@ or a name. The following attributes can be configured:
       - None
       - The acl to be applied to all packets arriving on this vlan.
         ACLs listed first take priority over those later in the list.
-    * - bgp_as
-      - integer
-      - None
-      - The local AS number to used when speaking BGP
-    * - bgp_connect_mode
-      - string
-      - "both"
-      - Whether to try to connect to natives ("active"), listen only ("passive"), or "both".
-    * - bgp_neighbour_addresses
-      - list of strings (IP Addresses)
-      - None
-      - The list of BGP neighbours
-    * - bgp_neighbour_as
-      - integer
-      - None
-      - The AS Number for the BGP neighbours
-    * - bgp_port
-      - integer
-      - 9179
-      - Port to use for bgp sessions
     * - description
       - string
       - None
