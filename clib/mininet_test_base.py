@@ -1272,6 +1272,8 @@ dbs:
     def coldstart_conf(self, hup=True):
         orig_conf = self._get_faucet_conf()
         cold_start_conf = copy.deepcopy(orig_conf)
+        if 'routers' in cold_start_conf:
+            del cold_start_conf['routers']
         used_vids = set()
         for vlan_name, vlan_conf in cold_start_conf['vlans'].items():
             used_vids.add(vlan_conf.get('vid', vlan_name))
