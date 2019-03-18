@@ -1049,7 +1049,7 @@ configuration.
                     vlan = resolve_vlan(vlan_name)
                     if vlan is not None:
                         vlans.append(vlan)
-                if len(vlans) > 1:
+                if len(vlans):
                     dp_router = copy.copy(router)
                     dp_router.vlans = vlans
                     dp_routers[router_name] = dp_router
@@ -1094,14 +1094,14 @@ configuration.
                 vlan_dps = [dp for dp in dps if vlan.vid in dp.vlans]
                 test_config_condition(len(vlan_dps) != 1, (
                     'DPs %s sharing a BGP speaker VLAN is unsupported'))
-            router_ids = {vlan.bgp_routerid for vlan in bgp_vlans}
-            test_config_condition(len(router_ids) != 1, 'BGP router IDs must all be the same')
-            bgp_ports = {vlan.bgp_port for vlan in bgp_vlans}
-            test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same')
-            for vlan in bgp_vlans:
                 test_config_condition(vlan.bgp_server_addresses != (
                     bgp_vlans[0].bgp_server_addresses), (
                         'BGP server addresses must all be the same'))
+            bgp_routers = self.bgp_routers()
+            router_ids = {bgp_router.bgp_routerid for bgp_router in bgp_routers}
+            test_config_condition(len(router_ids) != 1, 'BGP router IDs must all be the same: %s' % router_ids)
+            bgp_ports = {bgp_router.bgp_port for bgp_router in bgp_routers}
+            test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
 
         self._configure_tables()
 
@@ -1122,9 +1122,13 @@ configuration.
         except KeyError:
             return None
 
+    def bgp_routers(self):
+        """Return list of routers with BGP enabled."""
+        return tuple([router for router in self.routers.values() if router.bgp_as])
+
     def bgp_vlans(self):
         """Return list of VLANs with BGP enabled."""
-        return tuple([vlan for vlan in self.vlans.values() if vlan.bgp_as])
+        return tuple([vlan for vlan in self.vlans.values() if vlan.bgp_server_addresses])
 
     def dot1x_ports(self):
         """Return list of ports with 802.1x enabled."""

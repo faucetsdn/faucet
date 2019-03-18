@@ -2748,13 +2748,8 @@ vlans:
     v200:
         vid: 0x200
         faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
-        bgp_port: 9179
         bgp_server_addresses: ['127.0.0.1']
-        bgp_as: 1
-        bgp_routerid: '1.1.1.1'
         bgp_neighbor_addresses: ['127.0.0.1']
-        bgp_neighbor_as: 2
-        bgp_connect_mode: 'passive'
         routes:
             - route:
                 ip_dst: 'fc00::10:0/112'
@@ -2762,6 +2757,14 @@ vlans:
             - route:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
+routers:
+    router1:
+        bgp_as: 1
+        bgp_connect_mode: 'passive'
+        bgp_neighbor_as: 2
+        bgp_port: 9179
+        bgp_routerid: '1.1.1.1'
+        vlans: [v100]
 """ % DP1_CONFIG
 
     def setUp(self):

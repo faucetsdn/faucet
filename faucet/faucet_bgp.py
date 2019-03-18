@@ -150,11 +150,13 @@ class FaucetBgp:
             vlan_prefixes.append((str(ip_dst), str(ip_gw)))
         return vlan_prefixes
 
-    def _create_bgp_speaker_for_vlan(self, vlan, bgp_speaker_key):
+    def _create_bgp_speaker_for_vlan(self, vlan, bgp_speaker_key, bgp_router):
         """Set up BGP speaker for an individual VLAN if required.
 
         Args:
             vlan (valve VLAN): VLAN for BGP speaker.
+            bgp_speaker_key (BgpSpeakerKey): BGP speaker key.
+            bgp_router: Router.
         Returns:
             ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
         """
@@ -162,9 +164,9 @@ class FaucetBgp:
         server_address = sorted(vlan.bgp_server_addresses_by_ipv(bgp_speaker_key.ipv))[0]
         beka = Beka(
             local_address=str(server_address),
-            bgp_port=vlan.bgp_port,
-            local_as=vlan.bgp_as,
-            router_id=vlan.bgp_routerid,
+            bgp_port=bgp_router.bgp_port,
+            local_as=bgp_router.bgp_as,
+            router_id=bgp_router.bgp_routerid,
             peer_up_handler=self._bgp_up_handler,
             peer_down_handler=self._bgp_down_handler,
             route_handler=route_handler,
@@ -173,9 +175,9 @@ class FaucetBgp:
             beka.add_route(prefix=str(ip_dst), next_hop=str(ip_gw))
         for bgp_neighbor_address in vlan.bgp_neighbor_addresses_by_ipv(bgp_speaker_key.ipv):
             beka.add_neighbor(
-                connect_mode=vlan.bgp_connect_mode,
+                connect_mode=bgp_router.bgp_connect_mode,
                 peer_ip=str(bgp_neighbor_address),
-                peer_as=vlan.bgp_neighbor_as)
+                peer_as=bgp_router.bgp_neighbor_as)
         hub.spawn(beka.run)
         return beka
 
@@ -192,6 +194,7 @@ class FaucetBgp:
         for bgp_vlan in self._bgp_vlans(valves):
             dp_id = bgp_vlan.dp_id
             valve = valves[dp_id]
+            bgp_router = valve.dp.bgp_routers()[0]
             vlan_vid = bgp_vlan.vid
             for ipv in bgp_vlan.bgp_ipvs():
                 bgp_speaker_key = BgpSpeakerKey(dp_id, vlan_vid, ipv)
@@ -210,7 +213,7 @@ class FaucetBgp:
                                 self._send_flow_msgs(valve, flowmods)
                 else:
                     self.logger.info('Adding %s for %s' % (bgp_speaker_key, bgp_vlan))
-                    bgp_speaker = self._create_bgp_speaker_for_vlan(bgp_vlan, bgp_speaker_key)
+                    bgp_speaker = self._create_bgp_speaker_for_vlan(bgp_vlan, bgp_speaker_key, bgp_router)
                 new_dp_bgp_speakers[bgp_speaker_key] = bgp_speaker
         # TODO: shutdown and remove deconfigured BGP speakers.
         for bgp_speaker_key, old_bgp_speaker in self._dp_bgp_speakers.items():

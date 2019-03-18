@@ -91,16 +91,10 @@ class VLAN(Conf):
         'faucet_mac': FAUCET_MAC,
         # set MAC for FAUCET VIPs on this VLAN
         'unicast_flood': True,
-        'bgp_as': None,
-        'bgp_connect_mode': 'passive',
         'bgp_local_address': None,
-        'bgp_port': 9179,
         'bgp_server_addresses': ['0.0.0.0', '::'],
-        'bgp_routerid': None,
         'bgp_neighbour_addresses': [],
         'bgp_neighbor_addresses': [],
-        'bgp_neighbour_as': None,
-        'bgp_neighbor_as': None,
         'routes': None,
         'max_hosts': 256,
         # Limit number of hosts that can be learned on a VLAN.
@@ -125,16 +119,10 @@ class VLAN(Conf):
         'faucet_vips': list,
         'faucet_mac': str,
         'unicast_flood': bool,
-        'bgp_as': int,
-        'bgp_connect_mode': str,
         'bgp_local_address': str,
-        'bgp_port': int,
         'bgp_server_addresses': list,
-        'bgp_routerid': str,
         'bgp_neighbour_addresses': list,
         'bgp_neighbor_addresses': list,
-        'bgp_neighbour_as': int,
-        'bgp_neighbor_as': int,
         'routes': list,
         'max_hosts': int,
         'vid': int,
@@ -148,16 +136,10 @@ class VLAN(Conf):
     def __init__(self, _id, dp_id, conf=None):
         self.acl_in = None
         self.acls_in = None
-        self.bgp_as = None
-        self.bgp_connect_mode = None
         self.bgp_local_address = None
-        self.bgp_neighbor_addresses = None
-        self.bgp_neighbor_as = None
-        self.bgp_neighbour_addresses = None
-        self.bgp_neighbour_as = None
-        self.bgp_port = None
-        self.bgp_routerid = None
-        self.bgp_server_addresses = None
+        self.bgp_neighbour_addresses = []
+        self.bgp_neighbor_addresses = []
+        self.bgp_server_addresses = []
         self.description = None
         self.dp_id = None
         self.faucet_mac = None
@@ -178,9 +160,6 @@ class VLAN(Conf):
         self.acls = {}
         self.tagged = []
         self.untagged = []
-        self.bgp_server_addresses = []
-        self.bgp_neighbour_addresses = []
-        self.bgp_neighbor_addresses = []
 
         self.dyn_host_cache = None
         self.dyn_host_cache_by_port = None
@@ -203,9 +182,7 @@ class VLAN(Conf):
         self._set_default('vid', self._id)
         self._set_default('name', str(self._id))
         self._set_default('faucet_vips', [])
-        self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
-        self._set_default(
-            'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
+        self._set_default('bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
     def check_config(self):
         super(VLAN, self).check_config()
@@ -243,18 +220,6 @@ class VLAN(Conf):
                 test_config_condition(
                     len(self.bgp_server_addresses_by_ipv(ipv)) != 1,
                     'Only one BGP server address per IP version supported')
-
-        if self.bgp_as:
-            test_config_condition(not isinstance(self.bgp_port, int), (
-                'BGP port must be %s not %s' % (int, type(self.bgp_port))))
-            test_config_condition(self.bgp_connect_mode not in ('passive'), (
-                'BGP connect mode %s must be passive' % self.bgp_connect_mode))
-            test_config_condition(not ipaddress.IPv4Address(self.bgp_routerid), (
-                '%s is not a valid IPv4 address' % (self.bgp_routerid)))
-            test_config_condition(not self.bgp_neighbor_as, 'No BGP neighbor AS')
-            test_config_condition(not self.bgp_neighbor_addresses, 'No BGP neighbor addresses')
-            test_config_condition(len(self.bgp_neighbor_addresses) != len(self.bgp_neighbor_addresses), (
-                'Must be as many BGP neighbor addresses as BGP server addresses'))
 
         if self.routes:
             test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
@@ -639,8 +604,6 @@ class VLAN(Conf):
                 result['bgp_neighbor_addresses'] = [str(vip) for vip in self.bgp_neighbor_addresses]
             if self.bgp_server_addresses:
                 result['bgp_server_addresses'] = [str(vip) for vip in self.bgp_server_addresses]
-            if 'bgp_neighbor_as' in result:
-                del result['bgp_neighbor_as']
             if 'bgp_neighbor_addresses' in result:
                 del result['bgp_neighbor_addresses']
         return result

@@ -2433,12 +2433,15 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24", "fc00::1:254/112"]
-        bgp_port: %(bgp_port)d
         bgp_server_addresses: ["127.0.0.1", "::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1", "::1"]
+routers:
+    router1:
+        bgp_as: 1
         bgp_connect_mode: "passive"
+        bgp_port: %(bgp_port)d
+        bgp_routerid: "1.1.1.1"
+        vlans: [100]
 """ + """
         bgp_neighbor_as: %u
 """ % PEER_BGP_AS
@@ -2493,12 +2496,15 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
-        bgp_port: %(bgp_port)d
         bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
+routers:
+    router1:
+        bgp_as: 1
         bgp_connect_mode: "passive"
+        bgp_port: %(bgp_port)d
+        bgp_routerid: "1.1.1.1"
+        vlans: [100]
 """ + """
         bgp_neighbor_as: %u
 """ % PEER_BGP_AS
@@ -2552,16 +2558,19 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
-        bgp_port: %(bgp_port)d
         bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_connect_mode: "passive"
         routes:
             - route:
                 ip_dst: 10.99.99.0/24
                 ip_gw: 10.0.0.1
+routers:
+    router1:
+        bgp_as: 1
+        bgp_connect_mode: "passive"
+        bgp_port: %(bgp_port)d
+        bgp_routerid: "1.1.1.1"
+        vlans: [100]
 """ + """
         bgp_neighbor_as: %u
 """ % PEER_BGP_AS
@@ -2622,12 +2631,8 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
-        bgp_port: %(bgp_port)d
         bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_connect_mode: "passive"
         routes:
             - route:
                 ip_dst: "10.0.1.0/24"
@@ -2638,6 +2643,13 @@ vlans:
             - route:
                 ip_dst: "10.0.3.0/24"
                 ip_gw: "10.0.0.2"
+routers:
+    router1:
+        bgp_as: 1
+        bgp_connect_mode: "passive"
+        bgp_port: %(bgp_port)d
+        bgp_routerid: "1.1.1.1"
+        vlans: [100]
 """ + """
         bgp_neighbor_as: %u
 """ % PEER_BGP_AS
@@ -4926,24 +4938,25 @@ class FaucetUntaggedIPv4GlobalInterVLANRouteTest(FaucetUntaggedTest):
     FAUCET_MAC2 = '0e:00:00:00:00:02'
 
     CONFIG_GLOBAL = """
-routers:
-    global:
-        vlans: [100, 200]
 vlans:
     100:
         faucet_vips: ["10.100.0.254/24"]
-        bgp_port: %(bgp_port)d
         bgp_server_addresses: ["127.0.0.1", "::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1", "::1"]
-        bgp_connect_mode: "passive"
-""" + """
-        bgp_neighbor_as: %u
     200:
         faucet_vips: ["10.200.0.254/24"]
         faucet_mac: "%s"
-""" % (PEER_BGP_AS, FAUCET_MAC2)
+""" % FAUCET_MAC2 + """
+routers:
+    global:
+        bgp_as: 1
+        bgp_connect_mode: "passive"
+        bgp_port: %(bgp_port)d
+        bgp_routerid: "1.1.1.1"
+        vlans: [100, 200]
+""" + """
+        bgp_neighbor_as: %u
+""" % PEER_BGP_AS
 
     CONFIG = """
         global_vlan: 300
@@ -5378,12 +5391,15 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
-        bgp_port: %(bgp_port)d
         bgp_server_addresses: ["::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
+routers:
+    router1:
+        bgp_as: 1
         bgp_connect_mode: "passive"
+        bgp_port: %(bgp_port)d
+        bgp_routerid: "1.1.1.1"
+        vlans: [100]
 """ + """
         bgp_neighbor_as: %u
 """ % PEER_BGP_AS
@@ -5436,12 +5452,15 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
-        bgp_port: %(bgp_port)d
         bgp_server_addresses: ["::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
+routers:
+    router1:
+        bgp_as: 1
         bgp_connect_mode: "passive"
+        bgp_port: %(bgp_port)d
+        bgp_routerid: "1.1.1.1"
+        vlans: [100]
 """ + """
         bgp_neighbor_as: %u
 """ % PEER_BGP_AS
@@ -5536,12 +5555,8 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
-        bgp_port: %(bgp_port)d
         bgp_server_addresses: ["::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
-        bgp_connect_mode: "passive"
         routes:
             - route:
                 ip_dst: "fc00::10:0/112"
@@ -5552,6 +5567,13 @@ vlans:
             - route:
                 ip_dst: "fc00::30:0/112"
                 ip_gw: "fc00::1:2"
+routers:
+    router1:
+        bgp_as: 1
+        bgp_connect_mode: "passive"
+        bgp_port: %(bgp_port)d
+        bgp_routerid: "1.1.1.1"
+        vlans: [100]
 """ + """
         bgp_neighbor_as: %u
 """ % PEER_BGP_AS

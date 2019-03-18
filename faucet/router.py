@@ -27,12 +27,8 @@ class Router(Conf):
     defaults = {
         'bgp_as': None,
         'bgp_connect_mode': 'passive',
-        'bgp_local_address': None,
         'bgp_port': 9179,
-        'bgp_server_addresses': ['0.0.0.0', '::'],
         'bgp_routerid': None,
-        'bgp_neighbour_addresses': [],
-        'bgp_neighbor_addresses': [],
         'bgp_neighbour_as': None,
         'bgp_neighbor_as': None,
         'vlans': None,
@@ -41,12 +37,8 @@ class Router(Conf):
     defaults_types = {
         'bgp_as': int,
         'bgp_connect_mode': str,
-        'bgp_local_address': str,
         'bgp_port': int,
-        'bgp_server_addresses': list,
         'bgp_routerid': str,
-        'bgp_neighbour_addresses': list,
-        'bgp_neighbor_addresses': list,
         'bgp_neighbour_as': int,
         'bgp_neighbor_as': int,
         'vlans': list,
@@ -55,14 +47,10 @@ class Router(Conf):
     def __init__(self, _id, dp_id, conf):
         self.bgp_as = None
         self.bgp_connect_mode = None
-        self.bgp_local_address = None
         self.bgp_neighbor_as = None
         self.bgp_neighbour_as = None
         self.bgp_port = None
         self.bgp_routerid = None
-        self.bgp_server_addresses = []
-        self.bgp_neighbour_addresses = []
-        self.bgp_neighbor_addresses = []
         self.vlans = []
         self.vip_map_by_ipv = {}
         super(Router, self).__init__(_id, dp_id, conf)
@@ -73,12 +61,11 @@ class Router(Conf):
     def set_defaults(self):
         super(Router, self).set_defaults()
         self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
-        self._set_default('bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
     def check_config(self):
         super(Router, self).check_config()
-        test_config_condition(not (isinstance(self.vlans, list) and len(self.vlans) > 1), (
-            'router %s must have at least 2 VLANs configured' % self))
+        # test_config_condition(not (isinstance(self.vlans, list) and len(self.vlans) > 1), (
+        #    'router %s must have at least 2 VLANs configured' % self))
 
     def vip_map(self, ipa):
         """Return VIP for IP address, if any."""
@@ -98,3 +85,9 @@ class Router(Conf):
                 self.vip_map_by_ipv[ipv][faucet_vip.network] = (
                     vlan, faucet_vip)
         super(Router, self).finalize()
+
+    def to_conf(self):
+        result = super(Router, self).to_conf()
+        if result is not None:
+            if 'bgp_neighbor_as' in result:
+                del result['bgp_neighbor_as']
