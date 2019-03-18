@@ -133,21 +133,11 @@ class FaucetBgp:
             self._send_flow_msgs(valve, flowmods)
 
     @staticmethod
-    def _bgp_vlans(valves):
-        bgp_vlans = set()
-        if valves:
-            for valve in valves.values():
-                bgp_vlans.update({vlan for vlan in valve.dp.bgp_vlans()})
-        return bgp_vlans
-
-    @staticmethod
     def _vlan_prefixes_by_ipv(vlan, ipv):
-        vlan_prefixes = []
-        for faucet_vip in vlan.faucet_vips_by_ipv(ipv):
-            vlan_prefixes.append((str(faucet_vip), str(faucet_vip.ip)))
-        routes = vlan.routes_by_ipv(ipv)
-        for ip_dst, ip_gw in routes.items():
-            vlan_prefixes.append((str(ip_dst), str(ip_gw)))
+        vlan_prefixes = [
+            (str(faucet_vip), str(faucet_vip.ip)) for faucet_vip in vlan.faucet_vips_by_ipv(ipv)]
+        vlan_prefixes.extend([
+            (str(ip_dst), str(ip_gw)) for ip_dst, ip_gw in vlan.routes_by_ipv(ipv)])
         return vlan_prefixes
 
     def _create_bgp_speaker_for_vlan(self, vlan, bgp_speaker_key, bgp_router):
@@ -190,8 +180,12 @@ class FaucetBgp:
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
+        bgp_vlans = set()
+        if valves:
+            for valve in valves.values():
+                bgp_vlans.update({vlan for vlan in valve.dp.bgp_vlans()})
         new_dp_bgp_speakers = {}
-        for bgp_vlan in self._bgp_vlans(valves):
+        for bgp_vlan in bgp_vlans:
             dp_id = bgp_vlan.dp_id
             valve = valves[dp_id]
             bgp_router = valve.dp.bgp_routers()[0]
