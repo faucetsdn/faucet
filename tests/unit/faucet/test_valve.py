@@ -2238,7 +2238,7 @@ dps:
 
     def setUp(self):
         pstats_out, _ = self.profile(partial(self.setup_valve, self.CONFIG))
-        self.baseline_total_tt = pstats_out.total_tt
+        self.baseline_total_tt = pstats_out.total_tt # pytype: disable=attribute-error
 
     def test_profile_reload(self):
         for i in range(2, 100):
@@ -2249,9 +2249,9 @@ dps:
 """ % (i, i)
         pstats_out, pstats_text = self.profile(
             partial(self.update_config, self.CONFIG, reload_type='cold'))
-        total_tt_prop = pstats_out.total_tt / self.baseline_total_tt
+        total_tt_prop = pstats_out.total_tt / self.baseline_total_tt # pytype: disable=attribute-error
         # must not be 50x slower, to ingest config for 100 interfaces than 1.
-        self.assertTrue(total_tt_prop < 50, msg=pstats_text) # pytype: disable=attribute-error
+        self.assertTrue(total_tt_prop < 50, msg=pstats_text)
 
 
 class ValveTestTunnel(ValveTestBases.ValveTestSmall):
