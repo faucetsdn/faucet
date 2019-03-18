@@ -2748,8 +2748,6 @@ vlans:
     v200:
         vid: 0x200
         faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
-        bgp_server_addresses: ['127.0.0.1']
-        bgp_neighbor_addresses: ['127.0.0.1']
         routes:
             - route:
                 ip_dst: 'fc00::10:0/112'
@@ -2764,6 +2762,9 @@ routers:
         bgp_neighbor_as: 2
         bgp_port: 9179
         bgp_routerid: '1.1.1.1'
+        bgp_server_addresses: ['127.0.0.1']
+        bgp_neighbor_addresses: ['127.0.0.1']
+        bgp_vlan: v100
         vlans: [v100]
 """ % DP1_CONFIG
 
