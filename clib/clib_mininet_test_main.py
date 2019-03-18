@@ -109,7 +109,7 @@ def import_hw_config():
         sys.exit(-1)
     try:
         with open(config_file_name, 'r') as config_file:
-            config = yaml.load(config_file)
+            config = yaml.safe_load(config_file)
     except IOError:
         print('Could not load YAML config data from %s' % config_file_name)
         sys.exit(-1)

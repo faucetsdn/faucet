@@ -845,7 +845,7 @@ class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
         logger.update(time.time(), datapath.dp_id, msg)
         log_str = self.get_file_contents()
 
-        yaml_dict = yaml.load(log_str)['msg']['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
+        yaml_dict = yaml.safe_load(log_str)['msg']['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
 
         compare_flow_msg(msg, yaml_dict, self)
 
