@@ -625,11 +625,11 @@ be configured:
       - string
       - "passive"
       - Must be "passive"
-    * - bgp_neighbour_addresses
+    * - bgp_neighbor_addresses
       - list of strings (IP Addresses)
       - None
       - The list of BGP neighbours
-    * - bgp_neighbour_as
+    * - bgp_neighbor_as
       - integer
       - None
       - The AS Number for the BGP neighbours

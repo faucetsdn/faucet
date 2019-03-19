@@ -27,13 +27,11 @@ class Router(Conf):
     defaults = {
         'bgp_as': None,
         'bgp_connect_mode': 'passive',
+        'bgp_neighbor_addresses': [],
+        'bgp_neighbor_as': None,
         'bgp_port': 9179,
         'bgp_routerid': None,
-        'bgp_neighbour_as': None,
-        'bgp_neighbor_as': None,
-        'bgp_server_addresses': ['0.0.0.0', '::'],
-        'bgp_neighbour_addresses': [],
-        'bgp_neighbor_addresses': [],
+        'bgp_server_addresses': ['0.0.0.0', '::']
         'bgp_vlan': None,
         'vlans': None,
     }
@@ -41,13 +39,11 @@ class Router(Conf):
     defaults_types = {
         'bgp_as': int,
         'bgp_connect_mode': str,
+        'bgp_neighbor_addresses': list,
+        'bgp_neighbor_as': int,
         'bgp_port': int,
         'bgp_routerid': str,
-        'bgp_neighbour_as': int,
-        'bgp_neighbor_as': int,
         'bgp_server_addresses': list,
-        'bgp_neighbour_addresses': list,
-        'bgp_neighbor_addresses': list,
         'bgp_vlan': (str, int),
         'vlans': list,
     }
@@ -55,12 +51,10 @@ class Router(Conf):
     def __init__(self, _id, dp_id, conf):
         self.bgp_as = None
         self.bgp_connect_mode = None
+        self.bgp_neighbor_addresses = []
         self.bgp_neighbor_as = None
-        self.bgp_neighbour_as = None
         self.bgp_port = None
         self.bgp_routerid = None
-        self.bgp_neighbour_addresses = []
-        self.bgp_neighbor_addresses = []
         self.bgp_server_addresses = []
         self.bgp_vlan = None
         self.vlans = []
@@ -72,16 +66,12 @@ class Router(Conf):
 
     def set_defaults(self):
         super(Router, self).set_defaults()
-        self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
-        self._set_default('bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
     def check_config(self):
         super(Router, self).check_config()
-        if self.bgp_neighbor_addresses or self.bgp_neighbour_addresses:
-            neigh_addresses = frozenset(self.bgp_neighbor_addresses + self.bgp_neighbour_addresses)
+        if self.bgp_neighbor_addresses:
             self.bgp_neighbor_addresses = frozenset([
-                self._check_ip_str(ip_str) for ip_str in neigh_addresses])
-
+                self._check_ip_str(ip_str) for ip_str in self.bgp_neighbor_addresses])
         if self.bgp_server_addresses:
             self.bgp_server_addresses = frozenset([
                 self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses])
@@ -124,12 +114,8 @@ class Router(Conf):
     def to_conf(self):
         result = super(Router, self).to_conf()
         if result is not None:
-            if 'bgp_neighbor_as' in result:
-                del result['bgp_neighbor_as']
             if self.bgp_neighbor_addresses:
                 result['bgp_neighbor_addresses'] = [str(vip) for vip in self.bgp_neighbor_addresses]
             if self.bgp_server_addresses:
                 result['bgp_server_addresses'] = [str(vip) for vip in self.bgp_server_addresses]
-            if 'bgp_neighbor_addresses' in result:
-                del result['bgp_neighbor_addresses']
         return result
