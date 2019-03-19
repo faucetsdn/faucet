@@ -2443,7 +2443,6 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["127.0.0.1", "::1"]
             neighbor_addresses: ["127.0.0.1", "::1"]
-            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -2508,7 +2507,6 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["127.0.0.1"]
             neighbor_addresses: ["127.0.0.1"]
-            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -2576,7 +2574,6 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["127.0.0.1"]
             neighbor_addresses: ["127.0.0.1"]
-            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -2657,7 +2654,6 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["127.0.0.1"]
             neighbor_addresses: ["127.0.0.1"]
-            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -5411,7 +5407,6 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["::1"]
             neighbor_addresses: ["::1"]
-            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -5474,7 +5469,6 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["::1"]
             neighbor_addresses: ["::1"]
-            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -5589,7 +5583,6 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["::1"]
             neighbor_addresses: ["::1"]
-            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS

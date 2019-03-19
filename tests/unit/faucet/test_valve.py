@@ -2765,7 +2765,6 @@ routers:
             routerid: '1.1.1.1'
             server_addresses: ['127.0.0.1']
             neighbor_addresses: ['127.0.0.1']
-            vlan: v100
         vlans: [v100]
 """ % DP1_CONFIG
 

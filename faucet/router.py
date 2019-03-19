@@ -89,10 +89,16 @@ class Router(Conf):
 
     def check_config(self):
         super(Router, self).check_config()
+        test_config_condition(not self.vlans, 'at least one VLAN must be specified')
         for ipv in self.bgp_ipvs():
             test_config_condition(
                 len(self.bgp_server_addresses_by_ipv(ipv)) != 1,
                 'Only one BGP server address per IP version supported')
+        if not self.bgp_vlan():
+            test_config_condition(
+                len(self.vlans) != 1,
+                'If routing more than one VLAN, must specify BGP VLAN')
+            self.set_bgp_vlan(self.vlans[0])
 
     def vip_map(self, ipa):
         """Return VIP for IP address, if any."""

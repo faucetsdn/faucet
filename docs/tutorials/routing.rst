@@ -396,14 +396,14 @@ router.
 
     routers:
         bird:
-            bgp_vlan: servers
             vlans: servers
-            bgp_port: 9179                          # BGP port for Faucet to listen on.
-            bgp_as: 65000                           # Faucet's AS number
-            bgp_routerid: '10.0.1.3'                # Faucet's Unique ID.
-            bgp_server_addresses: ['10.0.1.3']      # Faucet's listen IP for BGP
-            bgp_neighbor_addresses: ['10.0.1.2']    # Neighbouring IP addresses (IPv4/IPv6)
-            bgp_neighbor_as: 65001                  # Neighbour's AS number
+            bgp:
+                as: 65000                           # Faucet's AS number
+                port: 9179                          # BGP port for Faucet to listen on.
+                routerid: '10.0.1.3'                # Faucet's Unique ID.
+                server_addresses: ['10.0.1.3']      # Faucet's listen IP for BGP
+                neighbor_addresses: ['10.0.1.2']    # Neighbouring IP addresses (IPv4/IPv6)
+                neighbor_as: 65001                  # Neighbour's AS number
     vlans:
         servers:
             vid: 200

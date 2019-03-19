@@ -599,7 +599,7 @@ Each list element contains a dictionary with the following elements:
 Router
 ######
 
-Routers config is used to allow routing between vlans. Routers configuration
+Routers config is used to allow routing between VLANs, and optionally BGP. Routers configuration
 is entered in the 'routers' configuration block at the top level of the faucet
 configuration file. Configuration for each router is an entry in the routers
 dictionary and is keyed by a name for the router. The following attributes can
@@ -616,28 +616,42 @@ be configured:
     * - vlans
       - list of integers or strings
       - None
-      - Enables inter-vlan routing on the given vlans
-    * - bgp_as
+      - Enables inter-vlan routing on the given VLANs.
+    * - bgp
+      - BGP configuration.
+      - None
+      - See below for BGP configuration.
+
+BGP
+===
+
+Routers config to enable BGP routing.
+
+.. list-table:: routers: <router name>: {}
+    :widths: 30 15 15 40
+    :header-rows: 1
+
+    * - as
       - integer
       - None
       - The local AS number to used when speaking BGP
-    * - bgp_connect_mode
+    * - connect_mode
       - string
       - "passive"
       - Must be "passive"
-    * - bgp_neighbor_addresses
+    * - neighbor_addresses
       - list of strings (IP Addresses)
       - None
       - The list of BGP neighbours
-    * - bgp_neighbor_as
+    * - neighbor_as
       - integer
       - None
       - The AS Number for the BGP neighbours
-    * - bgp_port
+    * - port
       - integer
       - 9179
       - Port to use for bgp sessions
-    * - bgp_vlan
+    * - vlan
       - string
       - None
       - The VLAN to add/remove BGP routes from.
