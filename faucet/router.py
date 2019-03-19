@@ -25,25 +25,80 @@ class Router(Conf):
     """Implement FAUCET configuration for a router."""
 
     defaults = {
+        'bgp': {},
         'vlans': None,
     }
 
     defaults_types = {
+        'bgp': dict,
         'vlans': list,
     }
 
+    ipaddress_fields = ('neighbor_addresses', 'server_addresses')
+
+    bgp_defaults = {
+        'as': None,
+        'connect_mode': 'passive',
+        'neighbor_addresses': [],
+        'neighbor_as': None,
+        'port': 9179,
+        'routerid': None,
+        'server_addresses': ['0.0.0.0', '::'],
+        'vlan': None,
+    }
+
+    bgp_defaults_types = {
+        'as': int,
+        'connect_mode': str,
+        'neighbor_addresses': list,
+        'neighbor_as': int,
+        'port': int,
+        'routerid': str,
+        'server_addresses': list,
+        'vlan': (str, int),
+    }
+
     def __init__(self, _id, dp_id, conf):
+        self.bgp = {}
         self.vlans = []
         self.vip_map_by_ipv = {}
         super(Router, self).__init__(_id, dp_id, conf)
 
+    def _sub_conf_val(self, sub_conf, key):
+        try:
+            return self.__dict__[sub_conf][key]
+        except KeyError:
+            return None
+
+    def _bgp_val(self, key):
+        return self._sub_conf_val('bgp', key)
+
     def __str__(self):
         return str(self._id)
 
+    def set_defaults(self, defaults=None, conf=None):
+        super(Router, self).set_defaults(defaults=defaults, conf=conf)
+        self._check_conf_types(self.bgp, self.bgp_defaults_types)
+        self.bgp = self._set_unknown_conf(self.bgp, self.bgp_defaults_types)
+        for bgp_key, default_val in self.bgp_defaults.items():
+            self.bgp[bgp_key] = self.bgp.get(bgp_key, default_val)
+        for field in self.ipaddress_fields:
+            if field in self.bgp:
+                self.bgp[field] = frozenset([
+                    self._check_ip_str(ip_str) for ip_str in self.bgp[field]])
+
     def check_config(self):
         super(Router, self).check_config()
-        test_config_condition(not (isinstance(self.vlans, list) and len(self.vlans) > 1), (
-            'router %s must have at least 2 VLANs configured' % self))
+        test_config_condition(not self.vlans, 'at least one VLAN must be specified')
+        for ipv in self.bgp_ipvs():
+            test_config_condition(
+                len(self.bgp_server_addresses_by_ipv(ipv)) != 1,
+                'Only one BGP server address per IP version supported')
+        if self.bgp_as() and not self.bgp_vlan():
+            test_config_condition(
+                len(self.vlans) != 1,
+                'If routing more than one VLAN, must specify BGP VLAN')
+            self.set_bgp_vlan(self.vlans[0])
 
     def vip_map(self, ipa):
         """Return VIP for IP address, if any."""
@@ -63,3 +118,60 @@ class Router(Conf):
                 self.vip_map_by_ipv[ipv][faucet_vip.network] = (
                     vlan, faucet_vip)
         super(Router, self).finalize()
+
+    def bgp_as(self):
+        """Return BGP AS."""
+        return self._bgp_val('as')
+
+    def bgp_connect_mode(self):
+        """Return BGP connect mode."""
+        return self._bgp_val('connect_mode')
+
+    def bgp_neighbor_addresses(self):
+        """Return BGP neighbor addresses."""
+        return self._bgp_val('neighbor_addresses')
+
+    def bgp_neighbor_as(self):
+        """Return BGP neighbor AS number."""
+        return self._bgp_val('neighbor_as')
+
+    def bgp_port(self):
+        """Return BGP port."""
+        return self._bgp_val('port')
+
+    def bgp_routerid(self):
+        """Return BGP router ID."""
+        return self._bgp_val('routerid')
+
+    def bgp_server_addresses(self):
+        """Return BGP server addresses."""
+        return self._bgp_val('server_addresses')
+
+    def bgp_vlan(self):
+        """Return BGP VLAN."""
+        return self._bgp_val('vlan')
+
+    def set_bgp_vlan(self, vlan):
+        """Set BGP VLAN."""
+        if self.bgp:
+            self.bgp['vlan'] = vlan
+
+    def bgp_ipvs(self):
+        """Return list of IP versions for BGP configured on this VLAN."""
+        return self._ipvs(self.bgp_server_addresses())
+
+    def bgp_neighbor_addresses_by_ipv(self, ipv):
+        """Return BGP neighbor addresses with specified IP version on this VLAN."""
+        return self._by_ipv(self.bgp_neighbor_addresses(), ipv)
+
+    def bgp_server_addresses_by_ipv(self, ipv):
+        """Return BGP server addresses with specified IP version on this VLAN."""
+        return self._by_ipv(self.bgp_server_addresses(), ipv)
+
+    def to_conf(self):
+        result = super(Router, self).to_conf()
+        if result is not None and 'bgp' in result:
+            for field in self.ipaddress_fields:
+                if field in result['bgp']:
+                    result['bgp'][field] = [str(vip) for vip in self._bgp_val(field)]
+        return result

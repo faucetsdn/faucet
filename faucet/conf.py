@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ipaddress
 from collections import OrderedDict
 
 
@@ -59,10 +60,20 @@ class Conf:
         else:
             raise ValueError('cannot update %s on finalized Conf object' % name)
 
-    def set_defaults(self):
+    def _set_default(self, key, value, conf=None):
+        if conf is None:
+            conf = self.__dict__
+        assert key in conf, key
+        if conf[key] is None:
+            conf[key] = value
+
+    def _set_conf_defaults(self, defaults, conf):
+        for key, value in defaults.items():
+            self._set_default(key, value, conf=conf)
+
+    def set_defaults(self, defaults=None, conf=None):
         """Set default values and run any basic sanity checks."""
-        for key, value in self.defaults.items():
-            self._set_default(key, value)
+        self._set_conf_defaults(self.defaults, self.__dict__)
 
     def _check_unknown_conf(self, conf):
         """Check that supplied conf dict doesn't specify keys not defined."""
@@ -125,11 +136,6 @@ class Conf:
         self.__dict__.update(
             {k: v for k, v in self._conf_keys(other_conf, dyn=True)})
 
-    def _set_default(self, key, value):
-        assert key in self.__dict__, key
-        if self.__dict__[key] is None:
-            self.__dict__[key] = value
-
     def to_conf(self):
         """Return configuration as a dict."""
         return {
@@ -177,3 +183,18 @@ class Conf:
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    @staticmethod
+    def _check_ip_str(ip_str, ip_method=ipaddress.ip_address):
+        try:
+            return ip_method(ip_str)
+        except (ValueError, AttributeError, TypeError) as err:
+            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
+
+    @staticmethod
+    def _ipvs(ipas):
+        return frozenset([ipa.version for ipa in ipas])
+
+    @staticmethod
+    def _by_ipv(ipas, ipv):
+        return frozenset([ipa for ipa in ipas if ipa.version == ipv])

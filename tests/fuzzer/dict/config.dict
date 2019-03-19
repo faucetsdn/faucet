@@ -62,7 +62,6 @@
 "proactive_nd_limit: 72"
 "acl_in: "
 "bgp_as: 5"
-"bgp_local_address: "
 "bgp_neighbor_addresses: []"
 "bgp_neighbor_as: "
 "bgp_port: 9000"

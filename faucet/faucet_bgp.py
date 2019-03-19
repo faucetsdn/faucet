@@ -133,49 +133,40 @@ class FaucetBgp:
             self._send_flow_msgs(valve, flowmods)
 
     @staticmethod
-    def _bgp_vlans(valves):
-        bgp_vlans = set()
-        if valves:
-            for valve in valves.values():
-                bgp_vlans.update({vlan for vlan in valve.dp.bgp_vlans()})
-        return bgp_vlans
-
-    @staticmethod
     def _vlan_prefixes_by_ipv(vlan, ipv):
-        vlan_prefixes = []
-        for faucet_vip in vlan.faucet_vips_by_ipv(ipv):
-            vlan_prefixes.append((str(faucet_vip), str(faucet_vip.ip)))
-        routes = vlan.routes_by_ipv(ipv)
-        for ip_dst, ip_gw in routes.items():
-            vlan_prefixes.append((str(ip_dst), str(ip_gw)))
+        vlan_prefixes = [
+            (str(faucet_vip), str(faucet_vip.ip)) for faucet_vip in vlan.faucet_vips_by_ipv(ipv)]
+        vlan_prefixes.extend([
+            (str(ip_dst), str(ip_gw)) for ip_dst, ip_gw in vlan.routes_by_ipv(ipv).items()])
         return vlan_prefixes
 
-    def _create_bgp_speaker_for_vlan(self, vlan, bgp_speaker_key):
+    def _create_bgp_speaker_for_vlan(self, bgp_speaker_key, bgp_router):
         """Set up BGP speaker for an individual VLAN if required.
 
         Args:
-            vlan (valve VLAN): VLAN for BGP speaker.
+            bgp_speaker_key (BgpSpeakerKey): BGP speaker key.
+            bgp_router: Router.
         Returns:
             ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
         """
         route_handler = lambda x: self._bgp_route_handler(x, bgp_speaker_key)
-        server_address = sorted(vlan.bgp_server_addresses_by_ipv(bgp_speaker_key.ipv))[0]
+        server_address = sorted(bgp_router.bgp_server_addresses_by_ipv(bgp_speaker_key.ipv))[0]
         beka = Beka(
             local_address=str(server_address),
-            bgp_port=vlan.bgp_port,
-            local_as=vlan.bgp_as,
-            router_id=vlan.bgp_routerid,
+            bgp_port=bgp_router.bgp_port(),
+            local_as=bgp_router.bgp_as(),
+            router_id=bgp_router.bgp_routerid(),
             peer_up_handler=self._bgp_up_handler,
             peer_down_handler=self._bgp_down_handler,
             route_handler=route_handler,
             error_handler=self.logger.warning)
-        for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(vlan, bgp_speaker_key.ipv):
+        for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(bgp_router.bgp_vlan(), bgp_speaker_key.ipv):
             beka.add_route(prefix=str(ip_dst), next_hop=str(ip_gw))
-        for bgp_neighbor_address in vlan.bgp_neighbor_addresses_by_ipv(bgp_speaker_key.ipv):
+        for bgp_neighbor_address in bgp_router.bgp_neighbor_addresses_by_ipv(bgp_speaker_key.ipv):
             beka.add_neighbor(
-                connect_mode=vlan.bgp_connect_mode,
+                connect_mode=bgp_router.bgp_connect_mode(),
                 peer_ip=str(bgp_neighbor_address),
-                peer_as=vlan.bgp_neighbor_as)
+                peer_as=bgp_router.bgp_neighbor_as())
         hub.spawn(beka.run)
         return beka
 
@@ -185,33 +176,43 @@ class FaucetBgp:
             bgp_speaker.shutdown()
         self._dp_bgp_speakers = {}
 
+    def _add_bgp_speaker(self, valve, bgp_speaker_key, bgp_router):
+        if bgp_speaker_key in self._dp_bgp_speakers:
+            self.logger.info('Skipping re/configuration of existing %s' % bgp_speaker_key)
+            bgp_speaker = self._dp_bgp_speakers[bgp_speaker_key]
+            if bgp_speaker_key in self._dp_bgp_rib:
+                # Re-add routes (to avoid flapping BGP even when VLAN cold starts).
+                for prefix, nexthop in self._dp_bgp_rib[bgp_speaker_key].items():
+                    self.logger.info('Re-adding %s via %s' % (prefix, nexthop))
+                    bgp_vlan = bgp_router.bgp_vlan()
+                    flowmods = valve.add_route(bgp_vlan, nexthop, prefix)
+                    if flowmods:
+                        self._send_flow_msgs(valve, flowmods)
+        else:
+            self.logger.info('Adding %s' % bgp_speaker_key)
+            bgp_speaker = self._create_bgp_speaker_for_vlan(bgp_speaker_key, bgp_router)
+        return {bgp_speaker_key: bgp_speaker}
+
+    def _add_valve_bgp_speakers(self, valve):
+        bgp_speakers = {}
+        bgp_routers = valve.dp.bgp_routers()
+        if bgp_routers:
+            dp_id = valve.dp.dp_id
+            for bgp_router in bgp_routers:
+                bgp_vlan = bgp_router.bgp_vlan()
+                vlan_vid = bgp_vlan.vid
+                for ipv in bgp_router.bgp_ipvs():
+                    bgp_speaker_key = BgpSpeakerKey(dp_id, vlan_vid, ipv)
+                    bgp_speakers.update(self._add_bgp_speaker(valve, bgp_speaker_key, bgp_router))
+        return bgp_speakers
+
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
         new_dp_bgp_speakers = {}
-        for bgp_vlan in self._bgp_vlans(valves):
-            dp_id = bgp_vlan.dp_id
-            valve = valves[dp_id]
-            vlan_vid = bgp_vlan.vid
-            for ipv in bgp_vlan.bgp_ipvs():
-                bgp_speaker_key = BgpSpeakerKey(dp_id, vlan_vid, ipv)
-                if bgp_speaker_key in self._dp_bgp_speakers:
-                    self.logger.info(
-                        'Skipping re/configuration of existing %s for %s' % (
-                            bgp_speaker_key, bgp_vlan))
-                    bgp_speaker = self._dp_bgp_speakers[bgp_speaker_key]
-                    if bgp_speaker_key in self._dp_bgp_rib:
-                        # Re-add routes (to avoid flapping BGP even when VLAN cold starts).
-                        for prefix, nexthop in self._dp_bgp_rib[bgp_speaker_key].items():
-                            self.logger.info(
-                                'Re-adding %s via %s' % (prefix, nexthop))
-                            flowmods = valve.add_route(bgp_vlan, nexthop, prefix)
-                            if flowmods:
-                                self._send_flow_msgs(valve, flowmods)
-                else:
-                    self.logger.info('Adding %s for %s' % (bgp_speaker_key, bgp_vlan))
-                    bgp_speaker = self._create_bgp_speaker_for_vlan(bgp_vlan, bgp_speaker_key)
-                new_dp_bgp_speakers[bgp_speaker_key] = bgp_speaker
+        if valves:
+            for valve in valves.values():
+                new_dp_bgp_speakers.update(self._add_valve_bgp_speakers(valve))
         # TODO: shutdown and remove deconfigured BGP speakers.
         for bgp_speaker_key, old_bgp_speaker in self._dp_bgp_speakers.items():
             if bgp_speaker_key not in new_dp_bgp_speakers:

@@ -52,41 +52,6 @@ class FaucetVLANMethodTest(unittest.TestCase):
         self.assertIn(4, vlan.ipvs())
         self.assertIn(6, vlan.ipvs())
 
-    def test_bgp_servers_change_bgp_ipvs_ipv4(self):
-        """Tests the ipvs() method with an IPv4 BGP server"""
-
-        vlan_config = {
-            'bgp_server_addresses': ['127.0.0.1']
-        }
-
-        vlan = VLAN(1, 1, vlan_config)
-        self.assertIn(4, vlan.bgp_ipvs())
-        self.assertNotIn(6, vlan.bgp_ipvs())
-
-    def test_bgp_servers_change_bgp_ipvs_ipv6(self):
-        """Tests the ipvs() method with an IPv4 BGP server"""
-
-        vlan_config = {
-            'bgp_server_addresses': ['::1']
-        }
-
-        vlan = VLAN(1, 1, vlan_config)
-        self.assertIn(6, vlan.bgp_ipvs())
-        self.assertNotIn(4, vlan.bgp_ipvs())
-
-    def test_bgp_servers_change_bgp_ipvs_both(self):
-        """Tests the ipvs() method with an IPv4 BGP server"""
-
-        vlan_config = {
-            'bgp_server_addresses': ['127.0.0.1', '::1']
-        }
-
-        vlan = VLAN(1, 1, vlan_config)
-        self.assertIn(4, vlan.bgp_ipvs())
-        self.assertIn(6, vlan.bgp_ipvs())
-        self.assertIn(ip_address('127.0.0.1'), vlan.bgp_server_addresses_by_ipv(4))
-        self.assertIn(ip_address('::1'), vlan.bgp_server_addresses_by_ipv(6))
-
     def test_faucet_vips_by_ipv_none(self):
         """Tests the faucet_vips_by_ipv() method when there are no vips"""
 
