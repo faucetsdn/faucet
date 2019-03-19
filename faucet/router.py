@@ -94,7 +94,7 @@ class Router(Conf):
             test_config_condition(
                 len(self.bgp_server_addresses_by_ipv(ipv)) != 1,
                 'Only one BGP server address per IP version supported')
-        if not self.bgp_vlan():
+        if self.bgp_as() and not self.bgp_vlan():
             test_config_condition(
                 len(self.vlans) != 1,
                 'If routing more than one VLAN, must specify BGP VLAN')
