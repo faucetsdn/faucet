@@ -534,11 +534,13 @@ vlans:
         faucet_vips: ["10.1.0.254/24"]
 routers:
     router1:
-        bgp_as: 100
-        bgp_neighbor_as: 100
-        bgp_routerid: "1.1.1.1"
-        bgp_server_addresses: ["127.0.0.1"]
-        bgp_neighbor_addresses: ["127.0.0.1"]
+        bgp:
+            as: 100
+            neighbor_as: 100
+            routerid: "1.1.1.1"
+            server_addresses: ["127.0.0.1"]
+            neighbor_addresses: ["127.0.0.1"]
+            vlan: routing1
         vlans: [routing1, routing2]
 dps:
     sw1:
