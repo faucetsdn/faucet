@@ -100,11 +100,11 @@ class VLAN(Conf):
         'proactive_nd_limit': 0,
         # Don't proactively ND for hosts if over this limit (default 2*max_hosts)
         'targeted_gw_resolution': True,
-        # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
+        # If True, target the first re-resolution attempt to last known port only.
         'minimum_ip_size_check': True,
-        # If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
+        # If False, don't check that IP packets have a payload (OVS trace/tutorial requires False).
         'reserved_internal_vlan': False,
-        # VLANs that are internally reserved will forward packets from the VLAN flowtable to the VLAN_ACL flowtable matching the VID
+        # If True, forward packets from the VLAN table to the VLAN_ACL table matching the VID
         }
 
     defaults_types = {
@@ -177,13 +177,15 @@ class VLAN(Conf):
         test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
             'invalid MAC address %s' % self.faucet_mac))
 
-        test_config_condition(self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
+        test_config_condition(
+            self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
         if self.acl_in and not isinstance(self.acl_in, list):
             self.acls_in = [self.acl_in,]
             self.acl_in = None
         if self.acls_in:
             for acl in self.acls_in:
-                test_config_condition(not isinstance(acl, (int, str)), 'acl names must be int or str')
+                test_config_condition(
+                    not isinstance(acl, (int, str)), 'acl names must be int or str')
 
         if self.max_hosts:
             if not self.proactive_arp_limit:
@@ -193,7 +195,8 @@ class VLAN(Conf):
 
         if self.faucet_vips:
             self.faucet_vips = frozenset([
-                self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips])
+                self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface)
+                for ip_str in self.faucet_vips])
 
         if self.routes:
             test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
