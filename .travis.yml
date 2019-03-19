@@ -24,10 +24,6 @@ jobs:
   include:
     - stage: test
       language: python
-      python: 3.4
-      env: MATRIX_SHARD=unittest
-    - stage: test
-      language: python
       python: 3.5
       env: MATRIX_SHARD=unittest
     - stage: test
