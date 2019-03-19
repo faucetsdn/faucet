@@ -2757,14 +2757,15 @@ vlans:
                 ip_gw: 'fc00::1:99'
 routers:
     router1:
-        bgp_as: 1
-        bgp_connect_mode: 'passive'
-        bgp_neighbor_as: 2
-        bgp_port: 9179
-        bgp_routerid: '1.1.1.1'
-        bgp_server_addresses: ['127.0.0.1']
-        bgp_neighbor_addresses: ['127.0.0.1']
-        bgp_vlan: v100
+        bgp:
+            as: 1
+            connect_mode: 'passive'
+            neighbor_as: 2
+            port: 9179
+            routerid: '1.1.1.1'
+            server_addresses: ['127.0.0.1']
+            neighbor_addresses: ['127.0.0.1']
+            vlan: v100
         vlans: [v100]
 """ % DP1_CONFIG
 

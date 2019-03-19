@@ -153,20 +153,20 @@ class FaucetBgp:
         server_address = sorted(bgp_router.bgp_server_addresses_by_ipv(bgp_speaker_key.ipv))[0]
         beka = Beka(
             local_address=str(server_address),
-            bgp_port=bgp_router.bgp_port,
-            local_as=bgp_router.bgp_as,
-            router_id=bgp_router.bgp_routerid,
+            bgp_port=bgp_router.bgp_port(),
+            local_as=bgp_router.bgp_as(),
+            router_id=bgp_router.bgp_routerid(),
             peer_up_handler=self._bgp_up_handler,
             peer_down_handler=self._bgp_down_handler,
             route_handler=route_handler,
             error_handler=self.logger.warning)
-        for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(bgp_router.bgp_vlan, bgp_speaker_key.ipv):
+        for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(bgp_router.bgp_vlan(), bgp_speaker_key.ipv):
             beka.add_route(prefix=str(ip_dst), next_hop=str(ip_gw))
         for bgp_neighbor_address in bgp_router.bgp_neighbor_addresses_by_ipv(bgp_speaker_key.ipv):
             beka.add_neighbor(
-                connect_mode=bgp_router.bgp_connect_mode,
+                connect_mode=bgp_router.bgp_connect_mode(),
                 peer_ip=str(bgp_neighbor_address),
-                peer_as=bgp_router.bgp_neighbor_as)
+                peer_as=bgp_router.bgp_neighbor_as())
         hub.spawn(beka.run)
         return beka
 
@@ -184,7 +184,7 @@ class FaucetBgp:
                 # Re-add routes (to avoid flapping BGP even when VLAN cold starts).
                 for prefix, nexthop in self._dp_bgp_rib[bgp_speaker_key].items():
                     self.logger.info('Re-adding %s via %s' % (prefix, nexthop))
-                    bgp_vlan = bgp_router.bgp_vlan
+                    bgp_vlan = bgp_router.bgp_vlan()
                     flowmods = valve.add_route(bgp_vlan, nexthop, prefix)
                     if flowmods:
                         self._send_flow_msgs(valve, flowmods)
@@ -199,7 +199,7 @@ class FaucetBgp:
         if bgp_routers:
             dp_id = valve.dp.dp_id
             for bgp_router in bgp_routers:
-                bgp_vlan = bgp_router.bgp_vlan
+                bgp_vlan = bgp_router.bgp_vlan()
                 vlan_vid = bgp_vlan.vid
                 for ipv in bgp_router.bgp_ipvs():
                     bgp_speaker_key = BgpSpeakerKey(dp_id, vlan_vid, ipv)
