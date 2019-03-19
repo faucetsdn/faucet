@@ -2435,7 +2435,6 @@ vlans:
         faucet_vips: ["10.0.0.254/24", "fc00::1:254/112"]
 routers:
     router1:
-        vlans: [100]
         bgp:
             as: 1
             connect_mode: "passive"
@@ -2443,6 +2442,7 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["127.0.0.1", "::1"]
             neighbor_addresses: ["127.0.0.1", "::1"]
+            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -2499,7 +2499,6 @@ vlans:
         faucet_vips: ["10.0.0.254/24"]
 routers:
     router1:
-        vlans: [100]
         bgp:
             as: 1
             connect_mode: "passive"
@@ -2507,6 +2506,7 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["127.0.0.1"]
             neighbor_addresses: ["127.0.0.1"]
+            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -2566,7 +2566,6 @@ vlans:
                 ip_gw: 10.0.0.1
 routers:
     router1:
-        vlans: [100]
         bgp:
             as: 1
             connect_mode: "passive"
@@ -2574,6 +2573,7 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["127.0.0.1"]
             neighbor_addresses: ["127.0.0.1"]
+            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -2646,7 +2646,6 @@ vlans:
                 ip_gw: "10.0.0.2"
 routers:
     router1:
-        vlans: [100]
         bgp:
             as: 1
             connect_mode: "passive"
@@ -2654,6 +2653,7 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["127.0.0.1"]
             neighbor_addresses: ["127.0.0.1"]
+            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -5399,7 +5399,6 @@ vlans:
         faucet_vips: ["fc00::1:254/112"]
 routers:
     router1:
-        vlans: [100]
         bgp:
             as: 1
             connect_mode: "passive"
@@ -5407,6 +5406,7 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["::1"]
             neighbor_addresses: ["::1"]
+            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -5461,7 +5461,6 @@ vlans:
         faucet_vips: ["fc00::1:254/112"]
 routers:
     router1:
-        vlans: [100]
         bgp:
             as: 1
             connect_mode: "passive"
@@ -5469,6 +5468,7 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["::1"]
             neighbor_addresses: ["::1"]
+            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
@@ -5575,7 +5575,6 @@ vlans:
                 ip_gw: "fc00::1:2"
 routers:
     router1:
-        vlans: [100]
         bgp:
             as: 1
             connect_mode: "passive"
@@ -5583,6 +5582,7 @@ routers:
             routerid: "1.1.1.1"
             server_addresses: ["::1"]
             neighbor_addresses: ["::1"]
+            vlan: 100
 """ + """
             neighbor_as: %u
 """ % PEER_BGP_AS
