@@ -36,17 +36,6 @@ class Router(Conf):
 
     ipaddress_fields = ('neighbor_addresses', 'server_addresses')
 
-    bgp_defaults = {
-        'as': None,
-        'connect_mode': 'passive',
-        'neighbor_addresses': [],
-        'neighbor_as': None,
-        'port': 9179,
-        'routerid': None,
-        'server_addresses': ['0.0.0.0', '::'],
-        'vlan': None,
-    }
-
     bgp_defaults_types = {
         'as': int,
         'connect_mode': str,
@@ -78,18 +67,28 @@ class Router(Conf):
 
     def set_defaults(self, defaults=None, conf=None):
         super(Router, self).set_defaults(defaults=defaults, conf=conf)
-        self._check_conf_types(self.bgp, self.bgp_defaults_types)
-        self.bgp = self._set_unknown_conf(self.bgp, self.bgp_defaults_types)
-        for bgp_key, default_val in self.bgp_defaults.items():
-            self.bgp[bgp_key] = self.bgp.get(bgp_key, default_val)
-        for field in self.ipaddress_fields:
-            if field in self.bgp:
-                self.bgp[field] = frozenset([
-                    self._check_ip_str(ip_str) for ip_str in self.bgp[field]])
 
     def check_config(self):
         super(Router, self).check_config()
-        if self.bgp_as():
+        if self.bgp:
+            self._check_conf_types(self.bgp, self.bgp_defaults_types)
+            self.bgp = self._set_unknown_conf(self.bgp, self.bgp_defaults_types)
+            if not self.bgp_connect_mode():
+                self.bgp['bgp']['connect_mode'] = 'passive'
+            for field in self.ipaddress_fields:
+                if field in self.bgp:
+                    self.bgp[field] = frozenset([
+                        self._check_ip_str(ip_str) for ip_str in self.bgp[field]])
+            for accessor_val, required_field in (
+                    (self.bgp_ipvs(), 'server_addresses'),
+                    (self.bgp_as(), 'as'),
+                    (self.bgp_port(), 'port'),
+                    (self.bgp_connect_mode(), 'connect_mode'),
+                    (self.bgp_routerid(), 'routerid'),
+                    (self.bgp_neighbor_addresses(), 'neighbor_addresses'),
+                    (self.bgp_neighbor_as(), 'neighbor_as')):
+                test_config_condition(not accessor_val, 'BGP %s must be specified' % required_field)
+            test_config_condition(self.bgp_connect_mode() != 'passive', 'BGP connect_mode must be passive')
             for ipv in self.bgp_ipvs():
                 test_config_condition(
                     len(self.bgp_server_addresses_by_ipv(ipv)) != 1,

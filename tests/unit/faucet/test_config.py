@@ -536,11 +536,13 @@ routers:
     router1:
         bgp:
             as: 100
+            connect_mode: "passive"
             neighbor_as: 100
             routerid: "1.1.1.1"
             server_addresses: ["127.0.0.1"]
             neighbor_addresses: ["127.0.0.1"]
             vlan: routing1
+            port: 9179
         vlans: [routing1, routing2]
 dps:
     sw1:
