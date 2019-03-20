@@ -623,7 +623,7 @@ be configured:
       - See below for BGP configuration.
 
 BGP
-===
+###
 
 Routers config to enable BGP routing.
 
@@ -640,17 +640,25 @@ Routers config to enable BGP routing.
       - "passive"
       - Must be "passive"
     * - neighbor_addresses
-      - list of strings (IP Addresses)
+      - list of strings (IP addresses)
       - None
       - The list of BGP neighbours
     * - neighbor_as
       - integer
       - None
       - The AS Number for the BGP neighbours
+    * - routerid
+      - string (IP address)
+      - None
+      - BGP router ID.
+    * - server_addresses
+      - list of strings (IP addresses)
+      - None
+      - IP addresses for FAUCET to listen for incoming BGP addresses.
     * - port
       - integer
       - 9179
-      - Port to use for bgp sessions
+      - Port to use for BGP sessions
     * - vlan
       - string
       - None
