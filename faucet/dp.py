@@ -1068,11 +1068,15 @@ configuration.
             all_router_vlans = set()
             for router_name, router in self.routers.items():
                 vips = set()
+                if router.vlans and len(router.vlans) == 1:
+                    lone_vlan = router.vlans[0]
+                    test_config_condition(
+                        lone_vlan in all_router_vlans, 'single VLAN %s in more than one router' % lone_vlan)
                 for vlan in router.vlans:
                     vips.update({vip for vip in vlan.faucet_vips if not vip.ip.is_link_local})
                     test_config_condition(
                         vlan in all_router_vlans, 'VLAN %s in more than one router' % vlan)
-                    all_router_vlans.add(vlan)
+                all_router_vlans.update(router.vlans)
                 for vip in vips:
                     for other_vip in vips - set([vip]):
                         test_config_condition(
