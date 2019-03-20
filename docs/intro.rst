@@ -90,7 +90,8 @@ Release Notes
 .. toctree::
    :maxdepth: 2
 
-   release_notes
+   release_notes/1.7.0
+   release_notes/1.9.0
 
 Getting Help
 ------------

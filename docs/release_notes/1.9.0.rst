@@ -1,0 +1,92 @@
+1.9.0 Release Notes
+^^^^^^^^^^^^^^^^^^^
+
+There are some changes in version 1.9.0 of faucet that may affect how you use
+it. Below are the changes and how they might affect you.
+
+  1. **Removing support for older python versions**
+
+       Starting from faucet 1.9.0 and onwards, faucet now requires a version of
+       python 3.5 or newer to function.
+
+       Most currently supported distributions of linux should have a version of
+       python that is compatible, with the notable exception of Debian Jessie
+       which is no longer supported by faucet.
+
+  2. **Change BGP configuration syntax**
+
+       Previously, BGP configuration for faucet was attached to a VLAN, for example:
+
+       .. code-block:: yaml
+          :caption: Older style bgp configuration
+
+          vlans:
+              internet:
+                  description: 'internet peering'
+                  vid: 200
+                  bgp_routerid: '127.0.0.2'
+                  bgp_as: 14031
+                  bgp_neighbor_as: 14031
+                  bgp_neighbor_addresses: ['127.0.0.1', '::1']
+                  bgp_server_addresses: ['127.0.0.2', '::1']
+                  bgp_port: 9179
+                  bgp_connect_mode: 'passive'
+
+       As BGP peering in faucet now has the ability to resolve next hops in all
+       VLANs, we have elected to move where BGP is configured.
+
+       We have now implemented a new ``bgp`` router type that can be configured
+       in faucet, similar to how inter-VLAN routing works today, for example this
+       is an example of the new syntax showing how we would convert the
+       configuration shown above:
+
+       .. code-block:: yaml
+          :caption: Newer style bgp configuration
+
+          vlans:
+              internet:
+                  description: 'internet peering'
+                  vid: 200
+
+          routers:
+              internet-router:
+                  bgp:
+                      vlan: internet
+                      routerid: '127.0.0.2'
+                      as: 14031
+                      neighbor_as: 14031
+                      neighbor_addresses: ['127.0.0.1', '::1']
+                      server_addresses: ['127.0.0.2', '::1']
+                      port: 9179
+                      connect_mode: 'passive'
+
+
+       It is also possible to combine inter-VLAN routing and bgp routing in a
+       single routing instance:
+
+       .. code-block:: yaml
+          :caption: Newer style bgp configuration (with IVR)
+
+          vlans:
+              office:
+                  description: 'internet peering'
+                  vid: 100
+              internet:
+                  description: 'internet peering'
+                  vid: 200
+
+          routers:
+              office-internet-router:
+                  vlans: [office, internet]
+                  bgp:
+                      vlan: internet
+                      routerid: '127.0.0.2'
+                      as: 14031
+                      neighbor_as: 14031
+                      neighbor_addresses: ['127.0.0.1', '::1']
+                      server_addresses: ['127.0.0.2', '::1']
+                      port: 9179
+                      connect_mode: 'passive'
+
+       For more information on what each option does, please see the
+       :ref:`bgp-configuration` documentation section.
