@@ -1,7 +1,7 @@
 Faucet
 ======
 
-:version: 1.8.37
+:version: 1.9.0
 
 .. image:: https://travis-ci.com/faucetsdn/faucet.svg?branch=master
     :target: https://travis-ci.com/faucetsdn/faucet
