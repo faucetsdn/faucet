@@ -657,7 +657,7 @@ Routers config to enable BGP routing.
       - IP addresses for FAUCET to listen for incoming BGP addresses.
     * - port
       - integer
-      - 9179
+      - None
       - Port to use for BGP sessions
     * - vlan
       - string
