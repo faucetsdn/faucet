@@ -622,6 +622,8 @@ be configured:
       - None
       - See below for BGP configuration.
 
+.. _bgp-configuration:
+
 BGP
 ###
 
