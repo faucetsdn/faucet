@@ -633,6 +633,10 @@ Routers config to enable BGP routing.
     :widths: 30 15 15 40
     :header-rows: 1
 
+    * - Attribute
+      - Type
+      - Default
+      - Description
     * - as
       - integer
       - None
