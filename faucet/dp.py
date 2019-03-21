@@ -835,7 +835,7 @@ configuration.
 
         dp_by_name = {}
         vlan_by_name = {}
-        external_ports = False
+        vlans_with_external_ports = set()
 
         def resolve_ports(port_names):
             """Resolve list of ports, by port by name or number."""
@@ -856,12 +856,21 @@ configuration.
                 return self.vlans[vlan_name]
             return None
 
+        def resolve_vlans(vlan_names):
+            """Resolve a list of VLAN names."""
+            vlans = []
+            for vlan_name in vlan_names:
+                vlan = resolve_vlan(vlan_name)
+                if vlan:
+                    vlans.append(vlan)
+            return vlans
+
         def resolve_stack_dps():
             """Resolve DP references in stacking config."""
             if self.stack_ports:
                 if self.stack is None:
                     self.stack = {}
-                self.stack['externals'] = external_ports
+                self.stack['externals'] = bool(vlans_with_external_ports)
                 port_stack_dp = {}
                 for port in self.stack_ports:
                     stack_dp = port.stack['dp']
@@ -1037,70 +1046,68 @@ configuration.
                 for tunnel_acl in self.tunnel_acls.values():
                     tunnel_acl.verify_tunnel_compatibility_rules(self)
 
-        def resolve_vlan_names_in_routers():
+        def resolve_routers():
             """Resolve VLAN references in routers."""
             dp_routers = {}
             for router_name, router in self.routers.items():
                 if router.bgp_vlan():
                     router.set_bgp_vlan(resolve_vlan(router.bgp_vlan()))
-                vlans = []
-                for vlan_name in router.vlans:
-                    vlan = resolve_vlan(vlan_name)
-                    if vlan is not None:
-                        vlans.append(vlan)
-                if len(vlans):
+                vlans = resolve_vlans(router.vlans)
+                if vlans or router.bgp_vlan():
                     dp_router = copy.copy(router)
                     dp_router.vlans = vlans
                     dp_routers[router_name] = dp_router
+            self.routers = dp_routers
+
+            if self.global_vlan:
+                vids = {vlan.vid for vlan in self.vlans.values()}
+                test_config_condition(
+                    self.global_vlan in vids, 'global_vlan VID %s conflicts with existing VLAN' % self.global_vlan)
+
+            # Check for overlapping VIP subnets or VLANs.
+            all_router_vlans = set()
+            for router_name, router in self.routers.items():
                 vips = set()
-                for vlan in vlans:
-                    for vip in vlan.faucet_vips:
-                        if vip.ip.is_link_local:
-                            continue
-                        vips.add(vip)
+                if router.vlans and len(router.vlans) == 1:
+                    lone_vlan = router.vlans[0]
+                    test_config_condition(
+                        lone_vlan in all_router_vlans, 'single VLAN %s in more than one router' % lone_vlan)
+                for vlan in router.vlans:
+                    vips.update({vip for vip in vlan.faucet_vips if not vip.ip.is_link_local})
+                all_router_vlans.update(router.vlans)
                 for vip in vips:
                     for other_vip in vips - set([vip]):
                         test_config_condition(
                             vip.ip in other_vip.network,
                             'VIPs %s and %s overlap in router %s' % (
                                 vip, other_vip, router_name))
-            self.routers = dp_routers
+            bgp_routers = self.bgp_routers()
+            if bgp_routers:
+                for bgp_router in bgp_routers:
+                    bgp_vlan = bgp_router.bgp_vlan()
+                    vlan_dps = [dp for dp in dps if bgp_vlan.vid in dp.vlans]
+                    test_config_condition(len(vlan_dps) != 1, (
+                        'DPs %s sharing a BGP speaker VLAN is unsupported'))
+                    test_config_condition(bgp_router.bgp_server_addresses() != (
+                        bgp_routers[0].bgp_server_addresses()), (
+                            'BGP server addresses must all be the same'))
+                router_ids = {bgp_router.bgp_routerid() for bgp_router in bgp_routers}
+                test_config_condition(len(router_ids) != 1, 'BGP router IDs must all be the same: %s' % router_ids)
+                bgp_ports = {bgp_router.bgp_port() for bgp_router in bgp_routers}
+                test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
+
 
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
-
-        for dp in dps:
-            dp_by_name[dp.name] = dp
-        for vlan in self.vlans.values():
-            vlan_by_name[vlan.name] = vlan
-            if self.global_vlan:
-                test_config_condition(
-                    self.global_vlan == vlan.vid, 'VLAN %u is reserved by global_vlan' % vlan.vid)
-
-        for vlan in vlan_by_name.values():
-            if vlan.loop_protect_external_ports():
-                external_ports = True
-                break
+        dp_by_name = {dp.name: dp for dp in dps}
+        vlan_by_name = {vlan.name: vlan for vlan in self.vlans.values()}
+        vlans_with_external_ports = {
+            vlan for vlan in self.vlans.values() if vlan.loop_protect_external_ports()}
 
         resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_override_output_ports()
-        resolve_vlan_names_in_routers()
         resolve_acls()
-
-        bgp_routers = self.bgp_routers()
-        if bgp_routers:
-            for bgp_router in bgp_routers:
-                bgp_vlan = bgp_router.bgp_vlan()
-                vlan_dps = [dp for dp in dps if bgp_vlan.vid in dp.vlans]
-                test_config_condition(len(vlan_dps) != 1, (
-                    'DPs %s sharing a BGP speaker VLAN is unsupported'))
-                test_config_condition(bgp_router.bgp_server_addresses() != (
-                    bgp_routers[0].bgp_server_addresses()), (
-                        'BGP server addresses must all be the same'))
-            router_ids = {bgp_router.bgp_routerid() for bgp_router in bgp_routers}
-            test_config_condition(len(router_ids) != 1, 'BGP router IDs must all be the same: %s' % router_ids)
-            bgp_ports = {bgp_router.bgp_port() for bgp_router in bgp_routers}
-            test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
+        resolve_routers()
 
         self._configure_tables()
 
