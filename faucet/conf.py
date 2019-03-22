@@ -141,8 +141,12 @@ class Conf:
     def _str_conf(self, conf_v):
         if isinstance(conf_v, (bool, str, int)):
             return conf_v
+        if isinstance(conf_v, (
+                'IPv4Address', 'IPv4Interface', 'IPv4Network',
+                'IPv6Address', 'IPv6Interface', 'IPv6Network')):
+            return str(conf_v)
         if isinstance(conf_v, (dict, OrderedDict)):
-            return {i: self._str_conf(j) for i, j in conf_v.items() if j is not None}
+            return {str(i): self._str_conf(j) for i, j in conf_v.items() if j is not None}
         if isinstance(conf_v, (list, tuple, frozenset)):
             return tuple([self._str_conf(i) for i in conf_v if i is not None])
         if isinstance(conf_v, Conf):
