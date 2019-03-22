@@ -48,7 +48,6 @@ from beka.ip import IPAddress, IPPrefix
 from faucet import faucet
 from faucet import faucet_bgp
 from faucet import faucet_dot1x
-from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_metrics
 from faucet import valves_manager
@@ -664,12 +663,6 @@ class ValveTestBases:
 
         def setUp(self):
             self.setup_valve(CONFIG)
-
-        def test_get_config_dict(self):
-            """Test API call for DP config."""
-            # TODO: test actual config contents.
-            self.assertTrue(self.valve.get_config_dict())
-            self.assertTrue(self.valve.dp.get_tables())
 
         def test_notifier_socket_path(self):
             """Test notifier socket path checker."""
@@ -2794,13 +2787,10 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
         os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
         ryu_app = faucet.Faucet(
             dpset={},
-            faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI(),
             reg=CollectorRegistry())
         ryu_app.reload_config(None)
         self.assertFalse(ryu_app._config_files_changed())
         ryu_app.metric_update(None)
-        ryu_app.get_config()
-        ryu_app.get_tables(0)
         event_dp = dpset.EventDPReconnected(dp=self._fake_dp())
         for enter in (True, False):
             event_dp.enter = enter

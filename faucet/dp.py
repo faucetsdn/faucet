@@ -1149,18 +1149,6 @@ configuration.
                 port.name: port.to_conf() for port in self.ports.values()}
         return result
 
-    def get_tables(self):
-        """Return tables as dict for API call."""
-        return {
-            table_name: table.table_id for table_name, table in self.tables.items()}
-
-    def get_config_dict(self):
-        """Return DP config as a dict for API call."""
-        return {
-            'dps': {self.name: self.to_conf()},
-            'vlans': {vlan.name: vlan.to_conf() for vlan in self.vlans.values()},
-            'acls': {acl_id: acl.to_conf() for acl_id, acl in self.acls.items()}}
-
     def _get_acl_config_changes(self, logger, new_dp):
         """Detect any config changes to ACLs.
 

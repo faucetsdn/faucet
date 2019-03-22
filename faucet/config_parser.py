@@ -215,19 +215,6 @@ def _config_parser_v2(config_file, logname):
     return (config_hashes, dps)
 
 
-def get_config_for_api(valves):
-    """Return config as dict for all DPs."""
-    config = {}
-    for i in V2_TOP_CONFS:
-        config[i] = {}
-    for valve in valves.values():
-        valve_conf = valve.get_config_dict()
-        for i in V2_TOP_CONFS:
-            if i in valve_conf:
-                config[i].update(valve_conf[i])
-    return config
-
-
 def watcher_parser(config_file, logname, prom_client):
     """Return Watcher instances from config."""
     conf = config_parser_util.read_config(config_file, logname)
