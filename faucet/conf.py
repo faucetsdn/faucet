@@ -16,7 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import difflib
 import ipaddress
+import json
 from collections import OrderedDict
 
 
@@ -153,7 +155,13 @@ class Conf:
         """Return configuration as a dict."""
         conf = {
             k: self.__dict__[str(k)] for k in self.defaults.keys() if k != 'name'}
-        return self._str_conf(conf)
+        return json.dumps(self._str_conf(conf), sort_keys=True, indent=4, separators=(',', ': '))
+
+    def conf_diff(self, other):
+        """Return text diff between two Confs."""
+        differ = difflib.Differ()
+        return '\n'.join(differ.compare(
+            self.to_conf().splitlines(), other.to_conf().splitlines()))
 
     def conf_hash(self, dyn=False, subconf=True, ignore_keys=None):
         """Return hash of keys configurably filtering attributes."""

@@ -22,7 +22,6 @@ import random
 import math
 import netaddr
 
-from datadiff import diff, NotSequence
 import networkx
 
 from faucet import faucet_pipeline
@@ -1166,7 +1165,7 @@ configuration.
                 acl = self.acls[acl_id]
                 if acl != new_acl:
                     changed_acls[acl_id] = new_acl
-                    logger.info('ACL %s changed: %s' % (acl_id, new_acl.to_conf()))
+                    logger.info('ACL %s changed: %s' % (acl_id, acl.conf_diff(new_acl)))
         return changed_acls
 
     def _get_vlan_config_changes(self, logger, new_dp):
@@ -1250,12 +1249,8 @@ configuration.
                                 port_no, old_acl_ids, new_acl_ids))
                     else:
                         changed_ports.add(port_no)
-                        try:
-                            config_diff = diff(
-                                old_port.to_conf(), new_port.to_conf(), context=1)
-                        except NotSequence as err:
-                            config_diff = 'error producing diff: %s' % err
-                        logger.info('port %s reconfigured (%s)' % (port_no, config_diff))
+                        logger.info('port %s reconfigured (%s)' % (
+                            port_no, old_port.conf_diff(new_port)))
                 elif new_port.acls_in:
                     port_acls_changed = [acl for acl in new_port.acls_in if acl in changed_acls]
                     if port_acls_changed:
