@@ -5858,7 +5858,7 @@ class FaucetStringOfDPTest(FaucetTest):
                     'loop_protect_external': (first_external and port == 1),
                 }
                 add_acl_to_port(name, port, interfaces_config)
-                port += 1
+                port += 2
 
             for _ in range(n_untagged):
                 interfaces_config[port] = {
@@ -5866,10 +5866,10 @@ class FaucetStringOfDPTest(FaucetTest):
                     'loop_protect_external': (first_external and port == 1),
                 }
                 add_acl_to_port(name, port, interfaces_config)
-                port += 1
+                port += 2
 
             add_dp_to_dp_ports(
-                name, dp_config, port, interfaces_config, i, dpid_count, stack,
+                name, dp_config, 2, interfaces_config, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
             if dpid == hw_dpid:
@@ -5919,7 +5919,7 @@ class FaucetStringOfDPTest(FaucetTest):
             config['dps'][name] = add_dp(
                 name, dpid, hw_dpid, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid,
-                dpname_to_dpkey, (first_external and i == 0))
+                dpname_to_dpkey, first_external)
 
         return yaml.dump(config, default_flow_style=False)
 
@@ -6165,14 +6165,36 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            switch_to_switch_links=2,
+            switch_to_switch_links=1,
             hw_dpid=self.hw_dpid,
             first_external=True)
         self.start_net()
 
     def test_untagged(self):
-        """All untagged hosts in stack topology can reach each other."""
-        self.verify_all_stack_hosts()
+        #conf = self._get_faucet_conf()
+        #conf['dps']['faucet-2']['interfaces'][3]['loop_protect_external'] = True
+        #self.reload_conf(
+        #    conf, self.faucet_config_path,
+        #    restart=True, cold_start=False, change_expected=True)
+        #conf['dps']['faucet-2']['interfaces'][3]['loop_protect_external'] = False
+        #self.reload_conf(
+        #    conf, self.faucet_config_path,
+        #    restart=True, cold_start=False, change_expected=True)
+        """Host can reach eachother, unless both marked loop_protect_external"""
+        ext_port1, int_port1, ext_port2, int_port2 = self.net.hosts
+        #self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port1, int_port2), broadcast_expected=True)
+        #self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port2, int_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port2, int_port2), broadcast_expected=True)
+        #self.one_ipv4_ping(ext_port1, ext_port2.IP(), expected_result=False)
+        #self.one_ipv4_ping(ext_port1, int_port1.IP())
+        self.one_ipv4_ping(ext_port1, int_port2.IP())
+        self.one_ipv4_ping(int_port1, int_port2.IP())
+        self.one_ipv4_ping(ext_port2, int_port1.IP())
+        self.one_ipv4_ping(ext_port2, int_port2.IP())
+        self.assertTrue(False)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):

@@ -494,7 +494,11 @@ class ValveFloodStackManager(ValveFloodManager):
         # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
         ofmsgs = super(ValveFloodStackManager, self)._build_mask_flood_rules(
             vlan, eth_dst, eth_dst_mask, exclude_unicast, command)
-        external_ports = vlan.loop_protect_external_ports_up()
+        external_ports = vlan.loop_protect_external_ports()
+        external_ports2 = vlan.loop_protect_external_ports_up()
+        self.logger.info('externals %s' % str(self.externals))
+        self.logger.info('external_ports %s' % str(external_ports))
+        self.logger.info('external_ports2 %s' % str(external_ports2))
         for port in self.stack_ports:
             if self.externals and external_ports:
                 # If external flag is set, flood to external ports, otherwise exclude them.
