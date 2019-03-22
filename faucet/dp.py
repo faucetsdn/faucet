@@ -1136,19 +1136,6 @@ configuration.
         """Return list of ports with 802.1x enabled."""
         return tuple([port for port in self.ports.values() if port.dot1x])
 
-    def to_conf(self):
-        """Return DP config as dict."""
-        result = super(DP, self).to_conf()
-        if result is not None:
-            if 'stack' in result:
-                if result['stack'] is not None:
-                    result['stack'] = {
-                        'root_dp': str(self.stack['root_dp'])
-                    }
-            result['interfaces'] = {
-                port.name: port.to_conf() for port in self.ports.values()}
-        return result
-
     def get_tables(self):
         """Return tables as dict for API call."""
         return {
@@ -1264,7 +1251,8 @@ configuration.
                     else:
                         changed_ports.add(port_no)
                         try:
-                            config_diff = diff(old_port.to_conf(), new_port.to_conf(), context=1)
+                            config_diff = diff(
+                                old_port.to_conf(), new_port.to_conf(), context=1)
                         except NotSequence as err:
                             config_diff = 'error producing diff: %s' % err
                         logger.info('port %s reconfigured (%s)' % (port_no, config_diff))

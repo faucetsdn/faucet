@@ -136,10 +136,24 @@ class Conf:
         self.__dict__.update(
             {k: v for k, v in self._conf_keys(other_conf, dyn=True)})
 
+    def _str_conf(self, conf_v):
+        if isinstance(conf_v, (bool, str, int)):
+            return conf_v
+        if isinstance(conf_v, (dict, OrderedDict)):
+            return {i: self._str_conf(j) for i, j in conf_v.items() if j is not None}
+        if isinstance(conf_v, (list, tuple, frozenset)):
+            return tuple([self._str_conf(i) for i in conf_v if i is not None])
+        if isinstance(conf_v, Conf):
+            for i in ('name', '_id'):
+                if hasattr(conf_v, i):
+                    return getattr(conf_v, i)
+        return None
+
     def to_conf(self):
         """Return configuration as a dict."""
-        return {
+        conf = {
             k: self.__dict__[str(k)] for k in self.defaults.keys() if k != 'name'}
+        return self._str_conf(conf)
 
     def conf_hash(self, dyn=False, subconf=True, ignore_keys=None):
         """Return hash of keys configurably filtering attributes."""
