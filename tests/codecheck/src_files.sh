@@ -9,7 +9,6 @@ else
   (cd $FAUCETHOME && readlink -f $*) > $TMPFILE || exit 1
 fi
 
-# TODO: test_packaging.py causes pytype to die.
-sort < $TMPFILE | grep -v -E "test_packaging.py$" || exit 1
+sort < $TMPFILE || exit 1
 rm -f $TMPFILE
 exit 0

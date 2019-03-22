@@ -67,7 +67,7 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
         """Test pip requirements are listed as dependencies on debian package."""
 
         for pip_req in parse_requirements(self.requirements_file,
-                                                  session="unittest"):
+                                          session="unittest"):
             if isinstance(pip_req, InstallRequirement):
                 if pip_req.name in self.dpkg_name:
                     dpkg_name = self.dpkg_name[pip_req.name]
@@ -80,7 +80,7 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
         """Test pip requirements versions match debian package dependencies."""
 
         for pip_req in parse_requirements(self.requirements_file,
-                                                  session="unittest"):
+                                          session="unittest"):
             if isinstance(pip_req, InstallRequirement):
                 if pip_req.name in self.dpkg_name:
                     dpkg_name = self.dpkg_name[pip_req.name]
