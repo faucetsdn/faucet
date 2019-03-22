@@ -142,8 +142,8 @@ class Conf:
         if isinstance(conf_v, (bool, str, int)):
             return conf_v
         if isinstance(conf_v, (
-                'IPv4Address', 'IPv4Interface', 'IPv4Network',
-                'IPv6Address', 'IPv6Interface', 'IPv6Network')):
+                ipaddress.IPv4Address, ipaddress.IPv4Interface, ipaddress.IPv4Network,
+                ipaddress.IPv6Address, ipaddress.IPv6Interface, ipaddress.IPv6Network)):
             return str(conf_v)
         if isinstance(conf_v, (dict, OrderedDict)):
             return {str(i): self._str_conf(j) for i, j in conf_v.items() if j is not None}
