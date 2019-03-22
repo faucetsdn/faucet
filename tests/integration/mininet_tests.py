@@ -6171,30 +6171,47 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self.start_net()
 
     def test_untagged(self):
-        #conf = self._get_faucet_conf()
-        #conf['dps']['faucet-2']['interfaces'][3]['loop_protect_external'] = True
-        #self.reload_conf(
-        #    conf, self.faucet_config_path,
-        #    restart=True, cold_start=False, change_expected=True)
-        #conf['dps']['faucet-2']['interfaces'][3]['loop_protect_external'] = False
-        #self.reload_conf(
-        #    conf, self.faucet_config_path,
-        #    restart=True, cold_start=False, change_expected=True)
         """Host can reach eachother, unless both marked loop_protect_external"""
+
+        # Part 1: Make sure things are connected properly.
+        self._connections_aye() # Before reload
+
+        # Part 2: The code in question is part of the reload path.
+        #self._reload_setup(True)
+        #self._reload_setup(False)
+
+        # Part 3: Make sure things are the same after reload.
+        #self._connections_aye() # After reload
+
+        self.assertTrue(False)
+
+    def _reload_setup(self, protect_external):
+        conf = self._get_faucet_conf()
+        conf['dps']['faucet-2']['interfaces'][3]['loop_protect_external'] = protect_external
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=True)
+        time.sleep(5)
+
+    def _connections_aye(self):
+        self.pingAll()
+        self.pingAll()
+        self.pingAll()
+
         ext_port1, int_port1, ext_port2, int_port2 = self.net.hosts
-        #self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=True) # False
         self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port1, int_port2), broadcast_expected=True)
-        #self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=False) # True
         self.verify_broadcast(hosts=(ext_port2, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port2, int_port2), broadcast_expected=True)
-        #self.one_ipv4_ping(ext_port1, ext_port2.IP(), expected_result=False)
-        #self.one_ipv4_ping(ext_port1, int_port1.IP())
-        self.one_ipv4_ping(ext_port1, int_port2.IP())
-        self.one_ipv4_ping(int_port1, int_port2.IP())
-        self.one_ipv4_ping(ext_port2, int_port1.IP())
-        self.one_ipv4_ping(ext_port2, int_port2.IP())
-        self.assertTrue(False)
+        self.one_ipv4_ping(ext_port1, ext_port2.IP(), expected_result=True) # False
+        self.one_ipv4_ping(ext_port1, int_port1.IP(), expected_result=False) # True
+        self.one_ipv4_ping(ext_port1, int_port2.IP(), expected_result=False) # True
+        # This one is flaky for some unknown reason.
+        #self.one_ipv4_ping(int_port1, int_port2.IP(), expected_result=True) # True
+        self.one_ipv4_ping(ext_port2, int_port1.IP(), expected_result=False) # True
+        self.one_ipv4_ping(ext_port2, int_port2.IP(), expected_result=False) # True
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
