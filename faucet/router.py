@@ -88,7 +88,8 @@ class Router(Conf):
                     (self.bgp_neighbor_addresses(), 'neighbor_addresses'),
                     (self.bgp_neighbor_as(), 'neighbor_as')):
                 test_config_condition(not accessor_val, 'BGP %s must be specified' % required_field)
-            test_config_condition(self.bgp_connect_mode() != 'passive', 'BGP connect_mode must be passive')
+            test_config_condition(
+                self.bgp_connect_mode() != 'passive', 'BGP connect_mode must be passive')
             for ipv in self.bgp_ipvs():
                 test_config_condition(
                     len(self.bgp_server_addresses_by_ipv(ipv)) != 1,
@@ -98,8 +99,6 @@ class Router(Conf):
                     len(self.vlans) != 1,
                     'If routing more than one VLAN, must specify BGP VLAN')
                 self.set_bgp_vlan(self.vlans[0])
-            if not self.vlans:
-                self.vlans = [self.bgp_vlan()]
         else:
             test_config_condition(
                 not self.vlans, 'A router must have least one VLAN specified at top level')

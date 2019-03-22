@@ -286,10 +286,14 @@ LLDP (DP)
 
 LLDP beacons are configured in the dp and interface configuration blocks.
 
-Note: the LLDP beacon service is specifically NOT to discover topology. It is
-intended to facilitate physical troubleshooting (e.g. a standard cable tester
-can display OF port information). A seperate system will be used to probe
-link/neighbor activity, addressing issues such as authenticity of the probes.
+LLDP beacons can be used to, among other things, facilitate physical
+troubleshooting (e.g. so that a standard cable tester can display port
+information), verify FAUCET stacking topology, and cue a phone to use
+the right voice VLAN.
+
+NOTE: while FAUCET can receive and log LLDP from other devices, FAUCET
+does not do spanning tree those LLDP packets will have no influence
+on FAUCET's forwarding decisions.
 
 The following attributes can be configured withing the 'lldp_beacon'
 configuration block at the dp level:
