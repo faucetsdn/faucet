@@ -6177,19 +6177,18 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self._connections_aye() # Before reload
 
         # Part 2: The code in question is part of the reload path.
-        #self._reload_setup(True)
-        #self._reload_setup(False)
+        self._mark_external(True)
+        self._mark_external(False)
 
         # Part 3: Make sure things are the same after reload.
-        #self._connections_aye() # After reload
+        self._connections_aye() # After reload
 
         self.assertTrue(False)
 
-    def _reload_setup(self, protect_external):
+    def _mark_external(self, protect_external):
         conf = self._get_faucet_conf()
         conf['dps']['faucet-2']['interfaces'][3]['loop_protect_external'] = protect_external
-        self.reload_conf(
-            conf, self.faucet_config_path,
+        self.reload_conf(conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
         time.sleep(5)
 
