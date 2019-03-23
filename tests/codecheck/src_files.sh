@@ -9,6 +9,6 @@ else
   (cd $FAUCETHOME && readlink -f $*) > $TMPFILE || exit 1
 fi
 
-sort < $TMPFILE || exit 1
+sort < $TMPFILE | while IFS= read -r f; do [[ -f "$f" ]] && echo "$f"; done
 rm -f $TMPFILE
 exit 0
