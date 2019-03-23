@@ -17,7 +17,7 @@ def main():
 
     # start faucet
     application = faucet.Faucet(
-        dpset=dpset.DPSet(),
+        dpset=dpset.DPSet())
     application.start()
 
     # make sure dps are running
