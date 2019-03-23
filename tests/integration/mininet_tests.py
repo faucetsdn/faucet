@@ -5858,7 +5858,7 @@ class FaucetStringOfDPTest(FaucetTest):
                     'loop_protect_external': (first_external and port == 1),
                 }
                 add_acl_to_port(name, port, interfaces_config)
-                port += 2
+                port += 1
 
             for _ in range(n_untagged):
                 interfaces_config[port] = {
@@ -5866,10 +5866,10 @@ class FaucetStringOfDPTest(FaucetTest):
                     'loop_protect_external': (first_external and port == 1),
                 }
                 add_acl_to_port(name, port, interfaces_config)
-                port += 2
+                port += 1
 
             add_dp_to_dp_ports(
-                name, dp_config, 2, interfaces_config, i, dpid_count, stack,
+                name, dp_config, port, interfaces_config, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
             if dpid == hw_dpid:
@@ -6194,24 +6194,19 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         time.sleep(5)
 
     def _connections_aye(self):
-        self.pingAll()
-        self.pingAll()
-        self.pingAll()
-
         ext_port1, int_port1, ext_port2, int_port2 = self.net.hosts
-        self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=True) # False
+        self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
         self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port1, int_port2), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=False) # True
+        self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, ext_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, ext_port2), broadcast_expected=False) # True
         self.verify_broadcast(hosts=(ext_port2, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port2, int_port2), broadcast_expected=True)
-        self.one_ipv4_ping(ext_port1, ext_port2.IP(), expected_result=True) # False
-        self.one_ipv4_ping(ext_port1, int_port1.IP(), expected_result=False) # True
-        self.one_ipv4_ping(ext_port1, int_port2.IP(), expected_result=False) # True
-        # This one is flaky for some unknown reason.
-        #self.one_ipv4_ping(int_port1, int_port2.IP(), expected_result=True) # True
-        self.one_ipv4_ping(ext_port2, int_port1.IP(), expected_result=False) # True
-        self.one_ipv4_ping(ext_port2, int_port2.IP(), expected_result=False) # True
+        self.verify_broadcast(hosts=(ext_port2, ext_port1), broadcast_expected=False)
+        self.verify_broadcast(hosts=(int_port2, int_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port2, ext_port1), broadcast_expected=False) # True
+        self.verify_broadcast(hosts=(int_port2, ext_port2), broadcast_expected=True)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
