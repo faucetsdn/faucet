@@ -73,7 +73,7 @@ class ValveFloodManager(ValveManagerBase):
     @staticmethod
     def _build_flood_local_rule_actions(vlan, exclude_unicast, in_port, exclude_all_external):
         """Return a list of flood actions to flood packets from a port."""
-        external_ports = vlan.loop_protect_external_ports_up()
+        external_ports = vlan.loop_protect_external_ports()
         exclude_ports = vlan.exclude_same_lag_member_ports(in_port)
         if external_ports:
             if (exclude_all_external or
@@ -471,7 +471,7 @@ class ValveFloodStackManager(ValveFloodManager):
         5: 1 2 3 4
         """
         exclude_ports = []
-        external_ports = vlan.loop_protect_external_ports_up()
+        external_ports = vlan.loop_protect_external_ports()
 
         if in_port and in_port in self.stack_ports:
             in_port_peer_dp = in_port.stack['dp']
@@ -495,10 +495,6 @@ class ValveFloodStackManager(ValveFloodManager):
         ofmsgs = super(ValveFloodStackManager, self)._build_mask_flood_rules(
             vlan, eth_dst, eth_dst_mask, exclude_unicast, command)
         external_ports = vlan.loop_protect_external_ports()
-        external_ports2 = vlan.loop_protect_external_ports_up()
-        self.logger.info('externals %s' % str(self.externals))
-        self.logger.info('external_ports %s' % str(external_ports))
-        self.logger.info('external_ports2 %s' % str(external_ports2))
         for port in self.stack_ports:
             if self.externals and external_ports:
                 # If external flag is set, flood to external ports, otherwise exclude them.
