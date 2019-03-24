@@ -422,7 +422,6 @@ class VLAN(Conf):
     def loop_protect_external_ports_up(self):
         """Return up ports with external loop protection set."""
         return tuple([port for port in self.loop_protect_external_ports() if port.dyn_phys_up])
-        return self.loop_protect_external_ports()
 
     def lacp_ports(self):
         """Return ports that have LACP on this VLAN."""
