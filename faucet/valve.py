@@ -1563,6 +1563,7 @@ class Valve:
             flow_msgs (list): OpenFlow messages to send.
         """
         if flow_msgs is None:
+            self.datapath_disconnect()
             ryu_dp.close()
         else:
             for flow_msg in self.prepare_send_flows(flow_msgs):
