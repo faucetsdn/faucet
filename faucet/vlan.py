@@ -557,12 +557,3 @@ class VLAN(Conf):
         if self.is_faucet_vip(dst_ip) and self.ip_in_vip_subnet(src_ip):
             return True
         return False
-
-    def to_conf(self):
-        result = super(VLAN, self).to_conf()
-        if result is not None:
-            if self.routes:
-                result['routes'] = [{'route': route} for route in self.routes]
-            if self.faucet_vips:
-                result['faucet_vips'] = [str(vip) for vip in self.faucet_vips]
-        return result
