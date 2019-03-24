@@ -6183,14 +6183,12 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         # Part 3: Make sure things are the same after reload.
         self._connections_aye() # After reload
 
-        self.assertFalse(True)
-
     def _mark_external(self, protect_external):
         conf = self._get_faucet_conf()
         conf['dps']['faucet-2']['interfaces'][2]['loop_protect_external'] = protect_external
         self.reload_conf(conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
-        #time.sleep(5)
+        time.sleep(5)
 
     def _connections_aye(self):
         ext_port1, int_port1, ext_port2, int_port2 = self.net.hosts
