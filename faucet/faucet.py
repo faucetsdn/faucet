@@ -116,7 +116,7 @@ class Faucet(RyuAppBase):
         self.valves_manager = valves_manager.ValvesManager(
             self.logname, self.logger, self.metrics, self.notifier, self.bgp,
             self.dot1x, self._send_flow_msgs)
-        self.thread_managers = (self.bgp, self.dot1x, self.notifier)
+        self.thread_managers = (self.bgp, self.dot1x, self.metrics, self.notifier)
 
     @kill_on_exception(exc_logname)
     def _check_thread_exception(self):
