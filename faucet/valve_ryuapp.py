@@ -29,7 +29,7 @@ from ryu.controller.handler import set_ev_cls
 from ryu.lib import hub
 
 from faucet import valve_of
-from faucet.valve_util import dpid_log, get_logger, get_setting, kill_on_exception
+from faucet.valve_util import dpid_log, get_logger, get_setting
 
 
 
