@@ -51,6 +51,7 @@ class FaucetDot1x:
         self.dot1x_intf = None
         self.mac_to_port = {}  # {"00:00:00:00:00:02" : (valve_0, port_1)}
         self.dp_id_to_valve_index = {}
+        self.thread = None
 
     def _create_dot1x_speaker(self, dot1x_intf, chewie_id, radius_ip, radius_port, radius_secret):
         """
@@ -69,7 +70,8 @@ class FaucetDot1x:
             dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
             radius_ip, radius_port, radius_secret, chewie_id)
-        hub.spawn(_chewie.run)
+        self.thread = hub.spawn(_chewie.run)
+        self.thread.name = 'chewie'
         return _chewie
 
     def get_valve_and_port(self, port_id):

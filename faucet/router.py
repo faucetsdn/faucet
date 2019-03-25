@@ -170,11 +170,3 @@ class Router(Conf):
     def bgp_server_addresses_by_ipv(self, ipv):
         """Return BGP server addresses with specified IP version on this VLAN."""
         return self._by_ipv(self.bgp_server_addresses(), ipv)
-
-    def to_conf(self):
-        result = super(Router, self).to_conf()
-        if result is not None and 'bgp' in result:
-            for field in self.ipaddress_fields:
-                if field in result['bgp']:
-                    result['bgp'][field] = [str(vip) for vip in self._bgp_val(field)]
-        return result
