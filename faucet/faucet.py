@@ -116,6 +116,11 @@ class Faucet(RyuAppBase):
         self.valves_manager = valves_manager.ValvesManager(
             self.logname, self.logger, self.metrics, self.notifier, self.bgp,
             self.dot1x, self._send_flow_msgs)
+        self.thread_managers = (self.bgp, self.dot1x, self.notifier)
+
+    @kill_on_exception(exc_logname)
+    def _check_thread_exception(self):
+        super(Faucet, self)._check_thread_exception()
 
     @kill_on_exception(exc_logname)
     def start(self):
@@ -132,9 +137,11 @@ class Faucet(RyuAppBase):
             self.threads.append(notifier_thread)
 
         for service_event, service_pair in self._VALVE_SERVICES.items():
-            _, interval = service_pair
-            self.threads.append(hub.spawn(
-                partial(self._thread_reschedule, service_event(), interval)))
+            name, interval = service_pair
+            thread = hub.spawn(
+                partial(self._thread_reschedule, service_event(), interval))
+            thread.name = name
+            self.threads.append(thread)
 
         # Register to API
         self.api._register(self)
