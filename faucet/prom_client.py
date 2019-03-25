@@ -49,8 +49,6 @@ class PromClient: # pylint: disable=too-few-public-methods
 
     REQUIRED_LABELS = ['dp_id', 'dp_name']
     _reg = REGISTRY
-    server = None
-    thread = None
 
     def __init__(self, reg=None):
         if reg is not None:
@@ -63,6 +61,8 @@ class PromClient: # pylint: disable=too-few-public-methods
             ['version'],
             registry=self._reg)
         self.faucet_version.labels(version=version).set(1) # pylint: disable=no-member
+        self.server = None
+        self.thread = None
 
     def start(self, prom_port, prom_addr, use_test_thread=False):
         """Start webserver."""
@@ -85,4 +85,5 @@ class PromClient: # pylint: disable=too-few-public-methods
                 self.thread.start()
             else:
                 self.server = hub.WSGIServer((prom_addr, int(prom_port)), app)
-                hub.spawn(self.server.serve_forever)
+                self.thread = hub.spawn(self.server.serve_forever)
+            self.thread.name = 'prometheus'

@@ -51,6 +51,7 @@ class Gauge(RyuAppBase):
         self.watchers = {}
         self.config_watcher = ConfigWatcher()
         self.prom_client = GaugePrometheusClient(reg=self._reg)
+        self.thread_managers = (self.prom_client,)
 
     @kill_on_exception(exc_logname)
     def _check_thread_exception(self):
