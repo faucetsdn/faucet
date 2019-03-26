@@ -6165,7 +6165,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            switch_to_switch_links=1,
+            switch_to_switch_links=2,
             hw_dpid=self.hw_dpid,
             first_external=True)
         self.start_net()
@@ -6197,12 +6197,14 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self.verify_broadcast(hosts=(ext_port1, int_port2), broadcast_expected=True)
         self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
         self.verify_broadcast(hosts=(int_port1, ext_port1), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port1, ext_port2), broadcast_expected=False) # True
+        # Should be True, but there's a to-be-fixed PR #2883
+        self.verify_broadcast(hosts=(int_port1, ext_port2), broadcast_expected=False)
         self.verify_broadcast(hosts=(ext_port2, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port2, int_port2), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port2, ext_port1), broadcast_expected=False)
         self.verify_broadcast(hosts=(int_port2, int_port1), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port2, ext_port1), broadcast_expected=False) # True
+        # Should be True, but there's a to-be-fixed PR #2883
+        self.verify_broadcast(hosts=(int_port2, ext_port1), broadcast_expected=False)
         self.verify_broadcast(hosts=(int_port2, ext_port2), broadcast_expected=True)
 
 
