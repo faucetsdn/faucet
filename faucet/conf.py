@@ -16,7 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import difflib
 import ipaddress
+import json
 from collections import OrderedDict
 
 
@@ -136,10 +138,34 @@ class Conf:
         self.__dict__.update(
             {k: v for k, v in self._conf_keys(other_conf, dyn=True)})
 
+    def _str_conf(self, conf_v):
+        if isinstance(conf_v, (bool, str, int)):
+            return conf_v
+        if isinstance(conf_v, (
+                ipaddress.IPv4Address, ipaddress.IPv4Interface, ipaddress.IPv4Network,
+                ipaddress.IPv6Address, ipaddress.IPv6Interface, ipaddress.IPv6Network)):
+            return str(conf_v)
+        if isinstance(conf_v, (dict, OrderedDict)):
+            return {str(i): self._str_conf(j) for i, j in conf_v.items() if j is not None}
+        if isinstance(conf_v, (list, tuple, frozenset)):
+            return tuple([self._str_conf(i) for i in conf_v if i is not None])
+        if isinstance(conf_v, Conf):
+            for i in ('name', '_id'):
+                if hasattr(conf_v, i):
+                    return getattr(conf_v, i)
+        return None
+
     def to_conf(self):
         """Return configuration as a dict."""
-        return {
+        conf = {
             k: self.__dict__[str(k)] for k in self.defaults.keys() if k != 'name'}
+        return json.dumps(self._str_conf(conf), sort_keys=True, indent=4, separators=(',', ': '))
+
+    def conf_diff(self, other):
+        """Return text diff between two Confs."""
+        differ = difflib.Differ()
+        return '\n'.join(differ.compare(
+            self.to_conf().splitlines(), other.to_conf().splitlines()))
 
     def conf_hash(self, dyn=False, subconf=True, ignore_keys=None):
         """Return hash of keys configurably filtering attributes."""
