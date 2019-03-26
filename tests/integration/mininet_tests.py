@@ -5919,7 +5919,7 @@ class FaucetStringOfDPTest(FaucetTest):
             config['dps'][name] = add_dp(
                 name, dpid, hw_dpid, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid,
-                dpname_to_dpkey, (first_external and i == 0))
+                dpname_to_dpkey, first_external)
 
         return yaml.dump(config, default_flow_style=False)
 
@@ -6171,8 +6171,20 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self.start_net()
 
     def test_untagged(self):
-        """All untagged hosts in stack topology can reach each other."""
-        self.verify_all_stack_hosts()
+        """Host can reach eachother, unless both marked loop_protect_external"""
+        ext_port1, int_port1, ext_port2, int_port2 = self.net.hosts
+        self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port1, int_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, ext_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, ext_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port2, int_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port2, int_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port2, ext_port1), broadcast_expected=False)
+        self.verify_broadcast(hosts=(int_port2, int_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port2, ext_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port2, ext_port2), broadcast_expected=True)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
