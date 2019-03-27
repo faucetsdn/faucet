@@ -65,6 +65,7 @@ class FaucetBgp:
         self._dp_bgp_speakers = {}
         self._dp_bgp_rib = {}
         self._valves = None
+        self.thread = None
 
     def _valve_vlan(self, dp_id, vlan_vid):
         valve = None
@@ -167,7 +168,8 @@ class FaucetBgp:
                 connect_mode=bgp_router.bgp_connect_mode(),
                 peer_ip=str(bgp_neighbor_address),
                 peer_as=bgp_router.bgp_neighbor_as())
-        hub.spawn(beka.run)
+        self.thread = hub.spawn(beka.run)
+        self.thread.name = 'beka'
         return beka
 
     def shutdown_bgp_speakers(self):

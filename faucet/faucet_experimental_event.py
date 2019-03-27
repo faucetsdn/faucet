@@ -76,6 +76,7 @@ class FaucetExperimentalEventNotifier:
         if self.socket_path:
             stream_server = StreamServer((self.socket_path, None), self._loop).serve_forever
             self.thread = hub.spawn(stream_server)
+            self.thread.name = 'event'
         return self.thread
 
     def _loop(self, sock, _addr):
