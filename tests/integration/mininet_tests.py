@@ -5855,7 +5855,7 @@ class FaucetStringOfDPTest(FaucetTest):
             for _ in range(n_tagged):
                 interfaces_config[port] = {
                     'tagged_vlans': [tagged_vid],
-                    'loop_protect_external': (first_external and port == 1),
+                    'loop_protect_external': (first_external and port < n_tagged),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
@@ -5863,7 +5863,7 @@ class FaucetStringOfDPTest(FaucetTest):
             for _ in range(n_untagged):
                 interfaces_config[port] = {
                     'native_vlan': untagged_vid,
-                    'loop_protect_external': (first_external and port == 1),
+                    'loop_protect_external': (first_external and port < n_untagged),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
@@ -6156,7 +6156,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
-    NUM_HOSTS = 2
+    NUM_HOSTS = 3
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStackStringOfDPExtLoopProtUntaggedTest, self).setUp()
@@ -6172,7 +6172,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """Host can reach eachother, unless both marked loop_protect_external"""
-        ext_port1, int_port1, ext_port2, int_port2 = self.net.hosts
+        ext_port1, alt_port1, int_port1, ext_port2, alt_port2, int_port2 = self.net.hosts
         self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
         self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port1, int_port2), broadcast_expected=True)
@@ -6185,6 +6185,12 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self.verify_broadcast(hosts=(int_port2, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(int_port2, ext_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(int_port2, ext_port2), broadcast_expected=True)
+
+        self.verify_broadcast(hosts=(ext_port1, alt_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(alt_port1, ext_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(int_port1, alt_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(alt_port1, int_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, alt_port1), broadcast_expected=True)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
