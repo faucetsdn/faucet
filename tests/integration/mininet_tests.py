@@ -6188,9 +6188,9 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
         self.verify_broadcast(hosts=(ext_port1, alt_port2), broadcast_expected=False)
         self.verify_broadcast(hosts=(alt_port1, ext_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(int_port1, alt_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(int_port1, alt_port2), broadcast_expected=True)
         self.verify_broadcast(hosts=(alt_port1, int_port2), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port1, alt_port1), broadcast_expected=True)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
