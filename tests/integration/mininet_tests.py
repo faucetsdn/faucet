@@ -825,6 +825,107 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
         self.wait_8021x_flows(port_no2)
 
 
+class Faucet8021XCustomACLLoginTest(Faucet8021XSuccessTest):
+    """Ensure that 8021X Port ACLs Work before and after Login"""
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    auth_acl:
+        - rule:
+            dl_type: 0x800      # Deny ICMP / IPv4
+            ip_proto: 1
+            actions:
+                allow: True
+    noauth_acl:
+        - rule:
+            dl_type: 0x800      # Allow ICMP / IPv4
+            ip_proto: 1
+            actions:
+                allow: False
+        - rule:
+            dl_type: 0x0806     # ARP Packets 
+            actions:
+                allow: True
+    """
+
+    CONFIG = """
+        dot1x:
+            nfv_intf: NFV_INTF
+            nfv_sw_port: %(port_4)d
+            radius_ip: 127.0.0.1
+            radius_port: RADIUS_PORT
+            radius_secret: SECRET
+            auth_acl: auth_acl
+            noauth_acl: noauth_acl
+        interfaces:
+            %(port_1)d:
+                name: b1
+                description: "b1"
+                native_vlan: 100
+                # 802.1x client.
+                dot1x: True
+                dot1x_acl: True
+            %(port_2)d:
+                name: b2
+                description: "b2"
+                native_vlan: 100
+                # 802.1X client.
+                dot1x: True
+                dot1x_acl: True
+            %(port_3)d:
+                name: b3
+                description: "b3"
+                native_vlan: 100
+                # ping host.
+            %(port_4)d:
+                name: b4
+                description: "b4"
+                native_vlan: 100
+                # "NFV host - interface used by controller."
+    """
+
+    def test_untagged(self):
+        # Ping allowed before and after login
+        port_no1 = self.port_map['port_1']
+
+        print(self.get_all_flows_from_dpid(self.dpid, 0))
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+        self.assertIn('Success', tcpdump_txt_1)
+
+        print("Attempt to ping second time")
+
+        print(self.get_all_flows_from_dpid(self.dpid, 0))
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=True)
+
+
+class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
+    """Ensure that 8021X Port ACLs Work before and after Logout"""
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
+
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertIn('logoff', tcpdump_txt_1)
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
