@@ -489,6 +489,7 @@ class ValveTestBases:
                 self.valve.switch_features(None) +
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
             self.table.apply_ofmsgs(connect_msgs)
+            self.valves_manager.update_config_applied(sent={self.DP_ID: True})
             self.assertEqual(1, int(self.get_prom('dp_status')))
             for port_no in discovered_up_ports:
                 if port_no in self.valve.dp.ports:
@@ -2405,6 +2406,57 @@ dps:
         self.assertEqual(new_hashes, starting_hashes,
                          'hashes should be restored to starting values')
 
+
+
+class ValveTestConfigApplied(ValveTestBases.ValveTestSmall):
+    """Test cases for faucet_config_applied"""
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+"""
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def _get_value(self, name):
+        """Return value of a single prometheus sample"""
+        metric = getattr(self.metrics, name)
+        # There doesn't seem to be a nice API for this,
+        # so we use the prometheus client internal API
+        metrics = list(metric.collect())
+        self.assertEqual(len(metrics), 1)
+        samples = metrics[0].samples
+        self.assertEqual(len(samples), 1)
+        sample = samples[0]
+        self.assertEqual(sample.name, name)
+        return sample.value
+
+    def test_config_applied_update(self):
+        """Verify that config_applied increments after DP connect"""
+        # 100% for a single datapath
+        self.assertEqual(self._get_value('faucet_config_applied'), 1.0)
+        # Add a second datapath, which currently isn't programmed
+        self.CONFIG +="""
+    s2:
+        dp_id: 0x2
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+"""
+        self.update_config(self.CONFIG, reload_expected=False)
+        # Should be 50%
+        self.assertEqual(self._get_value('faucet_config_applied'), .5)
+        # We don't have a way to simulate the second datapath connecting,
+        # we update the statistic manually
+        self.valves_manager.update_config_applied({0x2: True})
+        # Should be 100% now
+        self.assertEqual(self._get_value('faucet_config_applied'), 1.0)
 
 
 class ValveTestTunnel(ValveTestBases.ValveTestSmall):
