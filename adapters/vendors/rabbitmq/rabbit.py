@@ -88,7 +88,7 @@ class RabbitAdapter:
         # create connection to rabbit
         params = pika.ConnectionParameters(host=self.host,
                                            port=self.port,
-                                           heartbeat_interval=600,
+                                           heartbeat=600,
                                            blocked_connection_timeout=300)
         try:
             self.channel = pika.BlockingConnection(params).channel()
