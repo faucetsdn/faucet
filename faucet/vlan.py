@@ -91,16 +91,6 @@ class VLAN(Conf):
         'faucet_mac': FAUCET_MAC,
         # set MAC for FAUCET VIPs on this VLAN
         'unicast_flood': True,
-        'bgp_as': None,
-        'bgp_connect_mode': 'passive',
-        'bgp_local_address': None,
-        'bgp_port': 9179,
-        'bgp_server_addresses': ['0.0.0.0', '::'],
-        'bgp_routerid': None,
-        'bgp_neighbour_addresses': [],
-        'bgp_neighbor_addresses': [],
-        'bgp_neighbour_as': None,
-        'bgp_neighbor_as': None,
         'routes': None,
         'max_hosts': 256,
         # Limit number of hosts that can be learned on a VLAN.
@@ -110,11 +100,11 @@ class VLAN(Conf):
         'proactive_nd_limit': 0,
         # Don't proactively ND for hosts if over this limit (default 2*max_hosts)
         'targeted_gw_resolution': True,
-        # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
+        # If True, target the first re-resolution attempt to last known port only.
         'minimum_ip_size_check': True,
-        # If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
+        # If False, don't check that IP packets have a payload (OVS trace/tutorial requires False).
         'reserved_internal_vlan': False,
-        # VLANs that are internally reserved will forward packets from the VLAN flowtable to the VLAN_ACL flowtable matching the VID
+        # If True, forward packets from the VLAN table to the VLAN_ACL table matching the VID
         }
 
     defaults_types = {
@@ -125,16 +115,6 @@ class VLAN(Conf):
         'faucet_vips': list,
         'faucet_mac': str,
         'unicast_flood': bool,
-        'bgp_as': int,
-        'bgp_connect_mode': str,
-        'bgp_local_address': str,
-        'bgp_port': int,
-        'bgp_server_addresses': list,
-        'bgp_routerid': str,
-        'bgp_neighbour_addresses': list,
-        'bgp_neighbor_addresses': list,
-        'bgp_neighbour_as': int,
-        'bgp_neighbor_as': int,
         'routes': list,
         'max_hosts': int,
         'vid': int,
@@ -148,16 +128,6 @@ class VLAN(Conf):
     def __init__(self, _id, dp_id, conf=None):
         self.acl_in = None
         self.acls_in = None
-        self.bgp_as = None
-        self.bgp_connect_mode = None
-        self.bgp_local_address = None
-        self.bgp_neighbor_addresses = None
-        self.bgp_neighbor_as = None
-        self.bgp_neighbour_addresses = None
-        self.bgp_neighbour_as = None
-        self.bgp_port = None
-        self.bgp_routerid = None
-        self.bgp_server_addresses = None
         self.description = None
         self.dp_id = None
         self.faucet_mac = None
@@ -178,9 +148,6 @@ class VLAN(Conf):
         self.acls = {}
         self.tagged = []
         self.untagged = []
-        self.bgp_server_addresses = []
-        self.bgp_neighbour_addresses = []
-        self.bgp_neighbor_addresses = []
 
         self.dyn_host_cache = None
         self.dyn_host_cache_by_port = None
@@ -203,16 +170,6 @@ class VLAN(Conf):
         self._set_default('vid', self._id)
         self._set_default('name', str(self._id))
         self._set_default('faucet_vips', [])
-        self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
-        self._set_default(
-            'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
-
-    @staticmethod
-    def _check_ip_str(ip_str, ip_method=ipaddress.ip_address):
-        try:
-            return ip_method(ip_str)
-        except (ValueError, AttributeError, TypeError) as err:
-            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
 
     def check_config(self):
         super(VLAN, self).check_config()
@@ -220,13 +177,15 @@ class VLAN(Conf):
         test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
             'invalid MAC address %s' % self.faucet_mac))
 
-        test_config_condition(self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
+        test_config_condition(
+            self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
         if self.acl_in and not isinstance(self.acl_in, list):
             self.acls_in = [self.acl_in,]
             self.acl_in = None
         if self.acls_in:
             for acl in self.acls_in:
-                test_config_condition(not isinstance(acl, (int, str)), 'acl names must be int or str')
+                test_config_condition(
+                    not isinstance(acl, (int, str)), 'acl names must be int or str')
 
         if self.max_hosts:
             if not self.proactive_arp_limit:
@@ -236,32 +195,8 @@ class VLAN(Conf):
 
         if self.faucet_vips:
             self.faucet_vips = frozenset([
-                self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips])
-
-        if self.bgp_neighbor_addresses or self.bgp_neighbour_addresses:
-            neigh_addresses = frozenset(self.bgp_neighbor_addresses + self.bgp_neighbour_addresses)
-            self.bgp_neighbor_addresses = frozenset([
-                self._check_ip_str(ip_str) for ip_str in neigh_addresses])
-
-        if self.bgp_server_addresses:
-            self.bgp_server_addresses = frozenset([
-                self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses])
-            for ipv in self.bgp_ipvs():
-                test_config_condition(
-                    len(self.bgp_server_addresses_by_ipv(ipv)) != 1,
-                    'Only one BGP server address per IP version supported')
-
-        if self.bgp_as:
-            test_config_condition(not isinstance(self.bgp_port, int), (
-                'BGP port must be %s not %s' % (int, type(self.bgp_port))))
-            test_config_condition(self.bgp_connect_mode not in ('passive'), (
-                'BGP connect mode %s must be passive' % self.bgp_connect_mode))
-            test_config_condition(not ipaddress.IPv4Address(self.bgp_routerid), (
-                '%s is not a valid IPv4 address' % (self.bgp_routerid)))
-            test_config_condition(not self.bgp_neighbor_as, 'No BGP neighbor AS')
-            test_config_condition(not self.bgp_neighbor_addresses, 'No BGP neighbor addresses')
-            test_config_condition(len(self.bgp_neighbor_addresses) != len(self.bgp_neighbor_addresses), (
-                'Must be as many BGP neighbor addresses as BGP server addresses'))
+                self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface)
+                for ip_str in self.faucet_vips])
 
         if self.routes:
             test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
@@ -372,14 +307,6 @@ class VLAN(Conf):
                     [entry.cache_time for entry in self.dyn_host_cache.values()])
         return expired_hosts
 
-    @staticmethod
-    def _ipvs(ipas):
-        return frozenset([ipa.version for ipa in ipas])
-
-    @staticmethod
-    def _by_ipv(ipas, ipv):
-        return frozenset([ipa for ipa in ipas if ipa.version == ipv])
-
     def faucet_vips_by_ipv(self, ipv):
         """Return VIPs with specified IP version on this VLAN."""
         return self._by_ipv(self.faucet_vips, ipv)
@@ -391,21 +318,9 @@ class VLAN(Conf):
         other_vips = vips - link_local_vips
         return (link_local_vips, other_vips)
 
-    def bgp_neighbor_addresses_by_ipv(self, ipv):
-        """Return BGP neighbor addresses with specified IP version on this VLAN."""
-        return self._by_ipv(self.bgp_neighbor_addresses, ipv)
-
-    def bgp_server_addresses_by_ipv(self, ipv):
-        """Return BGP server addresses with specified IP version on this VLAN."""
-        return self._by_ipv(self.bgp_server_addresses, ipv)
-
     def ipvs(self):
         """Return IP versions configured on this VLAN."""
         return self._ipvs(self.faucet_vips)
-
-    def bgp_ipvs(self):
-        """Return list of IP versions for BGP configured on this VLAN."""
-        return self._ipvs(self.bgp_server_addresses)
 
     def routes_by_ipv(self, ipv):
         """Return route table for specified IP version on this VLAN."""
@@ -642,20 +557,3 @@ class VLAN(Conf):
         if self.is_faucet_vip(dst_ip) and self.ip_in_vip_subnet(src_ip):
             return True
         return False
-
-    def to_conf(self):
-        result = super(VLAN, self).to_conf()
-        if result is not None:
-            if self.routes:
-                result['routes'] = [{'route': route} for route in self.routes]
-            if self.faucet_vips:
-                result['faucet_vips'] = [str(vip) for vip in self.faucet_vips]
-            if self.bgp_neighbor_addresses:
-                result['bgp_neighbor_addresses'] = [str(vip) for vip in self.bgp_neighbor_addresses]
-            if self.bgp_server_addresses:
-                result['bgp_server_addresses'] = [str(vip) for vip in self.bgp_server_addresses]
-            if 'bgp_neighbor_as' in result:
-                del result['bgp_neighbor_as']
-            if 'bgp_neighbor_addresses' in result:
-                del result['bgp_neighbor_addresses']
-        return result

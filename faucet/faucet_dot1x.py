@@ -24,9 +24,6 @@ eventlet.monkey_patch()
 from ryu.lib import hub  # pylint: disable=wrong-import-position
 from chewie import chewie  # pylint: disable=wrong-import-position
 
-from faucet import valve_of # pylint: disable=wrong-import-position
-from faucet import valve_packet # pylint: disable=wrong-import-position
-
 
 def get_mac_str(valve_index, port_num):
     """Gets the mac address string for the valve/port combo
@@ -54,6 +51,7 @@ class FaucetDot1x:
         self.dot1x_intf = None
         self.mac_to_port = {}  # {"00:00:00:00:00:02" : (valve_0, port_1)}
         self.dp_id_to_valve_index = {}
+        self.thread = None
 
     def _create_dot1x_speaker(self, dot1x_intf, chewie_id, radius_ip, radius_port, radius_secret):
         """
@@ -72,7 +70,8 @@ class FaucetDot1x:
             dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
             radius_ip, radius_port, radius_secret, chewie_id)
-        hub.spawn(_chewie.run)
+        self.thread = hub.spawn(_chewie.run)
+        self.thread.name = 'chewie'
         return _chewie
 
     def get_valve_and_port(self, port_id):
@@ -85,15 +84,11 @@ class FaucetDot1x:
     def auth_handler(self, address, port_id):
         """Callback for when a successful auth happens."""
         valve, dot1x_port = self.get_valve_and_port(port_id)
-
         self.logger.info(
-            'Successful auth from MAC %s on %s' % (
-                str(address), dot1x_port))
+            'Successful auth from MAC %s on %s' % (str(address), dot1x_port))
         self.metrics.inc_var('dp_dot1x_success', valve.dp.base_prom_labels())
         self.metrics.inc_var('port_dot1x_success', valve.dp.port_labels(dot1x_port.number))
-
-        flowmods = valve.add_authed_mac(
-            dot1x_port.number, str(address))
+        flowmods = valve.add_authed_mac(dot1x_port.number, str(address))
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
 
@@ -104,8 +99,7 @@ class FaucetDot1x:
             'Logoff from MAC %s on %s', str(address), dot1x_port)
         self.metrics.inc_var('dp_dot1x_logoff', valve.dp.base_prom_labels())
         self.metrics.inc_var('port_dot1x_logoff', valve.dp.port_labels(dot1x_port.number))
-        flowmods = valve.del_authed_mac(
-            dot1x_port.number, str(address))
+        flowmods = valve.del_authed_mac(dot1x_port.number, str(address))
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
 
@@ -113,18 +107,12 @@ class FaucetDot1x:
         """Callback for when a EAP failure happens."""
         valve, dot1x_port = self.get_valve_and_port(port_id)
         self.logger.info(
-            'Failure from MAC %s on %s', str(address), dot1x_port)
-        self.logger.info(
-            'Removing Access for MAC %s on %s', str(address), dot1x_port)
-
+            'Failure from MAC %s on %s, removing access', str(address), dot1x_port)
         self.metrics.inc_var('dp_dot1x_failure', valve.dp.base_prom_labels())
         self.metrics.inc_var('port_dot1x_failure', valve.dp.port_labels(dot1x_port.number))
-
-        flowmods = valve.del_authed_mac(
-            dot1x_port.number, str(address))
+        flowmods = valve.del_authed_mac(dot1x_port.number, str(address))
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
-
 
     def set_mac_str(self, valve, valve_index, port_num):
         """
@@ -174,7 +162,6 @@ class FaucetDot1x:
         """
         self.dot1x_speaker.port_up(
             get_mac_str(self.dp_id_to_valve_index[dp_id], dot1x_port.number))
-
         return self.create_flow_pair(
             dp_id, dot1x_port, nfv_sw_port, acl_manager)
 
@@ -191,10 +178,9 @@ class FaucetDot1x:
         Returns:
             list
         """
-        valve_index = self.dp_id_to_valve_index[dp_id]
-        mac = get_mac_str(valve_index, dot1x_port.number)
-
         if dot1x_port.running():
+            valve_index = self.dp_id_to_valve_index[dp_id]
+            mac = get_mac_str(valve_index, dot1x_port.number)
             return acl_manager.create_dot1x_flow_pair(
                 dot1x_port, nfv_sw_port, mac)
         return []
@@ -211,15 +197,11 @@ class FaucetDot1x:
         Returns:
             list of flowmods
         """
-        self.dot1x_speaker.port_down(get_mac_str(self.dp_id_to_valve_index[dp_id],
-                                                 dot1x_port.number))
-        flowmods = acl_manager.del_authed_mac(
-            dot1x_port.number)
-
         valve_index = self.dp_id_to_valve_index[dp_id]
         mac = get_mac_str(valve_index, dot1x_port.number)
-        flowmods.extend(
-            acl_manager.del_dot1x_flow_pair(dot1x_port, nfv_sw_port, mac))
+        self.dot1x_speaker.port_down(get_mac_str(valve_index, dot1x_port.number))
+        flowmods = acl_manager.del_authed_mac(dot1x_port.number)
+        flowmods.extend(acl_manager.del_dot1x_flow_pair(dot1x_port, nfv_sw_port, mac))
         return flowmods
 
     def reset(self, valves):

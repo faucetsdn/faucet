@@ -1,8 +1,12 @@
+version: 2
 build:
   image: latest
-
-requirements_file: docs/requirements.txt
-
 python:
   version: 3.6
-  pip_install: true
+  install:
+    - requirements: docs/requirements.txt
+    - method: pip
+      path: .
+sphinx:
+  configuration: docs/conf.py
+formats: all

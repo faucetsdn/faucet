@@ -11,7 +11,6 @@ Build-Depends: debhelper (>=9),
                python3-setuptools,
                python3-pbr (>=1.9),
                python3-bitstring,
-               python3-datadiff,
                python3-influxdb,
                python3-msgpack,
                python3-networkx,
@@ -31,19 +30,18 @@ Vcs-Browser: https://github.com/faucetsdn/faucet
 Package: python3-faucet
 Architecture: all
 Depends: python3-oslo.config (>= 1:3.9~),
-         python3-datadiff (>= 2.0.0),
          python3-influxdb (>= 2.12.0),
          python3-msgpack (>= 0.4.2),
          python3-networkx (>= 1.9),
          python3-pbr (>= 1.9),
-         python3-prometheus-client (>= 0.5.0), python3-prometheus-client (<< 0.5.1),
+         python3-prometheus-client (>= 0.6.0), python3-prometheus-client (<< 0.6.1),
          python3-yaml (>= 3.1.1),
          python3-eventlet (>= 0.22.1), python3-eventlet (<< 0.22.2),
          python3-ryu (>= 4.30), python3-ryu (<< 4.31),
          python3-beka (>= 0.3.3), python3-beka (<< 0.3.4),
          python3-chewie (>= 0.0.13), python3-chewie (<< 0.0.14),
          python3-pytricia (>= 1.0.0),
-         python3:any (>= 3.4~),
+         python3:any (>= 3.5~),
 Suggests: python-faucet-doc, faucet, gauge
 Description: source code for faucet and gauge (Python3)
  Python3 library that contains the source code for the Faucet open source
@@ -54,7 +52,7 @@ Description: source code for faucet and gauge (Python3)
 Package: faucet
 Architecture: all
 Depends: adduser,
-         python3-faucet (>= 1.7.0),
+         python3-faucet (>= 1.9.0),
 Suggests: gauge
 Description: This is a compact open source OpenFlow controller (Python 3)
  This is a compact open source OpenFlow controller, which enables network
@@ -69,7 +67,7 @@ Description: This is a compact open source OpenFlow controller (Python 3)
 Package: gauge
 Architecture: all
 Depends: adduser,
-         python3-faucet (>= 1.7.0),
+         python3-faucet (>= 1.9.0),
 Suggests: python-faucet-doc, faucet
 Description: This is a component the Faucet OpenFlow controller (Python 3)
  This is a component of the Faucet OpenFlow controller,
@@ -80,9 +78,9 @@ Description: This is a component the Faucet OpenFlow controller (Python 3)
 
 Package: faucet-all-in-one
 Architecture: all
-Depends: faucet (>= 1.7.0),
-         gauge (>= 1.7.0),
-         python3-faucet (>= 1.7.0),
+Depends: faucet (>= 1.9.0),
+         gauge (>= 1.9.0),
+         python3-faucet (>= 1.9.0),
          prometheus (>= 2.0.0),
          grafana,
 Suggests: python-faucet-doc

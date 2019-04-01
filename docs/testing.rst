@@ -24,7 +24,10 @@ Then you can build and run the mininet tests from the docker entry-point:
   sudo docker build --pull -t faucet/tests -f Dockerfile.tests .
   sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
   sudo modprobe openvswitch
-  sudo docker run --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged -v $HOME/.cache/pip:/var/tmp/pip-cache -ti faucet/tests
+  sudo docker run --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged --rm \
+                  -v /var/local/lib/docker:/var/lib/docker \
+                  -v $HOME/.cache/pip:/var/tmp/pip-cache \
+                  -ti faucet/tests
 
 The apparmor command is currently required on Ubuntu hosts to allow the use of
 tcpdump inside the container.
@@ -188,11 +191,12 @@ Then you can build and run the test suite:
 .. code:: console
 
   sudo docker build --pull -t faucet/tests -f Dockerfile.tests .
-  sudo docker run --privileged --net=host --cap-add=NET_ADMIN \
-      -v $HOME/.cache/pip:/var/tmp/pip-cache \
-      -v /etc/faucet:/etc/faucet \
-      -v /var/tmp:/var/tmp \
-      -ti faucet/tests
+  sudo docker run --privileged --rm --net=host --cap-add=NET_ADMIN \
+                  -v /var/local/lib/docker:/var/lib/docker \
+                  -v $HOME/.cache/pip:/var/tmp/pip-cache \
+                  -v /etc/faucet:/etc/faucet \
+                  -v /var/tmp:/var/tmp \
+                  -ti faucet/tests
 
 Test suite options
 ------------------

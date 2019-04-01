@@ -529,19 +529,21 @@ vlans:
     routing1:
         vid: 100
         faucet_vips: ["10.0.0.254/24"]
-        bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 100
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_neighbor_as: 100
     routing2:
         vid: 200
-        faucet_vips: ["10.0.0.253/24"]
-        bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 200
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["127.0.0.2"]
-        bgp_neighbor_as: 200
+        faucet_vips: ["10.1.0.254/24"]
+routers:
+    router1:
+        bgp:
+            as: 100
+            connect_mode: "passive"
+            neighbor_as: 100
+            routerid: "1.1.1.1"
+            server_addresses: ["127.0.0.1"]
+            neighbor_addresses: ["127.0.0.1"]
+            vlan: routing1
+            port: 9179
+        vlans: [routing1, routing2]
 dps:
     sw1:
         dp_id: 0x1
@@ -2706,7 +2708,7 @@ dps:
         config = """
 routers:
     router-1:
-        vlans: [office, guest]
+        vlans: [guest]
 vlans:
     office:
         vid: 100
@@ -2764,15 +2766,18 @@ dps:
     def test_share_bgp_routing_VLAN(self):
         """Test cannot share VLAN with BGP across DPs."""
         config = """
+routers:
+    router1:
+        as: 1
+        routerid: "1.1.1.1"
+        neighbor_as: 2
+        server_addresses: ["127.0.0.1"]
+        neighbor_addresses: ["127.0.0.1"]
+        vlan: 100
 vlans:
     routing:
         vid: 100
         faucet_vips: ["10.0.0.254/24"]
-        bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_neighbor_as: 2
 dps:
     sw1:
         dp_id: 0x1
@@ -2790,15 +2795,18 @@ dps:
     def test_bgp_server_invalid(self):
         """Test invalid BGP server address."""
         bgp_config = """
+routers:
+    router1:
+        as: 1
+        port: 9179
+        server_address: ["256.0.0.1"]
+        neighbor_addresses: ["127.0.0.1"]
+        routerid: "1.1.1.1"
+        neighbor_as: 2
+        vlan: 100
 vlans:
     100:
         description: "100"
-        bgp_port: 9179
-        bgp_server_addresses: ['256.0.0.1']
-        bgp_as: 1
-        bgp_routerid: '1.1.1.1'
-        bgp_neighbor_addresses: ['127.0.0.1']
-        bgp_neighbor_as: 2
 dps:
     switch1:
         dp_id: 0xcafef00d
@@ -2812,15 +2820,18 @@ dps:
     def test_bgp_neighbor_invalid(self):
         """Test invalid BGP server address."""
         bgp_config = """
+routers:
+    router1:
+        as: 1
+        port: 9179
+        server_addresses: ["127.0.0.1"]
+        neighbor_addresses: ["256.0.0.1"]
+        neighbor_as: 2
+        routerid: "1.1.1.1"
+        vlan: 100
 vlans:
     100:
         description: "100"
-        bgp_port: 9179
-        bgp_server_addresses: ['127.0.0.1']
-        bgp_as: 1
-        bgp_routerid: '1.1.1.1'
-        bgp_neighbor_addresses: ['256.0.0.1']
-        bgp_neighbor_as: 2
 dps:
     switch1:
         dp_id: 0xcafef00d

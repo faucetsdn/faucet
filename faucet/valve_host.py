@@ -28,7 +28,7 @@ class ValveHostManager(ValveManagerBase):
 
     def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
                  eth_dst_hairpin_table, pipeline, learn_timeout, learn_jitter,
-                 learn_ban_timeout, cache_update_guard_time, idle_dst):
+                 learn_ban_timeout, cache_update_guard_time, idle_dst, stack):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
@@ -44,6 +44,7 @@ class ValveHostManager(ValveManagerBase):
         self.cache_update_guard_time = cache_update_guard_time
         self.output_table = self.eth_dst_table
         self.idle_dst = idle_dst
+        self.stack = stack
         if self.eth_dst_hairpin_table:
             self.output_table = self.eth_dst_hairpin_table
 
@@ -201,6 +202,11 @@ class ValveHostManager(ValveManagerBase):
         if port.override_output_port:
             inst = valve_of.apply_actions([
                 valve_of.output_port(port.override_output_port.number)])
+
+        loop_protect_field = None
+        if port.tagged_vlans and port.loop_protect_external and self.stack:
+            loop_protect_field = 0
+
         ofmsgs.append(self.eth_src_table.flowmod(
             match=src_match,
             priority=src_priority,
@@ -218,7 +224,7 @@ class ValveHostManager(ValveManagerBase):
         ofmsgs.append(self.eth_dst_table.flowmod(
             self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
             priority=self.host_priority,
-            inst=self.pipeline.output(port, vlan),
+            inst=self.pipeline.output(port, vlan, loop_protect_field=loop_protect_field),
             idle_timeout=dst_rule_idle_timeout))
 
         # If port is in hairpin mode, install a special rule
@@ -255,7 +261,7 @@ class ValveHostManager(ValveManagerBase):
             if entry.port != port:
                 ofmsgs.extend(self.pipeline.filter_packets(
                     {'eth_src': eth_src, 'in_port': port.number}))
-            return (ofmsgs, entry.port)
+            return (ofmsgs, entry.port, False)
         else:
             cache_age = now - entry.cache_time
             cache_port = entry.port
@@ -266,7 +272,7 @@ class ValveHostManager(ValveManagerBase):
         if cache_port == port or same_lag:
             # if we very very recently learned this host, don't do anything.
             if cache_age < self.cache_update_guard_time:
-                return (ofmsgs, cache_port)
+                return (ofmsgs, cache_port, False)
             # skip delete if host didn't change ports or on same LAG.
             delete_existing = False
             refresh_rules = True
@@ -295,7 +301,7 @@ class ValveHostManager(ValveManagerBase):
                 port.dyn_last_ban_time = now
                 ofmsgs.append(self._temp_ban_host_learning(
                     self.eth_src_table.match(in_port=port.number)))
-                return (ofmsgs, cache_port)
+                return (ofmsgs, cache_port, False)
 
         (src_rule_idle_timeout,
          src_rule_hard_timeout,
@@ -306,8 +312,7 @@ class ValveHostManager(ValveManagerBase):
             src_rule_idle_timeout, src_rule_hard_timeout,
             dst_rule_idle_timeout))
 
-        vlan.add_cache_host(eth_src, port, now)
-        return (ofmsgs, cache_port)
+        return (ofmsgs, cache_port, True)
 
     def flow_timeout(self, _now, _table_id, _match):
         """Handle a flow timed out message from dataplane."""

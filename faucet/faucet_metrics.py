@@ -96,7 +96,7 @@ class FaucetMetrics(PromClient):
         self.faucet_config_table_names = self._gauge(
             'faucet_config_table_names',
             'number to names map of FAUCET pipeline tables',
-            self.REQUIRED_LABELS + ['table_name'])
+            self.REQUIRED_LABELS + ['table_name', 'next_tables'])
         self.faucet_packet_in_secs = self._histogram(
             'faucet_packet_in_secs',
             'FAUCET packet in processing time',

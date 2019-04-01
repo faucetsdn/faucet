@@ -65,7 +65,6 @@ EXTERNAL_DEPENDENCIES = (
      r'tcpdump\s+version\s+(\d+\.\d+)\.\d+\n', "4.5"),
     ('nc', ['-h'], 'OpenBSD netcat', '', 0),
     ('vconfig', [], 'the VLAN you are talking about', '', 0),
-    ('2to3', ['--help'], 'Usage: 2to3', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
      r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
     ('lsof', ['-v'], r'lsof version',
@@ -110,7 +109,7 @@ def import_hw_config():
         sys.exit(-1)
     try:
         with open(config_file_name, 'r') as config_file:
-            config = yaml.load(config_file)
+            config = yaml.safe_load(config_file)
     except IOError:
         print('Could not load YAML config data from %s' % config_file_name)
         sys.exit(-1)

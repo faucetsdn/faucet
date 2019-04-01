@@ -25,11 +25,26 @@ if [[ "$TRAVIS_COMMIT_RANGE" != "" ]] ; then
   fi
 fi
 
-
-if [ "${MATRIX_SHARD}" == "sanity" ] ; then
-  FAUCET_TESTS="-u FaucetSanityTest"
+if [ "${MATRIX_SHARD}" == "unittest" ] ; then
+  ./docker/pip_deps.sh
+  pip3 install ./
+  pip3 show faucet
   ./tests/run_unit_tests.sh || exit 1
-  codecov || true
+
+  if [ "${CODECOV_UPLOAD}" == "true" ] ; then
+    codecov || true
+  fi
+
+  if [ "${BUILD_DOCS}" == "true" ] ; then
+    cd ./docs
+    make html || exit 1
+    rm -rf _build
+    cd ..
+  fi
+
+  exit 0
+elif [ "${MATRIX_SHARD}" == "sanity" ] ; then
+  FAUCET_TESTS="-u FaucetSanityTest"
 else
   ALLTESTFILES="tests/integration/mininet_tests.py clib/clib_mininet_tests.py"
   ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" ${ALLTESTFILES}|cut -f2 -d" "|sort`
@@ -50,16 +65,7 @@ else
   FAUCET_TESTS="-di ${sharded[${MATRIX_SHARD}]}"
 fi
 
-PY3V=`python3 --version`
-if [[ "$PY3V" != "Python 3.6"* ]] ; then
-  echo not running docker tests for $PY3V
-  exit 0
-fi
-
 if [[ "$FILES_CHANGED" != "" ]] ; then
-  # Always test docs if anything changed.
-  cd ./docs && make html && rm -rf _build && cd .. || exit 1
-
   if [[ "$PY_FILES_CHANGED" == "" && "$RQ_FILES_CHANGED" == "" ]] ; then
     echo Not running docker tests because only non-python/requirements changes: $FILES_CHANGED
     exit 0
@@ -74,6 +80,7 @@ docker rmi faucet/test-base
 docker images
 
 echo Shard $MATRIX_SHARD: $FAUCETTESTS
+sudo modprobe openvswitch
 sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   -v /var/local/lib/docker:/var/lib/docker \
   -v $HOME/.cache/pip:/var/tmp/pip-cache \

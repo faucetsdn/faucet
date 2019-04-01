@@ -409,7 +409,7 @@ class ValveTestBases:
             prof_stream = io.StringIO()
             prof_stats = pstats.Stats(prof, stream=prof_stream).sort_stats(sortby)
             prof_stats.print_stats(amount)
-            print(prof_stream.getvalue())
+            return (prof_stats, prof_stream.getvalue())
 
         def get_prom(self, var, labels=None):
             """Return a Prometheus variable value."""
@@ -472,7 +472,9 @@ class ValveTestBases:
         def connect_dp(self):
             """Call DP connect and set all ports to up."""
             discovered_up_ports = {port_no for port_no in range(1, self.NUM_PORTS + 1)}
-            connect_msgs = self.valve.switch_features(None) + self.valve.datapath_connect(time.time(), discovered_up_ports)
+            connect_msgs = (
+                self.valve.switch_features(None) +
+                self.valve.datapath_connect(time.time(), discovered_up_ports))
             self.table.apply_ofmsgs(connect_msgs)
             self.assertEqual(1, int(self.get_prom('dp_status')))
             for port_no in discovered_up_ports:
@@ -1513,6 +1515,16 @@ vlans:
         """Test NFV port formatter."""
         self.assertEqual('00:00:00:0f:01:01', faucet_dot1x.get_mac_str(15, 257))
 
+    def test_handlers(self):
+        valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]
+        port_no = 1
+        for handler in (
+                self.dot1x.auth_handler,
+                self.dot1x.logoff_handler,
+                self.dot1x.failure_handler):
+            handler(
+                '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
+
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
     """Test changes to config on ports."""
@@ -2212,6 +2224,36 @@ class ValveStackGraphUpdateTestCase(ValveStackProbeTestCase):
         verify_stack_learn_edges(2, edges[0], self.assertTrue)
 
 
+class ValveReloadConfigProfile(ValveTestBases.ValveTestSmall):
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    def setUp(self):
+        pstats_out, _ = self.profile(partial(self.setup_valve, self.CONFIG))
+        self.baseline_total_tt = pstats_out.total_tt # pytype: disable=attribute-error
+
+    def test_profile_reload(self):
+        for i in range(2, 100):
+            self.CONFIG += """
+            p%u:
+                number: %u
+                native_vlan: 0x100
+""" % (i, i)
+        pstats_out, pstats_text = self.profile(
+            partial(self.update_config, self.CONFIG, reload_type='cold'))
+        total_tt_prop = pstats_out.total_tt / self.baseline_total_tt # pytype: disable=attribute-error
+        # must not be 50x slower, to ingest config for 100 interfaces than 1.
+        self.assertTrue(total_tt_prop < 50, msg=pstats_text)
+
+
 class ValveTestTunnel(ValveTestBases.ValveTestSmall):
     """Test valve tunnel methods"""
     TUNNEL_ID = 200
@@ -2292,7 +2334,8 @@ dps:
                 port.dyn_phys_up = True
                 port.dyn_finalized = True
 
-    def down_stack_port(self, port):
+    @staticmethod
+    def down_stack_port(port):
         """Force stack port DOWN"""
         peer_port = port.stack['port']
         peer_port.stack_down()
@@ -2315,14 +2358,14 @@ dps:
         """Get valve with dp_id"""
         return self.valves_manager.valves[dp_id]
 
-    def test_tunnel_update_on_stack_link_up(self):
+    def test_update_on_stack_link_up(self):
         """Test updating acl tunnel rules on stack link status UP"""
         self.all_stack_up()
         self.update_all_flowrules()
         for valve in self.valves_manager.valves.values():
             self.assertTrue(valve.dp.tunnel_updated_flags[self.TUNNEL_ID])
 
-    def test_tunnel_update_on_stack_link_down(self):
+    def test_update_on_stack_link_down(self):
         """Test updating acl tunnel rules on stack link status DOWN"""
         self.all_stack_up()
         self.update_all_flowrules()
@@ -2712,13 +2755,6 @@ vlans:
     v200:
         vid: 0x200
         faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
-        bgp_port: 9179
-        bgp_server_addresses: ['127.0.0.1']
-        bgp_as: 1
-        bgp_routerid: '1.1.1.1'
-        bgp_neighbor_addresses: ['127.0.0.1']
-        bgp_neighbor_as: 2
-        bgp_connect_mode: 'passive'
         routes:
             - route:
                 ip_dst: 'fc00::10:0/112'
@@ -2726,6 +2762,17 @@ vlans:
             - route:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
+routers:
+    router1:
+        bgp:
+            as: 1
+            connect_mode: 'passive'
+            neighbor_as: 2
+            port: 9179
+            routerid: '1.1.1.1'
+            server_addresses: ['127.0.0.1']
+            neighbor_addresses: ['127.0.0.1']
+            vlan: v100
 """ % DP1_CONFIG
 
     def setUp(self):

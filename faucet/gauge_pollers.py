@@ -142,6 +142,7 @@ class GaugeThreadPoller(GaugePoller):
         self._running = True
         if active:
             self.thread = hub.spawn(self)
+            self.thread.name = 'GaugeThreadPoller'
 
     def stop(self):
         super(GaugeThreadPoller, self).stop()

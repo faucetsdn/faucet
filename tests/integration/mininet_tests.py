@@ -22,12 +22,12 @@ import unittest
 from http.server import SimpleHTTPRequestHandler
 from http.server import HTTPServer
 
+import scapy.all
+
 import yaml # pytype: disable=pyi-error
 
 from mininet.log import error
 from mininet.util import pmonitor
-
-import scapy.all
 
 from clib import mininet_test_base
 from clib import mininet_test_util
@@ -39,40 +39,24 @@ from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
 CONFIG_BOILER_UNTAGGED = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
 CONFIG_TAGGED_BOILER = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
             %(port_2)d:
-                name: b2
-                description: "b2"
                 tagged_vlans: [100]
             %(port_3)d:
-                name: b3
-                description: "b3"
                 tagged_vlans: [100]
             %(port_4)d:
-                name: b4
-                description: "b4"
                 tagged_vlans: [100]
 """
 
@@ -200,25 +184,17 @@ vlans:
             radius_secret: SECRET
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 # 802.1x client.
                 dot1x: True
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
                 # 802.1X client.
                 dot1x: True
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
                 # ping host.
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
                 # "NFV host - interface used by controller."
 """
@@ -248,6 +224,7 @@ network={
     RADIUS_PORT = 1840
 
     eapol1_host = None
+    eapol2_host = None
     ping_host = None
     nfv_host = None
     nfv_intf = None
@@ -257,11 +234,8 @@ network={
         two_byte_port_num_formatted = two_byte_port_num[:2] + ':' + two_byte_port_num[2:]
         return '00:00:00:00:%s' % two_byte_port_num_formatted
 
-    def _write_faucet_config(self):
-        self.eapol1_host = self.net.hosts[0]
-        self.eapol2_host = self.net.hosts[1]
-        self.ping_host = self.net.hosts[2]
-        self.nfv_host = self.net.hosts[-1]
+    def _init_faucet_config(self):
+        self.eapol1_host, self.eapol2_host, self.ping_host, self.nfv_host = self.net.hosts
         switch = self.net.switches[0]
         last_host_switch_link = switch.connectionsTo(self.nfv_host)[0]
         nfv_intf = [
@@ -271,7 +245,7 @@ network={
 
         self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
         self.CONFIG = self.CONFIG.replace('RADIUS_PORT', str(self.RADIUS_PORT))
-        super(Faucet8021XSuccessTest, self)._write_faucet_config()
+        super(Faucet8021XSuccessTest, self)._init_faucet_config()
 
     def setUp(self):
         super(Faucet8021XSuccessTest, self).setUp()
@@ -287,7 +261,15 @@ network={
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
                 lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
-            timeout=10, vflags='-vvv', packets=10)
+            timeout=15, vflags='-vvv', packets=10)
+        return tcpdump_txt
+
+    def retry_8021x(self, host, port_num, conf, and_logoff=False, retries=2):
+        for _ in range(retries):
+            tcpdump_txt = self.try_8021x(host, port_num, conf, and_logoff)
+            if 'Success' in tcpdump_txt:
+                return tcpdump_txt
+            time.sleep(1)
         return tcpdump_txt
 
     def test_untagged(self):
@@ -301,85 +283,93 @@ network={
         port_no2 = self.port_map['port_2']
         port_labels1 = self.port_labels(port_no1)
         port_labels2 = self.port_labels(port_no2)
+
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
         tcpdump_txt_1 = self.try_8021x(
             self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
-
-        self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
-                           require_host_learned=False, expected_result=False)
-
-        tcpdump_txt_2 = self.try_8021x(
-            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True)
-
-        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
-
         self.assertIn('Success', tcpdump_txt_1)
-        self.assertIn('Success', tcpdump_txt_2)
-        self.assertIn('logoff', tcpdump_txt_2)
-
-        self.assertEqual(
-            2,
-            self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
         self.assertEqual(
             1,
             self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
         self.assertEqual(
             0,
             self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels1, default=0))
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels2, default=0))
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels1, default=0))
+
         self.assertEqual(
             0,
-            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels1, default=0))
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
+        self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+        tcpdump_txt_2 = self.try_8021x(
+            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True)
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
+        self.assertIn('Success', tcpdump_txt_2)
+        self.assertIn('logoff', tcpdump_txt_2)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels2, default=0))
         self.assertEqual(
             1,
             self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels2, default=0))
 
-    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff):
+        self.assertEqual(
+            2,
+            self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
+
+    def wait_8021x_flows(self, port_no):
+        nfv_portno = self.port_map['port_4']
+        port_actions = [
+            'SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no), 'OUTPUT:%u' % nfv_portno]
+        from_nfv_actions = [
+            'SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%d' % port_no]
+        from_nfv_match = {
+            'in_port': nfv_portno, 'dl_src': self._priv_mac(port_no)}
+        self.wait_until_matching_flow(None, table_id=0, actions=port_actions)
+        self.wait_until_matching_flow(from_nfv_match, table_id=0, actions=from_nfv_actions)
+
+    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff, timeout=10):
         wpa_ctrl_path = self.get_wpa_ctrl_path(host)
+        if os.path.exists(wpa_ctrl_path):
+            host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
+            for pid in host.cmd('lsof -t %s' % wpa_ctrl_path).splitlines():
+                try:
+                    os.kill(int(pid), 15)
+                except (ValueError, ProcessLookupError):
+                    pass
+            try:
+                shutil.rmtree(wpa_ctrl_path)
+            except FileNotFoundError:
+                pass
         self.start_wpasupplicant(
             host, conf,
-            timeout=10, wpa_ctrl_socket_path=wpa_ctrl_path)
-        host.cmd('wpa_cli -p %s logon' % wpa_ctrl_path)
+            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path)
         if and_logoff:
-            eap_state = ''
-            for _ in range(5):
-                if eap_state == 'SUCCESS':
-                    break
-                eap_state = self.get_wpa_status(host, wpa_ctrl_path)
-                time.sleep(1)
-
-            self.assertEqual(eap_state, 'SUCCESS')
+            self.wait_for_eap_success(host, wpa_ctrl_path)
             self.wait_until_matching_flow(
                 {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0)
             self.one_ipv4_ping(host, self.ping_host.IP(), require_host_learned=False)
             host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
-
-            for _ in range(10):
-                if not self.matching_flow_present(
-                        {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0):
-                    break
-                time.sleep(1)
-            else:
-                self.fail('authentication flow was not removed.')
-
-            self.one_ipv4_ping(host, self.ping_host.IP(),
-                               require_host_learned=False, expected_result=False)
+            self.wait_until_no_matching_flow(
+                {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0)
+            self.one_ipv4_ping(
+                host, self.ping_host.IP(),
+                require_host_learned=False, expected_result=False)
 
     def get_wpa_ctrl_path(self, host):
         wpa_ctrl_path = os.path.join(
@@ -391,8 +381,15 @@ network={
         for line in status.split("\n"):
             if line.startswith('EAP state'):
                 return line.split('=')[1].strip()
-                break
         return None
+
+    def wait_for_eap_success(self, host, wpa_ctrl_path, timeout=5):
+        for _ in range(timeout):
+            eap_state = self.get_wpa_status(host, wpa_ctrl_path)
+            if eap_state == 'SUCCESS':
+                return
+            time.sleep(1)
+        self.fail('did not get EAP success: %s' % eap_state)
 
     def wait_for_radius(self, radius_log_path, timeout=10):
         for _ in range(timeout):
@@ -402,162 +399,81 @@ network={
         else:
             self.fail('could not open radius log after %d seconds' % timeout)
 
-        with open(radius_log_path, 'r') as log:
-            while True:
-                line = log.readline()
-                if not line:
-                    time.sleep(1)
-                    continue
-                if line.strip() == 'Ready to process requests.':
-                    return
+        self.wait_until_matching_lines_from_file(r'.*Ready to process requests',
+                                                 radius_log_path)
 
     def start_freeradius(self):
-        with open('/etc/freeradius/users', 'w') as users:
-            users.write('''user   Cleartext-Password := "microphone"
-admin   Cleartext-Password:= "megaphone"''')
-
-        with open('/etc/freeradius/clients.conf', 'w') as clients:
-            clients.write('''client localhost {
-    ipaddr = 127.0.0.1
-    secret = SECRET
-}''')
-
         radius_log_path = '%s/radius.log' % self.tmpdir
-        shutil.copytree('/etc/freeradius/', '%s/freeradius' % self.tmpdir)
         os.system('chmod o+rx %s' % self.root_tmpdir)
-        os.system('chown -R root:freerad %s/freeradius/*' % self.tmpdir)
-        os.system('chown root:freerad %s/freeradius' % self.tmpdir)
 
-        with open('%s/freeradius/radiusd.conf' % self.tmpdir, 'w') as radiusd_file:
-            new_config = """prefix = /usr
-exec_prefix = /usr
-sysconfdir = /etc
-localstatedir = /var
-sbindir = ${exec_prefix}/sbin
-logdir = /var/log/freeradius
-raddbdir = /etc/freeradius
-radacctdir = ${logdir}/radacct
-name = freeradius
-confdir = ${raddbdir}
-run_dir = ${localstatedir}/run/${name}
-db_dir = ${raddbdir}
-libdir = /usr/lib/freeradius
-pidfile = ${run_dir}/${name}.pid
-user = freerad
-group = freerad
-max_request_time = 30
-cleanup_delay = 5
-max_requests = 1024
-listen {
+        listen_match = r'(listen {[^}]*(limit {[^}]*})[^}]*})|(listen {[^}]*})'
+        listen_config = """listen {
         type = auth
         ipaddr = *
         port = %s
 }
 listen {
+        type = acct
         ipaddr = *
         port = %d
-        type = acct
-}
-hostname_lookups = no
-allow_core_dumps = no
-regular_expressions     = yes
-extended_expressions    = yes
-log {
-        destination = files
-        file = ${logdir}/radius.log
-        syslog_facility = daemon
-        stripped_names = no
-        auth = no
-        auth_badpass = no
-        auth_goodpass = no
-}
-checkrad = ${sbindir}/checkrad
-security {
-        max_attributes = 200
-        reject_delay = 1
-        status_server = yes
-        allow_vulnerable_openssl = no
-}
-proxy_requests  = yes
-#$INCLUDE proxy.conf
-$INCLUDE clients.conf
-thread pool {
-        start_servers = 5
-        max_servers = 32
-        min_spare_servers = 3
-        max_spare_servers = 10
-        max_requests_per_server = 0
-}
-modules {
-        $INCLUDE ${confdir}/modules/
-        $INCLUDE eap.conf
-}
-instantiate {
-        exec
-        expr
-        expiration
-        logintime
+}""" % (self.RADIUS_PORT, self.RADIUS_PORT + 1)
 
-}
-$INCLUDE policy.conf
-$INCLUDE sites-enabled/
-""" % (self.RADIUS_PORT, self.RADIUS_PORT + 1)
-            radiusd_file.write(new_config)
+        if os.path.isfile('/etc/freeradius/users'):
+            # Assume we are dealing with freeradius 2 configuration
+            shutil.copytree('/etc/freeradius/', '%s/freeradius' % self.tmpdir)
+            users_path = '%s/freeradius/users' % self.tmpdir
 
-        with open('%s/freeradius/sites-enabled/inner-tunnel' % self.tmpdir, 'w') as innertunnel_file:
+            with open('%s/freeradius/radiusd.conf' % self.tmpdir, 'r+') as default_site:
+                default_config = default_site.read()
+                default_config = re.sub(listen_match, '', default_config)
+                default_site.seek(0)
+                default_site.write(default_config)
+                default_site.write(listen_config)
+                default_site.truncate()
+        else:
+            # Assume we are dealing with freeradius >=3 configuration
+            freerad_version = os.popen(
+                r'freeradius -v | egrep -o -m 1 "Version ([0-9]\.[0.9])"').read().rstrip()
+            freerad_major_version = freerad_version.split(' ')[1]
+            shutil.copytree('/etc/freeradius/%s/' % freerad_major_version,
+                            '%s/freeradius' % self.tmpdir)
+            users_path = '%s/freeradius/mods-config/files/authorize' % self.tmpdir
 
-            new_config = '''server inner-tunnel {
-listen {
+            with open('%s/freeradius/sites-enabled/default' % self.tmpdir, 'r+') as default_site:
+                default_config = default_site.read()
+                default_config = re.sub(
+                    listen_match, '', default_config)
+                default_config = re.sub(
+                    r'server default {', 'server default {\n'+listen_config, default_config)
+                default_site.seek(0)
+                default_site.write(default_config)
+                default_site.truncate()
+
+        with open(users_path, 'w') as users_file:
+            users_file.write('''user   Cleartext-Password := "microphone"
+admin  Cleartext-Password := "megaphone"''')
+
+        with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
+            clients.write('''client localhost {
+    ipaddr = 127.0.0.1
+    secret = SECRET
+}''')
+
+        with open('%s/freeradius/sites-enabled/inner-tunnel' % self.tmpdir, 'r+') as innertunnel_site:
+            tunnel_config = innertunnel_site.read()
+            listen_config = """listen {
        ipaddr = 127.0.0.1
        port = %d
        type = auth
-}
-authorize {
-        chap
-        mschap
-        suffix
-        update control {
-               Proxy-To-Realm := LOCAL
-        }
-        eap {
-                ok = return
-        }
-        files
-        expiration
-        logintime
-        pap
-}
-authenticate {
-        Auth-Type PAP {
-                pap
-        }
-        Auth-Type CHAP {
-                chap
-        }
-        Auth-Type MS-CHAP {
-                mschap
-        }
-        unix
-        eap
-}
-session {
-        radutmp
-}
-post-auth {
-        Post-Auth-Type REJECT {
-                attr_filter.access_reject
-        }
-}
-pre-proxy {
-}
-post-proxy {
-        eap
-}
-} # inner-tunnel server block
-''' % (self.RADIUS_PORT + 2)
-            innertunnel_file.write(new_config)
+}""" % (self.RADIUS_PORT + 2)
+            tunnel_config = re.sub(listen_match, listen_config, tunnel_config)
+            innertunnel_site.seek(0)
+            innertunnel_site.write(tunnel_config)
+            innertunnel_site.truncate()
 
-        self.nfv_host.cmd('freeradius -sxx -l %s -d %s/freeradius &' % (radius_log_path, self.tmpdir))
+        os.system('chown -R root:freerad %s/freeradius/' % self.tmpdir)
+
+        self.nfv_host.cmd('freeradius -X -l %s -d %s/freeradius &' % (radius_log_path, self.tmpdir))
 
         self.freeradius_pid = self.nfv_host.lastPid
         self.wait_for_radius(radius_log_path)
@@ -581,6 +497,7 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
 
     def test_untagged(self):
         port_no = self.port_map['port_1']
+        self.wait_8021x_flows(port_no)
         tcpdump_txt = self.try_8021x(
             self.eapol1_host, port_no, self.wpasupplicant_conf_1, and_logoff=False)
         self.assertIn('Failure', tcpdump_txt)
@@ -610,63 +527,45 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
     RADIUS_PORT = 1860
 
     def test_untagged(self):
-
-        def get_actions_and_match(in_port, out_port):
-            actions = ["SET_FIELD: {eth_src:01:80:c2:00:00:03}", 'OUTPUT:%d' % out_port]
-            match = {'in_port': in_port, 'dl_src': self._priv_mac(out_port)}
-            return actions, match
-
         port_no1 = self.port_map['port_1']
         port_no2 = self.port_map['port_2']
         port_no4 = self.port_map['port_4']
 
-        actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no1), 'OUTPUT:%u' % port_no4]
-        self.wait_until_matching_flow(match=None, table_id=0, actions=actions)
-
+        self.wait_8021x_flows(port_no1)
         self.set_port_down(port_no1)
-        self.assertFalse(self.get_matching_flow(match=None, table_id=0, actions=actions))
+        # self.wait_until_no_matching_flow(None, table_id=0, actions=actions)
         self.set_port_up(port_no1)
-        self.wait_until_matching_flow(match=None, table_id=0, actions=actions)
-
-        actions, match = get_actions_and_match(port_no4, port_no1)
-        self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
+        self.wait_8021x_flows(port_no1)
 
         self.set_port_down(port_no4)
-        self.assertFalse(self.get_matching_flow(match=match, table_id=0, actions=actions))
+        # self.wait_until_no_matching_flow(match, table_id=0, actions=actions)
         self.set_port_up(port_no4)
-        self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
+        self.wait_8021x_flows(port_no1)
 
-        # check only have rules for port 2 installed. after the nvf port comes up
-        self.set_port_down(port_no4)
+        # check only have rules for port 2 installed, after the NFV port comes up
         self.set_port_down(port_no1)
-        self.set_port_up(port_no4)
-        self.assertFalse(self.get_matching_flow(match=match, table_id=0, actions=actions))
-        actions, match = get_actions_and_match(port_no4, port_no2)
-        self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
+        self.flap_port(port_no4)
+        self.wait_8021x_flows(port_no2)
+        # no portno1
 
         self.set_port_up(port_no1)
-        self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
-        actions, match = get_actions_and_match(port_no4, port_no1)
-        self.wait_until_matching_flow(match=match, table_id=0, actions=actions)
+        self.wait_8021x_flows(port_no1)
 
         # When the port goes down, and up the host should not be authenticated anymore.
-        tcpdump_txt_1 = self.try_8021x(
+        tcpdump_txt_1 = self.retry_8021x(
             self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
         self.assertIn('Success', tcpdump_txt_1)
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
         self.assertEqual(
             1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=self.port_labels(port_no1),
-                                       default=0))
-        self.set_port_down(port_no1)
+            self.scrape_prometheus_var(
+                'port_dot1x_success_total', labels=self.port_labels(port_no1), default=0))
 
-        self.set_port_up(port_no1)
-        actions, match = get_actions_and_match(port_no4, port_no1)
-        self.assertTrue(self.get_matching_flow(match=match, table_id=0, actions=actions),
-                        self.get_all_flows_from_dpid(self.dpid, 0))
-
-        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
-                           require_host_learned=False, expected_result=False)
+        self.flap_port(port_no1)
+        self.wait_8021x_flows(port_no1)
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=False)
 
 
 class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
@@ -676,38 +575,29 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         port_labels1 = self.port_labels(port_no1)
+        expected_successes = 0
 
-        # Attempt to authenticate (expected pass)
-        tcpdump_txt_1 = self.try_8021x(
-            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        for _ in range(2):
+            expected_successes += 1
 
-        self.assertIn('Success', tcpdump_txt_1)
-        self.assertIn('logoff', tcpdump_txt_1)
+            self.set_port_up(port_no1)
+            self.wait_8021x_flows(port_no1)
+            tcpdump_txt_1 = self.retry_8021x(
+                self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
+            self.assertIn('Success', tcpdump_txt_1)
+            self.assertIn('logoff', tcpdump_txt_1)
+            self.assertEqual(
+                expected_successes,
+                self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
 
-        # Port down - Auth (expected fail)
-        self.set_port_down(port_no1)
-        self.try_8021x(
-            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
-
-        self.one_ipv4_ping(self.eapol1_host, self.nfv_host,
-                           require_host_learned=False, expected_result=False)
-
-        self.assertNotEqual(self.get_wpa_status(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host)),
-                            'SUCCESS')
-
-        # Port Up - Auth (expected pass)
-        self.set_port_up(port_no1)
-        tcpdump_txt_1 = self.try_8021x(
-            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
-        self.assertEqual(
-            2,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-
-        self.assertIn('Success', tcpdump_txt_1)
-        self.assertIn('logoff', tcpdump_txt_1)
+            self.set_port_down(port_no1)
+            self.try_8021x(
+                self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+            self.one_ipv4_ping(
+                self.eapol1_host, self.nfv_host,
+                require_host_learned=False, expected_result=False)
+            wpa_status = self.get_wpa_status(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
+            self.assertNotEqual('SUCCESS', wpa_status)
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
@@ -717,36 +607,18 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         port_no2 = self.port_map['port_2']
-        port_no4 = self.port_map['port_4']
-        p1_actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no1), 'OUTPUT:%u' % port_no4]
-        p2_actions = ['SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no2), 'OUTPUT:%u' % port_no4]
-        from_nfv_match_1 = {
-            'dl_src': self._priv_mac(port_no1), 'in_port': port_no4, 'dl_type': 34958}
-        from_nfv_match_2 = {
-            'dl_src': self._priv_mac(port_no2), 'in_port': port_no4, 'dl_type': 34958}
-        from_nfv_actions_1 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%u' % port_no1]
-        from_nfv_actions_2 = ['SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%u' % port_no2]
 
-        self.wait_until_matching_flow(None, table_id=0, actions=p1_actions)
-        self.wait_until_matching_flow(None, table_id=0, actions=p2_actions)
-        self.wait_until_matching_flow(from_nfv_match_1, table_id=0, actions=from_nfv_actions_1)
-        self.wait_until_matching_flow(match=from_nfv_match_2, table_id=0, actions=from_nfv_actions_2)
+        self.wait_8021x_flows(port_no1)
+        self.wait_8021x_flows(port_no2)
 
-        conf = self._get_conf()
+        conf = self._get_faucet_conf()
         conf['dps'][self.DP_NAME]['interfaces'][port_no1]['dot1x'] = False
 
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
-        self.wait_until_matching_flow(None, table_id=0, actions=p2_actions)
-        self.wait_until_matching_flow(from_nfv_match_2, table_id=0, actions=from_nfv_actions_2)
-        self.assertFalse(
-            self.get_matching_flow(
-                match=None, table_id=0, actions=p1_actions, timeout=2))
-        self.assertFalse(
-            self.get_matching_flow(
-                match=from_nfv_match_1, table_id=0, actions=from_nfv_actions_1, timeout=2))
+        self.wait_8021x_flows(port_no2)
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
@@ -761,20 +633,12 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: randvlan
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: randvlan
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: randvlan
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: randvlan
 """
 
@@ -802,20 +666,20 @@ class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
     # Name of switch interface connected to last host, accessible to controller.
     last_host_switch_intf = None
 
-    def _write_faucet_config(self):
+    def _init_faucet_config(self):
         last_host = self.net.hosts[-1]
         switch = self.net.switches[0]
         last_host_switch_link = switch.connectionsTo(last_host)[0]
         self.last_host_switch_intf = [intf for intf in last_host_switch_link if intf in switch.intfList()][0]
         # Now that interface is known, FAUCET config can be written to include it.
-        super(FaucetUntaggedControllerNfvTest, self)._write_faucet_config()
+        super(FaucetUntaggedControllerNfvTest, self)._init_faucet_config()
 
     def test_untagged(self):
         super(FaucetUntaggedControllerNfvTest, self).test_untagged()
         # Confirm controller can see switch interface with traffic.
         ifconfig_output = self.net.controllers[0].cmd('ifconfig %s' % self.last_host_switch_intf)
         self.assertTrue(
-            re.search('(R|T)X packets:[1-9]', ifconfig_output),
+            re.search('(R|T)X packets[: ][1-9]', ifconfig_output),
             msg=ifconfig_output)
 
 
@@ -850,23 +714,15 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: nsonly
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
                 acl_in: nsonly
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
                 acl_in: nsonly
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
                 acl_in: nsonly
     """
@@ -895,17 +751,7 @@ class FaucetExperimentalAPITest(FaucetUntaggedTest):
         self.results_file = self.env['faucet']['API_TEST_RESULT']
 
     def test_untagged(self):
-        result = None
-        for _ in range(10):
-            try:
-                with open(self.results_file, 'r') as results:
-                    result = results.read().strip()
-                    if result == 'pass':
-                        return
-            except IOError:
-                pass
-            time.sleep(1)
-        self.fail('incorrect result from API test: %s' % result)
+        self.wait_until_matching_lines_from_file(r'.*pass.*', self.results_file)
 
 
 class FaucetUntaggedLogRotateTest(FaucetUntaggedTest):
@@ -927,8 +773,6 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
             max_per_interval: 5
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 lldp_beacon:
                     enable: True
@@ -937,16 +781,10 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
                     org_tlvs:
                         - {oui: 0x12bb, subtype: 2, info: "01406500"}
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -995,8 +833,6 @@ class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
             max_per_interval: 5
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 lldp_beacon:
                     enable: True
@@ -1016,7 +852,7 @@ class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
                 r'%s > 01:80:c2:00:00:0e, ethertype LLDP' % self.FAUCET_MAC,
                 r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50',
                 r'System Name TLV \(5\), length 8: faucet-1',
-                r'Port Description TLV \(4\), length 2: b1'):
+                r'Port Description TLV \(4\), length [1-9]: b%u' % self.port_map['port_1']):
             self.assertTrue(
                 re.search(lldp_required, tcpdump_txt),
                 msg='%s: %s' % (lldp_required, tcpdump_txt))
@@ -1056,21 +892,13 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 acl_in: lossyacl
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -1086,21 +914,13 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 hairpin: True
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -1125,7 +945,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
                  'ip link set %s up' % macvlan2_intf)):
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
         self.quiet_commands(first_host, setup_cmds)
-        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
+        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_ipv4)
         self.one_ipv4_ping(first_host, second_host.IP())
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
@@ -1144,21 +964,13 @@ class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):
         group_table: True
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 hairpin: True
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
     """
 
@@ -1344,7 +1156,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         self.wait_dp_status(1, controller='gauge')
         self.assertIsNotNone(self.scrape_prometheus_var(
             'faucet_pbr_version', any_labels=True, controller='gauge', retries=3))
-        conf = self._get_conf()
+        conf = self._get_faucet_conf()
         cookie = conf['dps'][self.DP_NAME]['cookie']
 
         if not self._prom_ports_updating():
@@ -1612,14 +1424,14 @@ acls:
             dl_dst: "0e:00:00:00:02:02"
             actions:
                 output:
-                    port: b2
+                    port: %(port_2)d
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
             arp_tpa: "10.0.0.2"
             actions:
                 output:
-                    port: b2
+                    port: %(port_2)d
         - rule:
             actions:
                 allow: 0
@@ -1628,14 +1440,14 @@ acls:
             dl_dst: "0e:00:00:00:01:01"
             actions:
                 output:
-                    port: b1
+                    port: %(port_1)d
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
             arp_tpa: "10.0.0.1"
             actions:
                 output:
-                    port: b1
+                    port: %(port_1)d
         - rule:
             actions:
                 allow: 0
@@ -1651,20 +1463,16 @@ acls:
 
     CONFIG = """
         interfaces:
-            b1:
-                number: %(port_1)d
+            %(port_1)d:
                 native_vlan: 100
                 acl_in: 1
-            b2:
-                number: %(port_2)d
+            %(port_2)d:
                 native_vlan: 100
                 acl_in: 2
-            b3:
-                number: %(port_3)d
+            %(port_3)d:
                 native_vlan: 100
                 acl_in: 3
-            b4:
-                number: %(port_4)d
+            %(port_4)d:
                 native_vlan: 100
                 acl_in: 4
 """
@@ -1693,7 +1501,7 @@ acls:
                 output:
                     failover:
                         group_id: 1001
-                        ports: [b2, b3]
+                        ports: [%(port_2)d, %(port_3)d]
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
@@ -1702,7 +1510,7 @@ acls:
                 output:
                     failover:
                         group_id: 1002
-                        ports: [b2, b3]
+                        ports: [%(port_2)d, %(port_3)d]
         - rule:
             actions:
                 allow: 0
@@ -1711,14 +1519,14 @@ acls:
             dl_dst: "0e:00:00:00:01:01"
             actions:
                 output:
-                    port: b1
+                    port: %(port_1)d
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
             arp_tpa: "10.0.0.1"
             actions:
                 output:
-                    port: b1
+                    port: %(port_1)d
         - rule:
             actions:
                 allow: 0
@@ -1727,14 +1535,14 @@ acls:
             dl_dst: "0e:00:00:00:01:01"
             actions:
                 output:
-                    port: b1
+                    port: %(port_1)d
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
             arp_tpa: "10.0.0.1"
             actions:
                 output:
-                    port: b1
+                    port: %(port_1)d
         - rule:
             actions:
                 allow: 0
@@ -1794,20 +1602,12 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -1835,20 +1635,12 @@ class FaucetTaggedAndUntaggedSameVlanEgressTest(FaucetTaggedAndUntaggedSameVlanT
         egress_pipeline: True
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -1859,20 +1651,12 @@ class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTe
         group_table: True
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -1912,21 +1696,13 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
                 max_hosts: 3
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -2050,9 +1826,7 @@ vlans:
 
         self.assertTrue(before_expiry_learned_macs)
         for mac in before_expiry_learned_macs:
-            self.assertFalse(
-                self.get_matching_flow(
-                    match={'eth_dst': mac}, table_id=self._ETH_DST_TABLE))
+            self.wait_until_no_matching_flow({'eth_dst': mac}, table_id=self._ETH_DST_TABLE)
 
 
 class FaucetSingleHostsNoIdleTimeoutPrometheusTest(FaucetSingleHostsTimeoutPrometheusTest):
@@ -2099,23 +1873,15 @@ vlans:
 """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 max_hosts: 4096
             %(port_2)d:
-                name: b2
-                description: "b3"
                 native_vlan: 100
                 max_hosts: 4096
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
                 max_hosts: 4096
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
                 max_hosts: 4096
 """)
@@ -2154,23 +1920,15 @@ vlans:
 """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 max_hosts: 4096
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
                 max_hosts: 4096
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
                 max_hosts: 4096
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
                 max_hosts: 4096
 """)
@@ -2244,8 +2002,6 @@ vlans:
             port_acl: 1100
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
 """
@@ -2349,21 +2105,13 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: allow
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
                 tagged_vlans: [200]
 """
@@ -2486,21 +2234,13 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: allow
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 200
 """
 
@@ -2513,14 +2253,14 @@ vlans:
         self.change_port_config(
             self.port_map['port_4'], None, None,
             restart=True, cold_start=False)
-        self.assertFalse(self.get_matching_flows_on_dpid(
-            self.dpid, second_host_dst_match, table_id=self._ETH_DST_TABLE))
+        self.wait_until_no_matching_flow(
+            second_host_dst_match, table_id=self._ETH_DST_TABLE)
 
 
 class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
 
     def test_add_unknown_dp(self):
-        conf = self._get_conf()
+        conf = self._get_faucet_conf()
         conf['dps']['unknown'] = {
             'dp_id': int(self.rand_dpid()),
             'hardware': 'Open vSwitch',
@@ -2532,7 +2272,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
     def test_tabs_are_bad(self):
         self.ping_all_when_learned()
         self.assertEqual(0, self.scrape_prometheus_var('faucet_config_load_error', dpid=False))
-        orig_conf = self._get_conf()
+        orig_conf = self._get_faucet_conf()
         self.force_faucet_reload(
             '\t'.join(('tabs', 'are', 'bad')))
         self.assertEqual(1, self.scrape_prometheus_var('faucet_config_load_error', dpid=False))
@@ -2565,7 +2305,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
     def test_port_change_acl(self):
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
-        orig_conf = self._get_conf()
+        orig_conf = self._get_faucet_conf()
         self.change_port_config(
             self.port_map['port_1'], 'acl_in', 1,
             cold_start=False)
@@ -2610,12 +2350,10 @@ class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
 
     def test_delete_interface(self):
         # With all ports changed, we should cold start.
-        conf = self._get_conf()
+        conf = self._get_faucet_conf()
         del conf['dps'][self.DP_NAME]['interfaces']
         conf['dps'][self.DP_NAME]['interfaces'] = {
             int(self.port_map['port_1']): {
-                'name': 'b1',
-                'description': 'b1',
                 'native_vlan': '100',
                 'tagged_vlans': ['200'],
             }
@@ -2628,7 +2366,7 @@ class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
 class FaucetRouterConfigReloadTest(FaucetConfigReloadTestBase):
 
     def test_router_config_reload(self):
-        conf = self._get_conf()
+        conf = self._get_faucet_conf()
         conf['routers'] = {
             'router-1': {
                 'vlans': ['100', '200'],
@@ -2644,23 +2382,15 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acls_in: [allow]
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
                 acl_in: allow
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
                 acl_in: deny
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
                 acl_in: deny
 """
@@ -2703,14 +2433,18 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24", "fc00::1:254/112"]
-        bgp_port: %(bgp_port)d
-        bgp_server_addresses: ["127.0.0.1", "::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["127.0.0.1", "::1"]
-        bgp_connect_mode: "passive"
+routers:
+    router1:
+        bgp:
+            as: 1
+            connect_mode: "passive"
+            port: %(bgp_port)d
+            routerid: "1.1.1.1"
+            server_addresses: ["127.0.0.1", "::1"]
+            neighbor_addresses: ["127.0.0.1", "::1"]
+            vlan: 100
 """ + """
-        bgp_neighbor_as: %u
+            neighbor_as: %u
 """ % PEER_BGP_AS
 
     CONFIG = """
@@ -2763,14 +2497,18 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
-        bgp_port: %(bgp_port)d
-        bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_connect_mode: "passive"
+routers:
+    router1:
+        bgp:
+            as: 1
+            connect_mode: "passive"
+            port: %(bgp_port)d
+            routerid: "1.1.1.1"
+            server_addresses: ["127.0.0.1"]
+            neighbor_addresses: ["127.0.0.1"]
+            vlan: 100
 """ + """
-        bgp_neighbor_as: %u
+            neighbor_as: %u
 """ % PEER_BGP_AS
 
     CONFIG = """
@@ -2822,18 +2560,22 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
-        bgp_port: %(bgp_port)d
-        bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_connect_mode: "passive"
         routes:
             - route:
                 ip_dst: 10.99.99.0/24
                 ip_gw: 10.0.0.1
+routers:
+    router1:
+        bgp:
+            as: 1
+            connect_mode: "passive"
+            port: %(bgp_port)d
+            routerid: "1.1.1.1"
+            server_addresses: ["127.0.0.1"]
+            neighbor_addresses: ["127.0.0.1"]
+            vlan: 100
 """ + """
-        bgp_neighbor_as: %u
+            neighbor_as: %u
 """ % PEER_BGP_AS
 
     CONFIG = """
@@ -2892,12 +2634,6 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
-        bgp_port: %(bgp_port)d
-        bgp_server_addresses: ["127.0.0.1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_connect_mode: "passive"
         routes:
             - route:
                 ip_dst: "10.0.1.0/24"
@@ -2908,8 +2644,18 @@ vlans:
             - route:
                 ip_dst: "10.0.3.0/24"
                 ip_gw: "10.0.0.2"
+routers:
+    router1:
+        bgp:
+            as: 1
+            connect_mode: "passive"
+            port: %(bgp_port)d
+            routerid: "1.1.1.1"
+            server_addresses: ["127.0.0.1"]
+            neighbor_addresses: ["127.0.0.1"]
+            vlan: 100
 """ + """
-        bgp_neighbor_as: %u
+            neighbor_as: %u
 """ % PEER_BGP_AS
 
     CONFIG = """
@@ -3005,21 +2751,13 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 unicast_flood: True
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -3041,21 +2779,13 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 unicast_flood: False
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -3088,21 +2818,13 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 permanent_learn: True
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -3140,21 +2862,13 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
                 loop_protect: True
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
                 loop_protect: True
 """
@@ -3239,22 +2953,14 @@ vlans:
         lacp_timeout: 3
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 lacp: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
                 lacp: 1
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -3675,20 +3381,12 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
             %(port_2)d:
-                name: b2
-                description: "b2"
                 tagged_vlans: [100]
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 101
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 101
 """
 
@@ -3742,21 +3440,13 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -3831,22 +3521,14 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
                 opstatus_reconf: False
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -3955,20 +3637,12 @@ class FaucetUntaggedOutputOnlyTest(FaucetUntaggedTest):
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 output_only: True
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -3994,28 +3668,20 @@ acls:
         - rule:
             actions:
                 allow: 1
-                mirror: b3
+                mirror: %(port_3)d
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
                 acl_in: 1
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -4041,28 +3707,20 @@ acls:
             actions:
                 allow: 1
                 output:
-                    ports: [b3]
+                    ports: [%(port_3)d]
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
                 acl_in: 1
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -4082,28 +3740,20 @@ acls:
     1:
         - rule:
             actions:
-                mirror: b3
+                mirror: %(port_3)d
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
                 acl_in: 1
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -4119,27 +3769,19 @@ acls:
         - rule:
             actions:
                 output:
-                    ports: [b2, b3]
+                    ports: [%(port_2)d, %(port_3)d]
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: multi_out
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 200
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -4181,27 +3823,19 @@ acls:
                     vlan_vid: 123
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
-                    port: b2
+                    port: %(port_2)d
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
 """
 
@@ -4236,27 +3870,19 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [123, 456]
-                    port: b2
+                    port: %(port_2)d
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b22"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -4292,27 +3918,19 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [{vid: 123, eth_type: 0x88a8}, 456]
-                    port: b2
+                    port: %(port_2)d
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -4343,21 +3961,13 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 # port 3 will mirror port 1
                 mirror: %(port_1)d
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -4380,21 +3990,13 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 override_output_port: %(port_3)d
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -4432,20 +4034,12 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 output_only: True
             %(port_4)d:
-                name: b4
-                description: "b4"
                 output_only: True
 """
 
@@ -4456,7 +4050,8 @@ vlans:
             (second_host, first_host))
         self.flap_all_switch_ports()
         self.change_port_config(
-            self.port_map['port_3'], 'mirror', ['b1', 'b2'],
+            self.port_map['port_3'], 'mirror',
+            [self.port_map['port_1'], self.port_map['port_2']],
             restart=True, cold_start=False, hup=True)
         self.verify_ping_mirrored_multi(
             ping_pairs, mirror_host, both_mirrored=True)
@@ -4474,20 +4069,12 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 mirror: %(port_1)d
             %(port_4)d:
-                name: b4
-                description: "b4"
                 mirror: %(port_1)d
 """
 
@@ -4550,21 +4137,13 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 tagged_vlans: [100]
             %(port_3)d:
-                name: b3
-                description: "b3"
                 tagged_vlans: [100]
             %(port_4)d:
-                name: b4
-                description: "b4"
                 tagged_vlans: [100]
 """
 
@@ -4580,7 +4159,8 @@ acls:
         tcpdump_filter = 'ether dst %s' % second_host.MAC()
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping -c3 %s' % second_host.IP())], root_intf=True, packets=1)
+                lambda: first_host.cmd(
+                    'ping -c3 %s' % second_host.IP())], root_intf=True, packets=1)
         self.assertTrue(re.search('vlan 100, p 2,', tcpdump_txt))
 
 
@@ -4640,18 +4220,12 @@ vlans:
             flood: %u
         interfaces:
             %s:
-                name: b3
-                description: "b3"
                 mirror: %s
             %s:
-                name: b1
-                description: "b1"
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
             %s:
-                name: b2
-                description: "b2"
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
@@ -4666,6 +4240,8 @@ vlans:
         first_host, second_host, mirror_host = self.net.hosts[:3]
         hosts = (first_host, second_host)
         required_ipds = set()
+        ipd_to_macvlan = {}
+
         for i, host in enumerate(hosts, start=1):
             setup_commands = []
             for vid in self.NEW_VIDS:
@@ -4675,6 +4251,7 @@ vlans:
                 ipg = self.netbase(vid, 254)
                 ipd = self.netbase(vid, 253)
                 required_ipds.add(str(ipd.ip))
+                ipd_to_macvlan[str(ipd.ip)] = (macvlan_int, host)
                 setup_commands.extend([
                     self.ip('link add link %s name %s type vlan id %u' % (
                         host.intf_root_name, vlan_int, vid)),
@@ -4685,14 +4262,7 @@ vlans:
                     self.ip('route add default via %s table %u' % (ipg.ip, vid)),
                     self.ip('rule add from %s table %u priority 100' % (ipa, vid)),
                     # stimulate learning attempts for down host.
-                    self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int)),
-                    self.fping(macvlan_int, ipd.ip)])
-                if self.STATIC_GW:
-                    setup_commands.append(
-                        self.ip('neigh add %s lladdr %s dev %s' % (ipg.ip, self.FAUCET_MAC, macvlan_int)))
-                else:
-                    setup_commands.append(
-                        self.fping(macvlan_int, ipg.ip))
+                    self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int))])
                 # next host routes via FAUCET for other host in same connected subnet
                 # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
@@ -4700,10 +4270,18 @@ vlans:
                         other_ip = self.netbase(vid, j)
                         setup_commands.append(
                             self.ip('route add %s via %s table %u' % (other_ip, ipg.ip, vid)))
+                if self.STATIC_GW:
+                    setup_commands.append(
+                        self.ip('neigh add %s lladdr %s dev %s' % (ipg.ip, self.FAUCET_MAC, macvlan_int)))
+                else:
+                    setup_commands.append(
+                        self.fping(macvlan_int, ipg.ip))
+                setup_commands.append(self.fping(macvlan_int, ipd.ip))
+
             self.quiet_commands(host, setup_commands)
 
         # verify drop rules present for down hosts
-        for _ in range(5):
+        for _ in range(10):
             drop_rules = self.get_matching_flows_on_dpid(
                 self.dpid, {'dl_type': self.ETH_TYPE, 'dl_vlan': str(self.GLOBAL_VID)},
                 table_id=self.fib_table(), actions=[])
@@ -4718,6 +4296,9 @@ vlans:
                         required_ipds.remove(ipd)
                 if not required_ipds:
                     break
+                for ipd in required_ipds:
+                    macvlan_int, host = ipd_to_macvlan[ipd]
+                    host.cmd(self.fping(macvlan_int, ipd))
             time.sleep(1)
         self.assertFalse(required_ipds, msg='no drop rules for %s' % required_ipds)
 
@@ -4819,18 +4400,12 @@ vlans:
             flood: 384
         interfaces:
             %s:
-                name: b3
-                description: "b3"
                 mirror: %s
             %s:
-                name: b1
-                description: "b1"
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
             %s:
-                name: b2
-                description: "b2"
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
@@ -4856,20 +4431,12 @@ vlans:
     CONFIG = """
         interfaces:
             %s:
-                name: b1
-                description: "b1"
                 tagged_vlans: [%s]
             %s:
-                name: b2
-                description: "b2"
                 tagged_vlans: [%s]
             %s:
-                name: b3
-                description: "b3"
                 tagged_vlans: [%s]
             %s:
-                name: b4
-                description: "b4"
                 tagged_vlans: [%s]
 """ % ('%(port_1)d', ','.join(STR_VIDS),
        '%(port_2)d', ','.join(STR_VIDS),
@@ -4926,22 +4493,14 @@ class FaucetTaggedExtLoopProtectTest(FaucetTaggedTest):
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
                 loop_protect_external: True
             %(port_2)d:
-                name: b2
-                description: "b2"
                 tagged_vlans: [100]
                 loop_protect_external: True
             %(port_3)d:
-                name: b3
-                description: "b3"
                 tagged_vlans: [100]
             %(port_4)d:
-                name: b4
-                description: "b4"
                 tagged_vlans: [100]
 """
 
@@ -4950,6 +4509,13 @@ class FaucetTaggedExtLoopProtectTest(FaucetTaggedTest):
         self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
         self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
+        self.one_ipv4_ping(ext_port1, int_port2.IP())
+        tcpdump_filter = 'ether dst %s' % int_port2.MAC()
+        tcpdump_txt = self.tcpdump_helper(
+            ext_port1, tcpdump_filter, [
+                lambda: ext_port1.cmd(
+                    'ping -c3 %s' % int_port2.IP())], root_intf=True, packets=1)
+        self.assertTrue(re.search('vlan 100, p 0,', tcpdump_txt))
 
 
 class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):
@@ -4968,23 +4534,15 @@ vlans:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 200
                 tagged_vlans: [100]
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 200
                 tagged_vlans: [100]
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 200
                 tagged_vlans: [100]
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 200
                 tagged_vlans: [100]
 """
@@ -5014,7 +4572,7 @@ acls:
         - rule:
             vlan_vid: 100
             actions:
-                mirror: b3
+                mirror: %(port_3)d
                 force_port_vlan: 1
                 output:
                     swap_vid: 101
@@ -5024,21 +4582,13 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 tagged_vlans: [101]
             %(port_3)d:
-                name: b3
-                description: "b3"
                 tagged_vlans: [100]
             %(port_4)d:
-                name: b4
-                description: "b4"
                 tagged_vlans: [100]
     """
 
@@ -5079,27 +4629,19 @@ acls:
             actions:
                 output:
                     swap_vid: 101
-                    port: b2
+                    port: %(port_2)d
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 tagged_vlans: [101]
             %(port_3)d:
-                name: b3
-                description: "b3"
                 tagged_vlans: [100]
             %(port_4)d:
-                name: b4
-                description: "b4"
                 tagged_vlans: [100]
 """
 
@@ -5135,27 +4677,19 @@ acls:
                     set_fields:
                         - eth_dst: "06:06:06:06:06:06"
                     pop_vlans: 1
-                    port: b2
+                    port: %(port_2)d
 """
 
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 tagged_vlans: [100]
             %(port_3)d:
-                name: b3
-                description: "b3"
                 tagged_vlans: [100]
             %(port_4)d:
-                name: b4
-                description: "b4"
                 tagged_vlans: [100]
 """
 
@@ -5227,7 +4761,7 @@ acls:
             ipv6_nd_target: "fc00::1:2"
             actions:
                 output:
-                    port: b2
+                    port: %s
         - rule:
             actions:
                 allow: 1
@@ -5235,27 +4769,19 @@ vlans:
     100:
         description: "tagged"
         faucet_vips: ["fc00::1:254/112"]
-""" % IPV6_ETH
+""" % (IPV6_ETH, '%(port_2)d')
 
     CONFIG = """
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 tagged_vlans: [100]
             %(port_3)d:
-                name: b3
-                description: "b3"
                 tagged_vlans: [100]
             %(port_4)d:
-                name: b4
-                description: "b4"
                 tagged_vlans: [100]
 """
 
@@ -5297,20 +4823,12 @@ vlans:
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 tagged_vlans: [100]
             %(port_2)d:
-                name: b2
-                description: "b2"
                 tagged_vlans: [100]
             %(port_3)d:
-                name: b3
-                description: "b3"
                 tagged_vlans: [100]
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 200
 """
 
@@ -5424,24 +4942,27 @@ class FaucetUntaggedIPv4GlobalInterVLANRouteTest(FaucetUntaggedTest):
     FAUCET_MAC2 = '0e:00:00:00:00:02'
 
     CONFIG_GLOBAL = """
-routers:
-    global:
-        vlans: [100, 200]
 vlans:
     100:
         faucet_vips: ["10.100.0.254/24"]
-        bgp_port: %(bgp_port)d
-        bgp_server_addresses: ["127.0.0.1", "::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["127.0.0.1", "::1"]
-        bgp_connect_mode: "passive"
-""" + """
-        bgp_neighbor_as: %u
     200:
         faucet_vips: ["10.200.0.254/24"]
         faucet_mac: "%s"
-""" % (PEER_BGP_AS, FAUCET_MAC2)
+""" % FAUCET_MAC2 + """
+routers:
+    global:
+        vlans: [100, 200]
+        bgp:
+            as: 1
+            connect_mode: "passive"
+            port: %(bgp_port)d
+            routerid: "1.1.1.1"
+            server_addresses: ["127.0.0.1", "::1"]
+            neighbor_addresses: ["127.0.0.1", "::1"]
+            vlan: 100
+""" + """
+            neighbor_as: %u
+""" % PEER_BGP_AS
 
     CONFIG = """
         global_vlan: 300
@@ -5450,20 +4971,12 @@ vlans:
         proactive_learn_v4: True
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 200
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 200
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 200
 """
 
@@ -5526,20 +5039,12 @@ routers:
         proactive_learn_v4: True
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: vlanb
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: vlanb
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: vlanb
 """
 
@@ -5589,12 +5094,8 @@ routers:
         proactive_learn_v4: True
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: vlana
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: vlanb
 """
 
@@ -5620,8 +5121,7 @@ routers:
             restart=False, cold_start=False)
         # Add port 3
         self.add_port_config(
-            self.port_map['port_3'],
-            {'name': 'b3', 'description': 'b3', 'native_vlan': 'vlanb'},
+            self.port_map['port_3'], {'native_vlan': 'vlanb'},
             restart=True, cold_start=True)
         third_host.setIP(str(second_host_ip.ip), prefixLen=24)
         self.add_host_route(third_host, first_host_ip, second_faucet_vip.ip)
@@ -5655,20 +5155,12 @@ routers:
         proactive_learn_v4: True
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: vlanb
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: vlanb
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: vlanb
 """
 
@@ -5717,20 +5209,12 @@ routers:
         proactive_learn_v6: True
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: vlanb
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: vlanb
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: vlanb
 """
 
@@ -5803,20 +5287,12 @@ routers:
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 200
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 300
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -5921,14 +5397,18 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
-        bgp_port: %(bgp_port)d
-        bgp_server_addresses: ["::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["::1"]
-        bgp_connect_mode: "passive"
+routers:
+    router1:
+        bgp:
+            as: 1
+            connect_mode: "passive"
+            port: %(bgp_port)d
+            routerid: "1.1.1.1"
+            server_addresses: ["::1"]
+            neighbor_addresses: ["::1"]
+            vlan: 100
 """ + """
-        bgp_neighbor_as: %u
+            neighbor_as: %u
 """ % PEER_BGP_AS
 
     CONFIG = """
@@ -5979,14 +5459,18 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
-        bgp_port: %(bgp_port)d
-        bgp_server_addresses: ["::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["::1"]
-        bgp_connect_mode: "passive"
+routers:
+    router1:
+        bgp:
+            as: 1
+            connect_mode: "passive"
+            port: %(bgp_port)d
+            routerid: "1.1.1.1"
+            server_addresses: ["::1"]
+            neighbor_addresses: ["::1"]
+            vlan: 100
 """ + """
-        bgp_neighbor_as: %u
+            neighbor_as: %u
 """ % PEER_BGP_AS
 
     CONFIG = """
@@ -6079,12 +5563,6 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
-        bgp_port: %(bgp_port)d
-        bgp_server_addresses: ["::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["::1"]
-        bgp_connect_mode: "passive"
         routes:
             - route:
                 ip_dst: "fc00::10:0/112"
@@ -6095,8 +5573,18 @@ vlans:
             - route:
                 ip_dst: "fc00::30:0/112"
                 ip_gw: "fc00::1:2"
+routers:
+    router1:
+        bgp:
+            as: 1
+            connect_mode: "passive"
+            port: %(bgp_port)d
+            routerid: "1.1.1.1"
+            server_addresses: ["::1"]
+            neighbor_addresses: ["::1"]
+            vlan: 100
 """ + """
-        bgp_neighbor_as: %u
+            neighbor_as: %u
 """ % PEER_BGP_AS
 
     CONFIG = """
@@ -6235,7 +5723,6 @@ class FaucetStringOfDPTest(FaucetTest):
             lacp,
             first_external,
         )
-        self._write_faucet_config()
 
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
@@ -6322,9 +5809,6 @@ class FaucetStringOfDPTest(FaucetTest):
                             # make this a stacking link.
                             interfaces_config[port].update(
                                 {
-                                    'lldp_beacon': {
-                                        'enable': True},
-                                    'receive_lldp': True,
                                     'stack': {
                                         'dp': dp_name(peer_dp),
                                         'port': peer_port}
@@ -6396,10 +5880,6 @@ class FaucetStringOfDPTest(FaucetTest):
                 interfaces_config = remapped_interfaces_config
 
             for portno, config in list(interfaces_config.items()):
-                port_name = 'b%u' % portno
-                interfaces_config[portno].update({
-                    'name': port_name,
-                    'description': port_name})
                 stack = config.get('stack', None)
                 if stack:
                     peer_dp = stack['dp']
@@ -6449,11 +5929,13 @@ class FaucetStringOfDPTest(FaucetTest):
             i += 1
             labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': 'faucet-%u' % i}
             self.assertEqual(
-                0, self.scrape_prometheus_var(var='stack_cabling_errors_total', labels=labels, default=None))
+                0, self.scrape_prometheus_var(
+                    var='stack_cabling_errors_total', labels=labels, default=None))
             self.assertGreater(
-                self.scrape_prometheus_var(var='stack_probes_received_total', labels=labels), 0)
+                self.scrape_prometheus_var(
+                    var='stack_probes_received_total', labels=labels), 0)
 
-    def verify_stack_hosts(self, verify_bridge_local_rule=True):
+    def verify_stack_hosts(self, verify_bridge_local_rule=True, retries=3):
         lldp_cap_files = []
         for host in self.net.hosts:
             lldp_cap_file = os.path.join(self.tmpdir, '%s-lldp.cap' % host)
@@ -6461,13 +5943,9 @@ class FaucetStringOfDPTest(FaucetTest):
             host.cmd(mininet_test_util.timeout_cmd(
                 'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC &' % (
                     host.defaultIntf(), lldp_cap_file), 60))
-        for _ in range(3):
-            self.retry_net_ping()
+        self.retry_net_ping(retries=retries)
         # hosts should see no LLDP probes
-        for lldp_cap_file in lldp_cap_files:
-            self.quiet_commands(
-                self.net.controllers[0],
-                ['tcpdump -n -r %s 2> /dev/null' % lldp_cap_file])
+        self.verify_empty_caps(lldp_cap_files)
         # should not flood LLDP from hosts
         self.verify_lldp_blocked(self.net.hosts)
         if verify_bridge_local_rule:
@@ -6480,23 +5958,32 @@ class FaucetStringOfDPTest(FaucetTest):
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         labels = self.port_labels(port_no)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
-        for _ in range(timeout):
-            actual_status = self.scrape_prometheus_var(
-                'port_stack_state', labels=labels, default=None)
-            if actual_status == status:
-                return
-            time.sleep(1)
-        self.assertEqual(
-            status, actual_status, msg='expected dpid %x port %u port_stack_state %u != actual %s' % (
-                int(dpid), port_no, status, str(actual_status)))
+        if not self.wait_for_prometheus_var(
+                'port_stack_state', status, labels=labels,
+                default=None, dpid=False, timeout=timeout):
+            self.fail('did not get expected dpid %x port %u port_stack_state %u' % (
+                int(dpid), port_no, status))
 
     def verify_all_stack_up(self):
         port_base = self.NUM_HOSTS + 1
         for i, dpid in enumerate(self.dpids, start=1):
             dp_name = 'faucet-%u' % i
-            for port_no in range(self.topo.switch_to_switch_links):
+            for switch_port_no in range(self.topo.switch_to_switch_links):
+                port_no = port_base + switch_port_no
+                if dpid == self.hw_dpid:
+                    port_no = self.port_map['port_%u' % port_no]
                 self.wait_for_stack_port_status(
-                    dpid, dp_name, port_base + port_no, 3) # up
+                    dpid, dp_name, port_no, 3) # up
+
+    def verify_all_stack_hosts(self):
+        for _ in range(2):
+            self.verify_all_stack_up()
+            self.verify_no_cable_errors()
+            self.verify_stack_hosts()
+            self.verify_traveling_dhcp_mac()
+            self.verify_unicast_not_looped()
+            self.verify_no_bcast_to_self()
+            self.flap_all_switch_ports()
 
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
@@ -6547,9 +6034,6 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.start_net()
 
     def verify_one_stack_down(self, port_no, coldstart=False):
-        switch_port_key = 'port_%u' % port_no
-        if switch_port_key in self.port_map:
-            port_no = self.port_map[switch_port_key]
         self.retry_net_ping()
         self.set_port_down(port_no, wait=False)
         # self.dpids[1] is the intermediate switch.
@@ -6583,6 +6067,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 2
     NUM_HOSTS = 2
+    match_bcast = {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
+    action_str = 'OUTPUT:%u'
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPLACPUntaggedTest, self).setUp()
@@ -6596,45 +6082,52 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             lacp=True)
         self.start_net()
 
-    def test_untagged(self):
-        """All untagged hosts in stack topology can reach each other."""
-        for _ in range(3):
-            self.verify_stack_hosts()
-            self.flap_all_switch_ports()
+    def wait_for_lacp_status(self, port_no, wanted_status, dpid, dp_name, timeout=20):
+        labels = self.port_labels(port_no)
+        labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
+        if not self.wait_for_prometheus_var(
+                'port_lacp_status', wanted_status,
+                labels=labels, dpid=False, timeout=timeout):
+            self.fail('wanted LACP status for %s to be %u' % (labels, wanted_status))
 
-    def wait_for_lacp_port_up(self, dpname, port_no):
-        log_file = self.env['faucet']['FAUCET_LOG']
-        lacp_up_re = r'.+%s.+LAG.+port %u up$' % (dpname, port_no)
-        self.wait_until_matching_lines_from_file(lacp_up_re, log_file)
+    def wait_for_lacp_port_down(self, port_no, dpid, dp_name):
+        self.wait_for_lacp_status(port_no, 0, dpid, dp_name)
 
-    def wait_for_lacp_port_down(self, dpname, port_no, previous_state):
-        log_file = self.env['faucet']['FAUCET_LOG']
-        lacp_down_re = r'.+%s.+LAG.+port.+%u down \(previous state %s\)$' % (
-            dpname, port_no, previous_state)
-        self.wait_until_matching_lines_from_file(lacp_down_re, log_file)
+    def wait_for_lacp_port_up(self, port_no, dpid, dp_name):
+        self.wait_for_lacp_status(port_no, 1, dpid, dp_name)
+
+    def wait_for_all_lacp_up(self):
+        first_lacp_port = self.port_map['port_%u' % 3]
+        second_lacp_port = self.port_map['port_%u' % 4]
+        self.wait_for_lacp_port_up(first_lacp_port, self.dpid, self.DP_NAME)
+        self.wait_for_lacp_port_up(second_lacp_port, self.dpid, self.DP_NAME)
+        self.wait_until_matching_flow(
+            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % first_lacp_port])
+        self.wait_until_matching_flow(
+            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % 3], dpid=self.dpids[1])
 
     def test_lacp_port_down(self):
         """LACP to switch to a working port when the primary port fails."""
         first_lacp_port = self.port_map['port_%u' % 3]
         second_lacp_port = self.port_map['port_%u' % 4]
-        match_bcast = {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
-        action_str = 'OUTPUT:%u'
-        # wait for all LACP ports up
-        self.wait_for_lacp_port_up(self.DP_NAME, first_lacp_port)
-        self.wait_for_lacp_port_up(self.DP_NAME, second_lacp_port)
-        self.wait_until_matching_flow(
-            match_bcast, self._FLOOD_TABLE, actions=[action_str % first_lacp_port])
+        self.wait_for_all_lacp_up()
         self.retry_net_ping()
         self.set_port_down(first_lacp_port, wait=False)
+        self.wait_for_lacp_port_down(first_lacp_port, self.dpid, self.DP_NAME)
+        self.wait_for_lacp_port_down(3, self.dpids[1], 'faucet-2')
         self.wait_until_matching_flow(
-            match_bcast, self._FLOOD_TABLE, actions=[action_str % second_lacp_port])
-        # Wait for other DP to expire LACP - even when testing hardware this DP will be OVS.
-        self.wait_for_lacp_port_down(self.dpids[1], 3, 1)
-        # Other DP should use output to the LACP up port.
+            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % second_lacp_port])
         self.wait_until_matching_flow(
-            match_bcast, self._FLOOD_TABLE, actions=[action_str % 4], dpid=self.dpids[1])
+            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % 4], dpid=self.dpids[1])
         self.retry_net_ping()
         self.set_port_up(first_lacp_port, wait=False)
+
+    def test_untagged(self):
+        """All untagged hosts in stack topology can reach each other."""
+        for _ in range(3):
+            self.wait_for_all_lacp_up()
+            self.verify_stack_hosts()
+            self.flap_all_switch_ports()
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
@@ -6656,13 +6149,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
-        for _ in range(2):
-            self.verify_stack_hosts()
-            self.verify_no_cable_errors()
-            self.verify_traveling_dhcp_mac()
-            self.verify_unicast_not_looped()
-            self.verify_no_bcast_to_self()
-            self.flap_all_switch_ports()
+        self.verify_all_stack_hosts()
 
 
 class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
@@ -6685,13 +6172,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
-        for _ in range(2):
-            self.verify_stack_hosts()
-            self.verify_no_cable_errors()
-            self.verify_traveling_dhcp_mac()
-            self.verify_unicast_not_looped()
-            self.verify_no_bcast_to_self()
-            self.flap_all_switch_ports()
+        self.verify_all_stack_hosts()
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
@@ -7061,10 +6542,8 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     def test_tunnel_path_rerouted(self):
         """test a tunnel path is rerouted when a stack is down"""
         self.verify_all_stack_up()
-        self.one_stack_port_down(3)
-        src_host = self.net.hosts[0]
-        dst_host = self.net.hosts[2]
-        other_host = self.net.hosts[1]
+        self.one_stack_port_down(self.port_map['port_3'])
+        src_host, other_host, dst_host = self.net.hosts[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
     def one_stack_port_down(self, stack_port):
@@ -7119,21 +6598,13 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 
@@ -7179,21 +6650,13 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                name: b1
-                description: "b1"
                 native_vlan: 100
                 acl_in: 1
             %(port_2)d:
-                name: b2
-                description: "b2"
                 native_vlan: 100
             %(port_3)d:
-                name: b3
-                description: "b3"
                 native_vlan: 100
             %(port_4)d:
-                name: b4
-                description: "b4"
                 native_vlan: 100
 """
 

@@ -1,5 +1,5 @@
-1.7.0
-^^^^^
+1.7.0 Release Notes
+^^^^^^^^^^^^^^^^^^^
 
 We are making a few potentially breaking features in faucet 1.7.0. This document
 covers how to navigate the changes and safely upgrade from earlier versions to

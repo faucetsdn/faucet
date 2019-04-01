@@ -387,24 +387,29 @@ We can now start BIRD inside the bgp namespace:
     as_ns bgp bird -P /run/bird-bgp.pid
 
 We'll configure Faucet to talk to BIRD by adding BGP configuration to
-``/etc/faucet/faucet.yaml``. Change the servers vlan to look like the
-configuration below, leaving all other VLANs alone.
+``/etc/faucet/faucet.yaml``. Change the servers VLAN to look like the
+configuration below, leaving all other VLANs alone, and add a Faucet
+router.
 
 .. code-block:: yaml
     :caption: /etc/faucet/faucet.yaml
 
+    routers:
+        bird:
+            vlans: servers
+            bgp:
+                as: 65000                           # Faucet's AS number
+                port: 9179                          # BGP port for Faucet to listen on.
+                routerid: '10.0.1.3'                # Faucet's Unique ID.
+                server_addresses: ['10.0.1.3']      # Faucet's listen IP for BGP
+                neighbor_addresses: ['10.0.1.2']    # Neighbouring IP addresses (IPv4/IPv6)
+                neighbor_as: 65001                  # Neighbour's AS number
     vlans:
         servers:
             vid: 200
             description: "vlan for gw port"
             faucet_mac: "00:00:00:00:00:22"
             faucet_vips: ["10.0.1.254/24"]
-            bgp_port: 9179                          # BGP port for Faucet to listen on.
-            bgp_as: 65000                           # Faucet's AS number
-            bgp_routerid: '10.0.1.3'                # Faucet's Unique ID.
-            bgp_server_addresses: ['10.0.1.3']      # Faucet's listen IP for BGP
-            bgp_neighbor_addresses: ['10.0.1.2']    # Neighbouring IP addresses (IPv4/IPv6)
-            bgp_neighbor_as: 65001                  # Neighbour's AS number
     ...
 
 

@@ -37,38 +37,6 @@ faucet-all-in-one Install faucet, gauge, prometheus and grafana. Easy to use and
 ================= ==========================================================================================================
 
 
-Installation on Debian/Raspbian 8 (jessie)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Installing faucet on jessie requires jessie-backports.
-
-First follow the `official instructions <https://backports.debian.org/Instructions/>`_ on adding the backports repo to jessie.
-
-.. code:: console
-
-  sudo apt-get install curl apt-transport-https gnupg lsb-release
-  echo "deb https://packagecloud.io/faucetsdn/faucet/$(lsb_release -si | awk '{print tolower($0)}')/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/faucet.list
-  curl -L https://packagecloud.io/faucetsdn/faucet/gpgkey | sudo apt-key add -
-  sudo apt-get install -t jessie-backports python3-oslo.config libjs-jquery libjs-mustache
-  sudo apt-get update
-
-Then to install all components for a fully functioning system on a single machine:
-
-.. code:: console
-
-  sudo apt-get install faucet-all-in-one
-
-or you can install the individual components:
-
-.. code:: console
-
-  sudo apt-get install faucet
-  sudo apt-get install gauge
-
-.. raw:: html
-
-  <a href="https://packagecloud.io/"><img height="46" width="158" alt="Private NPM registry and Maven, RPM, DEB, PyPi and RubyGem Repository · packagecloud" src="https://packagecloud.io/images/packagecloud-badge.png" /></a>
-
 Installation on Debian/Raspbian 9+ and Ubuntu 16.04+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -371,8 +339,8 @@ Once you have booted up the Raspberry Pi and logged in using the default credent
 
 .. _faucet-vm-install:
 
-Intalling with Virtual Machine image
-------------------------------------
+Installing with Virtual Machine image
+-------------------------------------
 
 We provide a VM image for running FAUCET for development and learning purposes.
 The VM comes pre-installed with FAUCET, GAUGE, prometheus and grafana.

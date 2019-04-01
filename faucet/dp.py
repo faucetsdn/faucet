@@ -22,7 +22,6 @@ import random
 import math
 import netaddr
 
-from datadiff import diff
 import networkx
 
 from faucet import faucet_pipeline
@@ -240,9 +239,6 @@ configuration.
         self.fast_advertise_interval = None
         self.arp_neighbor_timeout = None
         self.nd_neighbor_timeout = None
-        self.bgp_local_address = None
-        self.bgp_neighbor_as = None
-        self.bgp_routerid = None
         self.combinatorial_port_flood = None
         self.configured = False
         self.cookie = None
@@ -470,6 +466,9 @@ configuration.
             flood_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
             vlan_table = table_configs['vlan']
             vlan_table.set_fields += (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
+            vlan_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
+            eth_dst_table = table_configs['eth_dst']
+            eth_dst_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
 
         oxm_fields = set(valve_of.MATCH_FIELDS.keys())
 
@@ -771,7 +770,7 @@ configuration.
 
     def is_stack_root(self):
         """Return True if this DP is the root of the stack."""
-        return 'priority' in self.stack
+        return self.stack and 'priority' in self.stack
 
     def is_stack_edge(self):
         """Return True if this DP is a stack edge."""
@@ -807,7 +806,7 @@ configuration.
         path = self.shortest_path(dst_dp.name, src_dp.name)
         return self.name in path
 
-    def reset_refs(self, vlans=None):
+    def reset_refs(self, vlans=None, root_dp=None):
         """Resets vlan references"""
         if vlans is None:
             vlans = self.vlans
@@ -816,6 +815,8 @@ configuration.
             vlan.reset_ports(self.ports.values())
             if vlan.get_ports() or vlan.reserved_internal_vlan:
                 self.vlans[vlan.vid] = vlan
+        if root_dp is not None:
+            self.stack['root_dp'] = root_dp
 
     def resolve_port(self, port_name):
         """Resolve a port by number or name."""
@@ -833,6 +834,7 @@ configuration.
 
         dp_by_name = {}
         vlan_by_name = {}
+        vlans_with_external_ports = set()
 
         def resolve_ports(port_names):
             """Resolve list of ports, by port by name or number."""
@@ -853,12 +855,21 @@ configuration.
                 return self.vlans[vlan_name]
             return None
 
+        def resolve_vlans(vlan_names):
+            """Resolve a list of VLAN names."""
+            vlans = []
+            for vlan_name in vlan_names:
+                vlan = resolve_vlan(vlan_name)
+                if vlan:
+                    vlans.append(vlan)
+            return vlans
+
         def resolve_stack_dps():
             """Resolve DP references in stacking config."""
             if self.stack_ports:
                 if self.stack is None:
                     self.stack = {}
-                self.stack['externals'] = False
+                self.stack['externals'] = bool(vlans_with_external_ports)
                 port_stack_dp = {}
                 for port in self.stack_ports:
                     stack_dp = port.stack['dp']
@@ -871,10 +882,6 @@ configuration.
                     test_config_condition(stack_port is None, (
                         'stack port %s not defined in DP %s' % (port.stack['port'], dp.name)))
                     port.stack['port'] = stack_port
-                for vlan in vlan_by_name.values():
-                    if vlan.loop_protect_external_ports():
-                        self.stack['externals'] = True
-                        break
 
         def resolve_mirror_destinations():
             """Resolve mirror port references and destinations."""
@@ -1038,65 +1045,68 @@ configuration.
                 for tunnel_acl in self.tunnel_acls.values():
                     tunnel_acl.verify_tunnel_compatibility_rules(self)
 
-        def resolve_vlan_names_in_routers():
+        def resolve_routers():
             """Resolve VLAN references in routers."""
             dp_routers = {}
             for router_name, router in self.routers.items():
-                vlans = []
-                for vlan_name in router.vlans:
-                    vlan = resolve_vlan(vlan_name)
-                    if vlan is not None:
-                        vlans.append(vlan)
-                if len(vlans) > 1:
+                if router.bgp_vlan():
+                    router.set_bgp_vlan(resolve_vlan(router.bgp_vlan()))
+                vlans = resolve_vlans(router.vlans)
+                if vlans or router.bgp_vlan():
                     dp_router = copy.copy(router)
                     dp_router.vlans = vlans
                     dp_routers[router_name] = dp_router
+            self.routers = dp_routers
+
+            if self.global_vlan:
+                vids = {vlan.vid for vlan in self.vlans.values()}
+                test_config_condition(
+                    self.global_vlan in vids, 'global_vlan VID %s conflicts with existing VLAN' % self.global_vlan)
+
+            # Check for overlapping VIP subnets or VLANs.
+            all_router_vlans = set()
+            for router_name, router in self.routers.items():
                 vips = set()
-                for vlan in vlans:
-                    for vip in vlan.faucet_vips:
-                        if vip.ip.is_link_local:
-                            continue
-                        vips.add(vip)
+                if router.vlans and len(router.vlans) == 1:
+                    lone_vlan = router.vlans[0]
+                    test_config_condition(
+                        lone_vlan in all_router_vlans, 'single VLAN %s in more than one router' % lone_vlan)
+                for vlan in router.vlans:
+                    vips.update({vip for vip in vlan.faucet_vips if not vip.ip.is_link_local})
+                all_router_vlans.update(router.vlans)
                 for vip in vips:
                     for other_vip in vips - set([vip]):
                         test_config_condition(
                             vip.ip in other_vip.network,
                             'VIPs %s and %s overlap in router %s' % (
                                 vip, other_vip, router_name))
-            self.routers = dp_routers
+            bgp_routers = self.bgp_routers()
+            if bgp_routers:
+                for bgp_router in bgp_routers:
+                    bgp_vlan = bgp_router.bgp_vlan()
+                    vlan_dps = [dp for dp in dps if bgp_vlan.vid in dp.vlans]
+                    test_config_condition(len(vlan_dps) != 1, (
+                        'DPs %s sharing a BGP speaker VLAN is unsupported'))
+                    test_config_condition(bgp_router.bgp_server_addresses() != (
+                        bgp_routers[0].bgp_server_addresses()), (
+                            'BGP server addresses must all be the same'))
+                router_ids = {bgp_router.bgp_routerid() for bgp_router in bgp_routers}
+                test_config_condition(len(router_ids) != 1, 'BGP router IDs must all be the same: %s' % router_ids)
+                bgp_ports = {bgp_router.bgp_port() for bgp_router in bgp_routers}
+                test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
+
 
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
-
-        for dp in dps:
-            dp_by_name[dp.name] = dp
-        for vlan in self.vlans.values():
-            vlan_by_name[vlan.name] = vlan
-            if self.global_vlan:
-                test_config_condition(
-                    self.global_vlan == vlan.vid, 'VLAN %u is reserved by global_vlan' % vlan.vid)
+        dp_by_name = {dp.name: dp for dp in dps}
+        vlan_by_name = {vlan.name: vlan for vlan in self.vlans.values()}
+        vlans_with_external_ports = {
+            vlan for vlan in self.vlans.values() if vlan.loop_protect_external_ports()}
 
         resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_override_output_ports()
-        resolve_vlan_names_in_routers()
         resolve_acls()
-
-        self._configure_tables()
-
-        bgp_vlans = self.bgp_vlans()
-        if bgp_vlans:
-            for vlan in bgp_vlans:
-                vlan_dps = [dp for dp in dps if vlan.vid in dp.vlans]
-                test_config_condition(len(vlan_dps) != 1, (
-                    'DPs %s sharing a BGP speaker VLAN is unsupported'))
-            router_ids = {vlan.bgp_routerid for vlan in bgp_vlans}
-            test_config_condition(len(router_ids) != 1, 'BGP router IDs must all be the same')
-            bgp_ports = {vlan.bgp_port for vlan in bgp_vlans}
-            test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same')
-            for vlan in bgp_vlans:
-                test_config_condition(vlan.bgp_server_addresses != (
-                    bgp_vlans[0].bgp_server_addresses), (
-                        'BGP server addresses must all be the same'))
+        resolve_routers()
 
         self._configure_tables()
 
@@ -1117,26 +1127,13 @@ configuration.
         except KeyError:
             return None
 
-    def bgp_vlans(self):
-        """Return list of VLANs with BGP enabled."""
-        return tuple([vlan for vlan in self.vlans.values() if vlan.bgp_as])
+    def bgp_routers(self):
+        """Return list of routers with BGP enabled."""
+        return tuple([router for router in self.routers.values() if router.bgp_as() and router.bgp_vlan()])
 
     def dot1x_ports(self):
         """Return list of ports with 802.1x enabled."""
         return tuple([port for port in self.ports.values() if port.dot1x])
-
-    def to_conf(self):
-        """Return DP config as dict."""
-        result = super(DP, self).to_conf()
-        if result is not None:
-            if 'stack' in result:
-                if result['stack'] is not None:
-                    result['stack'] = {
-                        'root_dp': str(self.stack['root_dp'])
-                    }
-            result['interfaces'] = {
-                port.name: port.to_conf() for port in self.ports.values()}
-        return result
 
     def get_tables(self):
         """Return tables as dict for API call."""
@@ -1168,7 +1165,7 @@ configuration.
                 acl = self.acls[acl_id]
                 if acl != new_acl:
                     changed_acls[acl_id] = new_acl
-                    logger.info('ACL %s changed: %s' % (acl_id, new_acl.to_conf()))
+                    logger.info('ACL %s changed: %s' % (acl_id, acl.conf_diff(new_acl)))
         return changed_acls
 
     def _get_vlan_config_changes(self, logger, new_dp):
@@ -1253,7 +1250,7 @@ configuration.
                     else:
                         changed_ports.add(port_no)
                         logger.info('port %s reconfigured (%s)' % (
-                            port_no, diff(old_port.to_conf(), new_port.to_conf(), context=1)))
+                            port_no, old_port.conf_diff(new_port)))
                 elif new_port.acls_in:
                     port_acls_changed = [acl for acl in new_port.acls_in if acl in changed_acls]
                     if port_acls_changed:

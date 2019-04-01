@@ -202,6 +202,11 @@ class Port(Conf):
             for stack_config in list(self.stack_defaults_types.keys()):
                 test_config_condition(stack_config not in self.stack, (
                     'stack %s must be defined' % stack_config))
+            # LLDP always enabled for stack ports.
+            self.receive_lldp = True
+            if not self.lldp_beacon_enabled():
+                self.lldp_beacon.update({'enable': True})
+
         if self.lldp_beacon:
             self._check_conf_types(
                 self.lldp_beacon, self.lldp_beacon_defaults_types)
@@ -251,18 +256,6 @@ class Port(Conf):
     def running(self):
         """Return True if port enabled and up."""
         return self.enabled and self.dyn_phys_up
-
-    def to_conf(self):
-        result = super(Port, self).to_conf()
-        if result is not None:
-            if 'stack' in result and result['stack']:
-                result['stack'] = {}
-                for stack_config in list(self.stack_defaults_types.keys()):
-                    result['stack'][stack_config] = self.stack[stack_config]
-            if self.native_vlan is not None:
-                result['native_vlan'] = self.native_vlan.name
-            result['tagged_vlans'] = [vlan.name for vlan in self.tagged_vlans]
-        return result
 
     def vlans(self):
         """Return all VLANs this port is in."""
