@@ -1518,12 +1518,15 @@ vlans:
     def test_handlers(self):
         valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]
         port_no = 1
+        vlan_name = 'student'
+        filter_id = 'block_http'
         for handler in (
-                self.dot1x.auth_handler,
                 self.dot1x.logoff_handler,
                 self.dot1x.failure_handler):
             handler(
                 '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
+        self.dot1x.auth_handler(
+            '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no), vlan_name, filter_id)
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
