@@ -154,7 +154,7 @@ class RabbitAdapter:
                                                    routing_key=self.routing_key,
                                                    body=buff,
                                                    properties=pika.BasicProperties(
-                                                       delivery_mode = 2,
+                                                       delivery_mode=2,
                                                    ))
                     buffer = b''
                 except pika.exceptions.AMQPError as err:
