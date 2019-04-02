@@ -131,7 +131,7 @@ class RabbitAdapter:
         # ensure connections to the socket and rabbit before getting messages
         if self.rabbit_conn() and self.socket_conn():
             # get events from socket
-            self.sock.setblocking(0)
+            self.sock.setblocking(False)
             recv_data = True
             buffer = b''
             while recv_data:
