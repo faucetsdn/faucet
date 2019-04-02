@@ -88,7 +88,7 @@ class RabbitAdapter:
         # create connection to rabbit
         params = pika.ConnectionParameters(host=self.host,
                                            port=self.port,
-                                           heartbeat_interval=600,
+                                           heartbeat=600,
                                            blocked_connection_timeout=300)
         try:
             self.channel = pika.BlockingConnection(params).channel()
@@ -131,7 +131,7 @@ class RabbitAdapter:
         # ensure connections to the socket and rabbit before getting messages
         if self.rabbit_conn() and self.socket_conn():
             # get events from socket
-            self.sock.setblocking(0)
+            self.sock.setblocking(False)
             recv_data = True
             buffer = b''
             while recv_data:
@@ -154,7 +154,7 @@ class RabbitAdapter:
                                                    routing_key=self.routing_key,
                                                    body=buff,
                                                    properties=pika.BasicProperties(
-                                                       delivery_mode = 2,
+                                                       delivery_mode=2,
                                                    ))
                     buffer = b''
                 except pika.exceptions.AMQPError as err:
