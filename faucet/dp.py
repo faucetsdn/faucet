@@ -374,11 +374,15 @@ configuration.
         all_acls = {}
         if self.dot1x:
             # NOTE: All acl's are added to the acl list and then referred to later by ports
-            all_acls['port_acl'] = [
-                self.acls.get(self.dot1x.get('auth_acl')),
-                self.acls.get(self.dot1x.get('noauth_acl')),
-                PORT_ACL_8021X]
-            all_acls['port_acl'] = list(filter(None, all_acls['port_acl']))
+            all_acls['port_acl'] = [PORT_ACL_8021X]
+
+            auth_acl = self.acls.get(self.dot1x.get('auth_acl'))
+            noauth_acl = self.acls.get(self.dot1x.get('noauth_acl'))
+            
+            if auth_acl:
+                all_acls['port_acl'].append(auth_acl)
+            if noauth_acl:
+                all_acls['port_acl'].append(noauth_acl)
 
         for vlan in self.vlans.values():
             if vlan.acls_in:

@@ -827,6 +827,8 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
 
 class Faucet8021XCustomACLLoginTest(Faucet8021XSuccessTest):
     """Ensure that 8021X Port ACLs Work before and after Login"""
+    RADIUS_PORT = 1920
+    DOT1X_EXPECTED_EVENTS = []
 
     CONFIG_GLOBAL = """
 vlans:
@@ -909,6 +911,8 @@ acls:
 
 class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
     """Ensure that 8021X Port ACLs Work before and after Logout"""
+    RADIUS_PORT = 1930
+    DOT1X_EXPECTED_EVENTS = []
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']

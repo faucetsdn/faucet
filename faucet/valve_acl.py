@@ -23,8 +23,6 @@ from faucet.valve_manager_base import ValveManagerBase
 from faucet.conf import InvalidConfigError
 
 
-# TODO Make Port passing consistent between functions. Some use port_num as str, others use port object
-
 
 def push_vlan(acl_table, vlan_vid):
     """Push a VLAN tag with optional selection of eth type."""
@@ -182,7 +180,8 @@ def build_acl_ofmsgs(acls, acl_table,
     return ofmsgs
 
 
-def build_of_msgs(acl, vid, port_num, acl_table, goto_table):
+def build_acl_port_of_msgs(acl, vid, port_num, acl_table, goto_table):
+    '''A Helper function for building Openflow Mod Messages for Port ACLs'''
     ofmsgs = None
     if acl.rules:
         ofmsgs = build_acl_ofmsgs(
@@ -196,7 +195,8 @@ def build_of_msgs(acl, vid, port_num, acl_table, goto_table):
 
 def add_mac_address_to_match(match, eth_src):
     """Add or change the value of a match type"""
-    # NOTE: This function has been created to work around for OFPMatch.set_dl_src() not storing persistent changes
+    # NOTE: This function has been created to work around for
+    # OFPMatch.set_dl_src() not storing persistent changes
     if not eth_src:
         return match
 
@@ -305,8 +305,8 @@ class ValveAclManager(ValveManagerBase):
             return flowdels
 
         pipeline_vlan_table = self.pipeline.vlan_table
-        flowmods = build_of_msgs(acl, None, dot1x_port.number, self.port_acl_table,
-                                 pipeline_vlan_table)  # should be a string
+        flowmods = build_acl_port_of_msgs(acl, None, dot1x_port.number, self.port_acl_table,
+                                          pipeline_vlan_table)
         for flow in flowmods:
             flow.match = add_mac_address_to_match(flow.match, mac)
 
@@ -315,7 +315,8 @@ class ValveAclManager(ValveManagerBase):
     def add_port_acl(self, acl, dot1x_port, mac=None):
         """Create ACL openflow rules for Port"""
         pipeline_vlan_table = self.pipeline.vlan_table
-        flowmods = build_of_msgs(acl, None, dot1x_port.number, self.port_acl_table, pipeline_vlan_table) #should be a string
+        flowmods = build_acl_port_of_msgs(acl, None, dot1x_port.number,
+                                          self.port_acl_table, pipeline_vlan_table)
 
         for flow in flowmods:
             flow.match = add_mac_address_to_match(flow.match, mac)
