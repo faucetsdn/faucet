@@ -157,6 +157,7 @@ class Port(Conf):
         self.stack = {}
         self.unicast_flood = None
 
+        self.dyn_dot1x_native_vlan = None
         self.dyn_lacp_up = None
         self.dyn_lacp_updated_time = None
         self.dyn_last_ban_time = None
@@ -266,6 +267,10 @@ class Port(Conf):
 
     def vlans(self):
         """Return all VLANs this port is in."""
+        if self.native_vlan is not None and self.dyn_dot1x_native_vlan is not None:
+            return (self.native_vlan,) + (self.dyn_dot1x_native_vlan,) + tuple(self.tagged_vlans)
+        if self.dyn_dot1x_native_vlan is not None:
+            return (self.dyn_dot1x_native_vlan,) + tuple(self.tagged_vlans)
         if self.native_vlan is not None:
             return (self.native_vlan,) + tuple(self.tagged_vlans)
         return tuple(self.tagged_vlans)

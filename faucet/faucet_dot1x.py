@@ -83,6 +83,7 @@ class FaucetDot1x:
         return (valve, port)
 
     def auth_handler(self, address, port_id, vlan_name, filter_id):
+
         """Callback for when a successful auth happens."""
         address_str = str(address)
         valve, dot1x_port = self.get_valve_and_port(port_id)
@@ -102,10 +103,13 @@ class FaucetDot1x:
         if dot1x_port.dot1x_acl:
             auth_acl = valve.dp.acls.get(self.auth_acl_name)
             noauth_acl = valve.dp.acls.get(self.noauth_acl_name)
-            flowmods.extend(acl_manager.add_port_acl(auth_acl, dot1x_port, str(address)))
+            flowmods.extend(acl_manager.add_port_acl(auth_acl, dot1x_port, address_str))
             flowmods.extend(acl_manager.del_port_acl(noauth_acl, dot1x_port))
         else:
-            flowmods.extend(acl_manager.add_authed_mac(dot1x_port.number, str(address)))
+            flowmods.extend(acl_manager.add_authed_mac(dot1x_port.number, address_str))
+
+        if vlan_name:
+            flowmods.extend(valve.add_dot1x_native_vlan(dot1x_port.number, vlan_name))
 
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
@@ -130,10 +134,12 @@ class FaucetDot1x:
             auth_acl = valve.dp.acls.get(self.auth_acl_name)
             noauth_acl = valve.dp.acls.get(self.noauth_acl_name)
 
-            flowmods.extend(acl_manager.del_port_acl(auth_acl, dot1x_port, str(address)))
+            flowmods.extend(acl_manager.del_port_acl(auth_acl, dot1x_port, address_str))
             flowmods.extend(acl_manager.add_port_acl(noauth_acl, dot1x_port))
         else:
-            flowmods.extend(valve.del_authed_mac(dot1x_port.number, str(address)))
+            flowmods.extend(valve.del_authed_mac(dot1x_port.number, address_str))
+
+        flowmods.extend(valve.del_dot1x_native_vlan(dot1x_port.number))
 
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
@@ -158,10 +164,11 @@ class FaucetDot1x:
             auth_acl = valve.dp.acls.get(self.auth_acl_name)
             noauth_acl = valve.dp.acls.get(self.noauth_acl_name)
 
-            flowmods.extend(acl_manager.del_port_acl(auth_acl, dot1x_port, str(address)))
+            flowmods.extend(acl_manager.del_port_acl(auth_acl, dot1x_port, address_str))
             flowmods.extend(acl_manager.add_port_acl(noauth_acl, dot1x_port))
         else:
-            flowmods.extend(valve.del_authed_mac(dot1x_port.number, str(address)))
+            flowmods.extend(valve.del_authed_mac(dot1x_port.number, address_str))
+        flowmods.extend(valve.del_dot1x_native_vlan(dot1x_port.number))
 
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
