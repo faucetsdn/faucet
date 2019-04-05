@@ -1186,8 +1186,12 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
             {'eth_src': self.eapol2_host.MAC()},
             table_id=self._ETH_SRC_TABLE)
         self.wait_until_no_matching_flow(
+<<<<<<< HEAD
             {'eth_dst': self.eapol2_host.MAC(),
              'vlan_vid': 5097},
+=======
+            {'eth_dst': self.eapol2_host.MAC()},
+>>>>>>> remove dynamic vlan on port down.
             table_id=self._ETH_DST_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no2])
 

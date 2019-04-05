@@ -1560,9 +1560,8 @@ class Valve:
         dyn_vlan.reset_ports(self.dp.ports.values())
         mirror_act = port.mirror_actions()
         ofmsgs.extend(self._port_add_vlans(port, mirror_act))
-        ofmsgs_1 = self.host_manager.delete_host_from_vlan(eth_src, dyn_vlan)
-        self.logger.info('delete_host_from_vlan %s' % ofmsgs_1)
-        ofmsgs.extend(ofmsgs_1)
+        if eth_src:
+            ofmsgs.extend(self.host_manager.delete_host_from_vlan(eth_src, dyn_vlan))
 
         # rebuild flood,
         flood_table = self.dp.tables['flood']

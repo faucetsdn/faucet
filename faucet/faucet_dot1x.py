@@ -310,6 +310,8 @@ class FaucetDot1x:
         # Clear auth_mac
         flowmods.extend(acl_manager.del_authed_mac(dot1x_port.number))
         flowmods.extend(acl_manager.del_dot1x_flow_pair(dot1x_port, nfv_sw_port, mac))
+        valve = self._valves[dp_id]
+        flowmods.extend(valve.del_dot1x_native_vlan(dot1x_port.number, None))
         return flowmods
 
     def reset(self, valves):
