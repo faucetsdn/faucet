@@ -430,7 +430,7 @@ network={
         from_nfv_actions = [
             'SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%d' % port_no]
         from_nfv_match = {
-            'in_port': self.nfv_portno, 'dl_src': self._priv_mac(port_no)}
+            'in_port': nfv_portno, 'dl_src': self._priv_mac(port_no), 'dl_type': 0x888e}
         self.wait_until_matching_flow(None, table_id=0, actions=port_actions)
         self.wait_until_matching_flow(from_nfv_match, table_id=0, actions=from_nfv_actions)
 

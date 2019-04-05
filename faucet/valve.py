@@ -1500,8 +1500,10 @@ class Valve:
     def del_authed_mac(self, port_num, mac=None):
         return self.acl_manager.del_authed_mac(port_num, mac)
 
-    def add_dot1x_native_vlan(self, port_num, vlan_name):
+    def add_dot1x_native_vlan(self, port_num, eth_src, vlan_name):
         port = self.dp.ports[port_num]
+        eth_src_table = self.dp.tables['eth_src']
+        eth_dst_table = self.dp.tables['eth_dst']
         ofmsgs = []
         for vlan in self.dp.vlans.values():
             if vlan.name == vlan_name:
@@ -1513,6 +1515,12 @@ class Valve:
                 ofmsgs.extend(self._port_add_vlans(port, mirror_act))
                 break
         ofmsgs.extend(self.del_native_vlan(port_num))
+
+        # remove learning rules.
+        ofmsgs.append(
+            eth_src_table.flowdel(eth_src_table.match(in_port=port_num, eth_src=eth_src)))
+        ofmsgs.append(
+            eth_dst_table.flowdel(eth_dst_table.match(eth_src=eth_src), out_port=port_num))
 
         # recompute flood table.
         flood_table = self.dp.tables['flood']
@@ -1533,7 +1541,7 @@ class Valve:
         )
         return [ofmsg]
 
-    def del_dot1x_native_vlan(self, port_num):
+    def del_dot1x_native_vlan(self, port_num, eth_src):
         vlan_table = self.dp.tables['vlan']
         port = self.dp.ports[port_num]
         ofmsgs = []
@@ -1552,6 +1560,9 @@ class Valve:
         dyn_vlan.reset_ports(self.dp.ports.values())
         mirror_act = port.mirror_actions()
         ofmsgs.extend(self._port_add_vlans(port, mirror_act))
+        ofmsgs_1 = self.host_manager.delete_host_from_vlan(eth_src, dyn_vlan)
+        self.logger.info('delete_host_from_vlan %s' % ofmsgs_1)
+        ofmsgs.extend(ofmsgs_1)
 
         # rebuild flood,
         flood_table = self.dp.tables['flood']
