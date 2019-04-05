@@ -1511,7 +1511,6 @@ class Valve:
                 mirror_act = port.mirror_actions()
                 # Add port/to VLAN rules.
                 vlan.reset_ports(self.dp.ports.values())
-                self.logger.info('vlan: %s tagged: %s, untagged: %s, dot1x_untagged: %s' % (vlan.vid, vlan.tagged, vlan.untagged, vlan.dot1x_untagged))
                 ofmsgs.extend(self._port_add_vlans(port, mirror_act))
                 break
         ofmsgs.extend(self.del_native_vlan(port_num))
@@ -1526,7 +1525,6 @@ class Valve:
         flood_table = self.dp.tables['flood']
 
         for vlan in [port.dyn_dot1x_native_vlan, port.native_vlan]:
-
             ofmsgs.append(flood_table.flowdel(flood_table.match(vlan=vlan.vid)))
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
 
@@ -1567,7 +1565,6 @@ class Valve:
         flood_table = self.dp.tables['flood']
 
         for vlan in [dyn_vlan, port.native_vlan]:
-
             ofmsgs.append(flood_table.flowdel(flood_table.match(vlan=vlan.vid)))
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
 

@@ -476,6 +476,7 @@ class VLAN(Conf):
         return exclude_ports
 
     def exclude_native_if_dot1x(self):
+        """Don't output on native vlan, if dynamic (1x) vlan is in use"""
         exclude_ports = set()
         for port in self.untagged:
             if port.dyn_dot1x_native_vlan is None:
