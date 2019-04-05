@@ -1541,6 +1541,7 @@ class Valve:
 
     def del_dot1x_native_vlan(self, port_num, eth_src):
         vlan_table = self.dp.tables['vlan']
+        eth_dst_table = self.dp.tables['eth_dst']
         port = self.dp.ports[port_num]
         ofmsgs = []
         if port.dyn_dot1x_native_vlan is None:
@@ -1560,6 +1561,8 @@ class Valve:
         ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         if eth_src:
             ofmsgs.extend(self.host_manager.delete_host_from_vlan(eth_src, dyn_vlan))
+
+        ofmsgs.append(eth_dst_table.flowdel(out_port=port_num))
 
         # rebuild flood,
         flood_table = self.dp.tables['flood']
