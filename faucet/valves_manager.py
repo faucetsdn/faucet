@@ -20,7 +20,7 @@
 from collections import defaultdict
 
 from faucet.conf import InvalidConfigError
-from faucet.config_parser_util import config_changed
+from faucet.config_parser_util import config_changed, CONFIG_HASH_FUNC
 from faucet.config_parser import dp_parser
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet.valve_util import dpid_log, stat_config_files
@@ -89,9 +89,11 @@ class ValvesManager:
 
     def parse_configs(self, new_config_file):
         """Return parsed configs for Valves, or None."""
+        self.metrics.faucet_config_hash_func.labels(algorithm=CONFIG_HASH_FUNC)
         try:
             new_config_hashes, new_dps = dp_parser(new_config_file, self.logname)
             self.config_watcher.update(new_config_file, new_config_hashes)
+            self.metrics.faucet_config_hash.info(new_config_hashes)
             self.metrics.faucet_config_load_error.set(0)
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
