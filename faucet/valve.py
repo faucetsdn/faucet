@@ -267,7 +267,7 @@ class Valve:
                 '%u/%s %s', i, log_prefix, ofmsg)
 
     def dot1x_event(self, event_dict):
-        self._notify(event_dict)
+        self._notify({'DOT1X': event_dict})
 
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""

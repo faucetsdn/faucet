@@ -89,10 +89,10 @@ class FaucetDot1x:
             'Successful auth from MAC %s on %s' % (address_str, dot1x_port))
         self.metrics.inc_var('dp_dot1x_success', valve.dp.base_prom_labels())
         self.metrics.inc_var('port_dot1x_success', valve.dp.port_labels(dot1x_port.number))
-        valve.dot1x_event({'DOT1X_AUTHENTICATION': {'dp_id': valve.dp.dp_id,
-                                                    'port': dot1x_port.number,
-                                                    'eth_src': address_str,
-                                                    'status': 'success'}})
+        valve.dot1x_event({'AUTHENTICATION': {'dp_id': valve.dp.dp_id,
+                                              'port': dot1x_port.number,
+                                              'eth_src': address_str,
+                                              'status': 'success'}})
         flowmods = valve.add_authed_mac(dot1x_port.number, address_str)
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
@@ -105,10 +105,10 @@ class FaucetDot1x:
             'Logoff from MAC %s on %s', address_str, dot1x_port)
         self.metrics.inc_var('dp_dot1x_logoff', valve.dp.base_prom_labels())
         self.metrics.inc_var('port_dot1x_logoff', valve.dp.port_labels(dot1x_port.number))
-        valve.dot1x_event({'DOT1X_AUTHENTICATION': {'dp_id': valve.dp.dp_id,
-                                                    'port': dot1x_port.number,
-                                                    'eth_src': address_str,
-                                                    'status': 'logoff'}})
+        valve.dot1x_event({'AUTHENTICATION': {'dp_id': valve.dp.dp_id,
+                                              'port': dot1x_port.number,
+                                              'eth_src': address_str,
+                                              'status': 'logoff'}})
         flowmods = valve.del_authed_mac(dot1x_port.number, address_str)
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
@@ -121,10 +121,10 @@ class FaucetDot1x:
             'Failure from MAC %s on %s, removing access', address_str, dot1x_port)
         self.metrics.inc_var('dp_dot1x_failure', valve.dp.base_prom_labels())
         self.metrics.inc_var('port_dot1x_failure', valve.dp.port_labels(dot1x_port.number))
-        valve.dot1x_event({'DOT1X_AUTHENTICATION': {'dp_id': valve.dp.dp_id,
-                                                    'port': dot1x_port.number,
-                                                    'eth_src': address_str,
-                                                    'status': 'failure'}})
+        valve.dot1x_event({'AUTHENTICATION': {'dp_id': valve.dp.dp_id,
+                                              'port': dot1x_port.number,
+                                              'eth_src': address_str,
+                                              'status': 'failure'}})
         flowmods = valve.del_authed_mac(dot1x_port.number, address_str)
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
@@ -158,9 +158,9 @@ class FaucetDot1x:
         self.dot1x_speaker.port_down(
             get_mac_str(self.dp_id_to_valve_index[dp_id], nfv_sw_port.number))
         valve = self._valves[dp_id]
-        valve.dot1x_event({'DOT1X_PORT_UP': {'dp_id': valve.dp.dp_id,
-                                             'port': nfv_sw_port.number,
-                                             'port_type': 'NFV'}})
+        valve.dot1x_event({'PORT_UP': {'dp_id': valve.dp.dp_id,
+                                       'port': nfv_sw_port.number,
+                                       'port_type': 'nfv'}})
         ret = []
         for port in dot1x_ports:
             ret.extend(self.create_flow_pair(
@@ -181,9 +181,9 @@ class FaucetDot1x:
         self.dot1x_speaker.port_up(
             get_mac_str(self.dp_id_to_valve_index[dp_id], dot1x_port.number))
         valve = self._valves[dp_id]
-        valve.dot1x_event({'DOT1X_PORT_UP': {'dp_id': valve.dp.dp_id,
-                                             'port': dot1x_port.number,
-                                             'port_type': 'supplicant'}})
+        valve.dot1x_event({'PORT_UP': {'dp_id': valve.dp.dp_id,
+                                       'port': dot1x_port.number,
+                                       'port_type': 'supplicant'}})
 
         return self.create_flow_pair(
             dp_id, dot1x_port, nfv_sw_port, acl_manager)
@@ -224,9 +224,9 @@ class FaucetDot1x:
         mac = get_mac_str(valve_index, dot1x_port.number)
         self.dot1x_speaker.port_down(get_mac_str(valve_index, dot1x_port.number))
         valve = self._valves[dp_id]
-        valve.dot1x_event({'DOT1X_PORT_DOWN': {'dp_id': valve.dp.dp_id,
-                                               'port': dot1x_port.number,
-                                               'port_type': 'supplicant'}})
+        valve.dot1x_event({'PORT_DOWN': {'dp_id': valve.dp.dp_id,
+                                         'port': dot1x_port.number,
+                                         'port_type': 'supplicant'}})
 
         flowmods = acl_manager.del_authed_mac(dot1x_port.number)
         flowmods.extend(acl_manager.del_dot1x_flow_pair(dot1x_port, nfv_sw_port, mac))
@@ -258,4 +258,4 @@ class FaucetDot1x:
                     'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
                         valve.dp, valve_index, dot1x_port, dot1x_intf))
 
-            valve.dot1x_event({'DOT1X_ENABLED': {'dp_id': valve.dp.dp_id}})
+            valve.dot1x_event({'ENABLED': {'dp_id': valve.dp.dp_id}})
