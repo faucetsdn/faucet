@@ -18,7 +18,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from prometheus_client import Gauge as PromGauge
+from prometheus_client import Gauge as PromGauge, Info
 from prometheus_client import Counter, Histogram
 
 from faucet.prom_client import PromClient
@@ -41,6 +41,12 @@ class FaucetMetrics(PromClient):
         self.faucet_config_load_error = self._gauge(
             'faucet_config_load_error',
             '1 if last attempt to re/load config failed', [])
+        self.faucet_config_hash = self._info(
+            'faucet_config_hash',
+            'file hashes for last successful config')
+        self.faucet_config_hash_func = self._gauge(
+            'faucet_config_hash_func',
+            'algorithm used to compute config hashes', ['algorithm'])
         self.faucet_event_id = self._gauge(
             'faucet_event_id',
             'highest/most recent event ID to be sent', [])
@@ -176,6 +182,9 @@ class FaucetMetrics(PromClient):
 
     def _gauge(self, var, var_help, labels):
         return PromGauge(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
+
+    def _info(self, var, var_help):
+        return Info(var, var_help, registry=self._reg) # pylint: disable=unexpected-keyword-arg
 
     def _histogram(self, var, var_help, labels, buckets):
         return Histogram(var, var_help, labels, buckets=buckets, registry=self._reg) # pylint: disable=unexpected-keyword-arg
