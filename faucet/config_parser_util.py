@@ -30,7 +30,6 @@ except ImportError:
     from yaml import Loader
 
 CONFIG_HASH_FUNC = 'sha256'
-CONFIG_HASH = getattr(hashlib, CONFIG_HASH_FUNC)
 
 
 class UniqueKeyLoader(Loader):
@@ -84,7 +83,8 @@ def read_config(config_file, logname):
 def config_file_hash(config_file_name):
     """Return hash of YAML config file contents."""
     with open(config_file_name) as config_file:
-        return CONFIG_HASH(config_file.read().encode('utf-8')).hexdigest()
+        config_hash = getattr(hashlib, CONFIG_HASH_FUNC)
+        return config_hash(config_file.read().encode('utf-8')).hexdigest()
 
 
 def dp_config_path(config_file, parent_file=None):
