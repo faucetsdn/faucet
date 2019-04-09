@@ -223,11 +223,16 @@ network={
 
     RADIUS_PORT = 1840
 
+    SESSION_TIMEOUT = 3600
+
     eapol1_host = None
     eapol2_host = None
     ping_host = None
     nfv_host = None
     nfv_intf = None
+    nfv_portno = None
+
+    LOG_LEVEL = 'DEBUG'
 
     def _priv_mac(self, host_id):
         two_byte_port_num = ("%04x" % host_id)
@@ -249,19 +254,38 @@ network={
 
     def setUp(self):
         super(Faucet8021XSuccessTest, self).setUp()
+        self.nfv_portno = self.port_map['port_4']
+
         self.host_drop_all_ips(self.nfv_host)
         self.radius_log_path = self.start_freeradius()
+        self.eapol1_host.cmd('tcpdump -w %s/%s-start.pcap ether proto 0x888e &' %
+                             (self.tmpdir, self.eapol1_host.name))
+        self.eapol1_tcpdump_pid = self.eapol1_host.lastPid
+
+        self.nfv_host.cmd('tcpdump -i %s-eth0 -w %s/eap-lo.pcap ether proto 0x888e &'
+                          % (self.nfv_host.name, self.tmpdir))
+        self.radius_tcpdump_pid = self.nfv_host.lastPid
+
+        self.nfv_host.cmd('tcpdump -i lo -w %s/radius.pcap udp port %d &'
+                          % (self.tmpdir, self.RADIUS_PORT))
+        self.eap_tcpdump_pid = self.nfv_host.lastPid
 
     def tearDown(self):
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
+        self.nfv_host.cmd('kill -sigint %d' % self.radius_tcpdump_pid)
+        self.nfv_host.cmd('kill -sigint %d' % self.eap_tcpdump_pid)
+        self.eapol1_host.cmd('kill -sigint %d' % self.eapol1_tcpdump_pid)
         super(Faucet8021XSuccessTest, self).tearDown()
 
-    def try_8021x(self, host, port_num, conf, and_logoff=False):
+    def try_8021x(self, host, port_num, conf, and_logoff=False, terminate_wpasupplicant=False,
+                  wpasup_timeout=180, tcpdump_timeout=15, tcpdump_packets=10):
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
-                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
-            timeout=15, vflags='-vvv', packets=10)
+                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff,
+                                                     timeout=wpasup_timeout,
+                                                     terminate_wpasupplicant=terminate_wpasupplicant)],
+            timeout=tcpdump_timeout, vflags='-vvv', packets=tcpdump_packets)
         return tcpdump_txt
 
     def retry_8021x(self, host, port_num, conf, and_logoff=False, retries=2):
@@ -308,7 +332,8 @@ network={
         self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
         tcpdump_txt_2 = self.try_8021x(
-            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True)
+            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True,
+            terminate_wpasupplicant=True)
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
         self.assertIn('Success', tcpdump_txt_2)
         self.assertIn('logoff', tcpdump_txt_2)
@@ -333,20 +358,26 @@ network={
             self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
 
     def wait_8021x_flows(self, port_no):
-        nfv_portno = self.port_map['port_4']
         port_actions = [
-            'SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no), 'OUTPUT:%u' % nfv_portno]
+            'SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no), 'OUTPUT:%u' % self.nfv_portno]
         from_nfv_actions = [
             'SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%d' % port_no]
         from_nfv_match = {
-            'in_port': nfv_portno, 'dl_src': self._priv_mac(port_no)}
+            'in_port': self.nfv_portno, 'dl_src': self._priv_mac(port_no)}
         self.wait_until_matching_flow(None, table_id=0, actions=port_actions)
         self.wait_until_matching_flow(from_nfv_match, table_id=0, actions=from_nfv_actions)
 
-    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff, timeout=10):
+    def wait_8021x_success_flows(self, host, port_no):
+        from_host_actions = [
+            'GOTO_TABLE:1']
+        from_host_match = {
+            'in_port': port_no, 'dl_src': host.MAC()}
+        self.wait_until_matching_flow(from_host_match, table_id=0, actions=from_host_actions)
+
+    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff, timeout=10, terminate_wpasupplicant=False):
         wpa_ctrl_path = self.get_wpa_ctrl_path(host)
         if os.path.exists(wpa_ctrl_path):
-            host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
+            self.terminate_wpasupplicant(host)
             for pid in host.cmd('lsof -t %s' % wpa_ctrl_path).splitlines():
                 try:
                     os.kill(int(pid), 15)
@@ -356,9 +387,10 @@ network={
                 shutil.rmtree(wpa_ctrl_path)
             except FileNotFoundError:
                 pass
+        log_prefix = host.name + "_"
         self.start_wpasupplicant(
             host, conf,
-            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path)
+            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path, log_prefix=log_prefix)
         if and_logoff:
             self.wait_for_eap_success(host, wpa_ctrl_path)
             self.wait_until_matching_flow(
@@ -370,6 +402,13 @@ network={
             self.one_ipv4_ping(
                 host, self.ping_host.IP(),
                 require_host_learned=False, expected_result=False)
+
+        if terminate_wpasupplicant:
+            self.terminate_wpasupplicant(host)
+
+    def terminate_wpasupplicant(self, host):
+        wpa_ctrl_path = self.get_wpa_ctrl_path(host)
+        host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
 
     def get_wpa_ctrl_path(self, host):
         wpa_ctrl_path = os.path.join(
@@ -451,7 +490,9 @@ listen {
 
         with open(users_path, 'w') as users_file:
             users_file.write('''user   Cleartext-Password := "microphone"
-admin  Cleartext-Password := "megaphone"''')
+    Session-timeout = {0}
+admin  Cleartext-Password := "megaphone"
+    Session-timeout = {0}'''.format(self.SESSION_TIMEOUT))
 
         with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
             clients.write('''client localhost {
@@ -561,6 +602,9 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
             self.scrape_prometheus_var(
                 'port_dot1x_success_total', labels=self.port_labels(port_no1), default=0))
 
+        # terminate so don't automatically reauthenticate when port goes back up.
+        self.terminate_wpasupplicant(self.eapol1_host)
+
         self.flap_port(port_no1)
         self.wait_8021x_flows(port_no1)
         self.one_ipv4_ping(
@@ -598,6 +642,85 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
                 require_host_learned=False, expected_result=False)
             wpa_status = self.get_wpa_status(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
             self.assertNotEqual('SUCCESS', wpa_status)
+            # Kill supplicant so cant reply to the port up identity request.
+            self.terminate_wpasupplicant(self.eapol1_host)
+
+
+class Faucet8021XIdentityOnPortUpTest(Faucet8021XSuccessTest):
+    RADIUS_PORT = 1890
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_labels1 = self.port_labels(port_no1)
+
+        # start wpa sup, logon, then send id request. should then be 2 success.
+        self.set_port_up(port_no1)
+        self.wait_8021x_flows(port_no1)
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False,
+            tcpdump_timeout=180, tcpdump_packets=6)
+        self.wait_for_eap_success(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertNotIn('logoff', tcpdump_txt_1)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.set_port_down(port_no1)
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=False)
+
+        def port_up(port):
+            self.set_port_up(port)
+            self.wait_8021x_flows(port)
+
+        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_txt = self.tcpdump_helper(
+            self.eapol1_host, tcpdump_filter, [
+                lambda: port_up(port_no1)],
+            timeout=80, vflags='-vvv', packets=10)
+        # assume that this is the identity request
+        self.assertIn("len 5, Request (1)", tcpdump_txt)
+        # supplicant replies with username.
+        self.assertIn("Identity: user", tcpdump_txt)
+        # supplicant success
+        self.assertIn("Success", tcpdump_txt)
+        self.wait_8021x_success_flows(self.eapol1_host, port_no1)
+
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=True, retries=10)
+
+        self.assertEqual(
+            2,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+
+
+class Faucet8021XPeriodicReauthTest(Faucet8021XSuccessTest):
+
+    RADIUS_PORT = 1900
+
+    SESSION_TIMEOUT = 15
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_labels1 = self.port_labels(port_no1)
+
+        self.set_port_up(port_no1)
+        self.wait_8021x_flows(port_no1)
+        self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+
+        self.wait_8021x_success_flows(self.eapol1_host, port_no1)
+
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        time.sleep(50)
+
+        self.assertEqual(
+            4,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):

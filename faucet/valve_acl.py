@@ -188,6 +188,7 @@ class ValveAclManager(ValveManagerBase):
         self.vlan_acl_table = vlan_acl_table
         self.pipeline = pipeline
         self.acl_priority = self._FILTER_PRIORITY
+        self.dot1x_static_rules_priority = self.acl_priority + 1
         self.auth_priority = self._HIGH_PRIORITY
         self.meters = meters
 
@@ -273,7 +274,7 @@ class ValveAclManager(ValveManagerBase):
                 match=self.port_acl_table.match(
                     in_port=dot1x_port.number,
                     eth_type=valve_packet.ETH_EAPOL),
-                priority=self.acl_priority,
+                priority=self.dot1x_static_rules_priority,
                 inst=[valve_of.apply_actions([
                     self.port_acl_table.set_field(eth_dst=mac),
                     valve_of.output_port(nfv_sw_port.number)])],
@@ -283,7 +284,7 @@ class ValveAclManager(ValveManagerBase):
                     in_port=nfv_sw_port.number,
                     eth_type=valve_packet.ETH_EAPOL,
                     eth_src=mac),
-                priority=self.acl_priority,
+                priority=self.dot1x_static_rules_priority,
                 inst=[valve_of.apply_actions([
                     self.port_acl_table.set_field(
                         eth_src=valve_packet.EAPOL_ETH_DST),
@@ -301,13 +302,13 @@ class ValveAclManager(ValveManagerBase):
                     in_port=nfv_sw_port.number,
                     eth_type=valve_packet.ETH_EAPOL,
                     eth_src=mac),
-                priority=self.acl_priority,
+                priority=self.dot1x_static_rules_priority,
                 ),
             self.port_acl_table.flowdel(
                 match=self.port_acl_table.match(
                     in_port=dot1x_port.number,
                     eth_type=valve_packet.ETH_EAPOL),
-                priority=self.acl_priority,
+                priority=self.dot1x_static_rules_priority,
                 )
             ]
         return ofmsgs
