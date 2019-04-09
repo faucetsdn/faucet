@@ -83,7 +83,6 @@ class FaucetDot1x:
         return (valve, port)
 
     def auth_handler(self, address, port_id, vlan_name, filter_id):
-
         """Callback for when a successful auth happens."""
         address_str = str(address)
         valve, dot1x_port = self.get_valve_and_port(port_id)
