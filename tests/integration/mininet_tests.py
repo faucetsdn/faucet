@@ -725,6 +725,7 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
 
 class Faucet8021XIdentityOnPortUpTest(Faucet8021XSuccessTest):
     RADIUS_PORT = 1890
+    DOT1X_EXPECTED_EVENTS = []
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -776,8 +777,10 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XSuccessTest):
 class Faucet8021XPeriodicReauthTest(Faucet8021XSuccessTest):
 
     RADIUS_PORT = 1900
+    DOT1X_EXPECTED_EVENTS = []
 
     SESSION_TIMEOUT = 15
+
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
