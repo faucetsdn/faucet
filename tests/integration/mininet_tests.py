@@ -223,6 +223,13 @@ network={
 
     RADIUS_PORT = 1840
 
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'success'}},
+                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'logoff'}}]
     SESSION_TIMEOUT = 3600
 
     eapol1_host = None
@@ -233,6 +240,8 @@ network={
     nfv_portno = None
 
     LOG_LEVEL = 'DEBUG'
+
+    event_log = ''
 
     def _priv_mac(self, host_id):
         two_byte_port_num = ("%04x" % host_id)
@@ -270,12 +279,58 @@ network={
                           % (self.tmpdir, self.RADIUS_PORT))
         self.eap_tcpdump_pid = self.nfv_host.lastPid
 
+        self.event_log = os.path.join(self.tmpdir, 'event.log')
+        controller = self._get_controller()
+        sock = self.env['faucet']['FAUCET_EVENT_SOCK']
+        controller.cmd(mininet_test_util.timeout_cmd(
+            'nc -U %s > %s &' % (sock, self.event_log), 120))
+
     def tearDown(self):
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
         self.nfv_host.cmd('kill -sigint %d' % self.radius_tcpdump_pid)
         self.nfv_host.cmd('kill -sigint %d' % self.eap_tcpdump_pid)
         self.eapol1_host.cmd('kill -sigint %d' % self.eapol1_tcpdump_pid)
+
+        self.assertGreater(os.path.getsize(self.event_log), 0)
+        self.verify_dot1x_events_log()
+
         super(Faucet8021XSuccessTest, self).tearDown()
+
+    def verify_dot1x_events_log(self):
+
+        def replace_mac(host_no):
+            if host_no == 'HOST1_MAC':
+                return self.eapol1_host.MAC()
+            if host_no == 'HOST2_MAC':
+                return self.eapol2_host.MAC()
+            if host_no == 'HOST3_MAC':
+                return self.ping_host.MAC()
+            if host_no == 'HOST4_MAC':
+                return self.nfv_host.MAC()
+
+        with open(self.event_log, 'r') as event_file:
+            for event_log_line in event_file.readlines():
+                if 'DOT1X' not in event_log_line:
+                    continue
+                event = json.loads(event_log_line.strip())
+                if not self.DOT1X_EXPECTED_EVENTS:
+                    break
+                next_expected_event = self.DOT1X_EXPECTED_EVENTS[0]
+                top_level_key = list(next_expected_event.keys())[0]
+                if top_level_key in event['DOT1X']:
+                    l = [('dp_id', int(self.dpid))]
+                    for k, v in next_expected_event[top_level_key].items():
+                        if k == 'port':
+                            l.append((k, self.port_map[v]))
+                        if k == 'eth_src':
+                            l.append((k, replace_mac(v)))
+                    for k, v in l:
+                        next_expected_event[top_level_key][k] = v
+                    # compare dicts.
+                    self.assertEqual(next_expected_event, event['DOT1X'])
+                    self.DOT1X_EXPECTED_EVENTS.pop(0)
+                else:
+                    self.fail('next dot1x event was: %s, expected: %s' % (event, next_expected_event))
 
     def try_8021x(self, host, port_num, conf, and_logoff=False, terminate_wpasupplicant=False,
                   wpasup_timeout=180, tcpdump_timeout=15, tcpdump_packets=10):
@@ -536,6 +591,12 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
     }
     """
 
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'failure'}}]
+
     def test_untagged(self):
         port_no = self.port_map['port_1']
         self.wait_8021x_flows(port_no)
@@ -566,6 +627,21 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
 class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
 
     RADIUS_PORT = 1860
+
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+]
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -615,6 +691,7 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
 class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
 
     RADIUS_PORT = 1880
+    DOT1X_EXPECTED_EVENTS = []
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -648,6 +725,7 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
 
 class Faucet8021XIdentityOnPortUpTest(Faucet8021XSuccessTest):
     RADIUS_PORT = 1890
+    DOT1X_EXPECTED_EVENTS = []
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -699,8 +777,10 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XSuccessTest):
 class Faucet8021XPeriodicReauthTest(Faucet8021XSuccessTest):
 
     RADIUS_PORT = 1900
+    DOT1X_EXPECTED_EVENTS = []
 
     SESSION_TIMEOUT = 15
+
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -726,6 +806,7 @@ class Faucet8021XPeriodicReauthTest(Faucet8021XSuccessTest):
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
 
     RADIUS_PORT = 1870
+    DOT1X_EXPECTED_EVENTS = []
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
