@@ -531,9 +531,6 @@ admin  Cleartext-Password := "megaphone"
         self.wait_for_radius(radius_log_path)
         return radius_log_path
 
-    def test_untagged(self):
-        pass
-
 
 class Faucet8021XSuccessTest(Faucet8021XBaseTest):
 
@@ -841,10 +838,8 @@ class Faucet8021XConfigReloadTest(Faucet8021XBaseTest):
         self.wait_8021x_flows(port_no2)
 
 
-class Faucet8021XCustomACLLoginTest(Faucet8021XSuccessTest):
+class Faucet8021XCustomACLLoginTest(Faucet8021XBaseTest):
     """Ensure that 8021X Port ACLs Work before and after Login"""
-    RADIUS_PORT = 1920
-    DOT1X_EXPECTED_EVENTS = []
 
     CONFIG_GLOBAL = """
 vlans:
@@ -927,8 +922,6 @@ acls:
 
 class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
     """Ensure that 8021X Port ACLs Work before and after Logout"""
-    RADIUS_PORT = 1930
-    DOT1X_EXPECTED_EVENTS = []
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
