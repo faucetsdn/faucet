@@ -9,6 +9,6 @@ netifaces
 packaging
 pylint
 pytest-cov
-pytype==2019.3.21
+pytype==2019.4.12
 requests
 scapy==2.4.0 # pyup: ignore

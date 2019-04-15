@@ -7,6 +7,7 @@
 # pylint: disable=unbalanced-tuple-unpacking
 
 import binascii
+import copy
 import itertools
 import ipaddress
 import json
@@ -223,11 +224,25 @@ network={
 
     RADIUS_PORT = 1840
 
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'success'}},
+                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'logoff'}}]
+    SESSION_TIMEOUT = 3600
+
     eapol1_host = None
     eapol2_host = None
     ping_host = None
     nfv_host = None
     nfv_intf = None
+    nfv_portno = None
+
+    LOG_LEVEL = 'DEBUG'
+
+    event_log = ''
 
     def _priv_mac(self, host_id):
         two_byte_port_num = ("%04x" % host_id)
@@ -249,19 +264,95 @@ network={
 
     def setUp(self):
         super(Faucet8021XSuccessTest, self).setUp()
+        self.nfv_portno = self.port_map['port_4']
+
         self.host_drop_all_ips(self.nfv_host)
         self.radius_log_path = self.start_freeradius()
+        self.eapol1_host.cmd('tcpdump -w %s/%s-start.pcap ether proto 0x888e &' %
+                             (self.tmpdir, self.eapol1_host.name))
+        self.eapol1_tcpdump_pid = self.eapol1_host.lastPid
+
+        self.nfv_host.cmd('tcpdump -i %s-eth0 -w %s/eap-lo.pcap ether proto 0x888e &'
+                          % (self.nfv_host.name, self.tmpdir))
+        self.radius_tcpdump_pid = self.nfv_host.lastPid
+
+        self.nfv_host.cmd('tcpdump -i lo -w %s/radius.pcap udp port %d &'
+                          % (self.tmpdir, self.RADIUS_PORT))
+        self.eap_tcpdump_pid = self.nfv_host.lastPid
+
+        self.event_log = os.path.join(self.tmpdir, 'event.log')
+        controller = self._get_controller()
+        sock = self.env['faucet']['FAUCET_EVENT_SOCK']
+        controller.cmd('nc -U %s > %s &' % (sock, self.event_log))
+        self.nc_pid = controller.lastPid
 
     def tearDown(self):
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
+        self.nfv_host.cmd('kill -sigint %d' % self.radius_tcpdump_pid)
+        self.nfv_host.cmd('kill -sigint %d' % self.eap_tcpdump_pid)
+        self.eapol1_host.cmd('kill -sigint %d' % self.eapol1_tcpdump_pid)
+        self._get_controller().cmd('kill %d' % self.nc_pid)
+
+        self.assertGreater(os.path.getsize(self.event_log), 0)
+        self.verify_dot1x_events_log()
+
         super(Faucet8021XSuccessTest, self).tearDown()
 
-    def try_8021x(self, host, port_num, conf, and_logoff=False):
+    def verify_dot1x_events_log(self):
+
+        def replace_mac(host_no):
+            if host_no == 'HOST1_MAC':
+                return self.eapol1_host.MAC()
+            if host_no == 'HOST2_MAC':
+                return self.eapol2_host.MAC()
+            if host_no == 'HOST3_MAC':
+                return self.ping_host.MAC()
+            if host_no == 'HOST4_MAC':
+                return self.nfv_host.MAC()
+
+        def insert_dynamic_values():
+            for dot1x_event in self.DOT1X_EXPECTED_EVENTS:
+                top_level_key = list(dot1x_event.keys())[0]
+                l = [('dp_id', int(self.dpid))]
+                for k, v in dot1x_event[top_level_key].items():
+                    if k == 'port':
+                        l.append((k, self.port_map[v]))
+                    if k == 'eth_src':
+                        l.append((k, replace_mac(v)))
+                for k, v in l:
+                    dot1x_event[top_level_key][k] = v
+
+        if not self.DOT1X_EXPECTED_EVENTS:
+            return
+
+        insert_dynamic_values()
+
+        with open(self.event_log, 'r') as event_file:
+            events_that_happened = []
+            for event_log_line in event_file.readlines():
+                if 'DOT1X' not in event_log_line:
+                    continue
+                event = json.loads(event_log_line.strip())
+                events_that_happened.append(event['DOT1X'])
+
+            expected_events_copy = copy.deepcopy(self.DOT1X_EXPECTED_EVENTS)
+            for expected_event in self.DOT1X_EXPECTED_EVENTS:
+                if expected_event in events_that_happened:
+                    expected_events_copy.remove(expected_event)
+                else:
+                    self.fail('expected event: %s not in events_that_happened %s' % (expected_event, events_that_happened))
+
+            self.assertFalse(expected_events_copy)
+
+    def try_8021x(self, host, port_num, conf, and_logoff=False, terminate_wpasupplicant=False,
+                  wpasup_timeout=180, tcpdump_timeout=15, tcpdump_packets=10):
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
-                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
-            timeout=15, vflags='-vvv', packets=10)
+                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff,
+                                                     timeout=wpasup_timeout,
+                                                     terminate_wpasupplicant=terminate_wpasupplicant)],
+            timeout=tcpdump_timeout, vflags='-vvv', packets=tcpdump_packets)
         return tcpdump_txt
 
     def retry_8021x(self, host, port_num, conf, and_logoff=False, retries=2):
@@ -308,7 +399,8 @@ network={
         self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
         tcpdump_txt_2 = self.try_8021x(
-            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True)
+            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True,
+            terminate_wpasupplicant=True)
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
         self.assertIn('Success', tcpdump_txt_2)
         self.assertIn('logoff', tcpdump_txt_2)
@@ -333,20 +425,26 @@ network={
             self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
 
     def wait_8021x_flows(self, port_no):
-        nfv_portno = self.port_map['port_4']
         port_actions = [
-            'SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no), 'OUTPUT:%u' % nfv_portno]
+            'SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no), 'OUTPUT:%u' % self.nfv_portno]
         from_nfv_actions = [
             'SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%d' % port_no]
         from_nfv_match = {
-            'in_port': nfv_portno, 'dl_src': self._priv_mac(port_no)}
+            'in_port': self.nfv_portno, 'dl_src': self._priv_mac(port_no)}
         self.wait_until_matching_flow(None, table_id=0, actions=port_actions)
         self.wait_until_matching_flow(from_nfv_match, table_id=0, actions=from_nfv_actions)
 
-    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff, timeout=10):
+    def wait_8021x_success_flows(self, host, port_no):
+        from_host_actions = [
+            'GOTO_TABLE:1']
+        from_host_match = {
+            'in_port': port_no, 'dl_src': host.MAC()}
+        self.wait_until_matching_flow(from_host_match, table_id=0, actions=from_host_actions)
+
+    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff, timeout=10, terminate_wpasupplicant=False):
         wpa_ctrl_path = self.get_wpa_ctrl_path(host)
         if os.path.exists(wpa_ctrl_path):
-            host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
+            self.terminate_wpasupplicant(host)
             for pid in host.cmd('lsof -t %s' % wpa_ctrl_path).splitlines():
                 try:
                     os.kill(int(pid), 15)
@@ -356,9 +454,10 @@ network={
                 shutil.rmtree(wpa_ctrl_path)
             except FileNotFoundError:
                 pass
+        log_prefix = host.name + "_"
         self.start_wpasupplicant(
             host, conf,
-            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path)
+            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path, log_prefix=log_prefix)
         if and_logoff:
             self.wait_for_eap_success(host, wpa_ctrl_path)
             self.wait_until_matching_flow(
@@ -370,6 +469,13 @@ network={
             self.one_ipv4_ping(
                 host, self.ping_host.IP(),
                 require_host_learned=False, expected_result=False)
+
+        if terminate_wpasupplicant:
+            self.terminate_wpasupplicant(host)
+
+    def terminate_wpasupplicant(self, host):
+        wpa_ctrl_path = self.get_wpa_ctrl_path(host)
+        host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
 
     def get_wpa_ctrl_path(self, host):
         wpa_ctrl_path = os.path.join(
@@ -451,7 +557,9 @@ listen {
 
         with open(users_path, 'w') as users_file:
             users_file.write('''user   Cleartext-Password := "microphone"
-admin  Cleartext-Password := "megaphone"''')
+    Session-timeout = {0}
+admin  Cleartext-Password := "megaphone"
+    Session-timeout = {0}'''.format(self.SESSION_TIMEOUT))
 
         with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
             clients.write('''client localhost {
@@ -495,6 +603,12 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
     }
     """
 
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'failure'}}]
+
     def test_untagged(self):
         port_no = self.port_map['port_1']
         self.wait_8021x_flows(port_no)
@@ -525,6 +639,21 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
 class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
 
     RADIUS_PORT = 1860
+
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+]
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -561,6 +690,9 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
             self.scrape_prometheus_var(
                 'port_dot1x_success_total', labels=self.port_labels(port_no1), default=0))
 
+        # terminate so don't automatically reauthenticate when port goes back up.
+        self.terminate_wpasupplicant(self.eapol1_host)
+
         self.flap_port(port_no1)
         self.wait_8021x_flows(port_no1)
         self.one_ipv4_ping(
@@ -571,6 +703,7 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
 class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
 
     RADIUS_PORT = 1880
+    DOT1X_EXPECTED_EVENTS = []
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -598,11 +731,94 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
                 require_host_learned=False, expected_result=False)
             wpa_status = self.get_wpa_status(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
             self.assertNotEqual('SUCCESS', wpa_status)
+            # Kill supplicant so cant reply to the port up identity request.
+            self.terminate_wpasupplicant(self.eapol1_host)
+
+
+class Faucet8021XIdentityOnPortUpTest(Faucet8021XSuccessTest):
+    RADIUS_PORT = 1890
+    DOT1X_EXPECTED_EVENTS = []
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_labels1 = self.port_labels(port_no1)
+
+        # start wpa sup, logon, then send id request. should then be 2 success.
+        self.set_port_up(port_no1)
+        self.wait_8021x_flows(port_no1)
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False,
+            tcpdump_timeout=180, tcpdump_packets=6)
+        self.wait_for_eap_success(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertNotIn('logoff', tcpdump_txt_1)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.set_port_down(port_no1)
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=False)
+
+        def port_up(port):
+            self.set_port_up(port)
+            self.wait_8021x_flows(port)
+
+        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_txt = self.tcpdump_helper(
+            self.eapol1_host, tcpdump_filter, [
+                lambda: port_up(port_no1)],
+            timeout=80, vflags='-vvv', packets=10)
+        # assume that this is the identity request
+        self.assertIn("len 5, Request (1)", tcpdump_txt)
+        # supplicant replies with username.
+        self.assertIn("Identity: user", tcpdump_txt)
+        # supplicant success
+        self.assertIn("Success", tcpdump_txt)
+        self.wait_8021x_success_flows(self.eapol1_host, port_no1)
+
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=True, retries=10)
+
+        self.assertEqual(
+            2,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+
+
+class Faucet8021XPeriodicReauthTest(Faucet8021XSuccessTest):
+
+    RADIUS_PORT = 1900
+    DOT1X_EXPECTED_EVENTS = []
+
+    SESSION_TIMEOUT = 15
+
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_labels1 = self.port_labels(port_no1)
+
+        self.set_port_up(port_no1)
+        self.wait_8021x_flows(port_no1)
+        self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+
+        self.wait_8021x_success_flows(self.eapol1_host, port_no1)
+
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        time.sleep(50)
+
+        self.assertEqual(
+            4,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
 
     RADIUS_PORT = 1870
+    DOT1X_EXPECTED_EVENTS = []
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -619,6 +835,111 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
             restart=True, cold_start=False, change_expected=True)
 
         self.wait_8021x_flows(port_no2)
+
+
+class Faucet8021XCustomACLLoginTest(Faucet8021XSuccessTest):
+    """Ensure that 8021X Port ACLs Work before and after Login"""
+    RADIUS_PORT = 1920
+    DOT1X_EXPECTED_EVENTS = []
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    auth_acl:
+        - rule:
+            dl_type: 0x800      # Deny ICMP / IPv4
+            ip_proto: 1
+            actions:
+                allow: True
+    noauth_acl:
+        - rule:
+            dl_type: 0x800      # Allow ICMP / IPv4
+            ip_proto: 1
+            actions:
+                allow: False
+        - rule:
+            dl_type: 0x0806     # ARP Packets
+            actions:
+                allow: True
+    """
+
+    CONFIG = """
+        dot1x:
+            nfv_intf: NFV_INTF
+            nfv_sw_port: %(port_4)d
+            radius_ip: 127.0.0.1
+            radius_port: RADIUS_PORT
+            radius_secret: SECRET
+            auth_acl: auth_acl
+            noauth_acl: noauth_acl
+        interfaces:
+            %(port_1)d:
+                name: b1
+                description: "b1"
+                native_vlan: 100
+                # 802.1x client.
+                dot1x: True
+                dot1x_acl: True
+            %(port_2)d:
+                name: b2
+                description: "b2"
+                native_vlan: 100
+                # 802.1X client.
+                dot1x: True
+                dot1x_acl: True
+            %(port_3)d:
+                name: b3
+                description: "b3"
+                native_vlan: 100
+                # ping host.
+            %(port_4)d:
+                name: b4
+                description: "b4"
+                native_vlan: 100
+                # "NFV host - interface used by controller."
+    """
+
+    def test_untagged(self):
+        # Ping allowed before and after login
+        port_no1 = self.port_map['port_1']
+
+        print(self.get_all_flows_from_dpid(self.dpid, 0))
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+        self.assertIn('Success', tcpdump_txt_1)
+
+        print("Attempt to ping second time")
+
+        print(self.get_all_flows_from_dpid(self.dpid, 0))
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=True)
+
+
+class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
+    """Ensure that 8021X Port ACLs Work before and after Logout"""
+    RADIUS_PORT = 1930
+    DOT1X_EXPECTED_EVENTS = []
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
+
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertIn('logoff', tcpdump_txt_1)
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
@@ -5680,7 +6001,7 @@ class FaucetStringOfDPTest(FaucetTest):
                   include=None, include_optional=None,
                   acls=None, acl_in_dp=None,
                   switch_to_switch_links=1, hw_dpid=None,
-                  stack_ring=False, lacp=False, first_external=False):
+                  stack_ring=False, lacp=False, use_external=False):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
@@ -5721,13 +6042,13 @@ class FaucetStringOfDPTest(FaucetTest):
             acl_in_dp,
             stack_ring,
             lacp,
-            first_external,
+            use_external,
         )
 
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
                    include=None, include_optional=None, acls=None, acl_in_dp=None, stack_ring=False,
-                   lacp=False, first_external=False):
+                   lacp=False, use_external=False):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
         if dpids is None:
             dpids = []
@@ -5833,7 +6154,7 @@ class FaucetStringOfDPTest(FaucetTest):
 
         def add_dp(name, dpid, hw_dpid, i, dpid_count, stack,
                    n_tagged, tagged_vid, n_untagged, untagged_vid,
-                   dpname_to_dpkey, first_external):
+                   dpname_to_dpkey, use_external):
             dpid_ofchannel_log = None
             if ofchannel_log is not None:
                 dpid_ofchannel_log = ofchannel_log + str(i)
@@ -5855,7 +6176,7 @@ class FaucetStringOfDPTest(FaucetTest):
             for _ in range(n_tagged):
                 interfaces_config[port] = {
                     'tagged_vlans': [tagged_vid],
-                    'loop_protect_external': (first_external and port == 1),
+                    'loop_protect_external': (use_external and port < n_tagged),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
@@ -5863,7 +6184,7 @@ class FaucetStringOfDPTest(FaucetTest):
             for _ in range(n_untagged):
                 interfaces_config[port] = {
                     'native_vlan': untagged_vid,
-                    'loop_protect_external': (first_external and port == 1),
+                    'loop_protect_external': (use_external and port < n_untagged),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
@@ -5919,7 +6240,7 @@ class FaucetStringOfDPTest(FaucetTest):
             config['dps'][name] = add_dp(
                 name, dpid, hw_dpid, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid,
-                dpname_to_dpkey, first_external)
+                dpname_to_dpkey, use_external)
 
         return yaml.dump(config, default_flow_style=False)
 
@@ -6156,7 +6477,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
-    NUM_HOSTS = 2
+    NUM_HOSTS = 3
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStackStringOfDPExtLoopProtUntaggedTest, self).setUp()
@@ -6167,7 +6488,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             untagged_vid=self.VID,
             switch_to_switch_links=2,
             hw_dpid=self.hw_dpid,
-            first_external=True)
+            use_external=True)
         self.start_net()
 
     def test_untagged(self):
@@ -6191,21 +6512,25 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         time.sleep(5)
 
     def _connections_aye(self):
-        ext_port1, int_port1, ext_port2, int_port2 = self.net.hosts
+        ext_port1, alt_port1, int_port1, ext_port2, alt_port2, int_port2 = self.net.hosts
         self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
         self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port1, int_port2), broadcast_expected=True)
         self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
         self.verify_broadcast(hosts=(int_port1, ext_port1), broadcast_expected=True)
-        # Should be True, but there's a to-be-fixed PR #2883
-        self.verify_broadcast(hosts=(int_port1, ext_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(int_port1, ext_port2), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port2, int_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port2, int_port2), broadcast_expected=True)
         self.verify_broadcast(hosts=(ext_port2, ext_port1), broadcast_expected=False)
         self.verify_broadcast(hosts=(int_port2, int_port1), broadcast_expected=True)
-        # Should be True, but there's a to-be-fixed PR #2883
-        self.verify_broadcast(hosts=(int_port2, ext_port1), broadcast_expected=False)
+        self.verify_broadcast(hosts=(int_port2, ext_port1), broadcast_expected=True)
         self.verify_broadcast(hosts=(int_port2, ext_port2), broadcast_expected=True)
+
+        self.verify_broadcast(hosts=(ext_port1, alt_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(alt_port1, ext_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(int_port1, alt_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, alt_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(alt_port1, int_port2), broadcast_expected=True)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):

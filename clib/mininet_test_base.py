@@ -64,6 +64,8 @@ class FaucetTestBase(unittest.TestCase):
     CONFIG_GLOBAL = ''
     GAUGE_CONFIG_DBS = ''
 
+    LOG_LEVEL = 'INFO'
+
     N_UNTAGGED = 0
     N_TAGGED = 0
     N_EXTENDED = 0
@@ -186,6 +188,10 @@ class FaucetTestBase(unittest.TestCase):
 
     def _set_vars(self):
         self._set_prom_port()
+        self._set_log_level()
+
+    def _set_log_level(self, name='faucet'):
+        self._set_var(name, 'FAUCET_LOG_LEVEL', str(self.LOG_LEVEL))
 
     def _read_yaml(self, yaml_path):
         with open(yaml_path) as yaml_file:

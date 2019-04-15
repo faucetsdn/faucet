@@ -16,7 +16,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import eventlet
 
 eventlet.monkey_patch()
@@ -51,6 +50,9 @@ class FaucetDot1x:
         self.dot1x_intf = None
         self.mac_to_port = {}  # {"00:00:00:00:00:02" : (valve_0, port_1)}
         self.dp_id_to_valve_index = {}
+        self.thread = None
+        self.auth_acl_name = None
+        self.noauth_acl_name = None
 
     def _create_dot1x_speaker(self, dot1x_intf, chewie_id, radius_ip, radius_port, radius_secret):
         """
@@ -69,7 +71,8 @@ class FaucetDot1x:
             dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
             radius_ip, radius_port, radius_secret, chewie_id)
-        hub.spawn(_chewie.run)
+        self.thread = hub.spawn(_chewie.run)
+        self.thread.name = 'chewie'
         return _chewie
 
     def get_valve_and_port(self, port_id):
@@ -79,36 +82,87 @@ class FaucetDot1x:
         valve, port = self.mac_to_port[port_id]
         return (valve, port)
 
-    def auth_handler(self, address, port_id):
+    def auth_handler(self, address, port_id, vlan_name, filter_id):
         """Callback for when a successful auth happens."""
+        address_str = str(address)
         valve, dot1x_port = self.get_valve_and_port(port_id)
         self.logger.info(
-            'Successful auth from MAC %s on %s' % (str(address), dot1x_port))
+            'Successful auth from MAC %s on %s' % (address_str, dot1x_port))
         self.metrics.inc_var('dp_dot1x_success', valve.dp.base_prom_labels())
         self.metrics.inc_var('port_dot1x_success', valve.dp.port_labels(dot1x_port.number))
-        flowmods = valve.add_authed_mac(dot1x_port.number, str(address))
+        valve.dot1x_event({'AUTHENTICATION': {'dp_id': valve.dp.dp_id,
+                                              'port': dot1x_port.number,
+                                              'eth_src': address_str,
+                                              'status': 'success'}})
+
+        # Call acl manager for flowmods of ACL
+        acl_manager = valve.acl_manager
+        flowmods = []
+
+        if dot1x_port.dot1x_acl:
+            auth_acl = valve.dp.acls.get(self.auth_acl_name)
+            noauth_acl = valve.dp.acls.get(self.noauth_acl_name)
+            flowmods.extend(acl_manager.add_port_acl(auth_acl, dot1x_port, str(address)))
+            flowmods.extend(acl_manager.del_port_acl(noauth_acl, dot1x_port))
+        else:
+            flowmods.extend(acl_manager.add_authed_mac(dot1x_port.number, str(address)))
+
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
 
     def logoff_handler(self, address, port_id):
         """Callback for when an EAP logoff happens."""
+        address_str = str(address)
         valve, dot1x_port = self.get_valve_and_port(port_id)
         self.logger.info(
-            'Logoff from MAC %s on %s', str(address), dot1x_port)
+            'Logoff from MAC %s on %s', address_str, dot1x_port)
         self.metrics.inc_var('dp_dot1x_logoff', valve.dp.base_prom_labels())
         self.metrics.inc_var('port_dot1x_logoff', valve.dp.port_labels(dot1x_port.number))
-        flowmods = valve.del_authed_mac(dot1x_port.number, str(address))
+        valve.dot1x_event({'AUTHENTICATION': {'dp_id': valve.dp.dp_id,
+                                              'port': dot1x_port.number,
+                                              'eth_src': address_str,
+                                              'status': 'logoff'}})
+
+        acl_manager = valve.acl_manager
+        flowmods = []
+
+        if dot1x_port.dot1x_acl:
+            auth_acl = valve.dp.acls.get(self.auth_acl_name)
+            noauth_acl = valve.dp.acls.get(self.noauth_acl_name)
+
+            flowmods.extend(acl_manager.del_port_acl(auth_acl, dot1x_port, str(address)))
+            flowmods.extend(acl_manager.add_port_acl(noauth_acl, dot1x_port))
+        else:
+            flowmods.extend(valve.del_authed_mac(dot1x_port.number, str(address)))
+
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
 
     def failure_handler(self, address, port_id):
         """Callback for when a EAP failure happens."""
+        address_str = str(address)
         valve, dot1x_port = self.get_valve_and_port(port_id)
         self.logger.info(
-            'Failure from MAC %s on %s, removing access', str(address), dot1x_port)
+            'Failure from MAC %s on %s, removing access', address_str, dot1x_port)
         self.metrics.inc_var('dp_dot1x_failure', valve.dp.base_prom_labels())
         self.metrics.inc_var('port_dot1x_failure', valve.dp.port_labels(dot1x_port.number))
-        flowmods = valve.del_authed_mac(dot1x_port.number, str(address))
+        valve.dot1x_event({'AUTHENTICATION': {'dp_id': valve.dp.dp_id,
+                                              'port': dot1x_port.number,
+                                              'eth_src': address_str,
+                                              'status': 'failure'}})
+
+        acl_manager = valve.acl_manager
+        flowmods = []
+
+        if dot1x_port.dot1x_acl:
+            auth_acl = valve.dp.acls.get(self.auth_acl_name)
+            noauth_acl = valve.dp.acls.get(self.noauth_acl_name)
+
+            flowmods.extend(acl_manager.del_port_acl(auth_acl, dot1x_port, str(address)))
+            flowmods.extend(acl_manager.add_port_acl(noauth_acl, dot1x_port))
+        else:
+            flowmods.extend(valve.del_authed_mac(dot1x_port.number, str(address)))
+
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
 
@@ -140,7 +194,10 @@ class FaucetDot1x:
         """
         self.dot1x_speaker.port_down(
             get_mac_str(self.dp_id_to_valve_index[dp_id], nfv_sw_port.number))
-
+        valve = self._valves[dp_id]
+        valve.dot1x_event({'PORT_UP': {'dp_id': valve.dp.dp_id,
+                                       'port': nfv_sw_port.number,
+                                       'port_type': 'nfv'}})
         ret = []
         for port in dot1x_ports:
             ret.extend(self.create_flow_pair(
@@ -158,10 +215,27 @@ class FaucetDot1x:
         Returns:
             list of flowmods
         """
-        self.dot1x_speaker.port_up(
-            get_mac_str(self.dp_id_to_valve_index[dp_id], dot1x_port.number))
-        return self.create_flow_pair(
-            dp_id, dot1x_port, nfv_sw_port, acl_manager)
+        mac_str = get_mac_str(self.dp_id_to_valve_index[dp_id], dot1x_port.number)
+
+        self.dot1x_speaker.port_up(mac_str)
+
+        valve = self._valves[dp_id]
+        valve.dot1x_event({'PORT_UP': {'dp_id': valve.dp.dp_id,
+                                       'port': dot1x_port.number,
+                                       'port_type': 'supplicant'}})
+
+        # Dealing with ACLs
+        flowmods = []
+        flowmods.extend(self.create_flow_pair(
+            dp_id, dot1x_port, nfv_sw_port, acl_manager))
+
+        if dot1x_port.dot1x_acl:
+            noauth_acl = self._valves[dp_id].dp.acls.get(self.noauth_acl_name)
+            flowmods.extend(
+                acl_manager.add_port_acl(noauth_acl, dot1x_port)
+            )
+
+        return flowmods
 
     def create_flow_pair(self, dp_id, dot1x_port, nfv_sw_port, acl_manager):
         """Creates the pair of flows that redirects the eapol packets to/from
@@ -183,6 +257,27 @@ class FaucetDot1x:
                 dot1x_port, nfv_sw_port, mac)
         return []
 
+    def _clean_up_acls(self, dp_id, dot1x_port, acl_manager, mac):
+        '''Remove ACL flows from a port'''
+        # Remove ACLS for Port
+        flowmods = []
+
+        if dot1x_port.dot1x_acl:
+            auth_acl = self._valves[dp_id].dp.acls.get(self.auth_acl_name)
+            noauth_acl = self._valves[dp_id].dp.acls.get(self.noauth_acl_name)
+
+            if auth_acl:
+                flowmods.extend(
+                    acl_manager.del_port_acl(auth_acl, dot1x_port, mac)
+                )
+
+            if noauth_acl:
+                flowmods.extend(
+                    acl_manager.del_port_acl(noauth_acl, dot1x_port)
+                )
+
+        return flowmods
+
     def port_down(self, dp_id, dot1x_port, nfv_sw_port, acl_manager):
         """
         Remove the acls added by FaucetDot1x.get_port_acls
@@ -198,7 +293,16 @@ class FaucetDot1x:
         valve_index = self.dp_id_to_valve_index[dp_id]
         mac = get_mac_str(valve_index, dot1x_port.number)
         self.dot1x_speaker.port_down(get_mac_str(valve_index, dot1x_port.number))
-        flowmods = acl_manager.del_authed_mac(dot1x_port.number)
+        valve = self._valves[dp_id]
+        valve.dot1x_event({'PORT_DOWN': {'dp_id': valve.dp.dp_id,
+                                         'port': dot1x_port.number,
+                                         'port_type': 'supplicant'}})
+
+        flowmods = []
+        flowmods.extend(self._clean_up_acls(dp_id, dot1x_port, acl_manager, mac))
+
+        # Clear auth_mac
+        flowmods.extend(acl_manager.del_authed_mac(dot1x_port.number))
         flowmods.extend(acl_manager.del_dot1x_flow_pair(dot1x_port, nfv_sw_port, mac))
         return flowmods
 
@@ -216,6 +320,10 @@ class FaucetDot1x:
         radius_ip = first_valve.dp.dot1x['radius_ip']
         radius_port = first_valve.dp.dot1x['radius_port']
         radius_secret = first_valve.dp.dot1x['radius_secret']
+
+        self.auth_acl_name = first_valve.dp.dot1x.get('auth_acl')
+        self.noauth_acl_name = first_valve.dp.dot1x.get('noauth_acl')
+
         self.dot1x_speaker = self._create_dot1x_speaker(
             dot1x_intf, first_valve.dp.faucet_dp_mac,
             radius_ip, radius_port, radius_secret)
@@ -227,3 +335,5 @@ class FaucetDot1x:
                 self.logger.info(
                     'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
                         valve.dp, valve_index, dot1x_port, dot1x_intf))
+
+            valve.dot1x_event({'ENABLED': {'dp_id': valve.dp.dp_id}})

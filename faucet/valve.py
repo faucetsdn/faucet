@@ -266,6 +266,9 @@ class Valve:
             self.ofchannel_logger.debug(
                 '%u/%s %s', i, log_prefix, ofmsg)
 
+    def dot1x_event(self, event_dict):
+        self._notify({'DOT1X': event_dict})
+
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = [valve_table.wildcard_table.flowdel()]
@@ -1563,6 +1566,7 @@ class Valve:
             flow_msgs (list): OpenFlow messages to send.
         """
         if flow_msgs is None:
+            self.datapath_disconnect()
             ryu_dp.close()
         else:
             for flow_msg in self.prepare_send_flows(flow_msgs):

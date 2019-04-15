@@ -21,6 +21,7 @@ from collections import namedtuple
 from functools import partial
 
 import cProfile
+import hashlib
 import io
 import ipaddress
 import logging
@@ -47,6 +48,7 @@ from beka.ip import IPAddress, IPPrefix
 
 from faucet import faucet
 from faucet import faucet_bgp
+from faucet import config_parser_util
 from faucet import faucet_dot1x
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
@@ -96,6 +98,17 @@ DOT1X_CONFIG = """
             radius_ip: 127.0.0.1
             radius_port: 1234
             radius_secret: SECRET
+""" + BASE_DP1_CONFIG
+
+DOT1X_ACL_CONFIG = """
+        dot1x:
+            nfv_intf: lo
+            nfv_sw_port: 2
+            radius_ip: 127.0.0.1
+            radius_port: 1234
+            radius_secret: SECRET
+            auth_acl: auth_acl
+            noauth_acl: noauth_acl
 """ + BASE_DP1_CONFIG
 
 CONFIG = """
@@ -1518,12 +1531,53 @@ vlans:
     def test_handlers(self):
         valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]
         port_no = 1
+        vlan_name = 'student'
+        filter_id = 'block_http'
         for handler in (
-                self.dot1x.auth_handler,
                 self.dot1x.logoff_handler,
                 self.dot1x.failure_handler):
             handler(
                 '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
+        self.dot1x.auth_handler(
+            '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no), vlan_name, filter_id)
+
+
+class ValveDot1xACLSmokeTestCase(ValveDot1xSmokeTestCase):
+    """Smoke test to check dot1x can be initialized."""
+    ACL_CONFIG = """
+acls:
+    auth_acl:
+        - rule:
+            actions:
+                allow: 1
+    noauth_acl:
+        - rule:
+            actions:
+                allow: 0
+"""
+
+    CONFIG = """
+{}
+dps:
+    s1:
+        hardware: 'GenericTFM'
+{}
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                dot1x: true
+                dot1x_acl: True
+            p2:
+                number: 2
+                output_only: True
+vlans:
+    v100:
+        vid: 0x100
+""".format(ACL_CONFIG, DOT1X_ACL_CONFIG)
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
@@ -2252,6 +2306,96 @@ dps:
         total_tt_prop = pstats_out.total_tt / self.baseline_total_tt # pytype: disable=attribute-error
         # must not be 50x slower, to ingest config for 100 interfaces than 1.
         self.assertTrue(total_tt_prop < 50, msg=pstats_text)
+
+
+
+class ValveTestConfigHash(ValveTestBases.ValveTestSmall):
+    """Verify faucet_config_hash_info update after config change"""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def _get_info(self, metric, name):
+        """"Return (single) info dict for metric"""
+        # There doesn't seem to be a nice API for this,
+        # so we use the prometheus client internal API
+        metrics = list(metric.collect())
+        self.assertEqual(len(metrics), 1)
+        samples = metrics[0].samples
+        self.assertEqual(len(samples), 1)
+        sample = samples[0]
+        self.assertEqual(sample.name, name)
+        return sample.labels
+
+    def _get_hashes(self):
+        """Return and verify hashes"""
+        hashes = self._get_info(metric=self.metrics.faucet_config_hash,
+                                name='faucet_config_hash_info')
+        self._verify_hashes(hashes)
+        return hashes
+
+    def _verify_hashes(self, hashes):
+        """Verify hashes dict"""
+        self.assertEqual(len(hashes), 1, 'too many hashes')
+        hash_value = tuple(hashes.values())[0]
+        goal = config_parser_util.config_file_hash(self.config_file)
+        self.assertEqual(hash_value, goal, 'hash validation failed')
+
+    def _change_config(self):
+        "Change self.CONFIG"
+        if '0x100' in self.CONFIG:
+            self.CONFIG = self.CONFIG.replace('0x100', '0x200')
+        else:
+            self.CONFIG = self.CONFIG.replace('0x200', '0x100')
+        self.update_config(self.CONFIG, reload_expected=True)
+        return self.CONFIG
+
+    def test_config_hash_func(self):
+        """Verify that faucet_config_hash_func is set correctly"""
+        labels = self._get_info(metric=self.metrics.faucet_config_hash_func,
+                                name='faucet_config_hash_func')
+        hash_funcs = list(labels.values())
+        self.assertEqual(len(hash_funcs), 1, "found multiple hash functions")
+        hash_func = hash_funcs[0]
+        # Make sure that it matches and is supported in hashlib
+        self.assertEqual(hash_func, config_parser_util.CONFIG_HASH_FUNC)
+        self.assertTrue(hash_func in hashlib.algorithms_guaranteed)
+
+    def test_config_hash_update(self):
+        """Verify faucet_config_hash_info is properly updated after config"""
+        # Verify that hashes change after config is changed
+        old_config = self.CONFIG
+        old_hashes = self._get_hashes()
+        starting_hashes = old_hashes
+        self._change_config()
+        new_config = self.CONFIG
+        self.assertNotEqual(old_config, new_config, 'config not changed')
+        new_hashes = self._get_hashes()
+        self._verify_hashes(new_hashes)
+        self.assertNotEqual(old_hashes, new_hashes,
+                            'hashes not changed after config change')
+        # Verify that hashes don't change after config isn't changed
+        old_hashes = new_hashes
+        self.update_config(self.CONFIG, reload_expected=False)
+        new_hashes = self._get_hashes()
+        self.assertEqual(old_hashes, new_hashes,
+                         "hashes changed when config didn't")
+        # Verify that hash is restored when config is restored
+        self._change_config()
+        new_hashes = self._get_hashes()
+        self.assertEqual(new_hashes, starting_hashes,
+                         'hashes should be restored to starting values')
+
 
 
 class ValveTestTunnel(ValveTestBases.ValveTestSmall):
