@@ -1519,6 +1519,10 @@ dps:
 vlans:
     v100:
         vid: 0x100
+    student:
+        vid: 0x200
+        dot1x_assigned: True
+
 """ % DOT1X_CONFIG
 
     def setUp(self):
@@ -1574,6 +1578,9 @@ dps:
 vlans:
     v100:
         vid: 0x100
+    student:
+        vid: 0x200
+        dot1x_assigned: True
 """.format(ACL_CONFIG, DOT1X_ACL_CONFIG)
 
     def setUp(self):
