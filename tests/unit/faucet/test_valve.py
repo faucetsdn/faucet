@@ -100,6 +100,17 @@ DOT1X_CONFIG = """
             radius_secret: SECRET
 """ + BASE_DP1_CONFIG
 
+DOT1X_ACL_CONFIG = """
+        dot1x:
+            nfv_intf: lo
+            nfv_sw_port: 2
+            radius_ip: 127.0.0.1
+            radius_port: 1234
+            radius_secret: SECRET
+            auth_acl: auth_acl
+            noauth_acl: noauth_acl
+""" + BASE_DP1_CONFIG
+
 CONFIG = """
 dps:
     s1:
@@ -1529,6 +1540,44 @@ vlans:
                 '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
         self.dot1x.auth_handler(
             '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no), vlan_name, filter_id)
+
+
+class ValveDot1xACLSmokeTestCase(ValveDot1xSmokeTestCase):
+    """Smoke test to check dot1x can be initialized."""
+    ACL_CONFIG = """
+acls:
+    auth_acl:
+        - rule:
+            actions:
+                allow: 1
+    noauth_acl:
+        - rule:
+            actions:
+                allow: 0
+"""
+
+    CONFIG = """
+{}
+dps:
+    s1:
+        hardware: 'GenericTFM'
+{}
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                dot1x: true
+                dot1x_acl: True
+            p2:
+                number: 2
+                output_only: True
+vlans:
+    v100:
+        vid: 0x100
+""".format(ACL_CONFIG, DOT1X_ACL_CONFIG)
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
