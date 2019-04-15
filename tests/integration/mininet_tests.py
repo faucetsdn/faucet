@@ -6001,7 +6001,7 @@ class FaucetStringOfDPTest(FaucetTest):
                   include=None, include_optional=None,
                   acls=None, acl_in_dp=None,
                   switch_to_switch_links=1, hw_dpid=None,
-                  stack_ring=False, lacp=False, first_external=False):
+                  stack_ring=False, lacp=False, use_external=False):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
@@ -6042,13 +6042,13 @@ class FaucetStringOfDPTest(FaucetTest):
             acl_in_dp,
             stack_ring,
             lacp,
-            first_external,
+            use_external,
         )
 
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
                    include=None, include_optional=None, acls=None, acl_in_dp=None, stack_ring=False,
-                   lacp=False, first_external=False):
+                   lacp=False, use_external=False):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
         if dpids is None:
             dpids = []
@@ -6154,7 +6154,7 @@ class FaucetStringOfDPTest(FaucetTest):
 
         def add_dp(name, dpid, hw_dpid, i, dpid_count, stack,
                    n_tagged, tagged_vid, n_untagged, untagged_vid,
-                   dpname_to_dpkey, first_external):
+                   dpname_to_dpkey, use_external):
             dpid_ofchannel_log = None
             if ofchannel_log is not None:
                 dpid_ofchannel_log = ofchannel_log + str(i)
@@ -6176,7 +6176,7 @@ class FaucetStringOfDPTest(FaucetTest):
             for _ in range(n_tagged):
                 interfaces_config[port] = {
                     'tagged_vlans': [tagged_vid],
-                    'loop_protect_external': (first_external and port == 1),
+                    'loop_protect_external': (use_external and port < n_tagged),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
@@ -6184,7 +6184,7 @@ class FaucetStringOfDPTest(FaucetTest):
             for _ in range(n_untagged):
                 interfaces_config[port] = {
                     'native_vlan': untagged_vid,
-                    'loop_protect_external': (first_external and port == 1),
+                    'loop_protect_external': (use_external and port < n_untagged),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
@@ -6240,7 +6240,7 @@ class FaucetStringOfDPTest(FaucetTest):
             config['dps'][name] = add_dp(
                 name, dpid, hw_dpid, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid,
-                dpname_to_dpkey, (first_external and i == 0))
+                dpname_to_dpkey, use_external)
 
         return yaml.dump(config, default_flow_style=False)
 
@@ -6477,7 +6477,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
-    NUM_HOSTS = 2
+    NUM_HOSTS = 3
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStackStringOfDPExtLoopProtUntaggedTest, self).setUp()
@@ -6488,12 +6488,30 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             untagged_vid=self.VID,
             switch_to_switch_links=2,
             hw_dpid=self.hw_dpid,
-            first_external=True)
+            use_external=True)
         self.start_net()
 
     def test_untagged(self):
-        """All untagged hosts in stack topology can reach each other."""
-        self.verify_all_stack_hosts()
+        """Host can reach eachother, unless both marked loop_protect_external"""
+        ext_port1, alt_port1, int_port1, ext_port2, alt_port2, int_port2 = self.net.hosts
+        self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port1, int_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, ext_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, ext_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port2, int_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port2, int_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(ext_port2, ext_port1), broadcast_expected=False)
+        self.verify_broadcast(hosts=(int_port2, int_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port2, ext_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port2, ext_port2), broadcast_expected=True)
+
+        self.verify_broadcast(hosts=(ext_port1, alt_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(alt_port1, ext_port2), broadcast_expected=False)
+        self.verify_broadcast(hosts=(int_port1, alt_port1), broadcast_expected=True)
+        self.verify_broadcast(hosts=(int_port1, alt_port2), broadcast_expected=True)
+        self.verify_broadcast(hosts=(alt_port1, int_port2), broadcast_expected=True)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
