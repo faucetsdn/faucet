@@ -7,6 +7,7 @@
 # pylint: disable=unbalanced-tuple-unpacking
 
 import binascii
+import copy
 import itertools
 import ipaddress
 import json
@@ -282,14 +283,15 @@ network={
         self.event_log = os.path.join(self.tmpdir, 'event.log')
         controller = self._get_controller()
         sock = self.env['faucet']['FAUCET_EVENT_SOCK']
-        controller.cmd(mininet_test_util.timeout_cmd(
-            'nc -U %s > %s &' % (sock, self.event_log), 120))
+        controller.cmd('nc -U %s > %s &' % (sock, self.event_log))
+        self.nc_pid = controller.lastPid
 
     def tearDown(self):
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
         self.nfv_host.cmd('kill -sigint %d' % self.radius_tcpdump_pid)
         self.nfv_host.cmd('kill -sigint %d' % self.eap_tcpdump_pid)
         self.eapol1_host.cmd('kill -sigint %d' % self.eapol1_tcpdump_pid)
+        self._get_controller().cmd('kill %d' % self.nc_pid)
 
         self.assertGreater(os.path.getsize(self.event_log), 0)
         self.verify_dot1x_events_log()
@@ -308,29 +310,39 @@ network={
             if host_no == 'HOST4_MAC':
                 return self.nfv_host.MAC()
 
+        def insert_dynamic_values():
+            for dot1x_event in self.DOT1X_EXPECTED_EVENTS:
+                top_level_key = list(dot1x_event.keys())[0]
+                l = [('dp_id', int(self.dpid))]
+                for k, v in dot1x_event[top_level_key].items():
+                    if k == 'port':
+                        l.append((k, self.port_map[v]))
+                    if k == 'eth_src':
+                        l.append((k, replace_mac(v)))
+                for k, v in l:
+                    dot1x_event[top_level_key][k] = v
+
+        if not self.DOT1X_EXPECTED_EVENTS:
+            return
+
+        insert_dynamic_values()
+
         with open(self.event_log, 'r') as event_file:
+            events_that_happened = []
             for event_log_line in event_file.readlines():
                 if 'DOT1X' not in event_log_line:
                     continue
                 event = json.loads(event_log_line.strip())
-                if not self.DOT1X_EXPECTED_EVENTS:
-                    break
-                next_expected_event = self.DOT1X_EXPECTED_EVENTS[0]
-                top_level_key = list(next_expected_event.keys())[0]
-                if top_level_key in event['DOT1X']:
-                    l = [('dp_id', int(self.dpid))]
-                    for k, v in next_expected_event[top_level_key].items():
-                        if k == 'port':
-                            l.append((k, self.port_map[v]))
-                        if k == 'eth_src':
-                            l.append((k, replace_mac(v)))
-                    for k, v in l:
-                        next_expected_event[top_level_key][k] = v
-                    # compare dicts.
-                    self.assertEqual(next_expected_event, event['DOT1X'])
-                    self.DOT1X_EXPECTED_EVENTS.pop(0)
+                events_that_happened.append(event['DOT1X'])
+
+            expected_events_copy = copy.deepcopy(self.DOT1X_EXPECTED_EVENTS)
+            for expected_event in self.DOT1X_EXPECTED_EVENTS:
+                if expected_event in events_that_happened:
+                    expected_events_copy.remove(expected_event)
                 else:
-                    self.fail('next dot1x event was: %s, expected: %s' % (event, next_expected_event))
+                    self.fail('expected event: %s not in events_that_happened %s' % (expected_event, events_that_happened))
+
+            self.assertFalse(expected_events_copy)
 
     def try_8021x(self, host, port_num, conf, and_logoff=False, terminate_wpasupplicant=False,
                   wpasup_timeout=180, tcpdump_timeout=15, tcpdump_packets=10):
