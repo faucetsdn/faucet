@@ -6506,7 +6506,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def _mark_external(self, protect_external):
         conf = self._get_faucet_conf()
-        conf['dps']['faucet-2']['interfaces'][2]['loop_protect_external'] = protect_external
+        conf['dps']['faucet-2']['interfaces'][3]['loop_protect_external'] = protect_external
         self.reload_conf(conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
         time.sleep(5)
