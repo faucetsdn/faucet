@@ -168,7 +168,18 @@ vlans:
         self.verify_events_log(event_log)
 
 
-class Faucet8021XSuccessTest(FaucetUntaggedTest):
+class Faucet8021XBaseTest(FaucetTest):
+
+    HOST_NAMESPACE = {3: False}
+    N_UNTAGGED = 4
+    N_TAGGED = 0
+    LINKS_PER_HOST = 1
+
+    RADIUS_PORT = None
+
+    DOT1X_EXPECTED_EVENTS = []
+    SESSION_TIMEOUT = 3600
+    LOG_LEVEL = 'DEBUG'
 
     CONFIG_GLOBAL = """
 vlans:
@@ -220,27 +231,12 @@ network={
     }
     """
 
-    HOST_NAMESPACE = {3: False}
-
-    RADIUS_PORT = 1840
-
-    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
-                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
-                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
-                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'success'}},
-                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'logoff'}}]
-    SESSION_TIMEOUT = 3600
-
     eapol1_host = None
     eapol2_host = None
     ping_host = None
     nfv_host = None
     nfv_intf = None
     nfv_portno = None
-
-    LOG_LEVEL = 'DEBUG'
 
     event_log = ''
 
@@ -258,12 +254,21 @@ network={
         self.nfv_intf = str(nfv_intf)
         nfv_intf = self.nfv_host.intf()
 
+        self.RADIUS_PORT = mininet_test_util.find_free_udp_port(self.ports_sock, self._test_name())
+
         self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
         self.CONFIG = self.CONFIG.replace('RADIUS_PORT', str(self.RADIUS_PORT))
-        super(Faucet8021XSuccessTest, self)._init_faucet_config()
+        super(Faucet8021XBaseTest, self)._init_faucet_config()
 
     def setUp(self):
-        super(Faucet8021XSuccessTest, self).setUp()
+        super(Faucet8021XBaseTest, self).setUp()
+        self.topo = self.topo_class(
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
+            links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid,
+            host_namespace=self.HOST_NAMESPACE)
+        self.start_net()
+
         self.nfv_portno = self.port_map['port_4']
 
         self.host_drop_all_ips(self.nfv_host)
@@ -296,7 +301,7 @@ network={
         self.assertGreater(os.path.getsize(self.event_log), 0)
         self.verify_dot1x_events_log()
 
-        super(Faucet8021XSuccessTest, self).tearDown()
+        super(Faucet8021XBaseTest, self).tearDown()
 
     def verify_dot1x_events_log(self):
 
@@ -362,67 +367,6 @@ network={
                 return tcpdump_txt
             time.sleep(1)
         return tcpdump_txt
-
-    def test_untagged(self):
-        # Log 1 on
-        # test 1 good, 2 bad.
-        # log 2 on
-        # test 1 good, 2 good.
-        # log 2 off
-        # test 1 good, 2 bad
-        port_no1 = self.port_map['port_1']
-        port_no2 = self.port_map['port_2']
-        port_labels1 = self.port_labels(port_no1)
-        port_labels2 = self.port_labels(port_no2)
-
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
-                           require_host_learned=False, expected_result=False)
-        tcpdump_txt_1 = self.try_8021x(
-            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
-        self.assertIn('Success', tcpdump_txt_1)
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels1, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels1, default=0))
-
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
-        self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
-                           require_host_learned=False, expected_result=False)
-        tcpdump_txt_2 = self.try_8021x(
-            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True,
-            terminate_wpasupplicant=True)
-        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
-        self.assertIn('Success', tcpdump_txt_2)
-        self.assertIn('logoff', tcpdump_txt_2)
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels2, default=0))
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels2, default=0))
-
-        self.assertEqual(
-            2,
-            self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
 
     def wait_8021x_flows(self, port_no):
         port_actions = [
@@ -596,10 +540,81 @@ vlanuser2222  Cleartext-Password := "milliphone"
         return radius_log_path
 
 
-class Faucet8021XFailureTest(Faucet8021XSuccessTest):
-    """Failure due to incorrect identity/password"""
+class Faucet8021XSuccessTest(Faucet8021XBaseTest):
 
-    RADIUS_PORT = 1850
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'success'}},
+                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'logoff'}}]
+    SESSION_TIMEOUT = 3600
+
+    def test_untagged(self):
+        # Log 1 on
+        # test 1 good, 2 bad.
+        # log 2 on
+        # test 1 good, 2 good.
+        # log 2 off
+        # test 1 good, 2 bad
+        port_no1 = self.port_map['port_1']
+        port_no2 = self.port_map['port_2']
+        port_labels1 = self.port_labels(port_no1)
+        port_labels2 = self.port_labels(port_no2)
+
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels1, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels1, default=0))
+
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
+        self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+        tcpdump_txt_2 = self.try_8021x(
+            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True,
+            terminate_wpasupplicant=True)
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
+        self.assertIn('Success', tcpdump_txt_2)
+        self.assertIn('logoff', tcpdump_txt_2)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels2, default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels2, default=0))
+
+        self.assertEqual(
+            2,
+            self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
+
+
+class Faucet8021XFailureTest(Faucet8021XBaseTest):
+    """Failure due to incorrect identity/password"""
 
     wpasupplicant_conf_1 = """
     ap_scan=0
@@ -644,9 +659,7 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
             self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels, default=0))
 
 
-class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
-
-    RADIUS_PORT = 1860
+class Faucet8021XPortStatusTest(Faucet8021XBaseTest):
 
     DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
                              {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
@@ -708,10 +721,7 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
             require_host_learned=False, expected_result=False)
 
 
-class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
-
-    RADIUS_PORT = 1880
-    DOT1X_EXPECTED_EVENTS = []
+class Faucet8021XPortFlapTest(Faucet8021XBaseTest):
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -743,9 +753,7 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
             self.terminate_wpasupplicant(self.eapol1_host)
 
 
-class Faucet8021XIdentityOnPortUpTest(Faucet8021XSuccessTest):
-    RADIUS_PORT = 1890
-    DOT1X_EXPECTED_EVENTS = []
+class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -794,10 +802,7 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XSuccessTest):
             self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
 
 
-class Faucet8021XPeriodicReauthTest(Faucet8021XSuccessTest):
-
-    RADIUS_PORT = 1900
-    DOT1X_EXPECTED_EVENTS = []
+class Faucet8021XPeriodicReauthTest(Faucet8021XBaseTest):
 
     SESSION_TIMEOUT = 15
 
@@ -822,10 +827,7 @@ class Faucet8021XPeriodicReauthTest(Faucet8021XSuccessTest):
             self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
 
 
-class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
-
-    RADIUS_PORT = 1870
-    DOT1X_EXPECTED_EVENTS = []
+class Faucet8021XConfigReloadTest(Faucet8021XBaseTest):
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -844,10 +846,8 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
         self.wait_8021x_flows(port_no2)
 
 
-class Faucet8021XCustomACLLoginTest(Faucet8021XSuccessTest):
+class Faucet8021XCustomACLLoginTest(Faucet8021XBaseTest):
     """Ensure that 8021X Port ACLs Work before and after Login"""
-    RADIUS_PORT = 1920
-    DOT1X_EXPECTED_EVENTS = []
 
     CONFIG_GLOBAL = """
 vlans:
@@ -931,8 +931,6 @@ acls:
 
 class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
     """Ensure that 8021X Port ACLs Work before and after Logout"""
-    RADIUS_PORT = 1930
-    DOT1X_EXPECTED_EVENTS = []
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
