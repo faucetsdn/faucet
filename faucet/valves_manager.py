@@ -96,7 +96,7 @@ class ValvesManager:
             quoted_new_config_hashes = {
                 quote_label(filename): filehash
                 for filename, filehash in new_config_hashes.items()}
-            self.config_watcher.update(new_config_hashes, new_config_hashes)
+            self.config_watcher.update(new_config_file, new_config_hashes)
             self.metrics.faucet_config_hash.info(quoted_new_config_hashes)
             self.metrics.faucet_config_load_error.set(0)
         except InvalidConfigError as err:
