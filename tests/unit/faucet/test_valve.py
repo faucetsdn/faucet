@@ -2353,6 +2353,8 @@ dps:
 
     def _verify_hashes(self, hashes):
         """Verify hashes dict"""
+        for filename in hashes:
+            self.assertTrue('/' not in filename)
         self.assertEqual(len(hashes), 1, 'too many hashes')
         hash_value = tuple(hashes.values())[0]
         goal = config_parser_util.config_file_hash(self.config_file)

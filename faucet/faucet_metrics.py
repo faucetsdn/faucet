@@ -18,10 +18,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from prometheus_client import Gauge as PromGauge, Info
 from prometheus_client import Counter, Histogram
 
 from faucet.prom_client import PromClient
+
+
+def quote_label(label):
+    """Return a Prometheus-safe version of a label."""
+    return re.sub(r'[^a-zA-Z0-9_]', '_', label)
 
 
 class FaucetMetrics(PromClient):
