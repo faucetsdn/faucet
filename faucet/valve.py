@@ -738,11 +738,10 @@ class Valve:
                 nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
                 if port == nfv_sw_port:
                     ofmsgs.extend(self.dot1x.nfv_sw_port_up(
-                        self.dp.dp_id, self.dp.dot1x_ports(), nfv_sw_port,
-                        self.acl_manager))
+                        self.dp.dp_id, self.dp.dot1x_ports(), nfv_sw_port))
                 elif port.dot1x:
                     ofmsgs.extend(self.dot1x.port_up(
-                        self.dp.dp_id, port, nfv_sw_port, self.acl_manager))
+                        self.dp.dp_id, port, nfv_sw_port))
 
             port_vlans = port.vlans()
 
@@ -809,8 +808,7 @@ class Valve:
                 ofmsgs.extend(self.dot1x.port_down(
                     self.dp.dp_id,
                     port,
-                    self.dp.ports[self.dp.dot1x['nfv_sw_port']],
-                    self.acl_manager
+                    self.dp.ports[self.dp.dot1x['nfv_sw_port']]
                     ))
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
@@ -1499,6 +1497,22 @@ class Valve:
 
     def del_authed_mac(self, port_num, mac=None):
         return self.acl_manager.del_authed_mac(port_num, mac)
+
+    def del_port_acl(self, acl, port_num, mac=None):
+        """Return ACL openflow rules for removing port with acl"""
+        return self.acl_manager.del_port_acl(acl, port_num, mac)
+
+    def add_port_acl(self, acl, port_num, mac=None):
+        """Return ACL openflow rules for port with acl"""
+        return self.acl_manager.add_port_acl(acl, port_num, mac)
+
+    def create_dot1x_flow_pair(self, port_num, nfv_sw_port_num, mac):
+        """Return flowmods for creating dot1x flow pair"""
+        return self.acl_manager.create_dot1x_flow_pair(port_num, nfv_sw_port_num, mac)
+
+    def del_dot1x_flow_pair(self, port_num, nfv_sw_port_num, mac):
+        """Return flowmods for deleting dot1x flow pair"""
+        return self.acl_manager.del_dot1x_flow_pair(port_num, nfv_sw_port_num, mac)
 
     def add_dot1x_native_vlan(self, port_num, eth_src, vlan_name):
         port = self.dp.ports[port_num]

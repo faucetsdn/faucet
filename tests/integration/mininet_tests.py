@@ -856,13 +856,17 @@ vlans:
 acls:
     auth_acl:
         - rule:
-            dl_type: 0x800      # Deny ICMP / IPv4
+            dl_type: 0x800      # Allow ICMP / IPv4
             ip_proto: 1
+            actions:
+                allow: True
+        - rule:
+            dl_type: 0x0806     # ARP Packets 
             actions:
                 allow: True
     noauth_acl:
         - rule:
-            dl_type: 0x800      # Allow ICMP / IPv4
+            dl_type: 0x800      # Deny ICMP / IPv4
             ip_proto: 1
             actions:
                 allow: False
