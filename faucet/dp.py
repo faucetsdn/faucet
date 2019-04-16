@@ -824,7 +824,7 @@ configuration.
         self.vlans = {}
         for vlan in vlans.values():
             vlan.reset_ports(self.ports.values())
-            if vlan.get_ports() or vlan.reserved_internal_vlan:
+            if vlan.get_ports() or vlan.reserved_internal_vlan or vlan.dot1x_assigned:
                 self.vlans[vlan.vid] = vlan
         if root_dp is not None:
             self.stack['root_dp'] = root_dp

@@ -102,10 +102,13 @@ class FaucetDot1x:
         if dot1x_port.dot1x_acl:
             auth_acl = valve.dp.acls.get(self.auth_acl_name)
             noauth_acl = valve.dp.acls.get(self.noauth_acl_name)
-            flowmods.extend(acl_manager.add_port_acl(auth_acl, dot1x_port, str(address)))
+            flowmods.extend(acl_manager.add_port_acl(auth_acl, dot1x_port, address_str))
             flowmods.extend(acl_manager.del_port_acl(noauth_acl, dot1x_port))
         else:
-            flowmods.extend(acl_manager.add_authed_mac(dot1x_port.number, str(address)))
+            flowmods.extend(acl_manager.add_authed_mac(dot1x_port.number, address_str))
+
+        if vlan_name:
+            flowmods.extend(valve.add_dot1x_native_vlan(dot1x_port.number, str(address), vlan_name))
 
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
@@ -130,10 +133,11 @@ class FaucetDot1x:
             auth_acl = valve.dp.acls.get(self.auth_acl_name)
             noauth_acl = valve.dp.acls.get(self.noauth_acl_name)
 
-            flowmods.extend(acl_manager.del_port_acl(auth_acl, dot1x_port, str(address)))
+            flowmods.extend(acl_manager.del_port_acl(auth_acl, dot1x_port, address_str))
             flowmods.extend(acl_manager.add_port_acl(noauth_acl, dot1x_port))
         else:
-            flowmods.extend(valve.del_authed_mac(dot1x_port.number, str(address)))
+            flowmods.extend(valve.del_authed_mac(dot1x_port.number, address_str))
+        flowmods.extend(valve.del_dot1x_native_vlan(dot1x_port.number, address_str))
 
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
@@ -158,10 +162,11 @@ class FaucetDot1x:
             auth_acl = valve.dp.acls.get(self.auth_acl_name)
             noauth_acl = valve.dp.acls.get(self.noauth_acl_name)
 
-            flowmods.extend(acl_manager.del_port_acl(auth_acl, dot1x_port, str(address)))
+            flowmods.extend(acl_manager.del_port_acl(auth_acl, dot1x_port, address_str))
             flowmods.extend(acl_manager.add_port_acl(noauth_acl, dot1x_port))
         else:
-            flowmods.extend(valve.del_authed_mac(dot1x_port.number, str(address)))
+            flowmods.extend(valve.del_authed_mac(dot1x_port.number, address_str))
+        flowmods.extend(valve.del_dot1x_native_vlan(dot1x_port.number, address_str))
 
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
@@ -304,6 +309,8 @@ class FaucetDot1x:
         # Clear auth_mac
         flowmods.extend(acl_manager.del_authed_mac(dot1x_port.number))
         flowmods.extend(acl_manager.del_dot1x_flow_pair(dot1x_port, nfv_sw_port, mac))
+        valve = self._valves[dp_id]
+        flowmods.extend(valve.del_dot1x_native_vlan(dot1x_port.number, None))
         return flowmods
 
     def reset(self, valves):

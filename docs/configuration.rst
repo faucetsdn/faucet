@@ -351,13 +351,15 @@ Implemented:
   (configurable (per authentication) via returning the Session-Timeout attribute in the RADIUS Access-Accept message).
 - Faucet connects to a single RADIUS server, and passes through all EAP messages.
 - Client can end session with EAP-Logoff.
+- Dynamic assignment of the native VLAN.
+  Use RADIUS attribute Private-Group-Tunnel-ID in Radius Access-Accept with the name of the faucet VLAN.
 
 Not Supported (yet):
 
 - RADIUS Accounting.
 - Multiple RADIUS Servers.
 - Other EAP types. E.g. FAST, ...
-- Dynamic assignment of VLAN/ACL.
+- Dynamic assignment of ACL.
 
 802.1X port authentication is configured in the dp configuration block and in the interface
 configuration block. At the dp level the following attributes can be configured
@@ -717,6 +719,11 @@ or a name. The following attributes can be configured:
       - string
       - None
       - Strictly informational
+    * - dot1x_assigned
+      - bool
+      - False
+      - True, if this VLAN can be dynamically assigned by a RADIUS server during 802.1X authentication.
+        Otherwise False
     * - faucet_vips
       - list of strings (IP address prefixes)
       - None
