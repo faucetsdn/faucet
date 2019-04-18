@@ -55,7 +55,7 @@ build-rpi-image:
   script:
     - cd images/raspbian/
     - apt-get update && apt-get upgrade -y
-    - apt-get install -y quilt parted manpages-pl xxd qemu-user-static debootstrap zerofree pxz zip dosfstools bsdtar libcap2-bin grep rsync xz-utils binfmt-support
+    - apt-get install -y parted quilt coreutils qemu-user-static debootstrap zerofree zip dosfstools bsdtar libcap2-bin rsync grep xz-utils xxd file kmod binfmt-support
     - git clone https://github.com/RPi-Distro/pi-gen.git
     - cd pi-gen
     - git checkout $(git describe --tags $(git rev-list --tags --max-count=1))
