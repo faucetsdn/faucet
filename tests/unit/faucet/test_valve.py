@@ -2344,24 +2344,20 @@ dps:
         self.assertEqual(sample.name, name)
         return sample.labels
 
-    def _get_hashes(self):
-        """Return and verify hashes"""
-        hashes = self._get_info(metric=self.metrics.faucet_config_hash,
+    def _check_hashes(self):
+        """Verify and return faucet_config_hash_info labels"""
+        labels = self._get_info(metric=self.metrics.faucet_config_hash,
                                 name='faucet_config_hash_info')
-        self._verify_hashes(hashes)
-        return hashes
-
-    def _verify_hashes(self, hashes):
-        """Verify hashes dict"""
-        for filename in hashes:
-            self.assertTrue('/' not in filename)
-        self.assertEqual(len(hashes), 1, 'too many hashes')
-        hash_value = tuple(hashes.values())[0]
-        goal = config_parser_util.config_file_hash(self.config_file)
-        self.assertEqual(hash_value, goal, 'hash validation failed')
+        files = labels['config_files'].split(',')
+        hashes = labels['hashes'].split(',')
+        self.assertTrue(len(files) == len(hashes) == 1)
+        self.assertEqual(files[0], self.config_file, 'wrong config file')
+        hash_value = config_parser_util.config_file_hash(self.config_file)
+        self.assertEqual(hashes[0], hash_value, 'hash validation failed')
+        return labels
 
     def _change_config(self):
-        "Change self.CONFIG"
+        """Change self.CONFIG"""
         if '0x100' in self.CONFIG:
             self.CONFIG = self.CONFIG.replace('0x100', '0x200')
         else:
@@ -2384,24 +2380,23 @@ dps:
         """Verify faucet_config_hash_info is properly updated after config"""
         # Verify that hashes change after config is changed
         old_config = self.CONFIG
-        old_hashes = self._get_hashes()
+        old_hashes = self._check_hashes()
         starting_hashes = old_hashes
         self._change_config()
         new_config = self.CONFIG
         self.assertNotEqual(old_config, new_config, 'config not changed')
-        new_hashes = self._get_hashes()
-        self._verify_hashes(new_hashes)
+        new_hashes = self._check_hashes()
         self.assertNotEqual(old_hashes, new_hashes,
                             'hashes not changed after config change')
         # Verify that hashes don't change after config isn't changed
         old_hashes = new_hashes
         self.update_config(self.CONFIG, reload_expected=False)
-        new_hashes = self._get_hashes()
+        new_hashes = self._check_hashes()
         self.assertEqual(old_hashes, new_hashes,
                          "hashes changed when config didn't")
         # Verify that hash is restored when config is restored
         self._change_config()
-        new_hashes = self._get_hashes()
+        new_hashes = self._check_hashes()
         self.assertEqual(new_hashes, starting_hashes,
                          'hashes should be restored to starting values')
 
