@@ -42,7 +42,7 @@ from faucet import faucet_metrics
 from faucet import valve_of
 
 
-class EventFaucetAPIRegistered(event.EventBase): # pylint: disable=too-few-public-methods
+class EventFaucetExperimentalAPIRegistered(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to notify that the API is registered with Faucet."""
     pass
 
@@ -87,7 +87,7 @@ class Faucet(RyuAppBase):
         'dpset': dpset.DPSet,
         'faucet_experimental_api': faucet_experimental_api.FaucetExperimentalAPI,
         }
-    _EVENTS = [EventFaucetAPIRegistered]
+    _EVENTS = [EventFaucetExperimentalAPIRegistered]
     _VALVE_SERVICES = {
         EventFaucetMetricUpdate: (None, 5),
         EventFaucetResolveGateways: ('resolve_gateways', 2),
@@ -145,7 +145,7 @@ class Faucet(RyuAppBase):
 
         # Register to API
         self.api._register(self)
-        self.send_event_to_observers(EventFaucetAPIRegistered())
+        self.send_event_to_observers(EventFaucetExperimentalAPIRegistered())
 
     def _delete_deconfigured_dp(self, deleted_dpid):
         self.logger.info(
