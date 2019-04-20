@@ -27,10 +27,10 @@ class TestFaucetExperimentalAPIViaRyu(app_manager.RyuApp):
         self.result_file_name = os.getenv('API_TEST_RESULT')
         self._update_test_result('not registered')
 
-    @set_ev_cls(faucet.EventFaucetExperimentalAPIRegistered)
+    @set_ev_cls(faucet.EventFaucetAPIRegistered)
     def run_tests(self, _unused_ryu_event):
         """Retrive config and ensure config for switch name is present."""
-        config = self.faucet_experimental_api.get_config()
+        config = self.faucet_api.get_config()
         self._update_test_result('got config: %s' % config)
         try:
             assert 'faucet-1' in config['dps']

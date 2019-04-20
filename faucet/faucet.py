@@ -34,7 +34,7 @@ from faucet.config_parser import get_config_for_api
 from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
 from faucet import faucet_experimental_api
-from faucet import faucet_experimental_event
+from faucet import faucet_event
 from faucet import faucet_bgp
 from faucet import faucet_dot1x
 from faucet import valves_manager
@@ -42,7 +42,7 @@ from faucet import faucet_metrics
 from faucet import valve_of
 
 
-class EventFaucetExperimentalAPIRegistered(event.EventBase): # pylint: disable=too-few-public-methods
+class EventFaucetAPIRegistered(event.EventBase): # pylint: disable=too-few-public-methods
     """Event used to notify that the API is registered with Faucet."""
     pass
 
@@ -87,7 +87,7 @@ class Faucet(RyuAppBase):
         'dpset': dpset.DPSet,
         'faucet_experimental_api': faucet_experimental_api.FaucetExperimentalAPI,
         }
-    _EVENTS = [EventFaucetExperimentalAPIRegistered]
+    _EVENTS = [EventFaucetAPIRegistered]
     _VALVE_SERVICES = {
         EventFaucetMetricUpdate: (None, 5),
         EventFaucetResolveGateways: ('resolve_gateways', 2),
@@ -111,7 +111,7 @@ class Faucet(RyuAppBase):
             self.logger, self.exc_logname, self.metrics, self._send_flow_msgs)
         self.dot1x = faucet_dot1x.FaucetDot1x(
             self.logger, self.metrics, self._send_flow_msgs)
-        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+        self.notifier = faucet_event.FaucetEventNotifier(
             self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
         self.valves_manager = valves_manager.ValvesManager(
             self.logname, self.logger, self.metrics, self.notifier, self.bgp,
@@ -145,7 +145,7 @@ class Faucet(RyuAppBase):
 
         # Register to API
         self.api._register(self)
-        self.send_event_to_observers(EventFaucetExperimentalAPIRegistered())
+        self.send_event_to_observers(EventFaucetAPIRegistered())
 
     def _delete_deconfigured_dp(self, deleted_dpid):
         self.logger.info(

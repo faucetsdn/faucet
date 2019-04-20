@@ -51,7 +51,7 @@ from faucet import faucet_bgp
 from faucet import config_parser_util
 from faucet import faucet_dot1x
 from faucet import faucet_experimental_api
-from faucet import faucet_experimental_event
+from faucet import faucet_event
 from faucet import faucet_metrics
 from faucet import valves_manager
 from faucet import valve_of
@@ -382,7 +382,7 @@ class ValveTestBases:
             self.registry = CollectorRegistry()
             self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
             # TODO: verify events
-            self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+            self.notifier = faucet_event.FaucetEventNotifier(
                 self.faucet_event_sock, self.metrics, self.logger)
             self.bgp = faucet_bgp.FaucetBgp(
                 self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
