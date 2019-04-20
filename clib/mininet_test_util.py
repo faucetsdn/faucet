@@ -39,9 +39,23 @@ def lsof_tcp_listening_cmd(port, ipv, state, terse):
         terse_arg, state, ipv, port)
 
 
+def lsof_udp_listening_cmd(port, terse):
+    """Return a command line for lsof for processes with specified TCP state."""
+    terse_arg = ''
+    if terse:
+        terse_arg = '-t'
+    return 'lsof -b -P -n %s -i udp:%u -a' % (
+        terse_arg, port)
+
+
 def tcp_listening_cmd(port, ipv=4, state='LISTEN', terse=True):
     """Call lsof_tcp_listening_cmd() with default args."""
     return lsof_tcp_listening_cmd(port, ipv, state, terse)
+
+
+def udp_listening_cmd(port, terse=True):
+    """Call lsof_tcp_listening_cmd() with default args."""
+    return lsof_udp_listening_cmd(port, terse)
 
 
 def mininet_dpid(int_dpid):
@@ -75,6 +89,16 @@ def tcp_listening(port):
         close_fds=True) == 0
 
 
+def udp_listening(port):
+    """Return True if any process listening on a port."""
+    return subprocess.call(
+        udp_listening_cmd(port).split(),
+        stdin=DEVNULL,
+        stdout=DEVNULL,
+        stderr=DEVNULL,
+        close_fds=True) == 0
+
+
 def test_server_request(ports_socket, name, command):
     assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -101,6 +125,15 @@ def find_free_port(ports_socket, name):
     while True:
         port = test_server_request(ports_socket, request_name, GETPORT)
         if not tcp_listening(port):
+            return port
+        error('port %u is busy, try another' % port)
+
+
+def find_free_udp_port(ports_socket, name):
+    request_name = '-'.join((name, str(os.getpid())))
+    while True:
+        port = test_server_request(ports_socket, request_name, GETPORT)
+        if not udp_listening(port):
             return port
         error('port %u is busy, try another' % port)
 

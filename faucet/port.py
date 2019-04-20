@@ -76,6 +76,8 @@ class Port(Conf):
         # threshold before marking a stack port as down
         'dot1x': False,
         # If true, block this port until a successful 802.1x auth
+        'dot1x_acl': False,
+        # If true, expects authentication and default ACLs for 802.1x auth
     }
 
     defaults_types = {
@@ -104,6 +106,7 @@ class Port(Conf):
         'receive_lldp': bool,
         'override_output_port': (str, int),
         'dot1x': bool,
+        'dot1x_acl': bool,
         'max_lldp_lost': int,
     }
 
@@ -130,6 +133,7 @@ class Port(Conf):
         self.acls_in = None
         self.description = None
         self.dot1x = None
+        self.dot1x_acl = None
         self.dp_id = None
         self.enabled = None
         self.hairpin = None
@@ -153,6 +157,7 @@ class Port(Conf):
         self.stack = {}
         self.unicast_flood = None
 
+        self.dyn_dot1x_native_vlan = None
         self.dyn_lacp_up = None
         self.dyn_lacp_updated_time = None
         self.dyn_last_ban_time = None
@@ -194,6 +199,9 @@ class Port(Conf):
         if self.dot1x:
             test_config_condition(self.number > 65535, (
                 '802.1x not supported on ports > 65535'))
+        if self.dot1x_acl:
+            test_config_condition(not self.dot1x, (
+                '802.1x_ACL requires dot1x to be enabled also'))
         if self.mirror:
             test_config_condition(self.tagged_vlans or self.native_vlan, (
                 'mirror port %s cannot have any VLANs assigned' % self))
@@ -259,6 +267,10 @@ class Port(Conf):
 
     def vlans(self):
         """Return all VLANs this port is in."""
+        if self.native_vlan is not None and self.dyn_dot1x_native_vlan is not None:
+            return (self.native_vlan,) + (self.dyn_dot1x_native_vlan,) + tuple(self.tagged_vlans)
+        if self.dyn_dot1x_native_vlan is not None:
+            return (self.dyn_dot1x_native_vlan,) + tuple(self.tagged_vlans)
         if self.native_vlan is not None:
             return (self.native_vlan,) + tuple(self.tagged_vlans)
         return tuple(self.tagged_vlans)

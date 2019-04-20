@@ -351,13 +351,15 @@ Implemented:
   (configurable (per authentication) via returning the Session-Timeout attribute in the RADIUS Access-Accept message).
 - Faucet connects to a single RADIUS server, and passes through all EAP messages.
 - Client can end session with EAP-Logoff.
+- Dynamic assignment of the native VLAN.
+  Use RADIUS attribute Private-Group-Tunnel-ID in Radius Access-Accept with the name of the faucet VLAN.
 
 Not Supported (yet):
 
 - RADIUS Accounting.
 - Multiple RADIUS Servers.
 - Other EAP types. E.g. FAST, ...
-- Dynamic assignment of VLAN/ACL.
+- Dynamic assignment of ACL.
 
 802.1X port authentication is configured in the dp configuration block and in the interface
 configuration block. At the dp level the following attributes can be configured
@@ -391,6 +393,15 @@ with the configuration block 'dot1x':
       - str
       -
       - Shared secret used by the RADIUS server and the 802.1X speaker. - NOTE: Faucet will only use the config from the first dp
+    * - noauth_acl
+      - str
+      -
+      - The name of the defined ACL [refer to acls.yaml for more information] that will be set to all 802.1X ports by default, that is before any user is authenticated. - NOTE: Faucet will only use the config from the first dp
+    * - auth_acl
+      - str
+      -
+      - The name of the defined ACL [refer to acls.yaml for more information] that will be set to an 802.1X port when a user authenticates. - NOTE: Faucet will only use the config from the first dp
+
 
 
 Interfaces
@@ -435,6 +446,10 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - False
       - Enable 802.1X port authentication
+    * - dot1x_acl
+      - boolean
+      - False
+      - Enable 802.1X ACL functionality on port (NOTE: Requires dot1x attribute)
     * - enabled
       - boolean
       - True
@@ -704,6 +719,11 @@ or a name. The following attributes can be configured:
       - string
       - None
       - Strictly informational
+    * - dot1x_assigned
+      - bool
+      - False
+      - True, if this VLAN can be dynamically assigned by a RADIUS server during 802.1X authentication.
+        Otherwise False
     * - faucet_vips
       - list of strings (IP address prefixes)
       - None
