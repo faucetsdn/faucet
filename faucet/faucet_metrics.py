@@ -53,6 +53,9 @@ class FaucetMetrics(PromClient):
         self.faucet_config_hash_func = self._gauge(
             'faucet_config_hash_func',
             'algorithm used to compute config hashes', ['algorithm'])
+        self.faucet_config_applied = self._gauge(
+            'faucet_config_applied',
+            'fraction of DPs that we have tried to apply config to', [])
         self.faucet_event_id = self._gauge(
             'faucet_event_id',
             'highest/most recent event ID to be sent', [])
