@@ -1839,7 +1839,7 @@ dbs:
         client_host, server_host = hosts
         iperf_mbps = self.iperf(
             client_host, client_ip, server_host, server_ip, seconds)
-        self.assertTrue(iperf_mbps > min_mbps)
+        self.assertGreater(iperf_mbps, min_mbps)
         # TODO: account for drops.
         for _ in range(3):
             end_port_stats = self.get_host_port_stats(hosts_switch_ports)
@@ -1856,7 +1856,7 @@ dbs:
                     iperf_to_max = iperf_mbps / max_of_mbps
                 msg = 'iperf: %fmbps, of: %fmbps (%f)' % (
                     iperf_mbps, max_of_mbps, iperf_to_max)
-                output(msg)
+                error(msg)
                 if ((iperf_to_max < (1.0 - prop)) or
                         (iperf_to_max > (1.0 + prop))):
                     approx_match = False
