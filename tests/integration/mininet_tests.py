@@ -505,12 +505,12 @@ listen {
 admin  Cleartext-Password := "megaphone"
     Session-timeout = {0}
 vlanuser1001  Cleartext-Password := "password"
-    Tunnel-Type = "VLAN", 
-    Tunnel-Medium-Type = "IEEE-802", 
+    Tunnel-Type = "VLAN",
+    Tunnel-Medium-Type = "IEEE-802",
     Tunnel-Private-Group-id = "1001"
 vlanuser2222  Cleartext-Password := "milliphone"
-    Tunnel-Type = "VLAN", 
-    Tunnel-Medium-Type = "IEEE-802", 
+    Tunnel-Type = "VLAN",
+    Tunnel-Medium-Type = "IEEE-802",
     Tunnel-Private-Group-id = "twothousand2hundredand2"'''.format(self.SESSION_TIMEOUT))
 
         with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
@@ -861,7 +861,7 @@ acls:
             actions:
                 allow: True
         - rule:
-            dl_type: 0x0806     # ARP Packets 
+            dl_type: 0x0806     # ARP Packets
             actions:
                 allow: True
     noauth_acl:
