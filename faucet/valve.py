@@ -661,7 +661,10 @@ class Valve:
         for vlan in port.tagged_vlans:
             ofmsgs.append(self._port_add_vlan_rules(
                 port, vlan, mirror_act, push_vlan=False))
-        if port.native_vlan is not None:
+        if port.dyn_dot1x_native_vlan is not None:
+            ofmsgs.append(self._port_add_vlan_rules(
+                port, port.dyn_dot1x_native_vlan, mirror_act))
+        elif port.native_vlan is not None:
             ofmsgs.append(self._port_add_vlan_rules(
                 port, port.native_vlan, mirror_act))
         return ofmsgs
@@ -735,11 +738,10 @@ class Valve:
                 nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
                 if port == nfv_sw_port:
                     ofmsgs.extend(self.dot1x.nfv_sw_port_up(
-                        self.dp.dp_id, self.dp.dot1x_ports(), nfv_sw_port,
-                        self.acl_manager))
+                        self.dp.dp_id, self.dp.dot1x_ports(), nfv_sw_port))
                 elif port.dot1x:
                     ofmsgs.extend(self.dot1x.port_up(
-                        self.dp.dp_id, port, nfv_sw_port, self.acl_manager))
+                        self.dp.dp_id, port, nfv_sw_port))
 
             port_vlans = port.vlans()
 
@@ -806,8 +808,7 @@ class Valve:
                 ofmsgs.extend(self.dot1x.port_down(
                     self.dp.dp_id,
                     port,
-                    self.dp.ports[self.dp.dot1x['nfv_sw_port']],
-                    self.acl_manager
+                    self.dp.ports[self.dp.dot1x['nfv_sw_port']]
                     ))
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
@@ -1496,6 +1497,95 @@ class Valve:
 
     def del_authed_mac(self, port_num, mac=None):
         return self.acl_manager.del_authed_mac(port_num, mac)
+
+    def del_port_acl(self, acl, port_num, mac=None):
+        """Return ACL openflow rules for removing port with acl"""
+        return self.acl_manager.del_port_acl(acl, port_num, mac)
+
+    def add_port_acl(self, acl, port_num, mac=None):
+        """Return ACL openflow rules for port with acl"""
+        return self.acl_manager.add_port_acl(acl, port_num, mac)
+
+    def create_dot1x_flow_pair(self, port_num, nfv_sw_port_num, mac):
+        """Return flowmods for creating dot1x flow pair"""
+        return self.acl_manager.create_dot1x_flow_pair(port_num, nfv_sw_port_num, mac)
+
+    def del_dot1x_flow_pair(self, port_num, nfv_sw_port_num, mac):
+        """Return flowmods for deleting dot1x flow pair"""
+        return self.acl_manager.del_dot1x_flow_pair(port_num, nfv_sw_port_num, mac)
+
+    def add_dot1x_native_vlan(self, port_num, eth_src, vlan_name):
+        port = self.dp.ports[port_num]
+        eth_src_table = self.dp.tables['eth_src']
+        eth_dst_table = self.dp.tables['eth_dst']
+        ofmsgs = []
+        for vlan in self.dp.vlans.values():
+            if vlan.name == vlan_name:
+                port.dyn_dot1x_native_vlan = vlan
+                mirror_act = port.mirror_actions()
+                # Add port/to VLAN rules.
+                vlan.reset_ports(self.dp.ports.values())
+                ofmsgs.extend(self._port_add_vlans(port, mirror_act))
+                break
+        ofmsgs.extend(self.del_native_vlan(port_num))
+
+        # remove learning rules.
+        ofmsgs.append(
+            eth_src_table.flowdel(eth_src_table.match(in_port=port_num, eth_src=eth_src)))
+        ofmsgs.append(
+            eth_dst_table.flowdel(eth_dst_table.match(eth_src=eth_src), out_port=port_num))
+
+        # recompute flood table.
+        flood_table = self.dp.tables['flood']
+
+        for vlan in [port.dyn_dot1x_native_vlan, port.native_vlan]:
+            ofmsgs.append(flood_table.flowdel(flood_table.match(vlan=vlan.vid)))
+            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+
+        return ofmsgs
+
+    def del_native_vlan(self, port_num):
+        vlan_table = self.dp.tables['vlan']
+        port = self.dp.ports[port_num]
+        ofmsg = vlan_table.flowdel(
+            vlan_table.match(in_port=port.number, vlan=port.native_vlan),
+            priority=self.dp.low_priority,
+        )
+        return [ofmsg]
+
+    def del_dot1x_native_vlan(self, port_num, eth_src):
+        vlan_table = self.dp.tables['vlan']
+        eth_dst_table = self.dp.tables['eth_dst']
+        port = self.dp.ports[port_num]
+        ofmsgs = []
+        if port.dyn_dot1x_native_vlan is None:
+            return []
+
+        dyn_vlan = port.dyn_dot1x_native_vlan
+        port.dyn_dot1x_native_vlan = None
+
+        # restore native vlan
+        # remove dyn_vlan
+        ofmsgs.append(vlan_table.flowdel(
+            vlan_table.match(in_port=port.number, vlan=NullVLAN()),
+            priority=self.dp.low_priority,
+        ))
+        dyn_vlan.reset_ports(self.dp.ports.values())
+        mirror_act = port.mirror_actions()
+        ofmsgs.extend(self._port_add_vlans(port, mirror_act))
+        if eth_src:
+            ofmsgs.extend(self.host_manager.delete_host_from_vlan(eth_src, dyn_vlan))
+
+        ofmsgs.append(eth_dst_table.flowdel(out_port=port_num))
+
+        # rebuild flood,
+        flood_table = self.dp.tables['flood']
+
+        for vlan in [dyn_vlan, port.native_vlan]:
+            ofmsgs.append(flood_table.flowdel(flood_table.match(vlan=vlan.vid)))
+            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+
+        return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""

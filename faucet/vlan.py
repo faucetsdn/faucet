@@ -80,7 +80,7 @@ class VLAN(Conf):
 # Note: while vlans are configured once for each datapath, there will be a
 # separate vlan object created for each datapath that the vlan appears on
 
-    mutable_attrs = frozenset(['tagged', 'untagged'])
+    mutable_attrs = frozenset(['tagged', 'untagged', 'dot1x_untagged'])
 
     defaults = {
         'name': None,
@@ -105,6 +105,8 @@ class VLAN(Conf):
         # If False, don't check that IP packets have a payload (OVS trace/tutorial requires False).
         'reserved_internal_vlan': False,
         # If True, forward packets from the VLAN table to the VLAN_ACL table matching the VID
+        'dot1x_assigned' : False,
+        # If True, this VLAN may be dynamically added by using the Tunnel-Private-Group-ID radius attribute
         }
 
     defaults_types = {
@@ -123,12 +125,15 @@ class VLAN(Conf):
         'targeted_gw_resolution': bool,
         'minimum_ip_size_check': bool,
         'reserved_internal_vlan': bool,
+        'dot1x_assigned': bool,
     }
 
     def __init__(self, _id, dp_id, conf=None):
         self.acl_in = None
         self.acls_in = None
         self.description = None
+        self.dot1x_assigned = None
+        self.dot1x_untagged = None
         self.dp_id = None
         self.faucet_mac = None
         self.faucet_vips = None
@@ -148,6 +153,7 @@ class VLAN(Conf):
         self.acls = {}
         self.tagged = []
         self.untagged = []
+        self.dot1x_untagged = []
 
         self.dyn_host_cache = None
         self.dyn_host_cache_by_port = None
@@ -237,7 +243,10 @@ class VLAN(Conf):
         """Reset tagged and untagged port lists."""
         sorted_ports = sorted(ports, key=lambda i: i.number)
         self.tagged = tuple([port for port in sorted_ports if self in port.tagged_vlans])
-        self.untagged = tuple([port for port in sorted_ports if self == port.native_vlan])
+        self.untagged = tuple([port for port in sorted_ports
+                               if self == port.native_vlan and port.dyn_dot1x_native_vlan is None])
+        self.dot1x_untagged = tuple([port for port in sorted_ports
+                                     if self == port.dyn_dot1x_native_vlan])
 
     def add_cache_host(self, eth_src, port, cache_time):
         """Add/update a host to the cache on a port at at time."""
@@ -398,6 +407,8 @@ class VLAN(Conf):
             str_ports.append('tagged: %s' % ','.join([str(p) for p in self.tagged]))
         if self.untagged:
             str_ports.append('untagged: %s' % ','.join([str(p) for p in self.untagged]))
+        if self.dot1x_untagged:
+            str_ports.append('dot1x_untagged: %s' % ','.join([str(p) for p in self.dot1x_untagged]))
         return 'VLAN %s vid:%s %s' % (self.name, self.vid, ' '.join(str_ports))
 
     def __repr__(self):
@@ -405,7 +416,7 @@ class VLAN(Conf):
 
     def get_ports(self):
         """Return all ports on this VLAN."""
-        return self.tagged + self.untagged
+        return self.tagged + self.untagged + self.dot1x_untagged
 
     def hairpin_ports(self):
         """Return all ports with hairpin enabled."""
@@ -464,6 +475,16 @@ class VLAN(Conf):
                     exclude_ports.update(ports)
         return exclude_ports
 
+    def exclude_native_if_dot1x(self):
+        """Don't output on native vlan, if dynamic (1x) vlan is in use"""
+        exclude_ports = set()
+        for port in self.untagged:
+            if port.dyn_dot1x_native_vlan is None:
+                continue
+            if port.dyn_dot1x_native_vlan != self:
+                exclude_ports.add(port)
+        return exclude_ports
+
     @staticmethod
     def flood_ports(configured_ports, exclude_unicast):
         if exclude_unicast:
@@ -474,7 +495,7 @@ class VLAN(Conf):
         return self.flood_ports(self.tagged, exclude_unicast)
 
     def untagged_flood_ports(self, exclude_unicast):
-        return self.flood_ports(self.untagged, exclude_unicast)
+        return self.flood_ports(self.untagged + self.dot1x_untagged, exclude_unicast)
 
     def output_port(self, port, hairpin=False, output_table=None, loop_protect_field=None):
         actions = port.mirror_actions()
@@ -520,7 +541,7 @@ class VLAN(Conf):
 
     def port_is_untagged(self, port):
         """Return True if port number is an untagged port on this VLAN."""
-        return port in self.untagged
+        return port in self.untagged or port in self.dot1x_untagged
 
     def vip_map(self, ipa):
         for faucet_vip in self.faucet_vips:

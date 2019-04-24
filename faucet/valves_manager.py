@@ -85,6 +85,7 @@ class ValvesManager:
         self.dot1x = dot1x
         self.send_flows_to_dp_by_id = send_flows_to_dp_by_id
         self.valves = {}
+        self.config_applied = {}
         self.config_watcher = ConfigWatcher()
 
     def parse_configs(self, new_config_file):
@@ -93,7 +94,11 @@ class ValvesManager:
         try:
             new_config_hashes, new_dps = dp_parser(new_config_file, self.logname)
             self.config_watcher.update(new_config_file, new_config_hashes)
-            self.metrics.faucet_config_hash.info(new_config_hashes)
+            config_files = sorted(new_config_hashes.keys())
+            hashes = [new_config_hashes[config] for config in config_files]
+            self.metrics.faucet_config_hash.info(
+                dict(config_files=','.join(config_files),
+                     hashes=','.join(hashes)))
             self.metrics.faucet_config_load_error.set(0)
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
@@ -115,11 +120,13 @@ class ValvesManager:
     def load_configs(self, now, new_config_file, delete_dp=None):
         """Load/apply new config to all Valves."""
         new_dps = self.parse_configs(new_config_file)
+        self.update_config_applied(reset=True)
         if new_dps is None:
             return False
         deleted_dpids = (
             set(self.valves.keys()) -
             set([dp.dp_id for dp in new_dps]))
+        sent = {}
         for new_dp in new_dps:
             dp_id = new_dp.dp_id
             if dp_id in self.valves:
@@ -127,6 +134,7 @@ class ValvesManager:
                 valve = self.valves[dp_id]
                 ofmsgs = valve.reload_config(now, new_dp)
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
+                sent[dp_id] = True
             else:
                 self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
                 valve = self.new_valve(new_dp)
@@ -140,6 +148,7 @@ class ValvesManager:
                 del self.valves[deleted_dp]
         self.bgp.reset(self.valves)
         self.dot1x.reset(self.valves)
+        self.update_config_applied(sent)
         return True
 
     def _send_ofmsgs_by_valve(self, ofmsgs_by_valve):
@@ -208,3 +217,17 @@ class ValvesManager:
         if ofmsgs_by_valve:
             self._send_ofmsgs_by_valve(ofmsgs_by_valve)
             valve.update_metrics(now, pkt_meta.port, rate_limited=True)
+
+
+    def update_config_applied(self, sent=None, reset=False):
+        """Update faucet_config_applied from {dpid: sent} dict,
+           defining applied == sent == enqueued via Ryu"""
+        if reset:
+            self.config_applied = defaultdict(bool)
+        if sent:
+            self.config_applied.update(sent)
+        count = float(len(self.valves))
+        configured = sum((1 if self.config_applied[dp_id] else 0)
+                         for dp_id in self.valves.keys())
+        fraction = configured/count if count > 0 else 0
+        self.metrics.faucet_config_applied.set(fraction)

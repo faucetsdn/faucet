@@ -75,6 +75,7 @@ class ValveFloodManager(ValveManagerBase):
         """Return a list of flood actions to flood packets from a port."""
         external_ports = vlan.loop_protect_external_ports()
         exclude_ports = vlan.exclude_same_lag_member_ports(in_port)
+        exclude_ports.update(vlan.exclude_native_if_dot1x())
         if external_ports:
             if (exclude_all_external or
                     in_port is not None and in_port.loop_protect_external):

@@ -294,7 +294,7 @@ class ValveAclManager(ValveManagerBase):
             priority=self.auth_priority,
             strict=True)]
 
-    def del_port_acl(self, acl, dot1x_port, mac=None):
+    def del_port_acl(self, acl, port_num, mac=None):
         """Delete ACL rules for Port"""
         def convert_to_flow_del(ofp_flowmods):
             flowdels = []
@@ -305,17 +305,17 @@ class ValveAclManager(ValveManagerBase):
             return flowdels
 
         pipeline_vlan_table = self.pipeline.vlan_table
-        flowmods = build_acl_port_of_msgs(acl, None, dot1x_port.number, self.port_acl_table,
+        flowmods = build_acl_port_of_msgs(acl, None, port_num, self.port_acl_table,
                                           pipeline_vlan_table)
         for flow in flowmods:
             flow.match = add_mac_address_to_match(flow.match, mac)
 
         return convert_to_flow_del(flowmods)
 
-    def add_port_acl(self, acl, dot1x_port, mac=None):
+    def add_port_acl(self, acl, port_num, mac=None):
         """Create ACL openflow rules for Port"""
         pipeline_vlan_table = self.pipeline.vlan_table
-        flowmods = build_acl_port_of_msgs(acl, None, dot1x_port.number,
+        flowmods = build_acl_port_of_msgs(acl, None, port_num,
                                           self.port_acl_table, pipeline_vlan_table)
 
         for flow in flowmods:
@@ -323,46 +323,46 @@ class ValveAclManager(ValveManagerBase):
 
         return flowmods
 
-    def create_dot1x_flow_pair(self, dot1x_port, nfv_sw_port, mac):
+    def create_dot1x_flow_pair(self, port_num, nfv_sw_port_num, mac):
         """Create dot1x flow pair"""
         ofmsgs = [
             self.port_acl_table.flowmod(
                 match=self.port_acl_table.match(
-                    in_port=dot1x_port.number,
+                    in_port=port_num,
                     eth_type=valve_packet.ETH_EAPOL),
                 priority=self.dot1x_static_rules_priority,
                 inst=[valve_of.apply_actions([
                     self.port_acl_table.set_field(eth_dst=mac),
-                    valve_of.output_port(nfv_sw_port.number)])],
+                    valve_of.output_port(nfv_sw_port_num)])],
             ),
             self.port_acl_table.flowmod(
                 match=self.port_acl_table.match(
-                    in_port=nfv_sw_port.number,
+                    in_port=nfv_sw_port_num,
                     eth_type=valve_packet.ETH_EAPOL,
                     eth_src=mac),
                 priority=self.dot1x_static_rules_priority,
                 inst=[valve_of.apply_actions([
                     self.port_acl_table.set_field(
                         eth_src=valve_packet.EAPOL_ETH_DST),
-                    valve_of.output_port(dot1x_port.number)
+                    valve_of.output_port(port_num)
                 ])],
             )
         ]
         return ofmsgs
 
-    def del_dot1x_flow_pair(self, dot1x_port, nfv_sw_port, mac):
+    def del_dot1x_flow_pair(self, port_num, nfv_sw_port_num, mac):
         """Deletes dot1x flow pair"""
         ofmsgs = [
             self.port_acl_table.flowdel(
                 match=self.port_acl_table.match(
-                    in_port=nfv_sw_port.number,
+                    in_port=nfv_sw_port_num,
                     eth_type=valve_packet.ETH_EAPOL,
                     eth_src=mac),
                 priority=self.dot1x_static_rules_priority,
                 ),
             self.port_acl_table.flowdel(
                 match=self.port_acl_table.match(
-                    in_port=dot1x_port.number,
+                    in_port=port_num,
                     eth_type=valve_packet.ETH_EAPOL),
                 priority=self.dot1x_static_rules_priority,
                 )

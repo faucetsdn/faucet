@@ -282,6 +282,7 @@ class Faucet(RyuAppBase):
             if (valve_of.port_status_from_state(port.state) and
                 not valve_of.ignore_port(port.port_no))}
         self._send_flow_msgs(valve, valve.datapath_connect(now, discovered_up_ports))
+        self.valves_manager.update_config_applied({valve.dp.dp_id: True})
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_event):
