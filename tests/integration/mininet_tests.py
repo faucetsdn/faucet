@@ -6259,12 +6259,13 @@ class FaucetStringOfDPTest(FaucetTest):
     topo = None
 
     def non_host_ports(self, dpid):
-        min_non_host_ports = self.MAX_HOSTS - self.NUM_HOSTS
-        if dpid == self.dpid:
+        if self.NUM_DPS <= 2 and dpid == self.dpid:
+            min_non_host_ports = self.MAX_HOSTS - self.NUM_HOSTS
             first_non_host_port = min_non_host_ports + 1
             last_non_host_port = first_non_host_port + min_non_host_ports - 1
             return [self.port_map['port_%u' % port]
                     for port in range(first_non_host_port, last_non_host_port + 1)]
+        min_non_host_ports = 2
         first_non_host_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
         last_non_host_port = first_non_host_port + min_non_host_ports - 1
         return [port for port in range(first_non_host_port, last_non_host_port + 1)]
@@ -6485,6 +6486,7 @@ class FaucetStringOfDPTest(FaucetTest):
                 name, dp_config, port, interfaces_config, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
+            # TODO: re-enable for hardware
             # if hw_dpid == dpid:
             #    interfaces_config = self.remap_all_ports(interfaces_config)
 
