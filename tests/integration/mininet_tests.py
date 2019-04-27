@@ -6278,6 +6278,7 @@ class FaucetStringOfDPTest(FaucetTest):
             acls = {}
         if acl_in_dp is None:
             acl_in_dp = {}
+        # TODO: port map acl_in_dp
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpids[0] = self.dpid
         self.topo = mininet_test_topo.FaucetStringOfDPSwitchTopo(
@@ -7107,8 +7108,10 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
                     'allow': 0,
                     'output': {
                         'tunnel': {
-                            'type': 'vlan', 'tunnel_id': 200,
-                            'dp': 'faucet-2', 'port': mininet_test_topo.SWITCH_START_PORT}
+                            'type': 'vlan',
+                            'tunnel_id': 200,
+                            'dp': 'faucet-2',
+                            'port': mininet_test_topo.SWITCH_START_PORT}
                     }
                 }
             }}
