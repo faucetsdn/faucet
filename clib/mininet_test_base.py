@@ -106,7 +106,6 @@ class FaucetTestBase(unittest.TestCase):
     ca_certs = None
     port_map = {}
     switch_map = {}
-    port_map_rev = {}
     tmpdir = None
     net = None
     topo = None
@@ -181,12 +180,10 @@ class FaucetTestBase(unittest.TestCase):
                     self.ca_certs = self.config['ca_certs']
                 dp_ports = self.config['dp_ports']
                 self.port_map = {}
-                self.port_map_rev = {}
                 self.switch_map = {}
                 for i, switch_port in enumerate(sorted(dp_ports), start=1):
                     test_port_name = 'port_%u' % i
                     self.port_map[test_port_name] = switch_port
-                    self.port_map_rev[switch_port] = i
                     self.switch_map[test_port_name] = dp_ports[switch_port]
 
     def _set_vars(self):
