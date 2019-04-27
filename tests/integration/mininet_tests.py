@@ -6249,6 +6249,7 @@ vlans:
 
 class FaucetStringOfDPTest(FaucetTest):
 
+    MAX_HOSTS = 4
     NUM_HOSTS = 4
     LINKS_PER_HOST = 1
     VID = 100
