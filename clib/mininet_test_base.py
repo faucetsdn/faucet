@@ -104,7 +104,7 @@ class FaucetTestBase(unittest.TestCase):
     ctl_privkey = None
     ctl_cert = None
     ca_certs = None
-    port_map = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
+    port_map = {}
     switch_map = {}
     port_map_rev = {}
     tmpdir = None
@@ -123,6 +123,8 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
+        start_port = mininet_test_topo.SWITCH_START_PORT
+        self.port_map = {'port_%u' % (port + 1): port + start_port for port in range(4)}
 
     def rand_dpid(self):
         reserved_range = 100

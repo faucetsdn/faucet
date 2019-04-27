@@ -19,6 +19,9 @@ from clib import mininet_test_util
 
 import netifaces
 
+SWITCH_START_PORT = 5
+
+
 class FaucetHost(CPULimitedHost):
     """Base Mininet Host class, for Mininet-based tests."""
 
@@ -154,15 +157,18 @@ class FaucetSwitchTopo(Topo):
             datapath=ovs_type,
             dpid=mininet_test_util.mininet_dpid(dpid))
 
-    def _add_links(self, switch, hosts, links_per_host):
+    def _add_links(self, switch, hosts, links_per_host, start_port):
+        port = start_port
         for host in hosts:
-            for _ in range(links_per_host):
+            for i in range(links_per_host):
                 # Order of switch/host is important, since host may be in a container.
-                self.addLink(switch, host, delay=self.DELAY, use_htb=True)
+                self.addLink(switch, host, port1=port, delay=self.DELAY, use_htb=True)
+                port += 1
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0,
-              n_extended=0, e_cls=None, tmpdir=None, hw_dpid=None, host_namespace=None):
+              n_extended=0, e_cls=None, tmpdir=None, hw_dpid=None,
+              host_namespace=None, start_port=SWITCH_START_PORT):
         if not host_namespace:
             host_namespace = {}
 
@@ -184,7 +190,7 @@ class FaucetSwitchTopo(Topo):
                 dpid = remap_dpid
                 switch_cls = NoControllerFaucetSwitch
             switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type, switch_cls)
-            self._add_links(switch, self.hosts(), links_per_host)
+            self._add_links(switch, self.hosts(), links_per_host, start_port)
 
 
 class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
@@ -195,7 +201,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0,
               links_per_host=0, switch_to_switch_links=1,
-              hw_dpid=None, stack_ring=False):
+              hw_dpid=None, stack_ring=False, start_port=SWITCH_START_PORT):
         """
 
                                Hosts
@@ -245,7 +251,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 dpid = remap_dpid
                 switch_cls = NoControllerFaucetSwitch
             switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type, switch_cls)
-            self._add_links(switch, hosts, links_per_host)
+            self._add_links(switch, hosts, links_per_host, start_port)
             if first_switch is None:
                 first_switch = switch
             if last_switch is not None:
