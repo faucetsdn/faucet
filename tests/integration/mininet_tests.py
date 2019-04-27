@@ -6943,15 +6943,15 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     ACL_IN_DP = {
         'faucet-1': {
             # Port 1, acl_in = 1
-            1: 1,
+            mininet_test_topo.SWITCH_START_PORT: 1,
         },
         'faucet-2': {
             # Port 4, acl_in = 2
-            4: 2,
+            mininet_test_topo.SWITCH_START_PORT + 3: 2,
         },
         'faucet-3': {
             # Port 4, acl_in = 3
-            4: 3,
+            mininet_test_topo.SWITCH_START_PORT + 3: 3,
         },
     }
 
@@ -7050,7 +7050,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     ACL_IN_DP = {
         'faucet-1': {
             # Port 1, acl_in = 1
-            1: 1,
+            mininet_test_topo.SWITCH_START_PORT: 1,
         },
     }
 
@@ -7115,7 +7115,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     ACL_IN_DP = {
         'faucet-1': {
             # Port 1, acl_in = 1
-            1: 1,
+            mininet_test_topo.SWITCH_START_PORT: 1,
         }
     }
 
@@ -7148,9 +7148,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     def test_tunnel_established(self):
         """test a tunnel path can be created"""
         self.verify_all_stack_up()
-        src_host = self.net.hosts[0]
-        dst_host = self.net.hosts[2]
-        other_host = self.net.hosts[1]
+        src_host, other_host, dst_host = self.net.hosts[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
     def test_tunnel_path_rerouted(self):
