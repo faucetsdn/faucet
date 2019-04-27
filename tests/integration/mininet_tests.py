@@ -673,8 +673,7 @@ class Faucet8021XPortStatusTest(Faucet8021XBaseTest):
                              {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
                              {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
                              {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
-]
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}}]
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -6270,15 +6269,13 @@ class FaucetStringOfDPTest(FaucetTest):
         last_non_host_port = first_non_host_port + min_non_host_ports - 1
         return [port for port in range(first_non_host_port, last_non_host_port + 1)]
 
-    def port_map_offset(self, port_no):
-        remap_port_no = port_no - mininet_test_topo.SWITCH_START_PORT - 1
+    def hw_port_map_offset(self, port_no):
+        remap_port_no = (port_no - mininet_test_topo.SWITCH_START_PORT) + 1
         return self.port_map['port_%u' % remap_port_no]
 
-    def remap_all_ports(self, config):
-        remapped_config = {}
-        for port_no, config in config.items():
-            remapped_config[self.port_map_offset(port_no)] = config
-        return remapped_config
+    def hw_remap_all_ports(self, config):
+        return {self.hw_port_map_offset(port_no): config
+                for port_no, config in config.items()}
 
     @staticmethod
     def get_config_header(_config_global, _debug_log, _dpid, _hardware):
@@ -6301,9 +6298,6 @@ class FaucetStringOfDPTest(FaucetTest):
             acls = {}
         if acl_in_dp is None:
             acl_in_dp = {}
-        # TODO: re-enable for hardware
-        # if self.DP_NAME in acl_in_dp:
-        #    acl_in_dp[self.DP_NAME] = self.remap_all_ports(acl_in_dp[self.DP_NAME])
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpids[0] = self.dpid
         self.topo = mininet_test_topo.FaucetStringOfDPSwitchTopo(
@@ -6486,23 +6480,21 @@ class FaucetStringOfDPTest(FaucetTest):
                 name, dp_config, port, interfaces_config, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
-            # TODO: re-enable for hardware
-            # if hw_dpid == dpid:
-            #    interfaces_config = self.remap_all_ports(interfaces_config)
-
             for portno, config in list(interfaces_config.items()):
                 stack = config.get('stack', None)
                 if stack:
                     peer_dp = stack['dp']
                     peer_portno = stack['port']
                     peer_dpid, _ = dpname_to_dpkey[peer_dp]
-                    # TODO: re-enable for hardware
-                    # if hw_dpid == peer_dpid:
-                    #    peer_portno = self.port_map_offset(portno)
+                    if hw_dpid == peer_dpid:
+                        peer_portno = self.hw_port_map_offset(portno)
                     if 'stack' not in interfaces_config[portno]:
                         interfaces_config[portno]['stack'] = {}
                     interfaces_config[portno]['stack'].update({
                         'port': 'b%u' % peer_portno})
+
+            if hw_dpid == dpid:
+                interfaces_config = self.hw_remap_all_ports(interfaces_config)
 
             dp_config['interfaces'] = interfaces_config
 
@@ -6981,7 +6973,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
             acls=self.ACLS,
-            acl_in_dp=copy.deepcopy(self.ACL_IN_DP),
+            acl_in_dp=self.ACL_IN_DP,
             )
         self.start_net()
 
@@ -7067,7 +7059,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     # DP-to-acl_in port mapping.
     ACL_IN_DP = {
         'faucet-1': {
-            # Port 1, acl_in = 1
+            # First port, acl_in = 1
             mininet_test_topo.SWITCH_START_PORT: 1,
         },
     }
@@ -7081,7 +7073,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
             untagged_vid=self.VID,
             include_optional=[self.acls_config],
             acls=self.ACLS,
-            acl_in_dp=copy.deepcopy(self.ACL_IN_DP),
+            acl_in_dp=self.ACL_IN_DP,
         )
         self.start_net()
 
@@ -7136,7 +7128,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     # DP-to-acl_in port mapping.
     ACL_IN_DP = {
         'faucet-1': {
-            # Port 1, acl_in = 1
+            # First port 1, acl_in = 1
             mininet_test_topo.SWITCH_START_PORT: 1,
         }
     }
@@ -7149,7 +7141,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
             acls=self.ACLS,
-            acl_in_dp=copy.deepcopy(self.ACL_IN_DP),
+            acl_in_dp=self.ACL_IN_DP,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
             hw_dpid=self.hw_dpid,
         )
