@@ -6864,7 +6864,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'nw_dst': '10.0.0.2',
                 'actions': {
                     'output': {
-                        'port': 2
+                        'port': mininet_test_topo.SWITCH_START_PORT + 1
                     }
                 },
             }},
@@ -6873,7 +6873,9 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
-                        'ports': [2, 4]
+                        'ports': [
+                            mininet_test_topo.SWITCH_START_PORT + 1,
+                            mininet_test_topo.SWITCH_START_PORT + 3]
                     }
                 },
             }},
@@ -6881,7 +6883,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
-                        'port': 4
+                        'port': mininet_test_topo.SWITCH_START_PORT + 3
                     }
                 },
             }},
@@ -6896,7 +6898,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
-                        'port': 5
+                        'port': mininet_test_topo.SWITCH_START_PORT + 1
                     }
                 },
             }},
@@ -6912,7 +6914,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'nw_dst': '10.0.0.7',
                 'actions': {
                     'output': {
-                        'port': 1
+                        'port': mininet_test_topo.SWITCH_START_PORT
                     }
                 },
             }},
@@ -6921,7 +6923,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
-                        'ports': [1]
+                        'ports': [mininet_test_topo.SWITCH_START_PORT]
                     }
                 },
             }},
