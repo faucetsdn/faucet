@@ -6899,7 +6899,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
-                        'port': mininet_test_topo.SWITCH_START_PORT + 1
+                        'port': mininet_test_topo.SWITCH_START_PORT + 4
                     }
                 },
             }},
