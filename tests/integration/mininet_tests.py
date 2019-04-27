@@ -6257,6 +6257,16 @@ class FaucetStringOfDPTest(FaucetTest):
     dpids = None
     topo = None
 
+    def port_map_offset(self, port_no):
+        remap_port_no = port_no - mininet_test_topo.SWITCH_START_PORT - 1
+        return self.port_map['port_%u' % remap_port_no]
+
+    def remap_all_ports(self, config):
+        remapped_config = {}
+        for port_no, config in config.items():
+            remapped_config[self.port_map_offset(port_no)] = config
+        return remapped_config
+
     @staticmethod
     def get_config_header(_config_global, _debug_log, _dpid, _hardware):
         """Don't generate standard config file header."""
@@ -6278,7 +6288,9 @@ class FaucetStringOfDPTest(FaucetTest):
             acls = {}
         if acl_in_dp is None:
             acl_in_dp = {}
-        # TODO: port map acl_in_dp
+        # TODO: re-enable for hardware
+        # if self.DP_NAME in acl_in_dp:
+        #    acl_in_dp[self.DP_NAME] = self.remap_all_ports(acl_in_dp[self.DP_NAME])
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpids[0] = self.dpid
         self.topo = mininet_test_topo.FaucetStringOfDPSwitchTopo(
@@ -6461,13 +6473,8 @@ class FaucetStringOfDPTest(FaucetTest):
                 name, dp_config, port, interfaces_config, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
-            # TODO: re-enable for hardware
-            # if dpid == hw_dpid:
-            #     remapped_interfaces_config = {}
-            #     for portno, config in list(interfaces_config.items()):
-            #         remapped_portno = self.port_map['port_%u' % portno]
-            #         remapped_interfaces_config[remapped_portno] = config
-            #     interfaces_config = remapped_interfaces_config
+            # if hw_dpid == dpid:
+            #    interfaces_config = self.remap_all_ports(interfaces_config)
 
             for portno, config in list(interfaces_config.items()):
                 stack = config.get('stack', None)
@@ -6477,7 +6484,7 @@ class FaucetStringOfDPTest(FaucetTest):
                     peer_dpid, _ = dpname_to_dpkey[peer_dp]
                     # TODO: re-enable for hardware
                     # if hw_dpid == peer_dpid:
-                    #     peer_portno = self.port_map['port_%u' % portno]
+                    #    peer_portno = self.port_map_offset(portno)
                     if 'stack' not in interfaces_config[portno]:
                         interfaces_config[portno]['stack'] = {}
                     interfaces_config[portno]['stack'].update({
@@ -6562,8 +6569,8 @@ class FaucetStringOfDPTest(FaucetTest):
             for switch_port_no in range(self.topo.switch_to_switch_links):
                 port_no = port_base + switch_port_no
                 # TODO: re-enable for hardware
-                # if dpid == self.hw_dpid:
-                #     port_no = self.port_map['port_%u' % port_no]
+                # if self.hw_dpid == dpid:
+                #    port_no = self.port_map_offset(port_no)
                 self.wait_for_stack_port_status(
                     dpid, dp_name, port_no, 3) # up
 
@@ -6646,12 +6653,14 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
+        first_stack_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
         for coldstart in (False, True):
-            self.verify_one_stack_down(self.NUM_HOSTS + 1, coldstart)
+            self.verify_one_stack_down(first_stack_port, coldstart)
 
     def test_other_tagged(self):
+        second_stack_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT + 1
         for coldstart in (False, True):
-            self.verify_one_stack_down(self.NUM_HOSTS + 2, coldstart)
+            self.verify_one_stack_down(second_stack_port, coldstart)
 
 
 class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
