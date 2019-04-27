@@ -917,8 +917,6 @@ acls:
         # Ping allowed before and after login
         port_no1 = self.port_map['port_1']
 
-        print(self.get_all_flows_from_dpid(self.dpid, 0))
-
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
 
@@ -926,9 +924,6 @@ acls:
             self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
         self.assertIn('Success', tcpdump_txt_1)
 
-        print("Attempt to ping second time")
-
-        print(self.get_all_flows_from_dpid(self.dpid, 0))
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=True)
 
