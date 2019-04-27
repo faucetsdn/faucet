@@ -7106,7 +7106,9 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
                 'actions': {
                     'allow': 0,
                     'output': {
-                        'tunnel': {'type': 'vlan', 'tunnel_id': 200, 'dp': 'faucet-2', 'port': 1}
+                        'tunnel': {
+                            'type': 'vlan', 'tunnel_id': 200,
+                            'dp': 'faucet-2', 'port': mininet_test_topo.SWITCH_START_PORT}
                     }
                 }
             }}
