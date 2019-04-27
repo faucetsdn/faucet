@@ -6690,26 +6690,31 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
     def wait_for_all_lacp_up(self):
         first_lacp_port = self.port_map['port_%u' % 3]
         second_lacp_port = self.port_map['port_%u' % 4]
+        remote_first_lacp_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
         self.wait_for_lacp_port_up(first_lacp_port, self.dpid, self.DP_NAME)
         self.wait_for_lacp_port_up(second_lacp_port, self.dpid, self.DP_NAME)
         self.wait_until_matching_flow(
             self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % first_lacp_port])
         self.wait_until_matching_flow(
-            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % 3], dpid=self.dpids[1])
+            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % remote_first_lacp_port],
+            dpid=self.dpids[1])
 
     def test_lacp_port_down(self):
         """LACP to switch to a working port when the primary port fails."""
         first_lacp_port = self.port_map['port_%u' % 3]
         second_lacp_port = self.port_map['port_%u' % 4]
+        remote_first_lacp_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
+        remote_second_lacp_port = remote_first_lacp_port + 1
         self.wait_for_all_lacp_up()
         self.retry_net_ping()
         self.set_port_down(first_lacp_port, wait=False)
         self.wait_for_lacp_port_down(first_lacp_port, self.dpid, self.DP_NAME)
-        self.wait_for_lacp_port_down(3, self.dpids[1], 'faucet-2')
+        self.wait_for_lacp_port_down(remote_first_lacp_port, self.dpids[1], 'faucet-2')
         self.wait_until_matching_flow(
             self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % second_lacp_port])
         self.wait_until_matching_flow(
-            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % 4], dpid=self.dpids[1])
+            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % remote_second_lacp_port],
+            dpid=self.dpids[1])
         self.retry_net_ping()
         self.set_port_up(first_lacp_port, wait=False)
 
