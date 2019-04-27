@@ -6979,7 +6979,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
             acls=self.ACLS,
-            acl_in_dp=self.ACL_IN_DP,
+            acl_in_dp=copy.deepcopy(self.ACL_IN_DP),
             )
         self.start_net()
 
@@ -7079,7 +7079,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
             untagged_vid=self.VID,
             include_optional=[self.acls_config],
             acls=self.ACLS,
-            acl_in_dp=self.ACL_IN_DP,
+            acl_in_dp=copy.deepcopy(self.ACL_IN_DP),
         )
         self.start_net()
 
@@ -7147,7 +7147,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
             acls=self.ACLS,
-            acl_in_dp=self.ACL_IN_DP,
+            acl_in_dp=copy.deepcopy(self.ACL_IN_DP),
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
             hw_dpid=self.hw_dpid,
         )
@@ -7165,6 +7165,10 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
             '%s: ICMP echo request' % other_host.IP(), tcpdump_text
         ), 'Tunnel was not established')
 
+    def one_stack_port_down(self, stack_port):
+        self.set_port_down(stack_port, self.dpid)
+        self.wait_for_stack_port_status(self.dpid, self.DP_NAME, stack_port, 2)
+
     def test_tunnel_established(self):
         """test a tunnel path can be created"""
         self.verify_all_stack_up()
@@ -7178,10 +7182,6 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         self.one_stack_port_down(first_stack_port)
         src_host, other_host, dst_host = self.net.hosts[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
-
-    def one_stack_port_down(self, stack_port):
-        self.set_port_down(stack_port, self.dpid)
-        self.wait_for_stack_port_status(self.dpid, self.DP_NAME, stack_port, 2)
 
 
 class FaucetGroupTableTest(FaucetUntaggedTest):
