@@ -6823,7 +6823,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.assertLessEqual(num_arp_received, num_arp_expected)
 
     def one_stack_port_down(self):
-        port = self.NUM_HOSTS + self.topo.switch_to_switch_links + 1 # root port
+        port = self.NUM_HOSTS + self.topo.switch_to_switch_links + mininet_test_topo.SWITCH_START_PORT # root port
         self.set_port_down(port, self.dpid)
         self.wait_for_stack_port_status(self.dpid, self.DP_NAME, port, 2) # down
 
