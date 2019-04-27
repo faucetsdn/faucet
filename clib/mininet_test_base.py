@@ -206,7 +206,9 @@ class FaucetTestBase(unittest.TestCase):
 
     def _annotate_interfaces_conf(self, yaml_conf):
         """Consistently name interface names/descriptions."""
-        if 'dps' in yaml_conf:
+        if 'dps' not in yaml_conf:
+            return yaml_conf
+        else:
             yaml_conf_remap = copy.deepcopy(yaml_conf)
             for dp_key, dp_yaml in yaml_conf['dps'].items():
                 interfaces_yaml = dp_yaml.get('interfaces', None)
@@ -225,7 +227,7 @@ class FaucetTestBase(unittest.TestCase):
                         intf_conf.update({'name': intf_name, 'description': intf_name})
                         remap_interfaces_yaml[intf_key] = intf_conf
                     yaml_conf_remap['dps'][dp_key]['interfaces'] = remap_interfaces_yaml
-        return yaml_conf_remap
+            return yaml_conf_remap
 
     def _write_yaml_conf(self, yaml_path, yaml_conf):
         assert isinstance(yaml_conf, dict)
