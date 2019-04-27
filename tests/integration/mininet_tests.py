@@ -6257,6 +6257,16 @@ class FaucetStringOfDPTest(FaucetTest):
     dpids = None
     topo = None
 
+    def non_host_ports(self, dpid):
+        min_non_host_ports = self.MAX_HOSTS - self.NUM_HOSTS
+        if dpid == self.dpid:
+            first_non_host_port = min_non_host_ports
+            return [self.port_map['port_%u' % port]
+                for port in range(first_non_host_port, self.MAX_HOSTS + 1)]
+        first_non_host_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
+        return [port for port in range(
+            first_non_host_port, first_non_host_port + min_non_host_ports + 1)]
+
     def port_map_offset(self, port_no):
         remap_port_no = port_no - mininet_test_topo.SWITCH_START_PORT - 1
         return self.port_map['port_%u' % remap_port_no]
@@ -6563,14 +6573,9 @@ class FaucetStringOfDPTest(FaucetTest):
                 int(dpid), port_no, status))
 
     def verify_all_stack_up(self):
-        port_base = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
         for i, dpid in enumerate(self.dpids, start=1):
             dp_name = 'faucet-%u' % i
-            for switch_port_no in range(self.topo.switch_to_switch_links):
-                port_no = port_base + switch_port_no
-                # TODO: re-enable for hardware
-                # if self.hw_dpid == dpid:
-                #    port_no = self.port_map_offset(port_no)
+            for port_no in self.non_host_ports(dpid):
                 self.wait_for_stack_port_status(
                     dpid, dp_name, port_no, 3) # up
 
@@ -6632,11 +6637,13 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
             switch_to_switch_links=2)
         self.start_net()
 
-    def verify_one_stack_down(self, port_no, coldstart=False):
+    def verify_one_stack_down(self, stack_offset_port, coldstart=False):
         self.retry_net_ping()
-        self.set_port_down(port_no, wait=False)
+        stack_port = self.non_host_ports(self.dpid)[stack_offset_port]
+        remote_stack_port = self.non_host_ports(self.dpids[1])[stack_offset_port]
+        self.set_port_down(stack_port, wait=False)
         # self.dpids[1] is the intermediate switch.
-        self.set_port_down(port_no, self.dpids[1], wait=False)
+        self.set_port_down(remote_stack_port, self.dpids[1], wait=False)
         # test case where one link is down when coldstarted.
         if coldstart:
             self.coldstart_conf()
@@ -6653,14 +6660,12 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
-        first_stack_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
         for coldstart in (False, True):
-            self.verify_one_stack_down(first_stack_port, coldstart)
+            self.verify_one_stack_down(0, coldstart)
 
     def test_other_tagged(self):
-        second_stack_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT + 1
         for coldstart in (False, True):
-            self.verify_one_stack_down(second_stack_port, coldstart)
+            self.verify_one_stack_down(1, coldstart)
 
 
 class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
@@ -6698,9 +6703,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.wait_for_lacp_status(port_no, 1, dpid, dp_name)
 
     def wait_for_all_lacp_up(self):
-        first_lacp_port = self.port_map['port_%u' % 3]
-        second_lacp_port = self.port_map['port_%u' % 4]
-        remote_first_lacp_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
+        first_lacp_port, second_lacp_port = self.non_host_ports(self.dpid)
+        remote_first_lacp_port = self.non_host_ports(self.dpids[1])[0]
         self.wait_for_lacp_port_up(first_lacp_port, self.dpid, self.DP_NAME)
         self.wait_for_lacp_port_up(second_lacp_port, self.dpid, self.DP_NAME)
         self.wait_until_matching_flow(
@@ -6711,10 +6715,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
 
     def test_lacp_port_down(self):
         """LACP to switch to a working port when the primary port fails."""
-        first_lacp_port = self.port_map['port_%u' % 3]
-        second_lacp_port = self.port_map['port_%u' % 4]
-        remote_first_lacp_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
-        remote_second_lacp_port = remote_first_lacp_port + 1
+        first_lacp_port, second_lacp_port = self.non_host_ports(self.dpid)
+        remote_first_lacp_port, remote_second_lacp_port = self.non_host_ports(self.dpids[1])
         self.wait_for_all_lacp_up()
         self.retry_net_ping()
         self.set_port_down(first_lacp_port, wait=False)
@@ -6838,7 +6840,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.assertLessEqual(num_arp_received, num_arp_expected)
 
     def one_stack_port_down(self):
-        port = self.NUM_HOSTS + self.topo.switch_to_switch_links + mininet_test_topo.SWITCH_START_PORT # root port
+        port = self.non_host_ports(self.dpid)[1]
         self.set_port_down(port, self.dpid)
         self.wait_for_stack_port_status(self.dpid, self.DP_NAME, port, 2) # down
 
@@ -7154,7 +7156,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         tcpdump_filter = 'icmp'
         tcpdump_text = self.tcpdump_helper(
             dst_host, tcpdump_filter, [
-                lambda: src_host.cmd('ping -c%u %s' % (packets, other_host.IP()))
+                lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
             ],
         )
         self.assertFalse(re.search(
@@ -7170,7 +7172,8 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     def test_tunnel_path_rerouted(self):
         """test a tunnel path is rerouted when a stack is down"""
         self.verify_all_stack_up()
-        self.one_stack_port_down(self.port_map['port_3'])
+        first_stack_port = self.non_host_ports(self.dpid)[0]
+        self.one_stack_port_down(first_stack_port)
         src_host, other_host, dst_host = self.net.hosts[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
