@@ -6261,12 +6261,13 @@ class FaucetStringOfDPTest(FaucetTest):
     def non_host_ports(self, dpid):
         min_non_host_ports = self.MAX_HOSTS - self.NUM_HOSTS
         if dpid == self.dpid:
-            first_non_host_port = min_non_host_ports
+            first_non_host_port = min_non_host_ports + 1
+            last_non_host_port = first_non_host_port + min_non_host_ports - 1
             return [self.port_map['port_%u' % port]
-                for port in range(first_non_host_port, self.MAX_HOSTS + 1)]
+                    for port in range(first_non_host_port, last_non_host_port + 1)]
         first_non_host_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
-        return [port for port in range(
-            first_non_host_port, first_non_host_port + min_non_host_ports + 1)]
+        last_non_host_port = first_non_host_port + min_non_host_ports - 1
+        return [port for port in range(first_non_host_port, last_non_host_port + 1)]
 
     def port_map_offset(self, port_no):
         remap_port_no = port_no - mininet_test_topo.SWITCH_START_PORT - 1
