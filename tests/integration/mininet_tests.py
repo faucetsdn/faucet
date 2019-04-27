@@ -6438,20 +6438,20 @@ class FaucetStringOfDPTest(FaucetTest):
             }
 
             interfaces_config = {}
+            port = mininet_test_topo.SWITCH_START_PORT
 
-            port = 1
-            for _ in range(n_tagged):
+            for n_port in range(1, n_tagged + 1):
                 interfaces_config[port] = {
                     'tagged_vlans': [tagged_vid],
-                    'loop_protect_external': (use_external and port < n_tagged),
+                    'loop_protect_external': (use_external and n_port < n_tagged),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
 
-            for _ in range(n_untagged):
+            for n_port in range(1, n_untagged + 1):
                 interfaces_config[port] = {
                     'native_vlan': untagged_vid,
-                    'loop_protect_external': (use_external and port < n_untagged),
+                    'loop_protect_external': (use_external and n_port < n_untagged),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
@@ -6460,12 +6460,13 @@ class FaucetStringOfDPTest(FaucetTest):
                 name, dp_config, port, interfaces_config, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
-            if dpid == hw_dpid:
-                remapped_interfaces_config = {}
-                for portno, config in list(interfaces_config.items()):
-                    remapped_portno = self.port_map['port_%u' % portno]
-                    remapped_interfaces_config[remapped_portno] = config
-                interfaces_config = remapped_interfaces_config
+            # TODO: re-enable for hardware
+            # if dpid == hw_dpid:
+            #     remapped_interfaces_config = {}
+            #     for portno, config in list(interfaces_config.items()):
+            #         remapped_portno = self.port_map['port_%u' % portno]
+            #         remapped_interfaces_config[remapped_portno] = config
+            #     interfaces_config = remapped_interfaces_config
 
             for portno, config in list(interfaces_config.items()):
                 stack = config.get('stack', None)
@@ -6473,8 +6474,9 @@ class FaucetStringOfDPTest(FaucetTest):
                     peer_dp = stack['dp']
                     peer_portno = stack['port']
                     peer_dpid, _ = dpname_to_dpkey[peer_dp]
-                    if hw_dpid == peer_dpid:
-                        peer_portno = self.port_map['port_%u' % portno]
+                    # TODO: re-enable for hardware
+                    # if hw_dpid == peer_dpid:
+                    #     peer_portno = self.port_map['port_%u' % portno]
                     if 'stack' not in interfaces_config[portno]:
                         interfaces_config[portno]['stack'] = {}
                     interfaces_config[portno]['stack'].update({
@@ -6529,8 +6531,8 @@ class FaucetStringOfDPTest(FaucetTest):
             lldp_cap_file = os.path.join(self.tmpdir, '%s-lldp.cap' % host)
             lldp_cap_files.append(lldp_cap_file)
             host.cmd(mininet_test_util.timeout_cmd(
-                'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC &' % (
-                    host.defaultIntf(), lldp_cap_file), 60))
+                'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC and not ether src %s &' % (
+                    host.defaultIntf(), host.MAC(), lldp_cap_file), 60))
         self.retry_net_ping(retries=retries)
         # hosts should see no LLDP probes
         self.verify_empty_caps(lldp_cap_files)
@@ -6553,13 +6555,14 @@ class FaucetStringOfDPTest(FaucetTest):
                 int(dpid), port_no, status))
 
     def verify_all_stack_up(self):
-        port_base = self.NUM_HOSTS + 1
+        port_base = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
         for i, dpid in enumerate(self.dpids, start=1):
             dp_name = 'faucet-%u' % i
             for switch_port_no in range(self.topo.switch_to_switch_links):
                 port_no = port_base + switch_port_no
-                if dpid == self.hw_dpid:
-                    port_no = self.port_map['port_%u' % port_no]
+                # TODO: re-enable for hardware
+                # if dpid == self.hw_dpid:
+                #     port_no = self.port_map['port_%u' % port_no]
                 self.wait_for_stack_port_status(
                     dpid, dp_name, port_no, 3) # up
 
