@@ -19,6 +19,7 @@ from clib import mininet_test_util
 
 import netifaces
 
+# TODO: this should be configurable (e.g for randomization)
 SWITCH_START_PORT = 5
 
 
@@ -164,6 +165,7 @@ class FaucetSwitchTopo(Topo):
                 # Order of switch/host is important, since host may be in a container.
                 self.addLink(switch, host, port1=port, delay=self.DELAY, use_htb=True)
                 port += 1
+        return port
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0,
@@ -227,13 +229,16 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
           with final two links being inter-switch
         """
-        def addLinks(src, dst): # pylint: disable=invalid-name
+        def addLinks(src, dst, switch_ports): # pylint: disable=invalid-name
             for _ in range(self.switch_to_switch_links):
-                self.addLink(src, dst)
+                self.addLink(src, dst, port1=switch_ports[src], port2=switch_ports[dst])
+                switch_ports[src] += 1
+                switch_ports[dst] += 1
 
         first_switch = None
         last_switch = None
         self.switch_to_switch_links = switch_to_switch_links
+        switch_ports = {}
         for dpid in dpids:
             serialno = mininet_test_util.get_serialno(
                 ports_sock, test_name)
@@ -251,16 +256,16 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 dpid = remap_dpid
                 switch_cls = NoControllerFaucetSwitch
             switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type, switch_cls)
-            self._add_links(switch, hosts, links_per_host, start_port)
             if first_switch is None:
                 first_switch = switch
+            switch_ports[switch] = self._add_links(switch, hosts, links_per_host, start_port)
             if last_switch is not None:
                 # Add a switch-to-switch link with the previous switch,
                 # if this isn't the first switch in the topology.
-                addLinks(last_switch, switch)
+                addLinks(last_switch, switch, switch_ports)
             last_switch = switch
         if stack_ring:
-            addLinks(first_switch, last_switch)
+            addLinks(first_switch, last_switch, switch_ports)
 
 
 class BaseFAUCET(Controller):
