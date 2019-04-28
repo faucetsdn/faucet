@@ -36,6 +36,8 @@ from clib import mininet_test_topo
 
 from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
 
+MIN_MBPS = 100
+
 
 CONFIG_BOILER_UNTAGGED = """
         interfaces:
@@ -1580,7 +1582,7 @@ class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                1, first_host_ip, second_host_ip)
+                MIN_MBPS, first_host_ip, second_host_ip)
             self.flap_all_switch_ports()
 
 
@@ -1598,14 +1600,14 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                1, first_host_ip.ip, second_host_ip.ip)
+                MIN_MBPS, first_host_ip.ip, second_host_ip.ip)
             self.flap_all_switch_ports()
 
 
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
-    def verify_dp_port_healthy(self, dp_port, retries=5, min_mbps=100):
+    def verify_dp_port_healthy(self, dp_port, retries=5, min_mbps=MIN_MBPS):
         for _ in range(retries):
             port_desc = self.get_port_desc_from_dpid(self.dpid, dp_port)
             port_name = port_desc['name']
@@ -4548,7 +4550,6 @@ class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        unicast_flood: False
 """
 
     CONFIG = """
@@ -4569,6 +4570,13 @@ vlans:
         self.flap_all_switch_ports()
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
         self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
+        first_host_ip = ipaddress.ip_address(first_host.IP())
+        second_host_ip = ipaddress.ip_address(second_host.IP())
+        self.one_ipv4_ping(first_host, second_host_ip)
+        self.verify_iperf_min(
+                ((first_host, self.port_map['port_1']),
+                 (second_host, self.port_map['port_2'])),
+                MIN_MBPS, first_host_ip, second_host_ip)
 
 
 class FaucetUntaggedOutputOverrideTest(FaucetUntaggedTest):
@@ -4705,6 +4713,41 @@ vlans:
 
     def test_tagged(self):
         self.ping_all_when_learned()
+
+
+class FaucetTaggedMirrorTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+            %(port_2)d:
+                tagged_vlans: [100]
+            %(port_3)d:
+                # port 3 will mirror port 1
+                mirror: %(port_1)d
+            %(port_4)d:
+                tagged_vlans: [100]
+"""
+
+    def test_tagged(self):
+        first_host, second_host, mirror_host = self.net.hosts[0:3]
+        self.flap_all_switch_ports()
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
+        self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
+        first_host_ip = ipaddress.ip_address(first_host.IP())
+        second_host_ip = ipaddress.ip_address(second_host.IP())
+        self.one_ipv4_ping(first_host, second_host_ip)
+        self.verify_iperf_min(
+                ((first_host, self.port_map['port_1']),
+                 (second_host, self.port_map['port_2'])),
+                MIN_MBPS, first_host_ip, second_host_ip)
 
 
 class FaucetTaggedVLANPCPTest(FaucetTaggedTest):
@@ -4903,7 +4946,7 @@ vlans:
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                1, first_host_ip.ip, second_host_ip.ip)
+                MIN_MBPS, first_host_ip.ip, second_host_ip.ip)
 
         # verify L3 reachability between hosts within each subnet
         for vid in self.NEW_VIDS:
