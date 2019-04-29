@@ -507,12 +507,12 @@ listen {
 admin  Cleartext-Password := "megaphone"
     Session-timeout = {0}
 vlanuser1001  Cleartext-Password := "password"
-    Tunnel-Type = "VLAN", 
-    Tunnel-Medium-Type = "IEEE-802", 
+    Tunnel-Type = "VLAN",
+    Tunnel-Medium-Type = "IEEE-802",
     Tunnel-Private-Group-id = "1001"
 vlanuser2222  Cleartext-Password := "milliphone"
-    Tunnel-Type = "VLAN", 
-    Tunnel-Medium-Type = "IEEE-802", 
+    Tunnel-Type = "VLAN",
+    Tunnel-Medium-Type = "IEEE-802",
     Tunnel-Private-Group-id = "twothousand2hundredand2"'''.format(self.SESSION_TIMEOUT))
 
         with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
@@ -863,7 +863,7 @@ acls:
             actions:
                 allow: True
         - rule:
-            dl_type: 0x0806     # ARP Packets 
+            dl_type: 0x0806     # ARP Packets
             actions:
                 allow: True
     noauth_acl:
@@ -873,7 +873,7 @@ acls:
             actions:
                 allow: False
         - rule:
-            dl_type: 0x0806     # ARP Packets 
+            dl_type: 0x0806     # ARP Packets
             actions:
                 allow: True
     """
@@ -6808,6 +6808,25 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """Host can reach eachother, unless both marked loop_protect_external"""
+
+        # Part 1: Make sure things are connected properly.
+        self._connections_aye() # Before reload
+
+        # Part 2: Test the code on pipeline reconfiguration path.
+        self._mark_external(True)
+        self._mark_external(False)
+
+        # Part 3: Make sure things are the same after reload.
+        self._connections_aye() # After reload
+
+    def _mark_external(self, protect_external):
+        conf = self._get_faucet_conf()
+        conf['dps']['faucet-2']['interfaces'][3]['loop_protect_external'] = protect_external
+        self.reload_conf(conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=True)
+        time.sleep(5)
+
+    def _connections_aye(self):
         ext_port1, alt_port1, int_port1, ext_port2, alt_port2, int_port2 = self.net.hosts
         self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
         self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
