@@ -34,6 +34,7 @@ from clib import mininet_test_util
 from clib import mininet_test_topo
 from clib.tcpdump_helper import TcpdumpHelper
 
+MIN_FLAP_TIME = 1
 OFPPC_PORT_DOWN = 1 << 0 # TODO: avoid dependency on Python2 Ryu.
 PEER_BGP_AS = 2**16 + 1
 IPV4_ETH = 0x0800
@@ -103,9 +104,8 @@ class FaucetTestBase(unittest.TestCase):
     ctl_privkey = None
     ctl_cert = None
     ca_certs = None
-    port_map = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
+    port_map = {}
     switch_map = {}
-    port_map_rev = {}
     tmpdir = None
     net = None
     topo = None
@@ -122,6 +122,8 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
+        start_port = mininet_test_topo.SWITCH_START_PORT
+        self.port_map = {'port_%u' % (port + 1): port + start_port for port in range(4)}
 
     def rand_dpid(self):
         reserved_range = 100
@@ -178,12 +180,10 @@ class FaucetTestBase(unittest.TestCase):
                     self.ca_certs = self.config['ca_certs']
                 dp_ports = self.config['dp_ports']
                 self.port_map = {}
-                self.port_map_rev = {}
                 self.switch_map = {}
                 for i, switch_port in enumerate(sorted(dp_ports), start=1):
                     test_port_name = 'port_%u' % i
                     self.port_map[test_port_name] = switch_port
-                    self.port_map_rev[switch_port] = i
                     self.switch_map[test_port_name] = dp_ports[switch_port]
 
     def _set_vars(self):
@@ -201,37 +201,30 @@ class FaucetTestBase(unittest.TestCase):
     def _get_faucet_conf(self):
         return self._read_yaml(self.faucet_config_path)
 
-    def _remap_ports_conf(self, yaml_conf):
-        """Automatically remap port numbers in config for hardware, and add name/description."""
+    def _annotate_interfaces_conf(self, yaml_conf):
+        """Consistently name interface names/descriptions."""
         if 'dps' not in yaml_conf:
             return yaml_conf
-        yaml_conf_remap = copy.deepcopy(yaml_conf)
-        for dp_key, dp_yaml in yaml_conf['dps'].items():
-            if 'interfaces' not in dp_yaml:
-                continue
-            interfaces_yaml = dp_yaml['interfaces']
-            remap_interfaces_yaml = {}
-            for intf_key, intf_val in interfaces_yaml.items():
-                if self.hw_dpid and int(self.hw_dpid) == dp_yaml['dp_id']:
-                    if isinstance(intf_key, int):
-                        intf_key = self.port_map.get('port_%u' % intf_key, intf_key)
-                        port_no = intf_key
-                    intf_number = intf_val.get('number', None)
-                    if isinstance(intf_number, int):
-                        intf_number = self.port_map.get('port_%u' % intf_number, intf_number)
-                        port_no = intf_number
-                        intf_val['number'] = intf_number
-                    assert port_no in self.port_map.values(), '%u not in known hw ports' % port_no
-                if isinstance(intf_key, int):
-                    port_no = intf_key
-                else:
-                    port_no = intf_val.get('number', None)
-                assert port_no is not None, '%s: %s' % (intf_key, intf_val)
-                intf_val['name'] = 'b%u' % port_no
-                intf_val['description'] = intf_val['name']
-                remap_interfaces_yaml[intf_key] = intf_val
-            yaml_conf_remap['dps'][dp_key]['interfaces'] = remap_interfaces_yaml
-        return yaml_conf_remap
+        else:
+            yaml_conf_remap = copy.deepcopy(yaml_conf)
+            for dp_key, dp_yaml in yaml_conf['dps'].items():
+                interfaces_yaml = dp_yaml.get('interfaces', None)
+                if interfaces_yaml is not None:
+                    remap_interfaces_yaml = {}
+                    for intf_key, orig_intf_conf in interfaces_yaml.items():
+                        intf_conf = copy.deepcopy(orig_intf_conf)
+                        port_no = None
+                        if isinstance(intf_key, int):
+                            port_no = intf_key
+                        number = intf_conf.get('number', port_no)
+                        if isinstance(number, int):
+                            port_no = number
+                        assert isinstance(number, int), '%u %s' % (intf_key, orig_intf_conf)
+                        intf_name = 'b%u' % port_no
+                        intf_conf.update({'name': intf_name, 'description': intf_name})
+                        remap_interfaces_yaml[intf_key] = intf_conf
+                    yaml_conf_remap['dps'][dp_key]['interfaces'] = remap_interfaces_yaml
+            return yaml_conf_remap
 
     def _write_yaml_conf(self, yaml_path, yaml_conf):
         assert isinstance(yaml_conf, dict)
@@ -259,7 +252,7 @@ class FaucetTestBase(unittest.TestCase):
         for config_var in (self.config_ports, self.port_map):
             config_vars.update(config_var)
         faucet_config = faucet_config % config_vars
-        yaml_conf = self._remap_ports_conf(yaml.safe_load(faucet_config))
+        yaml_conf = self._annotate_interfaces_conf(yaml.safe_load(faucet_config))
         self._write_yaml_conf(self.faucet_config_path, yaml_conf)
 
     def _init_gauge_config(self):
@@ -1243,7 +1236,7 @@ dbs:
 
         def _update_conf(conf_path, yaml_conf):
             if yaml_conf:
-                yaml_conf = self._remap_ports_conf(yaml_conf)
+                yaml_conf = self._annotate_interfaces_conf(yaml_conf)
                 self._write_yaml_conf(conf_path, yaml_conf)
 
         update_conf_func = partial(_update_conf, conf_path, yaml_conf)
@@ -1367,7 +1360,7 @@ dbs:
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
-            'tcpdump -n -r %s 2> /dev/null' % cap_file for cap_file in cap_files]
+            'tcpdump -n -v -A -r %s 2> /dev/null' % cap_file for cap_file in cap_files]
         self.quiet_commands(self.net.controllers[0], cap_file_cmds)
 
     def verify_no_bcast_to_self(self, timeout=3):
@@ -1924,12 +1917,12 @@ dbs:
     def _dp_ports(self):
         return list(sorted(self.port_map.values()))
 
-    def flap_port(self, port_no, flap_time=1):
+    def flap_port(self, port_no, flap_time=MIN_FLAP_TIME):
         self.set_port_down(port_no)
         time.sleep(flap_time)
         self.set_port_up(port_no)
 
-    def flap_all_switch_ports(self, flap_time=1):
+    def flap_all_switch_ports(self, flap_time=MIN_FLAP_TIME):
         """Flap all ports on switch."""
         for port_no in self._dp_ports():
             self.flap_port(port_no, flap_time=flap_time)
