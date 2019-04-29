@@ -1066,7 +1066,7 @@ configuration.
                     resolved.append(acl)
             if self.tunnel_acls:
                 for tunnel_acl in self.tunnel_acls.values():
-                    tunnel_acl.verify_tunnel_compatibility_rules(self)
+                    tunnel_acl.verify_tunnel_rules(self)
 
         def resolve_routers():
             """Resolve VLAN references in routers."""
