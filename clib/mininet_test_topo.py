@@ -274,6 +274,7 @@ class BaseFAUCET(Controller):
     # Set to True to have cProfile output to controller log.
     CPROFILE = False
     controller_intf = None
+    controller_ipv6 = False
     controller_ip = None
     pid_file = None
     tmpdir = None
@@ -293,18 +294,22 @@ maximum_unreplied_echo_requests=5
 socket_timeout=15
 """
 
-    def __init__(self, name, tmpdir, controller_intf=None, cargs='', **kwargs):
+    def __init__(self, name, tmpdir, controller_intf=None, controller_ipv6=False, cargs='', **kwargs):
         name = '%s-%u' % (name, os.getpid())
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
+        self.controller_ipv6 = controller_ipv6
         super(BaseFAUCET, self).__init__(
             name, cargs=self._add_cargs(cargs, name), **kwargs)
 
     def _add_cargs(self, cargs, name):
         ofp_listen_host_arg = ''
         if self.controller_intf is not None:
+            socket_type = socket.AF_INET
+            if self.controller_ipv6:
+                socket_type = socket.AF_INET6
             self.controller_ip = netifaces.ifaddresses( # pylint: disable=c-extension-no-member
-                self.controller_intf)[socket.AF_INET][0]['addr']
+                self.controller_intf)[socket_type][0]['addr']
             ofp_listen_host_arg = '--ryu-ofp-listen-host=%s' % self.controller_ip
         self.pid_file = os.path.join(self.tmpdir, name + '.pid')
         pid_file_arg = '--ryu-pid-file=%s' % self.pid_file
@@ -474,7 +479,7 @@ class FAUCET(BaseFAUCET):
 
     START_ARGS = ['--ryu-app=ryu.app.ofctl_rest']
 
-    def __init__(self, name, tmpdir, controller_intf, env,
+    def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, prom_port, port, test_name, **kwargs):
         self.prom_port = prom_port
@@ -488,6 +493,7 @@ class FAUCET(BaseFAUCET):
             name,
             tmpdir,
             controller_intf,
+            controller_ipv6,
             cargs=cargs,
             command=self._command(env, tmpdir, name, ' '.join(self.START_ARGS)),
             port=port,
@@ -503,13 +509,13 @@ class FAUCET(BaseFAUCET):
 class Gauge(BaseFAUCET):
     """Start a Gauge controller."""
 
-    def __init__(self, name, tmpdir, controller_intf, env,
+    def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  port, **kwargs):
         super(Gauge, self).__init__(
             name,
             tmpdir,
-            controller_intf,
+            controller_intf, controller_ipv6,
             cargs=self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs),
             command=self._command(env, tmpdir, name, '--gauge'),
             port=port,

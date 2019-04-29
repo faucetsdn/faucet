@@ -12,7 +12,9 @@ dp_ports:
 dpid: 0xeccd6d9936ed
 # Port on this machine that connects to hardware switch's CPN port.
 # Hardware switch must use IP address of this port as controller IP.
+# To use IPv6 address of the CPN port, set cpn_ipv6 to True
 cpn_intf: enp5s0
+cpn_ipv6: False
 # There must be two controllers configured on the hardware switch,
 # with same IP (see cpn_intf), but different ports - one for FAUCET,
 # one for Gauge.

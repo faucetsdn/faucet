@@ -110,6 +110,7 @@ class FaucetTestBase(unittest.TestCase):
     net = None
     topo = None
     cpn_intf = None
+    cpn_ipv6 = False
     config_ports = {}
     env = collections.defaultdict(dict)
     rand_dpids = set()
@@ -171,6 +172,8 @@ class FaucetTestBase(unittest.TestCase):
             if self.hw_switch:
                 self.dpid = self.config['dpid']
                 self.cpn_intf = self.config['cpn_intf']
+                if 'cpn_ipv6' in self.config:
+                    self.cpn_ipv6 = self.config['cpn_ipv6']
                 self.hardware = self.config['hardware']
                 if 'ctl_privkey' in self.config:
                     self.ctl_privkey = self.config['ctl_privkey']
@@ -418,9 +421,11 @@ class FaucetTestBase(unittest.TestCase):
     def start_net(self):
         """Start Mininet network."""
         controller_intf = 'lo'
+        controller_ipv6 = False
         if self.hw_switch:
             controller_intf = self.cpn_intf
-        self._start_faucet(controller_intf)
+            controller_ipv6 = self.cpn_ipv6
+        self._start_faucet(controller_intf, controller_ipv6)
         self.pre_start_net()
         if self.hw_switch:
             self._attach_physical_switch()
@@ -457,7 +462,7 @@ class FaucetTestBase(unittest.TestCase):
                             port, port_name)
         return self._start_gauge_check()
 
-    def _start_faucet(self, controller_intf):
+    def _start_faucet(self, controller_intf, controller_ipv6):
         last_error_txt = ''
         assert self.net is None # _start_faucet() can't be multiply called
         for _ in range(3):
@@ -474,6 +479,7 @@ class FaucetTestBase(unittest.TestCase):
                 controller=self.CONTROLLER_CLASS(
                     name='faucet', tmpdir=self.tmpdir,
                     controller_intf=controller_intf,
+                    controller_ipv6=controller_ipv6,
                     env=self.env['faucet'],
                     ctl_privkey=self.ctl_privkey,
                     ctl_cert=self.ctl_cert,
@@ -489,6 +495,7 @@ class FaucetTestBase(unittest.TestCase):
                     name='gauge', tmpdir=self.tmpdir,
                     env=self.env['gauge'],
                     controller_intf=controller_intf,
+                    controller_ipv6=controller_ipv6,
                     ctl_privkey=self.ctl_privkey,
                     ctl_cert=self.ctl_cert,
                     ca_certs=self.ca_certs,
