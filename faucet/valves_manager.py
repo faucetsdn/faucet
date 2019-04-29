@@ -73,7 +73,7 @@ class ValvesManager:
             logname (str): log name to use in logging.
             logger  (logging.logging): logger instance to use for logging.
             metrics (FaucetMetrics): metrics instance.
-            notifier (FaucetExperimentalEvent): event notifier instance.
+            notifier (FaucetEvent): event notifier instance.
             bgp (FaucetBgp): BGP instance.
             send_flows_to_dp_by_id: callable, two args - DP ID and list of flows to send to DP.
         """
