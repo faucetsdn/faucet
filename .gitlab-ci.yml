@@ -58,7 +58,7 @@ build-rpi-image:
     - apt-get install -y quilt parted manpages-pl xxd qemu-user-static debootstrap zerofree pxz zip dosfstools bsdtar libcap2-bin grep rsync xz-utils binfmt-support
     - git clone https://github.com/RPi-Distro/pi-gen.git
     - cd pi-gen
-    - git checkout $(git describe --tags $(git rev-list --tags --max-count=1))
+    - git checkout tags/2018-11-13-raspbian-stretch
     - mv ../prerun.sh ./export-image/
     - mv ../common ./scripts/
     - mv ../02-run.sh ./stage2/01-sys-tweaks/
