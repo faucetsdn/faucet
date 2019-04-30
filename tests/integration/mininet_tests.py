@@ -6818,7 +6818,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self.start_net()
 
     def test_untagged(self):
-        """Host can reach eachother, unless both marked loop_protect_external"""
+        """Host can reach each other, unless both marked loop_protect_external"""
 
         # Part 1: Make sure things are connected properly.
         self._connections_aye() # Before reload
@@ -6832,10 +6832,10 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def _mark_external(self, protect_external):
         conf = self._get_faucet_conf()
-        conf['dps']['faucet-2']['interfaces'][3]['loop_protect_external'] = protect_external
+        loop_port = self.non_host_ports(self.dpids[1])[0]
+        conf['dps']['faucet-2']['interfaces'][loop_port]['loop_protect_external'] = protect_external
         self.reload_conf(conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
-        time.sleep(5)
 
     def _connections_aye(self):
         ext_port1, alt_port1, int_port1, ext_port2, alt_port2, int_port2 = self.net.hosts
