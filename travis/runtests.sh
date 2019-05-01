@@ -80,11 +80,19 @@ docker rmi faucet/test-base
 docker images
 
 echo Shard $MATRIX_SHARD: $FAUCETTESTS
+ulimit -c unlimited && echo '/var/tmp/core.%h.%e.%t' > /proc/sys/kernel/core_pattern
 sudo modprobe openvswitch
 sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+  --ulimit core=99999999999:99999999999 \
   -v /var/local/lib/docker:/var/lib/docker \
   -v $HOME/.cache/pip:/var/tmp/pip-cache \
   -e FAUCET_TESTS="${FAUCET_TESTS}" \
   -e PY_FILES_CHANGED="${PY_FILES_CHANGED}" \
   -t ${FAUCET_TEST_IMG} || exit 1
+if ls -1 /var/tmp/core* >/dev/null 2>&1 ; then
+  echo coredumps found after tests run.
+  exit 1
+  # TODO: automatically run gdb?
+fi
+
 exit 0
