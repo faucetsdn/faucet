@@ -1097,11 +1097,33 @@ class Valve:
                 return True
         return False
 
-    def _learn_host(self, now, other_valves, pkt_meta):
-        """Possibly learn a host on a port.
+    def _router_learn_host(self, now, other_valves, pkt_meta):
+        """
+        Construct a rule to enable packets that have been routed to
+            then be forwarded to the destination
 
         Args:
-            valves (list): of all Valves (datapaths).
+            other_valves (list): of all Valves (datapaths).
+            pkt_meta (PacketMeta): PacketMeta instance for packet received.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
+        if pkt_meta.eth_src == pkt_meta.vlan.faucet_mac:
+            return self.host_manager.learn_host_intervlan_routing_flows(
+                now, pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_src, pkt_meta.eth_dst,
+                last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
+        elif pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
+            return self.host_manager.learn_host_intervlan_routing_flows(
+                now, pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_dst, pkt_meta.eth_src,
+                last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
+        return []
+
+    def _learn_host(self, now, other_valves, pkt_meta):
+        """
+        Possibly learn a host on a port.
+
+        Args:
+            other_valves (list): of all Valves (datapaths).
             pkt_meta (PacketMeta): PacketMeta instance for packet received.
         Returns:
             list: OpenFlow messages, if any.
@@ -1307,7 +1329,18 @@ class Valve:
         # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
         return self.lldp_handler(now, pkt_meta, other_valves)
 
-    def _router_rcv_packet(self, now, _other_valves, pkt_meta):
+    def _router_rcv_packet(self, now, other_valves, pkt_meta):
+        """
+        Handle routing:
+            Send packets destined for the router to the router
+            Otherwise run router resolving tasks
+
+        Args:
+            other_valves (list): all Valves other than this one.
+            pkt_meta (PacketMeta): packet for control plane.
+        Returns:
+            dict: OpenFlow messages, if any by Valve.
+        """
         if not pkt_meta.vlan.faucet_vips:
             return []
         route_manager = self._route_manager_by_eth_type.get(
@@ -1335,15 +1368,48 @@ class Valve:
         return ofmsgs
 
     def _vlan_rcv_packet(self, now, other_valves, pkt_meta):
+        """
+        Attempt to handle a packet with VLAN tags using the current valve
+            and all stacked valves
+
+        Args:
+            other_valves (list): all Valves other than this one.
+            pkt_meta (PacketMeta): packet for control plane.
+        Returns:
+            dict: OpenFlow messages, if any by Valve.
+        """
         self._inc_var('of_vlan_packet_ins')
         ban_rules = self.host_manager.ban_rules(pkt_meta)
         if ban_rules:
             return {self: ban_rules}
-
-        ofmsgs = []
-        ofmsgs.extend(self._router_rcv_packet(now, other_valves, pkt_meta))
-        ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
-        return {self: ofmsgs}
+        if pkt_meta.port.stack:
+            # Received the packet from an adjacent DP, but do not know the eth_src,
+            #   the actual src DP will probably initiate learning for this valve
+            return {}
+        # Current valve can call for itself and stacked valves to handle receiving packets
+        dp_ofmsgs = {}
+        original_vlan = pkt_meta.vlan
+        original_port = pkt_meta.port
+        stacked_valves = [self] + [valve for valve in other_valves if valve.dp.stack is not None]
+        for valve in stacked_valves:
+            ofmsgs = []
+            valve_other_valves = list(stacked_valves)
+            valve_other_valves.remove(valve)
+            if valve is not self:
+                stack_port = valve.dp.shortest_path_port(self.dp.name)
+                if stack_port and pkt_meta.vlan.vid in valve.dp.vlans:
+                    valve_vlan = valve.dp.vlans[pkt_meta.vlan.vid]
+                else:
+                    continue
+                pkt_meta.vlan = valve_vlan
+                pkt_meta.port = stack_port
+            ofmsgs.extend(valve._learn_host(now, valve_other_valves, pkt_meta))
+            ofmsgs.extend(valve._router_rcv_packet(now, valve_other_valves, pkt_meta))
+            ofmsgs.extend(valve._router_learn_host(now, valve_other_valves, pkt_meta))
+            dp_ofmsgs[valve] = ofmsgs
+            pkt_meta.port = original_port
+            pkt_meta.vlan = original_vlan
+        return dp_ofmsgs
 
     def rcv_packet(self, now, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).

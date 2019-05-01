@@ -6446,10 +6446,11 @@ class FaucetStringOfDPTest(FaucetTest):
 
     def build_net(self, stack=False, n_dps=1,
                   n_tagged=0, tagged_vid=100,
-                  n_untagged=0, untagged_vid=100,
+                  untagged_hosts = None,
                   include=None, include_optional=None,
                   switch_to_switch_links=1, hw_dpid=None,
-                  stack_ring=False, lacp=False, use_external=False):
+                  stack_ring=False, lacp=False, use_external=False,
+                  router = None, dp_options = None):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
@@ -6463,7 +6464,7 @@ class FaucetStringOfDPTest(FaucetTest):
             dpids=self.dpids,
             n_tagged=n_tagged,
             tagged_vid=tagged_vid,
-            n_untagged=n_untagged,
+            untagged_hosts = untagged_hosts,
             links_per_host=self.LINKS_PER_HOST,
             switch_to_switch_links=switch_to_switch_links,
             test_name=self._test_name(),
@@ -6481,20 +6482,21 @@ class FaucetStringOfDPTest(FaucetTest):
             self.debug_log_path,
             n_tagged,
             tagged_vid,
-            n_untagged,
-            untagged_vid,
+            untagged_hosts,
             include,
             include_optional,
             self.acls(),
             self.acl_in_dp(),
             lacp,
             use_external,
+            router,
+            dp_options
         )
 
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
-                   n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
+                   n_tagged=0, tagged_vid=0, untagged_hosts=None,
                    include=None, include_optional=None, acls=None, acl_in_dp=None,
-                   lacp=False, use_external=False):
+                   lacp=False, use_external=False, router = None, dp_options = None):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
         if dpids is None:
             dpids = []
@@ -6512,26 +6514,41 @@ class FaucetStringOfDPTest(FaucetTest):
         def dp_name(i):
             return 'faucet-%i' % (i + 1)
 
-        def add_vlans(n_tagged, tagged_vid, n_untagged, untagged_vid):
+        def add_vlans(n_tagged, tagged_vid, untagged_hosts, router):
             vlans_config = {}
-            if n_untagged:
-                vlans_config[untagged_vid] = {
-                    'description': 'untagged',
-                }
-
-            if ((n_tagged and not n_untagged) or
-                    (n_tagged and n_untagged and tagged_vid != untagged_vid)):
+            if untagged_hosts:
+                for vid in untagged_hosts.keys():
+                    vlans_config[vid] = {
+                        'description': 'untagged',
+                    }
+            if ((n_tagged and not untagged_hosts) or
+                    (n_tagged and untagged_hosts and tagged_vid not in untagged_hosts)):
                 vlans_config[tagged_vid] = {
                     'description': 'tagged',
                 }
+            if router:
+                for vid in router.keys():
+                    if vid in vlans_config:
+                        if 'faucet_mac' in router[vid]:
+                            vlans_config[vid]['faucet_mac'] = router[vid]['faucet_mac']
+                        if 'faucet_vips' in router[vid]:
+                            vlans_config[vid]['faucet_vips'] = router[vid]['faucet_vips']
             return vlans_config
+
+        def add_router(router):
+            router_config = {}
+            if router:
+                router_config['router-1'] = {
+                    'vlans': list(router.keys()),
+                }
+            return router_config
 
         def add_acl_to_port(name, port, interfaces_config):
             if name in acl_in_dp and port in acl_in_dp[name]:
                 interfaces_config[port]['acl_in'] = acl_in_dp[name][port]
 
         def add_dp_to_dp_ports(name, dpid, dp_config, interfaces_config, stack,
-                               n_tagged, tagged_vid, n_untagged, untagged_vid):
+                               n_tagged, tagged_vid, untagged_hosts):
             for link in self.topo.dpid_peer_links(dpid):
                 port, peer_dpid, peer_port = link.port, link.peer_dpid, link.peer_port
                 interfaces_config[port] = {}
@@ -6548,8 +6565,10 @@ class FaucetStringOfDPTest(FaucetTest):
                     tagged_vlans = []
                     if n_tagged:
                         tagged_vlans.append(tagged_vid)
-                    if n_untagged and untagged_vid not in tagged_vlans:
-                        tagged_vlans.append(untagged_vid)
+                    if untagged_hosts:
+                        for vid in untagged_hosts.keys():
+                            if vid not in tagged_vlans:
+                                tagged_vlans.append(vid)
                     if tagged_vlans:
                         interfaces_config[port]['tagged_vlans'] = tagged_vlans
                     if lacp:
@@ -6568,8 +6587,8 @@ class FaucetStringOfDPTest(FaucetTest):
                 }
 
         def add_dp(name, dpid, hw_dpid, i, stack,
-                   n_tagged, tagged_vid, n_untagged, untagged_vid,
-                   use_external):
+                   n_tagged, tagged_vid, untagged_hosts,
+                   use_external, dp_options):
             dp_config = {
                 'dp_id': int(dpid),
                 'hardware': hardware if dpid == hw_dpid else 'Open vSwitch',
@@ -6592,17 +6611,21 @@ class FaucetStringOfDPTest(FaucetTest):
                 add_acl_to_port(name, port, interfaces_config)
                 index += 1
 
-            for n_port in range(n_untagged):
-                port = self.port_maps[dpid]['port_%d' % index]
-                interfaces_config[port] = {
-                    'native_vlan': untagged_vid,
-                    'loop_protect_external': (use_external and n_port != n_untagged - 1),
-                }
-                add_acl_to_port(name, port, interfaces_config)
-                index += 1
+            if untagged_hosts:
+                n_port = 0
+                for vid, num_hosts in untagged_hosts.items():
+                    for _ in range(num_hosts):
+                        port = self.port_maps[dpid]['port_%d' % index]
+                        interfaces_config[port] = {
+                            'native_vlan': vid,
+                            'loop_protect_external': (use_external and n_port != num_hosts - 1),
+                        }
+                        add_acl_to_port(name, port, interfaces_config)
+                        index += 1
+                        n_port += 1
 
             add_dp_to_dp_ports(name, dpid, dp_config, interfaces_config, stack,
-                               n_tagged, tagged_vid, n_untagged, untagged_vid)
+                               n_tagged, tagged_vid, untagged_hosts)
 
             for portno, config in list(interfaces_config.items()):
                 stack = config.get('stack', None)
@@ -6612,6 +6635,9 @@ class FaucetStringOfDPTest(FaucetTest):
                         'port': 'b%u' % peer_portno})
 
             dp_config['interfaces'] = interfaces_config
+            if dp_options:
+                for key, value in dp_options.items():
+                    dp_config[key] = value
             return dp_config
 
 
@@ -6625,7 +6651,9 @@ class FaucetStringOfDPTest(FaucetTest):
         if include_optional:
             config['include-optional'] = list(include_optional)
 
-        config['vlans'] = add_vlans(n_tagged, tagged_vid, n_untagged, untagged_vid)
+        config['vlans'] = add_vlans(n_tagged, tagged_vid, untagged_hosts, router)
+        if router:
+            config['routers'] = add_router(router)
         config['acls'] = acls.copy()
         config['dps'] = {}
 
@@ -6637,8 +6665,8 @@ class FaucetStringOfDPTest(FaucetTest):
             name = dpid_names[dpid]
             config['dps'][name] = add_dp(
                 name, dpid, hw_dpid, i, stack,
-                n_tagged, tagged_vid, n_untagged, untagged_vid,
-                use_external)
+                n_tagged, tagged_vid, untagged_hosts,
+                use_external, dp_options)
         config_text = yaml.dump(config, default_flow_style=False)
         return config_text
 
@@ -6736,6 +6764,171 @@ class FaucetStringOfDPTest(FaucetTest):
         ), 'Tunnel was not established')
 
 
+class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
+    """IPV4 intervlan routing with stacking test"""
+
+    IPV = 4
+    NETPREFIX = 24
+    ETH_TYPE = IPV4_ETH
+    SWITCH_TO_SWITCH_LINKS = 1
+
+    NUM_DPS = 4
+
+    V100 = 100
+    V200 = 200
+
+    V100_NUM_HOSTS = 1
+    V200_NUM_HOSTS = 1
+
+    FAUCET_MAC2 = '0e:00:00:00:00:02'
+
+    def get_dp_options(self):
+        return {
+            'drop_spoofed_faucet_mac': False,
+            'arp_neighbor_timeout': 2,
+            'max_resolve_backoff_time': 1,
+            'proactive_learn_v4': True
+        }
+
+    def setUp(self):
+        pass
+
+    def set_up(self):
+        super(FaucetUntaggedIPV4RoutingWithStackingTest, self).setUp()
+        router_info = {
+            self.V100: {
+                'faucet_mac': self.FAUCET_MAC,
+                'faucet_vips': [self.get_faucet_vip(1)]
+            }, 
+            self.V200: {
+                'faucet_mac': self.FAUCET_MAC2,
+                'faucet_vips': [self.get_faucet_vip(2)]
+            }
+        }
+        self.build_net(
+            stack = True,
+            n_dps = self.NUM_DPS,
+            untagged_hosts = {self.V100: self.V100_NUM_HOSTS, self.V200: self.V200_NUM_HOSTS},
+            switch_to_switch_links = self.SWITCH_TO_SWITCH_LINKS,
+            hw_dpid = self.hw_dpid,
+            router = router_info,
+            dp_options = self.get_dp_options()
+        )
+        self.start_net()
+
+    def get_faucet_mac(self, vindex):
+        """Get the faucet MAC"""
+        return '0e:00:00:00:00:0%u' % vindex
+
+    def get_faucet_vip(self, vindex):
+        """Get the IPV4 faucet vip"""
+        return '10.%u00.0.254/%u' % (vindex, self.NETPREFIX)
+
+    def get_ip(self, host_n, vindex):
+        """Get the IPV4 host ip"""
+        return '10.%u00.0.%u/%u' % (vindex, host_n, self.NETPREFIX)
+
+    def host_ping(self, src_host, dst_ip):
+        """ping host"""
+        self.one_ipv4_ping(src_host, dst_ip, require_host_learned=False)
+
+    def set_host_ip(self, host, ip):
+        """Set the host ip"""
+        host.setIP(str(ip.ip), prefixLen = self.NETPREFIX)
+
+    def verify_intervlan_routing(self):
+        """Setup host routes and verify intervlan routing is possible"""
+        num_hosts = self.V100_NUM_HOSTS + self.V200_NUM_HOSTS
+        first_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(1))
+        second_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(2))
+        v100_hosts = [(self.net.hosts[i], ipaddress.ip_interface(self.get_ip(i+1, 1)))
+            for i in range(len(self.net.hosts)) if (i % num_hosts) == 0]
+        v200_hosts = [(self.net.hosts[i], ipaddress.ip_interface(self.get_ip(i+1, 2)))
+            for i in range(len(self.net.hosts)) if (i % num_hosts) == 1]
+        for host_tuple in v100_hosts:
+            host, host_ip = host_tuple
+            self.set_host_ip(host, host_ip)
+        for host_tuple in v200_hosts:
+            host, host_ip = host_tuple
+            self.set_host_ip(host, host_ip)
+
+        for v100_host_tuple in v100_hosts:
+            v100_host, v100_host_ip = v100_host_tuple
+            for v200_host_tuple in v200_hosts:
+                v200_host, v200_host_ip = v200_host_tuple
+                self.add_host_route(v100_host, v200_host_ip, first_faucet_vip.ip)
+                self.add_host_route(v200_host, v100_host_ip, second_faucet_vip.ip)
+                self.host_ping(v100_host, v200_host_ip.ip)
+                self.host_ping(v200_host, v100_host_ip.ip)
+                self.assertEqual(self._ip_neigh(v100_host, first_faucet_vip.ip, self.IPV), self.FAUCET_MAC)
+                self.assertEqual(self._ip_neigh(v200_host, second_faucet_vip.ip, self.IPV), self.FAUCET_MAC2)
+        for src_host_tuple in v100_hosts:
+            src_host, src_ip = src_host_tuple
+            for dst_host_tuple in v100_hosts:
+                dst_host, dst_ip = dst_host_tuple
+                if src_host_tuple == dst_host_tuple: continue
+                self.host_ping(src_host, dst_ip.ip)
+        for src_host_tuple in v200_hosts:
+            src_host, src_ip = src_host_tuple
+            for dst_host_tuple in v200_hosts:
+                dst_host, dst_ip = dst_host_tuple
+                if src_host_tuple == dst_host_tuple: continue
+                self.host_ping(src_host, dst_ip.ip)
+
+    def test_intervlan_routing_stack_of_2_dp(self):
+       """Verify intervlan routing works with 2 DPs in a stack"""
+       self.NUM_DPS = 2
+       self.set_up()
+       self.verify_all_stack_up()
+       self.verify_intervlan_routing()
+
+    def test_intervlan_routing_stack_of_3_dp(self):
+        """Verify intervlan routing works with 3 DPs in a stack"""
+        self.NUM_DPS = 3
+        self.set_up()
+        self.verify_all_stack_up()
+        self.verify_intervlan_routing()
+
+    def test_intervlan_routing_stack_of_4_dp(self):
+      """Verify intervlan routing works with 4 DPs in a stack"""
+      self.NUM_DPS = 4
+      self.set_up()
+      self.verify_all_stack_up()
+      self.verify_intervlan_routing()
+
+
+class FaucetUntaggedIPV6RoutingWithStackingTest(FaucetUntaggedIPV4RoutingWithStackingTest):
+    """IPV6 intervlan routing with stacking tests"""
+
+    IPV = 6
+    NETPREFIX = 64
+    ETH_TYPE = IPV6_ETH
+
+    def get_dp_options(self):
+        return {
+            'drop_spoofed_faucet_mac': False,
+            'nd_neighbor_timeout': 2,
+            'max_resolve_backoff_time': 1,
+            'proactive_learn_v6': True
+        }
+
+    def host_ping(self, src_host, dst_ip):
+        """ """
+        self.one_ipv6_ping(src_host, dst_ip, require_host_learned=False)
+
+    def set_host_ip(self, host, ip):
+        """ """
+        self.add_host_ipv6_address(host, ip)
+    
+    def get_faucet_vip(self, vindex):
+        """Get the IPV6 faucet vip"""
+        return 'fc0%u::1:254/112' % vindex
+
+    def get_ip(self, host_n, vindex):
+        """Get the IPV6 host ip"""
+        return 'fc0%u::1:%u/64' % (vindex, host_n)
+
+
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
@@ -6743,7 +6936,7 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPUntaggedTest, self).setUp()
         self.build_net(
-            n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS, untagged_vid=self.VID)
+            n_dps=self.NUM_DPS, untagged_hosts={self.VID: self.NUM_HOSTS})
         self.start_net()
 
     def test_untagged(self):
@@ -6827,8 +7020,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.build_net(
             stack=False,
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
-            untagged_vid=self.VID,
+            untagged_hosts={self.VID: self.NUM_HOSTS},
             switch_to_switch_links=2,
             hw_dpid=self.hw_dpid,
             lacp=True)
@@ -6950,8 +7142,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
-            untagged_vid=self.VID,
+            untagged_hosts={self.VID: self.NUM_HOSTS},
             switch_to_switch_links=2,
             hw_dpid=self.hw_dpid)
         self.start_net()
@@ -6972,8 +7163,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
-            untagged_vid=self.VID,
+            untagged_hosts={self.VID: self.NUM_HOSTS},
             switch_to_switch_links=2,
             hw_dpid=self.hw_dpid,
             use_external=True)
@@ -7047,8 +7237,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
-            untagged_vid=self.VID,
+            untagged_hosts={self.VID: self.NUM_HOSTS},
             switch_to_switch_links=2,
             stack_ring=True)
         self.start_net()
@@ -7196,14 +7385,14 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
-            untagged_vid=self.VID,
+            untagged_hosts={self.VID: self.NUM_HOSTS},
             )
         self.start_net()
 
     def test_unicast(self):
         """Hosts in stack topology can appropriately reach each other over unicast."""
         hosts = self.net.hosts
+        self.verify_all_stack_up()
         self.verify_tp_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
         self.verify_tp_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
         self.verify_tp_dst_notblocked(5000, hosts[0], hosts[6], table_id=None)
@@ -7213,6 +7402,7 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
     def test_broadcast(self):
         """Hosts in stack topology can appropriately reach each other over broadcast."""
         hosts = self.net.hosts
+        self.verify_all_stack_up()
         self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1])
         self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3])
         self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[6])
@@ -7298,8 +7488,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
         self.build_net(
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
-            untagged_vid=self.VID,
+            untagged_hosts={self.VID: self.NUM_HOSTS},
             include_optional=[self.acls_config, missing_config],
         )
         self.start_net()
@@ -7369,8 +7558,7 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
-            untagged_vid=self.VID,
+            untagged_hosts={self.VID: self.NUM_HOSTS},
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
             hw_dpid=self.hw_dpid,
         )
@@ -7426,8 +7614,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
-            untagged_vid=self.VID,
+            untagged_hosts={self.VID: self.NUM_HOSTS},
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
             hw_dpid=self.hw_dpid,
         )

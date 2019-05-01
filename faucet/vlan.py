@@ -368,6 +368,7 @@ class VLAN(Conf):
         return False
 
     def _update_gw_types(self, ip_gw):
+        """Update dyn host/route gw information to a different ip version"""
         if self.is_host_fib_route(ip_gw):
             self.dyn_host_gws_by_ipv[ip_gw.version].add(ip_gw)
             self.dyn_route_gws_by_ipv[ip_gw.version] -= set([ip_gw])
@@ -500,6 +501,7 @@ class VLAN(Conf):
 
     @staticmethod
     def flood_ports(configured_ports, exclude_unicast):
+        """Return configured ports that allow flooding"""
         if exclude_unicast:
             return tuple([port for port in configured_ports if port.unicast_flood])
         return configured_ports
@@ -527,6 +529,7 @@ class VLAN(Conf):
         return actions
 
     def pkt_out_port(self, packet_builder, port, *args):
+        """Return packet-out actions with VLAN tag if port is tagged"""
         vid = None
         if self.port_is_tagged(port):
             vid = self.vid
@@ -534,6 +537,7 @@ class VLAN(Conf):
         return valve_of.packetout(port.number, pkt.data)
 
     def flood_pkt(self, packet_builder, multi_out=True, *args):
+        """Return Packet-out actions via flooding"""
         ofmsgs = []
         for vid, ports in (
                 (self.vid, self.tagged_flood_ports(False)),
@@ -561,6 +565,7 @@ class VLAN(Conf):
         return port in self.untagged or port in self.dot1x_untagged
 
     def vip_map(self, ipa):
+        """Return the vip containing ipa"""
         for faucet_vip in self.faucet_vips:
             if ipa in faucet_vip.network:
                 return faucet_vip

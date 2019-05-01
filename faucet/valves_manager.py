@@ -222,7 +222,6 @@ class ValvesManager:
             self._send_ofmsgs_by_valve(ofmsgs_by_valve)
             valve.update_metrics(now, pkt_meta.port, rate_limited=True)
 
-
     def update_config_applied(self, sent=None, reset=False):
         """Update faucet_config_applied from {dpid: sent} dict,
            defining applied == sent == enqueued via Ryu"""

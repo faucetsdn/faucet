@@ -252,25 +252,6 @@ dps:
 """
         self.check_config_failure(unknown_hardware_config)
 
-    def test_routing_stacking(self):
-        """Test that routing and stacking cannot be enabled together."""
-        routing_stacking_config = """
-vlans:
-    100:
-        description: "100"
-        faucet_vips: ['1.2.3.4/24']
-dps:
-    switch1:
-        dp_id: 0xcafef00d
-        hardware: 'Open vSwitch'
-        stack:
-            priority: 1
-        interfaces:
-            1:
-                native_vlan: 100
-"""
-        self.check_config_failure(routing_stacking_config)
-
     def test_stacking_noroot(self):
         """Test that a stacking root is defined."""
         stacking_config = """
