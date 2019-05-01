@@ -6767,7 +6767,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % remote_second_lacp_port],
             dpid=self.dpids[1])
         self.retry_net_ping()
-        self.set_port_up(first_lacp_port, wait=False)
+        self.set_port_up(first_lacp_port)
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
@@ -7210,14 +7210,18 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         self.start_net()
 
     def verify_tunnel_established(self, src_host, dst_host, other_host, packets=1):
-        """check if a tunnel is created by pinging from src->other and seeing request in dst"""
-        tcpdump_filter = 'icmp'
+        """Verify ICMP packets tunnelled from src to dst."""
+        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
+        self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
         tcpdump_text = self.tcpdump_helper(
-            dst_host, tcpdump_filter, [
+            dst_host, 'icmp', [
+                # need to set static ARP as only ICMP is tunnelled.
+                lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
                 lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
             ],
         )
-        self.assertFalse(re.search(
+        self.wait_nonzero_packet_count_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
+        self.assertTrue(re.search(
             '%s: ICMP echo request' % other_host.IP(), tcpdump_text
         ), 'Tunnel was not established')
 
@@ -7226,13 +7230,13 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         self.wait_for_stack_port_status(self.dpid, self.DP_NAME, stack_port, 2)
 
     def test_tunnel_established(self):
-        """test a tunnel path can be created"""
+        """Test a tunnel path can be created."""
         self.verify_all_stack_up()
         src_host, other_host, dst_host = self.net.hosts[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
     def test_tunnel_path_rerouted(self):
-        """test a tunnel path is rerouted when a stack is down"""
+        """Test a tunnel path is rerouted when a stack is down."""
         self.verify_all_stack_up()
         first_stack_port = self.non_host_ports(self.dpid)[0]
         self.one_stack_port_down(first_stack_port)
