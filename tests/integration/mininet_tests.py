@@ -1015,6 +1015,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
     """
 
     def test_untagged(self):
+        vid = 100 ^ mininet_test_base.OFPVID_PRESENT
         radius_vid1 = (mininet_test_base.MAX_TEST_VID - 1) ^ mininet_test_base.OFPVID_PRESENT
         radius_vid2 = mininet_test_base.MAX_TEST_VID ^ mininet_test_base.OFPVID_PRESENT
         port_no1 = self.port_map['port_1']
@@ -1055,7 +1056,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no3])
         self.wait_until_matching_flow(
-            {'vlan_vid': 100 ^ mininet_test_base.OFPVID_PRESENT},
+            {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
         self.wait_until_no_matching_flow(
