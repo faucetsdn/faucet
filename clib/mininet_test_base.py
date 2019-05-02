@@ -34,6 +34,7 @@ from clib import mininet_test_util
 from clib import mininet_test_topo
 from clib.tcpdump_helper import TcpdumpHelper
 
+MAX_TEST_VID = 512
 MIN_FLAP_TIME = 1
 OFPPC_PORT_DOWN = 1 << 0 # TODO: avoid dependency on Python2 Ryu.
 PEER_BGP_AS = 2**16 + 1

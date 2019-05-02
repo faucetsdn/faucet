@@ -509,11 +509,11 @@ admin  Cleartext-Password := "megaphone"
 vlanuser1001  Cleartext-Password := "password"
     Tunnel-Type = "VLAN",
     Tunnel-Medium-Type = "IEEE-802",
-    Tunnel-Private-Group-id = "1001"
+    Tunnel-Private-Group-id = "radiusassignedvlan1"
 vlanuser2222  Cleartext-Password := "milliphone"
     Tunnel-Type = "VLAN",
     Tunnel-Medium-Type = "IEEE-802",
-    Tunnel-Private-Group-id = "twothousand2hundredand2"'''.format(self.SESSION_TIMEOUT))
+    Tunnel-Private-Group-id = "radiusassignedvlan2"'''.format(self.SESSION_TIMEOUT))
 
         with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
             clients.write('''client localhost {
@@ -956,15 +956,16 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         100:
             vid: 100
             description: "untagged"
-        1001:
-            vid: 1001
+        radiusassignedvlan1:
+            vid: %u
             description: "untagged"
             dot1x_assigned: True
-        twothousand2hundredand2:
-            vid: 2222
+        radiusassignedvlan2:
+            vid: %u
             description: "untagged"
             dot1x_assigned: True
-    """
+    """ % (mininet_test_base.MAX_TEST_VID - 1,
+           mininet_test_base.MAX_TEST_VID)
 
     CONFIG = """
         dot1x:
@@ -983,7 +984,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
                 # 802.1X client.
                 dot1x: True
             %(port_3)d:
-                native_vlan: 1001
+                native_vlan: radiusassignedvlan1
                 # ping host.
             %(port_4)d:
                 native_vlan: 100
@@ -1134,7 +1135,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
             self.eapol2_host, self.eapol1_host.IP(),
             require_host_learned=False, expected_result=False)
         self.wait_8021x_flows(port_no1)
-        # move host1 to vlan 2222
+        # move host1 to new VLAN
         tcpdump_txt = self.try_8021x(
             self.eapol1_host, port_no1, self.wpasupplicant_conf_2, and_logoff=False)
         self.assertIn('Success', tcpdump_txt)
@@ -1234,7 +1235,7 @@ vlans:
     def test_untagged(self):
         last_vid = None
         for _ in range(5):
-            vid = random.randint(2, 512)
+            vid = random.randint(2, mininet_test_base.MAX_TEST_VID)
             if vid == last_vid:
                 continue
             self.change_vlan_config(
