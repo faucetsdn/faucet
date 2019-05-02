@@ -483,7 +483,10 @@ OFP port number ranges (eg. 1-6).
         and all packets transmitted to, the ports specified
         (by name or by port number), to this port. If mirroring
         of denied by ACL packets is desired, use the ACL rule
-        mirror option.
+        mirror option. The mirrored packets are from the perspective
+        of hosts on the mirrored port (for example, a packet with a VLAN
+        tag, transmitted to a host on a mirrored and untagged port,
+        will be mirrored without its original VLAN tag).
     * - name
       - string
       - The configuration key.

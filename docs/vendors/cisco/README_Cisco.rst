@@ -7,7 +7,7 @@ Cisco supports Openflow with FAUCET pipeline on the Catalyst 9000 Series switche
 
 The solution support is currently in beta on the following models:
 
-- `C9300-48P-A <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9300-series-switches/datasheet-c78-738977.html>`_
+- `C9300-48P-A <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9300-series-switches/data_sheet-c78-738977.html>`_
 - `C9410R with SUP1 <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9400-series-switches/datasheet-c78-739053.html>`_
 - `C9500-48X-A <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9500-series-switches/datasheet-c78-738978.html>`_
 

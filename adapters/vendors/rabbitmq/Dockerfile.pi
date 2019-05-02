@@ -8,7 +8,6 @@ ENV PYTHONUNBUFFERED=0
 RUN apk add --update \
     python3 \
     python3-dev \
-    py3-pip \
     gcc \
     musl-dev \
     && rm -rf /var/cache/apk/*
@@ -16,7 +15,8 @@ RUN apk add --update \
 WORKDIR /src
 
 COPY requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
+RUN pip3 install --no-cache-dir --upgrade pip==19.0.3
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY rabbit.py rabbit.py
 COPY test_rabbit.py test_rabbit.py

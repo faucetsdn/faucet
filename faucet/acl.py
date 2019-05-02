@@ -271,13 +271,11 @@ The output action contains a dictionary with the following elements:
                 contain tunnel information
         """
         rules = []
-        i = 0
-        for rule_conf in self.rules:
+        for i, rule_conf in enumerate(self.rules):
             if 'actions' in rule_conf:
                 if 'output' in rule_conf['actions']:
                     if 'tunnel' in rule_conf['actions']['output']:
                         rules.append(i)
-            i += 1
         return rules
 
     def remove_non_tunnel_rules(self):
@@ -287,15 +285,13 @@ The output action contains a dictionary with the following elements:
         """
         new_rules = []
         tunnel_indices = self.get_tunnel_rule_indices()
-        for index in range(len(tunnel_indices)):
-            new_rule = {
-                'actions': {
-                    'output': {
-                        'tunnel': self.get_tunnel_id(tunnel_indices[index])}}}
+        for tunnel_index in tunnel_indices:
+            tunnel_id = self.get_tunnel_id(tunnel_index)
+            new_rule = {'actions': {'output': {'tunnel': tunnel_id}}}
             new_rules.append(new_rule)
         self.rules = new_rules
 
-    def verify_tunnel_compatibility_rules(self, dp):
+    def verify_tunnel_rules(self, dp):
         """
         Verify the actions in the tunnel ACL to by making sure the user hasn't specified an \
             action/match that will create a clash.
@@ -303,9 +299,9 @@ The output action contains a dictionary with the following elements:
             dp (DP): The dp that this tunnel acl object belongs to
         TODO: Choose what combinations of matches & actions to disallow with a tunnel
         """
-        for index in self.get_tunnel_rule_indices():
-            tunnel_id = self.get_tunnel_id(index)
-            src_dp, _src_port, dst_dp, _dst_port = self.unpack_tunnel(tunnel_id) # pylint: disable=unused-variable
+        for tunnel_index in self.get_tunnel_rule_indices():
+            tunnel_id = self.get_tunnel_id(tunnel_index)
+            src_dp, _, _, _ = self.unpack_tunnel(tunnel_id)
             if dp == src_dp:
                 self.matches['in_port'] = False
                 self.set_fields.add('vlan_vid')
@@ -322,47 +318,31 @@ The output action contains a dictionary with the following elements:
             bool: True if any value was updated
         """
         updated = False
-        for index in self.get_tunnel_rule_indices():
-            tunnel_id = self.get_tunnel_id(index)
-            src_dp, _src_port, dst_dp, dst_port = self.unpack_tunnel(tunnel_id) # pylint: disable=unused-variable
-            tunnel_rule = self.rules[index]
+        for tunnel_index in self.get_tunnel_rule_indices():
+            tunnel_id = self.get_tunnel_id(tunnel_index)
+            src_dp, _, dst_dp, dst_port = self.unpack_tunnel(tunnel_id)
+            tunnel_rule = self.rules[tunnel_index]
             if dp.is_in_path(src_dp, dst_dp):
-                if dp == src_dp:
-                    #DP is SRC DP
-                    output_port = dp.shortest_path_port(dst_dp.name)
-                    if output_port is None:
-                        continue
-                    port_number = output_port.number
-                    output_rule = tunnel_rule['actions']['output']
-                    output_rule['vlan_vid'] = tunnel_id
-                    if 'port' not in output_rule:
-                        output_rule['port'] = port_number
-                        updated = True
-                    elif port_number != output_rule['port']:
-                        output_rule['port'] = port_number
-                        updated = True
-                elif dp == dst_dp:
-                    #DP is DST DP
-                    output_rule = tunnel_rule['actions']['output']
+                output_rule = tunnel_rule['actions']['output']
+                orig_output_rule = copy.deepcopy(output_rule)
+                if dp == dst_dp:
                     if not 'pop_vlans' in output_rule:
                         output_rule['pop_vlans'] = 1
-                        updated = True
                     if not 'port' in output_rule:
                         output_rule['port'] = dst_port
-                        updated = True
                 else:
-                    #DP is forwarding DP
                     output_port = dp.shortest_path_port(dst_dp.name)
                     if output_port is None:
                         continue
                     port_number = output_port.number
-                    output_rule = tunnel_rule['actions']['output']
                     if 'port' not in output_rule:
                         output_rule['port'] = port_number
-                        updated = True
                     elif port_number != output_rule['port']:
                         output_rule['port'] = port_number
-                        updated = True
+                    if dp == src_dp:
+                        output_rule['vlan_vid'] = tunnel_id
+                if output_rule != orig_output_rule:
+                    updated = True
         return updated
 
     def _resolve_output_ports(self, action_conf, resolve_port_cb, resolve_tunnel_objects):

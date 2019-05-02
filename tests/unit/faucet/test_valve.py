@@ -51,7 +51,7 @@ from faucet import faucet_bgp
 from faucet import config_parser_util
 from faucet import faucet_dot1x
 from faucet import faucet_experimental_api
-from faucet import faucet_experimental_event
+from faucet import faucet_event
 from faucet import faucet_metrics
 from faucet import valves_manager
 from faucet import valve_of
@@ -382,7 +382,7 @@ class ValveTestBases:
             self.registry = CollectorRegistry()
             self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
             # TODO: verify events
-            self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+            self.notifier = faucet_event.FaucetEventNotifier(
                 self.faucet_event_sock, self.metrics, self.logger)
             self.bgp = faucet_bgp.FaucetBgp(
                 self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
@@ -489,6 +489,7 @@ class ValveTestBases:
                 self.valve.switch_features(None) +
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
             self.table.apply_ofmsgs(connect_msgs)
+            self.valves_manager.update_config_applied(sent={self.DP_ID: True})
             self.assertEqual(1, int(self.get_prom('dp_status')))
             for port_no in discovered_up_ports:
                 if port_no in self.valve.dp.ports:
@@ -2344,24 +2345,20 @@ dps:
         self.assertEqual(sample.name, name)
         return sample.labels
 
-    def _get_hashes(self):
-        """Return and verify hashes"""
-        hashes = self._get_info(metric=self.metrics.faucet_config_hash,
+    def _check_hashes(self):
+        """Verify and return faucet_config_hash_info labels"""
+        labels = self._get_info(metric=self.metrics.faucet_config_hash,
                                 name='faucet_config_hash_info')
-        self._verify_hashes(hashes)
-        return hashes
-
-    def _verify_hashes(self, hashes):
-        """Verify hashes dict"""
-        for filename in hashes:
-            self.assertTrue('/' not in filename)
-        self.assertEqual(len(hashes), 1, 'too many hashes')
-        hash_value = tuple(hashes.values())[0]
-        goal = config_parser_util.config_file_hash(self.config_file)
-        self.assertEqual(hash_value, goal, 'hash validation failed')
+        files = labels['config_files'].split(',')
+        hashes = labels['hashes'].split(',')
+        self.assertTrue(len(files) == len(hashes) == 1)
+        self.assertEqual(files[0], self.config_file, 'wrong config file')
+        hash_value = config_parser_util.config_file_hash(self.config_file)
+        self.assertEqual(hashes[0], hash_value, 'hash validation failed')
+        return labels
 
     def _change_config(self):
-        "Change self.CONFIG"
+        """Change self.CONFIG"""
         if '0x100' in self.CONFIG:
             self.CONFIG = self.CONFIG.replace('0x100', '0x200')
         else:
@@ -2384,27 +2381,77 @@ dps:
         """Verify faucet_config_hash_info is properly updated after config"""
         # Verify that hashes change after config is changed
         old_config = self.CONFIG
-        old_hashes = self._get_hashes()
+        old_hashes = self._check_hashes()
         starting_hashes = old_hashes
         self._change_config()
         new_config = self.CONFIG
         self.assertNotEqual(old_config, new_config, 'config not changed')
-        new_hashes = self._get_hashes()
-        self._verify_hashes(new_hashes)
+        new_hashes = self._check_hashes()
         self.assertNotEqual(old_hashes, new_hashes,
                             'hashes not changed after config change')
         # Verify that hashes don't change after config isn't changed
         old_hashes = new_hashes
         self.update_config(self.CONFIG, reload_expected=False)
-        new_hashes = self._get_hashes()
+        new_hashes = self._check_hashes()
         self.assertEqual(old_hashes, new_hashes,
                          "hashes changed when config didn't")
         # Verify that hash is restored when config is restored
         self._change_config()
-        new_hashes = self._get_hashes()
+        new_hashes = self._check_hashes()
         self.assertEqual(new_hashes, starting_hashes,
                          'hashes should be restored to starting values')
 
+
+
+class ValveTestConfigApplied(ValveTestBases.ValveTestSmall):
+    """Test cases for faucet_config_applied"""
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+"""
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def _get_value(self, name):
+        """Return value of a single prometheus sample"""
+        metric = getattr(self.metrics, name)
+        # There doesn't seem to be a nice API for this,
+        # so we use the prometheus client internal API
+        metrics = list(metric.collect())
+        self.assertEqual(len(metrics), 1)
+        samples = metrics[0].samples
+        self.assertEqual(len(samples), 1)
+        sample = samples[0]
+        self.assertEqual(sample.name, name)
+        return sample.value
+
+    def test_config_applied_update(self):
+        """Verify that config_applied increments after DP connect"""
+        # 100% for a single datapath
+        self.assertEqual(self._get_value('faucet_config_applied'), 1.0)
+        # Add a second datapath, which currently isn't programmed
+        self.CONFIG +="""
+    s2:
+        dp_id: 0x2
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+"""
+        self.update_config(self.CONFIG, reload_expected=False)
+        # Should be 50%
+        self.assertEqual(self._get_value('faucet_config_applied'), .5)
+        # We don't have a way to simulate the second datapath connecting,
+        # we update the statistic manually
+        self.valves_manager.update_config_applied({0x2: True})
+        # Should be 100% now
+        self.assertEqual(self._get_value('faucet_config_applied'), 1.0)
 
 
 class ValveTestTunnel(ValveTestBases.ValveTestSmall):
