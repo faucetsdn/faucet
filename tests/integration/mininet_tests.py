@@ -1048,18 +1048,18 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.wait_until_matching_flow(
             {'in_port': port_no1},
             table_id=self._VLAN_TABLE,
-            actions=['SET_FIELD: {vlan_vid:%u}' % radius_vid2])
+            actions=['SET_FIELD: {vlan_vid:%u}' % radius_vid1])
 
         self.wait_until_matching_flow(
-            {'vlan_vid': radius_vid2},
+            {'vlan_vid': radius_vid1},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no3])
         self.wait_until_matching_flow(
-            {'vlan_vid': radius_vid1},
+            {'vlan_vid': 100 ^ mininet_test_base.OFPVID_PRESENT},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
         self.wait_until_no_matching_flow(
-            {'vlan_vid': radius_vid1},
+            {'vlan_vid': radius_vid2},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
 
