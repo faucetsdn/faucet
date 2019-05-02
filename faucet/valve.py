@@ -1522,9 +1522,11 @@ class Valve:
         )
         return [ofmsg]
 
-    def _reset_dot1x_port_flood(self, vlans):
+    def _reset_dot1x_port_flood(self, port, vlans):
         flood_table = self.dp.tables['flood']
         ofmsgs = []
+        mirror_act = port.mirror_actions()
+        ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         for vlan in vlans:
             ofmsgs.append(flood_table.flowdel(flood_table.match(vlan=vlan.vid)))
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
@@ -1536,10 +1538,7 @@ class Valve:
         for vlan in self.dp.vlans.values():
             if vlan.name == vlan_name:
                 port.dyn_dot1x_native_vlan = vlan
-                mirror_act = port.mirror_actions()
-                # Add port/to VLAN rules.
                 vlan.reset_ports(self.dp.ports.values())
-                ofmsgs.extend(self._port_add_vlans(port, mirror_act))
                 break
 
         eth_src_table = self.dp.tables['eth_src']
@@ -1550,7 +1549,8 @@ class Valve:
             eth_dst_table.flowdel(eth_dst_table.match(eth_dst=eth_src), out_port=port_num))
 
         ofmsgs.extend(self._del_native_vlan(port))
-        ofmsgs.extend(self._reset_dot1x_port_flood((port.dyn_dot1x_native_vlan, port.native_vlan)))
+        ofmsgs.extend(self._reset_dot1x_port_flood(
+            port, (port.dyn_dot1x_native_vlan, port.native_vlan)))
         return ofmsgs
 
     def del_dot1x_native_vlan(self, port_num, eth_src):
@@ -1569,13 +1569,12 @@ class Valve:
             priority=self.dp.low_priority,
         ))
         dyn_vlan.reset_ports(self.dp.ports.values())
-        mirror_act = port.mirror_actions()
-        ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         if eth_src:
             ofmsgs.extend(self.host_manager.delete_host_from_vlan(eth_src, dyn_vlan))
         ofmsgs.append(eth_dst_table.flowdel(out_port=port_num))
 
-        ofmsgs.extend(self._reset_dot1x_port_flood((dyn_vlan, port.native_vlan)))
+        ofmsgs.extend(self._reset_dot1x_port_flood(
+            port, (dyn_vlan, port.native_vlan)))
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
