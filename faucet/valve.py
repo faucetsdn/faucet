@@ -1514,6 +1514,14 @@ class Valve:
         """Return flowmods for deleting dot1x flow pair"""
         return self.acl_manager.del_dot1x_flow_pair(port_num, nfv_sw_port_num, mac)
 
+    def _del_native_vlan(self, port):
+        vlan_table = self.dp.tables['vlan']
+        ofmsg = vlan_table.flowdel(
+            vlan_table.match(in_port=port.number, vlan=port.native_vlan),
+            priority=self.dp.low_priority,
+        )
+        return [ofmsg]
+
     def add_dot1x_native_vlan(self, port_num, eth_src, vlan_name):
         port = self.dp.ports[port_num]
         eth_src_table = self.dp.tables['eth_src']
@@ -1527,7 +1535,7 @@ class Valve:
                 vlan.reset_ports(self.dp.ports.values())
                 ofmsgs.extend(self._port_add_vlans(port, mirror_act))
                 break
-        ofmsgs.extend(self.del_native_vlan(port_num))
+        ofmsgs.extend(self.del_native_vlan(port))
 
         # remove learning rules.
         ofmsgs.append(
@@ -1543,15 +1551,6 @@ class Valve:
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
 
         return ofmsgs
-
-    def del_native_vlan(self, port_num):
-        vlan_table = self.dp.tables['vlan']
-        port = self.dp.ports[port_num]
-        ofmsg = vlan_table.flowdel(
-            vlan_table.match(in_port=port.number, vlan=port.native_vlan),
-            priority=self.dp.low_priority,
-        )
-        return [ofmsg]
 
     def del_dot1x_native_vlan(self, port_num, eth_src):
         vlan_table = self.dp.tables['vlan']
