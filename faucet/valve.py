@@ -1174,7 +1174,7 @@ class Valve:
 
         # Map table ids to table names
         tables = self.dp.tables.values()
-        table_id_to_name = { table.table_id: table.name for table in tables }
+        table_id_to_name = {table.table_id: table.name for table in tables}
 
         for table in tables:
             table_id = table.table_id
@@ -1522,10 +1522,16 @@ class Valve:
         )
         return [ofmsg]
 
+    def _reset_dot1x_port_flood(self, vlans):
+        flood_table = self.dp.tables['flood']
+        ofmsgs = []
+        for vlan in vlans:
+            ofmsgs.append(flood_table.flowdel(flood_table.match(vlan=vlan.vid)))
+            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+        return ofmsgs
+
     def add_dot1x_native_vlan(self, port_num, eth_src, vlan_name):
         port = self.dp.ports[port_num]
-        eth_src_table = self.dp.tables['eth_src']
-        eth_dst_table = self.dp.tables['eth_dst']
         ofmsgs = []
         for vlan in self.dp.vlans.values():
             if vlan.name == vlan_name:
@@ -1535,36 +1541,29 @@ class Valve:
                 vlan.reset_ports(self.dp.ports.values())
                 ofmsgs.extend(self._port_add_vlans(port, mirror_act))
                 break
-        ofmsgs.extend(self.del_native_vlan(port))
 
-        # remove learning rules.
+        eth_src_table = self.dp.tables['eth_src']
+        eth_dst_table = self.dp.tables['eth_dst']
         ofmsgs.append(
             eth_src_table.flowdel(eth_src_table.match(in_port=port_num, eth_src=eth_src)))
         ofmsgs.append(
             eth_dst_table.flowdel(eth_dst_table.match(eth_dst=eth_src), out_port=port_num))
 
-        # recompute flood table.
-        flood_table = self.dp.tables['flood']
-
-        for vlan in [port.dyn_dot1x_native_vlan, port.native_vlan]:
-            ofmsgs.append(flood_table.flowdel(flood_table.match(vlan=vlan.vid)))
-            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
-
+        ofmsgs.extend(self._del_native_vlan(port))
+        ofmsgs.extend(self._reset_dot1x_port_flood((port.dyn_dot1x_native_vlan, port.native_vlan)))
         return ofmsgs
 
     def del_dot1x_native_vlan(self, port_num, eth_src):
-        vlan_table = self.dp.tables['vlan']
-        eth_dst_table = self.dp.tables['eth_dst']
         port = self.dp.ports[port_num]
-        ofmsgs = []
         if port.dyn_dot1x_native_vlan is None:
             return []
 
         dyn_vlan = port.dyn_dot1x_native_vlan
         port.dyn_dot1x_native_vlan = None
 
-        # restore native vlan
-        # remove dyn_vlan
+        ofmsgs = []
+        vlan_table = self.dp.tables['vlan']
+        eth_dst_table = self.dp.tables['eth_dst']
         ofmsgs.append(vlan_table.flowdel(
             vlan_table.match(in_port=port.number, vlan=NullVLAN()),
             priority=self.dp.low_priority,
@@ -1574,16 +1573,9 @@ class Valve:
         ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         if eth_src:
             ofmsgs.extend(self.host_manager.delete_host_from_vlan(eth_src, dyn_vlan))
-
         ofmsgs.append(eth_dst_table.flowdel(out_port=port_num))
 
-        # rebuild flood,
-        flood_table = self.dp.tables['flood']
-
-        for vlan in [dyn_vlan, port.native_vlan]:
-            ofmsgs.append(flood_table.flowdel(flood_table.match(vlan=vlan.vid)))
-            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
-
+        ofmsgs.extend(self._reset_dot1x_port_flood((dyn_vlan, port.native_vlan)))
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
