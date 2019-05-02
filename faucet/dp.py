@@ -27,7 +27,7 @@ import networkx
 from faucet import faucet_pipeline
 from faucet import valve_of
 from faucet import valve_packet
-from faucet.acl import PORT_ACL_8021X
+from faucet.acl import PORT_ACL_8021X, MAB_ACL_8021X
 from faucet.vlan import VLAN
 from faucet.conf import Conf, test_config_condition
 from faucet.faucet_pipeline import ValveTableConfig
@@ -383,7 +383,7 @@ configuration.
         all_acls = {}
         if self.dot1x:
             # NOTE: All acl's are added to the acl list and then referred to later by ports
-            all_acls['port_acl'] = [PORT_ACL_8021X]
+            all_acls['port_acl'] = [PORT_ACL_8021X, MAB_ACL_8021X]
 
             auth_acl = self.acls.get(self.dot1x.get('auth_acl'))
             noauth_acl = self.acls.get(self.dot1x.get('noauth_acl'))

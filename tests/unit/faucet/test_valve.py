@@ -1611,8 +1611,30 @@ vlans:
         dot1x_assigned: True
 """.format(ACL_CONFIG, DOT1X_ACL_CONFIG)
 
-    def setUp(self):
-        self.setup_valve(self.CONFIG)
+
+class ValveDot1xMABSmokeTestCase(ValveDot1xSmokeTestCase):
+    """Smoke test to check dot1x can be initialized."""
+
+    CONFIG = """
+dps:
+    s1:
+{}
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                dot1x: true
+                dot1x_mab: True
+            p2:
+                number: 2
+                output_only: True
+vlans:
+    v100:
+        vid: 0x100
+    student:
+        vid: 0x200
+        dot1x_assigned: True
+""".format(DOT1X_CONFIG)
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):

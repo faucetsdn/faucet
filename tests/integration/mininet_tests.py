@@ -224,14 +224,27 @@ network={
 """
 
     wpasupplicant_conf_2 = """
-    ap_scan=0
-    network={
-        key_mgmt=IEEE8021X
-        eap=MD5
-        identity="admin"
-        password="megaphone"
-    }
+ap_scan=0
+network={
+    key_mgmt=IEEE8021X
+    eap=MD5
+    identity="admin"
+    password="megaphone"
+}
     """
+
+    freeradius_user_conf = '''user   Cleartext-Password := "microphone"
+    Session-timeout = {0}
+admin  Cleartext-Password := "megaphone"
+    Session-timeout = {0}
+vlanuser1001  Cleartext-Password := "password"
+    Tunnel-Type = "VLAN",
+    Tunnel-Medium-Type = "IEEE-802",
+    Tunnel-Private-Group-id = "radiusassignedvlan1"
+vlanuser2222  Cleartext-Password := "milliphone"
+    Tunnel-Type = "VLAN",
+    Tunnel-Medium-Type = "IEEE-802",
+    Tunnel-Private-Group-id = "radiusassignedvlan2"'''
 
     eapol1_host = None
     eapol2_host = None
@@ -502,18 +515,7 @@ listen {
                 default_site.truncate()
 
         with open(users_path, 'w') as users_file:
-            users_file.write('''user   Cleartext-Password := "microphone"
-    Session-timeout = {0}
-admin  Cleartext-Password := "megaphone"
-    Session-timeout = {0}
-vlanuser1001  Cleartext-Password := "password"
-    Tunnel-Type = "VLAN",
-    Tunnel-Medium-Type = "IEEE-802",
-    Tunnel-Private-Group-id = "radiusassignedvlan1"
-vlanuser2222  Cleartext-Password := "milliphone"
-    Tunnel-Type = "VLAN",
-    Tunnel-Medium-Type = "IEEE-802",
-    Tunnel-Private-Group-id = "radiusassignedvlan2"'''.format(self.SESSION_TIMEOUT))
+            users_file.write(self.freeradius_user_conf.format(self.SESSION_TIMEOUT))
 
         with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
             clients.write('''client localhost {
@@ -946,6 +948,73 @@ class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
 
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
+
+
+class Faucet8021XMABTest(Faucet8021XSuccessTest):
+    """Ensure that 802.1x Port Supports Mac Auth Bypass"""
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC',
+                                                 'status': 'success'}},
+                             ]
+
+    CONFIG = """
+        dot1x:
+            nfv_intf: NFV_INTF
+            nfv_sw_port: %(port_4)d
+            radius_ip: 127.0.0.1
+            radius_port: RADIUS_PORT
+            radius_secret: SECRET
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                # 802.1x client.
+                dot1x: True
+                dot1x_mab: True
+            %(port_2)d:
+                native_vlan: 100
+                # 802.1X client.
+                dot1x: True
+            %(port_3)d:
+                native_vlan: 100
+                # ping host.
+            %(port_4)d:
+                native_vlan: 100
+                # "NFV host - interface used by controller."
+    """
+
+    def start_freeradius(self):
+        # Add the host mac address to the FreeRADIUS config
+        self.freeradius_user_conf += '\n{0}  Cleartext-Password := "{0}"'.format(
+            str(self.eapol1_host.MAC()).replace(':', '')
+        )
+        return super(Faucet8021XMABTest, self).start_freeradius()
+
+    def dhclient_callback(self, host, timeout):
+        timeout_cmd = "timeout -k {}s {}".format(str(timeout), str(timeout))
+        dhclient_cmd = 'dhclient -d -1 %s' % host.defaultIntf()
+        return host.cmd(timeout_cmd + " " + dhclient_cmd, verbose=True)
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_labels1 = self.port_labels(port_no1)
+
+        timeout = 10
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+        # First ping fail
+        dhclient_output = self.dhclient_callback(self.eapol1_host, timeout)
+
+        log_file = os.path.join(self.tmpdir, 'faucet.log')
+        self.wait_until_matching_lines_from_file(r'.*AAA_SUCCESS.*', log_file)
+        # Second ping pass
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=True)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
 
 
 class Faucet8021XVLANTest(Faucet8021XSuccessTest):
