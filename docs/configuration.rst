@@ -120,10 +120,6 @@ string names given to the datapath, or the OFP datapath id.
       - boolean
       - True
       - If True, Faucet will drop any packet from a broadcast source address
-    * - drop_lldp
-      - boolean
-      - True
-      - If True, Faucet will drop all LLDP packets arriving at the datapath.
     * - drop_spoofed_faucet_mac
       - boolean
       - True
