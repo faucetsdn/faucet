@@ -1533,7 +1533,7 @@ class Valve:
         ofmsgs.append(
             eth_src_table.flowdel(eth_src_table.match(in_port=port_num, eth_src=eth_src)))
         ofmsgs.append(
-            eth_dst_table.flowdel(eth_dst_table.match(eth_src=eth_src), out_port=port_num))
+            eth_dst_table.flowdel(eth_dst_table.match(eth_dst=eth_src), out_port=port_num))
 
         # recompute flood table.
         flood_table = self.dp.tables['flood']
