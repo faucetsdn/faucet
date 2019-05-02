@@ -1085,20 +1085,20 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.wait_until_no_matching_flow(
             {'in_port': port_no1},
             table_id=self._VLAN_TABLE,
-            actions=['SET_FIELD: {vlan_vid:5097}'])
+            actions=['SET_FIELD: {vlan_vid:%u}' % radius_vid1])
         self.wait_until_matching_flow(
             {'in_port': port_no1},
             table_id=self._VLAN_TABLE,
-            actions=['SET_FIELD: {vlan_vid:4196}'])
+            actions=['SET_FIELD: {vlan_vid:%u}' % vid])
 
         # check flood ports are in the right vlans
         self.wait_until_no_matching_flow(
-            {'vlan_vid': 5097},
+            {'vlan_vid': radius_vid1},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no3])
 
         self.wait_until_matching_flow(
-            {'vlan_vid': 4196},
+            {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
 
@@ -1151,32 +1151,32 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
 
         self.wait_until_no_matching_flow(
             {'eth_src': self.eapol1_host.MAC(),
-             'vlan_vid': 4196},
+             'vlan_vid': vid},
             table_id=self._ETH_SRC_TABLE)
 
         self.wait_until_no_matching_flow(
             {'eth_src': self.eapol1_host.MAC(),
-             'vlan_vid': 5097},
+             'vlan_vid': radius_vid1},
             table_id=self._ETH_SRC_TABLE)
 
         self.wait_until_matching_flow(
             {'eth_src': self.eapol1_host.MAC(),
-             'vlan_vid': 6318},
+             'vlan_vid': radius_vid2},
             table_id=self._ETH_SRC_TABLE)
 
         self.wait_until_no_matching_flow(
             {'eth_dst': self.eapol1_host.MAC(),
-             'vlan_vid': 4196},
+             'vlan_vid': vid},
             table_id=self._ETH_DST_TABLE)
 
         self.wait_until_no_matching_flow(
             {'eth_dst': self.eapol1_host.MAC(),
-             'vlan_vid': 5097},
+             'vlan_vid': radius_vid1},
             table_id=self._ETH_DST_TABLE)
 
         self.wait_until_matching_flow(
             {'eth_dst': self.eapol1_host.MAC(),
-             'vlan_vid': 6318},
+             'vlan_vid': radius_vid2},
             table_id=self._ETH_DST_TABLE)
 
         # test port up/down. removes the dynamic vlan & host cache.
@@ -1187,7 +1187,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
             table_id=self._ETH_SRC_TABLE)
         self.wait_until_no_matching_flow(
             {'eth_dst': self.eapol2_host.MAC(),
-             'vlan_vid': 5097},
+             'vlan_vid': radius_vid1},
             table_id=self._ETH_DST_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no2])
 
@@ -1195,20 +1195,20 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.wait_until_no_matching_flow(
             {'in_port': port_no2},
             table_id=self._VLAN_TABLE,
-            actions=['SET_FIELD: {vlan_vid:6318}'])
+            actions=['SET_FIELD: {vlan_vid:%u}' % radius_vid2])
         self.wait_until_matching_flow(
             {'in_port': port_no2},
             table_id=self._VLAN_TABLE,
-            actions=['SET_FIELD: {vlan_vid:4196}'])
+            actions=['SET_FIELD: {vlan_vid:%u}' % vid])
 
         # check flood ports are in the right vlans
         self.wait_until_no_matching_flow(
-            {'vlan_vid': 6318},
+            {'vlan_vid': radius_vid2},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2])
 
         self.wait_until_matching_flow(
-            {'vlan_vid': 4196},
+            {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
 
