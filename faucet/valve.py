@@ -1294,6 +1294,7 @@ class Valve:
         ofmsgs = []
         ofmsgs.extend(self._router_rcv_packet(now, other_valves, pkt_meta))
         ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
+        ofmsgs.extend(self.get_tunnel_flowmods())
         return {self: ofmsgs}
 
     def rcv_packet(self, now, other_valves, pkt_meta):

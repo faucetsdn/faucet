@@ -7166,6 +7166,76 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.verify_no_cable_errors()
 
 
+class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
+
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+    SWITCH_TO_SWITCH_LINKS = 2
+    VID = 100
+    ACLS = {
+        1: [
+            {'rule': {
+                'dl_type': IPV4_ETH,
+                'ip_proto': 1,
+                'actions': {
+                    'allow': 0,
+                    'output': {
+                        'tunnel': {
+                            'type': 'vlan',
+                            'tunnel_id': 200,
+                            'dp': 'faucet-1',
+                            'port': mininet_test_topo.SWITCH_START_PORT + 1}
+                    }
+                }
+            }}
+        ]
+    }
+
+    # DP-to-acl_in port mapping.
+    ACL_IN_DP = {
+        'faucet-1': {
+            # First port 1, acl_in = 1
+            mininet_test_topo.SWITCH_START_PORT: 1,
+        }
+    }
+
+    def setUp(self): # pylint: disable=invalid-name
+        super(FaucetTunnelSameDpTest, self).setUp()
+        self.build_net(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            untagged_vid=self.VID,
+            acls=self.ACLS,
+            acl_in_dp=self.ACL_IN_DP,
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+            hw_dpid=self.hw_dpid,
+        )
+        self.start_net()
+
+    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=1):
+        """Verify ICMP packets tunnelled from src to dst."""
+        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
+        self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
+        tcpdump_text = self.tcpdump_helper(
+            dst_host, 'icmp', [
+                # need to set static ARP as only ICMP is tunnelled.
+                lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
+                lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
+            ],
+        )
+        self.wait_nonzero_packet_count_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % other_host.IP(), tcpdump_text
+        ), 'Tunnel was not established')
+
+    def test_tunnel_established(self):
+        """Test a tunnel path can be created."""
+        self.verify_all_stack_up()
+        src_host, dst_host, other_host = self.net.hosts[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+
+
 class FaucetTunnelTest(FaucetStringOfDPTest):
 
     NUM_DPS = 2

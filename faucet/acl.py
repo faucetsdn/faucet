@@ -326,8 +326,9 @@ The output action contains a dictionary with the following elements:
                 output_rule = tunnel_rule['actions']['output']
                 orig_output_rule = copy.deepcopy(output_rule)
                 if dp == dst_dp:
-                    if not 'pop_vlans' in output_rule:
-                        output_rule['pop_vlans'] = 1
+                    if src_dp != dst_dp:
+                        if not 'pop_vlans' in output_rule:
+                            output_rule['pop_vlans'] = 1
                     if not 'port' in output_rule:
                         output_rule['port'] = dst_port
                 else:
