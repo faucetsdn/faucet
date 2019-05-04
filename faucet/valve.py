@@ -552,18 +552,20 @@ class Valve:
 
     def _update_stack_link_state(self, port, now, other_valves):
         next_state = self._next_stack_link_state(port, now)
-        if next_state is None:
-            return
-        next_state()
-        self._set_var(
-            'port_stack_state',
-            port.dyn_stack_current_state,
-            labels=self.dp.port_labels(port.number))
-        if port.is_stack_up() or port.is_stack_down():
-            port_stack_up = port.is_stack_up()
-            for valve in [self] + other_valves:
-                valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
-                valve.update_tunnel_flowrules()
+        ofmsgs_by_valve = {}
+        if next_state is not None:
+            next_state()
+            self._set_var(
+                'port_stack_state',
+                port.dyn_stack_current_state,
+                labels=self.dp.port_labels(port.number))
+            if port.is_stack_up() or port.is_stack_down():
+                port_stack_up = port.is_stack_up()
+                for valve in [self] + other_valves:
+                    valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+                    valve.update_tunnel_flowrules()
+                ofmsgs_by_valve[self] = self.get_tunnel_flowmods()
+        return ofmsgs_by_valve
 
     def update_tunnel_flowrules(self):
         """Update tunnel ACL rules because the stack topology has changed"""
@@ -582,9 +584,10 @@ class Valve:
 
     def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""
+        ofmsgs_by_valve = {}
         for port in self.dp.stack_ports:
-            self._update_stack_link_state(port, now, other_valves)
-        return {}
+            ofmsgs_by_valve.update(self._update_stack_link_state(port, now, other_valves))
+        return ofmsgs_by_valve
 
     def _reset_dp_status(self):
         if self.dp.dyn_running:
@@ -959,7 +962,7 @@ class Valve:
                            remote_dp_id, remote_dp_name,
                            remote_port_id, remote_port_state):
         if not port.stack:
-            return
+            return {}
         remote_dp = port.stack['dp']
         remote_port = port.stack['port']
         stack_correct = True
@@ -986,7 +989,7 @@ class Valve:
             'remote_port_id': remote_port_id,
             'remote_port_state': remote_port_state
         }
-        self._update_stack_link_state(port, now, other_valves)
+        return self._update_stack_link_state(port, now, other_valves)
 
     def lldp_handler(self, now, pkt_meta, other_valves):
         """Handle an LLDP packet.
@@ -995,25 +998,27 @@ class Valve:
             pkt_meta (PacketMeta): packet for control plane.
         """
         if pkt_meta.eth_type != valve_of.ether.ETH_TYPE_LLDP:
-            return
+            return {}
         pkt_meta.reparse_all()
         lldp_pkt = valve_packet.parse_lldp(pkt_meta.pkt)
         if not lldp_pkt:
-            return
+            return {}
 
         port = pkt_meta.port
         (remote_dp_id, remote_dp_name,
          remote_port_id, remote_port_state) = valve_packet.parse_faucet_lldp(
              lldp_pkt, self.dp.faucet_dp_mac)
 
+        ofmsgs_by_valve = {}
         if remote_dp_id and remote_port_id:
             self.logger.info('FAUCET LLDP from %s (remote %s, port %u)' % (
                 pkt_meta.log(), valve_util.dpid_log(remote_dp_id), remote_port_id))
-            self._verify_stack_lldp(
+            ofmsgs_by_valve.update(self._verify_stack_lldp(
                 port, now, other_valves,
                 remote_dp_id, remote_dp_name,
-                remote_port_id, remote_port_state)
+                remote_port_id, remote_port_state))
         self.logger.debug('LLDP from %s: %s' % (pkt_meta.log(), str(lldp_pkt)))
+        return ofmsgs_by_valve
 
     @staticmethod
     def _control_plane_handler(now, pkt_meta, route_manager):
@@ -1252,11 +1257,7 @@ class Valve:
             if lacp_ofmsgs_by_valve:
                 return lacp_ofmsgs_by_valve
         # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
-        self.lldp_handler(now, pkt_meta, other_valves)
-        tunnel_ofmsgs = self.get_tunnel_flowmods()
-        if tunnel_ofmsgs:
-            return {self: tunnel_ofmsgs}
-        return {}
+        return self.lldp_handler(now, pkt_meta, other_valves)
 
     def _router_rcv_packet(self, now, _other_valves, pkt_meta):
         if not pkt_meta.vlan.faucet_vips:
