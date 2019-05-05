@@ -86,6 +86,7 @@ sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   --ulimit core=99999999999:99999999999 \
   -v /var/local/lib/docker:/var/lib/docker \
   -v $HOME/.cache/pip:/var/tmp/pip-cache \
+  -e PIP_DEFAULT_TIMEOUT=60 \
   -e FAUCET_TESTS="${FAUCET_TESTS}" \
   -e PY_FILES_CHANGED="${PY_FILES_CHANGED}" \
   -t ${FAUCET_TEST_IMG} || exit 1
