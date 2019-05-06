@@ -82,7 +82,9 @@ docker images
 echo Shard $MATRIX_SHARD: $FAUCETTESTS
 ulimit -c unlimited && echo '/var/tmp/core.%h.%e.%t' > /proc/sys/kernel/core_pattern
 sudo modprobe openvswitch
+# TODO: --network=host for https://www.traviscistatus.com/incidents/kyf149kl6bvp?u=3g7kt113nmgs
 sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+  --network=host \
   --ulimit core=99999999999:99999999999 \
   -v /var/local/lib/docker:/var/lib/docker \
   -v $HOME/.cache/pip:/var/tmp/pip-cache \
