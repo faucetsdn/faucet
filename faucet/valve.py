@@ -1696,6 +1696,14 @@ class ArubaValve(TfmValve):
 
     DEC_TTL = False
 
+    def _delete_all_valve_flows(self):
+        ofmsgs = super(ArubaValve, self)._delete_all_valve_flows()
+        # Unreferenced group(s) from a previous config that used them,
+        # can steal resources from regular flowmods. Unconditionally
+        # delete all groups even if groups are not enabled to avoid this.
+        ofmsgs.append(self.dp.groups.delete_all())
+        return ofmsgs
+
 
 class CiscoC9KValve(TfmValve):
     """Valve implementation for C9K."""
