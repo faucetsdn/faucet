@@ -32,6 +32,7 @@ from ryu.lib.packet.stream_parser import StreamParser
 
 from faucet import valve_util
 from faucet import valve_of
+from faucet.port import STACK_STATE_DOWN
 
 FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
 
@@ -289,8 +290,13 @@ def faucet_lldp_tlvs(dp):
 def faucet_lldp_stack_state_tlvs(dp, port):
     """Return a LLDP TLV for state of a stack port."""
     tlvs = []
-    if not port.stack:
+    if not port.stack and not port.lldp_failover:
         return []
+    if port.lldp_failover:
+        if dp.ports[port.lldp_failover].dyn_lldp_beacon_recv_state != STACK_STATE_DOWN:
+            port.stack_up()
+        else:
+            port.stack_failover()
     tlvs.append(
         (
             faucet_oui(dp.faucet_dp_mac),

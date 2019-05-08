@@ -23,7 +23,7 @@ STACK_STATE_ADMIN_DOWN = 0
 STACK_STATE_INIT = 1
 STACK_STATE_DOWN = 2
 STACK_STATE_UP = 3
-
+STACK_STATE_FAILOVER = 4
 
 class Port(Conf):
     """Stores state for ports, including the configuration."""
@@ -58,6 +58,8 @@ class Port(Conf):
         # if non 0 (LAG ID), experimental LACP support enabled on this port.
         'lacp_active': False,
         # experimental active LACP
+        'lacp_peers': None,
+        # If set, link the lacp state of this port to the stack state of peer port.
         'loop_protect': False,
         # if True, do simple (host/access port) loop protection on this port.
         'loop_protect_external': False,
@@ -66,6 +68,8 @@ class Port(Conf):
         # if True, all packets input from this port are dropped.
         'lldp_beacon': {},
         # LLDP beacon configuration for this port.
+        'lldp_failover': None,
+        # LLDP failover port for this port.
         'opstatus_reconf': True,
         # If True, configure pipeline if operational status of port changes.
         'receive_lldp': False,
@@ -98,10 +102,12 @@ class Port(Conf):
         'hairpin_unicast': bool,
         'lacp': int,
         'lacp_active': bool,
+        'lacp_peers': list,
         'loop_protect': bool,
         'loop_protect_external': bool,
         'output_only': bool,
         'lldp_beacon': dict,
+        'lldp_failover': int,
         'opstatus_reconf': bool,
         'receive_lldp': bool,
         'override_output_port': (str, int),
@@ -140,10 +146,12 @@ class Port(Conf):
         self.hairpin_unicast = None
         self.lacp = None
         self.lacp_active = None
+        self.lacp_peers = None
         self.loop_protect = None
         self.loop_protect_external = None
         self.max_hosts = None
         self.max_lldp_lost = None
+        self.lldp_failover = None
         self.mirror = None
         self.name = None
         self.native_vlan = None
@@ -163,6 +171,8 @@ class Port(Conf):
         self.dyn_last_ban_time = None
         self.dyn_last_lacp_pkt = None
         self.dyn_last_lldp_beacon_time = None
+        self.dyn_lldp_beacon_recv_time = 0
+        self.dyn_lldp_beacon_recv_state = False
         self.dyn_learn_ban_count = 0
         self.dyn_phys_up = False
         self.dyn_stack_current_state = STACK_STATE_DOWN
@@ -326,6 +336,10 @@ class Port(Conf):
     def stack_down(self):
         """Change the current stack state to DOWN."""
         self.dyn_stack_current_state = STACK_STATE_DOWN
+
+    def stack_failover(self):
+        """Change the current stack state to FAILOVER."""
+        self.dyn_stack_current_state = STACK_STATE_FAILOVER
 
     def stack_admin_down(self):
         """Change the current stack state to ADMIN_DOWN."""
