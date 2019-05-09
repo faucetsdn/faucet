@@ -7213,7 +7213,7 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
         )
         self.start_net()
 
-    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=1):
+    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
         """Verify ICMP packets tunnelled from src to dst."""
         icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
         self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
@@ -7283,7 +7283,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         )
         self.start_net()
 
-    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=1):
+    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
         """Verify ICMP packets tunnelled from src to dst."""
         icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
         self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
