@@ -1393,8 +1393,7 @@ dbs:
         unicast_mac1 = '0e:00:00:00:00:02'
         unicast_mac2 = '0e:00:00:00:00:03'
         hello_template = (
-            'python3 -c \"from scapy.all import * ; '
-            'sendp(Ether(src=\'%s\', dst=\'%s\')/'
+            'Ether(src=\'%s\', dst=\'%s\')/'
             'IP(src=\'10.0.0.100\', dst=\'10.0.0.255\')/'
             'UDP(dport=9)/'
             'b\'hello\'')
