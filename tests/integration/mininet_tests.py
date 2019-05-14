@@ -6842,7 +6842,6 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             restart=True, cold_start=False, change_expected=True)
 
     def _verify_link(self, hosts=None, expected=True):
-        print('hello there %s' % expected)
         self.verify_broadcast(hosts, expected)
         self.verify_unicast(hosts, expected)
 
