@@ -1367,6 +1367,29 @@ dbs:
             broadcast_expected,
             re.search('%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt) is not None)
 
+    def verify_unicast(self, hosts=None, unicast_expected=True):
+        host_a = self.net.hosts[0]
+        host_b = self.net.hosts[-1]
+        if hosts is not None:
+            host_a, host_b = hosts
+        hello_template = (
+            'python3 -c \"from scapy.all import * ; '
+            'sendp(Ether(src=\'%s\', dst=\'%s\')/'
+            'IP(src=\'10.0.0.100\', dst=\'10.0.0.255\')/'
+            'UDP(dport=9)/'
+            'b\'hello\'')
+        tcpdump_filter = (
+            'ether src host %s and ether dst host %s' % (host_a.MAC(), host_b.MAC()))
+        tcpdump_txt = self.tcpdump_helper(
+            host_b, tcpdump_filter, [
+                partial(host_a.cmd, (
+                        self.scapy_template(
+                            hello_template % (host_a.MAC(), host_b.MAC()),
+                            host_a.defaultIntf(),
+                            count=3)))],
+            timeout=5, vflags='-vv', packets=1)
+        self.verify_no_packets(tcpdump_txt)
+
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
             'tcpdump -n -v -A -r %s 2> /dev/null' % cap_file for cap_file in cap_files]
