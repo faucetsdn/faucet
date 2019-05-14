@@ -6842,8 +6842,9 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             restart=True, cold_start=False, change_expected=True)
 
     def _verify_link(self, hosts=None, expected=True):
-        self.verify_broadcast(hosts=hosts, broadcast_expected=expected)
-        self.verify_unicast(hosts=hosts, unicast_expected=expected)
+        print('hello there %s' % expected)
+        self.verify_broadcast(hosts, expected)
+        self.verify_unicast(hosts, expected)
 
     def _connections_aye(self):
         ext_port1, alt_port1, int_port1, ext_port2, alt_port2, int_port2 = self.net.hosts
