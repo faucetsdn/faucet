@@ -208,11 +208,12 @@ def add_mac_address_to_match(match, eth_src):
 class ValveAclManager(ValveManagerBase):
     """Handle installation of ACLs on a DP"""
 
-    def __init__(self, port_acl_table, vlan_acl_table, pipeline, meters,
-                 dp_acls=None):
+    def __init__(self, port_acl_table, vlan_acl_table, egress_acl_table,
+                 pipeline, meters, dp_acls=None):
         self.dp_acls = dp_acls
         self.port_acl_table = port_acl_table
         self.vlan_acl_table = vlan_acl_table
+        self.egress_acl_table = egress_acl_table
         self.pipeline = pipeline
         self.acl_priority = self._FILTER_PRIORITY
         self.dot1x_static_rules_priority = self.acl_priority + 1
@@ -273,6 +274,13 @@ class ValveAclManager(ValveManagerBase):
                 vlan.acls_in, self.vlan_acl_table, acl_allow_inst,
                 acl_force_port_vlan_inst, self.acl_priority, self.meters,
                 vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
+        if vlan.acls_out:
+            acl_allow_inst = self.pipeline.accept_to_egress()
+            ofmsgs.extend(build_acl_ofmsgs(
+                vlan.acls_out, self.egress_acl_table, acl_allow_inst,
+                acl_allow_inst, self.acl_priority, self.meters,
+                vlan.acls_out[0].exact_match, vlan_vid=vlan.vid
+                ))
         return ofmsgs
 
     def add_authed_mac(self, port_num, mac):
