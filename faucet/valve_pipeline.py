@@ -79,6 +79,20 @@ class ValvePipeline(ValveManagerBase):
         """
         return self._accept_to_table(self.output_table, actions)
 
+    def accept_to_egress(self, actions=None):
+        """Get instructions to forward packet through the pipeline to egress
+        table
+
+        Raises an assertion error if egress pipeline is not configured
+
+        args:
+            actions: (optional) list of actions to apply to the packet
+        returns:
+            list of instructions:
+        """
+        assert self.egress_table is not None
+        return self._accept_to_table(self.egress_table, actions)
+
     def output(self, port, vlan, hairpin=False, loop_protect_field=None):
         """Get instructions list to output a packet through the regular
         pipeline.
