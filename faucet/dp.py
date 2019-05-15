@@ -379,7 +379,7 @@ configuration.
 
             auth_acl = self.acls.get(self.dot1x.get('auth_acl'))
             noauth_acl = self.acls.get(self.dot1x.get('noauth_acl'))
-            
+
             if auth_acl:
                 all_acls['port_acl'].append(auth_acl)
             if noauth_acl:
@@ -1033,6 +1033,14 @@ configuration.
                         acls.append(self.acls[acl])
                         resolved.append(acl)
                     vlan.acls_in = acls
+                    verify_acl_exact_match(acls)
+                if vlan.acls_out:
+                    acls = []
+                    for acl in vlan.acls_out:
+                        resolve_acl(acl, vid=vlan.vid)
+                        acls.append(self.acls[acl])
+                        resolved.append(acl)
+                    vlan.acls_out = acls
                     verify_acl_exact_match(acls)
             for port in self.ports.values():
                 acls = []
