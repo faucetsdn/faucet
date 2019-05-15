@@ -906,7 +906,7 @@ dps:
             'vlan': 1,
             'eth_src': 4,
             'eth_dst': 9,
-            'flood': 10
+            'flood': 11
             }
         self._check_table_names_numbers(dp, tables)
 
@@ -1072,6 +1072,38 @@ dps:
             'eth_dst': 2,
             'flood': 3,
             'egress': 4
+            }
+        self._check_table_names_numbers(dp, tables)
+
+    def test_pipeline_config_egress_acl(self):
+        """test acl config is valid when not using 'rule' key"""
+        config = """
+acls:
+    vlan-protect:
+        -
+            dl_type: 0x800
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+        acl_out: vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[0x1]
+        tables = {
+            'vlan': 0,
+            'eth_src': 1,
+            'eth_dst': 2,
+            'egress_acl': 3,
+            'flood': 4,
+            'egress': 5
             }
         self._check_table_names_numbers(dp, tables)
 

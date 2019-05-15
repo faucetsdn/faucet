@@ -389,6 +389,10 @@ configuration.
             if vlan.acls_in:
                 all_acls.setdefault('vlan_acl', [])
                 all_acls['vlan_acl'].extend(vlan.acls_in)
+            if vlan.acls_out:
+                all_acls.setdefault('egress_acl', [])
+                all_acls['egress_acl'].extend(vlan.acls_out)
+                self.egress_pipeline = True
         if self.dp_acls:
             test_config_condition(self.dot1x, (
                 'DP ACLs and 802.1x cannot be configured together'))
