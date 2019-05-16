@@ -2039,6 +2039,81 @@ acls:
             msg='Packet not allowed by ACL')
 
 
+class ValveEgressACLTestCase(ValveTestBases.ValveTestSmall):
+    """Test ACL drop/allow and reloading."""
+
+    def setUp(self):
+        self.setup_valve(CONFIG)
+
+    def test_vlan_acl_deny(self):
+        """Test VLAN ACL denies a packet."""
+        acl_config = """
+dps:
+    s1:
+        hardware: 'Open vSwitch'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                native_vlan: v300
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+        acl_out: drop_non_ospf_ipv4
+    v300:
+        vid: 0x300
+acls:
+    drop_non_ospf_ipv4:
+        - rule:
+            nw_dst: '224.0.0.5'
+            dl_type: 0x800
+            actions:
+                allow: 1
+        - rule:
+            dl_type: 0x800
+            actions:
+                allow: 0
+""" % DP1_CONFIG
+
+        drop_match = {
+            'in_port': 2,
+            'vlan_vid': 0,
+            'eth_type': 0x800,
+            'ipv4_dst': '192.0.2.1'}
+        accept_match = {
+            'in_port': 2,
+            'vlan_vid': 0,
+            'eth_type': 0x800,
+            'ipv4_dst': '224.0.0.5'}
+        # base case
+        for match in (drop_match, accept_match):
+            self.assertTrue(
+                self.table.is_output(match, port=3, vid=self.V200),
+                msg='Packet not output before adding ACL')
+
+        self.update_config(acl_config, reload_type='cold')
+        self.assertFalse(
+            self.table.is_output(drop_match),
+            msg='Packet not blocked by ACL')
+        self.assertTrue(
+            self.table.is_output(accept_match, port=3, vid=self.V200),
+            msg='Packet not allowed by ACL')
+
 class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
     """Test stacking/forwarding."""
 
