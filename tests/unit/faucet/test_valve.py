@@ -2058,25 +2058,20 @@ dps:
                 native_vlan: v100
             p2:
                 number: 2
-                native_vlan: v200
-                tagged_vlans: [v100]
+                native_vlan: v100
             p3:
                 number: 3
-                tagged_vlans: [v100, v200]
+                native_vlan: v100
+                tagged_vlans: [v200]
             p4:
                 number: 4
-                tagged_vlans: [v200]
-            p5:
-                number: 5
-                native_vlan: v300
+                native_vlan: v200
 vlans:
     v100:
         vid: 0x100
+        acl_out: drop_non_ospf_ipv4
     v200:
         vid: 0x200
-        acl_out: drop_non_ospf_ipv4
-    v300:
-        vid: 0x300
 acls:
     drop_non_ospf_ipv4:
         - rule:
@@ -2091,7 +2086,7 @@ acls:
 """ % DP1_CONFIG
 
         drop_match = {
-            'in_port': 2,
+            'in_port': 1,
             'vlan_vid': 0,
             'eth_type': 0x800,
             'ipv4_dst': '192.0.2.1'}
@@ -2100,18 +2095,29 @@ acls:
             'vlan_vid': 0,
             'eth_type': 0x800,
             'ipv4_dst': '224.0.0.5'}
+        v200_accept_match = {'in_port': 4, 'vlan_vid': 0}
         # base case
         for match in (drop_match, accept_match):
             self.assertTrue(
-                self.table.is_output(match, port=3, vid=self.V200),
+                self.table.is_output(match, port=3),
                 msg='Packet not output before adding ACL')
 
         self.update_config(acl_config, reload_type='cold')
+        self.assertTrue(
+            self.table.is_output(v200_accept_match, port=3),
+            msg='Packet not output when on vlan with no ACL'
+            )
         self.assertFalse(
-            self.table.is_output(drop_match),
+            self.table.is_output(drop_match, port=3),
+            msg='Packet not blocked by ACL')
+        self.assertFalse(
+            self.table.is_output(drop_match, port=1),
             msg='Packet not blocked by ACL')
         self.assertTrue(
-            self.table.is_output(accept_match, port=3, vid=self.V200),
+            self.table.is_output(accept_match, port=3),
+            msg='Packet not allowed by ACL')
+        self.assertTrue(
+            self.table.is_output(accept_match, port=1),
             msg='Packet not allowed by ACL')
 
 class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):

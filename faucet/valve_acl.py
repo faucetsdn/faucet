@@ -274,13 +274,20 @@ class ValveAclManager(ValveManagerBase):
                 vlan.acls_in, self.vlan_acl_table, acl_allow_inst,
                 acl_force_port_vlan_inst, self.acl_priority, self.meters,
                 vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
-        if vlan.acls_out:
-            acl_allow_inst = self.pipeline.accept_to_egress()
-            ofmsgs.extend(build_acl_ofmsgs(
-                vlan.acls_out, self.egress_acl_table, acl_allow_inst,
-                acl_allow_inst, self.acl_priority, self.meters,
-                vlan.acls_out[0].exact_match, vlan_vid=vlan.vid
-                ))
+        if self.egress_acl_table is not None:
+            egress_acl_allow_inst = self.pipeline.accept_to_egress()
+            if vlan.acls_out:
+                ofmsgs.extend(build_acl_ofmsgs(
+                    vlan.acls_out, self.egress_acl_table, egress_acl_allow_inst,
+                    egress_acl_allow_inst, self.acl_priority, self.meters,
+                    vlan.acls_out[0].exact_match, vlan_vid=vlan.vid
+                    ))
+            else:
+                ofmsgs.append(self.egress_acl_table.flowmod(
+                    self.egress_acl_table.match(vlan=vlan),
+                    priority=self.acl_priority,
+                    inst=egress_acl_allow_inst
+                    ))
         return ofmsgs
 
     def add_authed_mac(self, port_num, mac):

@@ -906,7 +906,7 @@ dps:
             'vlan': 1,
             'eth_src': 4,
             'eth_dst': 9,
-            'flood': 11
+            'flood': 12
             }
         self._check_table_names_numbers(dp, tables)
 
@@ -1034,21 +1034,21 @@ dps:
             'ipv6_fib': 6,
             'vip': 7,
             'eth_dst': 8,
-            'flood': 9,
-            'egress': 10
+            'egress': 9,
+            'flood': 10,
             }
         self._check_table_names_numbers(dp, tables)
-        self._check_next_tables(dp.tables['port_acl'], [1, 7, 8, 9])
+        self._check_next_tables(dp.tables['port_acl'], [1, 7, 8, 10])
         self._check_next_tables(dp.tables['vlan'], [2, 3, 4])
-        self._check_next_tables(dp.tables['vlan_acl'], [3, 4, 8, 9])
-        self._check_next_tables(dp.tables['classification'], [4, 5, 6, 7, 8, 9])
-        self._check_next_tables(dp.tables['eth_src'], [5, 6, 7, 8, 9])
-        self._check_next_tables(dp.tables['ipv4_fib'], [7, 8, 9])
-        self._check_next_tables(dp.tables['ipv6_fib'], [7, 8, 9])
-        self._check_next_tables(dp.tables['vip'], [8, 9])
-        self._check_next_tables(dp.tables['eth_dst'], [10])
+        self._check_next_tables(dp.tables['vlan_acl'], [3, 4, 8, 10])
+        self._check_next_tables(dp.tables['classification'], [4, 5, 6, 7, 8, 10])
+        self._check_next_tables(dp.tables['eth_src'], [5, 6, 7, 8, 10])
+        self._check_next_tables(dp.tables['ipv4_fib'], [7, 8, 10])
+        self._check_next_tables(dp.tables['ipv6_fib'], [7, 8, 10])
+        self._check_next_tables(dp.tables['vip'], [8, 10])
+        self._check_next_tables(dp.tables['eth_dst'], [9])
+        self._check_next_tables(dp.tables['egress'], [10])
         self._check_next_tables(dp.tables['flood'], [])
-        self._check_next_tables(dp.tables['egress'], [])
 
     def test_pipeline_config_egress(self):
         """Test pipelines are generated correctly with different configs"""
@@ -1070,8 +1070,8 @@ dps:
             'vlan': 0,
             'eth_src': 1,
             'eth_dst': 2,
-            'flood': 3,
-            'egress': 4
+            'egress': 3,
+            'flood': 4,
             }
         self._check_table_names_numbers(dp, tables)
 
@@ -1102,8 +1102,8 @@ dps:
             'eth_src': 1,
             'eth_dst': 2,
             'egress_acl': 3,
-            'flood': 4,
-            'egress': 5
+            'egress': 4,
+            'flood': 5,
             }
         self._check_table_names_numbers(dp, tables)
 

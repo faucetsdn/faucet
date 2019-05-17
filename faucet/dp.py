@@ -489,6 +489,9 @@ configuration.
             eth_dst_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
             eth_dst_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
 
+        if 'egress_acl' in included_tables:
+            table_configs['eth_dst'].miss_goto = 'egress_acl'
+
         oxm_fields = set(valve_of.MATCH_FIELDS.keys())
 
         for table_name, table_config in table_configs.items():
