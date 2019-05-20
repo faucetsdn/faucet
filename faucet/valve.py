@@ -588,12 +588,6 @@ class Valve:
         ofmsgs_by_valve = {}
         for port in self.dp.stack_ports:
             ofmsgs_by_valve.update(self._update_stack_link_state(port, now, other_valves))
-        for port in self.dp.ports.values():
-            delta_time = now - port.dyn_lldp_beacon_recv_time
-            if delta_time > 15 and port.dyn_lldp_beacon_recv_state != STACK_STATE_DOWN:
-                if port.dyn_lldp_beacon_recv_time:
-                    self.logger.info('LLDP for port %s inactive after %s' % (port, delta_time))
-                port.dyn_lldp_beacon_recv_state = STACK_STATE_DOWN
         return ofmsgs_by_valve
 
     def _reset_dp_status(self):
@@ -1029,12 +1023,6 @@ class Valve:
         (remote_dp_id, remote_dp_name,
          remote_port_id, remote_port_state) = valve_packet.parse_faucet_lldp(
              lldp_pkt, self.dp.faucet_dp_mac)
-
-        port.dyn_lldp_beacon_recv_time = now
-        remote_lldp_state = remote_port_state if remote_port_state else STACK_STATE_INIT
-        if port.dyn_lldp_beacon_recv_state != remote_lldp_state:
-            self.logger.info('LLDP for port %s active with %s' % (port, remote_lldp_state))
-            port.dyn_lldp_beacon_recv_state = remote_lldp_state
 
         ofmsgs_by_valve = {}
         if remote_dp_id and remote_port_id:
