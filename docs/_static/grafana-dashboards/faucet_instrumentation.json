@@ -536,7 +536,7 @@
       "targets": [
         {
           "dsType": "influxdb",
-          "expr": "faucet_config_reload_requests",
+          "expr": "faucet_config_reload_requests_total",
           "format": "time_series",
           "groupBy": [
             {
@@ -653,7 +653,7 @@
       "targets": [
         {
           "dsType": "influxdb",
-          "expr": "faucet_config_reload_cold",
+          "expr": "faucet_config_reload_cold_total",
           "format": "time_series",
           "groupBy": [
             {
@@ -770,7 +770,7 @@
       "targets": [
         {
           "dsType": "influxdb",
-          "expr": "faucet_config_reload_warm",
+          "expr": "faucet_config_reload_warm_total",
           "format": "time_series",
           "groupBy": [
             {
