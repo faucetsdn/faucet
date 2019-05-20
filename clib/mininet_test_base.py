@@ -347,6 +347,7 @@ class FaucetTestBase(unittest.TestCase):
             for host in self.net.hosts[:1]:
                 if self.get_host_netns(host):
                     self.quiet_commands(host, ['ip netns del %s' % self.hostns(host)])
+        self.net.switches[0].cmd('ip link > %s' % os.path.join(self.tmpdir, 'ip-links.log'))
         switch_names = []
         for switch in self.net.switches:
             switch_names.append(switch.name)
