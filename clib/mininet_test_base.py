@@ -34,6 +34,8 @@ from clib import mininet_test_util
 from clib import mininet_test_topo
 from clib.tcpdump_helper import TcpdumpHelper
 
+MAX_TEST_VID = 512
+OFPVID_PRESENT = 0x1000
 MIN_FLAP_TIME = 1
 OFPPC_PORT_DOWN = 1 << 0 # TODO: avoid dependency on Python2 Ryu.
 PEER_BGP_AS = 2**16 + 1
@@ -1391,8 +1393,7 @@ dbs:
         unicast_mac1 = '0e:00:00:00:00:02'
         unicast_mac2 = '0e:00:00:00:00:03'
         hello_template = (
-            'python3 -c \"from scapy.all import * ; '
-            'sendp(Ether(src=\'%s\', dst=\'%s\')/'
+            'Ether(src=\'%s\', dst=\'%s\')/'
             'IP(src=\'10.0.0.100\', dst=\'10.0.0.255\')/'
             'UDP(dport=9)/'
             'b\'hello\'')

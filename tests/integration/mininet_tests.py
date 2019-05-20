@@ -509,11 +509,11 @@ admin  Cleartext-Password := "megaphone"
 vlanuser1001  Cleartext-Password := "password"
     Tunnel-Type = "VLAN",
     Tunnel-Medium-Type = "IEEE-802",
-    Tunnel-Private-Group-id = "1001"
+    Tunnel-Private-Group-id = "radiusassignedvlan1"
 vlanuser2222  Cleartext-Password := "milliphone"
     Tunnel-Type = "VLAN",
     Tunnel-Medium-Type = "IEEE-802",
-    Tunnel-Private-Group-id = "twothousand2hundredand2"'''.format(self.SESSION_TIMEOUT))
+    Tunnel-Private-Group-id = "radiusassignedvlan2"'''.format(self.SESSION_TIMEOUT))
 
         with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
             clients.write('''client localhost {
@@ -956,15 +956,16 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         100:
             vid: 100
             description: "untagged"
-        1001:
-            vid: 1001
+        radiusassignedvlan1:
+            vid: %u
             description: "untagged"
             dot1x_assigned: True
-        twothousand2hundredand2:
-            vid: 2222
+        radiusassignedvlan2:
+            vid: %u
             description: "untagged"
             dot1x_assigned: True
-    """
+    """ % (mininet_test_base.MAX_TEST_VID - 1,
+           mininet_test_base.MAX_TEST_VID)
 
     CONFIG = """
         dot1x:
@@ -983,7 +984,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
                 # 802.1X client.
                 dot1x: True
             %(port_3)d:
-                native_vlan: 1001
+                native_vlan: radiusassignedvlan1
                 # ping host.
             %(port_4)d:
                 native_vlan: 100
@@ -1014,6 +1015,9 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
     """
 
     def test_untagged(self):
+        vid = 100 ^ mininet_test_base.OFPVID_PRESENT
+        radius_vid1 = (mininet_test_base.MAX_TEST_VID - 1) ^ mininet_test_base.OFPVID_PRESENT
+        radius_vid2 = mininet_test_base.MAX_TEST_VID ^ mininet_test_base.OFPVID_PRESENT
         port_no1 = self.port_map['port_1']
         port_no2 = self.port_map['port_2']
         port_no3 = self.port_map['port_3']
@@ -1045,18 +1049,18 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.wait_until_matching_flow(
             {'in_port': port_no1},
             table_id=self._VLAN_TABLE,
-            actions=['SET_FIELD: {vlan_vid:5097}'])
+            actions=['SET_FIELD: {vlan_vid:%u}' % radius_vid1])
 
         self.wait_until_matching_flow(
-            {'vlan_vid': 5097},
+            {'vlan_vid': radius_vid1},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no3])
         self.wait_until_matching_flow(
-            {'vlan_vid': 4196},
+            {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
         self.wait_until_no_matching_flow(
-            {'vlan_vid': 4196},
+            {'vlan_vid': radius_vid2},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
 
@@ -1082,20 +1086,20 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.wait_until_no_matching_flow(
             {'in_port': port_no1},
             table_id=self._VLAN_TABLE,
-            actions=['SET_FIELD: {vlan_vid:5097}'])
+            actions=['SET_FIELD: {vlan_vid:%u}' % radius_vid1])
         self.wait_until_matching_flow(
             {'in_port': port_no1},
             table_id=self._VLAN_TABLE,
-            actions=['SET_FIELD: {vlan_vid:4196}'])
+            actions=['SET_FIELD: {vlan_vid:%u}' % vid])
 
         # check flood ports are in the right vlans
         self.wait_until_no_matching_flow(
-            {'vlan_vid': 5097},
+            {'vlan_vid': radius_vid1},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no3])
 
         self.wait_until_matching_flow(
-            {'vlan_vid': 4196},
+            {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
 
@@ -1134,7 +1138,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
             self.eapol2_host, self.eapol1_host.IP(),
             require_host_learned=False, expected_result=False)
         self.wait_8021x_flows(port_no1)
-        # move host1 to vlan 2222
+        # move host1 to new VLAN
         tcpdump_txt = self.try_8021x(
             self.eapol1_host, port_no1, self.wpasupplicant_conf_2, and_logoff=False)
         self.assertIn('Success', tcpdump_txt)
@@ -1148,32 +1152,32 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
 
         self.wait_until_no_matching_flow(
             {'eth_src': self.eapol1_host.MAC(),
-             'vlan_vid': 4196},
+             'vlan_vid': vid},
             table_id=self._ETH_SRC_TABLE)
 
         self.wait_until_no_matching_flow(
             {'eth_src': self.eapol1_host.MAC(),
-             'vlan_vid': 5097},
+             'vlan_vid': radius_vid1},
             table_id=self._ETH_SRC_TABLE)
 
         self.wait_until_matching_flow(
             {'eth_src': self.eapol1_host.MAC(),
-             'vlan_vid': 6318},
+             'vlan_vid': radius_vid2},
             table_id=self._ETH_SRC_TABLE)
 
         self.wait_until_no_matching_flow(
             {'eth_dst': self.eapol1_host.MAC(),
-             'vlan_vid': 4196},
+             'vlan_vid': vid},
             table_id=self._ETH_DST_TABLE)
 
         self.wait_until_no_matching_flow(
             {'eth_dst': self.eapol1_host.MAC(),
-             'vlan_vid': 5097},
+             'vlan_vid': radius_vid1},
             table_id=self._ETH_DST_TABLE)
 
         self.wait_until_matching_flow(
             {'eth_dst': self.eapol1_host.MAC(),
-             'vlan_vid': 6318},
+             'vlan_vid': radius_vid2},
             table_id=self._ETH_DST_TABLE)
 
         # test port up/down. removes the dynamic vlan & host cache.
@@ -1184,7 +1188,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
             table_id=self._ETH_SRC_TABLE)
         self.wait_until_no_matching_flow(
             {'eth_dst': self.eapol2_host.MAC(),
-             'vlan_vid': 5097},
+             'vlan_vid': radius_vid1},
             table_id=self._ETH_DST_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no2])
 
@@ -1192,20 +1196,20 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.wait_until_no_matching_flow(
             {'in_port': port_no2},
             table_id=self._VLAN_TABLE,
-            actions=['SET_FIELD: {vlan_vid:6318}'])
+            actions=['SET_FIELD: {vlan_vid:%u}' % radius_vid2])
         self.wait_until_matching_flow(
             {'in_port': port_no2},
             table_id=self._VLAN_TABLE,
-            actions=['SET_FIELD: {vlan_vid:4196}'])
+            actions=['SET_FIELD: {vlan_vid:%u}' % vid])
 
         # check flood ports are in the right vlans
         self.wait_until_no_matching_flow(
-            {'vlan_vid': 6318},
+            {'vlan_vid': radius_vid2},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2])
 
         self.wait_until_matching_flow(
-            {'vlan_vid': 4196},
+            {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
 
@@ -1234,7 +1238,7 @@ vlans:
     def test_untagged(self):
         last_vid = None
         for _ in range(5):
-            vid = random.randint(2, 512)
+            vid = random.randint(2, mininet_test_base.MAX_TEST_VID)
             if vid == last_vid:
                 continue
             self.change_vlan_config(
@@ -7162,6 +7166,76 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.verify_no_cable_errors()
 
 
+class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
+
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+    SWITCH_TO_SWITCH_LINKS = 2
+    VID = 100
+    ACLS = {
+        1: [
+            {'rule': {
+                'dl_type': IPV4_ETH,
+                'ip_proto': 1,
+                'actions': {
+                    'allow': 0,
+                    'output': {
+                        'tunnel': {
+                            'type': 'vlan',
+                            'tunnel_id': 200,
+                            'dp': 'faucet-1',
+                            'port': mininet_test_topo.SWITCH_START_PORT + 1}
+                    }
+                }
+            }}
+        ]
+    }
+
+    # DP-to-acl_in port mapping.
+    ACL_IN_DP = {
+        'faucet-1': {
+            # First port 1, acl_in = 1
+            mininet_test_topo.SWITCH_START_PORT: 1,
+        }
+    }
+
+    def setUp(self): # pylint: disable=invalid-name
+        super(FaucetTunnelSameDpTest, self).setUp()
+        self.build_net(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            untagged_vid=self.VID,
+            acls=self.ACLS,
+            acl_in_dp=self.ACL_IN_DP,
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+            hw_dpid=self.hw_dpid,
+        )
+        self.start_net()
+
+    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
+        """Verify ICMP packets tunnelled from src to dst."""
+        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
+        self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
+        tcpdump_text = self.tcpdump_helper(
+            dst_host, 'icmp', [
+                # need to set static ARP as only ICMP is tunnelled.
+                lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
+                lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
+            ],
+        )
+        self.wait_nonzero_packet_count_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % other_host.IP(), tcpdump_text
+        ), 'Tunnel was not established')
+
+    def test_tunnel_established(self):
+        """Test a tunnel path can be created."""
+        self.verify_all_stack_up()
+        src_host, dst_host, other_host = self.net.hosts[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+
+
 class FaucetTunnelTest(FaucetStringOfDPTest):
 
     NUM_DPS = 2
@@ -7209,7 +7283,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         )
         self.start_net()
 
-    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=1):
+    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
         """Verify ICMP packets tunnelled from src to dst."""
         icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
         self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
