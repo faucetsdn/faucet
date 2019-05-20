@@ -6786,6 +6786,9 @@ class FaucetStringOfDPLACPPassthroughTest(FaucetStringOfDPLACPUntaggedTest):
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPLACPPassthroughTest, self).setUp()
 
+    def test_lacp_port_down(self):
+        pass
+
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
         self.wait_for_all_lacp_up()
@@ -6795,19 +6798,17 @@ class FaucetStringOfDPLACPPassthroughTest(FaucetStringOfDPLACPUntaggedTest):
         src_port = self.non_host_ports(self.dpids[0])[0]
         dst_port = self.non_host_ports(self.dpids[0])[1]
         conf['dps']['faucet-1']['interfaces'][dst_port]['lacp_passthrough'] = [src_port]
-        self.reload_conf(conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=True)
-
+        conf['dps']['faucet-1']['interfaces'][dst_port]['lacp'] = 2
         fail_port = self.non_host_ports(self.dpids[1])[0]
         end_port = self.non_host_ports(self.dpids[1])[1]
         conf['dps']['faucet-2']['interfaces'][fail_port]['lacp'] = 0
         conf['dps']['faucet-2']['interfaces'][fail_port]['lacp_active'] = False
+        conf['dps']['faucet-2']['interfaces'][end_port]['lacp'] = 2
         self.reload_conf(conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=False)
+            restart=True, cold_start=False, change_expected=True)
 
-        # First wait for the actual link-down to happen because lacp fails.
-        self.wait_for_lacp_port_down(dst_port, self.dpids[0], 'faucet-1')
-        # Now wait for the passthrough lacp to go down.
+        # Starts with faucet-2/fail stopping lacp, then faucet-1/src will go down.
+        # Passthrough from faucet-1/src to faucet-1/dst, then faucet-2/end goes down.
         self.wait_for_lacp_port_down(end_port, self.dpids[1], 'faucet-2')
 
 
