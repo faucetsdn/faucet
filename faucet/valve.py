@@ -34,7 +34,7 @@ from faucet import valve_util
 from faucet import valve_pipeline
 
 from faucet.faucet_pipeline import STACK_LOOP_PROTECT_FIELD
-from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN, STACK_STATE_FAILOVER
+from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
 
 
@@ -884,24 +884,18 @@ class Valve:
         return ofmsgs
 
     def _lacp_pkt(self, lacp_pkt, port, now):
-        if port.lacp_peers:
-            failover_state = False
-            down_state = False
-            for peer_num in port.lacp_peers:
+        peers_up = True
+        if port.lacp_passthrough:
+            for peer_num in port.lacp_passthrough:
                 lacp_peer = self.dp.ports.get(peer_num, None)
-                if lacp_peer.dyn_lldp_beacon_recv_state == STACK_STATE_DOWN:
-                    down_state = True
-                elif lacp_peer.dyn_lldp_beacon_recv_state == STACK_STATE_FAILOVER:
-                    failover_state = True
-            if failover_state:
-                self.logger.warning('failover LACP LAG %s on %s, peer %s link is failover' %
-                                    (port.lacp, port, lacp_peer))
-            elif down_state:
-                self.logger.warning('suppressing LACP LAG %s on %s, peer %s link is down' %
-                                    (port.lacp, port, lacp_peer))
-                return None
+                if not lacp_peer.dyn_lacp_up:
+                    peers_up = False
+                    break
+        if not peers_up:
+            self.logger.warning('Suppressing LACP LAG %s on %s, peer %s link is down' %
+                                (port.lacp, port, lacp_peer))
         actor_state_activity = 0
-        if port.lacp_active:
+        if port.lacp_active and peers_up:
             actor_state_activity = 1
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
@@ -922,7 +916,7 @@ class Valve:
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
                 port.lacp, port.number,
                 actor_state_activity=actor_state_activity)
-        self.logger.debug('sending LACP %s on %s' % (pkt, port))
+        self.logger.debug('sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
         return pkt
 
     def lacp_handler(self, now, pkt_meta):

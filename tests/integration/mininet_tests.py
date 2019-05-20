@@ -7133,11 +7133,12 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPACLOverrideTest, self).setUp()
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
+        missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
         self.build_net(
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            include_optional=[self.acls_config],
+            include_optional=[self.acls_config, missing_config],
             acls=self.ACLS,
             acl_in_dp=self.ACL_IN_DP,
         )
