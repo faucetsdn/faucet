@@ -6841,27 +6841,30 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self.reload_conf(conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
+    def _verify_link(self, hosts=None, expected=True):
+        self.verify_broadcast(hosts, expected)
+        self.verify_unicast(hosts, expected)
+
     def _connections_aye(self):
         ext_port1, alt_port1, int_port1, ext_port2, alt_port2, int_port2 = self.net.hosts
-        self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
-        self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
-        self.verify_broadcast(hosts=(ext_port1, int_port2), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port1, ext_port1), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port1, ext_port2), broadcast_expected=True)
-        self.verify_broadcast(hosts=(ext_port2, int_port1), broadcast_expected=True)
-        self.verify_broadcast(hosts=(ext_port2, int_port2), broadcast_expected=True)
-        self.verify_broadcast(hosts=(ext_port2, ext_port1), broadcast_expected=False)
-        self.verify_broadcast(hosts=(int_port2, int_port1), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port2, ext_port1), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port2, ext_port2), broadcast_expected=True)
+        self._verify_link(hosts=(ext_port1, ext_port2), expected=False)
+        self._verify_link(hosts=(ext_port1, int_port1), expected=True)
+        self._verify_link(hosts=(ext_port1, int_port2), expected=True)
+        self._verify_link(hosts=(int_port1, int_port2), expected=True)
+        self._verify_link(hosts=(int_port1, ext_port1), expected=True)
+        self._verify_link(hosts=(int_port1, ext_port2), expected=True)
+        self._verify_link(hosts=(ext_port2, int_port1), expected=True)
+        self._verify_link(hosts=(ext_port2, int_port2), expected=True)
+        self._verify_link(hosts=(ext_port2, ext_port1), expected=False)
+        self._verify_link(hosts=(int_port2, int_port1), expected=True)
+        self._verify_link(hosts=(int_port2, ext_port1), expected=True)
+        self._verify_link(hosts=(int_port2, ext_port2), expected=True)
 
-        self.verify_broadcast(hosts=(ext_port1, alt_port2), broadcast_expected=False)
-        self.verify_broadcast(hosts=(alt_port1, ext_port2), broadcast_expected=False)
-        self.verify_broadcast(hosts=(int_port1, alt_port1), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port1, alt_port2), broadcast_expected=True)
-        self.verify_broadcast(hosts=(alt_port1, int_port2), broadcast_expected=True)
-
+        self._verify_link(hosts=(ext_port1, alt_port2), expected=False)
+        self._verify_link(hosts=(alt_port1, ext_port2), expected=False)
+        self._verify_link(hosts=(int_port1, alt_port1), expected=True)
+        self._verify_link(hosts=(int_port1, alt_port2), expected=True)
+        self._verify_link(hosts=(alt_port1, int_port2), expected=True)
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
     """Test topology of stacked datapaths with untagged hosts."""
@@ -7133,11 +7136,12 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPACLOverrideTest, self).setUp()
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
+        missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
         self.build_net(
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            include_optional=[self.acls_config],
+            include_optional=[self.acls_config, missing_config],
             acls=self.ACLS,
             acl_in_dp=self.ACL_IN_DP,
         )

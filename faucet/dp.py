@@ -313,6 +313,7 @@ configuration.
         self.lldp_beacon = {}
         self.table_sizes = {}
         self.dyn_up_port_nos = set()
+        self.has_externals = None
 
         #tunnel_id: int
         #   ID of the tunnel, for now this will be the VLAN ID
@@ -471,15 +472,18 @@ configuration.
             table_configs[name] = table_config
 
         # Stacking with external ports, so need loop protection field.
-        if self.stack and self.stack.get('externals', False):
+        if self.has_externals:
             flood_table = table_configs['flood']
             flood_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
             flood_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
             vlan_table = table_configs['vlan']
             vlan_table.set_fields += (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
             vlan_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
+            eth_src_table = table_configs['eth_src']
+            eth_src_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
             eth_dst_table = table_configs['eth_dst']
             eth_dst_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
+            eth_dst_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
 
         oxm_fields = set(valve_of.MATCH_FIELDS.keys())
 
@@ -1125,6 +1129,7 @@ configuration.
         vlans_with_external_ports = {
             vlan for vlan in self.vlans.values() if vlan.loop_protect_external_ports()}
 
+        self.has_externals = bool(vlans_with_external_ports)
         resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_override_output_ports()

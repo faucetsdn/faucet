@@ -1367,6 +1367,22 @@ dbs:
             broadcast_expected,
             re.search('%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt) is not None)
 
+    def verify_unicast(self, hosts, unicast_expected=True, packets=3):
+        host_a = self.net.hosts[0]
+        host_b = self.net.hosts[-1]
+        if hosts is not None:
+            host_a, host_b = hosts
+        scapy_cmd = self.scapy_template(
+            ('Ether(src=\'%s\', dst=\'%s\', type=%u) / '
+             'IP(src=\'10.0.0.1\', dst=\'10.0.0.2\') / UDP(dport=67,sport=68)') % (
+                 host_a.MAC(), host_b.MAC(), IPV4_ETH), host_a.defaultIntf(), packets)
+        tcpdump_filter = 'ip and ether src %s and ether dst %s' % (host_a.MAC(), host_b.MAC())
+        tcpdump_txt = self.tcpdump_helper(
+            host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)],
+            timeout=2, vflags='-vv', packets=packets)
+        expected_packets = packets if unicast_expected else 0
+        self.assertTrue(self.tcpdump_rx_packets(tcpdump_txt, packets=expected_packets), msg=tcpdump_txt)
+
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
             'tcpdump -n -v -A -r %s 2> /dev/null' % cap_file for cap_file in cap_files]
@@ -1686,11 +1702,11 @@ dbs:
             '%d packets received by filter' % expected_pings, tcpdump_txt),
                         msg=tcpdump_txt)
 
-    def tcpdump_rx_bytes(self, tcpdump_txt, packets=0):
+    def tcpdump_rx_packets(self, tcpdump_txt, packets=0):
         return re.search(r'%u packets captured' % packets, tcpdump_txt)
 
     def verify_no_packets(self, tcpdump_txt):
-        self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, packets=0), msg=tcpdump_txt)
+        self.assertTrue(self.tcpdump_rx_packets(tcpdump_txt, packets=0), msg=tcpdump_txt)
 
     def verify_eapol_mirrored(self, first_host, second_host, mirror_host):
         self.ping((first_host, second_host))
@@ -1731,7 +1747,7 @@ dbs:
             [lambda: second_host.cmd(static_bogus_arp),
              lambda: second_host.cmd(curl_first_host),
              lambda: self.ping(hosts=(second_host, third_host))])
-        return not self.tcpdump_rx_bytes(tcpdump_txt, 0)
+        return not self.tcpdump_rx_packets(tcpdump_txt, 0)
 
     def ladvd_cmd(self, ladvd_args, repeats=1, timeout=3):
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
