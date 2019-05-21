@@ -1352,7 +1352,7 @@ dbs:
             self.assertNotEqual(locations, new_locations)
             locations = new_locations
 
-    def verify_broadcast(self, hosts=None, broadcast_expected=True):
+    def verify_broadcast(self, hosts=None, broadcast_expected=True, packets=3):
         host_a = self.net.hosts[0]
         host_b = self.net.hosts[-1]
         if hosts is not None:
@@ -1362,12 +1362,12 @@ dbs:
         tcpdump_txt = self.tcpdump_helper(
             host_b, tcpdump_filter, [
                 partial(host_a.cmd, 'ping -b -c3 -t1 %s' % self.ipv4_vip_bcast())],
-            packets=1)
+            packets=packets)
         self.assertEqual(
             broadcast_expected,
             re.search('%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt) is not None)
 
-    def verify_unicast(self, hosts, unicast_expected=True, packets=3):
+    def verify_unicast(self, hosts, unicast_expected=True, packets=3, timeout=2):
         host_a = self.net.hosts[0]
         host_b = self.net.hosts[-1]
         if hosts is not None:
@@ -1377,11 +1377,17 @@ dbs:
              'IP(src=\'10.0.0.1\', dst=\'10.0.0.2\') / UDP(dport=67,sport=68)') % (
                  host_a.MAC(), host_b.MAC(), IPV4_ETH), host_a.defaultIntf(), packets)
         tcpdump_filter = 'ip and ether src %s and ether dst %s' % (host_a.MAC(), host_b.MAC())
+        # Wait for at least one packet.
         tcpdump_txt = self.tcpdump_helper(
             host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)],
-            timeout=2, vflags='-vv', packets=packets)
-        expected_packets = packets if unicast_expected else 0
-        self.assertTrue(self.tcpdump_rx_packets(tcpdump_txt, packets=expected_packets), msg=tcpdump_txt)
+            timeout=(packets * timeout), vflags='-vv', packets=1)
+        received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
+        if unicast_expected:
+            # We expect unicast connectivity, so we should have got at least one packet.
+            self.assertFalse(received_no_packets)
+        else:
+            # We expect no unicast connectivity, so we must get no packets.
+            self.assertTrue(received_no_packets)
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
@@ -1915,7 +1921,7 @@ dbs:
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=30):
         return self.wait_for_prometheus_var(
-            'dp_status', expected_status, any_labels=True, controller=controller, default=None)
+            'dp_status', expected_status, any_labels=True, controller=controller, default=None, timeout=timeout)
 
     def _get_tableid(self, name):
         return self.scrape_prometheus_var(
