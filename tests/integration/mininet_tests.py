@@ -6796,7 +6796,9 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
 
         conf['dps']['faucet-1']['interfaces'][dst_port]['lacp_passthrough'] = [src_port]
         conf['dps']['faucet-1']['interfaces'][dst_port]['loop_protect_external'] = True
-        conf['dps']['faucet-1']['interfaces'][end_port]['loop_protect_external'] = True
+        conf['dps']['faucet-1']['interfaces'][src_port]['loop_protect_external'] = True
+        conf['dps']['faucet-2']['interfaces'][fail_port]['loop_protect_external'] = True
+        conf['dps']['faucet-2']['interfaces'][end_port]['loop_protect_external'] = True
         self.reload_conf(conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
