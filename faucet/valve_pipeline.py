@@ -38,8 +38,10 @@ class ValvePipeline(ValveManagerBase):
         self.classification_table = dp.classification_table()
         self.output_table = dp.output_table()
         self.egress_table = None
+        self.egress_acl_table = None
         if dp.egress_pipeline:
             self.egress_table = dp.tables['egress']
+            self.egress_acl_table = dp.tables.get('egress_acl')
         self.filter_priority = self._FILTER_PRIORITY
         self.select_priority = self._HIGH_PRIORITY
 
@@ -101,6 +103,8 @@ class ValvePipeline(ValveManagerBase):
             port: Port object of port to output packet to
             vlan: Vlan object of vlan to output packet on
             hairpin: if True, hairpinning is required
+            apply_egress_acl: if True the packet will be sent to the egress acl
+                table before being output
         returns:
             list of Instructions
         """
@@ -108,8 +112,12 @@ class ValvePipeline(ValveManagerBase):
         if self.egress_table:
             metadata, metadata_mask = faucet_md.get_egress_metadata(
                 port.number, vlan.vid)
-            instructions.extend(valve_of.metadata_goto_table(
-                metadata, metadata_mask, self.egress_table))
+            if self.egress_acl_table:
+                instructions.extend(valve_of.metadata_goto_table(
+                    metadata, metadata_mask, self.egress_acl_table))
+            else:
+                instructions.extend(valve_of.metadata_goto_table(
+                    metadata, metadata_mask, self.egress_table))
         else:
             instructions.append(valve_of.apply_actions(vlan.output_port(
                 port, hairpin=hairpin, output_table=self.output_table,
