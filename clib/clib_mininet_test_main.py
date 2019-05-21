@@ -86,7 +86,7 @@ EXTERNAL_DEPENDENCIES = (
     ('rdisc6', ['-V'], 'ndisc6',
      r'ndisc6.+tool (\d+\.\d+)', "1.0"),
     ('tshark', ['-v'], 'tshark',
-     r'TShark.+(\d+\.\d+)', "2.1"),
+     r'TShark\s*[a-zA-Z\(\)]*\s*([\d\.]+)', "2.1"),
     ('scapy', ['-h'], 'Usage: scapy', '', 0),
 )
 
