@@ -1495,8 +1495,9 @@ class Valve:
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
         self.dp.dyn_running = dp_running
         self.dp.dyn_up_port_nos = up_ports
-        for port in up_ports and port in self.dp.ports:
-            self.dp.ports[port].dyn_phys_up = True
+        for port in up_ports:
+            if port in self.dp.ports:
+                self.dp.ports[port].dyn_phys_up = True
         self.dp.dyn_last_coldstart_time = coldstart_time
         restart_type = None
         if cold_start:
