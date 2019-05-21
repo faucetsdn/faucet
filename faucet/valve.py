@@ -1496,6 +1496,7 @@ class Valve:
         self.dp.dyn_running = dp_running
         self.dp.dyn_up_port_nos = up_ports
         for port in up_ports:
+            print(port, port in self.dp.ports, self.dp.ports)
             self.dp.ports[port].dyn_phys_up = True
         self.dp.dyn_last_coldstart_time = coldstart_time
         restart_type = None
