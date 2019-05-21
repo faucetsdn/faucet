@@ -4572,9 +4572,9 @@ vlans:
         second_host_ip = ipaddress.ip_address(second_host.IP())
         self.one_ipv4_ping(first_host, second_host_ip)
         self.verify_iperf_min(
-                ((first_host, self.port_map['port_1']),
-                 (second_host, self.port_map['port_2'])),
-                MIN_MBPS, first_host_ip, second_host_ip)
+            ((first_host, self.port_map['port_1']),
+             (second_host, self.port_map['port_2'])),
+            MIN_MBPS, first_host_ip, second_host_ip)
 
 
 class FaucetUntaggedOutputOverrideTest(FaucetUntaggedTest):
@@ -4743,9 +4743,9 @@ vlans:
         second_host_ip = ipaddress.ip_address(second_host.IP())
         self.one_ipv4_ping(first_host, second_host_ip)
         self.verify_iperf_min(
-                ((first_host, self.port_map['port_1']),
-                 (second_host, self.port_map['port_2'])),
-                MIN_MBPS, first_host_ip, second_host_ip)
+            ((first_host, self.port_map['port_1']),
+             (second_host, self.port_map['port_2'])),
+            MIN_MBPS, first_host_ip, second_host_ip)
 
 
 class FaucetTaggedVLANPCPTest(FaucetTaggedTest):
@@ -6838,7 +6838,8 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         conf = self._get_faucet_conf()
         loop_port = self.non_host_ports(self.dpids[1])[0]
         conf['dps']['faucet-2']['interfaces'][loop_port]['loop_protect_external'] = protect_external
-        self.reload_conf(conf, self.faucet_config_path,
+        self.reload_conf(
+            conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
     def _verify_link(self, hosts=None, expected=True):
@@ -6865,6 +6866,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self._verify_link(hosts=(int_port1, alt_port1), expected=True)
         self._verify_link(hosts=(int_port1, alt_port2), expected=True)
         self._verify_link(hosts=(alt_port1, int_port2), expected=True)
+
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
     """Test topology of stacked datapaths with untagged hosts."""
