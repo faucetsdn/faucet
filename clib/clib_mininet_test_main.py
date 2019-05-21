@@ -85,7 +85,7 @@ EXTERNAL_DEPENDENCIES = (
      r'fping: Version (\d+\.\d+)', "3.10"),
     ('rdisc6', ['-V'], 'ndisc6',
      r'ndisc6.+tool (\d+\.\d+)', "1.0"),
-    ('tshark', ['-v'], 'tshark',
+    ('tshark', ['-v'], r'(?i)tshark',
      r'TShark\s*[a-zA-Z\(\)]*\s*([\d\.]+)', "2.1"),
     ('scapy', ['-h'], 'Usage: scapy', '', 0),
 )
