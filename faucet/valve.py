@@ -879,26 +879,25 @@ class Valve:
         return ofmsgs
 
     def _lacp_pkt(self, lacp_pkt, port, now):
-        actor_state_synchronization = 1
+        peer_down = False
         if port.lacp_passthrough:
             for peer_num in port.lacp_passthrough:
                 lacp_peer = self.dp.ports.get(peer_num, None)
                 self.logger.warning('%s is %s' % (lacp_peer, lacp_peer.dyn_lacp_up))
                 if not lacp_peer.dyn_lacp_up:
-                    actor_state_synchronization = 0
+                    peer_down = True
                     break
-        if not actor_state_synchronization:
+        if peer_down:
             self.logger.warning('Suppressing LACP LAG %s on %s, peer %s link is down' %
                                 (port.lacp, port, lacp_peer))
-        foo_peer = self.dp.ports.get(7, None)
-        self.logger.warning('%s is %s' % (foo_peer, foo_peer.dyn_lacp_up))
+            return
         actor_state_activity = 0
         if port.lacp_active:
             actor_state_activity = 1
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.number, actor_state_synchronization, actor_state_activity,
+                port.lacp, port.number, 1, actor_state_activity,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
                 lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
                 lacp_pkt.actor_state_defaulted,
@@ -912,7 +911,7 @@ class Valve:
         else:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.number, actor_state_synchronization,
+                port.lacp, port.number,
                 actor_state_activity=actor_state_activity)
         self.logger.debug('Sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
         return pkt
