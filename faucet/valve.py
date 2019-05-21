@@ -500,6 +500,7 @@ class Valve:
 
         ofmsgs = []
         for port in self.dp.lacp_active_ports:
+            self.logger.info('Sending lacp %s %s %s' % (port, port.enabled, port.dyn_phys_up))
             if port.running():
                 pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port, now)
                 if pkt:
@@ -868,8 +869,8 @@ class Valve:
         ofmsgs.append(vlan_table.flowdel(
             match=vlan_table.match(in_port=port.number),
             priority=self.dp.high_priority, strict=True))
-        if not port.dyn_lacp_up:
-            self.logger.info('LAG %u port %s up (previous state %s)' % (
+        if port.dyn_lacp_up != 1:
+            self.logger.info('LAG %u Port %s up (previous state %s)' % (
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 1
         for vlan in port.vlans():
@@ -878,23 +879,26 @@ class Valve:
         return ofmsgs
 
     def _lacp_pkt(self, lacp_pkt, port, now):
-        peers_up = True
+        actor_state_synchronization = 1
         if port.lacp_passthrough:
             for peer_num in port.lacp_passthrough:
                 lacp_peer = self.dp.ports.get(peer_num, None)
+                self.logger.warning('%s is %s' % (lacp_peer, lacp_peer.dyn_lacp_up))
                 if not lacp_peer.dyn_lacp_up:
-                    peers_up = False
+                    actor_state_synchronization = 0
                     break
-        if not peers_up:
+        if not actor_state_synchronization:
             self.logger.warning('Suppressing LACP LAG %s on %s, peer %s link is down' %
                                 (port.lacp, port, lacp_peer))
+        foo_peer = self.dp.ports.get(7, None)
+        self.logger.warning('%s is %s' % (foo_peer, foo_peer.dyn_lacp_up))
         actor_state_activity = 0
-        if port.lacp_active and peers_up:
+        if port.lacp_active:
             actor_state_activity = 1
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.number, 1, actor_state_activity,
+                port.lacp, port.number, actor_state_synchronization, actor_state_activity,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
                 lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
                 lacp_pkt.actor_state_defaulted,
@@ -908,9 +912,9 @@ class Valve:
         else:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.number,
+                port.lacp, port.number, actor_state_synchronization,
                 actor_state_activity=actor_state_activity)
-        self.logger.debug('sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
+        self.logger.debug('Sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
         return pkt
 
     def lacp_handler(self, now, pkt_meta):
@@ -933,7 +937,8 @@ class Valve:
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
             if lacp_pkt:
-                self.logger.debug('receive LACP %s on %s' % (lacp_pkt, pkt_meta.port))
+                self.logger.info('Receive LACP %s on %s' % (lacp_pkt.actor_state_synchronization,
+                                                            pkt_meta.port))
                 age = None
                 if pkt_meta.port.dyn_lacp_updated_time:
                     age = now - pkt_meta.port.dyn_lacp_updated_time
@@ -1430,7 +1435,7 @@ class Valve:
             self.dp_init()
             return True, []
 
-        all_up_port_nos = [
+        all_changed_up_ports = [
             port for port in changed_ports
             if port in self.dp.dyn_up_port_nos]
 
@@ -1448,6 +1453,7 @@ class Valve:
             self.logger.info('ports changed/added: %s' % changed_ports)
             ofmsgs.extend(self.ports_delete(changed_ports))
 
+        copy_ports = self.dp.ports
         self.dp = new_dp
         self.dp_init()
 
@@ -1458,7 +1464,7 @@ class Valve:
                 ofmsgs.extend(self._del_vlan(vlan))
                 ofmsgs.extend(self._add_vlan(vlan))
         if changed_ports:
-            ofmsgs.extend(self.ports_add(all_up_port_nos))
+            ofmsgs.extend(self.ports_add(all_changed_up_ports))
         if self.acl_manager and changed_acl_ports:
             self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
             for port_num in changed_acl_ports:
@@ -1490,6 +1496,8 @@ class Valve:
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
         self.dp.dyn_running = dp_running
         self.dp.dyn_up_port_nos = up_ports
+        for port in up_ports:
+            self.dp.ports[port].dyn_phys_up = True
         self.dp.dyn_last_coldstart_time = coldstart_time
         restart_type = None
         if cold_start:
