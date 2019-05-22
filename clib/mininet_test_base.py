@@ -32,6 +32,7 @@ from mininet.util import dumpNodeConnections, pmonitor # pylint: disable=import-
 
 from clib import mininet_test_util
 from clib import mininet_test_topo
+from clib.mininet_test_topo import FaucetSwitchTopo
 from clib.tcpdump_helper import TcpdumpHelper
 
 MAX_TEST_VID = 512
@@ -119,14 +120,13 @@ class FaucetTestBase(unittest.TestCase):
     event_sock = None
     faucet_config_path = None
 
-    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
+    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load, port_base=None):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
-        start_port = mininet_test_topo.SWITCH_START_PORT
-        self.port_map = {'port_%u' % (port + 1): port + start_port for port in range(4)}
+        self.port_base = port_base
 
     def rand_dpid(self):
         reserved_range = 100
@@ -331,7 +331,8 @@ class FaucetTestBase(unittest.TestCase):
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_static_vars()
-        self.topo_class = mininet_test_topo.FaucetSwitchTopo
+        self.topo_class = partial(
+            mininet_test_topo.FaucetSwitchTopo, port_base=self.port_base)
         if self.hw_switch:
             self.hw_dpid = mininet_test_util.str_int_dpid(self.dpid)
             self.dpid = self.hw_dpid
@@ -422,6 +423,8 @@ class FaucetTestBase(unittest.TestCase):
 
     def start_net(self):
         """Start Mininet network."""
+        if not self.port_map:
+            self.port_map = self.create_port_map(self.dpid)
         controller_intf = 'lo'
         controller_ipv6 = False
         if self.hw_switch:
@@ -463,6 +466,12 @@ class FaucetTestBase(unittest.TestCase):
                         return 'faucet not listening on %u (%s)' % (
                             port, port_name)
         return self._start_gauge_check()
+
+    def create_port_map(self, dpid):
+        """Return a port map {'port_1': port...} for a dpid in self.topo"""
+        ports = self.topo.dpid_ports(dpid)
+        port_map = {'port_%d' % (i+1): port for i, port in enumerate(ports)}
+        return port_map
 
     def _start_faucet(self, controller_intf, controller_ipv6):
         last_error_txt = ''
