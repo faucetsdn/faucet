@@ -32,7 +32,6 @@ from ryu.lib import hub
 
 from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
-from faucet import faucet_experimental_api
 from faucet import faucet_event
 from faucet import faucet_bgp
 from faucet import faucet_dot1x
