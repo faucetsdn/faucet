@@ -189,6 +189,9 @@ class Port(Conf):
         self._set_default('description', self.name)
         self._set_default('tagged_vlans', [])
 
+    def clone_dyn_state(self, old_port):
+        pass
+
     def check_config(self):
         super(Port, self).check_config()
         test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
