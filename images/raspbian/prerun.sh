@@ -50,7 +50,9 @@ ROOT_LENGTH=$(echo "$PARTED_OUT" | grep -e '^ 2'| xargs echo -n \
 
 losetup -D
 for i in $(seq 0 7); do
-    mknod -m 0660 /dev/loop$i b 7 $i
+    if [ ! -e "/dev/loop$i" ]; then
+        mknod -m 0660 /dev/loop$i b 7 $i
+    fi
 done
 
 BOOT_DEV=$(losetup --show -f -o "${BOOT_OFFSET}" --sizelimit "${BOOT_LENGTH}" "${IMG_FILE}")

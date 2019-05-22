@@ -1,7 +1,7 @@
 Faucet
 ======
 
-:version: 1.9.0
+:version: 1.9.4
 
 .. image:: https://travis-ci.com/faucetsdn/faucet.svg?branch=master
     :target: https://travis-ci.com/faucetsdn/faucet
@@ -35,7 +35,7 @@ FAUCET has been tested against the following switches (see also SUPPORTED_HARDWA
 - `Lagopus Openflow Switch <https://lagopus.github.io>`_
 - Allied Telesis `x510 <https://www.alliedtelesis.com/products/x510-series>`_ and `x930 <https://www.alliedtelesis.com/products/x930-series>`_ series
 - `NoviFlow 1248 <http://noviflow.com/products/noviswitch>`_
-- Northbound Networks - `Zodiac FX <http://northboundnetworks.com/collections/zodiac-fx>`_ and `Zodiac GX <http://northboundnetworks.com/collections/zodiac-gx>`_
+- Northbound Networks - `Zodiac FX <http://northboundnetworks.com/collections/zodiac-fx>`_ and `Zodiac GX <http://northboundnetworks.com/products/zodiac-gx>`_
 - Hewlett Packard Enterprise - `Aruba 5400R, 3810 and 2930F <http://www.arubanetworks.com/products/networking/switches/>`_
 - Netronome produces PCIe adaptors, via OVS - `Agilio CX 2x10GbE card <https://www.netronome.com/products/agilio-cx/>`_
 - Cisco Systems - `Catalyst 9000 Family Switches <http://www.cisco.com/c/en/us/products/switches/catalyst-9000.html>`_

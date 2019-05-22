@@ -1,5 +1,5 @@
-chewie==0.0.13
-eventlet==0.22.1 # pyup: ignore
+chewie==0.0.15
+eventlet==0.24.1 # pyup: ignore
 influxdb
 msgpack
 msgpack-python
@@ -7,6 +7,6 @@ networkx
 pbr>=1.9
 prometheus_client==0.6.0
 pyyaml
-ryu==4.30
+ryu==4.32
 beka==0.3.3
 pytricia

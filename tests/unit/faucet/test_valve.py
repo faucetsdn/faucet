@@ -21,6 +21,7 @@ from collections import namedtuple
 from functools import partial
 
 import cProfile
+import hashlib
 import io
 import ipaddress
 import logging
@@ -47,8 +48,10 @@ from beka.ip import IPAddress, IPPrefix
 
 from faucet import faucet
 from faucet import faucet_bgp
+from faucet import config_parser_util
 from faucet import faucet_dot1x
-from faucet import faucet_experimental_event
+from faucet import faucet_experimental_api
+from faucet import faucet_event
 from faucet import faucet_metrics
 from faucet import valves_manager
 from faucet import valve_of
@@ -95,6 +98,17 @@ DOT1X_CONFIG = """
             radius_ip: 127.0.0.1
             radius_port: 1234
             radius_secret: SECRET
+""" + BASE_DP1_CONFIG
+
+DOT1X_ACL_CONFIG = """
+        dot1x:
+            nfv_intf: lo
+            nfv_sw_port: 2
+            radius_ip: 127.0.0.1
+            radius_port: 1234
+            radius_secret: SECRET
+            auth_acl: auth_acl
+            noauth_acl: noauth_acl
 """ + BASE_DP1_CONFIG
 
 CONFIG = """
@@ -368,7 +382,7 @@ class ValveTestBases:
             self.registry = CollectorRegistry()
             self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
             # TODO: verify events
-            self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+            self.notifier = faucet_event.FaucetEventNotifier(
                 self.faucet_event_sock, self.metrics, self.logger)
             self.bgp = faucet_bgp.FaucetBgp(
                 self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
@@ -475,6 +489,7 @@ class ValveTestBases:
                 self.valve.switch_features(None) +
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
             self.table.apply_ofmsgs(connect_msgs)
+            self.valves_manager.update_config_applied(sent={self.DP_ID: True})
             self.assertEqual(1, int(self.get_prom('dp_status')))
             for port_no in discovered_up_ports:
                 if port_no in self.valve.dp.ports:
@@ -1499,6 +1514,10 @@ dps:
 vlans:
     v100:
         vid: 0x100
+    student:
+        vid: 0x200
+        dot1x_assigned: True
+
 """ % DOT1X_CONFIG
 
     def setUp(self):
@@ -1511,12 +1530,56 @@ vlans:
     def test_handlers(self):
         valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]
         port_no = 1
+        vlan_name = 'student'
+        filter_id = 'block_http'
         for handler in (
-                self.dot1x.auth_handler,
                 self.dot1x.logoff_handler,
                 self.dot1x.failure_handler):
             handler(
                 '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
+        self.dot1x.auth_handler(
+            '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no), vlan_name, filter_id)
+
+
+class ValveDot1xACLSmokeTestCase(ValveDot1xSmokeTestCase):
+    """Smoke test to check dot1x can be initialized."""
+    ACL_CONFIG = """
+acls:
+    auth_acl:
+        - rule:
+            actions:
+                allow: 1
+    noauth_acl:
+        - rule:
+            actions:
+                allow: 0
+"""
+
+    CONFIG = """
+{}
+dps:
+    s1:
+        hardware: 'GenericTFM'
+{}
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                dot1x: true
+                dot1x_acl: True
+            p2:
+                number: 2
+                output_only: True
+vlans:
+    v100:
+        vid: 0x100
+    student:
+        vid: 0x200
+        dot1x_assigned: True
+""".format(ACL_CONFIG, DOT1X_ACL_CONFIG)
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
@@ -2245,6 +2308,144 @@ dps:
         total_tt_prop = pstats_out.total_tt / self.baseline_total_tt # pytype: disable=attribute-error
         # must not be 50x slower, to ingest config for 100 interfaces than 1.
         self.assertTrue(total_tt_prop < 50, msg=pstats_text)
+
+
+
+class ValveTestConfigHash(ValveTestBases.ValveTestSmall):
+    """Verify faucet_config_hash_info update after config change"""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def _get_info(self, metric, name):
+        """"Return (single) info dict for metric"""
+        # There doesn't seem to be a nice API for this,
+        # so we use the prometheus client internal API
+        metrics = list(metric.collect())
+        self.assertEqual(len(metrics), 1)
+        samples = metrics[0].samples
+        self.assertEqual(len(samples), 1)
+        sample = samples[0]
+        self.assertEqual(sample.name, name)
+        return sample.labels
+
+    def _check_hashes(self):
+        """Verify and return faucet_config_hash_info labels"""
+        labels = self._get_info(metric=self.metrics.faucet_config_hash,
+                                name='faucet_config_hash_info')
+        files = labels['config_files'].split(',')
+        hashes = labels['hashes'].split(',')
+        self.assertTrue(len(files) == len(hashes) == 1)
+        self.assertEqual(files[0], self.config_file, 'wrong config file')
+        hash_value = config_parser_util.config_file_hash(self.config_file)
+        self.assertEqual(hashes[0], hash_value, 'hash validation failed')
+        return labels
+
+    def _change_config(self):
+        """Change self.CONFIG"""
+        if '0x100' in self.CONFIG:
+            self.CONFIG = self.CONFIG.replace('0x100', '0x200')
+        else:
+            self.CONFIG = self.CONFIG.replace('0x200', '0x100')
+        self.update_config(self.CONFIG, reload_expected=True)
+        return self.CONFIG
+
+    def test_config_hash_func(self):
+        """Verify that faucet_config_hash_func is set correctly"""
+        labels = self._get_info(metric=self.metrics.faucet_config_hash_func,
+                                name='faucet_config_hash_func')
+        hash_funcs = list(labels.values())
+        self.assertEqual(len(hash_funcs), 1, "found multiple hash functions")
+        hash_func = hash_funcs[0]
+        # Make sure that it matches and is supported in hashlib
+        self.assertEqual(hash_func, config_parser_util.CONFIG_HASH_FUNC)
+        self.assertTrue(hash_func in hashlib.algorithms_guaranteed)
+
+    def test_config_hash_update(self):
+        """Verify faucet_config_hash_info is properly updated after config"""
+        # Verify that hashes change after config is changed
+        old_config = self.CONFIG
+        old_hashes = self._check_hashes()
+        starting_hashes = old_hashes
+        self._change_config()
+        new_config = self.CONFIG
+        self.assertNotEqual(old_config, new_config, 'config not changed')
+        new_hashes = self._check_hashes()
+        self.assertNotEqual(old_hashes, new_hashes,
+                            'hashes not changed after config change')
+        # Verify that hashes don't change after config isn't changed
+        old_hashes = new_hashes
+        self.update_config(self.CONFIG, reload_expected=False)
+        new_hashes = self._check_hashes()
+        self.assertEqual(old_hashes, new_hashes,
+                         "hashes changed when config didn't")
+        # Verify that hash is restored when config is restored
+        self._change_config()
+        new_hashes = self._check_hashes()
+        self.assertEqual(new_hashes, starting_hashes,
+                         'hashes should be restored to starting values')
+
+
+
+class ValveTestConfigApplied(ValveTestBases.ValveTestSmall):
+    """Test cases for faucet_config_applied"""
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+"""
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def _get_value(self, name):
+        """Return value of a single prometheus sample"""
+        metric = getattr(self.metrics, name)
+        # There doesn't seem to be a nice API for this,
+        # so we use the prometheus client internal API
+        metrics = list(metric.collect())
+        self.assertEqual(len(metrics), 1)
+        samples = metrics[0].samples
+        self.assertEqual(len(samples), 1)
+        sample = samples[0]
+        self.assertEqual(sample.name, name)
+        return sample.value
+
+    def test_config_applied_update(self):
+        """Verify that config_applied increments after DP connect"""
+        # 100% for a single datapath
+        self.assertEqual(self._get_value('faucet_config_applied'), 1.0)
+        # Add a second datapath, which currently isn't programmed
+        self.CONFIG +="""
+    s2:
+        dp_id: 0x2
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+"""
+        self.update_config(self.CONFIG, reload_expected=False)
+        # Should be 50%
+        self.assertEqual(self._get_value('faucet_config_applied'), .5)
+        # We don't have a way to simulate the second datapath connecting,
+        # we update the statistic manually
+        self.valves_manager.update_config_applied({0x2: True})
+        # Should be 100% now
+        self.assertEqual(self._get_value('faucet_config_applied'), 1.0)
 
 
 class ValveTestTunnel(ValveTestBases.ValveTestSmall):

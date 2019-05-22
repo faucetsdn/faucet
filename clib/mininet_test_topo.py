@@ -1,5 +1,6 @@
 """Topology components for FAUCET Mininet unit tests."""
 
+from collections import defaultdict, Iterable
 import os
 import socket
 import string
@@ -18,6 +19,10 @@ from mininet.node import OVSSwitch
 from clib import mininet_test_util
 
 import netifaces
+
+# TODO: this should be configurable (e.g for randomization)
+SWITCH_START_PORT = 5
+
 
 class FaucetHost(CPULimitedHost):
     """Base Mininet Host class, for Mininet-based tests."""
@@ -148,24 +153,62 @@ class FaucetSwitchTopo(Topo):
     def _add_faucet_switch(self, sid_prefix, dpid, ovs_type, switch_cls):
         """Add a FAUCET switch."""
         switch_name = 's%s' % sid_prefix
+        self._dpid_names[dpid] = switch_name
         return self.addSwitch(
             name=switch_name,
             cls=switch_cls,
             datapath=ovs_type,
             dpid=mininet_test_util.mininet_dpid(dpid))
 
-    def _add_links(self, switch, hosts, links_per_host):
+    @staticmethod
+    def port_nums(count, ports=None, start_port=SWITCH_START_PORT):
+        """Return switch port numbers as a tuple of at least count entries;
+           ports = [1, 2, 3...] | [] (range starting from start_port)"""
+        assert ports
+        if not ports:
+            ports = [SWITCH_START_PORT]
+        ports = tuple(ports)
+        length, next_port = len(ports), max(ports) + 1
+        if length < count:
+            ports += tuple(range(next_port, next_port + count - length))
+        return ports
+
+    def _add_links(self, switch, hosts, links_per_host, port_base=None):
+        ports = self.port_nums(len(hosts)*links_per_host, port_base)
+        i = 0
         for host in hosts:
             for _ in range(links_per_host):
                 # Order of switch/host is important, since host may be in a container.
-                self.addLink(switch, host, delay=self.DELAY, use_htb=True)
+                self.addLink(switch, host, port1=ports[i], delay=self.DELAY, use_htb=True)
+                i += 1
+        # Next port to use if needed
+        return max(ports) + 1
+
+    def addLink(self, src, dst, **kwargs):
+        """Keep track of switch ports in order"""
+        result = super().addLink(src, dst, **kwargs)
+        sport, dport = kwargs.get('port1'), kwargs.get('port2')
+        for node, port  in ((src, sport), (dst, dport)):
+            if self.isSwitch(node) and port:
+                self._switch_ports[node].append(port)
+        return result
+
+    def dpid_ports(self, dpid):
+        """Return port list for dpid"""
+        switch = self._dpid_names[dpid]
+        return self._switch_ports[switch]
+
+    def __init__(self, *args, **kwargs):
+        self._switch_ports = defaultdict(list)  # ports in order for each switch
+        self._dpid_names = {}  # maps dpids to switch names
+        super().__init__(*args, **kwargs)
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0,
-              n_extended=0, e_cls=None, tmpdir=None, hw_dpid=None, host_namespace=None):
+              n_extended=0, e_cls=None, tmpdir=None, hw_dpid=None,
+              host_namespace=None, port_base=None):
         if not host_namespace:
             host_namespace = {}
-
         for dpid in dpids:
             serialno = mininet_test_util.get_serialno(
                 ports_sock, test_name)
@@ -184,7 +227,7 @@ class FaucetSwitchTopo(Topo):
                 dpid = remap_dpid
                 switch_cls = NoControllerFaucetSwitch
             switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type, switch_cls)
-            self._add_links(switch, self.hosts(), links_per_host)
+            self._add_links(switch, self.hosts(), links_per_host, port_base)
 
 
 class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
@@ -195,7 +238,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0,
               links_per_host=0, switch_to_switch_links=1,
-              hw_dpid=None, stack_ring=False):
+              hw_dpid=None, stack_ring=False, port_base=None):
         """
 
                                Hosts
@@ -221,13 +264,15 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
           with final two links being inter-switch
         """
-        def addLinks(src, dst): # pylint: disable=invalid-name
+        def addLinks(src, dst, switch_ports): # pylint: disable=invalid-name
             for _ in range(self.switch_to_switch_links):
-                self.addLink(src, dst)
-
+                self.addLink(src, dst, port1=switch_ports[src], port2=switch_ports[dst])
+                switch_ports[src] += 1
+                switch_ports[dst] += 1
         first_switch = None
         last_switch = None
         self.switch_to_switch_links = switch_to_switch_links
+        switch_ports = {}
         for dpid in dpids:
             serialno = mininet_test_util.get_serialno(
                 ports_sock, test_name)
@@ -245,16 +290,16 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 dpid = remap_dpid
                 switch_cls = NoControllerFaucetSwitch
             switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type, switch_cls)
-            self._add_links(switch, hosts, links_per_host)
             if first_switch is None:
                 first_switch = switch
+            switch_ports[switch] = self._add_links(switch, hosts, links_per_host, port_base)
             if last_switch is not None:
                 # Add a switch-to-switch link with the previous switch,
                 # if this isn't the first switch in the topology.
-                addLinks(last_switch, switch)
+                addLinks(last_switch, switch, switch_ports)
             last_switch = switch
         if stack_ring:
-            addLinks(first_switch, last_switch)
+            addLinks(first_switch, last_switch, switch_ports)
 
 
 class BaseFAUCET(Controller):
@@ -263,6 +308,7 @@ class BaseFAUCET(Controller):
     # Set to True to have cProfile output to controller log.
     CPROFILE = False
     controller_intf = None
+    controller_ipv6 = False
     controller_ip = None
     pid_file = None
     tmpdir = None
@@ -282,18 +328,22 @@ maximum_unreplied_echo_requests=5
 socket_timeout=15
 """
 
-    def __init__(self, name, tmpdir, controller_intf=None, cargs='', **kwargs):
+    def __init__(self, name, tmpdir, controller_intf=None, controller_ipv6=False, cargs='', **kwargs):
         name = '%s-%u' % (name, os.getpid())
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
+        self.controller_ipv6 = controller_ipv6
         super(BaseFAUCET, self).__init__(
             name, cargs=self._add_cargs(cargs, name), **kwargs)
 
     def _add_cargs(self, cargs, name):
         ofp_listen_host_arg = ''
         if self.controller_intf is not None:
+            socket_type = socket.AF_INET
+            if self.controller_ipv6:
+                socket_type = socket.AF_INET6
             self.controller_ip = netifaces.ifaddresses( # pylint: disable=c-extension-no-member
-                self.controller_intf)[socket.AF_INET][0]['addr']
+                self.controller_intf)[socket_type][0]['addr']
             ofp_listen_host_arg = '--ryu-ofp-listen-host=%s' % self.controller_ip
         self.pid_file = os.path.join(self.tmpdir, name + '.pid')
         pid_file_arg = '--ryu-pid-file=%s' % self.pid_file
@@ -463,7 +513,7 @@ class FAUCET(BaseFAUCET):
 
     START_ARGS = ['--ryu-app=ryu.app.ofctl_rest']
 
-    def __init__(self, name, tmpdir, controller_intf, env,
+    def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, prom_port, port, test_name, **kwargs):
         self.prom_port = prom_port
@@ -477,6 +527,7 @@ class FAUCET(BaseFAUCET):
             name,
             tmpdir,
             controller_intf,
+            controller_ipv6,
             cargs=cargs,
             command=self._command(env, tmpdir, name, ' '.join(self.START_ARGS)),
             port=port,
@@ -492,13 +543,13 @@ class FAUCET(BaseFAUCET):
 class Gauge(BaseFAUCET):
     """Start a Gauge controller."""
 
-    def __init__(self, name, tmpdir, controller_intf, env,
+    def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  port, **kwargs):
         super(Gauge, self).__init__(
             name,
             tmpdir,
-            controller_intf,
+            controller_intf, controller_ipv6,
             cargs=self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs),
             command=self._command(env, tmpdir, name, '--gauge'),
             port=port,

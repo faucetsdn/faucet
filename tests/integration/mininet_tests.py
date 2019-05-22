@@ -7,6 +7,7 @@
 # pylint: disable=unbalanced-tuple-unpacking
 
 import binascii
+import copy
 import itertools
 import ipaddress
 import json
@@ -34,6 +35,8 @@ from clib import mininet_test_util
 from clib import mininet_test_topo
 
 from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
+
+MIN_MBPS = 100
 
 
 CONFIG_BOILER_UNTAGGED = """
@@ -127,6 +130,7 @@ vlans:
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid,
             host_namespace=self.HOST_NAMESPACE)
+        self.port_map = self.create_port_map(self.dpid)
         self.start_net()
 
     def verify_events_log(self, event_log, timeout=10):
@@ -167,7 +171,18 @@ vlans:
         self.verify_events_log(event_log)
 
 
-class Faucet8021XSuccessTest(FaucetUntaggedTest):
+class Faucet8021XBaseTest(FaucetTest):
+
+    HOST_NAMESPACE = {3: False}
+    N_UNTAGGED = 4
+    N_TAGGED = 0
+    LINKS_PER_HOST = 1
+
+    RADIUS_PORT = None
+
+    DOT1X_EXPECTED_EVENTS = []
+    SESSION_TIMEOUT = 3600
+    LOG_LEVEL = 'DEBUG'
 
     CONFIG_GLOBAL = """
 vlans:
@@ -219,15 +234,14 @@ network={
     }
     """
 
-    HOST_NAMESPACE = {3: False}
-
-    RADIUS_PORT = 1840
-
     eapol1_host = None
     eapol2_host = None
     ping_host = None
     nfv_host = None
     nfv_intf = None
+    nfv_portno = None
+
+    event_log = ''
 
     def _priv_mac(self, host_id):
         two_byte_port_num = ("%04x" % host_id)
@@ -243,25 +257,111 @@ network={
         self.nfv_intf = str(nfv_intf)
         nfv_intf = self.nfv_host.intf()
 
+        self.RADIUS_PORT = mininet_test_util.find_free_udp_port(self.ports_sock, self._test_name())
+
         self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
         self.CONFIG = self.CONFIG.replace('RADIUS_PORT', str(self.RADIUS_PORT))
-        super(Faucet8021XSuccessTest, self)._init_faucet_config()
+        super(Faucet8021XBaseTest, self)._init_faucet_config()
 
     def setUp(self):
-        super(Faucet8021XSuccessTest, self).setUp()
+        super(Faucet8021XBaseTest, self).setUp()
+        self.topo = self.topo_class(
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
+            links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid,
+            host_namespace=self.HOST_NAMESPACE)
+        self.port_map = self.create_port_map(self.dpid)
+        self.start_net()
+
+        self.nfv_portno = self.port_map['port_4']
+
         self.host_drop_all_ips(self.nfv_host)
         self.radius_log_path = self.start_freeradius()
+        self.eapol1_host.cmd('tcpdump -w %s/%s-start.pcap ether proto 0x888e &' %
+                             (self.tmpdir, self.eapol1_host.name))
+        self.eapol1_tcpdump_pid = self.eapol1_host.lastPid
+
+        self.nfv_host.cmd('tcpdump -i %s-eth0 -w %s/eap-lo.pcap ether proto 0x888e &'
+                          % (self.nfv_host.name, self.tmpdir))
+        self.radius_tcpdump_pid = self.nfv_host.lastPid
+
+        self.nfv_host.cmd('tcpdump -i lo -w %s/radius.pcap udp port %d &'
+                          % (self.tmpdir, self.RADIUS_PORT))
+        self.eap_tcpdump_pid = self.nfv_host.lastPid
+
+        self.event_log = os.path.join(self.tmpdir, 'event.log')
+        controller = self._get_controller()
+        sock = self.env['faucet']['FAUCET_EVENT_SOCK']
+        controller.cmd('nc -U %s > %s &' % (sock, self.event_log))
+        self.nc_pid = controller.lastPid
 
     def tearDown(self):
         self.nfv_host.cmd('kill %d' % self.freeradius_pid)
-        super(Faucet8021XSuccessTest, self).tearDown()
+        self.nfv_host.cmd('kill -sigint %d' % self.radius_tcpdump_pid)
+        self.nfv_host.cmd('kill -sigint %d' % self.eap_tcpdump_pid)
+        self.eapol1_host.cmd('kill -sigint %d' % self.eapol1_tcpdump_pid)
+        self._get_controller().cmd('kill %d' % self.nc_pid)
 
-    def try_8021x(self, host, port_num, conf, and_logoff=False):
+        self.assertGreater(os.path.getsize(self.event_log), 0)
+        self.verify_dot1x_events_log()
+
+        super(Faucet8021XBaseTest, self).tearDown()
+
+    def verify_dot1x_events_log(self):
+
+        def replace_mac(host_no):
+            if host_no == 'HOST1_MAC':
+                return self.eapol1_host.MAC()
+            if host_no == 'HOST2_MAC':
+                return self.eapol2_host.MAC()
+            if host_no == 'HOST3_MAC':
+                return self.ping_host.MAC()
+            if host_no == 'HOST4_MAC':
+                return self.nfv_host.MAC()
+
+        def insert_dynamic_values():
+            for dot1x_event in self.DOT1X_EXPECTED_EVENTS:
+                top_level_key = list(dot1x_event.keys())[0]
+                l = [('dp_id', int(self.dpid))]
+                for k, v in dot1x_event[top_level_key].items():
+                    if k == 'port':
+                        l.append((k, self.port_map[v]))
+                    if k == 'eth_src':
+                        l.append((k, replace_mac(v)))
+                for k, v in l:
+                    dot1x_event[top_level_key][k] = v
+
+        if not self.DOT1X_EXPECTED_EVENTS:
+            return
+
+        insert_dynamic_values()
+
+        with open(self.event_log, 'r') as event_file:
+            events_that_happened = []
+            for event_log_line in event_file.readlines():
+                if 'DOT1X' not in event_log_line:
+                    continue
+                event = json.loads(event_log_line.strip())
+                events_that_happened.append(event['DOT1X'])
+
+            expected_events_copy = copy.deepcopy(self.DOT1X_EXPECTED_EVENTS)
+            for expected_event in self.DOT1X_EXPECTED_EVENTS:
+                if expected_event in events_that_happened:
+                    expected_events_copy.remove(expected_event)
+                else:
+                    self.fail('expected event: %s not in events_that_happened %s' % (expected_event, events_that_happened))
+
+            self.assertFalse(expected_events_copy)
+
+    def try_8021x(self, host, port_num, conf, and_logoff=False, terminate_wpasupplicant=False,
+                  wpasup_timeout=180, tcpdump_timeout=15, tcpdump_packets=10):
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
-                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff)],
-            timeout=15, vflags='-vvv', packets=10)
+                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff,
+                                                     timeout=wpasup_timeout,
+                                                     terminate_wpasupplicant=terminate_wpasupplicant)],
+            timeout=tcpdump_timeout, vflags='-vvv', packets=tcpdump_packets)
         return tcpdump_txt
 
     def retry_8021x(self, host, port_num, conf, and_logoff=False, retries=2):
@@ -272,81 +372,27 @@ network={
             time.sleep(1)
         return tcpdump_txt
 
-    def test_untagged(self):
-        # Log 1 on
-        # test 1 good, 2 bad.
-        # log 2 on
-        # test 1 good, 2 good.
-        # log 2 off
-        # test 1 good, 2 bad
-        port_no1 = self.port_map['port_1']
-        port_no2 = self.port_map['port_2']
-        port_labels1 = self.port_labels(port_no1)
-        port_labels2 = self.port_labels(port_no2)
-
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
-                           require_host_learned=False, expected_result=False)
-        tcpdump_txt_1 = self.try_8021x(
-            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
-        self.assertIn('Success', tcpdump_txt_1)
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels1, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels1, default=0))
-
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
-        self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
-                           require_host_learned=False, expected_result=False)
-        tcpdump_txt_2 = self.try_8021x(
-            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True)
-        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
-        self.assertIn('Success', tcpdump_txt_2)
-        self.assertIn('logoff', tcpdump_txt_2)
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels2, default=0))
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels2, default=0))
-
-        self.assertEqual(
-            2,
-            self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
-
     def wait_8021x_flows(self, port_no):
-        nfv_portno = self.port_map['port_4']
         port_actions = [
-            'SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no), 'OUTPUT:%u' % nfv_portno]
+            'SET_FIELD: {eth_dst:%s}' % self._priv_mac(port_no), 'OUTPUT:%u' % self.nfv_portno]
         from_nfv_actions = [
             'SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%d' % port_no]
         from_nfv_match = {
-            'in_port': nfv_portno, 'dl_src': self._priv_mac(port_no)}
+            'in_port': self.nfv_portno, 'dl_src': self._priv_mac(port_no), 'dl_type': 0x888e}
         self.wait_until_matching_flow(None, table_id=0, actions=port_actions)
         self.wait_until_matching_flow(from_nfv_match, table_id=0, actions=from_nfv_actions)
 
-    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff, timeout=10):
+    def wait_8021x_success_flows(self, host, port_no):
+        from_host_actions = [
+            'GOTO_TABLE:1']
+        from_host_match = {
+            'in_port': port_no, 'dl_src': host.MAC()}
+        self.wait_until_matching_flow(from_host_match, table_id=0, actions=from_host_actions)
+
+    def wpa_supplicant_callback(self, host, port_num, conf, and_logoff, timeout=10, terminate_wpasupplicant=False):
         wpa_ctrl_path = self.get_wpa_ctrl_path(host)
         if os.path.exists(wpa_ctrl_path):
-            host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
+            self.terminate_wpasupplicant(host)
             for pid in host.cmd('lsof -t %s' % wpa_ctrl_path).splitlines():
                 try:
                     os.kill(int(pid), 15)
@@ -356,9 +402,10 @@ network={
                 shutil.rmtree(wpa_ctrl_path)
             except FileNotFoundError:
                 pass
+        log_prefix = host.name + "_"
         self.start_wpasupplicant(
             host, conf,
-            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path)
+            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path, log_prefix=log_prefix)
         if and_logoff:
             self.wait_for_eap_success(host, wpa_ctrl_path)
             self.wait_until_matching_flow(
@@ -370,6 +417,13 @@ network={
             self.one_ipv4_ping(
                 host, self.ping_host.IP(),
                 require_host_learned=False, expected_result=False)
+
+        if terminate_wpasupplicant:
+            self.terminate_wpasupplicant(host)
+
+    def terminate_wpasupplicant(self, host):
+        wpa_ctrl_path = self.get_wpa_ctrl_path(host)
+        host.cmd('wpa_cli -p %s terminate' % wpa_ctrl_path)
 
     def get_wpa_ctrl_path(self, host):
         wpa_ctrl_path = os.path.join(
@@ -451,7 +505,17 @@ listen {
 
         with open(users_path, 'w') as users_file:
             users_file.write('''user   Cleartext-Password := "microphone"
-admin  Cleartext-Password := "megaphone"''')
+    Session-timeout = {0}
+admin  Cleartext-Password := "megaphone"
+    Session-timeout = {0}
+vlanuser1001  Cleartext-Password := "password"
+    Tunnel-Type = "VLAN",
+    Tunnel-Medium-Type = "IEEE-802",
+    Tunnel-Private-Group-id = "radiusassignedvlan1"
+vlanuser2222  Cleartext-Password := "milliphone"
+    Tunnel-Type = "VLAN",
+    Tunnel-Medium-Type = "IEEE-802",
+    Tunnel-Private-Group-id = "radiusassignedvlan2"'''.format(self.SESSION_TIMEOUT))
 
         with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
             clients.write('''client localhost {
@@ -480,10 +544,81 @@ admin  Cleartext-Password := "megaphone"''')
         return radius_log_path
 
 
-class Faucet8021XFailureTest(Faucet8021XSuccessTest):
-    """Failure due to incorrect identity/password"""
+class Faucet8021XSuccessTest(Faucet8021XBaseTest):
 
-    RADIUS_PORT = 1850
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'success'}},
+                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'logoff'}}]
+    SESSION_TIMEOUT = 3600
+
+    def test_untagged(self):
+        # Log 1 on
+        # test 1 good, 2 bad.
+        # log 2 on
+        # test 1 good, 2 good.
+        # log 2 off
+        # test 1 good, 2 bad
+        port_no1 = self.port_map['port_1']
+        port_no2 = self.port_map['port_2']
+        port_labels1 = self.port_labels(port_no1)
+        port_labels2 = self.port_labels(port_no2)
+
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels1, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels1, default=0))
+
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
+        self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+        tcpdump_txt_2 = self.try_8021x(
+            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True,
+            terminate_wpasupplicant=True)
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
+        self.assertIn('Success', tcpdump_txt_2)
+        self.assertIn('logoff', tcpdump_txt_2)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels2, default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels2, default=0))
+
+        self.assertEqual(
+            2,
+            self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
+
+
+class Faucet8021XFailureTest(Faucet8021XBaseTest):
+    """Failure due to incorrect identity/password"""
 
     wpasupplicant_conf_1 = """
     ap_scan=0
@@ -494,6 +629,12 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
         password="wrongpassword"
     }
     """
+
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'failure'}}]
 
     def test_untagged(self):
         port_no = self.port_map['port_1']
@@ -522,9 +663,21 @@ class Faucet8021XFailureTest(Faucet8021XSuccessTest):
             self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels, default=0))
 
 
-class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
+class Faucet8021XPortStatusTest(Faucet8021XBaseTest):
 
-    RADIUS_PORT = 1860
+    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}}]
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -561,6 +714,9 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
             self.scrape_prometheus_var(
                 'port_dot1x_success_total', labels=self.port_labels(port_no1), default=0))
 
+        # terminate so don't automatically reauthenticate when port goes back up.
+        self.terminate_wpasupplicant(self.eapol1_host)
+
         self.flap_port(port_no1)
         self.wait_8021x_flows(port_no1)
         self.one_ipv4_ping(
@@ -568,9 +724,7 @@ class Faucet8021XPortStatusTest(Faucet8021XSuccessTest):
             require_host_learned=False, expected_result=False)
 
 
-class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
-
-    RADIUS_PORT = 1880
+class Faucet8021XPortFlapTest(Faucet8021XBaseTest):
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -594,15 +748,89 @@ class Faucet8021XPortFlapTest(Faucet8021XSuccessTest):
             self.try_8021x(
                 self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
             self.one_ipv4_ping(
-                self.eapol1_host, self.nfv_host,
+                self.eapol1_host, self.nfv_host.IP(),
                 require_host_learned=False, expected_result=False)
             wpa_status = self.get_wpa_status(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
             self.assertNotEqual('SUCCESS', wpa_status)
+            # Kill supplicant so cant reply to the port up identity request.
+            self.terminate_wpasupplicant(self.eapol1_host)
 
 
-class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
+class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
 
-    RADIUS_PORT = 1870
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_labels1 = self.port_labels(port_no1)
+
+        # start wpa sup, logon, then send id request. should then be 2 success.
+        self.set_port_up(port_no1)
+        self.wait_8021x_flows(port_no1)
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False,
+            tcpdump_timeout=180, tcpdump_packets=6)
+        self.wait_for_eap_success(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertNotIn('logoff', tcpdump_txt_1)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.set_port_down(port_no1)
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=False)
+
+        def port_up(port):
+            self.set_port_up(port)
+            self.wait_8021x_flows(port)
+
+        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_txt = self.tcpdump_helper(
+            self.eapol1_host, tcpdump_filter, [
+                lambda: port_up(port_no1)],
+            timeout=80, vflags='-vvv', packets=10)
+        # assume that this is the identity request
+        self.assertIn("len 5, Request (1)", tcpdump_txt)
+        # supplicant replies with username.
+        self.assertIn("Identity: user", tcpdump_txt)
+        # supplicant success
+        self.assertIn("Success", tcpdump_txt)
+        self.wait_8021x_success_flows(self.eapol1_host, port_no1)
+
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=True, retries=10)
+
+        self.assertEqual(
+            2,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+
+
+class Faucet8021XPeriodicReauthTest(Faucet8021XBaseTest):
+
+    SESSION_TIMEOUT = 15
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_labels1 = self.port_labels(port_no1)
+
+        self.set_port_up(port_no1)
+        self.wait_8021x_flows(port_no1)
+        self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+
+        self.wait_8021x_success_flows(self.eapol1_host, port_no1)
+
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        time.sleep(50)
+
+        self.assertEqual(
+            4,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+
+
+class Faucet8021XConfigReloadTest(Faucet8021XBaseTest):
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -619,6 +847,373 @@ class Faucet8021XConfigReloadTest(Faucet8021XSuccessTest):
             restart=True, cold_start=False, change_expected=True)
 
         self.wait_8021x_flows(port_no2)
+
+
+class Faucet8021XCustomACLLoginTest(Faucet8021XBaseTest):
+    """Ensure that 8021X Port ACLs Work before and after Login"""
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    auth_acl:
+        - rule:
+            dl_type: 0x800      # Allow ICMP / IPv4
+            ip_proto: 1
+            actions:
+                allow: True
+        - rule:
+            dl_type: 0x0806     # ARP Packets
+            actions:
+                allow: True
+    noauth_acl:
+        - rule:
+            dl_type: 0x800      # Deny ICMP / IPv4
+            ip_proto: 1
+            actions:
+                allow: False
+        - rule:
+            dl_type: 0x0806     # ARP Packets
+            actions:
+                allow: True
+    """
+
+    CONFIG = """
+        dot1x:
+            nfv_intf: NFV_INTF
+            nfv_sw_port: %(port_4)d
+            radius_ip: 127.0.0.1
+            radius_port: RADIUS_PORT
+            radius_secret: SECRET
+            auth_acl: auth_acl
+            noauth_acl: noauth_acl
+        interfaces:
+            %(port_1)d:
+                name: b1
+                description: "b1"
+                native_vlan: 100
+                # 802.1x client.
+                dot1x: True
+                dot1x_acl: True
+            %(port_2)d:
+                name: b2
+                description: "b2"
+                native_vlan: 100
+                # 802.1X client.
+                dot1x: True
+                dot1x_acl: True
+            %(port_3)d:
+                name: b3
+                description: "b3"
+                native_vlan: 100
+                # ping host.
+            %(port_4)d:
+                name: b4
+                description: "b4"
+
+                native_vlan: 100
+                # "NFV host - interface used by controller."
+    """
+
+    def test_untagged(self):
+        # Ping allowed before and after login
+        port_no1 = self.port_map['port_1']
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+        self.assertIn('Success', tcpdump_txt_1)
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=True)
+
+
+class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
+    """Ensure that 8021X Port ACLs Work before and after Logout"""
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
+
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertIn('logoff', tcpdump_txt_1)
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+
+class Faucet8021XVLANTest(Faucet8021XSuccessTest):
+    """Test that two hosts are put into vlans.
+    Same VLAN, Logoff, diff VLANs, port flap."""
+
+    CONFIG_GLOBAL = """vlans:
+        100:
+            vid: 100
+            description: "untagged"
+        radiusassignedvlan1:
+            vid: %u
+            description: "untagged"
+            dot1x_assigned: True
+        radiusassignedvlan2:
+            vid: %u
+            description: "untagged"
+            dot1x_assigned: True
+    """ % (mininet_test_base.MAX_TEST_VID - 1,
+           mininet_test_base.MAX_TEST_VID)
+
+    CONFIG = """
+        dot1x:
+            nfv_intf: NFV_INTF
+            nfv_sw_port: %(port_4)d
+            radius_ip: 127.0.0.1
+            radius_port: RADIUS_PORT
+            radius_secret: SECRET
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                # 802.1x client.
+                dot1x: True
+            %(port_2)d:
+                native_vlan: 100
+                # 802.1X client.
+                dot1x: True
+            %(port_3)d:
+                native_vlan: radiusassignedvlan1
+                # ping host.
+            %(port_4)d:
+                native_vlan: 100
+                # "NFV host - interface used by controller."
+    """
+
+    RADIUS_PORT = 1940
+    DOT1X_EXPECTED_EVENTS = []
+
+    wpasupplicant_conf_1 = """
+    ap_scan=0
+    network={
+        key_mgmt=IEEE8021X
+        eap=MD5
+        identity="vlanuser1001"
+        password="password"
+    }
+    """
+
+    wpasupplicant_conf_2 = """
+    ap_scan=0
+    network={
+        key_mgmt=IEEE8021X
+        eap=MD5
+        identity="vlanuser2222"
+        password="milliphone"
+    }
+    """
+
+    def test_untagged(self):
+        vid = 100 ^ mininet_test_base.OFPVID_PRESENT
+        radius_vid1 = (mininet_test_base.MAX_TEST_VID - 1) ^ mininet_test_base.OFPVID_PRESENT
+        radius_vid2 = mininet_test_base.MAX_TEST_VID ^ mininet_test_base.OFPVID_PRESENT
+        port_no1 = self.port_map['port_1']
+        port_no2 = self.port_map['port_2']
+        port_no3 = self.port_map['port_3']
+        port_no4 = self.port_map['port_4']
+        self.wait_8021x_flows(port_no1)
+        tcpdump_txt = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+        self.assertIn('Success', tcpdump_txt)
+        port_labels = self.port_labels(port_no1)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('dp_dot1x_success_total', default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('dp_dot1x_failure_total', default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels, default=0))
+
+        self.wait_until_matching_flow(
+            {'in_port': port_no1},
+            table_id=self._VLAN_TABLE,
+            actions=['SET_FIELD: {vlan_vid:%u}' % radius_vid1])
+
+        self.wait_until_matching_flow(
+            {'vlan_vid': radius_vid1},
+            table_id=self._FLOOD_TABLE,
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no3])
+        self.wait_until_matching_flow(
+            {'vlan_vid': vid},
+            table_id=self._FLOOD_TABLE,
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
+        self.wait_until_no_matching_flow(
+            {'vlan_vid': radius_vid2},
+            table_id=self._FLOOD_TABLE,
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
+
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=True)
+
+        self.one_ipv4_ping(self.eapol1_host, self.nfv_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+        tcpdump_txt = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
+        self.assertIn('Success', tcpdump_txt)
+
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=False)
+
+        self.one_ipv4_ping(self.eapol1_host, self.nfv_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+        # check ports are back in the right vlans.
+        self.wait_until_no_matching_flow(
+            {'in_port': port_no1},
+            table_id=self._VLAN_TABLE,
+            actions=['SET_FIELD: {vlan_vid:%u}' % radius_vid1])
+        self.wait_until_matching_flow(
+            {'in_port': port_no1},
+            table_id=self._VLAN_TABLE,
+            actions=['SET_FIELD: {vlan_vid:%u}' % vid])
+
+        # check flood ports are in the right vlans
+        self.wait_until_no_matching_flow(
+            {'vlan_vid': radius_vid1},
+            table_id=self._FLOOD_TABLE,
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no3])
+
+        self.wait_until_matching_flow(
+            {'vlan_vid': vid},
+            table_id=self._FLOOD_TABLE,
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
+
+        # check two 1x hosts play nicely. (same dyn vlan)
+        tcpdump_txt = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+        self.assertIn('Success', tcpdump_txt)
+
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=True)
+        self.one_ipv4_ping(
+            self.eapol1_host, self.eapol2_host.IP(),
+            require_host_learned=False, expected_result=False)
+
+        tcpdump_txt = self.try_8021x(
+            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=False)
+        self.assertIn('Success', tcpdump_txt)
+
+        self.one_ipv4_ping(
+            self.eapol2_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=True)
+        self.one_ipv4_ping(
+            self.eapol2_host, self.eapol1_host.IP(),
+            require_host_learned=False, expected_result=True)
+
+        # check two 1x hosts dont play (diff dyn vlan).
+        tcpdump_txt = self.try_8021x(
+            self.eapol2_host, port_no2, self.wpasupplicant_conf_2, and_logoff=False)
+        self.assertIn('Success', tcpdump_txt)
+
+        self.one_ipv4_ping(
+            self.eapol2_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=False)
+        self.one_ipv4_ping(
+            self.eapol2_host, self.eapol1_host.IP(),
+            require_host_learned=False, expected_result=False)
+        self.wait_8021x_flows(port_no1)
+        # move host1 to new VLAN
+        tcpdump_txt = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_2, and_logoff=False)
+        self.assertIn('Success', tcpdump_txt)
+
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=False)
+        self.one_ipv4_ping(
+            self.eapol1_host, self.eapol2_host.IP(),
+            require_host_learned=False, expected_result=True)
+
+        self.wait_until_no_matching_flow(
+            {'eth_src': self.eapol1_host.MAC(),
+             'vlan_vid': vid},
+            table_id=self._ETH_SRC_TABLE)
+
+        self.wait_until_no_matching_flow(
+            {'eth_src': self.eapol1_host.MAC(),
+             'vlan_vid': radius_vid1},
+            table_id=self._ETH_SRC_TABLE)
+
+        self.wait_until_matching_flow(
+            {'eth_src': self.eapol1_host.MAC(),
+             'vlan_vid': radius_vid2},
+            table_id=self._ETH_SRC_TABLE)
+
+        self.wait_until_no_matching_flow(
+            {'eth_dst': self.eapol1_host.MAC(),
+             'vlan_vid': vid},
+            table_id=self._ETH_DST_TABLE)
+
+        self.wait_until_no_matching_flow(
+            {'eth_dst': self.eapol1_host.MAC(),
+             'vlan_vid': radius_vid1},
+            table_id=self._ETH_DST_TABLE)
+
+        self.wait_until_matching_flow(
+            {'eth_dst': self.eapol1_host.MAC(),
+             'vlan_vid': radius_vid2},
+            table_id=self._ETH_DST_TABLE)
+
+        # test port up/down. removes the dynamic vlan & host cache.
+        self.flap_port(port_no2)
+
+        self.wait_until_no_matching_flow(
+            {'eth_src': self.eapol2_host.MAC()},
+            table_id=self._ETH_SRC_TABLE)
+        self.wait_until_no_matching_flow(
+            {'eth_dst': self.eapol2_host.MAC(),
+             'vlan_vid': radius_vid1},
+            table_id=self._ETH_DST_TABLE,
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no2])
+
+        # check ports are back in the right vlans.
+        self.wait_until_no_matching_flow(
+            {'in_port': port_no2},
+            table_id=self._VLAN_TABLE,
+            actions=['SET_FIELD: {vlan_vid:%u}' % radius_vid2])
+        self.wait_until_matching_flow(
+            {'in_port': port_no2},
+            table_id=self._VLAN_TABLE,
+            actions=['SET_FIELD: {vlan_vid:%u}' % vid])
+
+        # check flood ports are in the right vlans
+        self.wait_until_no_matching_flow(
+            {'vlan_vid': radius_vid2},
+            table_id=self._FLOOD_TABLE,
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2])
+
+        self.wait_until_matching_flow(
+            {'vlan_vid': vid},
+            table_id=self._FLOOD_TABLE,
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
@@ -645,7 +1240,7 @@ vlans:
     def test_untagged(self):
         last_vid = None
         for _ in range(5):
-            vid = random.randint(2, 512)
+            vid = random.randint(2, mininet_test_base.MAX_TEST_VID)
             if vid == last_vid:
                 continue
             self.change_vlan_config(
@@ -972,7 +1567,7 @@ class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                1, first_host_ip, second_host_ip)
+                MIN_MBPS, first_host_ip, second_host_ip)
             self.flap_all_switch_ports()
 
 
@@ -990,14 +1585,14 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                1, first_host_ip.ip, second_host_ip.ip)
+                MIN_MBPS, first_host_ip.ip, second_host_ip.ip)
             self.flap_all_switch_ports()
 
 
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
-    def verify_dp_port_healthy(self, dp_port, retries=5, min_mbps=100):
+    def verify_dp_port_healthy(self, dp_port, retries=5, min_mbps=MIN_MBPS):
         for _ in range(retries):
             port_desc = self.get_port_desc_from_dpid(self.dpid, dp_port)
             port_name = port_desc['name']
@@ -3940,7 +4535,6 @@ class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        unicast_flood: False
 """
 
     CONFIG = """
@@ -3961,6 +4555,13 @@ vlans:
         self.flap_all_switch_ports()
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
         self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
+        first_host_ip = ipaddress.ip_address(first_host.IP())
+        second_host_ip = ipaddress.ip_address(second_host.IP())
+        self.one_ipv4_ping(first_host, second_host_ip)
+        self.verify_iperf_min(
+            ((first_host, self.port_map['port_1']),
+             (second_host, self.port_map['port_2'])),
+            MIN_MBPS, first_host_ip, second_host_ip)
 
 
 class FaucetUntaggedOutputOverrideTest(FaucetUntaggedTest):
@@ -4097,6 +4698,41 @@ vlans:
 
     def test_tagged(self):
         self.ping_all_when_learned()
+
+
+class FaucetTaggedMirrorTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+            %(port_2)d:
+                tagged_vlans: [100]
+            %(port_3)d:
+                # port 3 will mirror port 1
+                mirror: %(port_1)d
+            %(port_4)d:
+                tagged_vlans: [100]
+"""
+
+    def test_tagged(self):
+        first_host, second_host, mirror_host = self.net.hosts[0:3]
+        self.flap_all_switch_ports()
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
+        self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
+        first_host_ip = ipaddress.ip_address(first_host.IP())
+        second_host_ip = ipaddress.ip_address(second_host.IP())
+        self.one_ipv4_ping(first_host, second_host_ip)
+        self.verify_iperf_min(
+            ((first_host, self.port_map['port_1']),
+             (second_host, self.port_map['port_2'])),
+            MIN_MBPS, first_host_ip, second_host_ip)
 
 
 class FaucetTaggedVLANPCPTest(FaucetTaggedTest):
@@ -4295,7 +4931,7 @@ vlans:
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                1, first_host_ip.ip, second_host_ip.ip)
+                MIN_MBPS, first_host_ip.ip, second_host_ip.ip)
 
         # verify L3 reachability between hosts within each subnet
         for vid in self.NEW_VIDS:
@@ -5646,6 +6282,7 @@ vlans:
 
 class FaucetStringOfDPTest(FaucetTest):
 
+    MAX_HOSTS = 4
     NUM_HOSTS = 4
     LINKS_PER_HOST = 1
     VID = 100
@@ -5654,27 +6291,49 @@ class FaucetStringOfDPTest(FaucetTest):
     dpids = None
     topo = None
 
+    def non_host_ports(self, dpid):
+        if self.NUM_DPS <= 2 and dpid == self.dpid:
+            min_non_host_ports = self.MAX_HOSTS - self.NUM_HOSTS
+            first_non_host_port = min_non_host_ports + 1
+            last_non_host_port = first_non_host_port + min_non_host_ports - 1
+            return [self.port_maps[dpid]['port_%u' % port]
+                    for port in range(first_non_host_port, last_non_host_port + 1)]
+        min_non_host_ports = 2
+        first_non_host_port = self.NUM_HOSTS + 1
+        last_non_host_port = first_non_host_port + min_non_host_ports - 1
+        return [self.port_maps[dpid]['port_%u' % port]
+                for port in range(first_non_host_port, last_non_host_port + 1)]
+
+    def hw_port_map_offset(self, port_no):
+        remap_port_no = (len(self.port_map) - port_no) + 1
+        return self.port_maps[self.dpid]['port_%u' % remap_port_no]
+
+    def hw_remap_all_ports(self, config):
+        return {self.hw_port_map_offset(port_no): config
+                for port_no, config in config.items()}
+
     @staticmethod
     def get_config_header(_config_global, _debug_log, _dpid, _hardware):
         """Don't generate standard config file header."""
         return ''
 
+    def acls(self):
+        return {}
+
+    def acl_in_dp(self):
+        return {}
+
     def build_net(self, stack=False, n_dps=1,
                   n_tagged=0, tagged_vid=100,
                   n_untagged=0, untagged_vid=100,
                   include=None, include_optional=None,
-                  acls=None, acl_in_dp=None,
                   switch_to_switch_links=1, hw_dpid=None,
-                  stack_ring=False, lacp=False, first_external=False):
+                  stack_ring=False, lacp=False, use_external=False):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
         if include_optional is None:
             include_optional = []
-        if acls is None:
-            acls = {}
-        if acl_in_dp is None:
-            acl_in_dp = {}
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpids[0] = self.dpid
         self.topo = mininet_test_topo.FaucetStringOfDPSwitchTopo(
@@ -5689,7 +6348,10 @@ class FaucetStringOfDPTest(FaucetTest):
             test_name=self._test_name(),
             hw_dpid=hw_dpid,
             stack_ring=stack_ring,
+            port_base=self.port_base
         )
+        self.port_maps = {dpid: self.create_port_map(dpid) for dpid in self.dpids}
+        self.port_map  = self.port_maps[self.dpid]
         self.CONFIG = self.get_config(
             self.dpids,
             hw_dpid,
@@ -5702,17 +6364,17 @@ class FaucetStringOfDPTest(FaucetTest):
             untagged_vid,
             include,
             include_optional,
-            acls,
-            acl_in_dp,
+            self.acls(),
+            self.acl_in_dp(),
             stack_ring,
             lacp,
-            first_external,
+            use_external,
         )
 
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
                    include=None, include_optional=None, acls=None, acl_in_dp=None, stack_ring=False,
-                   lacp=False, first_external=False):
+                   lacp=False, use_external=False):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
         if dpids is None:
             dpids = []
@@ -5746,17 +6408,17 @@ class FaucetStringOfDPTest(FaucetTest):
             if name in acl_in_dp and port in acl_in_dp[name]:
                 interfaces_config[port]['acl_in'] = acl_in_dp[name][port]
 
-        def add_dp_to_dp_ports(name, dp_config, port, interfaces_config, i,
+        def add_dp_to_dp_ports(name, dp_config, port_index, interfaces_config, i,
                                dpid_count, stack, n_tagged, tagged_vid,
-                               n_untagged, untagged_vid):
-
+                               n_untagged, untagged_vid, dpname_to_dpkey):
+            dpid, _ = dpname_to_dpkey[name]
             # Add configuration for the switch-to-switch links
             # (0 for a single switch, 1 for an end switch, 2 for middle switches).
             first_dp = i == 0
             second_dp = i == 1
             last_dp = i == dpid_count - 1
             end_dp = first_dp or last_dp
-            first_stack_port = port
+            first_stack_port = port_index
             peer_dps = []
             if dpid_count > 1:
                 if end_dp:
@@ -5781,21 +6443,26 @@ class FaucetStringOfDPTest(FaucetTest):
                     dp_config['stack'] = {
                         'priority': 1
                     }
+                index = 0
                 for peer_dp in peer_dps:
                     if (dpid_count <= 2 or (first_dp and peer_dp != dpid_count - 1) or second_dp
                             or (not end_dp and peer_dp > i)):
                         peer_stack_port_base = first_stack_port
                     else:
                         peer_stack_port_base = first_stack_port + self.topo.switch_to_switch_links
+                    port_maps = self.port_maps
                     for stack_dp_port in range(self.topo.switch_to_switch_links):
-                        peer_port = peer_stack_port_base + stack_dp_port
+                        port = port_maps[dpid]['port_%d' % (first_stack_port + index)]
+                        peer_dp_name = dp_name(peer_dp)
+                        peer_dpid, _ = dpname_to_dpkey[peer_dp_name]
+                        peer_port = port_maps[peer_dpid]['port_%d' % (peer_stack_port_base + stack_dp_port)]
                         interfaces_config[port] = {}
                         if stack:
                             # make this a stacking link.
                             interfaces_config[port].update(
                                 {
                                     'stack': {
-                                        'dp': dp_name(peer_dp),
+                                        'dp': peer_dp_name,
                                         'port': peer_port}
                                 })
                         else:
@@ -5814,11 +6481,12 @@ class FaucetStringOfDPTest(FaucetTest):
                                 interfaces_config[port].update(
                                     {'lacp': 1, 'lacp_active': True})
                         add_acl_to_port(name, port, interfaces_config)
-                        port += 1
+                        index += 1
+
 
         def add_dp(name, dpid, hw_dpid, i, dpid_count, stack,
                    n_tagged, tagged_vid, n_untagged, untagged_vid,
-                   dpname_to_dpkey, first_external):
+                   dpname_to_dpkey, use_external):
             dpid_ofchannel_log = None
             if ofchannel_log is not None:
                 dpid_ofchannel_log = ofchannel_log + str(i)
@@ -5835,34 +6503,29 @@ class FaucetStringOfDPTest(FaucetTest):
             }
 
             interfaces_config = {}
+            index = 1
 
-            port = 1
-            for _ in range(n_tagged):
+            for n_port in range(1, n_tagged + 1):
+                port = self.port_maps[dpid]['port_%d' % index]
                 interfaces_config[port] = {
                     'tagged_vlans': [tagged_vid],
-                    'loop_protect_external': (first_external and port == 1),
+                    'loop_protect_external': (use_external and n_port < n_tagged),
                 }
                 add_acl_to_port(name, port, interfaces_config)
-                port += 1
+                index += 1
 
-            for _ in range(n_untagged):
+            for n_port in range(1, n_untagged + 1):
+                port = self.port_maps[dpid]['port_%d' % index]
                 interfaces_config[port] = {
                     'native_vlan': untagged_vid,
-                    'loop_protect_external': (first_external and port == 1),
+                    'loop_protect_external': (use_external and n_port < n_untagged),
                 }
                 add_acl_to_port(name, port, interfaces_config)
-                port += 1
+                index += 1
 
             add_dp_to_dp_ports(
-                name, dp_config, port, interfaces_config, i, dpid_count, stack,
-                n_tagged, tagged_vid, n_untagged, untagged_vid)
-
-            if dpid == hw_dpid:
-                remapped_interfaces_config = {}
-                for portno, config in list(interfaces_config.items()):
-                    remapped_portno = self.port_map['port_%u' % portno]
-                    remapped_interfaces_config[remapped_portno] = config
-                interfaces_config = remapped_interfaces_config
+                name, dp_config, index, interfaces_config, i, dpid_count, stack,
+                n_tagged, tagged_vid, n_untagged, untagged_vid, dpname_to_dpkey)
 
             for portno, config in list(interfaces_config.items()):
                 stack = config.get('stack', None)
@@ -5871,11 +6534,14 @@ class FaucetStringOfDPTest(FaucetTest):
                     peer_portno = stack['port']
                     peer_dpid, _ = dpname_to_dpkey[peer_dp]
                     if hw_dpid == peer_dpid:
-                        peer_portno = self.port_map['port_%u' % portno]
+                        peer_portno = self.hw_port_map_offset(portno)
                     if 'stack' not in interfaces_config[portno]:
                         interfaces_config[portno]['stack'] = {}
                     interfaces_config[portno]['stack'].update({
                         'port': 'b%u' % peer_portno})
+
+            if hw_dpid == dpid:
+                interfaces_config = self.hw_remap_all_ports(interfaces_config)
 
             dp_config['interfaces'] = interfaces_config
 
@@ -5904,7 +6570,7 @@ class FaucetStringOfDPTest(FaucetTest):
             config['dps'][name] = add_dp(
                 name, dpid, hw_dpid, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid,
-                dpname_to_dpkey, (first_external and i == 0))
+                dpname_to_dpkey, use_external)
 
         return yaml.dump(config, default_flow_style=False)
 
@@ -5926,8 +6592,8 @@ class FaucetStringOfDPTest(FaucetTest):
             lldp_cap_file = os.path.join(self.tmpdir, '%s-lldp.cap' % host)
             lldp_cap_files.append(lldp_cap_file)
             host.cmd(mininet_test_util.timeout_cmd(
-                'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC &' % (
-                    host.defaultIntf(), lldp_cap_file), 60))
+                'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC and not ether src %s &' % (
+                    host.defaultIntf(), host.MAC(), lldp_cap_file), 60))
         self.retry_net_ping(retries=retries)
         # hosts should see no LLDP probes
         self.verify_empty_caps(lldp_cap_files)
@@ -5950,13 +6616,9 @@ class FaucetStringOfDPTest(FaucetTest):
                 int(dpid), port_no, status))
 
     def verify_all_stack_up(self):
-        port_base = self.NUM_HOSTS + 1
         for i, dpid in enumerate(self.dpids, start=1):
             dp_name = 'faucet-%u' % i
-            for switch_port_no in range(self.topo.switch_to_switch_links):
-                port_no = port_base + switch_port_no
-                if dpid == self.hw_dpid:
-                    port_no = self.port_map['port_%u' % port_no]
+            for port_no in self.non_host_ports(dpid):
                 self.wait_for_stack_port_status(
                     dpid, dp_name, port_no, 3) # up
 
@@ -6018,11 +6680,13 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
             switch_to_switch_links=2)
         self.start_net()
 
-    def verify_one_stack_down(self, port_no, coldstart=False):
+    def verify_one_stack_down(self, stack_offset_port, coldstart=False):
         self.retry_net_ping()
-        self.set_port_down(port_no, wait=False)
+        stack_port = self.non_host_ports(self.dpid)[stack_offset_port]
+        remote_stack_port = self.non_host_ports(self.dpids[1])[stack_offset_port]
+        self.set_port_down(stack_port, wait=False)
         # self.dpids[1] is the intermediate switch.
-        self.set_port_down(port_no, self.dpids[1], wait=False)
+        self.set_port_down(remote_stack_port, self.dpids[1], wait=False)
         # test case where one link is down when coldstarted.
         if coldstart:
             self.coldstart_conf()
@@ -6040,11 +6704,11 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
         for coldstart in (False, True):
-            self.verify_one_stack_down(self.NUM_HOSTS + 1, coldstart)
+            self.verify_one_stack_down(0, coldstart)
 
     def test_other_tagged(self):
         for coldstart in (False, True):
-            self.verify_one_stack_down(self.NUM_HOSTS + 2, coldstart)
+            self.verify_one_stack_down(1, coldstart)
 
 
 class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
@@ -6082,30 +6746,32 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.wait_for_lacp_status(port_no, 1, dpid, dp_name)
 
     def wait_for_all_lacp_up(self):
-        first_lacp_port = self.port_map['port_%u' % 3]
-        second_lacp_port = self.port_map['port_%u' % 4]
+        first_lacp_port, second_lacp_port = self.non_host_ports(self.dpid)
+        remote_first_lacp_port = self.non_host_ports(self.dpids[1])[0]
         self.wait_for_lacp_port_up(first_lacp_port, self.dpid, self.DP_NAME)
         self.wait_for_lacp_port_up(second_lacp_port, self.dpid, self.DP_NAME)
         self.wait_until_matching_flow(
             self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % first_lacp_port])
         self.wait_until_matching_flow(
-            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % 3], dpid=self.dpids[1])
+            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % remote_first_lacp_port],
+            dpid=self.dpids[1])
 
     def test_lacp_port_down(self):
         """LACP to switch to a working port when the primary port fails."""
-        first_lacp_port = self.port_map['port_%u' % 3]
-        second_lacp_port = self.port_map['port_%u' % 4]
+        first_lacp_port, second_lacp_port = self.non_host_ports(self.dpid)
+        remote_first_lacp_port, remote_second_lacp_port = self.non_host_ports(self.dpids[1])
         self.wait_for_all_lacp_up()
         self.retry_net_ping()
         self.set_port_down(first_lacp_port, wait=False)
         self.wait_for_lacp_port_down(first_lacp_port, self.dpid, self.DP_NAME)
-        self.wait_for_lacp_port_down(3, self.dpids[1], 'faucet-2')
+        self.wait_for_lacp_port_down(remote_first_lacp_port, self.dpids[1], 'faucet-2')
         self.wait_until_matching_flow(
             self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % second_lacp_port])
         self.wait_until_matching_flow(
-            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % 4], dpid=self.dpids[1])
+            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % remote_second_lacp_port],
+            dpid=self.dpids[1])
         self.retry_net_ping()
-        self.set_port_up(first_lacp_port, wait=False)
+        self.set_port_up(first_lacp_port)
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
@@ -6141,7 +6807,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
-    NUM_HOSTS = 2
+    NUM_HOSTS = 3
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStackStringOfDPExtLoopProtUntaggedTest, self).setUp()
@@ -6152,12 +6818,54 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             untagged_vid=self.VID,
             switch_to_switch_links=2,
             hw_dpid=self.hw_dpid,
-            first_external=True)
+            use_external=True)
         self.start_net()
 
     def test_untagged(self):
-        """All untagged hosts in stack topology can reach each other."""
-        self.verify_all_stack_hosts()
+        """Host can reach each other, unless both marked loop_protect_external"""
+
+        # Part 1: Make sure things are connected properly.
+        self._connections_aye() # Before reload
+
+        # Part 2: Test the code on pipeline reconfiguration path.
+        self._mark_external(True)
+        self._mark_external(False)
+
+        # Part 3: Make sure things are the same after reload.
+        self._connections_aye() # After reload
+
+    def _mark_external(self, protect_external):
+        conf = self._get_faucet_conf()
+        loop_port = self.non_host_ports(self.dpids[1])[0]
+        conf['dps']['faucet-2']['interfaces'][loop_port]['loop_protect_external'] = protect_external
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=True)
+
+    def _verify_link(self, hosts=None, expected=True):
+        self.verify_broadcast(hosts, expected)
+        self.verify_unicast(hosts, expected)
+
+    def _connections_aye(self):
+        ext_port1, alt_port1, int_port1, ext_port2, alt_port2, int_port2 = self.net.hosts
+        self._verify_link(hosts=(ext_port1, ext_port2), expected=False)
+        self._verify_link(hosts=(ext_port1, int_port1), expected=True)
+        self._verify_link(hosts=(ext_port1, int_port2), expected=True)
+        self._verify_link(hosts=(int_port1, int_port2), expected=True)
+        self._verify_link(hosts=(int_port1, ext_port1), expected=True)
+        self._verify_link(hosts=(int_port1, ext_port2), expected=True)
+        self._verify_link(hosts=(ext_port2, int_port1), expected=True)
+        self._verify_link(hosts=(ext_port2, int_port2), expected=True)
+        self._verify_link(hosts=(ext_port2, ext_port1), expected=False)
+        self._verify_link(hosts=(int_port2, int_port1), expected=True)
+        self._verify_link(hosts=(int_port2, ext_port1), expected=True)
+        self._verify_link(hosts=(int_port2, ext_port2), expected=True)
+
+        self._verify_link(hosts=(ext_port1, alt_port2), expected=False)
+        self._verify_link(hosts=(alt_port1, ext_port2), expected=False)
+        self._verify_link(hosts=(int_port1, alt_port1), expected=True)
+        self._verify_link(hosts=(int_port1, alt_port2), expected=True)
+        self._verify_link(hosts=(alt_port1, int_port2), expected=True)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
@@ -6199,7 +6907,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.assertLessEqual(num_arp_received, num_arp_expected)
 
     def one_stack_port_down(self):
-        port = self.NUM_HOSTS + self.topo.switch_to_switch_links + 1 # root port
+        port = self.non_host_ports(self.dpid)[1]
         self.set_port_down(port, self.dpid)
         self.wait_for_stack_port_status(self.dpid, self.DP_NAME, port, 2) # down
 
@@ -6228,14 +6936,16 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     NUM_DPS = 3
     NUM_HOSTS = 3
 
-    ACLS = {
+    def acls(self):
+        map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
+        ACLS = {
         1: [
             {'rule': {
                 'dl_type': IPV4_ETH,
                 'nw_dst': '10.0.0.2',
                 'actions': {
                     'output': {
-                        'port': 2
+                        'port': map1['port_2']
                     }
                 },
             }},
@@ -6244,7 +6954,9 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
-                        'ports': [2, 4]
+                        'ports': [
+                            map1['port_2'],
+                            map1['port_4']]
                     }
                 },
             }},
@@ -6252,7 +6964,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
-                        'port': 4
+                        'port': map1['port_4']
                     }
                 },
             }},
@@ -6267,7 +6979,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
-                        'port': 5
+                        'port': map2['port_5']
                     }
                 },
             }},
@@ -6283,7 +6995,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'nw_dst': '10.0.0.7',
                 'actions': {
                     'output': {
-                        'port': 1
+                        'port': map3['port_1']
                     }
                 },
             }},
@@ -6292,7 +7004,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
-                        'ports': [1]
+                        'ports': [map3['port_1']]
                     }
                 },
             }},
@@ -6308,23 +7020,28 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 },
             }},
         ],
-    }
+        }
+        return ACLS
 
-    # DP-to-acl_in port mapping.
-    ACL_IN_DP = {
+    def acl_in_dp(self):
+        map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
+        # DP-to-acl_in port mapping.
+        ACL_IN_DP = {
         'faucet-1': {
             # Port 1, acl_in = 1
-            1: 1,
+            map1['port_1'] : 1,
         },
         'faucet-2': {
             # Port 4, acl_in = 2
-            4: 2,
+            map2['port_4'] : 2,
         },
         'faucet-3': {
             # Port 4, acl_in = 3
-            4: 3,
+            map3['port_4'] : 3,
         },
-    }
+        }
+        return ACL_IN_DP
+
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetSingleStackAclControlTest, self).setUp()
@@ -6333,8 +7050,6 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            acls=self.ACLS,
-            acl_in_dp=self.ACL_IN_DP,
             )
         self.start_net()
 
@@ -6417,24 +7132,25 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         ],
     }
 
-    # DP-to-acl_in port mapping.
-    ACL_IN_DP = {
+    def acl_in_dp(self):
+        # DP-to-acl_in port mapping.
+        ACL_IN_DP = {
         'faucet-1': {
-            # Port 1, acl_in = 1
-            1: 1,
+            # First port, acl_in = 1
+            self.port_map['port_1']: 1,
         },
-    }
+        }
+        return ACL_IN_DP
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPACLOverrideTest, self).setUp()
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
+        missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
         self.build_net(
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            include_optional=[self.acls_config],
-            acls=self.ACLS,
-            acl_in_dp=self.ACL_IN_DP,
+            include_optional=[self.acls_config, missing_config]
         )
         self.start_net()
 
@@ -6461,13 +7177,15 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.verify_no_cable_errors()
 
 
-class FaucetTunnelTest(FaucetStringOfDPTest):
+class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
 
     NUM_DPS = 2
     NUM_HOSTS = 2
     SWITCH_TO_SWITCH_LINKS = 2
     VID = 100
-    ACLS = {
+
+    def acls(self):
+        return {
         1: [
             {'rule': {
                 'dl_type': IPV4_ETH,
@@ -6475,20 +7193,96 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
                 'actions': {
                     'allow': 0,
                     'output': {
-                        'tunnel': {'type': 'vlan', 'tunnel_id': 200, 'dp': 'faucet-2', 'port': 1}
+                        'tunnel': {
+                            'type': 'vlan',
+                            'tunnel_id': 200,
+                            'dp': 'faucet-1',
+                            'port': self.port_map['port_2']}
                     }
                 }
             }}
         ]
-    }
-
-    # DP-to-acl_in port mapping.
-    ACL_IN_DP = {
-        'faucet-1': {
-            # Port 1, acl_in = 1
-            1: 1,
         }
-    }
+
+    def acl_in_dp(self):
+        # DP-to-acl_in port mapping.
+        return {
+        'faucet-1': {
+            # First port 1, acl_in = 1
+            self.port_map['port_1'] : 1,
+        }
+        }
+
+    def setUp(self): # pylint: disable=invalid-name
+        super(FaucetTunnelSameDpTest, self).setUp()
+        self.build_net(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            untagged_vid=self.VID,
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+            hw_dpid=self.hw_dpid,
+        )
+        self.start_net()
+
+    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
+        """Verify ICMP packets tunnelled from src to dst."""
+        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
+        self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
+        tcpdump_text = self.tcpdump_helper(
+            dst_host, 'icmp', [
+                # need to set static ARP as only ICMP is tunnelled.
+                lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
+                lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
+            ],
+        )
+        self.wait_nonzero_packet_count_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % other_host.IP(), tcpdump_text
+        ), 'Tunnel was not established')
+
+    def test_tunnel_established(self):
+        """Test a tunnel path can be created."""
+        self.verify_all_stack_up()
+        src_host, dst_host, other_host = self.net.hosts[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+
+
+class FaucetTunnelTest(FaucetStringOfDPTest):
+
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+    SWITCH_TO_SWITCH_LINKS = 2
+    VID = 100
+
+    def acls(self):
+        return {
+        1: [
+            {'rule': {
+                'dl_type': IPV4_ETH,
+                'ip_proto': 1,
+                'actions': {
+                    'allow': 0,
+                    'output': {
+                        'tunnel': {
+                            'type': 'vlan',
+                            'tunnel_id': 200,
+                            'dp': 'faucet-2',
+                            'port': self.port_map['port_1']}
+                    }
+                }
+            }}
+        ]
+        }
+
+    def acl_in_dp(self):
+        # DP-to-acl_in port mapping.
+        return {
+        'faucet-1': {
+            # First port 1, acl_in = 1
+            self.port_map['port_1']: 1,
+        }
+        }
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetTunnelTest, self).setUp()
@@ -6497,43 +7291,44 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            acls=self.ACLS,
-            acl_in_dp=self.ACL_IN_DP,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
             hw_dpid=self.hw_dpid,
         )
         self.start_net()
 
-    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=1):
-        """check if a tunnel is created by pinging from src->other and seeing request in dst"""
-        tcpdump_filter = 'icmp'
+    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
+        """Verify ICMP packets tunnelled from src to dst."""
+        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
+        self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
         tcpdump_text = self.tcpdump_helper(
-            dst_host, tcpdump_filter, [
-                lambda: src_host.cmd('ping -c%u %s' % (packets, other_host.IP()))
+            dst_host, 'icmp', [
+                # need to set static ARP as only ICMP is tunnelled.
+                lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
+                lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
             ],
         )
-        self.assertFalse(re.search(
+        self.wait_nonzero_packet_count_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
+        self.assertTrue(re.search(
             '%s: ICMP echo request' % other_host.IP(), tcpdump_text
         ), 'Tunnel was not established')
-
-    def test_tunnel_established(self):
-        """test a tunnel path can be created"""
-        self.verify_all_stack_up()
-        src_host = self.net.hosts[0]
-        dst_host = self.net.hosts[2]
-        other_host = self.net.hosts[1]
-        self.verify_tunnel_established(src_host, dst_host, other_host)
-
-    def test_tunnel_path_rerouted(self):
-        """test a tunnel path is rerouted when a stack is down"""
-        self.verify_all_stack_up()
-        self.one_stack_port_down(self.port_map['port_3'])
-        src_host, other_host, dst_host = self.net.hosts[:3]
-        self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
     def one_stack_port_down(self, stack_port):
         self.set_port_down(stack_port, self.dpid)
         self.wait_for_stack_port_status(self.dpid, self.DP_NAME, stack_port, 2)
+
+    def test_tunnel_established(self):
+        """Test a tunnel path can be created."""
+        self.verify_all_stack_up()
+        src_host, other_host, dst_host = self.net.hosts[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+
+    def test_tunnel_path_rerouted(self):
+        """Test a tunnel path is rerouted when a stack is down."""
+        self.verify_all_stack_up()
+        first_stack_port = self.non_host_ports(self.dpid)[0]
+        self.one_stack_port_down(first_stack_port)
+        src_host, other_host, dst_host = self.net.hosts[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
 
 class FaucetGroupTableTest(FaucetUntaggedTest):

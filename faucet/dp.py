@@ -228,6 +228,8 @@ configuration.
         'radius_ip': str,
         'radius_port': int,
         'radius_secret': str,
+        'auth_acl': str,
+        'noauth_acl': str,
     }
 
 
@@ -311,6 +313,7 @@ configuration.
         self.lldp_beacon = {}
         self.table_sizes = {}
         self.dyn_up_port_nos = set()
+        self.has_externals = None
 
         #tunnel_id: int
         #   ID of the tunnel, for now this will be the VLAN ID
@@ -371,7 +374,16 @@ configuration.
     def _generate_acl_tables(self):
         all_acls = {}
         if self.dot1x:
+            # NOTE: All acl's are added to the acl list and then referred to later by ports
             all_acls['port_acl'] = [PORT_ACL_8021X]
+
+            auth_acl = self.acls.get(self.dot1x.get('auth_acl'))
+            noauth_acl = self.acls.get(self.dot1x.get('noauth_acl'))
+            
+            if auth_acl:
+                all_acls['port_acl'].append(auth_acl)
+            if noauth_acl:
+                all_acls['port_acl'].append(noauth_acl)
 
         for vlan in self.vlans.values():
             if vlan.acls_in:
@@ -460,15 +472,18 @@ configuration.
             table_configs[name] = table_config
 
         # Stacking with external ports, so need loop protection field.
-        if self.stack and self.stack.get('externals', False):
+        if self.has_externals:
             flood_table = table_configs['flood']
             flood_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
             flood_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
             vlan_table = table_configs['vlan']
             vlan_table.set_fields += (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
             vlan_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
+            eth_src_table = table_configs['eth_src']
+            eth_src_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
             eth_dst_table = table_configs['eth_dst']
             eth_dst_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
+            eth_dst_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
 
         oxm_fields = set(valve_of.MATCH_FIELDS.keys())
 
@@ -813,7 +828,7 @@ configuration.
         self.vlans = {}
         for vlan in vlans.values():
             vlan.reset_ports(self.ports.values())
-            if vlan.get_ports() or vlan.reserved_internal_vlan:
+            if vlan.get_ports() or vlan.reserved_internal_vlan or vlan.dot1x_assigned:
                 self.vlans[vlan.vid] = vlan
         if root_dp is not None:
             self.stack['root_dp'] = root_dp
@@ -1020,16 +1035,28 @@ configuration.
                     vlan.acls_in = acls
                     verify_acl_exact_match(acls)
             for port in self.ports.values():
+                acls = []
                 if port.acls_in:
                     test_config_condition(self.dp_acls, (
                         'dataplane ACLs cannot be used with port ACLs.'))
-                    acls = []
                     for acl in port.acls_in:
                         resolve_acl(acl, port_num=port.number)
                         acls.append(self.acls[acl])
                         resolved.append(acl)
-                    port.acls_in = acls
-                    verify_acl_exact_match(acls)
+
+                if port.dot1x_acl:
+                    if self.dot1x.get('noauth_acl'):
+                        noauth_acl = self.dot1x.get('noauth_acl')
+                        resolve_acl(noauth_acl, port_num=port.number)
+                        resolved.append(noauth_acl)
+
+                    if self.dot1x.get('auth_acl'):
+                        auth_acl = self.dot1x.get('auth_acl')
+                        resolve_acl(auth_acl, port_num=port.number)
+                        resolved.append(auth_acl)
+
+                port.acls_in = acls
+                verify_acl_exact_match(acls)
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
@@ -1043,7 +1070,7 @@ configuration.
                     resolved.append(acl)
             if self.tunnel_acls:
                 for tunnel_acl in self.tunnel_acls.values():
-                    tunnel_acl.verify_tunnel_compatibility_rules(self)
+                    tunnel_acl.verify_tunnel_rules(self)
 
         def resolve_routers():
             """Resolve VLAN references in routers."""
@@ -1102,6 +1129,7 @@ configuration.
         vlans_with_external_ports = {
             vlan for vlan in self.vlans.values() if vlan.loop_protect_external_ports()}
 
+        self.has_externals = bool(vlans_with_external_ports)
         resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_override_output_ports()

@@ -1,4 +1,4 @@
 -r ../requirements.txt
-sphinx==1.8.5
+sphinx==2.0.1
 sphinx_rtd_theme==0.4.3
 sphinxcontrib-svg2pdfconverter
