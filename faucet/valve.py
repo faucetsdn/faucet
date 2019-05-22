@@ -142,6 +142,10 @@ class Valve:
 
     def dp_init(self, new_dp=None):
         """Initialize datapath state at connection/re/config time."""
+        if new_dp:
+            new_dp.clone_dyn_state(self.dp)
+            self.dp = new_dp
+
         self.close_logs()
         self.logger = ValveLogger(
             logging.getLogger(self.logname + '.valve'), self.dp.dp_id, self.dp.name)
@@ -153,11 +157,6 @@ class Valve:
         self._route_manager_by_ipv = {}
         self._route_manager_by_eth_type = {}
         self._port_highwater = {}
-
-        if new_dp:
-            self.logger.info('TAP clone_dyn_state %s' % self.dp.dp_id)
-            new_dp.clone_dyn_state(self.dp, self.logger)
-            self.dp = new_dp
 
         self.dp.reset_refs()
 
@@ -1471,7 +1470,6 @@ class Valve:
         Returns:
             ofmsgs (list): OpenFlow messages.
         """
-        self.logger.info('TAP reload_config %s' % self.dp.dp_id)
         cold_start, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
         restart_type = None
