@@ -7321,7 +7321,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
                 lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
                 lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
             ],
-            packets=1,
+            packets=1, timeout=(packets + 1),
         )
         self.wait_nonzero_packet_count_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
         self.assertTrue(re.search(
