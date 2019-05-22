@@ -50,7 +50,6 @@ from faucet import faucet
 from faucet import faucet_bgp
 from faucet import config_parser_util
 from faucet import faucet_dot1x
-from faucet import faucet_experimental_api
 from faucet import faucet_event
 from faucet import faucet_metrics
 from faucet import valves_manager
