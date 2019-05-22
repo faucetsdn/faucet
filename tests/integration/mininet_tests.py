@@ -6739,8 +6739,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
                 labels=labels, dpid=False, timeout=timeout):
             self.fail('wanted LACP status for %s to be %u' % (labels, wanted_status))
 
-    def wait_for_lacp_port_down(self, port_no, dpid, dp_name, timeout=20):
-        self.wait_for_lacp_status(port_no, 0, dpid, dp_name, timeout=timeout)
+    def wait_for_lacp_port_down(self, port_no, dpid, dp_name):
+        self.wait_for_lacp_status(port_no, 0, dpid, dp_name)
 
     def wait_for_lacp_port_up(self, port_no, dpid, dp_name):
         self.wait_for_lacp_status(port_no, 1, dpid, dp_name)
@@ -6756,7 +6756,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % remote_first_lacp_port],
             dpid=self.dpids[1])
 
-    def Xtest_lacp_port_down(self):
+    def test_lacp_port_down(self):
         """LACP to switch to a working port when the primary port fails."""
         first_lacp_port, second_lacp_port = self.non_host_ports(self.dpid)
         remote_first_lacp_port, remote_second_lacp_port = self.non_host_ports(self.dpids[1])
@@ -6773,7 +6773,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.retry_net_ping()
         self.set_port_up(first_lacp_port)
 
-    def Xtest_untagged(self):
+    def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
         for _ in range(3):
             self.wait_for_all_lacp_up()
@@ -7172,12 +7172,11 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPACLOverrideTest, self).setUp()
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
-        missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
         self.build_net(
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            include_optional=[self.acls_config, missing_config],
+            include_optional=[self.acls_config],
             acls=self.ACLS,
             acl_in_dp=self.ACL_IN_DP,
         )

@@ -24,6 +24,7 @@ STACK_STATE_INIT = 1
 STACK_STATE_DOWN = 2
 STACK_STATE_UP = 3
 
+
 class Port(Conf):
     """Stores state for ports, including the configuration."""
 

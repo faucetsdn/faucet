@@ -936,8 +936,7 @@ class Valve:
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
             if lacp_pkt:
-                self.logger.info('Receive LACP %s on %s' % (lacp_pkt.actor_state_synchronization,
-                                                            pkt_meta.port))
+                self.logger.debug('receive LACP %s on %s' % (lacp_pkt, pkt_meta.port))
                 age = None
                 if pkt_meta.port.dyn_lacp_updated_time:
                     age = now - pkt_meta.port.dyn_lacp_updated_time
@@ -1036,8 +1035,7 @@ class Valve:
                 port, now, other_valves,
                 remote_dp_id, remote_dp_name,
                 remote_port_id, remote_port_state))
-        else:
-            self.logger.debug('LLDP from %s: %s' % (pkt_meta.log(), str(lldp_pkt)))
+        self.logger.debug('LLDP from %s: %s' % (pkt_meta.log(), str(lldp_pkt)))
         return ofmsgs_by_valve
 
     @staticmethod
@@ -1434,7 +1432,7 @@ class Valve:
             self.dp_init()
             return True, []
 
-        all_changed_up_ports = [
+        all_up_port_nos = [
             port for port in changed_ports
             if port in self.dp.dyn_up_port_nos]
 
@@ -1452,7 +1450,6 @@ class Valve:
             self.logger.info('ports changed/added: %s' % changed_ports)
             ofmsgs.extend(self.ports_delete(changed_ports))
 
-        copy_ports = self.dp.ports
         self.dp = new_dp
         self.dp_init()
 
@@ -1463,7 +1460,7 @@ class Valve:
                 ofmsgs.extend(self._del_vlan(vlan))
                 ofmsgs.extend(self._add_vlan(vlan))
         if changed_ports:
-            ofmsgs.extend(self.ports_add(all_changed_up_ports))
+            ofmsgs.extend(self.ports_add(all_up_port_nos))
         if self.acl_manager and changed_acl_ports:
             self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
             for port_num in changed_acl_ports:
