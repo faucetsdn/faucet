@@ -498,11 +498,15 @@ class VLAN(Conf):
         return self.flood_ports(self.untagged + self.dot1x_untagged, exclude_unicast)
 
     def output_port(self, port, hairpin=False, output_table=None, loop_protect_field=None):
-        actions = port.mirror_actions()
+        actions = []
         if self.port_is_untagged(port):
             actions.append(valve_of.pop_vlan())
-        elif loop_protect_field is not None:
-            actions.append(output_table.set_field(**{STACK_LOOP_PROTECT_FIELD: loop_protect_field}))
+            # Packet is mirrored, as the receiving host sees it (without a tag).
+            actions.extend(port.mirror_actions())
+        else:
+            actions.extend(port.mirror_actions())
+            if loop_protect_field is not None:
+                actions.append(output_table.set_field(**{STACK_LOOP_PROTECT_FIELD: loop_protect_field}))
         if hairpin:
             actions.append(valve_of.output_port(valve_of.OFP_IN_PORT))
         else:

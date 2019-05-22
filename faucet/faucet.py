@@ -34,7 +34,7 @@ from faucet.config_parser import get_config_for_api
 from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
 from faucet import faucet_experimental_api
-from faucet import faucet_experimental_event
+from faucet import faucet_event
 from faucet import faucet_bgp
 from faucet import faucet_dot1x
 from faucet import valves_manager
@@ -111,7 +111,7 @@ class Faucet(RyuAppBase):
             self.logger, self.exc_logname, self.metrics, self._send_flow_msgs)
         self.dot1x = faucet_dot1x.FaucetDot1x(
             self.logger, self.metrics, self._send_flow_msgs)
-        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+        self.notifier = faucet_event.FaucetEventNotifier(
             self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
         self.valves_manager = valves_manager.ValvesManager(
             self.logname, self.logger, self.metrics, self.notifier, self.bgp,
@@ -282,6 +282,7 @@ class Faucet(RyuAppBase):
             if (valve_of.port_status_from_state(port.state) and
                 not valve_of.ignore_port(port.port_no))}
         self._send_flow_msgs(valve, valve.datapath_connect(now, discovered_up_ports))
+        self.valves_manager.update_config_applied({valve.dp.dp_id: True})
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_event):

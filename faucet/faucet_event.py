@@ -1,9 +1,4 @@
-"""Experimental FAUCET event notification."""
-
-#### THIS API IS EXPERIMENTAL.
-#### Discuss with faucet-dev list before relying on this API,
-#### review http://www.hyrumslaw.com/.
-#### It is subject to change without notice.
+"""FAUCET event notification."""
 
 # TODO: events are currently schema-less. This is to facilitate rapid prototyping, and will change.
 # TODO: not all cases where a notified client fails or could block, have been tested.
@@ -59,7 +54,7 @@ class NonBlockLock:
         self._lock.release()
 
 
-class FaucetExperimentalEventNotifier:
+class FaucetEventNotifier:
     """Event notification, via Unix domain socket."""
 
     def __init__(self, socket_path, metrics, logger):

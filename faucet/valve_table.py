@@ -97,13 +97,18 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         return valve_of.match(match_dict)
 
     def _verify_flowmod(self, flowmod):
+        match_fields = flowmod.match.items()
         if valve_of.is_flowdel(flowmod):
-            return
-        if flowmod.priority == 0:
-            assert not flowmod.match.items(), (
-                'default flow cannot have matches')
-        elif self.match_types:
-            match_fields = flowmod.match.items()
+            if self.table_id != valve_of.ofp.OFPTT_ALL:
+                for match_type, match_field in match_fields:
+                    assert match_type in self.match_types, (
+                        '%s match in table %s' % (match_type, self.name))
+        else:
+            # TODO: ACL builder should not use ALL table.
+            if self.table_id == valve_of.ofp.OFPTT_ALL:
+                return
+            assert not (flowmod.priority == 0 and match_fields), (
+                'default flow cannot have matches on table %s: %s' % (self.name, flowmod))
             for match_type, match_field in match_fields:
                 assert match_type in self.match_types, (
                     '%s match in table %s' % (match_type, self.name))
@@ -112,10 +117,10 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
                 assert config_mask or (not config_mask and not flow_mask), (
                     '%s configured mask %s but flow mask %s in table %s (%s)' % (
                         match_type, config_mask, flow_mask, self.name, flowmod))
-            if self.exact_match:
-                assert len(self.match_types) == len(match_fields), (
-                    'exact match table matches %s do not match flow matches %s (%s)' % (
-                        self.match_types, match_fields, flowmod))
+                if self.exact_match and match_fields:
+                    assert len(self.match_types) == len(match_fields), (
+                        'exact match table %s matches %s do not match flow matches %s (%s)' % (
+                            self.name, self.match_types, match_fields, flowmod))
 
     def flowmod(self, match=None, priority=None, # pylint: disable=too-many-arguments
                 inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,

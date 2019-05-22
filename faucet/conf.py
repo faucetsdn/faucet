@@ -213,7 +213,11 @@ class Conf:
     @staticmethod
     def _check_ip_str(ip_str, ip_method=ipaddress.ip_address):
         try:
-            return ip_method(ip_str)
+            # bool type is deprecated by the library ipaddress
+            if not isinstance(ip_str, bool):
+                return ip_method(ip_str)
+            else:
+                raise InvalidConfigError('Invalid IP address %s: IP address of type bool' % (ip_str))
         except (ValueError, AttributeError, TypeError) as err:
             raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
 

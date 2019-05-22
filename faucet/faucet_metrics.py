@@ -18,16 +18,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 from prometheus_client import Gauge as PromGauge, Info
 from prometheus_client import Counter, Histogram
 
 from faucet.prom_client import PromClient
-
-
-def quote_label(label):
-    """Return a Prometheus-safe version of a label."""
-    return re.sub(r'[^a-zA-Z0-9_]', '_', label)
 
 
 class FaucetMetrics(PromClient):
@@ -53,6 +47,9 @@ class FaucetMetrics(PromClient):
         self.faucet_config_hash_func = self._gauge(
             'faucet_config_hash_func',
             'algorithm used to compute config hashes', ['algorithm'])
+        self.faucet_config_applied = self._gauge(
+            'faucet_config_applied',
+            'fraction of DPs that we have tried to apply config to', [])
         self.faucet_event_id = self._gauge(
             'faucet_event_id',
             'highest/most recent event ID to be sent', [])
