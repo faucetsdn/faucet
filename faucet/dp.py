@@ -338,7 +338,7 @@ configuration.
         logger.info('Clone ports %s to %s' % (prev_dp.ports.keys(), self.ports.keys()))
         for port in prev_dp.ports:
             if port in self.ports:
-                self.ports[port].clone_dyn_state(prev_dp.ports[port])
+                self.ports[port].clone_dyn_state(prev_dp.ports[port], logger)
 
     def check_config(self):
         super(DP, self).check_config()

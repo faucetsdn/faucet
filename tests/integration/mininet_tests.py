@@ -6876,8 +6876,10 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.reload_conf(conf, self.faucet_config_path,
                          restart=True, cold_start=False, change_expected=False)
 
-        self.wait_for_lacp_port_down(src_port, self.dpids[0], 'faucet-1')
+        self.faucet_log('waiting for port %d up' % dst_port)
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
+        self.faucet_log('waiting for port %d down' % src_port)
+        self.wait_for_lacp_port_down(src_port, self.dpids[0], 'faucet-1')
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
