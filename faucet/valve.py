@@ -204,10 +204,12 @@ class Valve:
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack)
-        if 'port_acl' in self.dp.tables or 'vlan_acl' in self.dp.tables or self.dp.tunnel_acls:
+        if any(t in self.dp.tables for t in ('port_acl', 'vlan_acl', 'egress_acl'))\
+                or self.dp.tunnel_acls:
             self.acl_manager = valve_acl.ValveAclManager(
                 self.dp.tables.get('port_acl'), self.dp.tables.get('vlan_acl'),
-                self.pipeline, self.dp.meters, self.dp.dp_acls)
+                self.dp.tables.get('egress_acl'), self.pipeline,
+                self.dp.meters, self.dp.dp_acls)
         else:
             self.acl_manager = None
         table_configs = sorted([

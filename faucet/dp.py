@@ -313,6 +313,7 @@ configuration.
         self.lldp_beacon = {}
         self.table_sizes = {}
         self.dyn_up_port_nos = set()
+        self.has_externals = None
 
         #tunnel_id: int
         #   ID of the tunnel, for now this will be the VLAN ID
@@ -378,7 +379,7 @@ configuration.
 
             auth_acl = self.acls.get(self.dot1x.get('auth_acl'))
             noauth_acl = self.acls.get(self.dot1x.get('noauth_acl'))
-            
+
             if auth_acl:
                 all_acls['port_acl'].append(auth_acl)
             if noauth_acl:
@@ -388,6 +389,10 @@ configuration.
             if vlan.acls_in:
                 all_acls.setdefault('vlan_acl', [])
                 all_acls['vlan_acl'].extend(vlan.acls_in)
+            if vlan.acls_out:
+                all_acls.setdefault('egress_acl', [])
+                all_acls['egress_acl'].extend(vlan.acls_out)
+                self.egress_pipeline = True
         if self.dp_acls:
             test_config_condition(self.dot1x, (
                 'DP ACLs and 802.1x cannot be configured together'))
@@ -471,15 +476,21 @@ configuration.
             table_configs[name] = table_config
 
         # Stacking with external ports, so need loop protection field.
-        if self.stack and self.stack.get('externals', False):
+        if self.has_externals:
             flood_table = table_configs['flood']
             flood_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
             flood_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
             vlan_table = table_configs['vlan']
             vlan_table.set_fields += (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
             vlan_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
+            eth_src_table = table_configs['eth_src']
+            eth_src_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
             eth_dst_table = table_configs['eth_dst']
             eth_dst_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
+            eth_dst_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
+
+        if 'egress_acl' in included_tables:
+            table_configs['eth_dst'].miss_goto = 'egress_acl'
 
         oxm_fields = set(valve_of.MATCH_FIELDS.keys())
 
@@ -1030,6 +1041,14 @@ configuration.
                         resolved.append(acl)
                     vlan.acls_in = acls
                     verify_acl_exact_match(acls)
+                if vlan.acls_out:
+                    acls = []
+                    for acl in vlan.acls_out:
+                        resolve_acl(acl, vid=vlan.vid)
+                        acls.append(self.acls[acl])
+                        resolved.append(acl)
+                    vlan.acls_out = acls
+                    verify_acl_exact_match(acls)
             for port in self.ports.values():
                 acls = []
                 if port.acls_in:
@@ -1125,6 +1144,7 @@ configuration.
         vlans_with_external_ports = {
             vlan for vlan in self.vlans.values() if vlan.loop_protect_external_ports()}
 
+        self.has_externals = bool(vlans_with_external_ports)
         resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_override_output_ports()
