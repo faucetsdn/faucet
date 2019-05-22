@@ -32,6 +32,7 @@ from mininet.util import dumpNodeConnections, pmonitor # pylint: disable=import-
 
 from clib import mininet_test_util
 from clib import mininet_test_topo
+from clib.mininet_test_topo import FaucetSwitchTopo
 from clib.tcpdump_helper import TcpdumpHelper
 
 MAX_TEST_VID = 512
@@ -119,14 +120,13 @@ class FaucetTestBase(unittest.TestCase):
     event_sock = None
     faucet_config_path = None
 
-    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
+    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load, port_base=None):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
-        start_port = mininet_test_topo.SWITCH_START_PORT
-        self.port_map = {'port_%u' % (port + 1): port + start_port for port in range(4)}
+        self.port_base = port_base
 
     def rand_dpid(self):
         reserved_range = 100
@@ -331,7 +331,8 @@ class FaucetTestBase(unittest.TestCase):
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_static_vars()
-        self.topo_class = mininet_test_topo.FaucetSwitchTopo
+        self.topo_class = partial(
+            mininet_test_topo.FaucetSwitchTopo, port_base=self.port_base)
         if self.hw_switch:
             self.hw_dpid = mininet_test_util.str_int_dpid(self.dpid)
             self.dpid = self.hw_dpid
@@ -422,6 +423,8 @@ class FaucetTestBase(unittest.TestCase):
 
     def start_net(self):
         """Start Mininet network."""
+        if not self.port_map:
+            self.port_map = self.create_port_map(self.dpid)
         controller_intf = 'lo'
         controller_ipv6 = False
         if self.hw_switch:
@@ -463,6 +466,12 @@ class FaucetTestBase(unittest.TestCase):
                         return 'faucet not listening on %u (%s)' % (
                             port, port_name)
         return self._start_gauge_check()
+
+    def create_port_map(self, dpid):
+        """Return a port map {'port_1': port...} for a dpid in self.topo"""
+        ports = self.topo.dpid_ports(dpid)
+        port_map = {'port_%d' % (i+1): port for i, port in enumerate(ports)}
+        return port_map
 
     def _start_faucet(self, controller_intf, controller_ipv6):
         last_error_txt = ''
@@ -1352,7 +1361,7 @@ dbs:
             self.assertNotEqual(locations, new_locations)
             locations = new_locations
 
-    def verify_broadcast(self, hosts=None, broadcast_expected=True):
+    def verify_broadcast(self, hosts=None, broadcast_expected=True, packets=3):
         host_a = self.net.hosts[0]
         host_b = self.net.hosts[-1]
         if hosts is not None:
@@ -1362,10 +1371,32 @@ dbs:
         tcpdump_txt = self.tcpdump_helper(
             host_b, tcpdump_filter, [
                 partial(host_a.cmd, 'ping -b -c3 -t1 %s' % self.ipv4_vip_bcast())],
-            packets=1)
+            packets=packets)
         self.assertEqual(
             broadcast_expected,
             re.search('%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt) is not None)
+
+    def verify_unicast(self, hosts, unicast_expected=True, packets=3, timeout=2):
+        host_a = self.net.hosts[0]
+        host_b = self.net.hosts[-1]
+        if hosts is not None:
+            host_a, host_b = hosts
+        scapy_cmd = self.scapy_template(
+            ('Ether(src=\'%s\', dst=\'%s\', type=%u) / '
+             'IP(src=\'10.0.0.1\', dst=\'10.0.0.2\') / UDP(dport=67,sport=68)') % (
+                 host_a.MAC(), host_b.MAC(), IPV4_ETH), host_a.defaultIntf(), packets)
+        tcpdump_filter = 'ip and ether src %s and ether dst %s' % (host_a.MAC(), host_b.MAC())
+        # Wait for at least one packet.
+        tcpdump_txt = self.tcpdump_helper(
+            host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)],
+            timeout=(packets * timeout), vflags='-vv', packets=1)
+        received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
+        if unicast_expected:
+            # We expect unicast connectivity, so we should have got at least one packet.
+            self.assertFalse(received_no_packets)
+        else:
+            # We expect no unicast connectivity, so we must get no packets.
+            self.assertTrue(received_no_packets)
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
@@ -1686,11 +1717,11 @@ dbs:
             '%d packets received by filter' % expected_pings, tcpdump_txt),
                         msg=tcpdump_txt)
 
-    def tcpdump_rx_bytes(self, tcpdump_txt, packets=0):
+    def tcpdump_rx_packets(self, tcpdump_txt, packets=0):
         return re.search(r'%u packets captured' % packets, tcpdump_txt)
 
     def verify_no_packets(self, tcpdump_txt):
-        self.assertTrue(self.tcpdump_rx_bytes(tcpdump_txt, packets=0), msg=tcpdump_txt)
+        self.assertTrue(self.tcpdump_rx_packets(tcpdump_txt, packets=0), msg=tcpdump_txt)
 
     def verify_eapol_mirrored(self, first_host, second_host, mirror_host):
         self.ping((first_host, second_host))
@@ -1731,7 +1762,7 @@ dbs:
             [lambda: second_host.cmd(static_bogus_arp),
              lambda: second_host.cmd(curl_first_host),
              lambda: self.ping(hosts=(second_host, third_host))])
-        return not self.tcpdump_rx_bytes(tcpdump_txt, 0)
+        return not self.tcpdump_rx_packets(tcpdump_txt, 0)
 
     def ladvd_cmd(self, ladvd_args, repeats=1, timeout=3):
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
@@ -1899,7 +1930,7 @@ dbs:
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=30):
         return self.wait_for_prometheus_var(
-            'dp_status', expected_status, any_labels=True, controller=controller, default=None)
+            'dp_status', expected_status, any_labels=True, controller=controller, default=None, timeout=timeout)
 
     def _get_tableid(self, name):
         return self.scrape_prometheus_var(
