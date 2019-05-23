@@ -3,7 +3,7 @@
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2018 The Contributors
+# Copyright (C) 2015--2019 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -208,11 +208,12 @@ def add_mac_address_to_match(match, eth_src):
 class ValveAclManager(ValveManagerBase):
     """Handle installation of ACLs on a DP"""
 
-    def __init__(self, port_acl_table, vlan_acl_table, pipeline, meters,
-                 dp_acls=None):
+    def __init__(self, port_acl_table, vlan_acl_table, egress_acl_table,
+                 pipeline, meters, dp_acls=None):
         self.dp_acls = dp_acls
         self.port_acl_table = port_acl_table
         self.vlan_acl_table = vlan_acl_table
+        self.egress_acl_table = egress_acl_table
         self.pipeline = pipeline
         self.acl_priority = self._FILTER_PRIORITY
         self.dot1x_static_rules_priority = self.acl_priority + 1
@@ -273,6 +274,20 @@ class ValveAclManager(ValveManagerBase):
                 vlan.acls_in, self.vlan_acl_table, acl_allow_inst,
                 acl_force_port_vlan_inst, self.acl_priority, self.meters,
                 vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
+        if self.egress_acl_table is not None:
+            egress_acl_allow_inst = self.pipeline.accept_to_egress()
+            if vlan.acls_out:
+                ofmsgs.extend(build_acl_ofmsgs(
+                    vlan.acls_out, self.egress_acl_table, egress_acl_allow_inst,
+                    egress_acl_allow_inst, self.acl_priority, self.meters,
+                    vlan.acls_out[0].exact_match, vlan_vid=vlan.vid
+                    ))
+            else:
+                ofmsgs.append(self.egress_acl_table.flowmod(
+                    self.egress_acl_table.match(vlan=vlan),
+                    priority=self.acl_priority,
+                    inst=egress_acl_allow_inst
+                    ))
         return ofmsgs
 
     def add_authed_mac(self, port_num, mac):

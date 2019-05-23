@@ -2,7 +2,7 @@
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2018 The Contributors
+# Copyright (C) 2015--2019 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,6 +87,8 @@ class VLAN(Conf):
         'description': None,
         'acl_in': None,
         'acls_in': None,
+        'acl_out': None,
+        'acls_out': None,
         'faucet_vips': None,
         'faucet_mac': FAUCET_MAC,
         # set MAC for FAUCET VIPs on this VLAN
@@ -114,6 +116,8 @@ class VLAN(Conf):
         'description': str,
         'acl_in': (int, str),
         'acls_in': list,
+        'acl_out': (int, str),
+        'acls_out': list,
         'faucet_vips': list,
         'faucet_mac': str,
         'unicast_flood': bool,
@@ -131,6 +135,8 @@ class VLAN(Conf):
     def __init__(self, _id, dp_id, conf=None):
         self.acl_in = None
         self.acls_in = None
+        self.acl_out = None
+        self.acls_out = None
         self.description = None
         self.dot1x_assigned = None
         self.dot1x_untagged = None
@@ -185,13 +191,22 @@ class VLAN(Conf):
 
         test_config_condition(
             self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
+        test_config_condition(
+            self.acl_out and self.acls_out, 'found both acl_out and acls_out, use only acls_out')
         if self.acl_in and not isinstance(self.acl_in, list):
             self.acls_in = [self.acl_in,]
             self.acl_in = None
+        if self.acl_out and not isinstance(self.acl_out, list):
+            self.acls_out = [self.acl_out,]
+            self.acl_out = None
+        all_acls = []
         if self.acls_in:
-            for acl in self.acls_in:
-                test_config_condition(
-                    not isinstance(acl, (int, str)), 'acl names must be int or str')
+            all_acls.extend(self.acls_in)
+        if self.acls_out:
+            all_acls.extend(self.acls_out)
+        for acl in all_acls:
+            test_config_condition(
+                not isinstance(acl, (int, str)), 'acl names must be int or str')
 
         if self.max_hosts:
             if not self.proactive_arp_limit:

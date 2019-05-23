@@ -2,7 +2,7 @@
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2018 The Contributors
+# Copyright (C) 2015--2019 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -139,26 +139,33 @@ ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
     ETH_DST_HAIRPIN_DEFAULT_CONFIG.table_id + 1,
     exact_match=True,
-    miss_goto='flood',
+    miss_goto='flood', # Note: when using egress acls the miss goto will be
+                       # egress acl table
     match_types=(('eth_dst', False), ('vlan_vid', False)),
-    next_tables=('egress',),
+    next_tables=('egress', 'egress_acl'),
     vlan_port_scale=4.1,
     metadata_write=EGRESS_METADATA_MASK
     )
-FLOOD_DEFAULT_CONFIG = ValveTableConfig(
-    'flood',
+EGRESS_ACL_DEFAULT_CONFIG = ValveTableConfig(
+    'egress_acl',
     ETH_DST_DEFAULT_CONFIG.table_id + 1,
-    match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
-    vlan_port_scale=2.1,
+    next_tables=('egress',)
     )
 EGRESS_DEFAULT_CONFIG = ValveTableConfig(
     'egress',
-    FLOOD_DEFAULT_CONFIG.table_id + 1,
+    EGRESS_ACL_DEFAULT_CONFIG.table_id + 1,
     match_types=(('metadata', True), ('vlan_vid', False)),
     vlan_port_scale=1.5,
+    next_tables=('flood',),
+    miss_goto='flood',
     metadata_match=EGRESS_METADATA_MASK
     )
-
+FLOOD_DEFAULT_CONFIG = ValveTableConfig(
+    'flood',
+    EGRESS_DEFAULT_CONFIG.table_id + 1,
+    match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
+    vlan_port_scale=2.1,
+    )
 MINIMUM_FAUCET_PIPELINE_TABLES = {
     'vlan', 'eth_src', 'eth_dst', 'flood'}
 
@@ -176,8 +183,9 @@ FAUCET_PIPELINE = (
     VIP_DEFAULT_CONFIG,
     ETH_DST_HAIRPIN_DEFAULT_CONFIG,
     ETH_DST_DEFAULT_CONFIG,
+    EGRESS_ACL_DEFAULT_CONFIG,
+    EGRESS_DEFAULT_CONFIG,
     FLOOD_DEFAULT_CONFIG,
-    EGRESS_DEFAULT_CONFIG
 )
 
 DEFAULT_CONFIGS = {
@@ -190,6 +198,7 @@ DEFAULT_CONFIGS = {
     'vip': VIP_DEFAULT_CONFIG,
     'eth_dst_hairpin': ETH_DST_HAIRPIN_DEFAULT_CONFIG,
     'eth_dst': ETH_DST_DEFAULT_CONFIG,
-    'flood': FLOOD_DEFAULT_CONFIG,
+    'egress_acl': EGRESS_ACL_DEFAULT_CONFIG,
     'egress': EGRESS_DEFAULT_CONFIG,
+    'flood': FLOOD_DEFAULT_CONFIG,
 }

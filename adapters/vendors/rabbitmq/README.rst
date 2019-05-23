@@ -9,6 +9,7 @@ environment variables:
 
 ::
 
+    FAUCET_EVENT_SOCK       (default is 0, needs to be set to 1)
     FA_RABBIT_HOST          (default is an empty string, and minimally required)
     FA_RABBIT_PORT          (default is 5672)
     FA_RABBIT_EXCHANGE      (default is 'topic_recs')

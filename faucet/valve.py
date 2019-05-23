@@ -3,7 +3,7 @@
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2018 The Contributors
+# Copyright (C) 2015--2019 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -140,8 +140,12 @@ class Valve:
             valve_util.close_logger(self.logger.logger)
         valve_util.close_logger(self.ofchannel_logger)
 
-    def dp_init(self):
+    def dp_init(self, new_dp=None):
         """Initialize datapath state at connection/re/config time."""
+        if new_dp:
+            new_dp.clone_dyn_state(self.dp)
+            self.dp = new_dp
+
         self.close_logs()
         self.logger = ValveLogger(
             logging.getLogger(self.logname + '.valve'), self.dp.dp_id, self.dp.name)
@@ -204,10 +208,12 @@ class Valve:
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack)
-        if 'port_acl' in self.dp.tables or 'vlan_acl' in self.dp.tables or self.dp.tunnel_acls:
+        if any(t in self.dp.tables for t in ('port_acl', 'vlan_acl', 'egress_acl'))\
+                or self.dp.tunnel_acls:
             self.acl_manager = valve_acl.ValveAclManager(
                 self.dp.tables.get('port_acl'), self.dp.tables.get('vlan_acl'),
-                self.pipeline, self.dp.meters, self.dp.dp_acls)
+                self.dp.tables.get('egress_acl'), self.pipeline,
+                self.dp.meters, self.dp.dp_acls)
         else:
             self.acl_manager = None
         table_configs = sorted([
@@ -1422,14 +1428,12 @@ class Valve:
 
         if self._pipeline_change():
             self.logger.info('pipeline change')
-            self.dp = new_dp
-            self.dp_init()
+            self.dp_init(new_dp)
             return True, []
 
         if all_ports_changed:
             self.logger.info('all ports changed')
-            self.dp = new_dp
-            self.dp_init()
+            self.dp_init(new_dp)
             return True, []
 
         all_up_port_nos = [
@@ -1450,8 +1454,7 @@ class Valve:
             self.logger.info('ports changed/added: %s' % changed_ports)
             ofmsgs.extend(self.ports_delete(changed_ports))
 
-        self.dp = new_dp
-        self.dp_init()
+        self.dp_init(new_dp)
 
         if changed_vlans:
             self.logger.info('VLANs changed/added: %s' % changed_vlans)
@@ -1485,17 +1488,8 @@ class Valve:
         Returns:
             ofmsgs (list): OpenFlow messages.
         """
-        dp_running = self.dp.dyn_running
-        up_ports = self.dp.dyn_up_port_nos
-        coldstart_time = self.dp.dyn_last_coldstart_time
         cold_start, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
-        self.dp.dyn_running = dp_running
-        self.dp.dyn_up_port_nos = up_ports
-        for port in up_ports:
-            if port in self.dp.ports:
-                self.dp.ports[port].dyn_phys_up = True
-        self.dp.dyn_last_coldstart_time = coldstart_time
         restart_type = None
         if cold_start:
             restart_type = 'cold'
