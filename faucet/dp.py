@@ -331,6 +331,14 @@ configuration.
     def __str__(self):
         return self.name
 
+    def clone_dyn_state(self, prev_dp):
+        self.dyn_running = prev_dp.dyn_running
+        self.dyn_up_port_nos = set(prev_dp.dyn_up_port_nos)
+        self.dyn_last_coldstart_time = prev_dp.dyn_last_coldstart_time
+        for port in prev_dp.ports:
+            if port in self.ports:
+                self.ports[port].clone_dyn_state(prev_dp.ports[port])
+
     def check_config(self):
         super(DP, self).check_config()
         test_config_condition(not isinstance(self.dp_id, int), (

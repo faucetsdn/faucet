@@ -6854,6 +6854,25 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
 
+    def test_dyn_fail(self):
+        """Test lacp fail on reload with dynamic lacp status."""
+
+        conf = self._get_faucet_conf()
+        src_port = self.non_host_ports(self.dpids[0])[0]
+        dst_port = self.non_host_ports(self.dpids[0])[1]
+        fail_port = self.non_host_ports(self.dpids[1])[0]
+
+        self.wait_for_lacp_port_up(src_port, self.dpids[0], 'faucet-1')
+        self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
+
+        conf['dps']['faucet-2']['interfaces'][fail_port]['lacp'] = 0
+        conf['dps']['faucet-2']['interfaces'][fail_port]['lacp_active'] = False
+        self.reload_conf(conf, self.faucet_config_path, restart=True,
+                         cold_start=False, change_expected=False)
+
+        self.wait_for_lacp_port_down(src_port, self.dpids[0], 'faucet-1')
+        self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
+
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
