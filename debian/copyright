@@ -3,7 +3,7 @@ Upstream-Name: faucet
 Source: https://github.com/faucetsdn/faucet
 
 Files: debian/*
-Copyright: 2018 The Contributors
+Copyright: 2018--2019 The Contributors
 License: Apache-2.0
 
 License: Apache-2.0
