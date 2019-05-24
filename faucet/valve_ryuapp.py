@@ -84,7 +84,8 @@ class RyuAppBase(app_manager.RyuApp):
                 thread_name = getattr(thread, 'name', 'unknown')
                 # Inconveniently, eventlet and friends helpfully put the last
                 # exception on stderr but not anywhere else where we can log it.
-                self.logger.error('unexpected %s thread termination - check Ryu/process stderr log' % thread_name)
+                self.logger.error(
+                    'unexpected %s thread termination - check Ryu/process stderr log' % thread_name)
                 # If that succeeds (was a temporary error that killed the thread),
                 # then raise an exception to make sure we know a thread died.
                 raise ValveDeadThreadException

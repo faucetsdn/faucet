@@ -78,7 +78,7 @@ def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
     return metrics
 
 def _get_samples_from_metrics(metrics, metric_name, label_matches,
-                                        nonzero_only=False):
+                              nonzero_only=False):
     result = []
     for metric in metrics:
         if metric_name is None or metric.name == metric_name:

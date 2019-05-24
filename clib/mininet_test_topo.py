@@ -1,12 +1,14 @@
 """Topology components for FAUCET Mininet unit tests."""
 
-from collections import defaultdict, Iterable
+from collections import defaultdict
 import os
 import socket
 import string
 import shutil
 import subprocess
 import time
+
+import netifaces
 
 # pylint: disable=too-many-arguments
 
@@ -18,7 +20,6 @@ from mininet.node import OVSSwitch
 
 from clib import mininet_test_util
 
-import netifaces
 
 # TODO: this should be configurable (e.g for randomization)
 SWITCH_START_PORT = 5
@@ -328,7 +329,8 @@ maximum_unreplied_echo_requests=5
 socket_timeout=15
 """
 
-    def __init__(self, name, tmpdir, controller_intf=None, controller_ipv6=False, cargs='', **kwargs):
+    def __init__(self, name, tmpdir, controller_intf=None, controller_ipv6=False,
+                 cargs='', **kwargs):
         name = '%s-%u' % (name, os.getpid())
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf

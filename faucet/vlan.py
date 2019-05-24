@@ -108,7 +108,7 @@ class VLAN(Conf):
         'reserved_internal_vlan': False,
         # If True, forward packets from the VLAN table to the VLAN_ACL table matching the VID
         'dot1x_assigned' : False,
-        # If True, this VLAN may be dynamically added by using the Tunnel-Private-Group-ID radius attribute
+        # If True, this VLAN may be dynamically added withTunnel-Private-Group-ID radius attribute.
         }
 
     defaults_types = {
@@ -241,9 +241,7 @@ class VLAN(Conf):
     @staticmethod
     def vid_valid(vid):
         """Return True if VID valid."""
-        if isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID:
-            return True
-        return False
+        return isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID
 
     def reset_caches(self):
         """Reset dynamic caches."""

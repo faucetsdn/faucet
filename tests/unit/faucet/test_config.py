@@ -1350,7 +1350,7 @@ dps:
             port.enabled = False
             port.dyn_phys_up = False
             port.dyn_finalized = True
-        
+
         dps = self._get_dps_as_dict(config)
         dps.pop(0x3)
         for dp in dps.values():
@@ -1390,6 +1390,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_unhashable_key(self):
+        """Test key that can't be hashed."""
         config = """
 vlans:
 ?   office:
@@ -2131,6 +2132,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_acl_and_acls_port_invalid(self):
+        """Test acl_in and acls_in can't be configured together."""
         config = """
 acls:
     access-port-protect:
@@ -2970,6 +2972,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_dot1x_config_valid(self):
+        """Test valid dot1x."""
         config = """
 vlans:
     office:
@@ -2993,6 +2996,7 @@ dps:
         self.check_config_success(config, cp.dp_parser)
 
     def test_rule_acl_parse(self):
+        """Test simple allow ACL."""
         config = """
 dps:
   sw1:

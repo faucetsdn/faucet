@@ -2046,11 +2046,11 @@ class ValveEgressACLTestCase(ValveTestBases.ValveTestSmall):
         self.setup_valve(CONFIG)
 
     def test_vlan_acl_deny(self):
+        """Test VLAN ACL denies a packet."""
         ALLOW_HOST_V6 = 'fc00:200::1:1'
         DENY_HOST_V6 = 'fc00:200::1:2'
         FAUCET_V100_VIP = 'fc00:100::1'
         FAUCET_V200_VIP = 'fc00:200::1'
-        """Test VLAN ACL denies a packet."""
         acl_config = """
 dps:
     s1:
@@ -2574,7 +2574,7 @@ dps:
         # 100% for a single datapath
         self.assertEqual(self._get_value('faucet_config_applied'), 1.0)
         # Add a second datapath, which currently isn't programmed
-        self.CONFIG +="""
+        self.CONFIG += """
     s2:
         dp_id: 0x2
         interfaces:
