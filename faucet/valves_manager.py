@@ -102,6 +102,8 @@ class ValvesManager:
             self.metrics.faucet_config_load_error.set(0)
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
+            self.metrics.faucet_config_hash.info(
+                dict(config_files=new_config_file, hashes=''))
             self.metrics.faucet_config_load_error.set(1)
             return None
         return new_dps
