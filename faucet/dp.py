@@ -522,7 +522,8 @@ configuration.
                 size = int(size / self.min_wildcard_table_size) * self.min_wildcard_table_size
             table_config.size = size
             table_config.next_tables = [
-                table_name for table_name in table_config.next_tables if table_name in table_configs]
+                table_name for table_name in table_config.next_tables
+                if table_name in table_configs]
             next_table_ids = [
                 table_configs[table_name].table_id for table_name in table_config.next_tables]
             tables[table_name] = ValveTable(
@@ -1111,7 +1112,8 @@ configuration.
             if self.global_vlan:
                 vids = {vlan.vid for vlan in self.vlans.values()}
                 test_config_condition(
-                    self.global_vlan in vids, 'global_vlan VID %s conflicts with existing VLAN' % self.global_vlan)
+                    self.global_vlan in vids,
+                    'global_vlan VID %s conflicts with existing VLAN' % self.global_vlan)
 
             # Check for overlapping VIP subnets or VLANs.
             all_router_vlans = set()
@@ -1120,7 +1122,8 @@ configuration.
                 if router.vlans and len(router.vlans) == 1:
                     lone_vlan = router.vlans[0]
                     test_config_condition(
-                        lone_vlan in all_router_vlans, 'single VLAN %s in more than one router' % lone_vlan)
+                        lone_vlan in all_router_vlans,
+                        'single VLAN %s in more than one router' % lone_vlan)
                 for vlan in router.vlans:
                     vips.update({vip for vip in vlan.faucet_vips if not vip.ip.is_link_local})
                 all_router_vlans.update(router.vlans)
@@ -1141,9 +1144,11 @@ configuration.
                         bgp_routers[0].bgp_server_addresses()), (
                             'BGP server addresses must all be the same'))
                 router_ids = {bgp_router.bgp_routerid() for bgp_router in bgp_routers}
-                test_config_condition(len(router_ids) != 1, 'BGP router IDs must all be the same: %s' % router_ids)
+                test_config_condition(
+                    len(router_ids) != 1, 'BGP router IDs must all be the same: %s' % router_ids)
                 bgp_ports = {bgp_router.bgp_port() for bgp_router in bgp_routers}
-                test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
+                test_config_condition(
+                    len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
 
 
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
@@ -1180,7 +1185,8 @@ configuration.
 
     def bgp_routers(self):
         """Return list of routers with BGP enabled."""
-        return tuple([router for router in self.routers.values() if router.bgp_as() and router.bgp_vlan()])
+        return tuple([
+            router for router in self.routers.values() if router.bgp_as() and router.bgp_vlan()])
 
     def dot1x_ports(self):
         """Return list of ports with 802.1x enabled."""

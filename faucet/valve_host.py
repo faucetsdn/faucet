@@ -20,7 +20,6 @@
 import random
 
 from faucet import valve_of
-from faucet import faucet_pipeline
 from faucet.valve_manager_base import ValveManagerBase
 
 
@@ -210,7 +209,7 @@ class ValveHostManager(ValveManagerBase):
 
         inst = []
         if mark_port:
-            vlan_pcp=0 if port.loop_protect_external else 1
+            vlan_pcp = 0 if port.loop_protect_external else 1
             inst.append(valve_of.apply_actions([self.eth_src_table.set_field(vlan_pcp=vlan_pcp)]))
 
         if port.override_output_port:
@@ -238,7 +237,7 @@ class ValveHostManager(ValveManagerBase):
             loop_protect_field = 1
 
         # Output packets for this MAC to specified port.
-        vlan_pcp=1 if self.has_externals else None
+        vlan_pcp = 1 if self.has_externals else None
         ofmsgs.append(self.eth_dst_table.flowmod(
             self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src, vlan_pcp=vlan_pcp),
             priority=self.host_priority,

@@ -23,9 +23,12 @@ import time
 import gzip
 
 from faucet.valve_util import dpid_log
-from faucet.gauge_influx import GaugePortStateInfluxDBLogger, GaugePortStatsInfluxDBLogger, GaugeFlowTableInfluxDBLogger
-from faucet.gauge_pollers import GaugePortStatePoller, GaugePortStatsPoller, GaugeFlowTablePoller
-from faucet.gauge_prom import GaugePortStatsPrometheusPoller, GaugePortStatePrometheusPoller, GaugeFlowTablePrometheusPoller
+from faucet.gauge_influx import (
+    GaugePortStateInfluxDBLogger, GaugePortStatsInfluxDBLogger, GaugeFlowTableInfluxDBLogger)
+from faucet.gauge_pollers import (
+    GaugePortStatePoller, GaugePortStatsPoller, GaugeFlowTablePoller)
+from faucet.gauge_prom import (
+    GaugePortStatsPrometheusPoller, GaugePortStatePrometheusPoller, GaugeFlowTablePrometheusPoller)
 
 
 def watcher_factory(conf):

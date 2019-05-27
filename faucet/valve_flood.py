@@ -184,8 +184,10 @@ class ValveFloodManager(ValveManagerBase):
             flood_acts, vlan_output_ports, vlan_non_output_acts = self._output_non_output_actions(
                 vlan_flood_acts)
             for port in self._vlan_all_ports(vlan, exclude_unicast):
-                flood_acts, port_output_ports, port_non_output_acts = self._build_flood_acts_for_port(
-                    vlan, exclude_unicast, port)
+                (flood_acts,
+                 port_output_ports,
+                 port_non_output_acts) = self._build_flood_acts_for_port(
+                     vlan, exclude_unicast, port)
                 if port_output_ports:
                     port_output_ports.add(port.number)
                     if (vlan_output_ports == port_output_ports and
@@ -330,7 +332,10 @@ class ValveFloodStackManager(ValveFloodManager):
         if not in_port or in_port in self.stack_ports:
             flood_prefix = []
         else:
-            flood_prefix = self.ext_flood_not_needed if in_port.loop_protect_external else self.ext_flood_needed
+            if in_port.loop_protect_external:
+                flood_prefix = self.ext_flood_not_needed
+            else:
+                flood_prefix = self.ext_flood_needed
 
         # Special case for stack with maximum distance 2 - we don't need to reflect off of the root.
         flood_actions = (

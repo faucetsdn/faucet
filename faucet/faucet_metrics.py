@@ -64,7 +64,7 @@ class FaucetMetrics(PromClient):
             'number of OF packet_ins received but ignored from DP (due to rate limiting)')
         self.of_unexpected_packet_ins = self._dpid_counter(
             'of_unexpected_packet_ins',
-            'number of OF packet_ins received that are unexpected from DP (e.g. for VLAN that is not configured)')
+            'number of OF packet_ins received that are unexpected from DP (e.g. for unknown VLAN)')
         self.of_packet_ins = self._dpid_counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP')
