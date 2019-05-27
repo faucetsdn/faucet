@@ -121,6 +121,7 @@ def import_hw_config(port_base):
             'dpid': (int,),
             'of_port': (int,),
             'gauge_of_port': (int,),
+            'hardware': (str,),
         }
         unexpected_keys = set(config.keys() - set(required_config.keys()))
         if unexpected_keys:
