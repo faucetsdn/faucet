@@ -49,7 +49,6 @@ vlans:
             n_extended=self.N_EXTENDED, e_cls=self.EXTENDED_CLS,
             tmpdir=self.tmpdir, links_per_host=self.LINKS_PER_HOST,
             hw_dpid=self.hw_dpid)
-        self.port_map = self.create_port_map(self.dpid)
         self.start_net()
 
     def test_ping_all(self):
