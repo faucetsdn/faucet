@@ -62,7 +62,7 @@ else
   }
 
   shard "$ALLTESTS" ${MATRIX_SHARDS}
-  FAUCET_TESTS="-di ${sharded[${MATRIX_SHARD}]}"
+  FAUCET_TESTS="-din ${sharded[${MATRIX_SHARD}]}"
 fi
 
 if [[ "$FILES_CHANGED" != "" ]] ; then
