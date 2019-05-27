@@ -150,7 +150,7 @@ def import_hw_config(port_base):
                   (REQUIRED_TEST_PORTS, len(dp_ports), config_file_name))
             sys.exit(1)
         # Use static map when hardware testing.
-        port_base = [int(x) for x in dp_ports]
+        port_base = [int(x + 1) for x in range(REQUIRED_TEST_PORTS)]
     return config, port_base
 
 
