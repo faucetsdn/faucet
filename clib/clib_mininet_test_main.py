@@ -124,7 +124,7 @@ def import_hw_config(port_base):
         }
         unexpected_keys = set(config.keys() - set(required_config.keys()))
         if unexpected_keys:
-            priint('unexpected config key(s): %s' % unexpected_keys)
+            print('unexpected config key(s): %s' % unexpected_keys)
             sys.exit(-1)
         for required_key, required_key_types in required_config.items():
             if required_key not in config:
