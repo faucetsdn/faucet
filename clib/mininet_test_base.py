@@ -469,6 +469,9 @@ class FaucetTestBase(unittest.TestCase):
 
     def create_port_map(self, dpid):
         """Return a port map {'port_1': port...} for a dpid in self.topo"""
+        # TODO: when testing hardware switch, use statically configured mapping.
+        if dpid == self.hw_dpid:
+            return self.port_map
         ports = self.topo.dpid_ports(dpid)
         port_map = {'port_%d' % (i+1): port for i, port in enumerate(ports)}
         return port_map

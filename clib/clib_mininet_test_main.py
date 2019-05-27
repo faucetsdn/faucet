@@ -46,8 +46,8 @@ DEFAULT_HARDWARE = 'Open vSwitch'
 SUPPORTS_METERS = (
     'Aruba',
     'NoviFlow',
-# TODO: troubleshoot meters in OVS 2.10.0
-#   DEFAULT_HARDWARE,
+    # TODO: troubleshoot meters in OVS 2.10.0
+    # DEFAULT_HARDWARE,
     'ZodiacGX',
 )
 
@@ -96,7 +96,7 @@ CONFIG_FILE_DIRS = ['/etc/faucet', './', '/faucet-src']
 REQUIRED_TEST_PORTS = 4
 
 
-def import_hw_config():
+def import_hw_config(port_base):
     """Import configuration for physical switch testing."""
     for config_file_dir in CONFIG_FILE_DIRS:
         config_file_name = os.path.join(config_file_dir, HW_SWITCH_CONFIG_FILE)
@@ -113,20 +113,19 @@ def import_hw_config():
     except IOError:
         print('Could not load YAML config data from %s' % config_file_name)
         sys.exit(-1)
-    if 'hw_switch' in config:
-        hw_switch = config['hw_switch']
-        if not isinstance(hw_switch, bool):
-            print('hw_switch must be a bool: ' % hw_switch)
-            sys.exit(-1)
-        if not hw_switch:
-            return None
+    if config.get('hw_switch', False):
         required_config = {
+            'hw_switch': (bool,),
             'dp_ports': (dict,),
             'cpn_intf': (str,),
             'dpid': (int,),
             'of_port': (int,),
             'gauge_of_port': (int,),
         }
+        unexpected_keys = set(config.keys() - set(required_config.keys()))
+        if unexpected_keys:
+            priint('unexpected config key(s): %s' % unexpected_keys)
+            sys.exit(-1)
         for required_key, required_key_types in required_config.items():
             if required_key not in config:
                 print('%s must be specified in %s to use HW switch.' % (
@@ -148,8 +147,10 @@ def import_hw_config():
             print('Exactly %u dataplane ports are required, '
                   '%d are provided in %s.' %
                   (REQUIRED_TEST_PORTS, len(dp_ports), config_file_name))
-        return config
-    return None
+            sys.exit(1)
+        # Use static map when hardware testing.
+        port_base = [int(x) for x in dp_ports]
+    return config, port_base
 
 
 def check_dependencies():
@@ -655,7 +656,9 @@ def parse_args():
 
     try:
         args, requested_test_classes = parser.parse_known_args(sys.argv[1:])
-        if args.ports != 'random':
+        if args.ports == 'random':
+            args.ports = random.sample(range(1, 1024), 16)
+        else:
             args.ports = [int(x) for x in args.ports.split(',')]
     except(KeyError, IndexError, ValueError):
         parser.print_usage()
@@ -677,6 +680,9 @@ def test_main(module):
     print('testing module %s' % module)
     (requested_test_classes, clean, dumpfail, keep_logs, nocheck, port_base,
      serial, excluded_test_classes, report_json_filename) = parse_args()
+    hw_config, port_base = import_hw_config(port_base)
+    print('using OvS port base: -p', ','.join(str(x) for x in port_base))
+
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '
               'configuration from previous test runs')
@@ -689,11 +695,7 @@ def test_main(module):
             print('dependency check failed. check required library/binary '
                   'list in header of this script')
             sys.exit(-1)
-    hw_config = import_hw_config()
-    if port_base == 'random':
-        # A random range to allocate OvS ports from
-        port_base = random.sample(range(1, 1024), 16)
-        print("random port base: -p", ",".join(str(x) for x in port_base))
+
     run_tests(
         module, hw_config, requested_test_classes, dumpfail,
         keep_logs, port_base, serial, excluded_test_classes, report_json_filename,
