@@ -467,7 +467,8 @@ class FaucetTestBase(unittest.TestCase):
     def _start_faucet(self, controller_intf, controller_ipv6):
         last_error_txt = ''
         assert self.net is None # _start_faucet() can't be multiply called
-        for _ in range(3):
+        # TODO: restore retries
+        for _ in range(1):
             mininet_test_util.return_free_ports(
                 self.ports_sock, self._test_name())
             self._allocate_config_ports()

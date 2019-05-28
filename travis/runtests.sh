@@ -62,13 +62,14 @@ else
   }
 
   shard "$ALLTESTS" ${MATRIX_SHARDS}
-  FAUCET_TESTS="-di ${sharded[${MATRIX_SHARD}]}"
+  FAUCET_TESTS="-din ${sharded[${MATRIX_SHARD}]}"
 fi
 
 if [[ "$FILES_CHANGED" != "" ]] ; then
   if [[ "$PY_FILES_CHANGED" == "" && "$RQ_FILES_CHANGED" == "" ]] ; then
     echo Not running docker tests because only non-python/requirements changes: $FILES_CHANGED
-    exit 0
+    # TODO: always run tests for dev.
+    # exit 0
   else
     echo python/requirements changes: $PY_FILES_CHANGED $RQ_FILES_CHANGED
   fi
@@ -79,16 +80,25 @@ docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests . || exit 1
 docker rmi faucet/test-base
 docker images
 
-echo Shard $MATRIX_SHARD: $FAUCETTESTS
-ulimit -c unlimited && echo '/var/tmp/core.%h.%e.%t' > /proc/sys/kernel/core_pattern
-sudo modprobe openvswitch
-sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+SHARDARGS="--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   --ulimit core=99999999999:99999999999 \
   -v /var/local/lib/docker:/var/lib/docker \
   -v $HOME/.cache/pip:/var/tmp/pip-cache \
-  -e FAUCET_TESTS="${FAUCET_TESTS}" \
-  -e PY_FILES_CHANGED="${PY_FILES_CHANGED}" \
-  -t ${FAUCET_TEST_IMG} || exit 1
+  -e PY_FILES_CHANGED=\"${PY_FILES_CHANGED}\""
+echo Shard $MATRIX_SHARD: $FAUCETTESTS: $SHARDARGS
+
+ulimit -c unlimited && sudo echo '/var/tmp/core.%h.%e.%t' > /proc/sys/kernel/core_pattern
+sudo modprobe openvswitch
+sudo modprobe ebtables
+
+if [ "${MATRIX_SHARD}" == "sanity" ] ; then
+  sudo docker run $SHARDARGS -e FAUCET_TESTS="-ni FaucetUntaggedTest" -e HWTESTS="1" -t ${FAUCET_TEST_IMG}
+fi
+
+exit 0
+
+sudo docker run $SHARDARGS -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG} || exit 1
+
 if ls -1 /var/tmp/core* >/dev/null 2>&1 ; then
   echo coredumps found after tests run.
   exit 1

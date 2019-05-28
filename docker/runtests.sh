@@ -94,6 +94,35 @@ export http_proxy=
 
 cd /faucet-src/tests/integration
 ./mininet_main.py -c
+
+
+if [ "$HWTESTS" == 1 ] ; then
+  echo "========== Simulating hardware test switch =========="
+  ovs-vsctl add-br hwbr && ovs-vsctl set-controller hwbr tcp:127.0.0.1:6653 tcp:127.0.0.1:6654 && ovs-vsctl set-fail-mode hwbr secure || exit 1
+  DPID='0x'`sudo ovs-vsctl get bridge hwbr datapath-id|sed 's/"//g'`
+  DP_PORTS=""
+  N=$'\n'
+  # TODO: randomize OF port range
+  for p in `seq 2 6` ; do
+    HWP="hwp$p"
+    PHWP="p$HWP"
+    sudo ip link add dev $HWP type veth peer name $PHWP && ifconfig $PHWP up && sudo ovs-vsctl add-port hwbr $PHWP || exit 1
+    DP_PORTS="  ${p}: ${HWP}${N}${DP_PORTS}"
+  done
+  cat > /tmp/hw_switch_config.yaml << EOL
+hw_switch: True
+hardware: 'Open vSwitch'
+of_port: 6653
+gauge_of_port: 6654
+cpn_intf: lo
+dp_ports:
+${DP_PORTS}
+dpid: ${DPID}
+EOL
+  mkdir -p /etc/faucet && cp /tmp/hw_switch_config.yaml /etc/faucet || exit 1
+  cat /etc/faucet/hw_switch_config.yaml && ovs-vsctl show && ovs-ofctl dump-ports hwbr || exit 1
+fi
+
 time ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
 
 cd /faucet-src/clib
