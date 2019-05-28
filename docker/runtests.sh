@@ -102,8 +102,8 @@ if [ "$HWTESTS" == 1 ] ; then
   DPID='0x'`sudo ovs-vsctl get bridge hwbr datapath-id|sed 's/"//g'`
   DP_PORTS=""
   N=$'\n'
-  # TODO: randomize OF port range
-  for p in `seq 2 6` ; do
+  # TODO: randomize OF port range (offset from 1 for basic test)
+  for p in `seq 2 5` ; do
     HWP="hwp$p"
     PHWP="p$HWP"
     sudo ip link add dev $HWP type veth peer name $PHWP && ifconfig $PHWP up && sudo ovs-vsctl add-port hwbr $PHWP || exit 1
