@@ -6873,11 +6873,6 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.wait_for_lacp_port_down(src_port, self.dpids[0], 'faucet-1')
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
 
-    def faucet_log(self, message):
-        faucet_log = os.path.join(self.tmpdir, 'faucet.log')
-        with open(faucet_log, 'a+') as input_stream:
-            input_stream.write(message + '\n')
-
     def test_passthrough(self):
         """Test lacp passthrough on port fail."""
 
