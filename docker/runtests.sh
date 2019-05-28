@@ -106,7 +106,9 @@ if [ "$HWTESTS" == 1 ] ; then
   for p in `seq 2 5` ; do
     HWP="hwp$p"
     PHWP="p$HWP"
-    sudo ip link add dev $HWP type veth peer name $PHWP && ifconfig $PHWP up && sudo ovs-vsctl add-port hwbr $PHWP || exit 1
+    sudo ip link add dev $HWP type veth peer name $PHWP && \
+      ifconfig $PHWP up && \ 
+      sudo ovs-vsctl add-port hwbr $PHWP -- set interface $PHWP ofport_request=${p} || exit 1
     DP_PORTS="  ${p}: ${HWP}${N}${DP_PORTS}"
   done
   cat > /tmp/hw_switch_config.yaml << EOL
