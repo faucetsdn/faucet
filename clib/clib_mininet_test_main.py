@@ -113,25 +113,25 @@ def import_hw_config():
     except IOError:
         print('Could not load YAML config data from %s' % config_file_name)
         sys.exit(-1)
-    if 'hw_switch' in config:
-        hw_switch = config['hw_switch']
-        if not isinstance(hw_switch, bool):
-            print('hw_switch must be a bool: ' % hw_switch)
-            sys.exit(-1)
-        if not hw_switch:
-            return None
+    if config.get('hw_switch', False):
         required_config = {
             'dp_ports': (dict,),
             'cpn_intf': (str,),
             'dpid': (int,),
+            'hardware': (str,),
+            'hw_switch': (bool,),
             'of_port': (int,),
             'gauge_of_port': (int,),
         }
+        unknown_keys = set(config.keys()) - set(required_config.keys())
+        if unknown_keys:
+            print('unknown config %s in %s' % (unknown_keys, config_file_name))
+            sys.exit(1)
         for required_key, required_key_types in required_config.items():
             if required_key not in config:
                 print('%s must be specified in %s to use HW switch.' % (
                     required_key, config_file_name))
-                sys.exit(-1)
+                sys.exit(1)
             required_value = config[required_key]
             key_type_ok = False
             for key_type in required_key_types:
@@ -148,6 +148,7 @@ def import_hw_config():
             print('Exactly %u dataplane ports are required, '
                   '%d are provided in %s.' %
                   (REQUIRED_TEST_PORTS, len(dp_ports), config_file_name))
+            sys.exit(1)
         return config
     return None
 
