@@ -68,8 +68,7 @@ fi
 if [[ "$FILES_CHANGED" != "" ]] ; then
   if [[ "$PY_FILES_CHANGED" == "" && "$RQ_FILES_CHANGED" == "" ]] ; then
     echo Not running docker tests because only non-python/requirements changes: $FILES_CHANGED
-    # TODO: re-enable for python.
-    # exit 0
+    exit 0
   else
     echo python/requirements changes: $PY_FILES_CHANGED $RQ_FILES_CHANGED
   fi

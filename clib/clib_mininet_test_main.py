@@ -125,8 +125,8 @@ def import_hw_config():
         }
         unknown_keys = set(config.keys()) - set(required_config.keys())
         if unknown_keys:
-            print('unknown config %s in %s' % (unknown_keys, config_file_name)
-            sys.exit(-1)
+            print('unknown config %s in %s' % (unknown_keys, config_file_name))
+            sys.exit(1)
         for required_key, required_key_types in required_config.items():
             if required_key not in config:
                 print('%s must be specified in %s to use HW switch.' % (
