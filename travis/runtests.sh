@@ -68,8 +68,7 @@ fi
 if [[ "$FILES_CHANGED" != "" ]] ; then
   if [[ "$PY_FILES_CHANGED" == "" && "$RQ_FILES_CHANGED" == "" ]] ; then
     echo Not running docker tests because only non-python/requirements changes: $FILES_CHANGED
-    # TODO: Re-enable.
-    # exit 0
+    exit 0
   else
     echo python/requirements changes: $PY_FILES_CHANGED $RQ_FILES_CHANGED
   fi
@@ -93,7 +92,7 @@ sudo modprobe ebtables
 if [ "${MATRIX_SHARD}" == "sanity" ] ; then
   # Simulate hardware test switch
   # TODO: run a standalone DP and also a stacked DP test to test hardware linkages.
-  sudo docker run $SHARDARGS -e FAUCET_TESTS="-ni FaucetUntaggedTest FaucetStackStringOfDPUntaggedTest" -e HWTESTS="1" -t ${FAUCET_TEST_IMG} || exit 1
+  sudo docker run $SHARDARGS -e FAUCET_TESTS="-ni FaucetSanityTest FaucetStackStringOfDPUntaggedTest" -e HWTESTS="1" -t ${FAUCET_TEST_IMG} || exit 1
 fi
 
 sudo docker run $SHARDARGS -e PY_FILES_CHANGED="${PY_FILES_CHANGED}" -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG} || exit 1
