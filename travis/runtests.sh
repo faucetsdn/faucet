@@ -82,8 +82,10 @@ docker images
 SHARDARGS="--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   --ulimit core=99999999999:99999999999 \
   -v /var/local/lib/docker:/var/lib/docker \
-  -v $HOME/.cache/pip:/var/tmp/pip-cache \
-  -e PY_FILES_CHANGED=\"${PY_FILES_CHANGED}\""
+  -v $HOME/.cache/pip:/var/tmp/pip-cache
+
+# TODO: re-add changed files.
+# -e PY_FILES_CHANGED=\"${PY_FILES_CHANGED}\""
 echo Shard $MATRIX_SHARD: $FAUCETTESTS: $SHARDARGS
 
 ulimit -c unlimited && sudo echo '/var/tmp/core.%h.%e.%t' > /proc/sys/kernel/core_pattern
