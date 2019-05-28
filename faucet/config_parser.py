@@ -180,6 +180,12 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
     for dp in dps:
         dp.resolve_stack_topology(dps)
 
+    dpid_refs = set()
+    for dp in dps:
+        test_config_condition(dp.dp_id in dpid_refs, (
+            'DPID %u is duplicated' % dp.dp_id))
+        dpid_refs.add(dp.dp_id)
+
     router_ref_dps = collections.defaultdict(set)
     for dp in dps:
         for router in dp.routers.keys():
