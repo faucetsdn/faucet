@@ -1133,7 +1133,7 @@ dps:
                     dp: sw2
                     port: 2
     sw2:
-        dp_id: 0x1
+        dp_id: 0x2
         interfaces:
             1:
                 native_vlan: vlan100
@@ -1146,7 +1146,7 @@ dps:
                     dp: sw3
                     port: 1
     sw3:
-        dp_id: 0x2
+        dp_id: 0x3
         interfaces:
             1:
                 stack:
@@ -2889,6 +2889,23 @@ dps:
         interfaces:
             1:
                 native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_dupe_dpid(self):
+        """Test duplicate DPID."""
+        config = """
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+    sw2:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
 """
         self.check_config_failure(config, cp.dp_parser)
 

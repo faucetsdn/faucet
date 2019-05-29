@@ -87,7 +87,7 @@ def _dp_parse_port(dp_id, port_key, port_conf, vlans):
     return port
 
 
-def _dp_add_ports(dp, dp_conf, dp_id, vlans):
+def _dp_add_ports(dp, dp_conf, dp_id, vlans): # pylint: disable=invalid-name
     ports_conf = dp_conf.get('interfaces', {})
     port_ranges_conf = dp_conf.get('interface_ranges', {})
     # as users can config port VLAN by using VLAN name, we store vid in
@@ -141,32 +141,43 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans):
     dp.reset_refs(vlans=vlans)
 
 
+def _parse_acls(dp, acls_conf): # pylint: disable=invalid-name
+    for acl_key, acl_conf in acls_conf.items():
+        acl = ACL(acl_key, dp.dp_id, acl_conf)
+        dp.add_acl(acl_key, acl)
+
+
+def _parse_routers(dp, routers_conf): # pylint: disable=invalid-name
+    for router_key, router_conf in routers_conf.items():
+        router = Router(router_key, dp.dp_id, router_conf)
+        dp.add_router(router_key, router)
+
+
+def _parse_meters(dp, meters_conf): # pylint: disable=invalid-name
+    for meter_key, meter_conf in meters_conf.items():
+        meter = Meter(meter_key, dp.dp_id, meter_conf)
+        dp.meters[meter_key] = meter
+
+
 def _parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf):
-    test_config_condition(not isinstance(dp_conf, dict), '')
+    test_config_condition(not isinstance(dp_conf, dict), 'DP config must be dict')
     dp = DP(dp_key, dp_conf.get('dp_id', None), dp_conf)
     test_config_condition(dp.name != dp_key, (
         'DP key %s and DP name must match' % dp_key))
-    dp_id = dp.dp_id
     vlans = {}
     vids = set()
     for vlan_key, vlan_conf in vlans_conf.items():
-        vlan = VLAN(vlan_key, dp_id, vlan_conf)
+        vlan = VLAN(vlan_key, dp.dp_id, vlan_conf)
         test_config_condition(str(vlan_key) not in (str(vlan.vid), vlan.name), (
             'VLAN %s key must match VLAN name or VLAN VID' % vlan_key))
         test_config_condition(vlan.vid in vids, (
             'VLAN VID %u multiply configured' % vlan.vid))
         vlans[vlan_key] = vlan
         vids.add(vlan.vid)
-    for acl_key, acl_conf in acls_conf.items():
-        acl = ACL(acl_key, dp_id, acl_conf)
-        dp.add_acl(acl_key, acl)
-    for router_key, router_conf in routers_conf.items():
-        router = Router(router_key, dp_id, router_conf)
-        dp.add_router(router_key, router)
-    for meter_key, meter_conf in meters_conf.items():
-        meter = Meter(meter_key, dp_id, meter_conf)
-        dp.meters[meter_key] = meter
-    _dp_add_ports(dp, dp_conf, dp_id, vlans)
+    _parse_acls(dp, acls_conf)
+    _parse_routers(dp, routers_conf)
+    _parse_meters(dp, meters_conf)
+    _dp_add_ports(dp, dp_conf, dp.dp_id, vlans)
     return dp
 
 
@@ -179,6 +190,12 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         dp.finalize_config(dps)
     for dp in dps:
         dp.resolve_stack_topology(dps)
+
+    dpid_refs = set()
+    for dp in dps:
+        test_config_condition(dp.dp_id in dpid_refs, (
+            'DPID %u is duplicated' % dp.dp_id))
+        dpid_refs.add(dp.dp_id)
 
     router_ref_dps = collections.defaultdict(set)
     for dp in dps:
