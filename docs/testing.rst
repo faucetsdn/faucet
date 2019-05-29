@@ -11,13 +11,7 @@ First, get yourself setup with docker based on our :ref:`docker-install` documen
 Software switch testing with docker
 -----------------------------------
 
-First prime the pip cache with the following command (re-run this when upgrading FAUCET also).
-
-.. code:: console
-
-  sudo ./docker/pip_deps.sh
-
-Then you can build and run the mininet tests from the docker entry-point:
+You can build and run the mininet tests with the following commands:
 
 .. code:: console
 
@@ -26,7 +20,7 @@ Then you can build and run the mininet tests from the docker entry-point:
   sudo modprobe openvswitch
   sudo docker run --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged --rm \
                   -v /var/local/lib/docker:/var/lib/docker \
-                  -v $HOME/.cache/pip:/var/tmp/pip-cache \
+                  -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
                   -ti faucet/tests
 
 The apparmor command is currently required on Ubuntu hosts to allow the use of
@@ -193,7 +187,7 @@ Then you can build and run the test suite:
   sudo docker build --pull -t faucet/tests -f Dockerfile.tests .
   sudo docker run --privileged --rm --net=host --cap-add=NET_ADMIN \
                   -v /var/local/lib/docker:/var/lib/docker \
-                  -v $HOME/.cache/pip:/var/tmp/pip-cache \
+                  -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
                   -v /etc/faucet:/etc/faucet \
                   -v /var/tmp:/var/tmp \
                   -ti faucet/tests
