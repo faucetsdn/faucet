@@ -7268,7 +7268,7 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
                             'type': 'vlan',
                             'tunnel_id': 200,
                             'dp': 'faucet-1',
-                            'port': mininet_test_topo.SWITCH_START_PORT + 1}
+                            'port': 'b%(port_2)d'}
                     }
                 }
             }}

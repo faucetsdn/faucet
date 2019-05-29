@@ -98,7 +98,11 @@ cd /faucet-src/tests/integration
 
 if [ "$HWTESTS" == 1 ] ; then
   echo "========== Simulating hardware test switch =========="
-  ovs-vsctl add-br hwbr && ovs-vsctl set-controller hwbr tcp:127.0.0.1:6653 tcp:127.0.0.1:6654 && ovs-vsctl set-fail-mode hwbr secure || exit 1
+  ovs-vsctl add-br hwbr &&
+    ovs-vsctl set-controller hwbr tcp:127.0.0.1:6653 tcp:127.0.0.1:6654 &&
+    ovs-vsctl set-fail-mode hwbr secure &&
+    ovs-vsctl set Open_vSwitch . other_config:vlan-limit=2 ||
+    exit 1
   DPID='0x'`sudo ovs-vsctl get bridge hwbr datapath-id|sed 's/"//g'`
   DP_PORTS=""
   N=$'\n'
@@ -106,7 +110,10 @@ if [ "$HWTESTS" == 1 ] ; then
   for p in `seq 2 5` ; do
     HWP="hwp$p"
     PHWP="p$HWP"
-    ip link add dev $HWP type veth peer name $PHWP && ifconfig $PHWP up && ovs-vsctl add-port hwbr $PHWP -- set interface $PHWP ofport_request=$p || exit 1
+    ip link add dev $HWP type veth peer name $PHWP &&
+      ifconfig $PHWP up &&
+      ovs-vsctl add-port hwbr $PHWP -- set interface $PHWP ofport_request=$p ||
+      exit 1
     DP_PORTS="  ${p}: ${HWP}${N}${DP_PORTS}"
   done
   cat > /tmp/hw_switch_config.yaml << EOL
