@@ -507,8 +507,7 @@ class Valve:
         ofmsgs = []
         for port in self.dp.lacp_active_ports:
             if port.running():
-                pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
-                ofmsgs.append(valve_of.packetout(port.number, pkt.data))
+                ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port, now))
 
         ports = self.dp.lldp_beacon_send_ports(now)
         ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
@@ -740,8 +739,7 @@ class Valve:
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port, cold_start=cold_start))
                 if port.lacp_active:
-                    pkt = self._lacp_pkt(port.dyn_last_lacp_pkt, port)
-                    ofmsgs.append(valve_of.packetout(port.number, pkt.data))
+                    ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port, None))
 
             if self.dp.dot1x:
                 nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
@@ -872,14 +870,24 @@ class Valve:
         ofmsgs.append(vlan_table.flowdel(
             match=vlan_table.match(in_port=port.number),
             priority=self.dp.high_priority, strict=True))
+        if port.dyn_lacp_up != 1:
+            self.logger.info('LAG %u Port %s up (previous state %s)' % (
+                port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 1
         for vlan in port.vlans():
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         self._reset_lacp_status(port)
-        self.logger.info('LAG %s port %s up' % (port.lacp, port.number))
         return ofmsgs
 
-    def _lacp_pkt(self, lacp_pkt, port):
+    def _lacp_actions(self, lacp_pkt, port, now):
+        if port.lacp_passthrough:
+            for peer_num in port.lacp_passthrough:
+                lacp_peer = self.dp.ports.get(peer_num, None)
+                if not lacp_peer.dyn_lacp_up:
+                    self.logger.warning('Suppressing LACP LAG %s on %s, peer %s link is down' %
+                                        (port.lacp, port, lacp_peer))
+                    return []
+
         actor_state_activity = 0
         if port.lacp_active:
             actor_state_activity = 1
@@ -902,8 +910,8 @@ class Valve:
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
                 port.lacp, port.number,
                 actor_state_activity=actor_state_activity)
-        self.logger.debug('sending LACP %s on %s' % (pkt, port))
-        return pkt
+        self.logger.debug('Sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
+        return [valve_of.packetout(port.number, pkt.data)]
 
     def lacp_handler(self, now, pkt_meta):
         """Handle a LACP packet.
@@ -947,8 +955,7 @@ class Valve:
                         ofmsgs_by_valve[self].extend(self.lacp_down(pkt_meta.port))
                 # TODO: make LACP response rate limit configurable.
                 if lacp_pkt_change or (age is not None and age > 1):
-                    pkt = self._lacp_pkt(lacp_pkt, pkt_meta.port)
-                    ofmsgs_by_valve[self].append(valve_of.packetout(pkt_meta.port.number, pkt.data))
+                    ofmsgs_by_valve[self].extend(self._lacp_actions(lacp_pkt, pkt_meta.port, now))
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
                 pkt_meta.port.dyn_lacp_updated_time = now
                 other_lag_ports = [

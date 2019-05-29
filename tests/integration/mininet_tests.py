@@ -6858,6 +6858,38 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.wait_for_lacp_port_down(src_port, self.dpids[0], 'faucet-1')
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
 
+    def test_passthrough(self):
+        """Test lacp passthrough on port fail."""
+
+        conf = self._get_faucet_conf()
+        src_port = self.non_host_ports(self.dpids[0])[0]
+        dst_port = self.non_host_ports(self.dpids[0])[1]
+        fail_port = self.non_host_ports(self.dpids[1])[0]
+        end_port = self.non_host_ports(self.dpids[1])[1]
+
+        conf['dps']['faucet-1']['interfaces'][dst_port]['lacp_passthrough'] = [src_port]
+        conf['dps']['faucet-1']['interfaces'][dst_port]['loop_protect_external'] = True
+        conf['dps']['faucet-1']['interfaces'][dst_port]['lacp'] = 2
+        conf['dps']['faucet-1']['interfaces'][src_port]['loop_protect_external'] = True
+        conf['dps']['faucet-2']['interfaces'][fail_port]['loop_protect_external'] = True
+        conf['dps']['faucet-2']['interfaces'][end_port]['loop_protect_external'] = True
+        conf['dps']['faucet-2']['interfaces'][end_port]['lacp'] = 2
+
+        self.reload_conf(conf, self.faucet_config_path, restart=True,
+                         cold_start=False, change_expected=False)
+
+        self.wait_for_all_lacp_up()
+        self.verify_stack_hosts()
+
+        conf['dps']['faucet-2']['interfaces'][fail_port]['lacp'] = 0
+        conf['dps']['faucet-2']['interfaces'][fail_port]['lacp_active'] = False
+        self.reload_conf(conf, self.faucet_config_path, restart=True,
+                         cold_start=False, change_expected=False)
+
+        self.wait_for_lacp_port_down(src_port, self.dpids[0], 'faucet-1')
+        self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
+        self.wait_for_lacp_port_down(end_port, self.dpids[1], 'faucet-2')
+
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""

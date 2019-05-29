@@ -58,6 +58,8 @@ class Port(Conf):
         # if non 0 (LAG ID), experimental LACP support enabled on this port.
         'lacp_active': False,
         # experimental active LACP
+        'lacp_passthrough': None,
+        # If set, fail the lacp on this port if any of the peer ports are down.
         'loop_protect': False,
         # if True, do simple (host/access port) loop protection on this port.
         'loop_protect_external': False,
@@ -98,6 +100,7 @@ class Port(Conf):
         'hairpin_unicast': bool,
         'lacp': int,
         'lacp_active': bool,
+        'lacp_passthrough': list,
         'loop_protect': bool,
         'loop_protect_external': bool,
         'output_only': bool,
@@ -140,6 +143,7 @@ class Port(Conf):
         self.hairpin_unicast = None
         self.lacp = None
         self.lacp_active = None
+        self.lacp_passthrough = None
         self.loop_protect = None
         self.loop_protect_external = None
         self.max_hosts = None
