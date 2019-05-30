@@ -36,9 +36,8 @@ fi
 
 if [ -d /var/tmp/pip-cache ] ; then
   echo Using pip cache
-  cp -r /var/tmp/pip-cache /var/tmp/pip-cache-local
 fi
-./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache-local"
+./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache"
 
 echo "========== checking IPv4/v6 localhost is up ====="
 ping6 -c 1 ::1
