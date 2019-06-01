@@ -6790,7 +6790,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             lacp=True)
         self.start_net()
 
-    def wait_for_lacp_status(self, port_no, wanted_status, dpid, dp_name, timeout=20):
+    def wait_for_lacp_status(self, port_no, wanted_status, dpid, dp_name, timeout=30):
         labels = self.port_labels(port_no)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         if not self.wait_for_prometheus_var(

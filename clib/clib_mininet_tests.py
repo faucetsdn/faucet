@@ -141,7 +141,7 @@ class FaucetDockerHostTest(FaucetSimpleTest):
 
     N_UNTAGGED = 2
     N_EXTENDED = 2
-    EXTENDED_CLS = make_docker_host('faucet/test-host')
+    EXTENDED_CLS = make_docker_host('faucet/test-host', startup_timeout_ms=90 * 1e3)
 
     def test_containers(self):
         """Test containers to make sure they're actually docker."""

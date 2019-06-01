@@ -128,7 +128,7 @@ class FaucetSwitchTopo(Topo):
     def _get_sid_prefix(ports_served):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
-        id_chars = string.ascii_letters + string.digits # pytype: disable=module-attr
+        id_chars = ''.join(sorted(string.ascii_letters + string.digits)) # pytype: disable=module-attr
         id_a = int(ports_served / len(id_chars))
         id_b = ports_served - (id_a * len(id_chars))
         return '%s%s' % (
@@ -150,8 +150,15 @@ class FaucetSwitchTopo(Topo):
         host_name = 'e%s%1.1u' % (sid_prefix, host_n + 1)
         return self.addHost(name=host_name, cls=e_cls, host_n=host_n, tmpdir=tmpdir)
 
-    def _add_faucet_switch(self, sid_prefix, dpid, ovs_type, switch_cls):
+    def _add_faucet_switch(self, sid_prefix, dpid, hw_dpid, ovs_type):
         """Add a FAUCET switch."""
+        switch_cls = FaucetSwitch
+        if hw_dpid and hw_dpid == dpid:
+            remap_dpid = str(int(dpid) + 1)
+            output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
+                dpid, int(dpid), remap_dpid, int(remap_dpid)))
+            dpid = remap_dpid
+            switch_cls = NoControllerFaucetSwitch
         switch_name = 's%s' % sid_prefix
         return self.addSwitch(
             name=switch_name,
@@ -162,7 +169,7 @@ class FaucetSwitchTopo(Topo):
     def _add_links(self, switch, hosts, links_per_host, start_port):
         port = start_port
         for host in hosts:
-            for i in range(links_per_host):
+            for _ in range(links_per_host):
                 # Order of switch/host is important, since host may be in a container.
                 self.addLink(switch, host, port1=port, delay=self.DELAY, use_htb=True)
                 port += 1
@@ -185,14 +192,7 @@ class FaucetSwitchTopo(Topo):
                 self._add_untagged_host(sid_prefix, host_n, host_namespace.get(host_n, True))
             for host_n in range(n_extended):
                 self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
-            switch_cls = FaucetSwitch
-            if hw_dpid and hw_dpid == dpid:
-                remap_dpid = str(int(dpid) + 1)
-                output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
-                    dpid, int(dpid), remap_dpid, int(remap_dpid)))
-                dpid = remap_dpid
-                switch_cls = NoControllerFaucetSwitch
-            switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type, switch_cls)
+            switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
             self._add_links(switch, self.hosts(), links_per_host, start_port)
 
 
@@ -249,18 +249,11 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
             for host_n in range(n_untagged):
                 hosts.append(self._add_untagged_host(sid_prefix, host_n))
-            switch_cls = FaucetSwitch
-            if hw_dpid and hw_dpid == dpid:
-                remap_dpid = str(int(dpid) + 1)
-                output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
-                    dpid, int(dpid), remap_dpid, int(remap_dpid)))
-                dpid = remap_dpid
-                switch_cls = NoControllerFaucetSwitch
-            switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type, switch_cls)
+            switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
+            switch_ports[switch] = self._add_links(switch, hosts, links_per_host, start_port)
             if first_switch is None:
                 first_switch = switch
-            switch_ports[switch] = self._add_links(switch, hosts, links_per_host, start_port)
-            if last_switch is not None:
+            else:
                 # Add a switch-to-switch link with the previous switch,
                 # if this isn't the first switch in the topology.
                 addLinks(last_switch, switch, switch_ports)
