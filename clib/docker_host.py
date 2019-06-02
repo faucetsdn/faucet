@@ -49,6 +49,7 @@ class DockerHost(Host):
     container = None
     pollIn = None
     active_log = None
+    ps1 = chr(127)
 
     # pylint: disable=too-many-arguments
     def __init__(self, name, image=None, tmpdir=None, prefix=None, env_vars=None, vol_maps=None,
@@ -98,11 +99,10 @@ class DockerHost(Host):
         base_cmd = ["docker", "run", "-ti", "--privileged", "--entrypoint", "env",
                     "-h", self.name, "--name", self.container]
         opt_args = ['--net=%s' % self.network]
-        env_args = reduce(operator.add, (['--env', var] for var in self.env_vars), [])
+        env_vars = self.env_vars + ["TERM=dumb", "PS1=%s" % self.ps1]
+        env_args = reduce(operator.add, (['--env', var] for var in env_vars), [])
         vol_args = reduce(operator.add, (['-v', var] for var in self.vol_maps), ['-v', tmp_volume])
-        image_args = [
-            self.image, "TERM=dumb", "PS1=" + chr(127), "bash", "--norc",
-            "-is", "mininet:" + self.name]
+        image_args = [self.image, "bash", "--norc", "-is", "mininet:" + self.name]
         cmd = base_cmd + opt_args + env_args + vol_args + image_args
         self.master, self.slave = pty.openpty()
         debug('docker command "%s", fd %d, fd %d' % (' '.join(cmd), self.master, self.slave))
@@ -123,12 +123,14 @@ class DockerHost(Host):
             self.waiting = True
             data = ''
             while True:
-                data = self.read()
-                if data[-1] == chr(127):
+                data = self.read(maxbytes=1)
+                if data[-1] == self.ps1:
                     break
             self.readbuf = ''
             self.waiting = False
         except:
+            error('docker cmd: %s' % ' '.join(cmd))
+            error('returncode: %d' % self.shell.returncode)
             if self.shell:
                 self.shell.poll()
             raise
