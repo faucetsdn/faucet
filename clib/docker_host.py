@@ -130,7 +130,8 @@ class DockerHost(Host):
             self.waiting = False
         except:
             error('docker cmd: %s' % ' '.join(cmd))
-            error('returncode: %d' % self.shell.returncode)
+            if self.shell.returncode:
+                error('returncode: %d' % self.shell.returncode)
             if self.shell:
                 self.shell.poll()
             raise
