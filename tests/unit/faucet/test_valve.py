@@ -1467,6 +1467,28 @@ class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):
     """ + DP1_CONFIG
 
 
+class ValveIncludeTestCase(ValveTestBases.ValveTestSmall):
+    """Test include optional files."""
+
+    CONFIG = """
+include-optional: ['/does/not/exist/']
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_include_optional(self):
+        """Test include optional files."""
+        self.assertEqual(1, int(self.get_prom('dp_status')))
+
+
 class ValveFuzzTestCase(ValveTestBases.ValveTestSmall):
     """Test unknown ports/VLANs."""
 

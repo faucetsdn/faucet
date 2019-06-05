@@ -92,13 +92,15 @@ class ValvesManager:
         """Return parsed configs for Valves, or None."""
         self.metrics.faucet_config_hash_func.labels(algorithm=CONFIG_HASH_FUNC)
         try:
-            new_config_hashes, new_dps = dp_parser(new_config_file, self.logname)
-            self.config_watcher.update(new_config_file, new_config_hashes)
-            config_files = sorted(new_config_hashes.keys())
-            hashes = [new_config_hashes[config] for config in config_files]
+            new_conf_hashes, new_dps = dp_parser(new_config_file, self.logname)
+            self.config_watcher.update(new_config_file, new_conf_hashes)
+            new_present_conf_hashes = [
+                (conf_file, conf_hash) for conf_file, conf_hash in sorted(new_conf_hashes.items())
+                if conf_hash is not None]
+            conf_files = [conf_file for conf_file, _ in new_present_conf_hashes]
+            conf_hashes = [conf_hash for _, conf_hash in new_present_conf_hashes]
             self.metrics.faucet_config_hash.info(
-                dict(config_files=','.join(config_files),
-                     hashes=','.join(hashes)))
+                dict(config_files=','.join(conf_files), hashes=','.join(conf_hashes)))
             self.metrics.faucet_config_load_error.set(0)
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
@@ -230,6 +232,6 @@ class ValvesManager:
             self.config_applied.update(sent)
         count = float(len(self.valves))
         configured = sum((1 if self.config_applied[dp_id] else 0)
-                         for dp_id in self.valves.keys())
+                         for dp_id in self.valves)
         fraction = configured/count if count > 0 else 0
         self.metrics.faucet_config_applied.set(fraction)
