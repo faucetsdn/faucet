@@ -844,6 +844,7 @@ class Valve:
         port.dyn_lacp_up = 0
         port.dyn_last_lacp_pkt = None
         port.dyn_lacp_updated_time = None
+        port.dyn_lacp_last_resp_time = None
         if not cold_start:
             # Expire all hosts on this port.
             ofmsgs.extend(self.host_manager.del_port(port))
@@ -887,7 +888,6 @@ class Valve:
                     self.logger.warning('Suppressing LACP LAG %s on %s, peer %s link is down' %
                                         (port.lacp, port, lacp_peer))
                     return []
-
         actor_state_activity = 0
         if port.lacp_active:
             actor_state_activity = 1
@@ -935,8 +935,8 @@ class Valve:
             if lacp_pkt:
                 self.logger.debug('receive LACP %s on %s' % (lacp_pkt, pkt_meta.port))
                 age = None
-                if pkt_meta.port.dyn_lacp_updated_time:
-                    age = now - pkt_meta.port.dyn_lacp_updated_time
+                if pkt_meta.port.dyn_lacp_last_resp_time:
+                    age = now - pkt_meta.port.dyn_lacp_last_resp_time
                 lacp_state_change = (
                     pkt_meta.port.dyn_lacp_up !=
                     lacp_pkt.actor_state_synchronization)
@@ -956,6 +956,7 @@ class Valve:
                 # TODO: make LACP response rate limit configurable.
                 if lacp_pkt_change or (age is not None and age > 1):
                     ofmsgs_by_valve[self].extend(self._lacp_actions(lacp_pkt, pkt_meta.port, now))
+                    pkt_meta.port.dyn_lacp_last_resp_time = now
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
                 pkt_meta.port.dyn_lacp_updated_time = now
                 other_lag_ports = [
