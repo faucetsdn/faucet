@@ -592,6 +592,12 @@ class Valve:
         ofmsgs_by_valve = {}
         for port in self.dp.stack_ports:
             ofmsgs_by_valve.update(self._update_stack_link_state(port, now, other_valves))
+        for port in self.dp.ports.values():
+            if port.dyn_lldp_beacon_recv_state:
+                age = now - port.dyn_lldp_beacon_recv_time
+                if age > self.dp.lldp_beacon['send_interval'] * 3:
+                    self.logger.info('LLDP for port %s inactive after %s' % (port, age))
+                    port.dyn_lldp_beacon_recv_state = None
         return ofmsgs_by_valve
 
     def _reset_dp_status(self):
@@ -1021,16 +1027,24 @@ class Valve:
         (remote_dp_id, remote_dp_name,
          remote_port_id, remote_port_state) = valve_packet.parse_faucet_lldp(
              lldp_pkt, self.dp.faucet_dp_mac)
+        
+        port.dyn_lldp_beacon_recv_time = now
+        if port.dyn_lldp_beacon_recv_state != remote_port_state:
+            chassis_id = str(self.dp.faucet_dp_mac)
+            if remote_port_state:
+                self.logger.info('LLDP on %s, %s from %s (remote %s, port %u) state %s' % (chassis_id, port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id), remote_port_id, remote_port_state))
+            port.dyn_lldp_beacon_recv_state = remote_port_state
 
         ofmsgs_by_valve = {}
         if remote_dp_id and remote_port_id:
-            self.logger.info('FAUCET LLDP from %s (remote %s, port %u)' % (
+            self.logger.debug('FAUCET LLDP from %s (remote %s, port %u)' % (
                 pkt_meta.log(), valve_util.dpid_log(remote_dp_id), remote_port_id))
             ofmsgs_by_valve.update(self._verify_stack_lldp(
                 port, now, other_valves,
                 remote_dp_id, remote_dp_name,
                 remote_port_id, remote_port_state))
-        self.logger.debug('LLDP from %s: %s' % (pkt_meta.log(), str(lldp_pkt)))
+        else:
+            self.logger.debug('LLDP on %s from %s: %s' % (port, pkt_meta.eth_src, str(lldp_pkt)))
         return ofmsgs_by_valve
 
     @staticmethod

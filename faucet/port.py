@@ -167,6 +167,8 @@ class Port(Conf):
         self.dyn_last_ban_time = None
         self.dyn_last_lacp_pkt = None
         self.dyn_last_lldp_beacon_time = None
+        self.dyn_lldp_beacon_recv_state = None
+        self.dyn_lldp_beacon_recv_time = None
         self.dyn_learn_ban_count = 0
         self.dyn_phys_up = False
         self.dyn_stack_current_state = STACK_STATE_DOWN
@@ -200,6 +202,8 @@ class Port(Conf):
         self.dyn_last_ban_time = old_port.dyn_last_ban_time
         self.dyn_last_lacp_pkt = old_port.dyn_last_lacp_pkt
         self.dyn_last_lldp_beacon_time = old_port.dyn_last_lldp_beacon_time
+        self.dyn_lldp_beacon_recv_state = old_port.dyn_lldp_beacon_recv_state
+        self.dyn_lldp_beacon_recv_time = old_port.dyn_lldp_beacon_recv_time
         self.dyn_learn_ban_count = old_port.dyn_learn_ban_count
         self.dyn_phys_up = old_port.dyn_phys_up
         self.dyn_stack_current_state = old_port.dyn_stack_current_state
