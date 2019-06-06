@@ -147,7 +147,7 @@ def import_hw_config():
                 config_value for valid_type in valid_types
                 if isinstance(config_value, valid_type)]
             if not valid_values:
-                print('%s (%s) must be %s in %s' % (
+                print('%s (%s) must be of type %s in %s' % (
                     config_key, config_value,
                     valid_types, config_file_name))
                 sys.exit(-1)
