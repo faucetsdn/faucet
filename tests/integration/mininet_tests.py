@@ -6364,16 +6364,11 @@ class FaucetStringOfDPTest(FaucetTest):
     topo = None
 
     def non_host_ports(self, dpid):
-        if self.NUM_DPS <= 2 and dpid == self.dpid:
-            min_non_host_ports = self.MAX_HOSTS - self.NUM_HOSTS
-            first_non_host_port = min_non_host_ports + 1
-            last_non_host_port = first_non_host_port + min_non_host_ports - 1
-            return [self.port_map['port_%u' % port]
-                    for port in range(first_non_host_port, last_non_host_port + 1)]
-        min_non_host_ports = 2
-        first_non_host_port = self.NUM_HOSTS + mininet_test_topo.SWITCH_START_PORT
-        last_non_host_port = first_non_host_port + min_non_host_ports - 1
-        return [port for port in range(first_non_host_port, last_non_host_port + 1)]
+        # Port remapping should probably be done in the topo
+        if dpid == self.hw_dpid:
+            return [self.hw_port_map_offset(link.port)
+                    for link in self.topo.dpid_peer_links(dpid)]
+        return [link.port for link in self.topo.dpid_peer_links(dpid)]
 
     def hw_port_map_offset(self, port_no):
         remap_port_no = (port_no - mininet_test_topo.SWITCH_START_PORT) + 1
@@ -6438,6 +6433,8 @@ class FaucetStringOfDPTest(FaucetTest):
             use_external,
         )
 
+
+
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
                    include=None, include_optional=None, acls=None, acl_in_dp=None, stack_ring=False,
@@ -6453,6 +6450,8 @@ class FaucetStringOfDPTest(FaucetTest):
             acls = {}
         if acl_in_dp is None:
             acl_in_dp = {}
+        dpid_names = {}
+        dpname_to_dpkey = {}
 
         def dp_name(i):
             return 'faucet-%i' % (i + 1)
@@ -6475,136 +6474,99 @@ class FaucetStringOfDPTest(FaucetTest):
             if name in acl_in_dp and port in acl_in_dp[name]:
                 interfaces_config[port]['acl_in'] = acl_in_dp[name][port]
 
-        def add_dp_to_dp_ports(name, dp_config, port, interfaces_config, i,
-                               dpid_count, stack, n_tagged, tagged_vid,
-                               n_untagged, untagged_vid):
-
-            # Add configuration for the switch-to-switch links
-            # (0 for a single switch, 1 for an end switch, 2 for middle switches).
-            first_dp = i == 0
-            second_dp = i == 1
-            last_dp = i == dpid_count - 1
-            end_dp = first_dp or last_dp
-            first_stack_port = port
-            peer_dps = []
-            if dpid_count > 1:
-                if end_dp:
-                    if first_dp:
-                        peer_dps = [i + 1]
-                    else:
-                        peer_dps = [i - 1]
+        def add_dp_to_dp_ports(name, dpid, dp_config, interfaces_config, stack,
+                               n_tagged, tagged_vid, n_untagged, untagged_vid):
+            for link in self.topo.dpid_peer_links(dpid):
+                port, peer_dpid, peer_port = link.port, link.peer_dpid, link.peer_port
+                interfaces_config[port] = {}
+                if peer_dpid == hw_dpid:
+                   peer_port = self.hw_port_map_offset(port)
+                if stack:
+                    # make this a stacking link.
+                    interfaces_config[port].update(
+                        {
+                            'stack': {
+                                'dp': dpid_names[peer_dpid],
+                                'port': peer_port}
+                        })
                 else:
-                    peer_dps = [i - 1, i + 1]
+                    # not a stack - make this a trunk.
+                    tagged_vlans = set()
+                    if n_tagged:
+                        tagged_vlans.add(tagged_vid)
+                    if n_untagged:
+                        tagged_vlans.add(untagged_vid)
+                    if tagged_vlans:
+                        interfaces_config[port]['tagged_vlans'] = list(tagged_vlans)
+                    if lacp:
+                        interfaces_config[port].update(
+                            {'lacp': 1, 'lacp_active': True})
+                add_acl_to_port(name, port, interfaces_config)
 
-                if dpid_count > 2:
-                    if first_dp and stack and stack_ring:
-                        peer_dps.append(dpid_count - 1)
-                    if last_dp and stack and stack_ring:
-                        peer_dps.append(0)
+            # TODO: make per test configurable
+            dp_config['lacp_timeout'] = 10
 
-                # TODO: make per test configurable
-                dp_config['lacp_timeout'] = 10
+            # TODO: make the stacking root configurable
+            first_dp = dpid == self.dpid
+            if stack and first_dp:
+                dp_config['stack'] = {
+                    'priority': 1
+                }
 
-                # TODO: make the stacking root configurable
-                if stack and first_dp:
-                    dp_config['stack'] = {
-                        'priority': 1
-                    }
-                for peer_dp in peer_dps:
-                    if (dpid_count <= 2 or (first_dp and peer_dp != dpid_count - 1) or second_dp
-                            or (not end_dp and peer_dp > i)):
-                        peer_stack_port_base = first_stack_port
-                    else:
-                        peer_stack_port_base = first_stack_port + self.topo.switch_to_switch_links
-                    for stack_dp_port in range(self.topo.switch_to_switch_links):
-                        peer_port = peer_stack_port_base + stack_dp_port
-                        interfaces_config[port] = {}
-                        if stack:
-                            # make this a stacking link.
-                            interfaces_config[port].update(
-                                {
-                                    'stack': {
-                                        'dp': dp_name(peer_dp),
-                                        'port': peer_port}
-                                })
-                        else:
-                            # not a stack - make this a trunk.
-                            tagged_vlans = []
-                            if n_tagged and n_untagged and n_tagged != n_untagged:
-                                tagged_vlans = [tagged_vid, untagged_vid]
-                            elif ((n_tagged and not n_untagged) or
-                                  (n_tagged and n_untagged and tagged_vid == untagged_vid)):
-                                tagged_vlans = [tagged_vid]
-                            elif n_untagged and not n_tagged:
-                                tagged_vlans = [untagged_vid]
-                            if tagged_vlans:
-                                interfaces_config[port]['tagged_vlans'] = tagged_vlans
-                            if lacp:
-                                interfaces_config[port].update(
-                                    {'lacp': 1, 'lacp_active': True})
-                        add_acl_to_port(name, port, interfaces_config)
-                        port += 1
-
-        def add_dp(name, dpid, hw_dpid, i, dpid_count, stack,
+        def add_dp(name, dpid, hw_dpid, i, stack,
                    n_tagged, tagged_vid, n_untagged, untagged_vid,
-                   dpname_to_dpkey, use_external):
-            dpid_ofchannel_log = None
-            if ofchannel_log is not None:
-                dpid_ofchannel_log = ofchannel_log + str(i)
-            dp_hardware = hardware
-            if dpid != hw_dpid:
-                dp_hardware = 'Open vSwitch'
+                   use_external):
             dp_config = {
                 'dp_id': int(dpid),
-                'hardware': dp_hardware,
-                'ofchannel_log': dpid_ofchannel_log,
+                'hardware': hardware if dpid == hw_dpid else 'Open vSwitch',
+                'ofchannel_log': ofchannel_log + str(i) if ofchannel_log else None,
                 'interfaces': {},
                 'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
                 'group_table': self.GROUP_TABLE,
             }
 
             interfaces_config = {}
+
             port = mininet_test_topo.SWITCH_START_PORT
 
-            for n_port in range(1, n_tagged + 1):
+            for n_port in range(n_tagged):
                 interfaces_config[port] = {
                     'tagged_vlans': [tagged_vid],
-                    'loop_protect_external': (use_external and n_port < n_tagged),
+                    'loop_protect_external': (use_external and n_port != n_tagged - 1),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
 
-            for n_port in range(1, n_untagged + 1):
+            for n_port in range(n_untagged):
                 interfaces_config[port] = {
                     'native_vlan': untagged_vid,
-                    'loop_protect_external': (use_external and n_port < n_untagged),
+                    'loop_protect_external': (use_external and n_port != n_untagged - 1),
                 }
                 add_acl_to_port(name, port, interfaces_config)
                 port += 1
 
-            add_dp_to_dp_ports(
-                name, dp_config, port, interfaces_config, i, dpid_count, stack,
-                n_tagged, tagged_vid, n_untagged, untagged_vid)
+            add_dp_to_dp_ports(name, dpid, dp_config, interfaces_config, stack,
+                               n_tagged, tagged_vid, n_untagged, untagged_vid)
 
             for portno, config in list(interfaces_config.items()):
                 stack = config.get('stack', None)
                 if stack:
                     peer_dp = stack['dp']
                     peer_portno = stack['port']
-                    peer_dpid, _ = dpname_to_dpkey[peer_dp]
-                    if hw_dpid == peer_dpid:
-                        peer_portno = self.hw_port_map_offset(portno)
+                    peer_dpid = dpname_to_dpkey[peer_dp]
                     if 'stack' not in interfaces_config[portno]:
                         interfaces_config[portno]['stack'] = {}
                     interfaces_config[portno]['stack'].update({
                         'port': 'b%u' % peer_portno})
 
+            # Port remapping should probably happen in the topo
             if hw_dpid == dpid:
                 interfaces_config = self.hw_remap_all_ports(interfaces_config)
 
             dp_config['interfaces'] = interfaces_config
-
             return dp_config
+
+        ### Create config
 
         config = {'version': 2}
 
@@ -6614,24 +6576,22 @@ class FaucetStringOfDPTest(FaucetTest):
         if include_optional:
             config['include-optional'] = list(include_optional)
 
-        config['vlans'] = add_vlans(
-            n_tagged, tagged_vid, n_untagged, untagged_vid)
-
+        config['vlans'] = add_vlans(n_tagged, tagged_vid, n_untagged, untagged_vid)
         config['acls'] = acls.copy()
-
-        dpid_count = len(dpids)
         config['dps'] = {}
-        dpname_to_dpkey = {
-            dp_name(i): (dpid, i) for i, dpid in enumerate(dpids, start=0)}
 
-        for name, dpkey in dpname_to_dpkey.items():
-            dpid, i = dpkey
+        for i, dpid in enumerate(dpids):
+            dpid_names[dpid] = name = dp_name(i)
+            dpname_to_dpkey[name] = dpid
+
+        for i, dpid in enumerate(dpids):
+            name = dpid_names[dpid]
             config['dps'][name] = add_dp(
-                name, dpid, hw_dpid, i, dpid_count, stack,
+                name, dpid, hw_dpid, i, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid,
-                dpname_to_dpkey, use_external)
-
-        return yaml.dump(config, default_flow_style=False)
+                use_external)
+        config_text = yaml.dump(config, default_flow_style=False)
+        return config_text
 
     def verify_no_cable_errors(self):
         i = 0
