@@ -46,8 +46,8 @@ DEFAULT_HARDWARE = 'Open vSwitch'
 SUPPORTS_METERS = (
     'Aruba',
     'NoviFlow',
-# TODO: troubleshoot meters in OVS 2.10.0
-#   DEFAULT_HARDWARE,
+    # TODO: troubleshoot meters in OVS 2.10.0
+    # DEFAULT_HARDWARE,
     'ZodiacGX',
 )
 
@@ -95,6 +95,25 @@ HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 CONFIG_FILE_DIRS = ['/etc/faucet', './', '/faucet-src']
 REQUIRED_TEST_PORTS = 4
 
+REQUIRED_HW_CONFIG = {
+    'dp_ports': (dict,),
+    'cpn_intf': (str,),
+    'dpid': (int,),
+    'hardware': (str,),
+    'hw_switch': (bool,),
+    'of_port': (int,),
+    'gauge_of_port': (int,),
+}
+
+OPTIONAL_HW_CONFIG = {
+    'cpn_ipv6': (bool,),
+    'ctl_privkey': (str,),
+    'ca_certs': (str,),
+    'ctl_cert': (str,),
+}
+
+ALL_HW_CONFIG = {**REQUIRED_HW_CONFIG, **OPTIONAL_HW_CONFIG}
+
 
 def import_hw_config():
     """Import configuration for physical switch testing."""
@@ -114,41 +133,30 @@ def import_hw_config():
         print('Could not load YAML config data from %s' % config_file_name)
         sys.exit(-1)
     if config.get('hw_switch', False):
-        required_config = {
-            'dp_ports': (dict,),
-            'cpn_intf': (str,),
-            'dpid': (int,),
-            'hardware': (str,),
-            'hw_switch': (bool,),
-            'of_port': (int,),
-            'gauge_of_port': (int,),
-        }
-        unknown_keys = set(config.keys()) - set(required_config.keys())
+        unknown_keys = set(config.keys()) - set(ALL_HW_CONFIG.keys())
         if unknown_keys:
             print('unknown config %s in %s' % (unknown_keys, config_file_name))
-            sys.exit(1)
-        for required_key, required_key_types in required_config.items():
-            if required_key not in config:
-                print('%s must be specified in %s to use HW switch.' % (
-                    required_key, config_file_name))
-                sys.exit(1)
-            required_value = config[required_key]
-            key_type_ok = False
-            for key_type in required_key_types:
-                if isinstance(required_value, key_type):
-                    key_type_ok = True
-                    break
-            if not key_type_ok:
-                print('%s (%s) must be %s in %s' % (
-                    required_key, required_value,
-                    required_key_types, config_file_name))
-                sys.exit(1)
+            sys.exit(-1)
+        missing_required_keys = set(REQUIRED_HW_CONFIG.keys()) - set(config.keys())
+        if missing_required_keys:
+            print('missing required config: %s' % missing_required_keys)
+            sys.exit(-1)
+        for config_key, config_value in config.items():
+            valid_types = ALL_HW_CONFIG[config_key]
+            valid_values = [
+                config_value for valid_type in valid_types
+                if isinstance(config_value, valid_type)]
+            if not valid_values:
+                print('%s (%s) must be of type %s in %s' % (
+                    config_key, config_value,
+                    valid_types, config_file_name))
+                sys.exit(-1)
         dp_ports = config['dp_ports']
         if len(dp_ports) != REQUIRED_TEST_PORTS:
             print('Exactly %u dataplane ports are required, '
                   '%d are provided in %s.' %
                   (REQUIRED_TEST_PORTS, len(dp_ports), config_file_name))
-            sys.exit(1)
+            sys.exit(-1)
         return config
     return None
 
@@ -492,7 +500,8 @@ def report_results(results, hw_config, report_json_filename):
                     ('OK', result.successes))
             for test_status, test_list in test_lists:
                 tests_json.update(report_tests(test_status, test_list))
-        print(yaml.dump(tests_json, default_flow_style=False, explicit_start=True, explicit_end=True))
+        print(yaml.dump(
+            tests_json, default_flow_style=False, explicit_start=True, explicit_end=True))
         if report_json_filename:
             report_json = {
                 'hw_config': hw_config,
