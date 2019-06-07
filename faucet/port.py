@@ -164,6 +164,7 @@ class Port(Conf):
         self.dyn_dot1x_native_vlan = None
         self.dyn_lacp_up = None
         self.dyn_lacp_updated_time = None
+        self.dyn_lacp_last_resp_time = None
         self.dyn_last_ban_time = None
         self.dyn_last_lacp_pkt = None
         self.dyn_last_lldp_beacon_time = None
