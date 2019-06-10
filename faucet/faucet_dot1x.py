@@ -222,10 +222,11 @@ class FaucetDot1x:
         Returns:
             list
         """
+        acl_manager = valve.acl_manager
         if dot1x_port.running():
             valve_index = self.dp_id_to_valve_index[dp_id]
             mac = get_mac_str(valve_index, dot1x_port.number)
-            return valve.create_dot1x_flow_pair(
+            return acl_manager.create_dot1x_flow_pair(
                 dot1x_port.number, nfv_sw_port.number, mac)
         return []
 
@@ -241,6 +242,7 @@ class FaucetDot1x:
             list of flowmods
         """
         valve_index = self.dp_id_to_valve_index[dp_id]
+        acl_manager = valve.acl_manager
         port_num = dot1x_port.number
 
         mac = get_mac_str(valve_index, port_num)
@@ -253,7 +255,7 @@ class FaucetDot1x:
         flowmods.extend(self._del_authenticated_flowmod(dot1x_port, valve, mac))
         flowmods.extend(self._del_unauthenticated_flowmod(dot1x_port, valve))
         # NOTE: The flow_pair are not included in unauthed flowmod
-        flowmods.extend(valve.del_dot1x_flow_pair(dot1x_port.number, nfv_sw_port.number, mac))
+        flowmods.extend(acl_manager.del_dot1x_flow_pair(dot1x_port.number, nfv_sw_port.number, mac))
         return flowmods
 
     def reset(self, valves):
@@ -311,15 +313,16 @@ class FaucetDot1x:
         """Return flowmods for successful authentication on port"""
         port_num = dot1x_port.number
         flowmods = []
+        acl_manager = valve.acl_manager
 
         if dot1x_port.dot1x_acl:
             auth_acl, _ = self._get_acls(valve.dp)
-            flowmods.extend(valve.add_port_acl(auth_acl, port_num, mac_str))
+            flowmods.extend(acl_manager.add_port_acl(auth_acl, port_num, mac_str))
         else:
-            flowmods.extend(valve.add_authed_mac(port_num, mac_str))
+            flowmods.extend(acl_manager.add_authed_mac(port_num, mac_str))
 
         if vlan_name:
-            flowmods.extend(valve.add_dot1x_native_vlan(port_num, mac_str, vlan_name))
+            flowmods.extend(acl_manager.add_dot1x_native_vlan(port_num, mac_str, vlan_name))
 
         return flowmods
 
@@ -327,30 +330,36 @@ class FaucetDot1x:
         """Return flowmods for deleting authentication flows from a port"""
         flowmods = []
         port_num = dot1x_port.number
+        acl_manager = valve.acl_manager
+
         if dot1x_port.dot1x_acl:
             auth_acl, _ = self._get_acls(valve.dp)
-            flowmods.extend(valve.del_port_acl(auth_acl, port_num, mac_str))
+            flowmods.extend(acl_manager.del_port_acl(auth_acl, port_num, mac_str))
         else:
-            flowmods.extend(valve.del_authed_mac(port_num, mac_str))
+            flowmods.extend(acl_manager.del_authed_mac(port_num, mac_str))
 
-        flowmods.extend(valve.del_dot1x_native_vlan(port_num, mac_str))
+        flowmods.extend(acl_manager.del_dot1x_native_vlan(port_num, mac_str))
 
         return flowmods
 
     def _add_unauthenticated_flowmod(self, dot1x_port, valve, mac_str=None):
         """Return flowmods default on a port"""
         flowmods = []
+        acl_manager = valve.acl_manager
+
         if dot1x_port.dot1x_acl:
             _, noauth_acl = self._get_acls(valve.dp)
-            flowmods.extend(valve.add_port_acl(noauth_acl, dot1x_port.number, mac_str))
+            flowmods.extend(acl_manager.add_port_acl(noauth_acl, dot1x_port.number, mac_str))
 
         return flowmods
 
     def _del_unauthenticated_flowmod(self, dot1x_port, valve, mac_str=None):
         """Return flowmods for deleting default / unauthenticated flows from a port"""
         flowmods = []
+        acl_manager = valve.acl_manager
+
         if dot1x_port.dot1x_acl:
             _, noauth_acl = self._get_acls(valve.dp)
-            flowmods.extend(valve.del_port_acl(noauth_acl, dot1x_port.number, mac_str))
+            flowmods.extend(acl_manager.del_port_acl(noauth_acl, dot1x_port.number, mac_str))
 
         return flowmods

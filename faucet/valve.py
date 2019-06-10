@@ -1510,30 +1510,6 @@ class Valve:
         self._notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
         return ofmsgs
 
-    def add_authed_mac(self, port_num, mac):
-        """Add authed mac address"""
-        # TODO: track dynamic auth state.
-        return self.acl_manager.add_authed_mac(port_num, mac)
-
-    def del_authed_mac(self, port_num, mac=None):
-        return self.acl_manager.del_authed_mac(port_num, mac)
-
-    def del_port_acl(self, acl, port_num, mac=None):
-        """Return ACL openflow rules for removing port with acl"""
-        return self.acl_manager.del_port_acl(acl, port_num, mac)
-
-    def add_port_acl(self, acl, port_num, mac=None):
-        """Return ACL openflow rules for port with acl"""
-        return self.acl_manager.add_port_acl(acl, port_num, mac)
-
-    def create_dot1x_flow_pair(self, port_num, nfv_sw_port_num, mac):
-        """Return flowmods for creating dot1x flow pair"""
-        return self.acl_manager.create_dot1x_flow_pair(port_num, nfv_sw_port_num, mac)
-
-    def del_dot1x_flow_pair(self, port_num, nfv_sw_port_num, mac):
-        """Return flowmods for deleting dot1x flow pair"""
-        return self.acl_manager.del_dot1x_flow_pair(port_num, nfv_sw_port_num, mac)
-
     def _del_native_vlan(self, port):
         vlan_table = self.dp.tables['vlan']
         ofmsg = vlan_table.flowdel(
