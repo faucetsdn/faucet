@@ -92,6 +92,7 @@ export FAUCET_DIR=/faucet-src/faucet
 export http_proxy=
 
 cd /faucet-src/tests/integration
+./test_topo.py
 ./mininet_main.py -c
 
 
