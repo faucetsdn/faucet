@@ -959,8 +959,7 @@ class Valve:
                         ofmsgs_by_valve[self].extend(self.lacp_up(pkt_meta.port))
                     else:
                         ofmsgs_by_valve[self].extend(self.lacp_down(pkt_meta.port))
-                # TODO: make LACP response rate limit configurable.
-                if lacp_pkt_change or (age is not None and age > 1):
+                if lacp_pkt_change or (age is not None and age > self.dp.ports[pkt_meta.port.number].lacp_resp_interval):
                     ofmsgs_by_valve[self].extend(self._lacp_actions(lacp_pkt, pkt_meta.port, now))
                     pkt_meta.port.dyn_lacp_last_resp_time = now
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
