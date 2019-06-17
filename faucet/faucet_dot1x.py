@@ -106,17 +106,19 @@ class FaucetDot1x:
                                         'port': port_num,
                                         'port_type': port_type}})
 
-    def auth_handler(self, address, port_id, vlan_name, filter_id):
+    def auth_handler(self, address, port_id, *args, **kwargs):
         """Callback for when a successful auth happens."""
         address_str = str(address)
         valve, dot1x_port = self._get_valve_and_port(port_id)
         port_num = dot1x_port.number
 
         self.log_auth_event(valve, port_num, address_str, 'success')
-        flowmods = self._get_login_flowmod(dot1x_port, valve, address_str, vlan_name)
+        flowmods = self._get_login_flowmod(dot1x_port, valve, address_str,
+                                           kwargs.get('vlan_name', None))
 
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
+
 
     def logoff_handler(self, address, port_id):
         """Callback for when an EAP logoff happens."""
@@ -242,13 +244,13 @@ class FaucetDot1x:
             list of flowmods
         """
         valve_index = self.dp_id_to_valve_index[dp_id]
-        acl_manager = valve.acl_manager
         port_num = dot1x_port.number
 
         mac = get_mac_str(valve_index, port_num)
         self._dot1x_speaker.port_down(mac)
 
         valve = self._valves[dp_id]
+        acl_manager = valve.acl_manager
         self.log_port_event("PORT_DOWN", 'supplicant', valve, port_num)
 
         flowmods = []
@@ -322,7 +324,7 @@ class FaucetDot1x:
             flowmods.extend(acl_manager.add_authed_mac(port_num, mac_str))
 
         if vlan_name:
-            flowmods.extend(acl_manager.add_dot1x_native_vlan(port_num, mac_str, vlan_name))
+            flowmods.extend(valve.add_dot1x_native_vlan(port_num, mac_str, vlan_name))
 
         return flowmods
 
@@ -338,7 +340,7 @@ class FaucetDot1x:
         else:
             flowmods.extend(acl_manager.del_authed_mac(port_num, mac_str))
 
-        flowmods.extend(acl_manager.del_dot1x_native_vlan(port_num, mac_str))
+        flowmods.extend(valve.del_dot1x_native_vlan(port_num, mac_str))
 
         return flowmods
 
