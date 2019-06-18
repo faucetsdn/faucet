@@ -2188,7 +2188,7 @@ dbs:
         """Start exabgp process on controller host."""
         exabgp_conf_file_name = os.path.join(self.tmpdir, '%sexabgp.conf' % log_prefix)
         exabgp_log = os.path.join(self.tmpdir, '%sexabgp.log' % log_prefix)
-        exabgp_err = os.path.join(self.tmpdir, '%sexabgp.err' % log_prefix)
+        exabgp_out = os.path.join(self.tmpdir, '%sexabgp.out' % log_prefix)
         exabgp_env = ' '.join((
             'exabgp.daemon.user=root',
             'exabgp.log.all=true',
@@ -2202,8 +2202,8 @@ dbs:
         controller = self._get_controller()
         # Ensure exabgp only attempts one connection.
         exabgp_cmd = mininet_test_util.timeout_cmd(
-            'exabgp %s --once -d 2> %s > /dev/null &' % (
-                exabgp_conf_file_name, exabgp_err), 300)
+            'exabgp %s --once -d 2>&1 > %s &' % (
+                exabgp_conf_file_name, exabgp_out), 300)
         exabgp_cli = 'env %s %s' % (exabgp_env, exabgp_cmd)
         controller.cmd(exabgp_cli)
         for _ in range(timeout):
