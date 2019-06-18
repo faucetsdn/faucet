@@ -2212,7 +2212,7 @@ dbs:
             time.sleep(1)
         self.assertTrue(
             os.path.exists(exabgp_log), msg='exabgp (%s) did not start' % exabgp_cli)
-        return (exabgp_log, exabgp_err)
+        return (exabgp_log, exabgp_out)
 
     def wait_bgp_up(self, neighbor, vlan, exabgp_log, exabgp_err):
         """Wait for BGP to come up."""
