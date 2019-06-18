@@ -837,7 +837,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,) # type: ignore
     IP_PKT = ipv6.ipv6
-
+    ICMP6_ECHO_SIZE = 160
 
     @staticmethod
     def _gw_resolve_pkt():
@@ -878,7 +878,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 nw_proto=valve_of.inet.IPPROTO_ICMPV6,
                 icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
             priority=priority,
-            max_len=self.ICMP_SIZE))
+            max_len=self.ICMP6_ECHO_SIZE))
         # IPv6 NA unicast to FAUCET.
         ofmsgs.append(self.vip_table.flowcontroller(
             self.vip_table.match(

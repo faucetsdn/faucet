@@ -1442,18 +1442,18 @@ dbs:
             self.verify_no_packets(tcpdump_txt)
 
     def verify_controller_fping(self, host, faucet_vip,
-                                total_packets=100, packet_interval_ms=100):
+                                total_packets=100, packet_interval_ms=100, size=64):
         fping_bin = 'fping'
         if faucet_vip.version == 6:
             fping_bin = 'fping6'
-        fping_cli = '%s -s -c %u -i %u -p 1 -T 1 %s' % (
-            fping_bin, total_packets, packet_interval_ms, faucet_vip.ip)
+        fping_cli = '%s -s -b %u -c %u -i %u -p 1 -T 1 %s' % (
+            fping_bin, size, total_packets, packet_interval_ms, faucet_vip.ip)
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(mininet_test_util.timeout_cmd(
             fping_cli, timeout))
         error('%s: %s' % (self._test_name(), fping_out))
         self.assertTrue(
-            not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
+            re.search(r'\s+[1-9][0-9]* ICMP Echo Replies received', fping_out),
             msg=fping_out)
 
     def verify_learn_counters(self, vlan, ports, verify_neighbors=False):
