@@ -5180,37 +5180,6 @@ class FaucetTaggedBroadcastTest(FaucetTaggedTest):
         self.verify_no_bcast_to_self()
 
 
-class FaucetTaggedExtLoopProtectTest(FaucetTaggedTest):
-
-
-    CONFIG = """
-        interfaces:
-            %(port_1)d:
-                tagged_vlans: [100]
-                loop_protect_external: True
-            %(port_2)d:
-                tagged_vlans: [100]
-                loop_protect_external: True
-            %(port_3)d:
-                tagged_vlans: [100]
-            %(port_4)d:
-                tagged_vlans: [100]
-"""
-
-    def test_tagged(self):
-        ext_port1, ext_port2, int_port1, int_port2 = self.net.hosts
-        self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
-        self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
-        self.one_ipv4_ping(ext_port1, int_port2.IP())
-        tcpdump_filter = 'ether dst %s' % int_port2.MAC()
-        tcpdump_txt = self.tcpdump_helper(
-            ext_port1, tcpdump_filter, [
-                lambda: ext_port1.cmd(
-                    'ping -c3 %s' % int_port2.IP())], root_intf=True, packets=1)
-        self.assertTrue(re.search('vlan 100, p 0,', tcpdump_txt))
-
-
 class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):
 
     N_UNTAGGED = 0
