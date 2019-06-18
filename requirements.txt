@@ -1,5 +1,5 @@
 chewie==0.0.17
-eventlet==0.24.1 # pyup: ignore
+eventlet==0.25.0 # pyup: ignore
 influxdb
 msgpack
 msgpack-python
