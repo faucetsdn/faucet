@@ -6966,15 +6966,20 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.last_host = self.net.hosts[self.NUM_HOSTS * self.NUM_DPS - 1]
 
     def verify_stack_has_no_loop(self):
-        tcpdump_filter = 'ether src %s' % self.first_host.MAC()
-        tcpdump_txt = self.tcpdump_helper(
-            self.first_host, tcpdump_filter, [
-                lambda: self.last_host.cmd('ping -c1 %s' % self.first_host.IP())],
-            packets=self.topo.switch_to_switch_links * 5)
         num_arp_expected = self.topo.switch_to_switch_links * 2
-        num_arp_received = len(re.findall(
-            'who-has %s tell %s' % (self.first_host.IP(), self.last_host.IP()), tcpdump_txt))
-        self.assertLessEqual(num_arp_received, num_arp_expected)
+        for ping_host, tcpdump_host in (
+                (self.net.hosts[0], self.net.hosts[-1]),
+                (self.net.hosts[-1], self.net.hosts[0])):
+            tcpdump_filter = 'arp and ether src %s' % ping_host.MAC()
+            tcpdump_txt = self.tcpdump_helper(
+                tcpdump_host, tcpdump_filter, [
+                    lambda: ping_host.cmd('arp -d %s' % tcpdump_host.IP()),
+                    lambda: ping_host.cmd('ping -c1 %s' % tcpdump_host.IP())],
+                packets=(num_arp_expected+1))
+            num_arp_received = len(re.findall(
+                'who-has %s tell %s' % (tcpdump_host.IP(), ping_host.IP()), tcpdump_txt))
+            self.assertTrue(num_arp_received)
+            self.assertLessEqual(num_arp_received, num_arp_expected)
 
     def one_stack_port_down(self):
         port = self.non_host_ports(self.dpid)[1]
