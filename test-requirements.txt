@@ -6,7 +6,7 @@ deb_pkg_tools
 exabgp==4.0.10
 importlab>=0.3.1
 netifaces
-packaging
+packaging==19.0
 pylint
 pytest-cov
 pytype==2019.5.31
