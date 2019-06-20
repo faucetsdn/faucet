@@ -3,7 +3,7 @@ eventlet==0.24.1
 influxdb
 msgpack
 msgpack-python
-networkx
+networkx==2.3
 pbr>=1.9
 prometheus_client==0.7.0
 pyyaml
