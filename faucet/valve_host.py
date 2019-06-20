@@ -208,9 +208,9 @@ class ValveHostManager(ValveManagerBase):
         mark_port = self.has_externals and not port.stack
 
         inst = []
-        if mark_port:
-            vlan_pcp = 0 if port.loop_protect_external else 1
-            inst.append(valve_of.apply_actions([self.eth_src_table.set_field(vlan_pcp=vlan_pcp)]))
+        #if mark_port:
+        #    vlan_pcp = 0 if port.loop_protect_external else 1
+        #    inst.append(valve_of.apply_actions([self.eth_src_table.set_field(vlan_pcp=vlan_pcp)]))
 
         if port.override_output_port:
             inst.append(valve_of.apply_actions([

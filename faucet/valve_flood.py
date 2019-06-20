@@ -321,11 +321,11 @@ class ValveFloodStackManager(ValveFloodManager):
             if port_peer_distance > my_root_distance]
         self.stack_size = self.stack.get('longest_path_to_root_len', None)
         self.externals = self.stack.get('externals', False)
-        self.ext_flood_needed = []
-        self.ext_flood_not_needed = []
+        self._set_ext_port_flag = []
+        self._set_nonext_port_flag = []
         if self.externals:
-            self.ext_flood_needed = [self._set_ext_flag(self.EXT_PORT_FLAG)]
-            self.ext_flood_not_needed = [self._set_ext_flag(self.NONEXT_PORT_FLAG)]
+            self._set_ext_port_flag = [self._set_ext_flag(self.EXT_PORT_FLAG)]
+            self._set_nonext_port_flag = [self._set_ext_flag(self.NONEXT_PORT_FLAG)]
 
     def _flood_actions_size2(self, in_port, external_ports,
                              away_flood_actions, toward_flood_actions, local_flood_actions):
@@ -333,9 +333,9 @@ class ValveFloodStackManager(ValveFloodManager):
             flood_prefix = []
         else:
             if in_port.loop_protect_external:
-                flood_prefix = self.ext_flood_not_needed
+                flood_prefix = self._set_nonext_port_flag
             else:
-                flood_prefix = self.ext_flood_needed
+                flood_prefix = self._set_ext_port_flag
 
         # Special case for stack with maximum distance 2 - we don't need to reflect off of the root.
         flood_actions = (
@@ -372,7 +372,7 @@ class ValveFloodStackManager(ValveFloodManager):
         # General case for stack with maximum distance > 2
         if self._dp_is_root():
             flood_actions = (
-                self.ext_flood_needed + away_flood_actions + local_flood_actions)
+                self._set_ext_port_flag + away_flood_actions + local_flood_actions)
 
             if in_port:
                 if in_port in self.away_from_root_stack_ports:
@@ -383,18 +383,18 @@ class ValveFloodStackManager(ValveFloodManager):
                     # If we have external ports, let the non-roots know they don't have to
                     # flood externally.
                     if external_ports:
-                        flood_actions = self.ext_flood_not_needed + flood_actions
+                        flood_actions = self._set_nonext_port_flag + flood_actions
                     else:
-                        flood_actions = self.ext_flood_needed + flood_actions
+                        flood_actions = self._set_ext_port_flag + flood_actions
                 elif external_ports:
                     # Packet from an external switch, locally. As above, let the non-roots
                     # know they don't have to flood externally again.
                     flood_actions = (
-                        self.ext_flood_not_needed + away_flood_actions + local_flood_actions)
+                        self._set_nonext_port_flag + away_flood_actions + local_flood_actions)
 
         else:
             # Default non-root strategy is flood towards root.
-            flood_actions = self.ext_flood_needed + toward_flood_actions
+            flood_actions = self._set_ext_port_flag + toward_flood_actions
 
             if in_port:
                 # Packet from switch further away, flood it to the root.
@@ -407,14 +407,14 @@ class ValveFloodStackManager(ValveFloodManager):
                     # and mark it flooded.
                     if external_ports:
                         flood_actions = (
-                            self.ext_flood_not_needed + away_flood_actions + local_flood_actions)
+                            self._set_nonext_port_flag + away_flood_actions + local_flood_actions)
                     else:
                         flood_actions = (
-                            away_flood_actions + self.ext_flood_not_needed + local_flood_actions)
+                            away_flood_actions + self._set_nonext_port_flag + local_flood_actions)
                 # Packet from external port, locally. Mark it already flooded externally and
                 # flood to root (it came from an external switch so keep it within the stack).
                 elif in_port.loop_protect_external:
-                    flood_actions = self.ext_flood_not_needed + toward_flood_actions
+                    flood_actions = self._set_nonext_port_flag + toward_flood_actions
 
         return flood_actions
 
