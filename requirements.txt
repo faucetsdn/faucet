@@ -1,7 +1,7 @@
 chewie==0.0.17
 eventlet==0.24.1
 influxdb
-msgpack
+msgpack==0.6.1
 msgpack-python
 networkx
 pbr>=1.9
