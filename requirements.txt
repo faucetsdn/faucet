@@ -1,6 +1,6 @@
 chewie==0.0.17
 eventlet==0.24.1
-influxdb
+influxdb==5.2.2
 msgpack
 msgpack-python
 networkx
