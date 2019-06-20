@@ -2,7 +2,7 @@ chewie==0.0.17
 eventlet==0.24.1
 influxdb
 msgpack
-msgpack-python
+msgpack-python==0.5.6
 networkx
 pbr>=1.9
 prometheus_client==0.7.0
