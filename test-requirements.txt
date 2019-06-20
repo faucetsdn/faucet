@@ -1,6 +1,6 @@
 -r requirements.txt
 bitstring
-codecov
+codecov==2.0.15
 concurrencytest
 deb_pkg_tools
 exabgp==4.0.10
