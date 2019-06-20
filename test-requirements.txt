@@ -10,5 +10,5 @@ packaging
 pylint
 pytest-cov
 pytype==2019.5.31
-requests
+requests==2.22.0
 scapy==2.4.0
