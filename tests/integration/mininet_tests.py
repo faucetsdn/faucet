@@ -5221,8 +5221,9 @@ acls:
         print(tcpdump_txt)
         if expected:
             self.assertTrue(re.search('vlan 100, p 1,', tcpdump_txt))
+            self.assertFalse(re.search('vlan 100, p 0,', tcpdump_txt))
         else:
-            self.assertFalse(re.search('vlan 100', tcpdump_txt))
+            self.assertFalse(re.search('vlan 100,', tcpdump_txt))
         self.verify_broadcast(hosts, expected)
         self.verify_unicast(hosts, expected)
 
