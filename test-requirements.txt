@@ -5,7 +5,7 @@ concurrencytest
 deb_pkg_tools
 exabgp==4.0.10
 importlab>=0.3.1
-netifaces
+netifaces==0.10.9
 packaging
 pylint
 pytest-cov
