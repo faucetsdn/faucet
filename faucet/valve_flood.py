@@ -177,8 +177,7 @@ class ValveFloodManager(ValveManagerBase):
                     ofmsgs.append(port_flood_ofmsg)
         else:
             vlan_flood_ofmsg, vlan_flood_acts = self._build_flood_rule_for_vlan(
-                vlan, eth_dst, eth_dst_mask,
-                exclude_unicast, command)
+                vlan, eth_dst, eth_dst_mask, exclude_unicast, command)
             if not self.use_group_table:
                 ofmsgs.append(vlan_flood_ofmsg)
             flood_acts, vlan_output_ports, vlan_non_output_acts = self._output_non_output_actions(
@@ -515,7 +514,7 @@ class ValveFloodStackManager(ValveFloodManager):
                     flood_acts, port_output_ports, _ = self._build_flood_acts_for_port(
                         vlan, exclude_unicast, port, exclude_all_external=exclude_all_external)
                     if not port_output_ports:
-                        continue
+                        flood_acts = []
                     port_flood_ofmsg = self._build_flood_rule_for_port(
                         vlan, eth_dst, eth_dst_mask, command, port, flood_acts,
                         add_match={STACK_LOOP_PROTECT_FIELD: ext_port_flag})
@@ -524,7 +523,7 @@ class ValveFloodStackManager(ValveFloodManager):
                 flood_acts, port_output_ports, _ = self._build_flood_acts_for_port(
                     vlan, exclude_unicast, port)
                 if not port_output_ports:
-                    continue
+                    flood_acts = []
                 port_flood_ofmsg = self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask, command, port, flood_acts)
                 ofmsgs.append(port_flood_ofmsg)
@@ -534,8 +533,7 @@ class ValveFloodStackManager(ValveFloodManager):
                     'in_port': port.number,
                     'vlan': vlan,
                     'eth_dst': valve_packet.BRIDGE_GROUP_ADDRESS,
-                    'eth_dst_mask': valve_packet.BRIDGE_GROUP_MASK
-                    }
+                    'eth_dst_mask': valve_packet.BRIDGE_GROUP_MASK}
                 ofmsgs.extend(self.pipeline.filter_packets(
                     bridge_local_match, priority_offset=self.classification_offset))
                 # Because stacking uses reflected broadcasts from the root,
@@ -545,12 +543,10 @@ class ValveFloodStackManager(ValveFloodManager):
                         'in_port': port.number,
                         'vlan': vlan,
                         'eth_dst': eth_dst,
-                        'eth_dst_mask': eth_dst_mask
-                        }
+                        'eth_dst_mask': eth_dst_mask}
                     ofmsgs.extend(self.pipeline.select_packets(
                         self.flood_table, match,
-                        priority_offset=self.classification_offset
-                        ))
+                        priority_offset=self.classification_offset))
         return ofmsgs
 
     def _dp_is_root(self):
