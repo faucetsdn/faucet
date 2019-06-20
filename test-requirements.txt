@@ -1,5 +1,5 @@
 -r requirements.txt
-bitstring
+bitstring==3.1.5
 codecov
 concurrencytest
 deb_pkg_tools
