@@ -1,7 +1,7 @@
 -r requirements.txt
 bitstring
 codecov
-concurrencytest
+concurrencytest==0.1.2
 deb_pkg_tools
 exabgp==4.0.10
 importlab>=0.3.1
