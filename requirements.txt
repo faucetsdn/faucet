@@ -4,7 +4,7 @@ influxdb
 msgpack
 msgpack-python
 networkx
-pbr>=1.9
+pbr==5.3.1
 prometheus_client==0.7.0
 pyyaml
 ryu==4.32
