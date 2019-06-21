@@ -5218,7 +5218,6 @@ acls:
             to_port, tcpdump_filter, [
                 lambda: from_port.cmd(
                     'ping -c3 %s' % to_port.IP())], root_intf=True, packets=2)
-        print(tcpdump_txt)
         if expected:
             self.assertTrue(re.search('vlan 100, p 1,', tcpdump_txt))
             self.assertFalse(re.search('vlan 100, p 0,', tcpdump_txt))
