@@ -191,7 +191,7 @@ class ValveFloodManager(ValveManagerBase):
                      vlan, exclude_unicast, port)
                 if not port_output_ports:
                     continue
-                if (vlan_output_ports - set(port.number) == port_output_ports
+                if (vlan_output_ports - set([port.number]) == port_output_ports
                         and vlan_non_output_acts == port_non_output_acts):
                     # Delete a potentially existing port specific flow
                     # TODO: optimize, avoid generating delete for port if no existing flow.
