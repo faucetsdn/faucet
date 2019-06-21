@@ -151,18 +151,21 @@ class ValveFloodManager(ValveManagerBase):
                 flood_acts)
         return (flood_acts, port_output_ports, port_non_output_acts)
 
-    def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
-                                   command, port, flood_acts, add_match=None):
-        ofmsgs = []
+    def _build_flood_match_priority(self, port, vlan, eth_dst, eth_dst_mask, add_match):
+        flood_priority = self._vlan_flood_priority(eth_dst_mask) + 1
         if add_match is None:
             add_match = {}
-        flood_priority = self._vlan_flood_priority(eth_dst_mask) + 1
         match = self.flood_table.match(
             vlan=vlan, in_port=port.number,
             eth_dst=eth_dst, eth_dst_mask=eth_dst_mask,
             **add_match)
-        ofmsgs = self._build_flood_rule(match, command, flood_acts, flood_priority)
-        return ofmsgs
+        return (flood_priority, match)
+
+    def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
+                                   command, port, flood_acts, add_match=None):
+        flood_priority, match = self._build_flood_match_priority(
+            port, vlan, eth_dst, eth_dst_mask, add_match)
+        return self._build_flood_rule(match, command, flood_acts, flood_priority)
 
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                 exclude_unicast, command):
@@ -172,9 +175,8 @@ class ValveFloodManager(ValveManagerBase):
                 flood_acts, port_output_ports, _ = self._build_flood_acts_for_port(
                     vlan, exclude_unicast, port)
                 if port_output_ports:
-                    port_flood_ofmsg = self._build_flood_rule_for_port(
-                        vlan, eth_dst, eth_dst_mask, command, port, flood_acts)
-                    ofmsgs.append(port_flood_ofmsg)
+                    ofmsgs.append(self._build_flood_rule_for_port(
+                        vlan, eth_dst, eth_dst_mask, command, port, flood_acts))
         else:
             vlan_flood_ofmsg, vlan_flood_acts = self._build_flood_rule_for_vlan(
                 vlan, eth_dst, eth_dst_mask, exclude_unicast, command)
@@ -187,14 +189,19 @@ class ValveFloodManager(ValveManagerBase):
                  port_output_ports,
                  port_non_output_acts) = self._build_flood_acts_for_port(
                      vlan, exclude_unicast, port)
-                if port_output_ports:
-                    port_output_ports.add(port.number)
-                    if (vlan_output_ports == port_output_ports and
-                            vlan_non_output_acts == port_non_output_acts):
-                        continue
-                    port_flood_ofmsg = self._build_flood_rule_for_port(
-                        vlan, eth_dst, eth_dst_mask, command, port, flood_acts)
-                    ofmsgs.append(port_flood_ofmsg)
+                if not port_output_ports:
+                    continue
+                if (vlan_output_ports - set(port.number) == port_output_ports
+                        and vlan_non_output_acts == port_non_output_acts):
+                    # Delete a potentially existing port specific flow
+                    # TODO: optimize, avoid generating delete for port if no existing flow.
+                    flood_priority, match = self._build_flood_match_priority(
+                        port, vlan, eth_dst, eth_dst_mask, add_match=None)
+                    ofmsgs.append(self.flood_table.flowdel(
+                        match=match, priority=flood_priority))
+                else:
+                    ofmsgs.append(self._build_flood_rule_for_port(
+                        vlan, eth_dst, eth_dst_mask, command, port, flood_acts))
         return ofmsgs
 
     def _build_multiout_flood_rules(self, vlan, command):
