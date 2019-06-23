@@ -18,7 +18,7 @@ services:
         build:
             context: https://github.com/faucetsdn/docker-prometheus.git
             dockerfile: Dockerfile.pi
-        image: 'faucet/prometheus-pi:2.9.2'
+        image: 'faucet/prometheus-pi:2.10.0'
         user: 'root'
         ports:
             - '9090:9090'
