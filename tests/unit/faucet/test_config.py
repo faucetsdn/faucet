@@ -1720,6 +1720,40 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_lacp_resp_interval_too_big(self):
+        """Test DP ID is valid."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                lacp_resp_interval: 0xfffffffffffffffffffffffffffffffff
+
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_lacp_resp_interval_zero(self):
+        """Test DP ID is valid."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                lacp_resp_interval: 0
+
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
     def test_invalid_vid(self):
         """Test VID is valid."""
         config = """

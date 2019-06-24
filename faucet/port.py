@@ -239,6 +239,9 @@ class Port(Conf):
             self.receive_lldp = True
             if not self.lldp_beacon_enabled():
                 self.lldp_beacon.update({'enable': True})
+        if self.lacp_resp_interval is not None:
+            test_config_condition(self.lacp_resp_interval > 65535 or self.lacp_resp_interval < 0.3, 
+                    ('interval must be atleast 0.3 and less than 65536'))
 
         if self.lldp_beacon:
             self._check_conf_types(
