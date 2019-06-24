@@ -23,6 +23,7 @@ from clib import mininet_test_util
 
 # TODO: this should be configurable (e.g for randomization)
 SWITCH_START_PORT = 5
+HW_OFFSET = 16  # Must be > max(dp_ports)
 
 
 class FaucetHost(CPULimitedHost):
@@ -162,78 +163,111 @@ class FaucetSwitchTopo(Topo):
         switch_cls = FaucetSwitch
         switch_name = 's%s' % sid_prefix
         self.switch_dpids[switch_name] = dpid
-        # External clients refer to the hardware dpid, but
-        # internally we use the ovs dpid
+        self.dpid_names[dpid] = switch_name
         if hw_dpid and hw_dpid == dpid:
             remap_dpid = str(int(dpid) + 1)
-            output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
+            output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)\n' % (
                 dpid, int(dpid), remap_dpid, int(remap_dpid)))
-            # Allow lookup by hardware dpid as well as ovs dpid
-            self.dpid_names[dpid] = switch_name
             dpid = remap_dpid
             switch_cls = NoControllerFaucetSwitch
-        self.dpid_names[dpid] = switch_name
         return self.addSwitch(
             name=switch_name,
             cls=switch_cls,
             datapath=ovs_type,
             dpid=mininet_test_util.mininet_dpid(dpid))
 
-    def dpid_ports(self, dpid):
-        """Return port list for dpid"""
-        name = self.dpid_names[dpid]
-        return self.switch_ports[name]
+    # Hardware switch port virtualization through
+    # transparent OVS attachment bridge/patch panel
+    #
+    # Since FAUCET is talking to the hardware switch, it needs
+    # to use the hardware switch's OpenFlow ports, rather than
+    # the OpenFlow ports of the (transparent) OVS attachment bridge.
 
-    def _add_links(self, switch, hosts, links_per_host, start_port):
+    def hw_remap_port(self, dpid, port):
+        """Map OVS attachment bridge port number -> HW port number if necessary"""
+        if dpid != self.hw_dpid:
+            return port
+        assert self.hw_ports
+        return self.hw_ports[port - self.start_port]
+
+    peer_link = namedtuple('peer_link', 'port peer_dpid peer_port')
+
+    def hw_remap_peer_link(self, dpid, link):
+        """Remap HW port numbers -> OVS port numbers in link if necessary"""
+        port = self.hw_remap_port(dpid, link.port)
+        peer_port = self.hw_remap_port(link.peer_dpid, link.peer_port)
+        return self.peer_link(port, link.peer_dpid, peer_port)
+
+    def dpid_ports(self, dpid):
+        """Return port list for dpid, remapping if necessary"""
+        name = self.dpid_names[dpid]
+        ports = self.switch_ports[name]
+        return [self.hw_remap_port(dpid, port) for port in ports]
+
+    @staticmethod
+    def extend_port_order(port_order=None, max_length=16):
+        """Extend port_order to max_length if needed"""
+        if not port_order:
+            port_order = []
+        return port_order + list(range(len(port_order), max_length + 1))
+
+    def _add_links(self, switch, hosts, links_per_host):
         self.switch_ports.setdefault(switch, [])
-        port = start_port
+        index = 0
         for host in hosts:
-            for i in range(links_per_host):
+            for _ in range(links_per_host):
                 # Order of switch/host is important, since host may be in a container.
+                port = self.start_port + self.port_order[index]
                 self.addLink(switch, host, port1=port, delay=self.DELAY, use_htb=True)
-                # Keep track of switch host ports
+                # Keep track of switch ports
+                self.switch_ports.setdefault(switch, [])
                 self.switch_ports[switch].append(port)
-                port += 1
-        return port
+                index += 1
+        return index
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0,
-              n_extended=0, e_cls=None, tmpdir=None, hw_dpid=None,
-              host_namespace=None, start_port=SWITCH_START_PORT,
+              n_extended=0, e_cls=None, tmpdir=None, hw_dpid=None, switch_map=None,
+              host_namespace=None, start_port=SWITCH_START_PORT, port_order=None,
               get_serialno=mininet_test_util.get_serialno):
         if not host_namespace:
             host_namespace = {}
-
+        self.hw_dpid = hw_dpid
+        self.hw_ports = sorted(switch_map) if switch_map else []
+        self.start_port = start_port
+        maxlength = n_tagged + n_untagged + n_extended
+        self.port_order = self.extend_port_order(port_order, maxlength)
         for dpid in dpids:
             serialno = get_serialno(ports_sock, test_name)
             sid_prefix = self._get_sid_prefix(serialno)
-            for host_n in range(n_tagged):
-                self._add_tagged_host(sid_prefix, tagged_vid, host_n)
-            for host_n in range(n_untagged):
-                self._add_untagged_host(sid_prefix, host_n, host_namespace.get(host_n, True))
-            for host_n in range(n_extended):
-                self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
+            tagged = [self._add_tagged_host(sid_prefix, tagged_vid, host_n)
+                      for host_n in range(n_tagged)]
+            untagged = [self._add_untagged_host(sid_prefix, host_n, host_namespace.get(host_n, True))
+                        for host_n in range(n_untagged)]
+            extended = [self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
+                        for host_n in range(n_extended)]
             switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
-            self._add_links(switch, self.hosts(), links_per_host, start_port)
+            self._add_links(switch, tagged + untagged + extended, links_per_host)
 
 
 class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
     """String of datapaths each with hosts with a single FAUCET controller."""
 
     switch_to_switch_links = 1
-    switch_to_switch_links = 1
-    peer_link = namedtuple('peer_link', 'port peer_dpid peer_port')
-    switch_peer_links = {}
 
     def dpid_peer_links(self, dpid):
+        """Return peer_link list for dpid, remapping if necessary"""
         name = self.dpid_names[dpid]
-        return self.switch_peer_links[name]
+        links = [self.hw_remap_peer_link(dpid, link) for link in self.switch_peer_links[name]]
+        return links
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0,
               links_per_host=0, switch_to_switch_links=1,
-              hw_dpid=None, stack_ring=False, start_port=SWITCH_START_PORT,
-              get_serialno=mininet_test_util.get_serialno):
+              hw_dpid=None, switch_map=None,
+              stack_ring=False, start_port=SWITCH_START_PORT,
+              port_order=None, get_serialno=mininet_test_util.get_serialno):
+
         """
 
                                Hosts
@@ -259,47 +293,51 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
           with final two links being inter-switch
         """
-        def addLinks(src, dst, next_ports): # pylint: disable=invalid-name
+        def addLinks(src, dst, next_index): # pylint: disable=invalid-name
             """Add peer links from src switch to dst switch"""
             self.switch_peer_links.setdefault(src, [])
             self.switch_peer_links.setdefault(dst, [])
             dpid1, dpid2 = self.switch_dpids[src], self.switch_dpids[dst]
             for _ in range(self.switch_to_switch_links):
-                port1, port2 = next_ports[src], next_ports[dst]
+                index1, index2 = next_index[src], next_index[dst]
+                port1, port2 = [self.start_port + self.port_order[i] for i in (index1, index2)]
                 self.addLink(src, dst, port1=port1, port2=port2)
                 # Update port and link lists
                 self.switch_ports[src].append(port1)
                 self.switch_ports[dst].append(port2)
                 self.switch_peer_links[src].append(self.peer_link(port1, dpid2, port2))
                 self.switch_peer_links[dst].append(self.peer_link(port2, dpid1, port1))
-                # Update next ports on src and dest
-                next_ports[src] += 1
-                next_ports[dst] += 1
+                # Update next indices on src and dest
+                next_index[src] += 1
+                next_index[dst] += 1
 
-        first_switch = None
-        last_switch = None
+        self.hw_dpid = hw_dpid
+        self.hw_ports = sorted(switch_map) if switch_map else []
+        self.start_port = start_port
         self.switch_to_switch_links = switch_to_switch_links
-        next_ports = {}
+        max_ports = (n_tagged + n_untagged) * links_per_host + 2*switch_to_switch_links
+        self.port_order = self.extend_port_order(port_order, max_ports)
+        self.switch_peer_links = {}
+
+        first_switch, last_switch, next_index = None, None, {}
         for dpid in dpids:
-            serialno = get_serialno(
-                ports_sock, test_name)
+            serialno = get_serialno(ports_sock, test_name)
             sid_prefix = self._get_sid_prefix(serialno)
-            hosts = []
-            for host_n in range(n_tagged):
-                hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
-            for host_n in range(n_untagged):
-                hosts.append(self._add_untagged_host(sid_prefix, host_n))
+            tagged = [self._add_tagged_host(sid_prefix, tagged_vid, host_n)
+                      for host_n in range(n_tagged)]
+            untagged = [self._add_untagged_host(sid_prefix, host_n)
+                        for host_n in range(n_untagged)]
             switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
-            next_ports[switch] = self._add_links(switch, hosts, links_per_host, start_port)
+            next_index[switch] = self._add_links(switch, tagged + untagged, links_per_host)
             if first_switch is None:
                 first_switch = switch
             else:
                 # Add a switch-to-switch link with the previous switch,
                 # if this isn't the first switch in the topology.
-                addLinks(last_switch, switch, next_ports)
+                addLinks(last_switch, switch, next_index)
             last_switch = switch
         if stack_ring:
-            addLinks(first_switch, last_switch, next_ports)
+            addLinks(first_switch, last_switch, next_index)
 
 
 class BaseFAUCET(Controller):

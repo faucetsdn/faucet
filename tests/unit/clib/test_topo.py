@@ -25,8 +25,7 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
             ports_sock=None,
             dpids=self.dpids,
             test_name=flat_test_name(self.id()),
-            get_serialno=self.get_serialno,
-            switch_to_switch_links=2)
+            get_serialno=self.get_serialno)
         defaults.update(kwargs)
         return defaults
 
@@ -44,19 +43,23 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
         topo = FaucetStringOfDPSwitchTopo(**args)
 
         # Verify switch ports
+        ports = {dpid: topo.dpid_ports(dpid) for dpid in self.dpids}
+
         self.assertEqual(
-            {dpid:topo.dpid_ports(dpid) for dpid in self.dpids},
+            ports,
             # 4 host ports and 2/4/2 peer links, respectively
             {
                 '1': [1, 2, 3, 4, 5, 6],
                 '2': [1, 2, 3, 4, 5, 6, 7, 8],
                 '3': [1, 2, 3, 4, 5, 6]
-            }, "switch ports are incorrect")
+            },
+            "switch ports are incorrect")
 
         # Verify peer links
+        peer_links = {dpid: topo.dpid_peer_links(dpid) for dpid in self.dpids}
 
         self.assertEqual(
-            {dpid:topo.dpid_peer_links(dpid) for dpid in self.dpids},
+            peer_links,
             # Should be linked to previous and next switch
             {
                 '1': [
@@ -73,8 +76,63 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
                     peer_link(port=5, peer_dpid='2', peer_port=7),
                     peer_link(port=6, peer_dpid='2', peer_port=8)
                 ]
-            }, "peer links are incorrect")
+            },
+            "peer links are incorrect")
 
+    def test_hw_remap(self):
+        """Test remapping of attachment bridge port numbers to hw port numbers"""
+        # Create a basic string topo
+        peer_link = FaucetStringOfDPSwitchTopo.peer_link
+        switch_map = {1:'p1', 2:'p2', 3:'p3', 4:'p4', 5:'p5', 6:'p6'}
+        args = self.string_of_dp_args(
+            n_tagged=2,
+            n_untagged=2,
+            links_per_host=1,
+            switch_to_switch_links=2,
+            start_port=5,
+            hw_dpid='1',
+            switch_map=switch_map
+        )
+        topo = FaucetStringOfDPSwitchTopo(**args)
+
+        # Verify switch ports
+        switch_ports = {dpid: topo.dpid_ports(dpid) for dpid in self.dpids}
+
+        self.assertEqual(
+            switch_ports,
+            # 4 host ports and 2/4/2 peer links, respectively
+            {
+                # "Hardware" switch should start at 1
+                '1': [1, 2, 3, 4, 5, 6],
+                # Software switches start at start_port
+                '2': [5, 6, 7, 8, 9, 10, 11, 12],
+                '3': [5, 6, 7, 8, 9, 10]
+            },
+            "switch ports are incorrect")
+
+        # Verify peer links
+        peer_links = {dpid: topo.dpid_peer_links(dpid) for dpid in self.dpids}
+
+        self.assertEqual(
+            peer_links,
+            # Should be linked to previous and next switch
+            {
+                '1': [
+                    peer_link(port=5, peer_dpid='2', peer_port=9),
+                    peer_link(port=6, peer_dpid='2', peer_port=10)
+                ],
+                '2': [
+                    peer_link(port=9, peer_dpid='1', peer_port=5),
+                    peer_link(port=10, peer_dpid='1', peer_port=6),
+                    peer_link(port=11, peer_dpid='3', peer_port=9),
+                    peer_link(port=12, peer_dpid='3', peer_port=10)
+                ],
+                '3': [
+                    peer_link(port=9, peer_dpid='2', peer_port=11),
+                    peer_link(port=10, peer_dpid='2', peer_port=12)
+                ]
+            },
+            "peer links are incorrect")
 
 if __name__ == "__main__":
     main()
