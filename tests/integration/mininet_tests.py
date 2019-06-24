@@ -1666,6 +1666,20 @@ class FaucetSanityTest(FaucetUntaggedTest):
         if listening_all:
             print('Warning: %s' % (msg_template % '\n'.join(listening_all)))
 
+    def test_silence(self):
+        # Make all test hosts silent and ensure we hear no other packets.
+        for host in self.net.hosts:
+            self.host_drop_all_ips(host)
+            host.cmd('echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6' % host.defaultIntf())
+        for host in self.net.hosts:
+            tcpdump_filter = ''
+            tcpdump_txt = self.tcpdump_helper(
+                host, tcpdump_filter, [], timeout=10, vflags='-vv', packets=1)
+            self.tcpdump_rx_packets(tcpdump_txt, 0)
+            self.assertTrue(
+                self.tcpdump_rx_packets(tcpdump_txt, 0),
+                msg='got unexpected packet from test switch: %s' % tcpdump_txt)
+
 
 class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     """Testing Gauge Prometheus"""
