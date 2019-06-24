@@ -1036,10 +1036,14 @@ class Valve:
                 self.logger.info('LLDP on %s, %s from %s (remote %s, port %u) state %s' % (chassis_id, port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id), remote_port_id, remote_port_state))
             port.dyn_lldp_beacon_recv_state = remote_port_state
 
+        peer_mac_src = self.dp.ports[port.number].lldp_peer_mac
+        if peer_mac_src and peer_mac_src != pkt_meta.eth_src:
+            self.logger.warning('Unexpected LLDP peer. Received pkt from %s instead of %s' % (pkt_meta.eth_src, peer_mac_src))
+        
         ofmsgs_by_valve = {}
         if remote_dp_id and remote_port_id:
-            self.logger.debug('FAUCET LLDP from %s (remote %s, port %u)' % (
-                pkt_meta.log(), valve_util.dpid_log(remote_dp_id), remote_port_id))
+            self.logger.debug('FAUCET LLDP on %s from %s (remote %s, port %u)' % (
+                port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id), remote_port_id))
             ofmsgs_by_valve.update(self._verify_stack_lldp(
                 port, now, other_valves,
                 remote_dp_id, remote_dp_name,
