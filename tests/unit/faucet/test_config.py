@@ -652,6 +652,23 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_lldp_peer_mac_valid(self):
+        """Test minimal valid LLDP config."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+                lldp_peer_mac: '11:22:33:44:55:66'
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_interface_ranges_lldp(self):
         """Verify lldp config works when using interface ranges"""
         config = """
@@ -2988,6 +3005,23 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_lldp_peer_mac_invalid(self):
+        """Test minimal invalid DP config."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+                lldp_peer_mac: '11:22:33:44:55:66:77:88'
+"""
+        self.check_config_failure(config, cp.dp_parser)
+        
     def test_vlan_route_missing_value_invalid(self):
         """Test new vlan route format fails when missing value"""
         config = """

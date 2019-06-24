@@ -8,7 +8,7 @@ set -e  # quit on error
 
 # allow user to skip parts of docker test
 # this wrapper script only cares about -n, -u, -i, others passed to test suite.
-while getopts "cdijknsux" o $FAUCET_TESTS; do
+while getopts "cdijknsuxo" o $FAUCET_TESTS; do
   case "${o}" in
         i)
             # run only integration tests
@@ -113,6 +113,11 @@ if [ "$HWTESTS" == 1 ] ; then
       ifconfig $PHWP up &&
       ovs-vsctl add-port hwbr $PHWP -- set interface $PHWP ofport_request=$p ||
       exit 1
+    for i in $HWP $PHWP ; do
+      echo 1 > /proc/sys/net/ipv6/conf/$i/disable_ipv6
+      ip -4 addr flush dev $i
+      ip -6 addr flush dev $i
+    done
     DP_PORTS="  ${p}: ${HWP}${N}${DP_PORTS}"
   done
   cat > /tmp/hw_switch_config.yaml << EOL

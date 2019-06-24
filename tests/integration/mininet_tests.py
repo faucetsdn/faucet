@@ -1631,12 +1631,13 @@ class FaucetSanityTest(FaucetUntaggedTest):
             controller='faucet', var='of_dp_desc_stats')
         self.assertIsNotNone(prom_desc, msg='Cannot scrape of_dp_desc_stats')
         error('DP: %s\n' % prom_desc[0])
-        for i, host in enumerate(self.net.hosts):
-            in_port = 'port_%u' % (i + 1)
+        error('port_map: %s\n' % self.port_map)
+        for i, host in enumerate(self.net.hosts, start=1):
+            in_port = 'port_%u' % i
             dp_port = self.port_map[in_port]
-            if in_port in self.switch_map:
+            if dp_port in self.switch_map:
                 error('verifying cabling for %s: host %s -> dp %u\n' % (
-                    in_port, self.switch_map[in_port], dp_port))
+                    in_port, self.switch_map[dp_port], dp_port))
             else:
                 error('verifying host %s -> dp %s\n' % (
                     in_port, dp_port))
@@ -1664,6 +1665,20 @@ class FaucetSanityTest(FaucetUntaggedTest):
                 msg=(msg_template % '\n'.join(listening_int)))
         if listening_all:
             print('Warning: %s' % (msg_template % '\n'.join(listening_all)))
+
+    def test_silence(self):
+        # Make all test hosts silent and ensure we hear no other packets.
+        for host in self.net.hosts:
+            self.host_drop_all_ips(host)
+            host.cmd('echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6' % host.defaultIntf())
+        for host in self.net.hosts:
+            tcpdump_filter = ''
+            tcpdump_txt = self.tcpdump_helper(
+                host, tcpdump_filter, [], timeout=10, vflags='-vv', packets=1)
+            self.tcpdump_rx_packets(tcpdump_txt, 0)
+            self.assertTrue(
+                self.tcpdump_rx_packets(tcpdump_txt, 0),
+                msg='got unexpected packet from test switch: %s' % tcpdump_txt)
 
 
 class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
@@ -2439,7 +2454,7 @@ class FaucetSingleHostsNoIdleTimeoutPrometheusTest(FaucetSingleHostsTimeoutProme
 
 class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
-    # TODO: currently set to accomodate least hardware
+    # TODO: currently set to accommodate least hardware
     def _max_hosts():
         return 512
 
@@ -2488,7 +2503,7 @@ vlans:
 
 class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 
-    # TODO: currently set to accomodate least hardware
+    # TODO: currently set to accommodate least hardware
     def _max_hosts():
         return 1024
 
@@ -6363,31 +6378,24 @@ class FaucetStringOfDPTest(FaucetTest):
     dpids = None
     topo = None
 
-    def non_host_ports(self, dpid):
-        # Port remapping should probably be done in the topo
-        if dpid == self.hw_dpid:
-            return [self.hw_port_map_offset(link.port)
-                    for link in self.topo.dpid_peer_links(dpid)]
-        return [link.port for link in self.topo.dpid_peer_links(dpid)]
-
-    def hw_port_map_offset(self, port_no):
-        remap_port_no = (port_no - mininet_test_topo.SWITCH_START_PORT) + 1
-        return self.port_map['port_%u' % remap_port_no]
-
-    def hw_remap_all_ports(self, config):
-        return {self.hw_port_map_offset(port_no): config
-                for port_no, config in config.items()}
+    def non_host_links(self, dpid):
+        return self.topo.dpid_peer_links(dpid)
 
     @staticmethod
     def get_config_header(_config_global, _debug_log, _dpid, _hardware):
         """Don't generate standard config file header."""
         return ''
 
+    def acls(self):
+        return {}
+
+    def acl_in_dp(self):
+        return {}
+
     def build_net(self, stack=False, n_dps=1,
                   n_tagged=0, tagged_vid=100,
                   n_untagged=0, untagged_vid=100,
                   include=None, include_optional=None,
-                  acls=None, acl_in_dp=None,
                   switch_to_switch_links=1, hw_dpid=None,
                   stack_ring=False, lacp=False, use_external=False):
         """Set up Mininet and Faucet for the given topology."""
@@ -6395,10 +6403,6 @@ class FaucetStringOfDPTest(FaucetTest):
             include = []
         if include_optional is None:
             include_optional = []
-        if acls is None:
-            acls = {}
-        if acl_in_dp is None:
-            acl_in_dp = {}
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpids[0] = self.dpid
         self.topo = mininet_test_topo.FaucetStringOfDPSwitchTopo(
@@ -6411,9 +6415,12 @@ class FaucetStringOfDPTest(FaucetTest):
             links_per_host=self.LINKS_PER_HOST,
             switch_to_switch_links=switch_to_switch_links,
             test_name=self._test_name(),
-            hw_dpid=hw_dpid,
+            hw_dpid=hw_dpid, switch_map=self.switch_map,
             stack_ring=stack_ring,
+            port_order=self.port_order
         )
+        self.port_maps = {dpid: self.create_port_map(dpid) for dpid in self.dpids}
+        self.port_map = self.port_maps[self.dpid]
         self.CONFIG = self.get_config(
             self.dpids,
             hw_dpid,
@@ -6426,8 +6433,8 @@ class FaucetStringOfDPTest(FaucetTest):
             untagged_vid,
             include,
             include_optional,
-            acls,
-            acl_in_dp,
+            self.acls(),
+            self.acl_in_dp(),
             stack_ring,
             lacp,
             use_external,
@@ -6477,8 +6484,6 @@ class FaucetStringOfDPTest(FaucetTest):
             for link in self.topo.dpid_peer_links(dpid):
                 port, peer_dpid, peer_port = link.port, link.peer_dpid, link.peer_port
                 interfaces_config[port] = {}
-                if peer_dpid == hw_dpid:
-                   peer_port = self.hw_port_map_offset(port)
                 if stack:
                     # make this a stacking link.
                     interfaces_config[port].update(
@@ -6489,13 +6494,13 @@ class FaucetStringOfDPTest(FaucetTest):
                         })
                 else:
                     # not a stack - make this a trunk.
-                    tagged_vlans = set()
+                    tagged_vlans = []
                     if n_tagged:
-                        tagged_vlans.add(tagged_vid)
-                    if n_untagged:
-                        tagged_vlans.add(untagged_vid)
+                        tagged_vlans.append(tagged_vid)
+                    if n_untagged and untagged_vid not in tagged_vlans:
+                        tagged_vlans.append(untagged_vid)
                     if tagged_vlans:
-                        interfaces_config[port]['tagged_vlans'] = list(tagged_vlans)
+                        interfaces_config[port]['tagged_vlans'] = tagged_vlans
                     if lacp:
                         interfaces_config[port].update(
                             {'lacp': 1, 'lacp_active': True})
@@ -6524,24 +6529,25 @@ class FaucetStringOfDPTest(FaucetTest):
             }
 
             interfaces_config = {}
-
-            port = mininet_test_topo.SWITCH_START_PORT
+            index = 1
 
             for n_port in range(n_tagged):
+                port = self.port_maps[dpid]['port_%d' % index]
                 interfaces_config[port] = {
                     'tagged_vlans': [tagged_vid],
                     'loop_protect_external': (use_external and n_port != n_tagged - 1),
                 }
                 add_acl_to_port(name, port, interfaces_config)
-                port += 1
+                index += 1
 
             for n_port in range(n_untagged):
+                port = self.port_maps[dpid]['port_%d' % index]
                 interfaces_config[port] = {
                     'native_vlan': untagged_vid,
                     'loop_protect_external': (use_external and n_port != n_untagged - 1),
                 }
                 add_acl_to_port(name, port, interfaces_config)
-                port += 1
+                index += 1
 
             add_dp_to_dp_ports(name, dpid, dp_config, interfaces_config, stack,
                                n_tagged, tagged_vid, n_untagged, untagged_vid)
@@ -6557,12 +6563,9 @@ class FaucetStringOfDPTest(FaucetTest):
                     interfaces_config[portno]['stack'].update({
                         'port': 'b%u' % peer_portno})
 
-            # Port remapping should probably happen in the topo
-            if hw_dpid == dpid:
-                interfaces_config = self.hw_remap_all_ports(interfaces_config)
-
             dp_config['interfaces'] = interfaces_config
             return dp_config
+
 
         ### Create config
 
@@ -6635,9 +6638,9 @@ class FaucetStringOfDPTest(FaucetTest):
     def verify_all_stack_up(self):
         for i, dpid in enumerate(self.dpids, start=1):
             dp_name = 'faucet-%u' % i
-            for port_no in self.non_host_ports(dpid):
+            for link in self.non_host_links(dpid):
                 self.wait_for_stack_port_status(
-                    dpid, dp_name, port_no, 3) # up
+                    dpid, dp_name, link.port, 3) # up
 
     def verify_stack_has_no_loop(self):
         num_arp_expected = self.topo.switch_to_switch_links * 2
@@ -6716,8 +6719,8 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     def verify_one_stack_down(self, stack_offset_port, coldstart=False):
         self.retry_net_ping()
-        stack_port = self.non_host_ports(self.dpid)[stack_offset_port]
-        remote_stack_port = self.non_host_ports(self.dpids[1])[stack_offset_port]
+        stack_port = self.non_host_links(self.dpid)[stack_offset_port].port
+        remote_stack_port = self.non_host_links(self.dpid)[stack_offset_port].peer_port
         self.set_port_down(stack_port, wait=False)
         # self.dpids[1] is the intermediate switch.
         self.set_port_down(remote_stack_port, self.dpids[1], wait=False)
@@ -6779,9 +6782,13 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
     def wait_for_lacp_port_up(self, port_no, dpid, dp_name):
         self.wait_for_lacp_status(port_no, 1, dpid, dp_name)
 
+    # We sort non_host_links by port because FAUCET sorts its ports
+    # and only floods out of the first active LACP port in that list
+
     def wait_for_all_lacp_up(self):
-        first_lacp_port, second_lacp_port = self.non_host_ports(self.dpid)
-        remote_first_lacp_port = self.non_host_ports(self.dpids[1])[0]
+        first_link, second_link = sorted(self.non_host_links(self.dpid))
+        first_lacp_port, second_lacp_port = first_link.port, second_link.port
+        remote_first_lacp_port = first_link.peer_port
         self.wait_for_lacp_port_up(first_lacp_port, self.dpid, self.DP_NAME)
         self.wait_for_lacp_port_up(second_lacp_port, self.dpid, self.DP_NAME)
         self.wait_until_matching_flow(
@@ -6792,8 +6799,9 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
 
     def test_lacp_port_down(self):
         """LACP to switch to a working port when the primary port fails."""
-        first_lacp_port, second_lacp_port = self.non_host_ports(self.dpid)
-        remote_first_lacp_port, remote_second_lacp_port = self.non_host_ports(self.dpids[1])
+        first_link, second_link = sorted(self.non_host_links(self.dpid))
+        first_lacp_port, second_lacp_port = first_link.port, second_link.port
+        remote_first_lacp_port, remote_second_lacp_port = first_link.peer_port, second_link.peer_port
         self.wait_for_all_lacp_up()
         self.retry_net_ping()
         self.set_port_down(first_lacp_port, wait=False)
@@ -6818,9 +6826,9 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         """Test lacp fail on reload with dynamic lacp status."""
 
         conf = self._get_faucet_conf()
-        src_port = self.non_host_ports(self.dpids[0])[0]
-        dst_port = self.non_host_ports(self.dpids[0])[1]
-        fail_port = self.non_host_ports(self.dpids[1])[0]
+        first_link, second_link = sorted(self.non_host_links(self.dpid))
+        src_port, dst_port = first_link.port, second_link.port
+        fail_port = first_link.peer_port
 
         self.wait_for_lacp_port_up(src_port, self.dpids[0], 'faucet-1')
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
@@ -6837,10 +6845,9 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         """Test lacp passthrough on port fail."""
 
         conf = self._get_faucet_conf()
-        src_port = self.non_host_ports(self.dpids[0])[0]
-        dst_port = self.non_host_ports(self.dpids[0])[1]
-        fail_port = self.non_host_ports(self.dpids[1])[0]
-        end_port = self.non_host_ports(self.dpids[1])[1]
+        first_link, second_link = self.non_host_links(self.dpid)
+        src_port, dst_port = first_link.port, second_link.port
+        fail_port, end_port = first_link.peer_port, second_link.peer_port
 
         conf['dps']['faucet-1']['interfaces'][dst_port]['lacp_passthrough'] = [src_port]
         conf['dps']['faucet-1']['interfaces'][dst_port]['loop_protect_external'] = True
@@ -6921,7 +6928,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def _mark_external(self, protect_external):
         conf = self._get_faucet_conf()
-        loop_port = self.non_host_ports(self.dpids[1])[0]
+        loop_port = self.non_host_links(self.dpids[1])[0].port
         conf['dps']['faucet-2']['interfaces'][loop_port]['loop_protect_external'] = protect_external
         self.reload_conf(
             conf, self.faucet_config_path,
@@ -6981,7 +6988,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.last_host = self.net.hosts[self.NUM_HOSTS * self.NUM_DPS - 1]
 
     def one_stack_port_down(self):
-        port = self.non_host_ports(self.dpid)[1]
+        port = self.non_host_links(self.dpid)[1].port
         self.set_port_down(port, self.dpid)
         self.wait_for_stack_port_status(self.dpid, self.DP_NAME, port, 2) # down
 
@@ -7010,14 +7017,16 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     NUM_DPS = 3
     NUM_HOSTS = 3
 
-    ACLS = {
+    def acls(self):
+        map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
+        return {
         1: [
             {'rule': {
                 'dl_type': IPV4_ETH,
                 'nw_dst': '10.0.0.2',
                 'actions': {
                     'output': {
-                        'port': mininet_test_topo.SWITCH_START_PORT + 1
+                        'port': map1['port_2']
                     }
                 },
             }},
@@ -7027,8 +7036,8 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'actions': {
                     'output': {
                         'ports': [
-                            mininet_test_topo.SWITCH_START_PORT + 1,
-                            mininet_test_topo.SWITCH_START_PORT + 3]
+                            map1['port_2'],
+                            map1['port_4']]
                     }
                 },
             }},
@@ -7036,7 +7045,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
-                        'port': mininet_test_topo.SWITCH_START_PORT + 3
+                        'port': map1['port_4']
                     }
                 },
             }},
@@ -7051,7 +7060,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_type': IPV4_ETH,
                 'actions': {
                     'output': {
-                        'port': mininet_test_topo.SWITCH_START_PORT + 4
+                        'port': map2['port_5']
                     }
                 },
             }},
@@ -7067,7 +7076,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'nw_dst': '10.0.0.7',
                 'actions': {
                     'output': {
-                        'port': mininet_test_topo.SWITCH_START_PORT
+                        'port': map3['port_1']
                     }
                 },
             }},
@@ -7076,7 +7085,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
-                        'ports': [mininet_test_topo.SWITCH_START_PORT]
+                        'ports': [map3['port_1']]
                     }
                 },
             }},
@@ -7095,18 +7104,20 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     }
 
     # DP-to-acl_in port mapping.
-    ACL_IN_DP = {
+    def acl_in_dp(self):
+        map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
+        return {
         'faucet-1': {
             # Port 1, acl_in = 1
-            mininet_test_topo.SWITCH_START_PORT: 1,
+            map1['port_1']: 1,
         },
         'faucet-2': {
             # Port 4, acl_in = 2
-            mininet_test_topo.SWITCH_START_PORT + 3: 2,
+            map2['port_4']: 2,
         },
         'faucet-3': {
             # Port 4, acl_in = 3
-            mininet_test_topo.SWITCH_START_PORT + 3: 3,
+            map3['port_4']: 3,
         },
     }
 
@@ -7117,8 +7128,6 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            acls=self.ACLS,
-            acl_in_dp=self.ACL_IN_DP,
             )
         self.start_net()
 
@@ -7147,7 +7156,8 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     NUM_HOSTS = 2
 
     # ACL rules which will get overridden.
-    ACLS = {
+    def acls(self):
+        return {
         1: [
             {'rule': {
                 'dl_type': IPV4_ETH,
@@ -7175,7 +7185,8 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
     # ACL rules which get put into an include-optional
     # file, then reloaded into FAUCET.
-    ACLS_OVERRIDE = {
+    def acls_override(self):
+        return {
         1: [
             {'rule': {
                 'dl_type': IPV4_ETH,
@@ -7202,10 +7213,12 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     }
 
     # DP-to-acl_in port mapping.
-    ACL_IN_DP = {
+    def acl_in_dp(self):
+        port_1 = self.port_map['port_1']
+        return {
         'faucet-1': {
             # First port, acl_in = 1
-            mininet_test_topo.SWITCH_START_PORT: 1,
+            port_1: 1,
         },
     }
 
@@ -7218,8 +7231,6 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
             include_optional=[self.acls_config, missing_config],
-            acls=self.ACLS,
-            acl_in_dp=self.ACL_IN_DP,
         )
         self.start_net()
 
@@ -7229,7 +7240,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
         with open(self.acls_config, 'w') as config_file:
-            config_file.write(self.get_config(acls=self.ACLS_OVERRIDE))
+            config_file.write(self.get_config(acls=self.acls_override()))
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_no_cable_errors()
@@ -7240,7 +7251,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_blocked(5002, first_host, second_host)
         with open(self.acls_config, 'w') as config_file:
-            config_file.write(self.get_config(acls=self.ACLS_OVERRIDE))
+            config_file.write(self.get_config(acls=self.acls_override()))
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self.verify_no_cable_errors()
@@ -7252,7 +7263,9 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
     NUM_HOSTS = 2
     SWITCH_TO_SWITCH_LINKS = 2
     VID = 100
-    ACLS = {
+
+    def acls(self):
+        return {
         1: [
             {'rule': {
                 'dl_type': IPV4_ETH,
@@ -7269,15 +7282,17 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
                 }
             }}
         ]
-    }
+        }
 
     # DP-to-acl_in port mapping.
-    ACL_IN_DP = {
+    def acl_in_dp(self):
+        port_1 = self.port_map['port_1']
+        return {
         'faucet-1': {
             # First port 1, acl_in = 1
-            mininet_test_topo.SWITCH_START_PORT: 1,
+            port_1: 1,
         }
-    }
+        }
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetTunnelSameDpTest, self).setUp()
@@ -7286,8 +7301,6 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            acls=self.ACLS,
-            acl_in_dp=self.ACL_IN_DP,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
             hw_dpid=self.hw_dpid,
         )
@@ -7322,7 +7335,10 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     NUM_HOSTS = 2
     SWITCH_TO_SWITCH_LINKS = 2
     VID = 100
-    ACLS = {
+    def acls(self):
+        dpid2 = self.dpids[1]
+        port2_1 = self.port_maps[dpid2]['port_1']
+        return {
         1: [
             {'rule': {
                 'dl_type': IPV4_ETH,
@@ -7334,7 +7350,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
                             'type': 'vlan',
                             'tunnel_id': 200,
                             'dp': 'faucet-2',
-                            'port': mininet_test_topo.SWITCH_START_PORT}
+                            'port': port2_1}
                     }
                 }
             }}
@@ -7342,12 +7358,14 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     }
 
     # DP-to-acl_in port mapping.
-    ACL_IN_DP = {
+    def acl_in_dp(self,):
+        port_1 = self.port_map['port_1']
+        return {
         'faucet-1': {
             # First port 1, acl_in = 1
-            mininet_test_topo.SWITCH_START_PORT: 1,
+            port_1: 1,
         }
-    }
+        }
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetTunnelTest, self).setUp()
@@ -7356,8 +7374,6 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            acls=self.ACLS,
-            acl_in_dp=self.ACL_IN_DP,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
             hw_dpid=self.hw_dpid,
         )
@@ -7393,7 +7409,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     def test_tunnel_path_rerouted(self):
         """Test a tunnel path is rerouted when a stack is down."""
         self.verify_all_stack_up()
-        first_stack_port = self.non_host_ports(self.dpid)[0]
+        first_stack_port = self.non_host_links(self.dpid)[0].port
         self.one_stack_port_down(first_stack_port)
         src_host, other_host, dst_host = self.net.hosts[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)

@@ -18,6 +18,7 @@
 
 from faucet.conf import Conf, InvalidConfigError, test_config_condition
 from faucet import valve_of
+import netaddr
 
 STACK_STATE_ADMIN_DOWN = 0
 STACK_STATE_INIT = 1
@@ -74,6 +75,8 @@ class Port(Conf):
         # If True, configure pipeline if operational status of port changes.
         'receive_lldp': False,
         # If True, receive LLDP on this port.
+        'lldp_peer_mac': None,
+        # If set, validates src MAC address of incoming LLDP packets
         'override_output_port': None,
         # If set, packets are sent to this other port.
         'max_lldp_lost': 3,
@@ -110,6 +113,7 @@ class Port(Conf):
         'lldp_beacon': dict,
         'opstatus_reconf': bool,
         'receive_lldp': bool,
+        'lldp_peer_mac': str,
         'override_output_port': (str, int),
         'dot1x': bool,
         'dot1x_acl': bool,
@@ -162,6 +166,7 @@ class Port(Conf):
         self.override_output_port = None
         self.permanent_learn = None
         self.receive_lldp = None
+        self.lldp_peer_mac = None
         self.stack = {}
         self.unicast_flood = None
 
@@ -242,6 +247,9 @@ class Port(Conf):
         if self.lacp_resp_interval is not None:
             test_config_condition(self.lacp_resp_interval > 65535 or self.lacp_resp_interval < 0.3, 
                     ('interval must be atleast 0.3 and less than 65536'))
+        if self.lldp_peer_mac:
+            test_config_condition(not netaddr.valid_mac(self.lldp_peer_mac), (
+                'invalid MAC address %s' % self.lldp_peer_mac))
 
         if self.lldp_beacon:
             self._check_conf_types(

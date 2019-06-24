@@ -210,13 +210,13 @@ def check_dependencies():
     return True
 
 
-def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load):
+def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load, port_order):
     """Compose test suite based on test class names."""
     testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
     suite = unittest.TestSuite()
     for name in testnames:
-        suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock, max_test_load))
+        suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock, max_test_load, port_order))
     return suite
 
 
@@ -370,7 +370,7 @@ def max_loadavg():
 
 
 def expand_tests(module, requested_test_classes, excluded_test_classes,
-                 hw_config, root_tmpdir, ports_sock, serial):
+                 hw_config, root_tmpdir, ports_sock, serial, port_order):
     sanity_test_suites = []
     single_test_suites = []
     parallel_test_suites = []
@@ -388,7 +388,7 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
                 continue
             print('adding test %s' % test_name)
             test_suite = make_suite(
-                test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg())
+                test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg(), port_order)
             if test_name.startswith('FaucetSanity'):
                 sanity_test_suites.append(test_suite)
             else:
@@ -595,7 +595,7 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
 
 
 def run_tests(module, hw_config, requested_test_classes, dumpfail,
-              keep_logs, serial, excluded_test_classes, report_json_filename):
+              keep_logs, serial, excluded_test_classes, report_json_filename, port_order):
     """Actually run the test suites, potentially in parallel."""
     if hw_config is not None:
         print('Testing hardware, forcing test serialization')
@@ -611,7 +611,7 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
     print('test ports server started')
     sanity_tests, single_tests, parallel_tests = expand_tests(
         module, requested_test_classes, excluded_test_classes,
-        hw_config, root_tmpdir, ports_sock, serial)
+        hw_config, root_tmpdir, ports_sock, serial, port_order)
     resultclass = FaucetCleanupResult
     if keep_logs:
         resultclass = FaucetResult
@@ -648,6 +648,9 @@ def parse_args():
     parser.add_argument(
         '-n', '--nocheck', action='store_true', help='skip dependency check')
     parser.add_argument(
+        '-o', '--order', default='random',
+        help='port order for tests: 0,1,2,3 | random (default: random)')
+    parser.add_argument(
         '-i', '--integration', default=True, action='store_true', help='run integration tests')
     parser.add_argument(
         '-s', '--serial', action='store_true', help='run tests serially')
@@ -661,7 +664,15 @@ def parse_args():
 
     try:
         args, requested_test_classes = parser.parse_known_args(sys.argv[1:])
-    except(KeyError, IndexError):
+        if args.order == 'random':
+            port_order = list(range(4))
+            random.shuffle(port_order)
+        else:
+            port_order = [int(s) for s in args.order.split(',')]
+        if sorted(port_order) != sorted(range(len(port_order))):
+            print('Port order should be a permutation of 0,1,2,3')
+            raise ValueError
+    except(KeyError, IndexError, ValueError):
         parser.print_usage()
         sys.exit(-1)
 
@@ -669,24 +680,28 @@ def parse_args():
         report_json_filename = args.jsonreport
     if args.x:
         excluded_test_classes = args.x.split(',')
+
+
     return (
         requested_test_classes, args.clean, args.dumpfail,
         args.keep_logs, args.nocheck, args.serial,
-        excluded_test_classes, report_json_filename)
+        excluded_test_classes, report_json_filename, port_order)
 
 
 def test_main(module):
     """Test main."""
     setLogLevel('error')
     print('testing module %s' % module)
+
     (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
-     serial, excluded_test_classes, report_json_filename) = parse_args()
+     serial, excluded_test_classes, report_json_filename, port_order) = parse_args()
 
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '
               'configuration from previous test runs')
         Cleanup.cleanup()
         sys.exit(0)
+
     if nocheck:
         print('Skipping dependency checks')
     else:
@@ -694,7 +709,10 @@ def test_main(module):
             print('dependency check failed. check required library/binary '
                   'list in header of this script')
             sys.exit(-1)
+
+    print("port order: -o", ','.join(str(i) for i in port_order))
+
     hw_config = import_hw_config()
     run_tests(
         module, hw_config, requested_test_classes, dumpfail,
-        keep_logs, serial, excluded_test_classes, report_json_filename)
+        keep_logs, serial, excluded_test_classes, report_json_filename, port_order)

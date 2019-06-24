@@ -119,14 +119,13 @@ class FaucetTestBase(unittest.TestCase):
     event_sock = None
     faucet_config_path = None
 
-    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
+    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load, port_order=None):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
-        start_port = mininet_test_topo.SWITCH_START_PORT
-        self.port_map = {'port_%u' % (port + 1): port + start_port for port in range(4)}
+        self.port_order = port_order
 
     def rand_dpid(self):
         reserved_range = 100
@@ -184,12 +183,7 @@ class FaucetTestBase(unittest.TestCase):
                 if 'ca_certs' in self.config:
                     self.ca_certs = self.config['ca_certs']
                 dp_ports = self.config['dp_ports']
-                self.port_map = {}
-                self.switch_map = {}
-                for i, switch_port in enumerate(sorted(dp_ports), start=1):
-                    test_port_name = 'port_%u' % i
-                    self.port_map[test_port_name] = switch_port
-                    self.switch_map[test_port_name] = dp_ports[switch_port]
+                self.switch_map = dp_ports.copy()
 
     def _set_vars(self):
         self._set_prom_port()
@@ -331,7 +325,9 @@ class FaucetTestBase(unittest.TestCase):
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_static_vars()
-        self.topo_class = mininet_test_topo.FaucetSwitchTopo
+        self.topo_class = partial(
+            mininet_test_topo.FaucetSwitchTopo, port_order=self.port_order,
+            switch_map=self.switch_map)
         if self.hw_switch:
             self.hw_dpid = mininet_test_util.str_int_dpid(self.dpid)
             self.dpid = self.hw_dpid
@@ -391,10 +387,9 @@ class FaucetTestBase(unittest.TestCase):
         """Bridge a physical switch into test topology."""
         switch = self.net.switches[0]
         self.assertEqual('', switch.cmd('ebtables --f OUTPUT'))
-        mapped_base = max(len(self.switch_map), len(self.port_map))
         phys_macs = set()
-        for i, test_host_port in enumerate(sorted(self.switch_map)):
-            port_i = i + 1
+        mapped_base = len(self.switch_map)
+        for port_i, test_host_port in enumerate(sorted(self.switch_map), start=1):
             mapped_port_i = mapped_base + port_i
             phys_port = Intf(self.switch_map[test_host_port], node=switch)
             phys_mac = netifaces.ifaddresses(phys_port.name)[netifaces.AF_LINK][0]['addr']
@@ -422,6 +417,12 @@ class FaucetTestBase(unittest.TestCase):
                 switch.cmd('%s add-flow %s in_port=%u,priority=1,actions=output:%u' % (
                     self.OFCTL, switch.name, in_port, out_port))
 
+    def create_port_map(self, dpid):
+        """Return a port map {'port_1': port...} for a dpid in self.topo"""
+        ports = self.topo.dpid_ports(dpid)
+        port_map = { 'port_%d' % i: port for i,  port in enumerate(ports, start=1)}
+        return port_map
+
     def start_net(self):
         """Start Mininet network."""
         controller_intf = 'lo'
@@ -429,6 +430,9 @@ class FaucetTestBase(unittest.TestCase):
         if self.hw_switch:
             controller_intf = self.cpn_intf
             controller_ipv6 = self.cpn_ipv6
+        if not self.port_map:
+            # Sometimes created in build_net for config purposes, sometimes not
+            self.port_map = self.create_port_map(self.dpid)
         self._start_faucet(controller_intf, controller_ipv6)
         self.pre_start_net()
         if self.hw_switch:
