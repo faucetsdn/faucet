@@ -18,6 +18,7 @@
 
 from faucet.conf import Conf, InvalidConfigError, test_config_condition
 from faucet import valve_of
+import netaddr
 
 STACK_STATE_ADMIN_DOWN = 0
 STACK_STATE_INIT = 1
@@ -239,6 +240,9 @@ class Port(Conf):
             self.receive_lldp = True
             if not self.lldp_beacon_enabled():
                 self.lldp_beacon.update({'enable': True})
+        if self.lldp_peer_mac:
+            test_config_condition(not netaddr.valid_mac(self.lldp_peer_mac), (
+                'invalid MAC address %s' % self.lldp_peer_mac))
 
         if self.lldp_beacon:
             self._check_conf_types(
