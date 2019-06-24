@@ -78,6 +78,10 @@ Most of these configuration steps will be shown with an example.
     awplus (config)# interface vlan4090
     awplus (config-if)# no ip igmp snooping tcn query solicit
 
+    /* Disable IGMP snooping globally which may intefere with redundant links and FAUCET stacking.
+       This requirement may be removed in future releases. */
+    awplus (config)# no ip igmp snooping
+
 
 Once OpenFlow is up and running and connected to Faucet/Gauge controller, you should be able to verify the operation using some of our show commands.
 
