@@ -1566,7 +1566,8 @@ vlans:
             handler(
                 '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
         self.dot1x.auth_handler(
-            '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no), vlan_name, filter_id)
+            '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no),
+            vlan_name=vlan_name, filter_id=filter_id)
 
 
 class ValveDot1xACLSmokeTestCase(ValveDot1xSmokeTestCase):

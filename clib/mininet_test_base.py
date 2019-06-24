@@ -1442,18 +1442,18 @@ dbs:
             self.verify_no_packets(tcpdump_txt)
 
     def verify_controller_fping(self, host, faucet_vip,
-                                total_packets=100, packet_interval_ms=100):
+                                total_packets=100, packet_interval_ms=100, size=64):
         fping_bin = 'fping'
         if faucet_vip.version == 6:
             fping_bin = 'fping6'
-        fping_cli = '%s -s -c %u -i %u -p 1 -T 1 %s' % (
-            fping_bin, total_packets, packet_interval_ms, faucet_vip.ip)
+        fping_cli = '%s -s -b %u -c %u -i %u -p 1 -T 1 %s' % (
+            fping_bin, size, total_packets, packet_interval_ms, faucet_vip.ip)
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(mininet_test_util.timeout_cmd(
             fping_cli, timeout))
         error('%s: %s' % (self._test_name(), fping_out))
         self.assertTrue(
-            not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
+            re.search(r'\s+[1-9][0-9]* ICMP Echo Replies received', fping_out),
             msg=fping_out)
 
     def verify_learn_counters(self, vlan, ports, verify_neighbors=False):
@@ -2188,7 +2188,7 @@ dbs:
         """Start exabgp process on controller host."""
         exabgp_conf_file_name = os.path.join(self.tmpdir, '%sexabgp.conf' % log_prefix)
         exabgp_log = os.path.join(self.tmpdir, '%sexabgp.log' % log_prefix)
-        exabgp_err = os.path.join(self.tmpdir, '%sexabgp.err' % log_prefix)
+        exabgp_out = os.path.join(self.tmpdir, '%sexabgp.out' % log_prefix)
         exabgp_env = ' '.join((
             'exabgp.daemon.user=root',
             'exabgp.log.all=true',
@@ -2202,8 +2202,8 @@ dbs:
         controller = self._get_controller()
         # Ensure exabgp only attempts one connection.
         exabgp_cmd = mininet_test_util.timeout_cmd(
-            'exabgp %s --once -d 2> %s > /dev/null &' % (
-                exabgp_conf_file_name, exabgp_err), 300)
+            'exabgp %s --once -d 2>&1 > %s &' % (
+                exabgp_conf_file_name, exabgp_out), 300)
         exabgp_cli = 'env %s %s' % (exabgp_env, exabgp_cmd)
         controller.cmd(exabgp_cli)
         for _ in range(timeout):
@@ -2212,7 +2212,7 @@ dbs:
             time.sleep(1)
         self.assertTrue(
             os.path.exists(exabgp_log), msg='exabgp (%s) did not start' % exabgp_cli)
-        return (exabgp_log, exabgp_err)
+        return (exabgp_log, exabgp_out)
 
     def wait_bgp_up(self, neighbor, vlan, exabgp_log, exabgp_err):
         """Wait for BGP to come up."""
