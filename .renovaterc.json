@@ -10,6 +10,7 @@
   "extends": [
     "config:base",
     ":prHourlyLimit1",
+    ":preserveSemverRanges",
     "docker:enableMajor"
   ]
 }
