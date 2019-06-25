@@ -819,7 +819,7 @@ class Faucet8021XPeriodicReauthTest(Faucet8021XBaseTest):
         self.wait_8021x_success_flows(self.eapol1_host, port_no1)
 
         for expected_total in range(1, 4):
-            for _ in range(SESSION_TIMEOUT * 2):
+            for _ in range(self.SESSION_TIMEOUT * 2):
                 total = self.scrape_prometheus_var(
                     'port_dot1x_success_total', labels=port_labels1, default=0)
                 if total == expected_total:
