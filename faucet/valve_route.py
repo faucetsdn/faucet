@@ -985,7 +985,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 icmpv6_type != icmpv6.ICMPV6_ECHO_REQUEST):
             return ofmsgs
         handler, payload_type, type_reparse_size = self._icmpv6_handlers.get(
-            icmpv6_type, (None, None))
+            icmpv6_type, (None, None, None))
         if handler is not None and (
                 payload_type is None or
                 isinstance(icmpv6_pkt.data, payload_type)):
