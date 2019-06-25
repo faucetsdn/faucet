@@ -818,14 +818,14 @@ class Faucet8021XPeriodicReauthTest(Faucet8021XBaseTest):
 
         self.wait_8021x_success_flows(self.eapol1_host, port_no1)
 
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-        time.sleep(50)
-
-        self.assertEqual(
-            4,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        for expected_total in range(1, 4):
+            for _ in range(SESSION_TIMEOUT * 2):
+                total = self.scrape_prometheus_var(
+                    'port_dot1x_success_total', labels=port_labels1, default=0)
+                if total == expected_total:
+                    break
+                time.sleep(1)
+            self.assertEquals(expected_total, total, msg='failed to successfully re-auth')
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XBaseTest):
