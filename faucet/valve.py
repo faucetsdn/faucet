@@ -653,9 +653,9 @@ class Valve:
             actions.extend(valve_of.push_vlan_act(
                 vlan_table, vlan.vid))
             match_vlan = NullVLAN()
-        elif self.dp.stack and self.dp.stack.get('externals', False) and port.loop_protect_external:
-            # Ensure loop protection field cleared on external port.
-            actions.append(valve_of.set_field(**{STACK_LOOP_PROTECT_FIELD: 0}))
+        if vlan.loop_protect_external_ports():
+            vlan_pcp = 0 if port.loop_protect_external else 1
+            actions.append(valve_of.set_field(**{STACK_LOOP_PROTECT_FIELD: vlan_pcp}))
         inst = [
             valve_of.apply_actions(actions),
             vlan_table.goto(self._find_forwarding_table(vlan))]
@@ -1028,7 +1028,7 @@ class Valve:
         (remote_dp_id, remote_dp_name,
          remote_port_id, remote_port_state) = valve_packet.parse_faucet_lldp(
              lldp_pkt, self.dp.faucet_dp_mac)
-        
+
         port.dyn_lldp_beacon_recv_time = now
         if port.dyn_lldp_beacon_recv_state != remote_port_state:
             chassis_id = str(self.dp.faucet_dp_mac)

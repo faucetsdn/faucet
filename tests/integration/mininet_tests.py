@@ -5198,11 +5198,24 @@ class FaucetTaggedBroadcastTest(FaucetTaggedTest):
 class FaucetTaggedExtLoopProtectTest(FaucetTaggedTest):
 
 
+    CONFIG_GLOBAL = """
+acls:
+    pcp_force:
+        - rule:
+            vlan_vid: 100
+            actions:
+                output:
+                    set_fields:
+                        - vlan_pcp: 1
+                allow: 1
+"""
+
     CONFIG = """
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
                 loop_protect_external: True
+                acl_in: pcp_force
             %(port_2)d:
                 tagged_vlans: [100]
                 loop_protect_external: True
@@ -5212,18 +5225,29 @@ class FaucetTaggedExtLoopProtectTest(FaucetTaggedTest):
                 tagged_vlans: [100]
 """
 
+    def _verify_link(self, hosts=None, expected=True):
+        from_port=hosts[0]
+        to_port=hosts[1]
+        tcpdump_filter = 'ether src %s' % from_port.MAC()
+        tcpdump_txt = self.tcpdump_helper(
+            to_port, tcpdump_filter, [
+                lambda: from_port.cmd(
+                    'ping -c3 %s' % to_port.IP())], root_intf=True, packets=2)
+        if expected:
+            self.assertTrue(re.search('vlan 100, p 1,', tcpdump_txt))
+            self.assertFalse(re.search('vlan 100, p 0,', tcpdump_txt))
+        else:
+            self.assertFalse(re.search('vlan 100,', tcpdump_txt))
+        self.verify_broadcast(hosts, expected)
+        self.verify_unicast(hosts, expected)
+
     def test_tagged(self):
         ext_port1, ext_port2, int_port1, int_port2 = self.net.hosts
-        self.verify_broadcast(hosts=(ext_port1, ext_port2), broadcast_expected=False)
-        self.verify_broadcast(hosts=(ext_port1, int_port1), broadcast_expected=True)
-        self.verify_broadcast(hosts=(int_port1, int_port2), broadcast_expected=True)
-        self.one_ipv4_ping(ext_port1, int_port2.IP())
-        tcpdump_filter = 'ether dst %s' % int_port2.MAC()
-        tcpdump_txt = self.tcpdump_helper(
-            ext_port1, tcpdump_filter, [
-                lambda: ext_port1.cmd(
-                    'ping -c3 %s' % int_port2.IP())], root_intf=True, packets=1)
-        self.assertTrue(re.search('vlan 100, p 0,', tcpdump_txt))
+        self._verify_link(hosts=(ext_port1, ext_port2), expected=False)
+        self._verify_link(hosts=(ext_port1, int_port2), expected=True)
+        self._verify_link(hosts=(ext_port2, int_port2), expected=True)
+        self._verify_link(hosts=(int_port1, ext_port2), expected=True)
+        self._verify_link(hosts=(int_port1, int_port2), expected=True)
 
 
 class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):

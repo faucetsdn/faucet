@@ -205,12 +205,7 @@ class ValveHostManager(ValveManagerBase):
             in_port=port.number, vlan=vlan, eth_src=eth_src)
         src_priority = self.host_priority - 1
 
-        mark_port = self.has_externals and not port.stack
-
         inst = []
-        if mark_port:
-            vlan_pcp = 0 if port.loop_protect_external else 1
-            inst.append(valve_of.apply_actions([self.eth_src_table.set_field(vlan_pcp=vlan_pcp)]))
 
         if port.override_output_port:
             inst.append(valve_of.apply_actions([
@@ -233,7 +228,7 @@ class ValveHostManager(ValveManagerBase):
         loop_protect_field = None
         if port.tagged_vlans and port.loop_protect_external and self.stack:
             loop_protect_field = 0
-        elif mark_port:
+        elif self.has_externals and not port.stack:
             loop_protect_field = 1
 
         # Output packets for this MAC to specified port.
