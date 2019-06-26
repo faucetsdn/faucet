@@ -352,7 +352,7 @@ class ValveTestBases:
         V200 = 0x200|ofp.OFPVID_PRESENT
         V300 = 0x300|ofp.OFPVID_PRESENT
         LOGNAME = 'faucet'
-        ICMP_PAYLOAD = bytes('A'*8, encoding='UTF-8')
+        ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8') # must support 64b payload.
 
         def __init__(self, *args, **kwargs):
             self.dot1x = None
@@ -858,10 +858,12 @@ class ValveTestBases:
                 'vid': 0x100,
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.254',
-                'echo_request_data': bytes(
-                    'A'*8, encoding='UTF-8')}) # pytype: disable=wrong-keyword-args
-            # TODO: check ping response
-            self.assertTrue(self.packet_outs_from_flows(echo_replies))
+                'echo_request_data': self.ICMP_PAYLOAD})
+            packet_outs = self.packet_outs_from_flows(echo_replies)
+            self.assertTrue(packet_outs)
+            data = packet_outs[0].data
+            self.assertTrue(data.endswith(self.ICMP_PAYLOAD), msg=data)
+
 
         def test_unresolved_route(self):
             """Test unresolved route tries to resolve."""
@@ -969,8 +971,10 @@ class ValveTestBases:
                 'ipv6_src': 'fc00::1:1',
                 'ipv6_dst': 'fc00::1:254',
                 'echo_request_data': self.ICMP_PAYLOAD})
-            # TODO: check ping response
-            self.assertTrue(self.packet_outs_from_flows(echo_replies))
+            packet_outs = self.packet_outs_from_flows(echo_replies)
+            self.assertTrue(packet_outs)
+            data = packet_outs[0].data
+            self.assertTrue(data.endswith(self.ICMP_PAYLOAD), msg=data)
 
         def test_invalid_vlan(self):
             """Test that packets with incorrect vlan tagging get dropped."""

@@ -958,10 +958,10 @@ class ValveIPv6RouteManager(ValveRouteManager):
         return ofmsgs
 
     _icmpv6_handlers = {
-        icmpv6.ND_NEIGHBOR_SOLICIT: (_nd_solicit_handler, icmpv6.nd_neighbor),
-        icmpv6.ND_NEIGHBOR_ADVERT: (_nd_advert_handler, icmpv6.nd_neighbor),
-        icmpv6.ND_ROUTER_SOLICIT: (_router_solicit_handler, None),
-        icmpv6.ICMPV6_ECHO_REQUEST: (_echo_request_handler, icmpv6.echo),
+        icmpv6.ND_NEIGHBOR_SOLICIT: (_nd_solicit_handler, icmpv6.nd_neighbor, 32),
+        icmpv6.ND_NEIGHBOR_ADVERT: (_nd_advert_handler, icmpv6.nd_neighbor, 32),
+        icmpv6.ND_ROUTER_SOLICIT: (_router_solicit_handler, None, 32),
+        icmpv6.ICMPV6_ECHO_REQUEST: (_echo_request_handler, icmpv6.echo, 96),
     }
 
     def _control_plane_icmpv6_handler(self, now, pkt_meta, ipv6_pkt):
@@ -975,7 +975,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
         vlan = pkt_meta.vlan
         if not vlan.ip_in_vip_subnet(src_ip):
             return ofmsgs
-        pkt_meta.reparse_ip(payload=32)
+        reparse_size = 32
+        pkt_meta.reparse_ip(payload=reparse_size)
         icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
         if icmpv6_pkt is None:
             return ofmsgs
@@ -983,11 +984,14 @@ class ValveIPv6RouteManager(ValveRouteManager):
         if (ipv6_pkt.hop_limit != valve_packet.IPV6_MAX_HOP_LIM and
                 icmpv6_type != icmpv6.ICMPV6_ECHO_REQUEST):
             return ofmsgs
-        handler, payload_type = self._icmpv6_handlers.get(
-            icmpv6_type, (None, None))
+        handler, payload_type, type_reparse_size = self._icmpv6_handlers.get(
+            icmpv6_type, (None, None, None))
         if handler is not None and (
                 payload_type is None or
                 isinstance(icmpv6_pkt.data, payload_type)):
+            if type_reparse_size != reparse_size:
+                pkt_meta.reparse_ip(payload=type_reparse_size)
+                icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
             ofmsgs = handler(self, now, pkt_meta, ipv6_pkt, icmpv6_pkt)
         return ofmsgs
 
