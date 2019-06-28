@@ -865,7 +865,7 @@ def dedupe_ofmsgs(input_ofmsgs):
     # Built in comparison doesn't work until serialized() called
     # Can't use dict or json comparison as may be nested
     deduped_input_ofmsgs = {str(ofmsg): ofmsg for ofmsg in input_ofmsgs}
-    return deduped_input_ofmsgs.values()
+    return list(deduped_input_ofmsgs.values())
 
 
 # kind, random_order, suggest_barrier
