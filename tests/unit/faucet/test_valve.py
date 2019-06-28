@@ -69,6 +69,7 @@ FAUCET_MAC = '0e:00:00:00:00:01'
 # (ie. do not output to in_port)
 BASE_DP1_CONFIG = """
         dp_id: 1
+        hardware: 'GenericTFM'
         egress_pipeline: True
         ignore_learn_ins: 100
         ofchannel_log: '/dev/null'
@@ -88,7 +89,6 @@ IDLE_DP1_CONFIG = """
 
 GROUP_DP1_CONFIG = """
         group_table: True
-        combinatorial_port_flood: False
 """ + BASE_DP1_CONFIG
 
 DOT1X_CONFIG = """
@@ -114,7 +114,6 @@ DOT1X_ACL_CONFIG = """
 CONFIG = """
 dps:
     s1:
-        hardware: 'GenericTFM'
 %s
         interfaces:
             p1:
@@ -144,14 +143,14 @@ dps:
                 tagged_vlans: [v300]
 
     s2:
-        hardware: 'Open vSwitch'
+        hardware: 'GenericTFM'
         dp_id: 0xdeadbeef
         interfaces:
             p1:
                 number: 1
                 native_vlan: v100
     s3:
-        hardware: 'Open vSwitch'
+        hardware: 'GenericTFM'
         combinatorial_port_flood: True
         dp_id: 0x3
         stack:
@@ -175,7 +174,7 @@ dps:
                     dp: s4
                     port: 5
     s4:
-        hardware: 'Open vSwitch'
+        hardware: 'GenericTFM'
         dp_id: 0x4
         interfaces:
             p1:
@@ -353,6 +352,7 @@ class ValveTestBases:
         V300 = 0x300|ofp.OFPVID_PRESENT
         LOGNAME = 'faucet'
         ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8') # must support 64b payload.
+        REQUIRE_TFM = True
 
         def __init__(self, *args, **kwargs):
             self.dot1x = None
@@ -1248,7 +1248,6 @@ class ValveTestBases:
             acl_config = """
 dps:
     s1:
-        hardware: 'Open vSwitch'
         dp_acls: [drop_non_ospf_ipv4]
 %s
         interfaces:
@@ -1314,7 +1313,6 @@ meters:
             acl_config = """
 dps:
     s1:
-        hardware: 'Open vSwitch'
 %s
         interfaces:
             p2:
@@ -1539,7 +1537,6 @@ class ValveDot1xSmokeTestCase(ValveTestBases.ValveTestSmall):
     CONFIG = """
 dps:
     s1:
-        hardware: 'GenericTFM'
 %s
         interfaces:
             p1:
@@ -1598,7 +1595,6 @@ acls:
 {}
 dps:
     s1:
-        hardware: 'GenericTFM'
 {}
         interfaces:
             p1:
@@ -2006,7 +2002,6 @@ class ValveACLTestCase(ValveTestBases.ValveTestSmall):
         acl_config = """
 dps:
     s1:
-        hardware: 'Open vSwitch'
 %s
         interfaces:
             p1:
@@ -2087,7 +2082,6 @@ class ValveEgressACLTestCase(ValveTestBases.ValveTestSmall):
         acl_config = """
 dps:
     s1:
-        hardware: 'Open vSwitch'
 {dp1_config}
         interfaces:
             p1:
@@ -2307,7 +2301,7 @@ dps:
                 description: p3
                 native_vlan: v100
     s2:
-        hardware: 'Open vSwitch'
+        hardware: 'GenericTFM'
         dp_id: 0x2
         lldp_beacon:
             send_interval: 5
@@ -2333,6 +2327,7 @@ dps:
                 native_vlan: v100
     s3:
         dp_id: 0x3
+        hardware: 'GenericTFM'
         interfaces:
             1:
                 description: p1
@@ -2784,7 +2779,6 @@ class ValveGroupTestCase(ValveTestBases.ValveTestSmall):
     CONFIG = """
 dps:
     s1:
-        hardware: 'GenericTFM'
 %s
         interfaces:
             p1:
@@ -2848,7 +2842,6 @@ class ValveIdleLearnTestCase(ValveTestBases.ValveTestSmall):
     CONFIG = """
 dps:
     s1:
-        hardware: 'GenericTFM'
 %s
         interfaces:
             p1:
@@ -2899,7 +2892,6 @@ class ValveLACPTestCase(ValveTestBases.ValveTestSmall):
     CONFIG = """
 dps:
     s1:
-        hardware: 'GenericTFM'
 %s
         lacp_timeout: 5
         interfaces:
@@ -3001,7 +2993,6 @@ class ValveActiveLACPTestCase(ValveTestBases.ValveTestSmall):
     CONFIG = """
 dps:
     s1:
-        hardware: 'GenericTFM'
 %s
         lacp_timeout: 5
         interfaces:
@@ -3087,7 +3078,6 @@ acls:
                 allow: 1
 dps:
     s1:
-        hardware: 'GenericTFM'
 %s
         interfaces:
             p1:

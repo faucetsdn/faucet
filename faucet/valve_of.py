@@ -815,7 +815,18 @@ def controller_pps_meterdel(datapath=None):
 
 
 def is_delete(ofmsg):
+    """Is any kind of delete message."""
     return is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg)
+
+
+def is_global_flowdel(ofmsg):
+    """Is a delete of all flows in all tables."""
+    return is_flowdel(ofmsg) and ofmsg.table_id == ofp.OFPTT_ALL and not ofmsg.match.items()
+
+
+def is_global_groupdel(ofmsg):
+    """Is a delete of all groups."""
+    return is_groupdel(ofmsg) and ofmsg.group_id == ofp.OFPTT_ALL
 
 
 _MSG_KINDS = (
@@ -876,6 +887,14 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     # don't will have at most only one barrier to deal with.
     output_ofmsgs = []
     by_kind = _partition_ofmsgs(dedupe_ofmsgs(input_ofmsgs))
+
+    # Suppress all other deletes if a global delete is present.
+    delete_ofmsgs = by_kind.get('delete', [])
+    global_delete_ofmsgs = [
+        ofmsg for ofmsg in delete_ofmsgs if is_global_flowdel(ofmsg) or is_global_groupdel(ofmsg)]
+    if global_delete_ofmsgs:
+        by_kind['delete'] = global_delete_ofmsgs
+
     for kind, random_order, suggest_barrier in _OFMSG_ORDER:
         ofmsgs = by_kind.get(kind, [])
         if ofmsgs:
