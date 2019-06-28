@@ -887,7 +887,7 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     # parallel delete will perform better and platforms that
     # don't will have at most only one barrier to deal with.
     output_ofmsgs = []
-    by_kind = _partition_ofmsgs(dedupe_ofmsgs(input_ofmsgs))
+    by_kind = _partition_ofmsgs(input_ofmsgs)
 
     # Suppress all other deletes if a global delete is present.
     delete_global_ofmsgs = by_kind.get('deleteglobal', [])
@@ -895,7 +895,7 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
         by_kind['delete'] = []
 
     for kind, random_order, suggest_barrier in _OFMSG_ORDER:
-        ofmsgs = by_kind.get(kind, [])
+        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []))
         if ofmsgs:
             if random_order:
                 random.shuffle(ofmsgs)

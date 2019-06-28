@@ -2479,7 +2479,7 @@ dps:
             partial(self.update_config, self.CONFIG, reload_type='cold'))
         total_tt_prop = pstats_out.total_tt / self.baseline_total_tt # pytype: disable=attribute-error
         # must not be 50x slower, to ingest config for 100 interfaces than 1.
-        self.assertTrue(total_tt_prop < 50, msg=pstats_text)
+        self.assertLessEqual(total_tt_prop, 50, msg=pstats_text)
 
 
 
