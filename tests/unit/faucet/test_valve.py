@@ -483,7 +483,8 @@ class ValveTestBases:
                 # DP requested reconnection
                 if reload_ofmsgs is None:
                     reload_ofmsgs = self.connect_dp()
-                self.apply_ofmsgs(reload_ofmsgs)
+                else:
+                    self.apply_ofmsgs(reload_ofmsgs)
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
             return reload_ofmsgs
 
