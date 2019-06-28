@@ -489,17 +489,14 @@ class ValveTestBases:
             return reload_ofmsgs
 
         def connect_dp(self):
-            """Call DP connect and set all ports to up."""
-            discovered_up_ports = {port_no for port_no in range(1, self.NUM_PORTS + 1)}
+            """Call DP connect and wth all ports up."""
+            discovered_up_ports = set(list(self.valve.dp.ports.keys())[:self.NUM_PORTS])
             connect_msgs = (
                 self.valve.switch_features(None) +
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
             self.apply_ofmsgs(connect_msgs)
             self.valves_manager.update_config_applied(sent={self.DP_ID: True})
             self.assertEqual(1, int(self.get_prom('dp_status')))
-            for port_no in discovered_up_ports:
-                if port_no in self.valve.dp.ports:
-                    self.set_port_up(port_no)
             self.assertTrue(self.valve.dp.to_conf())
             return connect_msgs
 
