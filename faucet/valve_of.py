@@ -862,16 +862,9 @@ def _partition_ofmsgs(input_ofmsgs):
 def dedupe_ofmsgs(input_ofmsgs):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
-    deduped_input_ofmsgs = []
-    input_ofmsgs_hashes = set()
-    for ofmsg in input_ofmsgs:
-        # Can't use dict or json comparison as may be nested
-        ofmsg_str = str(ofmsg)
-        if ofmsg_str in input_ofmsgs_hashes:
-            continue
-        deduped_input_ofmsgs.append(ofmsg)
-        input_ofmsgs_hashes.add(ofmsg_str)
-    return deduped_input_ofmsgs
+    # Can't use dict or json comparison as may be nested
+    deduped_input_ofmsgs = {str(ofmsg): ofmsg for ofmsg in input_ofmsgs}
+    return deduped_input_ofmsgs.values()
 
 
 # kind, random_order, suggest_barrier
