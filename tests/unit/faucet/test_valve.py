@@ -411,6 +411,12 @@ class ValveTestBases:
         def tearDown(self):
             self.teardown_valve()
 
+        def apply_ofmsgs(self, ofmsgs):
+            """Postprocess flows before sending to simulated DP."""
+            final_ofmsgs = self.valve.prepare_send_flows(ofmsgs)
+            self.table.apply_ofmsgs(final_ofmsgs)
+            return final_ofmsgs
+
         @staticmethod
         def profile(func, sortby='cumulative', amount=20, count=1):
             """Convenience method to profile a function call."""
@@ -477,8 +483,7 @@ class ValveTestBases:
                 # DP requested reconnection
                 if reload_ofmsgs is None:
                     reload_ofmsgs = self.connect_dp()
-                else:
-                    self.table.apply_ofmsgs(reload_ofmsgs)
+                self.apply_ofmsgs(reload_ofmsgs)
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
             return reload_ofmsgs
 
@@ -488,7 +493,7 @@ class ValveTestBases:
             connect_msgs = (
                 self.valve.switch_features(None) +
                 self.valve.datapath_connect(time.time(), discovered_up_ports))
-            self.table.apply_ofmsgs(connect_msgs)
+            self.apply_ofmsgs(connect_msgs)
             self.valves_manager.update_config_applied(sent={self.DP_ID: True})
             self.assertEqual(1, int(self.get_prom('dp_status')))
             for port_no in discovered_up_ports:
@@ -515,13 +520,13 @@ class ValveTestBases:
 
         def set_port_down(self, port_no):
             """Set port status of port to down."""
-            self.table.apply_ofmsgs(self.valve.port_status_handler(
+            self.apply_ofmsgs(self.valve.port_status_handler(
                 port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN, []).get(self.valve, []))
             self.port_expected_status(port_no, 0)
 
         def set_port_up(self, port_no):
             """Set port status of port to up."""
-            self.table.apply_ofmsgs(self.valve.port_status_handler(
+            self.apply_ofmsgs(self.valve.port_status_handler(
                 port_no, ofp.OFPPR_ADD, 0, []).get(self.valve, []))
             self.port_expected_status(port_no, 1)
 
@@ -664,7 +669,7 @@ class ValveTestBases:
                 partial(self.valves_manager.valve_packet_in, now, self.valve, msg),
                 'of_packet_ins_total')
             rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
-            self.table.apply_ofmsgs(rcv_packet_ofmsgs)
+            self.apply_ofmsgs(rcv_packet_ofmsgs)
             for valve_service in (
                     'resolve_gateways', 'advertise', 'fast_advertise', 'state_expire'):
                 self.valves_manager.valve_flow_services(
@@ -727,6 +732,7 @@ class ValveTestBases:
                 msg=type(self.valve))
             discovered_up_ports = {port_no for port_no in range(1, self.NUM_PORTS + 1)}
             flows = self.valve.datapath_connect(time.time(), discovered_up_ports)
+            self.apply_ofmsgs(flows)
             tfm_flows = [
                 flow for flow in flows if isinstance(
                     flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
@@ -1196,7 +1202,7 @@ class ValveTestBases:
 
             valve_vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
             ofmsgs = self.valve.port_delete(port_num=1)
-            self.table.apply_ofmsgs(ofmsgs)
+            self.apply_ofmsgs(ofmsgs)
 
             # Check packets are output to each port on vlan
             for port in valve_vlan.get_ports():
@@ -1225,13 +1231,13 @@ class ValveTestBases:
             """Test that when a port is enabled packets are input correctly."""
 
             match = {'in_port': 1, 'vlan_vid': 0}
-            self.table.apply_ofmsgs(
+            self.apply_ofmsgs(
                 self.valve.port_delete(port_num=1))
             self.assertFalse(
                 self.table.is_output(match, port=2, vid=self.V100),
                 msg='Packet output after port delete')
 
-            self.table.apply_ofmsgs(
+            self.apply_ofmsgs(
                 self.valve.port_add(port_num=1))
             self.assertTrue(
                 self.table.is_output(match, port=2, vid=self.V100),
@@ -1383,7 +1389,7 @@ meters:
         def test_port_modify(self):
             """Set port status modify."""
             for port_status in (0, 1):
-                self.table.apply_ofmsgs(self.valve.port_status_handler(
+                self.apply_ofmsgs(self.valve.port_status_handler(
                     1, ofp.OFPPR_MODIFY, port_status, [])[self.valve])
 
         def test_unknown_port_status(self):
