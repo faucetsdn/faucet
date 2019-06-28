@@ -814,11 +814,6 @@ def controller_pps_meterdel(datapath=None):
         meter_id=ofp.OFPM_CONTROLLER)
 
 
-def is_delete(ofmsg):
-    """Is any kind of delete message."""
-    return is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg)
-
-
 def is_global_flowdel(ofmsg):
     """Is a delete of all flows in all tables."""
     return is_flowdel(ofmsg) and ofmsg.table_id == ofp.OFPTT_ALL and not ofmsg.match.items()
@@ -829,25 +824,31 @@ def is_global_groupdel(ofmsg):
     return is_groupdel(ofmsg) and ofmsg.group_id == ofp.OFPTT_ALL
 
 
-def is_global_delete(ofmsg):
-    """Is a delete of all flows or groups."""
-    return is_global_flowdel(ofmsg) or is_global_groupdel(ofmsg)
+# We can tell right away what kind of OF messages these are.
+_MSG_KINDS_TYPES = {
+    parser.OFPPacketOut: 'packetout',
+    parser.OFPTableFeaturesStatsRequest: 'tfm',
+}
 
 
-_MSG_KINDS = (
-    ('packetout', is_packetout),
-    ('deleteglobal', is_global_delete),
-    ('delete', is_delete),
-    ('tfm', is_table_features_req),
-    ('groupadd', is_groupadd),
-    ('meteradd', is_meteradd),
-)
+# We need to examine the OF message more closely to classify it.
+_MSG_KINDS = {
+    parser.OFPFlowMod: (('deleteglobal', is_global_flowdel), ('delete', is_flowdel)),
+    parser.OFPGroupMod: (('deleteglobal', is_global_groupdel), ('delete', is_groupdel), ('groupadd', is_groupadd)),
+    parser.OFPMeterMod: (('delete', is_meterdel), ('meteradd', is_meteradd)),
+}
 
 
 def _msg_kind(ofmsg):
-    for kind, kind_func in _MSG_KINDS:
-        if kind_func(ofmsg):
-            return kind
+    ofmsg_type = type(ofmsg)
+    ofmsg_kind = _MSG_KINDS_TYPES.get(ofmsg_type, None)
+    if ofmsg_kind:
+        return ofmsg_kind
+    kinds = _MSG_KINDS.get(ofmsg_type, None)
+    if kinds:
+        for kind, kind_func in kinds:
+            if kind_func(ofmsg):
+                return kind
     return 'other'
 
 
