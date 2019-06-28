@@ -814,23 +814,41 @@ def controller_pps_meterdel(datapath=None):
         meter_id=ofp.OFPM_CONTROLLER)
 
 
-def is_delete(ofmsg):
-    return is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg)
+def is_global_flowdel(ofmsg):
+    """Is a delete of all flows in all tables."""
+    return is_flowdel(ofmsg) and ofmsg.table_id == ofp.OFPTT_ALL and not ofmsg.match.items()
 
 
-_MSG_KINDS = (
-    ('packetout', is_packetout),
-    ('delete', is_delete),
-    ('tfm', is_table_features_req),
-    ('groupadd', is_groupadd),
-    ('meteradd', is_meteradd),
-)
+def is_global_groupdel(ofmsg):
+    """Is a delete of all groups."""
+    return is_groupdel(ofmsg) and ofmsg.group_id == ofp.OFPTT_ALL
+
+
+# We can tell right away what kind of OF messages these are.
+_MSG_KINDS_TYPES = {
+    parser.OFPPacketOut: 'packetout',
+    parser.OFPTableFeaturesStatsRequest: 'tfm',
+}
+
+
+# We need to examine the OF message more closely to classify it.
+_MSG_KINDS = {
+    parser.OFPFlowMod: (('deleteglobal', is_global_flowdel), ('delete', is_flowdel)),
+    parser.OFPGroupMod: (('deleteglobal', is_global_groupdel), ('delete', is_groupdel), ('groupadd', is_groupadd)),
+    parser.OFPMeterMod: (('delete', is_meterdel), ('meteradd', is_meteradd)),
+}
 
 
 def _msg_kind(ofmsg):
-    for kind, kind_func in _MSG_KINDS:
-        if kind_func(ofmsg):
-            return kind
+    ofmsg_type = type(ofmsg)
+    ofmsg_kind = _MSG_KINDS_TYPES.get(ofmsg_type, None)
+    if ofmsg_kind:
+        return ofmsg_kind
+    kinds = _MSG_KINDS.get(ofmsg_type, None)
+    if kinds:
+        for kind, kind_func in kinds:
+            if kind_func(ofmsg):
+                return kind
     return 'other'
 
 
@@ -845,20 +863,14 @@ def _partition_ofmsgs(input_ofmsgs):
 def dedupe_ofmsgs(input_ofmsgs):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
-    deduped_input_ofmsgs = []
-    input_ofmsgs_hashes = set()
-    for ofmsg in input_ofmsgs:
-        # Can't use dict or json comparison as may be nested
-        ofmsg_str = str(ofmsg)
-        if ofmsg_str in input_ofmsgs_hashes:
-            continue
-        deduped_input_ofmsgs.append(ofmsg)
-        input_ofmsgs_hashes.add(ofmsg_str)
-    return deduped_input_ofmsgs
+    # Can't use dict or json comparison as may be nested
+    deduped_input_ofmsgs = {str(ofmsg): ofmsg for ofmsg in input_ofmsgs}
+    return list(deduped_input_ofmsgs.values())
 
 
 # kind, random_order, suggest_barrier
 _OFMSG_ORDER = (
+    ('deleteglobal', False, True),
     ('delete', False, True),
     ('tfm', False, True),
     ('groupadd', False, True),
@@ -875,9 +887,15 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     # parallel delete will perform better and platforms that
     # don't will have at most only one barrier to deal with.
     output_ofmsgs = []
-    by_kind = _partition_ofmsgs(dedupe_ofmsgs(input_ofmsgs))
+    by_kind = _partition_ofmsgs(input_ofmsgs)
+
+    # Suppress all other deletes if a global delete is present.
+    delete_global_ofmsgs = by_kind.get('deleteglobal', [])
+    if delete_global_ofmsgs:
+        by_kind['delete'] = []
+
     for kind, random_order, suggest_barrier in _OFMSG_ORDER:
-        ofmsgs = by_kind.get(kind, [])
+        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []))
         if ofmsgs:
             if random_order:
                 random.shuffle(ofmsgs)

@@ -28,12 +28,14 @@ class FakeOFTable:
     """Fake OFTable is a virtual openflow pipeline used for testing openflow controllers.
 
     The tables are populated using apply_ofmsgs and can be queried with
-    is_ouput.
+    is_output.
     """
 
-    def __init__(self, num_tables):
+    def __init__(self, num_tables, requires_tfm=True):
         self.tables = [[] for _ in range(0, num_tables)]
         self.groups = {}
+        self.requires_tfm = requires_tfm
+        self.tfm = {}
 
     def _apply_groupmod(self, ofmsg):
         """Maintain group table."""
@@ -66,6 +68,16 @@ class FakeOFTable:
     def _apply_flowmod(self, ofmsg):
         """Adds, Deletes and modify flow modification messages are applied
            according to section 6.4 of the OpenFlow 1.3 specification."""
+
+        def _validate_flowmod_tfm(table_id, ofmsg):
+            if self.requires_tfm:
+                if table_id == ofp.OFPTT_ALL:
+                    if ofmsg.match.items() and not self.tfm:
+                        raise FakeOFTableException('got %s with matches before TFM that defines tables' % ofmsg)
+                else:
+                    tfm_body = self.tfm.get(table_id, None)
+                    if tfm_body is None:
+                        raise FakeOFTableException('got %s before TFM that defines table %u' % (ofmsg, table_id))
 
         def _add(table, flowmod):
             # From the 1.3 spec, section 6.4:
@@ -131,10 +143,16 @@ class FakeOFTable:
             tables = self.tables
         else:
             tables = [self.tables[table_id]]
+
+        _validate_flowmod_tfm(table_id, ofmsg)
         flowmod = FlowMod(ofmsg)
 
         for table in tables:
             _flowmod_handlers[ofmsg.command](table, flowmod)
+
+    def _apply_tfm(self, ofmsg):
+        for body in ofmsg.body:
+            self.tfm[body.table_id] = body
 
     def apply_ofmsgs(self, ofmsgs):
         """Update state of test flow tables."""
@@ -149,11 +167,11 @@ class FakeOFTable:
                 continue
             if isinstance(ofmsg, parser.OFPDescStatsRequest):
                 continue
-            if isinstance(ofmsg, parser.OFPTableFeaturesStatsRequest):
-                # TODO: validate TFM
-                continue
             if isinstance(ofmsg, parser.OFPMeterMod):
                 # TODO: handle OFPMeterMod
+                continue
+            if isinstance(ofmsg, parser.OFPTableFeaturesStatsRequest):
+                self._apply_tfm(ofmsg)
                 continue
             if isinstance(ofmsg, parser.OFPGroupMod):
                 self._apply_groupmod(ofmsg)
