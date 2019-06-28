@@ -2575,6 +2575,7 @@ class ValveTestConfigApplied(ValveTestBases.ValveTestSmall):
 dps:
     s1:
         dp_id: 0x1
+        hardware: 'GenericTFM'
         interfaces:
             p1:
                 number: 1
@@ -2636,6 +2637,7 @@ vlans:
 dps:
     s1:
         dp_id: 0x1
+        hardware: 'GenericTFM'
         stack:
             priority: 1
         interfaces:
