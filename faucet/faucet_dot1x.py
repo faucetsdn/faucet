@@ -324,7 +324,7 @@ class FaucetDot1x:
             flowmods.extend(acl_manager.add_authed_mac(port_num, mac_str))
 
         if vlan_name:
-            flowmods.extend(valve.add_dot1x_native_vlan(port_num, mac_str, vlan_name))
+            flowmods.extend(valve.add_dot1x_native_vlan(port_num, vlan_name))
 
         return flowmods
 
@@ -340,7 +340,7 @@ class FaucetDot1x:
         else:
             flowmods.extend(acl_manager.del_authed_mac(port_num, mac_str))
 
-        flowmods.extend(valve.del_dot1x_native_vlan(port_num, mac_str))
+        flowmods.extend(valve.del_dot1x_native_vlan(port_num))
 
         return flowmods
 

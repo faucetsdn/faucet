@@ -1533,13 +1533,14 @@ class Valve:
 
     def _reset_dot1x_port_flood(self, port, vlans):
         ofmsgs = []
+        ofmsgs.extend(self.host_manager.del_port(port))
         mirror_act = port.mirror_actions()
         ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         for vlan in vlans:
             ofmsgs.extend(self.flood_manager.update_vlan(vlan))
         return ofmsgs
 
-    def add_dot1x_native_vlan(self, port_num, eth_src, vlan_name):
+    def add_dot1x_native_vlan(self, port_num, vlan_name):
         ofmsgs = []
         port = self.dp.ports[port_num]
         vlans = [vlan for vlan in self.dp.vlans.values() if vlan.name == vlan_name]
@@ -1547,30 +1548,23 @@ class Valve:
             vlan = vlans[0]
             port.dyn_dot1x_native_vlan = vlan
             vlan.reset_ports(self.dp.ports.values())
-            ofmsgs.extend(self.host_manager.del_port(port))
             ofmsgs.extend(self._del_native_vlan(port))
             ofmsgs.extend(self._reset_dot1x_port_flood(
                 port, (port.dyn_dot1x_native_vlan, port.native_vlan)))
         return ofmsgs
 
-    def del_dot1x_native_vlan(self, port_num, eth_src):
+    def del_dot1x_native_vlan(self, port_num):
         ofmsgs = []
         port = self.dp.ports[port_num]
         if port.dyn_dot1x_native_vlan is not None:
             dyn_vlan = port.dyn_dot1x_native_vlan
             port.dyn_dot1x_native_vlan = None
             dyn_vlan.reset_ports(self.dp.ports.values())
-
+            # Delete any existing native VLAN rule.
             vlan_table = self.dp.tables['vlan']
-            eth_dst_table = self.dp.tables['eth_dst']
             ofmsgs.append(vlan_table.flowdel(
                 vlan_table.match(in_port=port.number, vlan=NullVLAN()),
-                priority=self.dp.low_priority,
-            ))
-            ofmsgs.append(eth_dst_table.flowdel(out_port=port_num))
-
-            if eth_src:
-                ofmsgs.extend(self.host_manager.delete_host_from_vlan(eth_src, dyn_vlan))
+                priority=self.dp.low_priority))
             ofmsgs.extend(self._reset_dot1x_port_flood(
                 port, (dyn_vlan, port.native_vlan)))
         return ofmsgs
