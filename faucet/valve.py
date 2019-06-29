@@ -781,7 +781,7 @@ class Valve:
         # Only update flooding rules if not cold starting.
         if not cold_start:
             for vlan in vlans_with_ports_added:
-                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+                ofmsgs.extend(self.flood_manager.add_vlan(vlan))
         return ofmsgs
 
     def port_add(self, port_num):
@@ -829,8 +829,7 @@ class Valve:
                 ofmsgs.extend(self._port_delete_flows_state(port))
 
         for vlan in vlans_with_deleted_ports:
-            ofmsgs.extend(self.flood_manager.build_flood_rules(
-                vlan, modify=True))
+            ofmsgs.extend(self.flood_manager.update_vlan(vlan))
 
         return ofmsgs
 
@@ -855,7 +854,7 @@ class Valve:
             # Expire all hosts on this port.
             ofmsgs.extend(self.host_manager.del_port(port))
             for vlan in port.vlans():
-                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+                ofmsgs.extend(self.flood_manager.add_vlan(vlan))
         vlan_table = self.dp.tables['vlan']
         ofmsgs.append(vlan_table.flowdrop(
             match=vlan_table.match(in_port=port.number),
@@ -882,7 +881,7 @@ class Valve:
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 1
         for vlan in port.vlans():
-            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+            ofmsgs.extend(self.flood_manager.add_vlan(vlan))
         self._reset_lacp_status(port)
         return ofmsgs
 
@@ -1527,8 +1526,8 @@ class Valve:
         mirror_act = port.mirror_actions()
         ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         for vlan in vlans:
-            ofmsgs.append(flood_table.flowdel(flood_table.match(vlan=vlan.vid)))
-            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+            ofmsgs.extend(self.flood_manager.del_vlan(vlan))
+            ofmsgs.extend(self.flood_manager.add_vlan(vlan))
         return ofmsgs
 
     def add_dot1x_native_vlan(self, port_num, eth_src, vlan_name):
