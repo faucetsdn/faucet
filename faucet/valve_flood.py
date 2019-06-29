@@ -265,6 +265,12 @@ class ValveFloodManager(ValveManagerBase):
     def add_vlan(self, vlan):
         return self.build_flood_rules(vlan)
 
+    def del_vlan(self, vlan):
+        return [self.flood_table.flowdel(self.flood_table.match(vlan=vlan.vid))]
+
+    def update_vlan(self, vlan):
+        return self.build_flood_rules(vlan, modify=True)
+
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
         command = valve_of.ofp.OFPFC_ADD
