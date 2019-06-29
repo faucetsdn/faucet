@@ -866,7 +866,7 @@ class Valve:
             # Expire all hosts on this port.
             ofmsgs.extend(self.host_manager.del_port(port))
             for vlan in port.vlans():
-                ofmsgs.extend(self.flood_manager.add_vlan(vlan))
+                ofmsgs.extend(self.flood_manager.update_vlan(vlan))
         vlan_table = self.dp.tables['vlan']
         ofmsgs.append(vlan_table.flowdrop(
             match=vlan_table.match(in_port=port.number),
@@ -893,7 +893,7 @@ class Valve:
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 1
         for vlan in port.vlans():
-            ofmsgs.extend(self.flood_manager.add_vlan(vlan))
+            ofmsgs.extend(self.flood_manager.update_vlan(vlan))
         self._reset_lacp_status(port)
         return ofmsgs
 
@@ -1535,8 +1535,7 @@ class Valve:
         mirror_act = port.mirror_actions()
         ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         for vlan in vlans:
-            ofmsgs.extend(self.flood_manager.del_vlan(vlan))
-            ofmsgs.extend(self.flood_manager.add_vlan(vlan))
+            ofmsgs.extend(self.flood_manager.update_vlan(vlan))
         return ofmsgs
 
     def add_dot1x_native_vlan(self, port_num, eth_src, vlan_name):
