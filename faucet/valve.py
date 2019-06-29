@@ -339,6 +339,7 @@ class Valve:
         ofmsgs = []
         for manager in self._get_managers():
             ofmsgs.extend(manager.add_vlan(vlan))
+        vlan.reset_caches()
         return ofmsgs
 
     def _add_vlans(self, vlans):
@@ -393,9 +394,7 @@ class Valve:
         ofmsgs = []
         ofmsgs.extend(self.ports_add(
             all_up_port_nos, cold_start=True, log_msg='configured'))
-        for vlan in self.dp.vlans.values():
-            ofmsgs.extend(self._add_vlan(vlan))
-            vlan.reset_caches()
+        ofmsgs.extend(self._add_vlans(self.dp.vlans.values()))
         return ofmsgs
 
     def ofdescstats_handler(self, body):
@@ -863,10 +862,7 @@ class Valve:
         port.dyn_lacp_updated_time = None
         port.dyn_lacp_last_resp_time = None
         if not cold_start:
-            # Expire all hosts on this port.
-            ofmsgs.extend(self.host_manager.del_port(port))
-            for vlan in port.vlans():
-                ofmsgs.extend(self.flood_manager.update_vlan(vlan))
+            ofmsgs.extend(self._warm_reconfig_port_vlans(port, port.vlans())
         vlan_table = self.dp.tables['vlan']
         ofmsgs.append(vlan_table.flowdrop(
             match=vlan_table.match(in_port=port.number),
@@ -892,8 +888,7 @@ class Valve:
             self.logger.info('LAG %u Port %s up (previous state %s)' % (
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 1
-        for vlan in port.vlans():
-            ofmsgs.extend(self.flood_manager.update_vlan(vlan))
+        self._warm_reconfig_port_vlans(port, port.vlans())
         self._reset_lacp_status(port)
         return ofmsgs
 
@@ -1531,7 +1526,7 @@ class Valve:
         )
         return [ofmsg]
 
-    def _reset_dot1x_port_flood(self, port, vlans):
+    def _warm_reconfig_port_vlans(self, port, vlans):
         ofmsgs = []
         ofmsgs.extend(self.host_manager.del_port(port))
         mirror_act = port.mirror_actions()
@@ -1549,7 +1544,7 @@ class Valve:
             port.dyn_dot1x_native_vlan = vlan
             vlan.reset_ports(self.dp.ports.values())
             ofmsgs.extend(self._del_native_vlan(port))
-            ofmsgs.extend(self._reset_dot1x_port_flood(
+            ofmsgs.extend(self._warm_reconfig_port_vlans(
                 port, (port.dyn_dot1x_native_vlan, port.native_vlan)))
         return ofmsgs
 
@@ -1565,7 +1560,7 @@ class Valve:
             ofmsgs.append(vlan_table.flowdel(
                 vlan_table.match(in_port=port.number, vlan=NullVLAN()),
                 priority=self.dp.low_priority))
-            ofmsgs.extend(self._reset_dot1x_port_flood(
+            ofmsgs.extend(self._warm_reconfig_port_vlans(
                 port, (dyn_vlan, port.native_vlan)))
         return ofmsgs
 
