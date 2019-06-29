@@ -1476,6 +1476,7 @@ class Valve:
         if changed_vids:
             self.logger.info('VLANs changed/added: %s' % changed_vids)
             changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
+            # TODO: handle change versus add separately so can avoid delete first.
             ofmsgs.extend(self._del_vlans(changed_vlans))
             ofmsgs.extend(self._add_vlans(changed_vlans))
         if changed_ports:
