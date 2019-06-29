@@ -1531,7 +1531,6 @@ class Valve:
         return [ofmsg]
 
     def _reset_dot1x_port_flood(self, port, vlans):
-        flood_table = self.dp.tables['flood']
         ofmsgs = []
         mirror_act = port.mirror_actions()
         ofmsgs.extend(self._port_add_vlans(port, mirror_act))
