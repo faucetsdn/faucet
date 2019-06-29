@@ -335,10 +335,16 @@ class Valve:
 
     def _add_vlan(self, vlan):
         """Configure a VLAN."""
-        ofmsgs = []
         self.logger.info('Configuring %s' % vlan)
+        ofmsgs = []
         for manager in self._get_managers():
             ofmsgs.extend(manager.add_vlan(vlan))
+        return ofmsgs
+
+    def _add_vlans(self, vlans):
+        ofmsgs = []
+        for vlan in vlans:
+            ofmsgs.extend(self._add_vlan(vlan))
         return ofmsgs
 
     def _del_vlan(self, vlan):
@@ -346,6 +352,12 @@ class Valve:
         self.logger.info('Delete VLAN %s' % vlan)
         table = valve_table.wildcard_table
         return [table.flowdel(match=table.match(vlan=vlan))]
+
+    def _del_vlans(self, vlans):
+        ofmsgs = []
+        for vlan in vlans:
+            ofmsgs.extend(self._del_vlan(vlan))
+        return ofmsgs
 
     def _get_all_configured_port_nos(self):
         ports = set()
@@ -1421,8 +1433,8 @@ class Valve:
                 deleted_ports (list): deleted port numbers.
                 changed_ports (list): changed/added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
-                deleted_vlans (list): deleted VLAN IDs.
-                changed_vlans (list): changed/added VLAN IDs.
+                deleted_vids (list): deleted VLAN IDs.
+                changed_vids (list): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
         Returns:
             tuple:
@@ -1430,7 +1442,7 @@ class Valve:
                 ofmsgs (list): OpenFlow messages.
         """
         (deleted_ports, changed_ports, changed_acl_ports,
-         deleted_vlans, changed_vlans, all_ports_changed) = changes
+         deleted_vids, changed_vids, all_ports_changed) = changes
 
         if self._pipeline_change():
             self.logger.info('pipeline change')
@@ -1451,23 +1463,21 @@ class Valve:
         if deleted_ports:
             self.logger.info('ports deleted: %s' % deleted_ports)
             ofmsgs.extend(self.ports_delete(deleted_ports))
-        if deleted_vlans:
-            self.logger.info('VLANs deleted: %s' % deleted_vlans)
-            for vid in deleted_vlans:
-                vlan = self.dp.vlans[vid]
-                ofmsgs.extend(self._del_vlan(vlan))
+        if deleted_vids:
+            self.logger.info('VLANs deleted: %s' % deleted_vids)
+            deleted_vlans = [self.dp.vlans[vid] for vid in deleted_vids]
+            ofmsgs.extend(self._del_vlans(deleted_vlans))
         if changed_ports:
             self.logger.info('ports changed/added: %s' % changed_ports)
             ofmsgs.extend(self.ports_delete(changed_ports))
 
         self.dp_init(new_dp)
 
-        if changed_vlans:
-            self.logger.info('VLANs changed/added: %s' % changed_vlans)
-            for vid in changed_vlans:
-                vlan = self.dp.vlans[vid]
-                ofmsgs.extend(self._del_vlan(vlan))
-                ofmsgs.extend(self._add_vlan(vlan))
+        if changed_vids:
+            self.logger.info('VLANs changed/added: %s' % changed_vids)
+            changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
+            ofmsgs.extend(self._del_vlans(changed_vlans))
+            ofmsgs.extend(self._add_vlans(changed_vlans))
         if changed_ports:
             ofmsgs.extend(self.ports_add(all_up_port_nos))
         if self.acl_manager and changed_acl_ports:
