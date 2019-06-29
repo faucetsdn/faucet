@@ -862,7 +862,9 @@ class Valve:
         port.dyn_lacp_updated_time = None
         port.dyn_lacp_last_resp_time = None
         if not cold_start:
-            ofmsgs.extend(self._warm_reconfig_port_vlans(port, port.vlans()))
+            ofmsgs.extend(self.host_manager.del_port(port))
+            for vlan in port.vlans():
+                ofmsgs.extend(self.flood_manager.update_vlan(vlan))
         vlan_table = self.dp.tables['vlan']
         ofmsgs.append(vlan_table.flowdrop(
             match=vlan_table.match(in_port=port.number),
@@ -888,7 +890,8 @@ class Valve:
             self.logger.info('LAG %u Port %s up (previous state %s)' % (
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 1
-        self._warm_reconfig_port_vlans(port, port.vlans())
+        for vlan in port.vlans():
+            ofmsgs.extend(self.flood_manager.update_vlan(vlan))
         self._reset_lacp_status(port)
         return ofmsgs
 
