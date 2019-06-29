@@ -518,7 +518,7 @@ class Valve:
         ofmsgs = []
         for port in self.dp.lacp_active_ports:
             if port.running():
-                ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port, now))
+                ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
 
         ports = self.dp.lldp_beacon_send_ports(now)
         ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
@@ -756,7 +756,7 @@ class Valve:
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port, cold_start=cold_start))
                 if port.lacp_active:
-                    ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port, None))
+                    ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
 
             if self.dp.dot1x:
                 nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
@@ -862,7 +862,7 @@ class Valve:
         port.dyn_lacp_updated_time = None
         port.dyn_lacp_last_resp_time = None
         if not cold_start:
-            ofmsgs.extend(self._warm_reconfig_port_vlans(port, port.vlans())
+            ofmsgs.extend(self._warm_reconfig_port_vlans(port, port.vlans()))
         vlan_table = self.dp.tables['vlan']
         ofmsgs.append(vlan_table.flowdrop(
             match=vlan_table.match(in_port=port.number),
@@ -892,7 +892,7 @@ class Valve:
         self._reset_lacp_status(port)
         return ofmsgs
 
-    def _lacp_actions(self, lacp_pkt, port, now):
+    def _lacp_actions(self, lacp_pkt, port):
         if port.lacp_passthrough:
             for peer_num in port.lacp_passthrough:
                 lacp_peer = self.dp.ports.get(peer_num, None)
@@ -966,7 +966,7 @@ class Valve:
                     else:
                         ofmsgs_by_valve[self].extend(self.lacp_down(pkt_meta.port))
                 if lacp_pkt_change or (age is not None and age > self.dp.ports[pkt_meta.port.number].lacp_resp_interval):
-                    ofmsgs_by_valve[self].extend(self._lacp_actions(lacp_pkt, pkt_meta.port, now))
+                    ofmsgs_by_valve[self].extend(self._lacp_actions(lacp_pkt, pkt_meta.port))
                     pkt_meta.port.dyn_lacp_last_resp_time = now
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
                 pkt_meta.port.dyn_lacp_updated_time = now
@@ -1038,13 +1038,15 @@ class Valve:
         if port.dyn_lldp_beacon_recv_state != remote_port_state:
             chassis_id = str(self.dp.faucet_dp_mac)
             if remote_port_state:
-                self.logger.info('LLDP on %s, %s from %s (remote %s, port %u) state %s' % (chassis_id, port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id), remote_port_id, remote_port_state))
+                self.logger.info('LLDP on %s, %s from %s (remote %s, port %u) state %s' % (
+                    chassis_id, port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id),
+                    remote_port_id, remote_port_state))
             port.dyn_lldp_beacon_recv_state = remote_port_state
 
         peer_mac_src = self.dp.ports[port.number].lldp_peer_mac
         if peer_mac_src and peer_mac_src != pkt_meta.eth_src:
-            self.logger.warning('Unexpected LLDP peer. Received pkt from %s instead of %s' % (pkt_meta.eth_src, peer_mac_src))
-        
+            self.logger.warning('Unexpected LLDP peer. Received pkt from %s instead of %s' % (
+                pkt_meta.eth_src, peer_mac_src))
         ofmsgs_by_valve = {}
         if remote_dp_id and remote_port_id:
             self.logger.debug('FAUCET LLDP on %s from %s (remote %s, port %u)' % (
