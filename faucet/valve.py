@@ -1547,14 +1547,7 @@ class Valve:
             vlan = vlans[0]
             port.dyn_dot1x_native_vlan = vlan
             vlan.reset_ports(self.dp.ports.values())
-
-            eth_src_table = self.dp.tables['eth_src']
-            eth_dst_table = self.dp.tables['eth_dst']
-            ofmsgs.append(
-                eth_src_table.flowdel(eth_src_table.match(in_port=port_num, eth_src=eth_src)))
-            ofmsgs.append(
-                eth_dst_table.flowdel(eth_dst_table.match(eth_dst=eth_src), out_port=port_num))
-
+            ofmsgs.extend(self.host_manager.del_port(port))
             ofmsgs.extend(self._del_native_vlan(port))
             ofmsgs.extend(self._reset_dot1x_port_flood(
                 port, (port.dyn_dot1x_native_vlan, port.native_vlan)))
