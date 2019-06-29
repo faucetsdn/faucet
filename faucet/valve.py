@@ -864,7 +864,7 @@ class Valve:
         if not cold_start:
             ofmsgs.extend(self.host_manager.del_port(port))
             for vlan in port.vlans():
-                ofmsgs.extend(self.flood_manager.update_vlan(vlan))
+                ofmsgs.extend(self.flood_manager.add_vlan(vlan))
         vlan_table = self.dp.tables['vlan']
         ofmsgs.append(vlan_table.flowdrop(
             match=vlan_table.match(in_port=port.number),
@@ -891,7 +891,7 @@ class Valve:
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 1
         for vlan in port.vlans():
-            ofmsgs.extend(self.flood_manager.update_vlan(vlan))
+            ofmsgs.extend(self.flood_manager.add_vlan(vlan))
         self._reset_lacp_status(port)
         return ofmsgs
 
