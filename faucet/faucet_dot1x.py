@@ -85,10 +85,10 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
         valve, port = self.mac_to_port[port_id]
         return (valve, port)
 
-    def _get_acls(self, dp):
+    def _get_acls(self, datapath):
         """Returns tuple of acl values"""
-        auth_acl = dp.acls.get(self._auth_acl_name)
-        noauth_acl = dp.acls.get(self._noauth_acl_name)
+        auth_acl = datapath.acls.get(self._auth_acl_name)
+        noauth_acl = datapath.acls.get(self._noauth_acl_name)
         return (auth_acl, noauth_acl)
 
     # Loggin Methods
@@ -118,8 +118,8 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
 
         self.log_auth_event(valve, port_num, address_str, 'success')
         flowmods = self._get_login_flowmod(dot1x_port, valve, address_str,
-                                           kwargs.get('vlan_name', None))
-
+                                           kwargs.get('vlan_name', None),
+                                           kwargs.get('filter_id', None))
         if flowmods:
             self._send_flow_msgs(valve, flowmods)
 
@@ -331,23 +331,34 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
             self._add_unauthenticated_flowmod(dot1x_port, valve))
         return flowmods
 
-    def _get_login_flowmod(self, dot1x_port, valve, mac_str, vlan_name):
+    def _get_login_flowmod(self, dot1x_port, valve,  # pylint: disable=too-many-arguments
+                           mac_str, vlan_name, acl_name):
         """Return flowmods required to login port"""
         flowmods = []
         flowmods.extend(
             self._del_unauthenticated_flowmod(dot1x_port, valve))
         flowmods.extend(
-            self._add_authenticated_flowmod(dot1x_port, valve, mac_str, vlan_name))
+            self._add_authenticated_flowmod(dot1x_port, valve, mac_str, vlan_name, acl_name))
         return flowmods
 
-    def _add_authenticated_flowmod(self, dot1x_port, valve, mac_str, vlan_name):
+    def _add_authenticated_flowmod(self, dot1x_port, valve,  # pylint: disable=too-many-arguments
+                                   mac_str, vlan_name, acl_name):
         """Return flowmods for successful authentication on port"""
         port_num = dot1x_port.number
         flowmods = []
         acl_manager = valve.acl_manager
 
-        if dot1x_port.dot1x_acl:
+        acl = valve.dp.acls.get(acl_name, None)
+        if dot1x_port.dot1x_dyn_acl and acl:
+            self.logger.info("DOT1X_DYN_ACL: Adding ACL '{0}' for port '{1}'".format(
+                acl_name, port_num))
+            self.logger.debug("DOT1X_DYN_ACL: ACL contents: '{0}'".format(str(acl.__dict__)))
+            flowmods.extend(acl_manager.add_port_acl(acl, port_num, mac_str))
+        elif dot1x_port.dot1x_acl:
             auth_acl, _ = self._get_acls(valve.dp)
+            self.logger.info("DOT1X_PRE_ACL: Adding ACL '{0}' for port '{1}'".format(
+                acl_name, port_num))
+            self.logger.debug("DOT1X_PRE_ACL: ACL contents: '{0}'".format(str(auth_acl.__dict__)))
             flowmods.extend(acl_manager.add_port_acl(auth_acl, port_num, mac_str))
         else:
             flowmods.extend(acl_manager.add_authed_mac(port_num, mac_str))
@@ -365,6 +376,8 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
         if dot1x_port.dot1x_acl:
             auth_acl, _ = self._get_acls(valve.dp)
             flowmods.extend(acl_manager.del_port_acl(auth_acl, port_num, mac_str))
+        elif dot1x_port.dot1x_dyn_acl:
+            flowmods.extend(acl_manager.del_authed_mac(port_num, mac_str, strict=False))
         else:
             flowmods.extend(acl_manager.del_authed_mac(port_num, mac_str))
 
