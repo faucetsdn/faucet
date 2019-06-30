@@ -102,17 +102,15 @@ class ValveHostManager(ValveManagerBase):
 
     def del_port(self, port):
         ofmsgs = []
-        if port.permanent_learn:
-            for entry in port.hosts():
-                ofmsgs.extend(self.pipeline.remove_filter(
-                    {'eth_src': entry.eth_src}))
+        ofmsgs.append(
+            self.eth_src_table.flowdel(self.eth_src_table.match(in_port=port.number)))
+        for table in (self.eth_dst_table, self.eth_dst_hairpin_table):
+            if table:
+                # per OF 1.3.5 B.6.23, the OFA will match flows
+                # that have an action targeting this port.
+                ofmsgs.append(table.flowdel(out_port=port.number))
         for vlan in port.vlans():
             vlan.clear_cache_hosts_on_port(port)
-            for table in (self.eth_dst_table, self.eth_dst_hairpin_table):
-                if table:
-                    # per OF 1.3.5 B.6.23, the OFA will match flows
-                    # that have an action targeting this port.
-                    ofmsgs.append(table.flowdel(table.match(vlan=vlan), out_port=port.number))
         return ofmsgs
 
     def initialise_tables(self):

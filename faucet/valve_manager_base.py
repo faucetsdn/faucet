@@ -17,11 +17,15 @@ class ValveManagerBase: # pylint: disable=too-few-public-methods
     _FILTER_PRIORITY = 0x5000
 
     def initialise_tables(self):
-        '''initialise tables controlled by this manager'''
+        """initialise tables controlled by this manager."""
         return []
 
     def add_vlan(self, vlan):
-        """install flows in response to a new vlan"""
+        """install flows in response to a new VLAN"""
+        return []
+
+    def update_vlan(self, vlan):
+        """flows in response to updating an existing VLAN."""
         return []
 
     def add_port(self, port):
@@ -29,7 +33,7 @@ class ValveManagerBase: # pylint: disable=too-few-public-methods
         return []
 
     def del_vlan(self, vlan):
-        """delete flows in response to a vlan removal"""
+        """delete flows in response to a VLAN removal"""
         return []
 
     def del_port(self, port):

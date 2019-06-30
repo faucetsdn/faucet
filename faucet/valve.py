@@ -335,10 +335,17 @@ class Valve:
 
     def _add_vlan(self, vlan):
         """Configure a VLAN."""
-        ofmsgs = []
         self.logger.info('Configuring %s' % vlan)
+        ofmsgs = []
         for manager in self._get_managers():
             ofmsgs.extend(manager.add_vlan(vlan))
+        vlan.reset_caches()
+        return ofmsgs
+
+    def _add_vlans(self, vlans):
+        ofmsgs = []
+        for vlan in vlans:
+            ofmsgs.extend(self._add_vlan(vlan))
         return ofmsgs
 
     def _del_vlan(self, vlan):
@@ -346,6 +353,12 @@ class Valve:
         self.logger.info('Delete VLAN %s' % vlan)
         table = valve_table.wildcard_table
         return [table.flowdel(match=table.match(vlan=vlan))]
+
+    def _del_vlans(self, vlans):
+        ofmsgs = []
+        for vlan in vlans:
+            ofmsgs.extend(self._del_vlan(vlan))
+        return ofmsgs
 
     def _get_all_configured_port_nos(self):
         ports = set()
@@ -381,9 +394,7 @@ class Valve:
         ofmsgs = []
         ofmsgs.extend(self.ports_add(
             all_up_port_nos, cold_start=True, log_msg='configured'))
-        for vlan in self.dp.vlans.values():
-            ofmsgs.extend(self._add_vlan(vlan))
-            vlan.reset_caches()
+        ofmsgs.extend(self._add_vlans(self.dp.vlans.values()))
         return ofmsgs
 
     def ofdescstats_handler(self, body):
@@ -507,7 +518,7 @@ class Valve:
         ofmsgs = []
         for port in self.dp.lacp_active_ports:
             if port.running():
-                ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port, now))
+                ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
 
         ports = self.dp.lldp_beacon_send_ports(now)
         ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
@@ -745,7 +756,7 @@ class Valve:
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port, cold_start=cold_start))
                 if port.lacp_active:
-                    ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port, None))
+                    ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
 
             if self.dp.dot1x:
                 nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
@@ -781,7 +792,7 @@ class Valve:
         # Only update flooding rules if not cold starting.
         if not cold_start:
             for vlan in vlans_with_ports_added:
-                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+                ofmsgs.extend(self.flood_manager.add_vlan(vlan))
         return ofmsgs
 
     def port_add(self, port_num):
@@ -829,8 +840,7 @@ class Valve:
                 ofmsgs.extend(self._port_delete_flows_state(port))
 
         for vlan in vlans_with_deleted_ports:
-            ofmsgs.extend(self.flood_manager.build_flood_rules(
-                vlan, modify=True))
+            ofmsgs.extend(self.flood_manager.update_vlan(vlan))
 
         return ofmsgs
 
@@ -852,10 +862,9 @@ class Valve:
         port.dyn_lacp_updated_time = None
         port.dyn_lacp_last_resp_time = None
         if not cold_start:
-            # Expire all hosts on this port.
             ofmsgs.extend(self.host_manager.del_port(port))
             for vlan in port.vlans():
-                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+                ofmsgs.extend(self.flood_manager.add_vlan(vlan))
         vlan_table = self.dp.tables['vlan']
         ofmsgs.append(vlan_table.flowdrop(
             match=vlan_table.match(in_port=port.number),
@@ -882,11 +891,11 @@ class Valve:
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 1
         for vlan in port.vlans():
-            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+            ofmsgs.extend(self.flood_manager.add_vlan(vlan))
         self._reset_lacp_status(port)
         return ofmsgs
 
-    def _lacp_actions(self, lacp_pkt, port, now):
+    def _lacp_actions(self, lacp_pkt, port):
         if port.lacp_passthrough:
             for peer_num in port.lacp_passthrough:
                 lacp_peer = self.dp.ports.get(peer_num, None)
@@ -960,7 +969,7 @@ class Valve:
                     else:
                         ofmsgs_by_valve[self].extend(self.lacp_down(pkt_meta.port))
                 if lacp_pkt_change or (age is not None and age > self.dp.ports[pkt_meta.port.number].lacp_resp_interval):
-                    ofmsgs_by_valve[self].extend(self._lacp_actions(lacp_pkt, pkt_meta.port, now))
+                    ofmsgs_by_valve[self].extend(self._lacp_actions(lacp_pkt, pkt_meta.port))
                     pkt_meta.port.dyn_lacp_last_resp_time = now
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
                 pkt_meta.port.dyn_lacp_updated_time = now
@@ -1032,13 +1041,15 @@ class Valve:
         if port.dyn_lldp_beacon_recv_state != remote_port_state:
             chassis_id = str(self.dp.faucet_dp_mac)
             if remote_port_state:
-                self.logger.info('LLDP on %s, %s from %s (remote %s, port %u) state %s' % (chassis_id, port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id), remote_port_id, remote_port_state))
+                self.logger.info('LLDP on %s, %s from %s (remote %s, port %u) state %s' % (
+                    chassis_id, port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id),
+                    remote_port_id, remote_port_state))
             port.dyn_lldp_beacon_recv_state = remote_port_state
 
         peer_mac_src = self.dp.ports[port.number].lldp_peer_mac
         if peer_mac_src and peer_mac_src != pkt_meta.eth_src:
-            self.logger.warning('Unexpected LLDP peer. Received pkt from %s instead of %s' % (pkt_meta.eth_src, peer_mac_src))
-        
+            self.logger.warning('Unexpected LLDP peer. Received pkt from %s instead of %s' % (
+                pkt_meta.eth_src, peer_mac_src))
         ofmsgs_by_valve = {}
         if remote_dp_id and remote_port_id:
             self.logger.debug('FAUCET LLDP on %s from %s (remote %s, port %u)' % (
@@ -1422,8 +1433,8 @@ class Valve:
                 deleted_ports (list): deleted port numbers.
                 changed_ports (list): changed/added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
-                deleted_vlans (list): deleted VLAN IDs.
-                changed_vlans (list): changed/added VLAN IDs.
+                deleted_vids (list): deleted VLAN IDs.
+                changed_vids (list): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
         Returns:
             tuple:
@@ -1431,7 +1442,7 @@ class Valve:
                 ofmsgs (list): OpenFlow messages.
         """
         (deleted_ports, changed_ports, changed_acl_ports,
-         deleted_vlans, changed_vlans, all_ports_changed) = changes
+         deleted_vids, changed_vids, all_ports_changed) = changes
 
         if self._pipeline_change():
             self.logger.info('pipeline change')
@@ -1452,23 +1463,22 @@ class Valve:
         if deleted_ports:
             self.logger.info('ports deleted: %s' % deleted_ports)
             ofmsgs.extend(self.ports_delete(deleted_ports))
-        if deleted_vlans:
-            self.logger.info('VLANs deleted: %s' % deleted_vlans)
-            for vid in deleted_vlans:
-                vlan = self.dp.vlans[vid]
-                ofmsgs.extend(self._del_vlan(vlan))
+        if deleted_vids:
+            self.logger.info('VLANs deleted: %s' % deleted_vids)
+            deleted_vlans = [self.dp.vlans[vid] for vid in deleted_vids]
+            ofmsgs.extend(self._del_vlans(deleted_vlans))
         if changed_ports:
             self.logger.info('ports changed/added: %s' % changed_ports)
             ofmsgs.extend(self.ports_delete(changed_ports))
 
         self.dp_init(new_dp)
 
-        if changed_vlans:
-            self.logger.info('VLANs changed/added: %s' % changed_vlans)
-            for vid in changed_vlans:
-                vlan = self.dp.vlans[vid]
-                ofmsgs.extend(self._del_vlan(vlan))
-                ofmsgs.extend(self._add_vlan(vlan))
+        if changed_vids:
+            self.logger.info('VLANs changed/added: %s' % changed_vids)
+            changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
+            # TODO: handle change versus add separately so can avoid delete first.
+            ofmsgs.extend(self._del_vlans(changed_vlans))
+            ofmsgs.extend(self._add_vlans(changed_vlans))
         if changed_ports:
             ofmsgs.extend(self.ports_add(all_up_port_nos))
         if self.acl_manager and changed_acl_ports:
@@ -1521,59 +1531,42 @@ class Valve:
         )
         return [ofmsg]
 
-    def _reset_dot1x_port_flood(self, port, vlans):
-        flood_table = self.dp.tables['flood']
+    def _warm_reconfig_port_vlans(self, port, vlans):
         ofmsgs = []
+        ofmsgs.extend(self.host_manager.del_port(port))
         mirror_act = port.mirror_actions()
         ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         for vlan in vlans:
-            ofmsgs.append(flood_table.flowdel(flood_table.match(vlan=vlan.vid)))
-            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+            ofmsgs.extend(self.flood_manager.update_vlan(vlan))
         return ofmsgs
 
-    def add_dot1x_native_vlan(self, port_num, eth_src, vlan_name):
-        port = self.dp.ports[port_num]
+    def add_dot1x_native_vlan(self, port_num, vlan_name):
         ofmsgs = []
-        for vlan in self.dp.vlans.values():
-            if vlan.name == vlan_name:
-                port.dyn_dot1x_native_vlan = vlan
-                vlan.reset_ports(self.dp.ports.values())
-                break
-
-        eth_src_table = self.dp.tables['eth_src']
-        eth_dst_table = self.dp.tables['eth_dst']
-        ofmsgs.append(
-            eth_src_table.flowdel(eth_src_table.match(in_port=port_num, eth_src=eth_src)))
-        ofmsgs.append(
-            eth_dst_table.flowdel(eth_dst_table.match(eth_dst=eth_src), out_port=port_num))
-
-        ofmsgs.extend(self._del_native_vlan(port))
-        ofmsgs.extend(self._reset_dot1x_port_flood(
-            port, (port.dyn_dot1x_native_vlan, port.native_vlan)))
+        port = self.dp.ports[port_num]
+        vlans = [vlan for vlan in self.dp.vlans.values() if vlan.name == vlan_name]
+        if vlans:
+            vlan = vlans[0]
+            port.dyn_dot1x_native_vlan = vlan
+            vlan.reset_ports(self.dp.ports.values())
+            ofmsgs.extend(self._del_native_vlan(port))
+            ofmsgs.extend(self._warm_reconfig_port_vlans(
+                port, (port.dyn_dot1x_native_vlan, port.native_vlan)))
         return ofmsgs
 
-    def del_dot1x_native_vlan(self, port_num, eth_src):
-        port = self.dp.ports[port_num]
-        if port.dyn_dot1x_native_vlan is None:
-            return []
-
-        dyn_vlan = port.dyn_dot1x_native_vlan
-        port.dyn_dot1x_native_vlan = None
-
+    def del_dot1x_native_vlan(self, port_num):
         ofmsgs = []
-        vlan_table = self.dp.tables['vlan']
-        eth_dst_table = self.dp.tables['eth_dst']
-        ofmsgs.append(vlan_table.flowdel(
-            vlan_table.match(in_port=port.number, vlan=NullVLAN()),
-            priority=self.dp.low_priority,
-        ))
-        dyn_vlan.reset_ports(self.dp.ports.values())
-        if eth_src:
-            ofmsgs.extend(self.host_manager.delete_host_from_vlan(eth_src, dyn_vlan))
-        ofmsgs.append(eth_dst_table.flowdel(out_port=port_num))
-
-        ofmsgs.extend(self._reset_dot1x_port_flood(
-            port, (dyn_vlan, port.native_vlan)))
+        port = self.dp.ports[port_num]
+        if port.dyn_dot1x_native_vlan is not None:
+            dyn_vlan = port.dyn_dot1x_native_vlan
+            port.dyn_dot1x_native_vlan = None
+            dyn_vlan.reset_ports(self.dp.ports.values())
+            # Delete any existing native VLAN rule.
+            vlan_table = self.dp.tables['vlan']
+            ofmsgs.append(vlan_table.flowdel(
+                vlan_table.match(in_port=port.number, vlan=NullVLAN()),
+                priority=self.dp.low_priority))
+            ofmsgs.extend(self._warm_reconfig_port_vlans(
+                port, (dyn_vlan, port.native_vlan)))
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
