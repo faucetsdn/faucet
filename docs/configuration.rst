@@ -391,12 +391,16 @@ with the configuration block 'dot1x':
       - Shared secret used by the RADIUS server and the 802.1X speaker. - NOTE: Faucet will only use the config from the first dp
     * - noauth_acl
       - str
-      -
+      - None
       - The name of the defined ACL [refer to acls.yaml for more information] that will be set to all 802.1X ports by default, that is before any user is authenticated. - NOTE: Faucet will only use the config from the first dp
     * - auth_acl
       - str
-      -
+      - None
       - The name of the defined ACL [refer to acls.yaml for more information] that will be set to an 802.1X port when a user authenticates. - NOTE: Faucet will only use the config from the first dp
+    * - dot1x_assigned
+      - boolean
+      - False
+      - True, if this ACL can be dynamically assigned by a RADIUS server during 802.1X authentication.
 
 
 
@@ -446,6 +450,10 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - False
       - Enable 802.1X ACL functionality on port (NOTE: Requires dot1x attribute)
+    * - enabled
+      - boolean
+      - True
+      - Enable 802.1X Per User ACLs on port (NOTE: Requires dot1x attribute and ACL with dot1x_assigned)
     * - enabled
       - boolean
       - True

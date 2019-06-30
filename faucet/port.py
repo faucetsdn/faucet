@@ -85,6 +85,8 @@ class Port(Conf):
         # If true, block this port until a successful 802.1x auth
         'dot1x_acl': False,
         # If true, expects authentication and default ACLs for 802.1x auth
+        'dot1x_dyn_acl': False,
+        # If true, expects authentication and ACLs with dot1x_assigned flag set
     }
 
     defaults_types = {
@@ -117,6 +119,7 @@ class Port(Conf):
         'override_output_port': (str, int),
         'dot1x': bool,
         'dot1x_acl': bool,
+        'dot1x_dyn_acl': bool,
         'max_lldp_lost': int,
     }
 
@@ -144,6 +147,7 @@ class Port(Conf):
         self.description = None
         self.dot1x = None
         self.dot1x_acl = None
+        self.dot1x_dyn_acl = None
         self.dp_id = None
         self.enabled = None
         self.hairpin = None
@@ -232,6 +236,13 @@ class Port(Conf):
         if self.dot1x_acl:
             test_config_condition(not self.dot1x, (
                 '802.1x_ACL requires dot1x to be enabled also'))
+            test_config_condition(self.dot1x_dyn_acl, (
+                '802.1x_ACL cannot be used with 802.1x_DYN_ACL'))
+        if self.dot1x_dyn_acl:
+            test_config_condition(not self.dot1x, (
+                '802.1x_DYN_ACL requires dot1x to be enabled also'))
+            test_config_condition(self.dot1x_acl, (
+                '802.1x_DYN_ACL cannot be used with 802.1x_ACL'))
         if self.mirror:
             test_config_condition(self.tagged_vlans or self.native_vlan, (
                 'mirror port %s cannot have any VLANs assigned' % self))

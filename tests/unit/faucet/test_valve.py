@@ -1615,6 +1615,58 @@ vlans:
         self.setup_valve(self.CONFIG)
 
 
+class ValveDot1xDynACLSmokeTestCase(ValveDot1xSmokeTestCase):
+    """Smoke test to check dot1x can be initialized."""
+    CONFIG = """
+acls:
+    accept_acl:
+        dot1x_assigned: True
+        rules:
+        - rule:
+            dl_type: 0x800      # Allow ICMP / IPv4
+            ip_proto: 1
+            actions:
+                allow: True
+        - rule:
+            dl_type: 0x0806     # ARP Packets
+            actions:
+                allow: True
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                dot1x: true
+                dot1x_dyn_acl: True
+
+            p2:
+                number: 2
+                output_only: True
+vlans:
+    v100:
+        vid: 0x100
+""" % DOT1X_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_handlers(self):
+        valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]
+        port_no = 1
+        vlan_name = None
+        filter_id = 'accept_acl'
+        for handler in (
+                self.dot1x.logoff_handler,
+                self.dot1x.failure_handler):
+            handler(
+                '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
+        self.dot1x.auth_handler(
+            '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no),
+            vlan_name=vlan_name, filter_id=filter_id)
+
+
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
     """Test changes to config on ports."""
 
