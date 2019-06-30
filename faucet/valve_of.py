@@ -821,7 +821,7 @@ def is_global_flowdel(ofmsg):
 
 def is_global_groupdel(ofmsg):
     """Is a delete of all groups."""
-    return is_groupdel(ofmsg) and ofmsg.group_id == ofp.OFPTT_ALL
+    return is_groupdel(ofmsg) and ofmsg.group_id == ofp.OFPG_ALL
 
 
 # We can tell right away what kind of OF messages these are.
