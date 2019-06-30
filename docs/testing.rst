@@ -264,3 +264,14 @@ the test suite will keep these files.
 .. code:: console
 
       -e FAUCET_TESTS="-k"
+
+
+Repeatedly running tests until failure
+--------------------------------------
+
+You can run tests until a failure is detected (eg, to diagnose an unreliable test).
+Tests will continue to run forever until at least one fails or the test is interrupted.
+
+.. code:: console
+
+      -e FAUCET_TESTS="-r"
