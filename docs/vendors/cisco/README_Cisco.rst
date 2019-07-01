@@ -74,7 +74,7 @@ Configure Openflow
 	Switch-C9300(config-if)#end
 	Switch-C9300#
 
-** Configure the Openflow feature and controller connectivity **
+** Configure the Openflow feature and controller connectivity. **
 
 .. code-block::  console
 
@@ -88,6 +88,19 @@ Configure Openflow
 	Switch-C9300(config-openflow-switch)#datapath-id 0xABCDEF1234
 	Switch-C9300(config-openflow-switch)#end
 	Switch-C9300#
+
+** Disable DTP/keepalive on OpenFlow ports which may interfere with FAUCET. **
+
+        The following example will disable DTP and keepalives for TenGigabitEthernet1/0/1-24; adjust the range as necessary.
+
+.. code-block::  console
+
+        Switch-C9300(config)#interface range TenGigabitEthernet1/0/1-24
+        Switch-C9300(config-if-range)#switchport mode trunk
+        Switch-C9300(config-if-range)#switchport nonegotiate
+        Switch-C9300(config-if-range)#spanning-tree bpdufilter enable
+        Switch-C9300(config-if-range)#no keepalive
+        Switch-C9300(config-if-range)#exit
 
 Faucet
 ^^^^^^
