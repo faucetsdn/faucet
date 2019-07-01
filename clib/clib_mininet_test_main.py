@@ -636,16 +636,16 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
                 print('repeating run')
         else:
             report_results([sanity_result], hw_config, report_json_filename)
+
+        decoded_pcap_logs = glob.glob(os.path.join(
+            os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
+        pipeline_superset_report(decoded_pcap_logs)
+        clean_test_dirs(
+            root_tmpdir, all_successful,
+            sanity_result.wasSuccessful(), keep_logs, dumpfail)
     else:
         print('no tests selected')
 
-    os.remove(ports_sock)
-    decoded_pcap_logs = glob.glob(os.path.join(
-        os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
-    pipeline_superset_report(decoded_pcap_logs)
-    clean_test_dirs(
-        root_tmpdir, all_successful,
-        sanity_result.wasSuccessful(), keep_logs, dumpfail)
     if not all_successful:
         sys.exit(-1)
 
