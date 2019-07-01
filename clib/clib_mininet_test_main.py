@@ -622,16 +622,17 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
         hw_config, root_tmpdir, ports_sock, serial, port_order)
     sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
     if sanity_result.wasSuccessful():
-        while True:
-            all_successful = run_test_suites(
-                report_json_filename, hw_config, root_tmpdir,
-                resultclass, copy.deepcopy(single_tests),
-                copy.deepcopy(parallel_tests), sanity_result)
-            if not repeat:
-                break
-            if not all_successful:
-                break
-            print('repeating run')
+        if single_tests or parallel_tests:
+            while True:
+                all_successful = run_test_suites(
+                    report_json_filename, hw_config, root_tmpdir,
+                    resultclass, copy.deepcopy(single_tests),
+                    copy.deepcopy(parallel_tests), sanity_result)
+                if not repeat:
+                    break
+                if not all_successful:
+                    break
+                print('repeating run')
     else:
         report_results([sanity_result], hw_config, report_json_filename)
 
