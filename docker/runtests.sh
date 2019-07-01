@@ -2,13 +2,14 @@
 
 UNITTESTS=1
 DEPCHECK=1
+SKIP_PIP=0
 MINCOVERAGE=85
 
 set -e  # quit on error
 
 # allow user to skip parts of docker test
 # this wrapper script only cares about -n, -u, -i, others passed to test suite.
-while getopts "cdijknrsuxo" o $FAUCET_TESTS; do
+while getopts "cdijknrsuxoz" o $FAUCET_TESTS; do
   case "${o}" in
         i)
             # run only integration tests
@@ -23,6 +24,11 @@ while getopts "cdijknrsuxo" o $FAUCET_TESTS; do
             # skip unit tests
             UNITTESTS=0
             ;;
+        z)
+            # Skip pip installer
+            echo "Option set to assume environment is set up."
+            SKIP_PIP=1
+            ;;
         *)
             ;;
     esac
@@ -34,10 +40,14 @@ if [ -f /venv/bin/activate ]; then
   source /venv/bin/activate
 fi
 
-if [ -d /var/tmp/pip-cache ] ; then
-  echo Using pip cache
+if [ "$SKIP_PIP" == 0 ] ; then
+    if [ -d /var/tmp/pip-cache ] ; then
+      echo Using pip cache
+    fi
+    ./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache"
+else
+    echo "Skipping Pip Install Script"
 fi
-./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache"
 
 echo "========== checking IPv4/v6 localhost is up ====="
 ping6 -c 1 ::1
