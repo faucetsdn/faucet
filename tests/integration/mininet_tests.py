@@ -7351,7 +7351,7 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
         self.verify_all_stack_up()
-        src_host, dst_host, other_host = self.net.hosts[:3]
+        src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
 
