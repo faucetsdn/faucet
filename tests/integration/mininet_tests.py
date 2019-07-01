@@ -7332,7 +7332,7 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
 
     def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
         """Verify ICMP packets tunnelled from src to dst."""
-        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
+        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1}
         self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
         tcpdump_text = self.tcpdump_helper(
             dst_host, 'icmp', [
@@ -7341,7 +7341,8 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
                 lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
             ],
         )
-        self.wait_nonzero_packet_count_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
+        self.wait_nonzero_packet_count_flow(
+            icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % other_host.IP(), tcpdump_text
         ), 'Tunnel was not established')
@@ -7405,7 +7406,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
 
     def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
         """Verify ICMP packets tunnelled from src to dst."""
-        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
+        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1}
         self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
         tcpdump_text = self.tcpdump_helper(
             dst_host, 'icmp[icmptype] == 8', [
@@ -7415,7 +7416,8 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
             ],
             packets=1, timeout=(packets + 1),
         )
-        self.wait_nonzero_packet_count_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
+        self.wait_nonzero_packet_count_flow(
+            icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % other_host.IP(), tcpdump_text
         ), 'Tunnel was not established')
