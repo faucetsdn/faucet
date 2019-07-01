@@ -127,10 +127,13 @@ class FaucetTestBase(unittest.TestCase):
         self.max_test_load = max_test_load
         self.port_order = port_order
 
+    def hosts_name_ordered(self):
+        """Return hosts in strict name only order."""
+        return sorted(self.net.hosts, key=lambda host: host.name)
+
     def switches_name_ordered(self):
         """Return switches in strict name only order."""
-        switches = sorted(self.net.switches, key=lambda switch: switch.name)
-        return switches
+        return sorted(self.net.switches, key=lambda switch: switch.name)
 
     def first_switch(self):
         """Return first switch by name order."""

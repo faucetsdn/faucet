@@ -7412,7 +7412,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
         self.verify_all_stack_up()
-        src_host, other_host, dst_host = self.net.hosts[:3]
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
     def test_tunnel_path_rerouted(self):
@@ -7420,7 +7420,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         self.verify_all_stack_up()
         first_stack_port = self.non_host_links(self.dpid)[0].port
         self.one_stack_port_down(first_stack_port)
-        src_host, other_host, dst_host = self.net.hosts[:3]
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
         self.set_port_up(first_stack_port, self.dpid)
 
