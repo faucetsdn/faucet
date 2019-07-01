@@ -30,7 +30,7 @@ services:
 
     grafana:
         restart: always
-        image: 'grafana/grafana:6.2.4'
+        image: 'grafana/grafana:6.2.5'
         user: 'root'
         ports:
             - '3000:3000'
