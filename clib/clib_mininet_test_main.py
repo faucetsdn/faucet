@@ -620,9 +620,10 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
     sanity_tests, single_tests, parallel_tests = expand_tests(
         module, requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial, port_order)
-    sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
-    if sanity_result.wasSuccessful():
-        if single_tests.countTestCases() + parallel_tests.countTestCases():
+
+    if single_tests.countTestCases() + parallel_tests.countTestCases():
+        sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
+        if sanity_result.wasSuccessful():
             while True:
                 all_successful = run_test_suites(
                     report_json_filename, hw_config, root_tmpdir,
@@ -633,8 +634,10 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
                 if not all_successful:
                     break
                 print('repeating run')
+        else:
+            report_results([sanity_result], hw_config, report_json_filename)
     else:
-        report_results([sanity_result], hw_config, report_json_filename)
+        print('no tests selected')
 
     os.remove(ports_sock)
     decoded_pcap_logs = glob.glob(os.path.join(
