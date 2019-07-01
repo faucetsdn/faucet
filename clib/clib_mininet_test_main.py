@@ -622,7 +622,7 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
         hw_config, root_tmpdir, ports_sock, serial, port_order)
     sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
     if sanity_result.wasSuccessful():
-        if single_tests or parallel_tests:
+        if single_tests.countTestCases() + parallel_tests.countTestCases():
             while True:
                 all_successful = run_test_suites(
                     report_json_filename, hw_config, root_tmpdir,
