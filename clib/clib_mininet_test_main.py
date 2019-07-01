@@ -595,8 +595,11 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
 
 
 def run_tests(module, hw_config, requested_test_classes, dumpfail,
-              keep_logs, serial, excluded_test_classes, report_json_filename, port_order):
+              keep_logs, serial, repeat, excluded_test_classes, report_json_filename,
+              port_order):
     """Actually run the test suites, potentially in parallel."""
+    if repeat:
+        print('Will repeat tests until failure')
     if hw_config is not None:
         print('Testing hardware, forcing test serialization')
         serial = True
@@ -609,27 +612,41 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
         min_free_ports = 5
     ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
     print('test ports server started')
-    sanity_tests, single_tests, parallel_tests = expand_tests(
-        module, requested_test_classes, excluded_test_classes,
-        hw_config, root_tmpdir, ports_sock, serial, port_order)
     resultclass = FaucetCleanupResult
     if keep_logs:
         resultclass = FaucetResult
     all_successful = False
-    sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
-    if sanity_result.wasSuccessful():
-        all_successful = run_test_suites(
-            report_json_filename, hw_config, root_tmpdir,
-            resultclass, single_tests, parallel_tests, sanity_result)
+
+    sanity_tests, single_tests, parallel_tests = expand_tests(
+        module, requested_test_classes, excluded_test_classes,
+        hw_config, root_tmpdir, ports_sock, serial, port_order)
+
+    if single_tests.countTestCases() + parallel_tests.countTestCases():
+        sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
+        if sanity_result.wasSuccessful():
+            while True:
+                all_successful = run_test_suites(
+                    report_json_filename, hw_config, root_tmpdir,
+                    resultclass, copy.deepcopy(single_tests),
+                    copy.deepcopy(parallel_tests), sanity_result)
+                if not repeat:
+                    break
+                if not all_successful:
+                    break
+                print('repeating run')
+        else:
+            report_results([sanity_result], hw_config, report_json_filename)
+
+        decoded_pcap_logs = glob.glob(os.path.join(
+            os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
+        pipeline_superset_report(decoded_pcap_logs)
+        clean_test_dirs(
+            root_tmpdir, all_successful,
+            sanity_result.wasSuccessful(), keep_logs, dumpfail)
     else:
-        report_results([sanity_result], hw_config, report_json_filename)
-    os.remove(ports_sock)
-    decoded_pcap_logs = glob.glob(os.path.join(
-        os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
-    pipeline_superset_report(decoded_pcap_logs)
-    clean_test_dirs(
-        root_tmpdir, all_successful,
-        sanity_result.wasSuccessful(), keep_logs, dumpfail)
+        print('no tests selected')
+        sys.exit(0)
+
     if not all_successful:
         sys.exit(-1)
 
@@ -658,6 +675,8 @@ def parse_args():
         '-j', '--jsonreport', help='write a json file with test results')
     parser.add_argument(
         '-x', help='list of test classes to exclude')
+    parser.add_argument(
+        '-r', '--repeat', action='store_true', help='repeat tests until failure')
 
     excluded_test_classes = []
     report_json_filename = None
@@ -684,7 +703,7 @@ def parse_args():
 
     return (
         requested_test_classes, args.clean, args.dumpfail,
-        args.keep_logs, args.nocheck, args.serial,
+        args.keep_logs, args.nocheck, args.serial, args.repeat,
         excluded_test_classes, report_json_filename, port_order)
 
 
@@ -694,7 +713,7 @@ def test_main(module):
     print('testing module %s' % module)
 
     (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
-     serial, excluded_test_classes, report_json_filename, port_order) = parse_args()
+     serial, repeat, excluded_test_classes, report_json_filename, port_order) = parse_args()
 
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '
@@ -715,4 +734,4 @@ def test_main(module):
     hw_config = import_hw_config()
     run_tests(
         module, hw_config, requested_test_classes, dumpfail,
-        keep_logs, serial, excluded_test_classes, report_json_filename, port_order)
+        keep_logs, serial, repeat, excluded_test_classes, report_json_filename, port_order)

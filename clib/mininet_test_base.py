@@ -127,6 +127,18 @@ class FaucetTestBase(unittest.TestCase):
         self.max_test_load = max_test_load
         self.port_order = port_order
 
+    def hosts_name_ordered(self):
+        """Return hosts in strict name only order."""
+        return sorted(self.net.hosts, key=lambda host: host.name)
+
+    def switches_name_ordered(self):
+        """Return switches in strict name only order."""
+        return sorted(self.net.switches, key=lambda switch: switch.name)
+
+    def first_switch(self):
+        """Return first switch by name order."""
+        return self.switches_name_ordered()[0]
+
     def rand_dpid(self):
         reserved_range = 100
         while True:
@@ -343,7 +355,7 @@ class FaucetTestBase(unittest.TestCase):
             for host in self.net.hosts[:1]:
                 if self.get_host_netns(host):
                     self.quiet_commands(host, ['ip netns del %s' % self.hostns(host)])
-        self.net.switches[0].cmd('ip link > %s' % os.path.join(self.tmpdir, 'ip-links.log'))
+        self.first_switch().cmd('ip link > %s' % os.path.join(self.tmpdir, 'ip-links.log'))
         switch_names = []
         for switch in self.net.switches:
             switch_names.append(switch.name)
@@ -385,7 +397,7 @@ class FaucetTestBase(unittest.TestCase):
 
     def _attach_physical_switch(self):
         """Bridge a physical switch into test topology."""
-        switch = self.net.switches[0]
+        switch = self.first_switch()
         self.assertEqual('', switch.cmd('ebtables --f OUTPUT'))
         phys_macs = set()
         mapped_base = len(self.switch_map)

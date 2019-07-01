@@ -249,7 +249,7 @@ network={
 
     def _init_faucet_config(self):
         self.eapol1_host, self.eapol2_host, self.ping_host, self.nfv_host = self.net.hosts
-        switch = self.net.switches[0]
+        switch = self.first_switch()
         last_host_switch_link = switch.connectionsTo(self.nfv_host)[0]
         nfv_intf = [
             intf for intf in last_host_switch_link if intf in switch.intfList()][0]
@@ -1261,7 +1261,7 @@ class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
 
     def _init_faucet_config(self):
         last_host = self.net.hosts[-1]
-        switch = self.net.switches[0]
+        switch = self.first_switch()
         last_host_switch_link = switch.connectionsTo(last_host)[0]
         self.last_host_switch_intf = [intf for intf in last_host_switch_link if intf in switch.intfList()][0]
         # Now that interface is known, FAUCET config can be written to include it.
@@ -3697,7 +3697,7 @@ details partner lacp pdu:
 
         self.assertEqual(0, prom_lag_status())
         orig_ip = first_host.IP()
-        switch = self.net.switches[0]
+        switch = self.first_switch()
         bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
         # Deconfigure bond members
         for bond_member in bond_members:
@@ -3733,7 +3733,7 @@ class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
     def test_untagged(self):
         first_host = self.net.hosts[0]
         orig_ip = first_host.IP()
-        switch = self.net.switches[0]
+        switch = self.first_switch()
         bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
         for i, bond_member in enumerate(bond_members):
             bond = 'bond%u' % i
@@ -6693,6 +6693,24 @@ class FaucetStringOfDPTest(FaucetTest):
             self.verify_stack_has_no_loop()
             self.flap_all_switch_ports()
 
+    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
+        """Verify ICMP packets tunnelled from src to dst."""
+        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1}
+        self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False)
+        tcpdump_text = self.tcpdump_helper(
+            dst_host, 'icmp[icmptype] == 8', [
+                # need to set static ARP as only ICMP is tunnelled.
+                lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
+                lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
+            ],
+            packets=1, timeout=(packets + 1),
+        )
+        self.wait_nonzero_packet_count_flow(
+            icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % other_host.IP(), tcpdump_text
+        ), 'Tunnel was not established')
+
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
@@ -7330,26 +7348,10 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
         )
         self.start_net()
 
-    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
-        """Verify ICMP packets tunnelled from src to dst."""
-        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
-        self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
-        tcpdump_text = self.tcpdump_helper(
-            dst_host, 'icmp', [
-                # need to set static ARP as only ICMP is tunnelled.
-                lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
-                lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
-            ],
-        )
-        self.wait_nonzero_packet_count_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % other_host.IP(), tcpdump_text
-        ), 'Tunnel was not established')
-
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
         self.verify_all_stack_up()
-        src_host, dst_host, other_host = self.net.hosts[:3]
+        src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
 
@@ -7403,23 +7405,6 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         )
         self.start_net()
 
-    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
-        """Verify ICMP packets tunnelled from src to dst."""
-        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1, 'in_port': self.port_map['port_1']}
-        self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
-        tcpdump_text = self.tcpdump_helper(
-            dst_host, 'icmp[icmptype] == 8', [
-                # need to set static ARP as only ICMP is tunnelled.
-                lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
-                lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
-            ],
-            packets=1, timeout=(packets + 1),
-        )
-        self.wait_nonzero_packet_count_flow(icmp_match, table_id=self._PORT_ACL_TABLE)
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % other_host.IP(), tcpdump_text
-        ), 'Tunnel was not established')
-
     def one_stack_port_down(self, stack_port):
         self.set_port_down(stack_port, self.dpid)
         self.wait_for_stack_port_status(self.dpid, self.DP_NAME, stack_port, 2)
@@ -7427,7 +7412,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
         self.verify_all_stack_up()
-        src_host, other_host, dst_host = self.net.hosts[:3]
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
     def test_tunnel_path_rerouted(self):
@@ -7435,8 +7420,9 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         self.verify_all_stack_up()
         first_stack_port = self.non_host_links(self.dpid)[0].port
         self.one_stack_port_down(first_stack_port)
-        src_host, other_host, dst_host = self.net.hosts[:3]
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
+        self.set_port_up(first_stack_port, self.dpid)
 
 
 class FaucetGroupTableTest(FaucetUntaggedTest):
