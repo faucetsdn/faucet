@@ -85,6 +85,9 @@ class Port(Conf):
         # If true, block this port until a successful 802.1x auth
         'dot1x_acl': False,
         # If true, expects authentication and default ACLs for 802.1x auth
+        'dot1x_mab': False,
+        # If true, allows Mac Auth Bypass on port (NOTE: this is less secure as MACs can be spoofed)
+
     }
 
     defaults_types = {
@@ -117,6 +120,7 @@ class Port(Conf):
         'override_output_port': (str, int),
         'dot1x': bool,
         'dot1x_acl': bool,
+        'dot1x_mab': bool,
         'max_lldp_lost': int,
     }
 
@@ -144,6 +148,7 @@ class Port(Conf):
         self.description = None
         self.dot1x = None
         self.dot1x_acl = None
+        self.dot1x_mab = None
         self.dp_id = None
         self.enabled = None
         self.hairpin = None
@@ -232,6 +237,9 @@ class Port(Conf):
         if self.dot1x_acl:
             test_config_condition(not self.dot1x, (
                 '802.1x_ACL requires dot1x to be enabled also'))
+        if self.dot1x_mab:
+            test_config_condition(not self.dot1x, (
+                '802.1x_MAB requires dot1x to be enabled on the port also'))
         if self.mirror:
             test_config_condition(self.tagged_vlans or self.native_vlan, (
                 'mirror port %s cannot have any VLANs assigned' % self))

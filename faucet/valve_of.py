@@ -630,7 +630,7 @@ def _match_ip_masked(ipa):
 def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
                      eth_dst=None, eth_dst_mask=None, icmpv6_type=None,
                      nw_proto=None, nw_dst=None, metadata=None,
-                     metadata_mask=None, vlan_pcp=None):
+                     metadata_mask=None, vlan_pcp=None, udp_src=None, udp_dst=None):
     match_dict = {}
     if in_port is not None:
         match_dict['in_port'] = in_port
@@ -654,6 +654,10 @@ def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
             match_dict['eth_dst'] = eth_dst
     if nw_proto is not None:
         match_dict['ip_proto'] = nw_proto
+    if udp_dst is not None:
+        match_dict['udp_dst'] = udp_dst
+    if udp_src is not None:
+        match_dict['udp_src'] = udp_src
     if icmpv6_type is not None:
         match_dict['icmpv6_type'] = icmpv6_type
     if nw_dst is not None:

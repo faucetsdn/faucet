@@ -84,16 +84,16 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
 
     # TODO: verify actions
     @staticmethod
-    def match(in_port=None, vlan=None, # pylint: disable=too-many-arguments
+    def match(in_port=None, vlan=None, # pylint: disable=too-many-arguments,too-many-locals
               eth_type=None, eth_src=None, eth_dst=None, eth_dst_mask=None,
               icmpv6_type=None, nw_proto=None, nw_dst=None, metadata=None,
-              metadata_mask=None, vlan_pcp=None):
+              metadata_mask=None, vlan_pcp=None, udp_src=None, udp_dst=None):
         """Compose an OpenFlow match rule."""
         match_dict = valve_of.build_match_dict(
             in_port, vlan, eth_type, eth_src,
             eth_dst, eth_dst_mask, icmpv6_type,
             nw_proto, nw_dst, metadata, metadata_mask,
-            vlan_pcp)
+            vlan_pcp, udp_src, udp_dst)
         return valve_of.match(match_dict)
 
     def _verify_flowmod(self, flowmod):
