@@ -7439,6 +7439,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         self.one_stack_port_down(first_stack_port)
         src_host, other_host, dst_host = self.net.hosts[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
+        self.set_port_up(first_stack_port, self.dpid)
 
 
 class FaucetGroupTableTest(FaucetUntaggedTest):
