@@ -249,7 +249,7 @@ network={
 
     def _init_faucet_config(self):
         self.eapol1_host, self.eapol2_host, self.ping_host, self.nfv_host = self.net.hosts
-        switch = self.net.switches[0]
+        switch = self.first_switch()
         last_host_switch_link = switch.connectionsTo(self.nfv_host)[0]
         nfv_intf = [
             intf for intf in last_host_switch_link if intf in switch.intfList()][0]
@@ -1261,7 +1261,7 @@ class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
 
     def _init_faucet_config(self):
         last_host = self.net.hosts[-1]
-        switch = self.net.switches[0]
+        switch = self.first_switch()
         last_host_switch_link = switch.connectionsTo(last_host)[0]
         self.last_host_switch_intf = [intf for intf in last_host_switch_link if intf in switch.intfList()][0]
         # Now that interface is known, FAUCET config can be written to include it.
@@ -3697,7 +3697,7 @@ details partner lacp pdu:
 
         self.assertEqual(0, prom_lag_status())
         orig_ip = first_host.IP()
-        switch = self.net.switches[0]
+        switch = self.first_switch()
         bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
         # Deconfigure bond members
         for bond_member in bond_members:
@@ -3733,7 +3733,7 @@ class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
     def test_untagged(self):
         first_host = self.net.hosts[0]
         orig_ip = first_host.IP()
-        switch = self.net.switches[0]
+        switch = self.first_switch()
         bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
         for i, bond_member in enumerate(bond_members):
             bond = 'bond%u' % i
