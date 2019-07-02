@@ -1749,6 +1749,19 @@ class FaucetSanityTest(FaucetUntaggedTest):
                 self.tcpdump_rx_packets(tcpdump_txt, 0),
                 msg='got unexpected packet from test switch: %s' % tcpdump_txt)
 
+    def test_name_sorting(self):
+        """Verify that name_ordered() matches topo.{hosts,switches}()"""
+        hosts_name_ordered = self.hosts_name_ordered()
+        self.assertEqual(hosts_name_ordered,
+                         [self.net[host] for host in self.topo.hosts()],
+                         'hosts_name_ordered() diverges from topo.hosts()')
+        switches_name_ordered = self.hosts_name_ordered()
+        self.assertEqual(switches_name_ordered,
+                         [self.net[switch] for switch in self.topo.switches()],
+                         'switches_name_ordered() diverges from'
+                         ' topo.switches()')
+
+
 
 class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     """Testing Gauge Prometheus"""

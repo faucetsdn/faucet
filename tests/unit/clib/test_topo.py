@@ -5,6 +5,8 @@ from unittest import TestCase, main
 from clib.mininet_test_topo import FaucetStringOfDPSwitchTopo
 from clib.mininet_test_util import flat_test_name
 
+from mininet.util import natural
+
 
 class FaucetStringOfDPSwitchTopoTest(TestCase):
     """Tests for FaucetStringOfDPSwitchTopoTest"""
@@ -41,6 +43,19 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
             switch_to_switch_links=2,
             start_port=1)
         topo = FaucetStringOfDPSwitchTopo(**args)
+
+        # Verify host sort order is what we think it should be
+        sortedHosts, unsortedHosts = topo.hosts(), topo.hosts(sort=False)
+        self.assertEqual(sortedHosts, sorted(topo.hosts(), key=natural),
+                         "topo.hosts() not sorted properly")
+        self.assertEqual(sortedHosts, [
+            't011', 't012', 't021', 't022', 't031', 't032', 'u011', 'u012',
+            'u021', 'u022', 'u031', 'u032'
+        ], "topo.hosts() not in expected order")
+        self.assertEqual(unsortedHosts, [
+            't011', 't012', 'u011', 'u012', 't021', 't022', 'u021', 'u022',
+            't031', 't032', 'u031', 'u032'
+        ], "topo.hosts(sort=False) not in addHost() order")
 
         # Verify switch ports
         ports = {dpid: topo.dpid_ports(dpid) for dpid in self.dpids}
@@ -83,7 +98,7 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
         """Test remapping of attachment bridge port numbers to hw port numbers"""
         # Create a basic string topo
         peer_link = FaucetStringOfDPSwitchTopo.peer_link
-        switch_map = {1:'p1', 2:'p2', 3:'p3', 4:'p4', 5:'p5', 6:'p6'}
+        switch_map = {1: 'p1', 2: 'p2', 3: 'p3', 4: 'p4', 5: 'p5', 6: 'p6'}
         args = self.string_of_dp_args(
             n_tagged=2,
             n_untagged=2,
@@ -91,8 +106,7 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
             switch_to_switch_links=2,
             start_port=5,
             hw_dpid='1',
-            switch_map=switch_map
-        )
+            switch_map=switch_map)
         topo = FaucetStringOfDPSwitchTopo(**args)
 
         # Verify switch ports
@@ -133,6 +147,7 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
                 ]
             },
             "peer links are incorrect")
+
 
 if __name__ == "__main__":
     main()
