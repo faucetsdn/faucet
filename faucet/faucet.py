@@ -110,7 +110,7 @@ class Faucet(RyuAppBase):
         self.bgp = faucet_bgp.FaucetBgp(
             self.logger, self.exc_logname, self.metrics, self._send_flow_msgs)
         self.dot1x = faucet_dot1x.FaucetDot1x(
-            self.logger, self.metrics, self._send_flow_msgs)
+            self.logger, self.exc_logname, self.metrics, self._send_flow_msgs)
         self.notifier = faucet_event.FaucetEventNotifier(
             self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
         self.valves_manager = valves_manager.ValvesManager(

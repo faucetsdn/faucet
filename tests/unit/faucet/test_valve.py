@@ -387,7 +387,7 @@ class ValveTestBases:
             self.bgp = faucet_bgp.FaucetBgp(
                 self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
             self.dot1x = faucet_dot1x.FaucetDot1x(
-                self.logger, self.metrics, self.send_flows_to_dp_by_id)
+                self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
             self.valves_manager = valves_manager.ValvesManager(
                 self.LOGNAME, self.logger, self.metrics, self.notifier,
                 self.bgp, self.dot1x, self.send_flows_to_dp_by_id)
