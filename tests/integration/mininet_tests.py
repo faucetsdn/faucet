@@ -244,7 +244,12 @@ vlanuser1001  Cleartext-Password := "password"
 vlanuser2222  Cleartext-Password := "milliphone"
     Tunnel-Type = "VLAN",
     Tunnel-Medium-Type = "IEEE-802",
-    Tunnel-Private-Group-id = "radiusassignedvlan2"'''
+    Tunnel-Private-Group-id = "radiusassignedvlan2"
+filter_id_user_accept  Cleartext-Password := "accept_pass"
+    Filter-Id = "accept_acl"
+filter_id_user_deny  Cleartext-Password := "deny_pass"
+    Filter-Id = "deny_acl"
+'''
 
     eapol1_host = None
     eapol2_host = None
@@ -1107,7 +1112,7 @@ acls:
            %(port_4)d:
                name: b4
                description: "b4"
-               native_vlan: 100
+               output_only: True
                # "NFV host - interface used by controller."
            """
 
