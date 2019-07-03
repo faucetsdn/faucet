@@ -748,7 +748,7 @@ class Faucet8021XPortFlapTest(Faucet8021XBaseTest):
             self.try_8021x(
                 self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
             self.one_ipv4_ping(
-                self.eapol1_host, self.nfv_host.IP(),
+                self.eapol1_host, self.ping_host.IP(),
                 require_host_learned=False, expected_result=False)
             wpa_status = self.get_wpa_status(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
             self.assertNotEqual('SUCCESS', wpa_status)
@@ -1126,18 +1126,15 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.wait_until_matching_flow(
             {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
-            actions=['POP_VLAN', 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no2])
         self.wait_until_no_matching_flow(
             {'vlan_vid': radius_vid2},
             table_id=self._FLOOD_TABLE,
-            actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2])
 
         self.one_ipv4_ping(
             self.eapol1_host, self.ping_host.IP(),
             require_host_learned=False, expected_result=True)
-
-        self.one_ipv4_ping(self.eapol1_host, self.nfv_host.IP(),
-                           require_host_learned=False, expected_result=False)
 
         tcpdump_txt = self.try_8021x(
             self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
@@ -1146,9 +1143,6 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.one_ipv4_ping(
             self.eapol1_host, self.ping_host.IP(),
             require_host_learned=False, expected_result=False)
-
-        self.one_ipv4_ping(self.eapol1_host, self.nfv_host.IP(),
-                           require_host_learned=False, expected_result=False)
 
         # check ports are back in the right vlans.
         self.wait_until_no_matching_flow(
@@ -1169,7 +1163,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.wait_until_matching_flow(
             {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
-            actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no1, 'OUTPUT:%s' % port_no2])
 
         # check two 1x hosts play nicely. (same dyn vlan)
         tcpdump_txt = self.try_8021x(
@@ -1279,7 +1273,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.wait_until_matching_flow(
             {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
-            actions=['POP_VLAN', 'OUTPUT:%s' % port_no2, 'OUTPUT:%s' % port_no4])
+            actions=['POP_VLAN', 'OUTPUT:%s' % port_no2])
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
