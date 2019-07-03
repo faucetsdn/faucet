@@ -621,7 +621,7 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
         module, requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial, port_order)
 
-    if single_tests.countTestCases() + parallel_tests.countTestCases():
+    if (sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases()):
         sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
         if sanity_result.wasSuccessful():
             while True:
