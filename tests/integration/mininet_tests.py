@@ -4139,6 +4139,7 @@ acls:
 
 class FaucetUntaggedEgressACLTest(FaucetUntaggedTest):
 
+    REQUIRES_METADATA = True
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -6615,6 +6616,7 @@ class FaucetStringOfDPTest(FaucetTest):
             dp_config = {
                 'dp_id': int(dpid),
                 'hardware': hardware if dpid == hw_dpid else 'Open vSwitch',
+                'table_sizes': {'flood': 64},
                 'ofchannel_log': ofchannel_log + str(i) if ofchannel_log else None,
                 'interfaces': {},
                 'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
