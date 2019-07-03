@@ -414,6 +414,12 @@ configuration.
                     all_acls.setdefault('port_acl', [])
                     all_acls['port_acl'].extend(port.acls_in)
 
+                if self.dot1x and port.number == self.dot1x['nfv_sw_port']:
+                    test_config_condition(not port.output_only, (
+                        'NFV Ports must have output_only set to True.'
+                    ))
+
+
         table_config = {}
         for table_name, acls in all_acls.items():
             matches = {}

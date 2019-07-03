@@ -737,6 +737,15 @@ class Valve:
             for manager in self._get_managers():
                 ofmsgs.extend(manager.add_port(port))
 
+            if self.dp.dot1x:
+                nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
+                if port == nfv_sw_port:
+                    ofmsgs.extend(self.dot1x.nfv_sw_port_up(
+                        self.dp.dp_id, self.dp.dot1x_ports(), nfv_sw_port))
+                elif port.dot1x:
+                    ofmsgs.extend(self.dot1x.port_up(
+                        self.dp.dp_id, port, nfv_sw_port))
+
             if port.output_only:
                 ofmsgs.append(vlan_table.flowdrop(
                     match=vlan_table.match(in_port=port_num),
@@ -757,15 +766,6 @@ class Valve:
                 ofmsgs.extend(self.lacp_down(port, cold_start=cold_start))
                 if port.lacp_active:
                     ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
-
-            if self.dp.dot1x:
-                nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
-                if port == nfv_sw_port:
-                    ofmsgs.extend(self.dot1x.nfv_sw_port_up(
-                        self.dp.dp_id, self.dp.dot1x_ports(), nfv_sw_port))
-                elif port.dot1x:
-                    ofmsgs.extend(self.dot1x.port_up(
-                        self.dp.dp_id, port, nfv_sw_port))
 
             port_vlans = port.vlans()
 

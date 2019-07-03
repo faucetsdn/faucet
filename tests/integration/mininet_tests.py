@@ -209,7 +209,7 @@ vlans:
                 native_vlan: 100
                 # ping host.
             %(port_4)d:
-                native_vlan: 100
+                output_only: True
                 # "NFV host - interface used by controller."
 """
 
@@ -911,8 +911,7 @@ acls:
             %(port_4)d:
                 name: b4
                 description: "b4"
-
-                native_vlan: 100
+                output_only: True
                 # "NFV host - interface used by controller."
     """
 
@@ -981,7 +980,7 @@ class Faucet8021XMABTest(Faucet8021XSuccessTest):
                 native_vlan: 100
                 # ping host.
             %(port_4)d:
-                native_vlan: 100
+                output_only: True
                 # "NFV host - interface used by controller."
     """
 
@@ -1056,7 +1055,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
                 native_vlan: radiusassignedvlan1
                 # ping host.
             %(port_4)d:
-                native_vlan: 100
+                output_only: True
                 # "NFV host - interface used by controller."
     """
 
