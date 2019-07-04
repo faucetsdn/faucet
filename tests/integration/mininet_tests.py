@@ -244,7 +244,12 @@ vlanuser1001  Cleartext-Password := "password"
 vlanuser2222  Cleartext-Password := "milliphone"
     Tunnel-Type = "VLAN",
     Tunnel-Medium-Type = "IEEE-802",
-    Tunnel-Private-Group-id = "radiusassignedvlan2"'''
+    Tunnel-Private-Group-id = "radiusassignedvlan2"
+filter_id_user_accept  Cleartext-Password := "accept_pass"
+    Filter-Id = "accept_acl"
+filter_id_user_deny  Cleartext-Password := "deny_pass"
+    Filter-Id = "deny_acl"
+'''
 
     eapol1_host = None
     eapol2_host = None
@@ -1014,6 +1019,171 @@ class Faucet8021XMABTest(Faucet8021XSuccessTest):
         self.assertEqual(
             1,
             self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+
+
+class Faucet8021XDynACLLoginTest(Faucet8021XCustomACLLoginTest):
+    """Ensure that 8021X Port ACLs Work before and after Logout"""
+    DOT1X_EXPECTED_EVENTS = [
+        {'ENABLED': {}},
+        {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+        {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+        {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'success'}},
+    ]
+
+    wpasupplicant_conf_1 = """
+ap_scan=0
+network={
+    key_mgmt=IEEE8021X
+    eap=MD5
+    identity="filter_id_user_accept"
+    password="accept_pass"
+}
+       """
+    wpasupplicant_conf_2 = """
+ap_scan=0
+network={
+    key_mgmt=IEEE8021X
+    eap=MD5
+    identity="filter_id_user_deny"
+    password="deny_pass"
+}
+        """
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    accept_acl:
+        dot1x_assigned: True
+        rules:
+        - rule:
+            dl_type: 0x800      # Allow ICMP / IPv4
+            ip_proto: 1
+            actions:
+                allow: True
+        - rule:
+            dl_type: 0x0806     # ARP Packets
+            actions:
+                allow: True
+    deny_acl:
+        dot1x_assigned: True
+        rules:
+        - rule:
+            dl_type: 0x800      # Deny ICMP / IPv4
+            ip_proto: 1
+            actions:
+                allow: False
+        - rule:
+            dl_type: 0x0806     # ARP Packets
+            actions:
+                allow: True
+            """
+
+    CONFIG = """
+        dot1x:
+           nfv_intf: NFV_INTF
+           nfv_sw_port: %(port_4)d
+           radius_ip: 127.0.0.1
+           radius_port: RADIUS_PORT
+           radius_secret: SECRET
+        interfaces:
+           %(port_1)d:
+               name: b1
+               description: "b1"
+               native_vlan: 100
+               # 802.1x client.
+               dot1x: True
+               dot1x_dyn_acl: True
+           %(port_2)d:
+               name: b2
+               description: "b2"
+               native_vlan: 100
+               # 802.1X client.
+               dot1x: True
+               dot1x_dyn_acl: True
+           %(port_3)d:
+               name: b3
+               description: "b3"
+               native_vlan: 100
+               # ping host.
+           %(port_4)d:
+               name: b4
+               description: "b4"
+               output_only: True
+               # "NFV host - interface used by controller."
+           """
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_no2 = self.port_map['port_2']
+        port_labels1 = self.port_labels(port_no1)
+        port_labels2 = self.port_labels(port_no2)
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+        self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
+
+        self.wait_for_eap_success(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
+
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertEqual(1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+
+        tcpdump_txt_2 = self.try_8021x(
+            self.eapol2_host, port_no2, self.wpasupplicant_conf_2, and_logoff=False)
+
+        self.wait_for_eap_success(self.eapol2_host, self.get_wpa_ctrl_path(self.eapol2_host))
+
+        self.assertIn('Success', tcpdump_txt_2)
+        self.assertEqual(1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=True)
+
+        self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+
+class Faucet8021XDynACLLogoutTest(Faucet8021XDynACLLoginTest):
+
+    DOT1X_EXPECTED_EVENTS = [
+        {'ENABLED': {}},
+        {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+        {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+        {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'logoff'}}
+    ]
+
+    def test_untagged(self):
+        port_no1 = self.port_map['port_1']
+        port_labels1 = self.port_labels(port_no1)
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
+
+        tcpdump_txt_1 = self.try_8021x(
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True)
+
+        self.wait_for_eap_success(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
+
+        self.assertIn('Success', tcpdump_txt_1)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels1, default=0))
+
+        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
+                           require_host_learned=False, expected_result=False)
 
 
 class Faucet8021XVLANTest(Faucet8021XSuccessTest):

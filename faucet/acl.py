@@ -67,10 +67,12 @@ The output action contains a dictionary with the following elements:
     defaults = {
         'rules': None,
         'exact_match': False,
+        'dot1x_assigned': False,
     }
     defaults_types = {
         'rules': list,
         'exact_match': bool,
+        'dot1x_assigned': bool,
     }
     rule_types = {
         'cookie': int,
@@ -105,6 +107,7 @@ The output action contains a dictionary with the following elements:
     def __init__(self, _id, dp_id, conf):
         self.rules = []
         self.exact_match = None
+        self.dot1x_assigned = None
         self.meter = False
         self.matches = {}
         self.set_fields = set()
