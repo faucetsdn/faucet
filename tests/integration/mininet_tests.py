@@ -318,10 +318,11 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         self.eapol1_host.cmd('kill -sigint %d' % self.eapol1_tcpdump_pid)
         self._get_controller().cmd('kill %d' % self.nc_pid)
 
+        super(Faucet8021XBaseTest, self).tearDown()
+
+    def post_test_checks(self):
         self.assertGreater(os.path.getsize(self.event_log), 0)
         self.verify_dot1x_events_log()
-
-        super(Faucet8021XBaseTest, self).tearDown()
 
     def verify_dot1x_events_log(self):
 
@@ -621,6 +622,8 @@ class Faucet8021XSuccessTest(Faucet8021XBaseTest):
             1,
             self.scrape_prometheus_var('dp_dot1x_logoff_total', default=0))
 
+        self.post_test_checks()
+
 
 class Faucet8021XFailureTest(Faucet8021XBaseTest):
     """Failure due to incorrect identity/password"""
@@ -666,6 +669,7 @@ class Faucet8021XFailureTest(Faucet8021XBaseTest):
         self.assertEqual(
             1,
             self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels, default=0))
+        self.post_test_checks()
 
 
 class Faucet8021XPortStatusTest(Faucet8021XBaseTest):
@@ -727,6 +731,7 @@ class Faucet8021XPortStatusTest(Faucet8021XBaseTest):
         self.one_ipv4_ping(
             self.eapol1_host, self.ping_host.IP(),
             require_host_learned=False, expected_result=False)
+        self.post_test_checks()
 
 
 class Faucet8021XPortFlapTest(Faucet8021XBaseTest):
@@ -759,6 +764,8 @@ class Faucet8021XPortFlapTest(Faucet8021XBaseTest):
             self.assertNotEqual('SUCCESS', wpa_status)
             # Kill supplicant so cant reply to the port up identity request.
             self.terminate_wpasupplicant(self.eapol1_host)
+
+        self.post_test_checks()
 
 
 class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
@@ -809,6 +816,8 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
             2,
             self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
 
+        self.post_test_checks()
+
 
 class Faucet8021XPeriodicReauthTest(Faucet8021XBaseTest):
 
@@ -833,6 +842,7 @@ class Faucet8021XPeriodicReauthTest(Faucet8021XBaseTest):
                     break
                 time.sleep(1)
             self.assertEquals(expected_total, total, msg='failed to successfully re-auth')
+        self.post_test_checks()
 
 
 class Faucet8021XConfigReloadTest(Faucet8021XBaseTest):
@@ -852,6 +862,7 @@ class Faucet8021XConfigReloadTest(Faucet8021XBaseTest):
             restart=True, cold_start=False, change_expected=True)
 
         self.wait_8021x_flows(port_no2)
+        self.post_test_checks()
 
 
 class Faucet8021XCustomACLLoginTest(Faucet8021XBaseTest):
@@ -933,6 +944,7 @@ acls:
 
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=True)
+        self.post_test_checks()
 
 
 class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
@@ -952,6 +964,7 @@ class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
 
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
+        self.post_test_checks()
 
 
 class Faucet8021XMABTest(Faucet8021XSuccessTest):
@@ -1019,6 +1032,7 @@ class Faucet8021XMABTest(Faucet8021XSuccessTest):
         self.assertEqual(
             1,
             self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
+        self.post_test_checks()
 
 
 class Faucet8021XDynACLLoginTest(Faucet8021XCustomACLLoginTest):
@@ -1150,6 +1164,7 @@ acls:
 
         self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
+        self.post_test_checks()
 
 
 class Faucet8021XDynACLLogoutTest(Faucet8021XDynACLLoginTest):
@@ -1184,6 +1199,7 @@ class Faucet8021XDynACLLogoutTest(Faucet8021XDynACLLoginTest):
 
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
+        self.post_test_checks()
 
 
 class Faucet8021XVLANTest(Faucet8021XSuccessTest):
@@ -1444,6 +1460,8 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
             {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
             actions=['POP_VLAN', 'OUTPUT:%s' % port_no2])
+
+        self.post_test_checks()
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
