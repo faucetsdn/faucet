@@ -6828,9 +6828,8 @@ class FaucetStringOfDPTest(FaucetTest):
 
             for portno, config in list(interfaces_config.items()):
                 stack = config.get('stack', None)
-                if stack:
+                if stack and 'stack' in interfaces_config[portno]:
                     peer_portno = stack['port']
-                    assert interfaces_config[portno]['stack']
                     interfaces_config[portno]['stack'].update({
                         'port': 'b%u' % peer_portno})
 
