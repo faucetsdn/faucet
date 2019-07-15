@@ -6463,11 +6463,11 @@ routers:
 
     exabgp_peer_conf = """
     static {
-      route fc00::10:1/112 next-hop fc00::1:1 local-preference 100;
-      route fc00::20:1/112 next-hop fc00::1:2 local-preference 100;
-      route fc00::30:1/112 next-hop fc00::1:2 local-preference 100;
-      route fc00::40:1/112 next-hop fc00::1:254;
-      route fc00::50:1/112 next-hop fc00::2:2;
+      route fc00::10:0/112 next-hop fc00::1:1 local-preference 100;
+      route fc00::20:0/112 next-hop fc00::1:2 local-preference 100;
+      route fc00::30:0/112 next-hop fc00::1:2 local-preference 100;
+      route fc00::40:0/112 next-hop fc00::1:254;
+      route fc00::50:0/112 next-hop fc00::2:2;
     }
 """
     exabgp_log = None
