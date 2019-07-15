@@ -1826,11 +1826,11 @@ class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
         second_host_ip = ipaddress.ip_address(second_host.IP())
         for _ in range(3):
             self.ping_all_when_learned()
-            self.one_ipv4_ping(first_host, second_host_ip)
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                MIN_MBPS, first_host_ip, second_host_ip)
+                MIN_MBPS, first_host_ip, second_host_ip,
+                sync_counters_func=lambda: self.one_ipv4_ping(first_host, second_host_ip))
             self.flap_all_switch_ports()
 
 
@@ -1844,11 +1844,11 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
         self.add_host_ipv6_address(second_host, second_host_ip)
         for _ in range(3):
             self.ping_all_when_learned()
-            self.one_ipv6_ping(first_host, second_host_ip.ip)
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                MIN_MBPS, first_host_ip.ip, second_host_ip.ip)
+                MIN_MBPS, first_host_ip.ip, second_host_ip.ip,
+                sync_counters_func=lambda: self.one_ipv6_ping(first_host, second_host_ip.ip))
             self.flap_all_switch_ports()
 
 
@@ -4851,11 +4851,11 @@ vlans:
         self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
         first_host_ip = ipaddress.ip_address(first_host.IP())
         second_host_ip = ipaddress.ip_address(second_host.IP())
-        self.one_ipv4_ping(first_host, second_host_ip)
         self.verify_iperf_min(
             ((first_host, self.port_map['port_1']),
              (second_host, self.port_map['port_2'])),
-            MIN_MBPS, first_host_ip, second_host_ip)
+            MIN_MBPS, first_host_ip, second_host_ip,
+            sync_counters_func=lambda: self.one_ipv4_ping(first_host, second_host_ip))
 
 
 class FaucetUntaggedOutputOverrideTest(FaucetUntaggedTest):
@@ -5022,11 +5022,11 @@ vlans:
         self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
         first_host_ip = ipaddress.ip_address(first_host.IP())
         second_host_ip = ipaddress.ip_address(second_host.IP())
-        self.one_ipv4_ping(first_host, second_host_ip)
         self.verify_iperf_min(
             ((first_host, self.port_map['port_1']),
              (second_host, self.port_map['port_2'])),
-            MIN_MBPS, first_host_ip, second_host_ip)
+            MIN_MBPS, first_host_ip, second_host_ip,
+            sync_counters_func=lambda: self.one_ipv4_ping(first_host, second_host_ip))
 
 
 class FaucetTaggedVLANPCPTest(FaucetTaggedTest):
@@ -5225,7 +5225,8 @@ vlans:
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                MIN_MBPS, first_host_ip.ip, second_host_ip.ip)
+                MIN_MBPS, first_host_ip.ip, second_host_ip.ip,
+                sync_counters_func=lambda: self.scapy_bcast(first_host))
 
         # verify L3 reachability between hosts within each subnet
         for vid in self.NEW_VIDS:

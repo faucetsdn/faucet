@@ -709,6 +709,9 @@ class FaucetTestBase(unittest.TestCase):
                  mac, IPV4_ETH),
             iface)
 
+    def scapy_bcast(self, host):
+        return self.scapy_dhcp(host.MAC(), host.defaultIntf())
+
     @staticmethod
     def pre_start_net():
         """Hook called after Mininet initializtion, before Mininet started."""
@@ -1138,34 +1141,14 @@ dbs:
 
     def require_host_learned(self, host, retries=8, in_port=None, hard_timeout=1):
         """Require a host be learned on default DPID."""
-        host_ip_net = self.host_ipv4(host)
-        if not host_ip_net:
-            host_ip_net = self.host_ipv6(host)
-        broadcast = ipaddress.ip_interface(
-            host_ip_net).network.broadcast_address
-        broadcast_str = str(broadcast)
-
-        packets = 1
-        if broadcast.version == 4:
-            ping_cmd = 'ping -b'
-        if broadcast.version == 6:
-            ping_cmd = 'ping6'
-            broadcast_str = 'ff02::1'
-
-        # stimulate host learning with a broadcast ping
-        ping_cli = mininet_test_util.timeout_cmd(
-            '%s -I%s -W1 -c%u %s' % (
-                ping_cmd, host.defaultIntf().name, packets, broadcast_str), 3)
-
+        # stimulate FAUCET's learning of this host with a DHCP request (generic broadcast)
+        learn_cli = self.scapy_bcast(host)
         for _ in range(retries):
             if self.host_learned(host, timeout=1, in_port=in_port, hard_timeout=hard_timeout):
                 return
-            ping_result = host.cmd(ping_cli)
-            self.assertTrue(re.search(
-                r'%u packets transmitted' % packets, ping_result), msg='%s: %s' % (
-                    ping_cli, ping_result))
-        self.fail('host %s (%s) could not be learned (%s: %s)' % (
-            host, host.MAC(), ping_cli, ping_result))
+            learn_result = host.cmd(learn_cli)
+        self.fail('Could not learn host %s (%s) from running %s: %s' % (
+            host, host.MAC(), learn_cli, learn_result))
 
     def get_prom_port(self):
         return int(self.env['faucet']['FAUCET_PROMETHEUS_PORT'])
@@ -1919,21 +1902,27 @@ dbs:
                 self.dpid, switch_port))
         return port_stats
 
+    def wait_host_stats_updated(self, hosts_switch_ports, timeout, sync_counters_func=None):
+        first = self.get_host_port_stats(hosts_switch_ports)
+        for _ in range(timeout):
+            if sync_counters_func:
+                sync_counters_func()
+            if self.get_host_port_stats(hosts_switch_ports) != first:
+                return
+            time.sleep(1)
+        self.fail('port stats for %s never updated' % hosts_switch_ports)
+
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
-    def verify_iperf_min(self, hosts_switch_ports, min_mbps, client_ip, server_ip, seconds=5):
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps, client_ip, server_ip,
+            seconds=5, prop=0.2, sync_counters_func=None):
         """Verify minimum performance and OF counters match iperf approximately."""
-        seconds = 5
-        # OF counters should be within 30% of iperf but might not be due
-        # to stats collection latency.
-        # TODO: find a better synchronization method.
-        # https://github.com/faucetsdn/faucet/issues/2718
-        prop = 0.3
+        # Attempt loose counter sync before starting.
+        self.wait_host_stats_updated(
+            hosts_switch_ports, timeout=seconds*2, sync_counters_func=sync_counters_func)
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
-        hosts = []
-        for host, _ in hosts_switch_ports:
-            hosts.append(host)
+        hosts = [host for host, _ in hosts_switch_ports]
         client_host, server_host = hosts
         iperf_mbps = self.iperf(
             client_host, client_ip, server_host, server_ip, seconds)
