@@ -2168,7 +2168,7 @@ class FaucetUntaggedMultiDBWatcherTest(
 
     def test_untagged(self):
         self.wait_dp_status(1, controller='gauge')
-        self._prom_ports_updating()
+        self.assertTrue(self.wait_ports_updating(self.port_map.keys(), self.PORT_VARS))
         self.ping_all_when_learned()
         self.hup_gauge()
         self.flap_all_switch_ports()
