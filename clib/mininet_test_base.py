@@ -93,6 +93,14 @@ class FaucetTestBase(unittest.TestCase):
     _ETH_DST_TABLE = 8
     _FLOOD_TABLE = 9
 
+    # Standard Gauge port counters.
+    PORT_VARS = {
+        'of_port_rx_bytes',
+        'of_port_tx_bytes',
+        'of_port_rx_packets',
+        'of_port_tx_packets',
+    }
+
     config = None
     dpid = None
     hw_dpid = None
@@ -1011,6 +1019,55 @@ dbs:
                     match, table_id, timeout=timeout, hard_timeout=match_hard_timeout):
                 return False
         return True
+
+    def scrape_port_counters(self, ports, port_vars):
+        """Scrape Gauge for list of ports and list of variables."""
+        port_counters = {port: {} for port in ports}
+        for port in ports:
+            port_labels = self.port_labels(self.port_map[port])
+            for port_var in port_vars:
+                val = self.scrape_prometheus_var(
+                    port_var, labels=port_labels, controller='gauge', dpid=True, retries=3)
+                self.assertIsNotNone(val, '%s missing for port %s' % (port_var, port))
+                port_counters[port][port_var] = val
+            # Require port to be up and reporting non-zero speed.
+            for port_state_var in ('of_port_state', 'of_port_reason', 'of_port_curr_speed'):
+                port_state_val = self.scrape_prometheus_var(
+                    port_state_var, labels=port_labels, controller='gauge', retries=3)
+                self.assertTrue(port_state_val and port_state_val > 0, msg='%s %s: %s' % (
+                    port_state_var, port_labels, port_state_val))
+        return port_counters
+
+    def wait_ports_updating(self, ports, port_vars, stimulate_counters_func=None):
+        """Return True if list of ports have list of variables all updated."""
+        if stimulate_counters_func is None:
+            stimulate_counters_func = self.ping_all_when_learned
+        ports_not_updated = set(ports)
+        first_counters = self.scrape_port_counters(ports_not_updated, port_vars)
+        start_time = time.time()
+
+        for _ in range(self.DB_TIMEOUT * 3):
+            stimulate_counters_func()
+            now_counters = self.scrape_port_counters(ports_not_updated, port_vars)
+            updated_ports = set()
+            for port in ports_not_updated:
+                first = first_counters[port]
+                now = now_counters[port]
+                not_updated = [var for var, val in now.items() if val <= first[var]]
+                if not_updated:
+                    break
+                else:
+                    updated_ports.add(port)
+            ports_not_updated -= updated_ports
+            if ports_not_updated:
+                time.sleep(1)
+            else:
+                break
+
+        end_time = time.time()
+
+        error('counter latency up to %u sec\n' % (end_time - start_time))
+        return not ports_not_updated
 
     @staticmethod
     def mac_as_int(mac):

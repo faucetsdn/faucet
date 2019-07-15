@@ -1966,50 +1966,6 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
             return 'gauge not listening on prometheus port'
         return None
 
-    def scrape_port_counters(self, port, port_vars):
-        port_counters = {}
-        port_labels = self.port_labels(self.port_map['port_%u' % port])
-        for port_var in port_vars:
-            val = self.scrape_prometheus_var(
-                port_var, labels=port_labels, controller='gauge', dpid=True, retries=3)
-            self.assertIsNotNone(val, '%s missing for port %u' % (port_var, port))
-            port_counters[port_var] = val
-            for port_state_var in ('of_port_state', 'of_port_reason', 'of_port_curr_speed'):
-                self.assertTrue(val and val > 0, self.scrape_prometheus_var(
-                    port_state_var, labels=port_labels, controller='gauge', retries=3))
-        return port_counters
-
-    def _prom_ports_updating(self):
-        port_vars = (
-            'of_port_rx_bytes',
-            'of_port_tx_bytes',
-            'of_port_rx_packets',
-            'of_port_tx_packets',
-        )
-        self.flap_all_switch_ports()
-        first_port_counters = {}
-        for port, _ in enumerate(self.net.hosts, start=1):
-            port_counters = self.scrape_port_counters(port, port_vars)
-            first_port_counters[port] = port_counters
-        counter_delay = 0
-
-        for _ in range(self.DB_TIMEOUT * 3):
-            self.ping_all_when_learned()
-            updating = True
-            for port, _ in enumerate(self.net.hosts, start=1):
-                port_counters = self.scrape_port_counters(port, port_vars)
-                for port_var, val in port_counters.items():
-                    if not val > first_port_counters[port][port_var]:
-                        updating = False
-                        break
-                if not updating:
-                    break
-            counter_delay += 1
-            time.sleep(1)
-
-        error('counter latency approx %u sec\n' % counter_delay)
-        return updating
-
     def test_untagged(self):
         self.wait_dp_status(1, controller='gauge')
         self.assertIsNotNone(self.scrape_prometheus_var(
@@ -2017,7 +1973,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         conf = self._get_faucet_conf()
         cookie = conf['dps'][self.DP_NAME]['cookie']
 
-        if not self._prom_ports_updating():
+        if not self.wait_ports_updating(self.port_map.keys(), self.PORT_VARS):
             self.fail(msg='Gauge Prometheus port counters not increasing')
 
         for _ in range(self.DB_TIMEOUT * 3):
