@@ -1034,7 +1034,7 @@ dbs:
                 self.assertIsNotNone(val, '%s missing for port %s' % (port_var, port))
                 port_counters[port][port_var] = val
             # Require port to be up and reporting non-zero speed.
-            for port_state_var in ('of_port_state', 'of_port_reason', 'of_port_curr_speed'):
+            for port_state_var in ('of_port_state', 'of_port_curr_speed'):
                 port_state_val = self.scrape_prometheus_var(
                     port_state_var, labels=port_labels, controller='gauge', retries=3)
                 self.assertTrue(port_state_val and port_state_val > 0, msg='%s %s: %s' % (
