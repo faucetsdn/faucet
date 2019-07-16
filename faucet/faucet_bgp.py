@@ -117,11 +117,10 @@ class FaucetBgp:
                     'Skipping %s because nexthop cannot be us' % route_str)
                 return
 
-            if vlan.vip_map(nexthop) is None:
-                if valve.router_vlan_for_ip_gw(vlan, nexthop) is None:
-                    self.logger.info(
-                        'Skipping %s because nexthop not in %s' % (route_str, vlan))
-                    return
+            if valve.router_vlan_for_ip_gw(vlan, nexthop) is None:
+                self.logger.info(
+                    'Skipping %s because nexthop not in %s' % (route_str, vlan))
+                return
 
         if bgp_speaker_key not in self._dp_bgp_rib:
             self._dp_bgp_rib[bgp_speaker_key] = {}

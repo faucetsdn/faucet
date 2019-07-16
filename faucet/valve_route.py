@@ -598,7 +598,10 @@ class ValveRouteManager(ValveManagerBase):
         router = self._router_for_vlan(vlan)
         if router is not None:
             vlan, _ = router.vip_map(ip_gw)
-        return vlan
+            return vlan
+        if vlan.vip_map(ip_gw):
+            return vlan
+        return None
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add a route to the RIB.
