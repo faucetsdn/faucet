@@ -586,6 +586,20 @@ class ValveRouteManager(ValveManagerBase):
                         ofmsgs.extend(resolve_flows)
         return ofmsgs
 
+    def _router_vlan_for_ip_gw(self, vlan, ip_gw):
+        """Return router VLAN for IP gateway (or None).
+
+        Args:
+            vlan (vlan): VLAN containing this RIB.
+            ip_gw (ipaddress.ip_address): IP address of nexthop.
+        Returns:
+            VLAN for this gateway or None.
+        """
+        router = self._router_for_vlan(vlan)
+        if router is not None:
+            vlan, _ = router.vip_map(ip_gw)
+        return vlan
+
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add a route to the RIB.
 
@@ -597,15 +611,12 @@ class ValveRouteManager(ValveManagerBase):
             list: OpenFlow messages.
         """
         ofmsgs = []
-        router = self._router_for_vlan(vlan)
-        if router is not None:
-            vlan, _ = router.vip_map(ip_gw)
-            if vlan is None:
-                self.logger.error(
-                    ('Cannot resolve destination VLAN for gateway %s in router %s '
-                     '(not in global router?)' % (
-                         ip_gw, router)))
-                return ofmsgs
+        vlan = self._router_vlan_for_ip_gw(vlan, ip_gw)
+        if vlan is None:
+            self.logger.error(
+                ('Cannot resolve destination VLAN for gateway %s '
+                 '(not in global router?)' % ip_gw))
+            return ofmsgs
         if vlan.is_faucet_vip(ip_dst):
             return ofmsgs
         routes = self._vlan_routes(vlan)

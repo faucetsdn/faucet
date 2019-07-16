@@ -106,28 +106,33 @@ class FaucetBgp:
         if vlan is None:
             return
         prefix = ipaddress.ip_network(str(path_change.prefix))
-        if bgp_speaker_key not in self._dp_bgp_rib:
-            self._dp_bgp_rib[bgp_speaker_key] = {}
+        route_str = 'BGP route %s' % prefix
 
         if path_change.next_hop:
             nexthop = ipaddress.ip_address(str(path_change.next_hop))
+            route_str = 'BGP route %s nexthop %s' % (prefix, nexthop)
 
             if vlan.is_faucet_vip(nexthop):
                 self.logger.error(
-                    'BGP nexthop %s for prefix %s cannot be us',
-                    nexthop, prefix)
+                    'Skipping %s because nexthop cannot be us' % route_str)
                 return
+
+            if vlan.vip_map(nexthop) is None:
+                self.logger.info(
+                    'Skipping %s because nexthop not in %s' % (route_str, vlan))
+                return
+
+        if bgp_speaker_key not in self._dp_bgp_rib:
+            self._dp_bgp_rib[bgp_speaker_key] = {}
 
         flowmods = []
         if path_change.is_withdraw:
-            self.logger.info(
-                'BGP withdraw %s', prefix)
+            self.logger.info('withdraw %s', route_str)
             if prefix in self._dp_bgp_rib[bgp_speaker_key]:
                 del self._dp_bgp_rib[bgp_speaker_key][prefix]
             flowmods = valve.del_route(vlan, prefix)
         else:
-            self.logger.info(
-                'BGP add %s nexthop %s', prefix, nexthop)
+            self.logger.info('add %s', route_str)
             self._dp_bgp_rib[bgp_speaker_key][prefix] = nexthop
             flowmods = valve.add_route(vlan, nexthop, prefix)
         if flowmods:
