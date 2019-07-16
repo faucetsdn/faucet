@@ -586,7 +586,7 @@ class ValveRouteManager(ValveManagerBase):
                         ofmsgs.extend(resolve_flows)
         return ofmsgs
 
-    def _router_vlan_for_ip_gw(self, vlan, ip_gw):
+    def router_vlan_for_ip_gw(self, vlan, ip_gw):
         """Return router VLAN for IP gateway (or None).
 
         Args:
@@ -611,7 +611,7 @@ class ValveRouteManager(ValveManagerBase):
             list: OpenFlow messages.
         """
         ofmsgs = []
-        vlan = self._router_vlan_for_ip_gw(vlan, ip_gw)
+        vlan = self.router_vlan_for_ip_gw(vlan, ip_gw)
         if vlan is None:
             self.logger.error(
                 ('Cannot resolve destination VLAN for gateway %s '

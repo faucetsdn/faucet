@@ -1569,6 +1569,10 @@ class Valve:
                 port, (dyn_vlan, port.native_vlan)))
         return ofmsgs
 
+    def router_vlan_for_ip_gw(self, vlan, ip_gw):
+        route_manager = self._route_manager_by_ipv[ip_gw.version]
+        return route_manager.router_vlan_for_ip_gw(vlan, ip_gw)
+
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
         route_manager = self._route_manager_by_ipv[ip_dst.version]
