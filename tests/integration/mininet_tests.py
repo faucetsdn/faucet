@@ -4776,7 +4776,6 @@ acls:
             'vlan 456.+vlan 123', tcpdump_txt))
 
 
-@unittest.skip('190318: works under OVS 2.9.2 locally, but not under Travis')
 class FaucetUntaggedMultiConfVlansOutputTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -4817,11 +4816,12 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+            packets=1)
         self.assertTrue(re.search(
-            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt), msg=tcpdump_txt)
         self.assertTrue(re.search(
-            'vlan 456.+ethertype 802.1Q-QinQ, vlan 123', tcpdump_txt))
+            'vlan 456.+ethertype 802.1Q-QinQ, vlan 123', tcpdump_txt), msg=tcpdump_txt)
 
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
