@@ -77,8 +77,6 @@ class Port(Conf):
         # If True, receive LLDP on this port.
         'lldp_peer_mac': None,
         # If set, validates src MAC address of incoming LLDP packets
-        'override_output_port': None,
-        # If set, packets are sent to this other port.
         'max_lldp_lost': 3,
         # threshold before marking a stack port as down
         'dot1x': False,
@@ -118,7 +116,6 @@ class Port(Conf):
         'opstatus_reconf': bool,
         'receive_lldp': bool,
         'lldp_peer_mac': str,
-        'override_output_port': (str, int),
         'dot1x': bool,
         'dot1x_acl': bool,
         'dot1x_mab': bool,
@@ -171,7 +168,6 @@ class Port(Conf):
         self.op_status_reconf = None
         self.opstatus_reconf = None
         self.output_only = None
-        self.override_output_port = None
         self.permanent_learn = None
         self.receive_lldp = None
         self.lldp_peer_mac = None

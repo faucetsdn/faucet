@@ -937,15 +937,6 @@ configuration.
                     mirrored_port.mirror.append(mirror_port.number)
                     mirror_port.output_only = True
 
-        def resolve_override_output_ports():
-            """Resolve override output ports."""
-            for port_no, port in self.ports.items():
-                if port.override_output_port:
-                    port.override_output_port = self.resolve_port(port.override_output_port)
-                    test_config_condition(not port.override_output_port, (
-                        'override_output_port port not defined'))
-                    self.ports[port_no] = port
-
         def resolve_acl(acl_in, dp=None, vid=None, port_num=None): #pylint: disable=invalid-name
             """
             Resolve an individual ACL
@@ -1170,7 +1161,6 @@ configuration.
         self.has_externals = bool(vlans_with_external_ports)
         resolve_stack_dps()
         resolve_mirror_destinations()
-        resolve_override_output_ports()
         resolve_acls()
         resolve_routers()
 
