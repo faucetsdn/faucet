@@ -3067,7 +3067,7 @@ dps:
         dp_id: 0x1
         dot1x:
             nfv_intf: lo
-            nfv_sw_port: 2
+            nfv_sw_port: 3
             radius_ip: ::1
             radius_port: 123
             radius_secret: SECRET
@@ -3076,6 +3076,69 @@ dps:
                 native_vlan: office
                 dot1x: True
             2:
+                native_vlan: office
+                dot1x: True
+                dot1x_mab: True
+            3:
+                output_only: True
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_dot1x_vlan_config_valid(self):
+        """Test valid dot1x VLAN."""
+        config = """
+vlans:
+    office:
+        vid: 100
+    dyn_vlan:
+        vid: 200
+        dot1x_assigned: True
+dps:
+    sw1:
+        dp_id: 0x1
+        dot1x:
+            nfv_intf: lo
+            nfv_sw_port: 3
+            radius_ip: ::1
+            radius_port: 123
+            radius_secret: SECRET
+        interfaces:
+            1:
+                native_vlan: office
+                dot1x: True
+            3:
+                output_only: True
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_dot1x_acl_config_valid(self):
+        """Test valid dot1x ACL."""
+        config = """
+vlans:
+    office:
+        vid: 100
+acls:
+    denyall:
+        dot1x_assigned: True
+        rules:
+        - rule:
+            actions:
+                allow: False
+dps:
+    sw1:
+        dp_id: 0x1
+        dot1x:
+            nfv_intf: lo
+            nfv_sw_port: 3
+            radius_ip: ::1
+            radius_port: 123
+            radius_secret: SECRET
+        interfaces:
+            1:
+                native_vlan: office
+                dot1x: True
+                dot1x_dyn_acl: True
+            3:
                 output_only: True
 """
         self.check_config_success(config, cp.dp_parser)
