@@ -327,14 +327,13 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
     def verify_dot1x_events_log(self):
 
         def replace_mac(host_no):
-            if host_no == 'HOST1_MAC':
-                return self.eapol1_host.MAC()
-            if host_no == 'HOST2_MAC':
-                return self.eapol2_host.MAC()
-            if host_no == 'HOST3_MAC':
-                return self.ping_host.MAC()
-            if host_no == 'HOST4_MAC':
-                return self.nfv_host.MAC()
+            replacement_macs = {
+                'HOST1_MAC': self.eapol1_host.MAC(),
+                'HOST2_MAC': self.eapol2_host.MAC(),
+                'HOST3_MAC': self.ping_host.MAC(),
+                'HOST4_MAC': self.nfv_host.MAC(),
+            }
+            return replacement_macs.get(host_no, None)
 
         def insert_dynamic_values():
             for dot1x_event in self.DOT1X_EXPECTED_EVENTS:
@@ -841,7 +840,7 @@ class Faucet8021XPeriodicReauthTest(Faucet8021XBaseTest):
                 if total == expected_total:
                     break
                 time.sleep(1)
-            self.assertEquals(expected_total, total, msg='failed to successfully re-auth')
+            self.assertEqual(expected_total, total, msg='failed to successfully re-auth')
         self.post_test_checks()
 
 
@@ -1022,7 +1021,7 @@ class Faucet8021XMABTest(Faucet8021XSuccessTest):
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
         # First ping fail
-        dhclient_output = self.dhclient_callback(self.eapol1_host, timeout)
+        self.dhclient_callback(self.eapol1_host, timeout)
 
         log_file = os.path.join(self.tmpdir, 'faucet.log')
         self.wait_until_matching_lines_from_file(r'.*AAA_SUCCESS.*', log_file)
@@ -1147,7 +1146,8 @@ acls:
         self.wait_for_eap_success(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
 
         self.assertIn('Success', tcpdump_txt_1)
-        self.assertEqual(1,
+        self.assertEqual(
+            1,
             self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
 
         tcpdump_txt_2 = self.try_8021x(
@@ -1156,7 +1156,8 @@ acls:
         self.wait_for_eap_success(self.eapol2_host, self.get_wpa_ctrl_path(self.eapol2_host))
 
         self.assertIn('Success', tcpdump_txt_2)
-        self.assertEqual(1,
+        self.assertEqual(
+            1,
             self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
 
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
@@ -1275,7 +1276,6 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         port_no1 = self.port_map['port_1']
         port_no2 = self.port_map['port_2']
         port_no3 = self.port_map['port_3']
-        port_no4 = self.port_map['port_4']
         self.wait_8021x_flows(port_no1)
         tcpdump_txt = self.try_8021x(
             self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
@@ -5435,8 +5435,7 @@ acls:
 """
 
     def _verify_link(self, hosts=None, expected=True):
-        from_port=hosts[0]
-        to_port=hosts[1]
+        from_port, to_port = hosts[:2]
         tcpdump_filter = 'ether src %s' % from_port.MAC()
         tcpdump_txt = self.tcpdump_helper(
             to_port, tcpdump_filter, [
@@ -6670,14 +6669,13 @@ class FaucetStringOfDPTest(FaucetTest):
             include_optional,
             self.acls(),
             self.acl_in_dp(),
-            stack_ring,
             lacp,
             use_external,
         )
 
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
-                   include=None, include_optional=None, acls=None, acl_in_dp=None, stack_ring=False,
+                   include=None, include_optional=None, acls=None, acl_in_dp=None,
                    lacp=False, use_external=False):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
         if dpids is None:
@@ -6790,12 +6788,8 @@ class FaucetStringOfDPTest(FaucetTest):
 
             for portno, config in list(interfaces_config.items()):
                 stack = config.get('stack', None)
-                if stack:
-                    peer_dp = stack['dp']
+                if stack and 'stack' in interfaces_config[portno]:
                     peer_portno = stack['port']
-                    peer_dpid = dpname_to_dpkey[peer_dp]
-                    if 'stack' not in interfaces_config[portno]:
-                        interfaces_config[portno]['stack'] = {}
                     interfaces_config[portno]['stack'].update({
                         'port': 'b%u' % peer_portno})
 
