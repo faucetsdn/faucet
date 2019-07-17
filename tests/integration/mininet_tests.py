@@ -3429,7 +3429,8 @@ routers:
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
             0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
-        self.verify_invalid_bgp_route(r'.+10.0.4.0\/24 cannot be us$')
+        self.verify_invalid_bgp_route(r'.+10.0.4.0\/24.+cannot be us$')
+        self.verify_invalid_bgp_route(r'.+10.0.5.0\/24.+because nexthop not in VLAN.+')
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddress.IPv4Network('10.0.3.0/24'))
         self.verify_ipv4_routing_mesh()
@@ -5924,6 +5925,7 @@ routers:
     exabgp_peer_conf = """
     static {
       route 10.99.99.0/24 next-hop 10.200.0.1 local-preference 100;
+      route 10.0.5.0/24 next-hop 127.0.0.1;
     }
 """
     exabgp_log = None
@@ -5954,6 +5956,7 @@ routers:
             self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddress.IPv4Network('10.99.99.0/24'), vlan_vid=300)
+        self.verify_invalid_bgp_route(r'.+10.0.5.0\/24.+because nexthop not in VLAN.+')
 
 
 class FaucetUntaggedIPv4InterVLANRouteTest(FaucetUntaggedTest):
@@ -6444,7 +6447,7 @@ routers:
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
-        self.verify_invalid_bgp_route(r'.+fc00::40:0\/112 cannot be us$')
+        self.verify_invalid_bgp_route(r'.+fc00::40:0\/112.+cannot be us$')
         self.verify_ipv6_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
