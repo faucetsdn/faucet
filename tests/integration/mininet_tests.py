@@ -3984,12 +3984,15 @@ vlans:
                  'fuzz(%s(type=0)),count=%u)\"' % (self.FAUCET_VIPV4.ip, 'ICMP', packets)),
                 ('python3 -c \"from scapy.all import * ;'
                  'scapy.all.send(IP(dst=\'%s\')/'
-                 'fuzz(%s(type=8)),count=%u)\"' % (self.FAUCET_VIPV4.ip, 'ICMP', packets)),
-                ('python3 -c \"from scapy.all import * ;'
-                 'scapy.all.send(fuzz(%s(pdst=\'%s\')),'
-                 'count=%u)\"' % ('ARP', self.FAUCET_VIPV4.ip, packets))):
+                 'fuzz(%s(type=8)),count=%u)\"' % (self.FAUCET_VIPV4.ip, 'ICMP', packets))):
+                # TODO: ARP fuzzing currently broken in scapy 2.4.2.
+                # https://github.com/secdev/scapy/issues/2166
+                # ('python3 -c \"from scapy.all import * ;'
+                # 'scapy.all.send(fuzz(%s(pdst=\'%s\')),'
+                # 'count=%u)\"' % ('ARP', self.FAUCET_VIPV4.ip, packets))):
+            fuzz_out = first_host.cmd(fuzz_cmd)
             self.assertTrue(
-                re.search('Sent %u packets' % packets, first_host.cmd(fuzz_cmd)))
+                re.search('Sent %u packets' % packets, fuzz_out), msg='%s: %s' % (fuzz_cmd, fuzz_out))
         self.one_ipv4_controller_ping(first_host)
 
     def test_flap_ping_controller(self):
