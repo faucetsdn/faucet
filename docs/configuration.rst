@@ -516,10 +516,6 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - False
       - If True, no packets will be accepted from this port.
-    * - override_output_port
-      - integer
-      - None
-      - If set, packets are sent to this other port.
     * - permanent_learn
       - boolean
       - False

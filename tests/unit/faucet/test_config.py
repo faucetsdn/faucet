@@ -220,45 +220,6 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
-    def test_override_port(self):
-        """Test override port is valid."""
-        config = """
-vlans:
-    office:
-        vid: 100
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            testing:
-                number: 1
-                native_vlan: office
-                override_output_port: output_port
-            output_port:
-                number: 2
-                output_only: True
-"""
-        self.check_config_success(config, cp.dp_parser)
-        dps = self._get_dps_as_dict(config)
-        self.assertEqual(
-            dps[1].ports[1].override_output_port.number,
-            2,
-            'override output port not configured correctly'
-            )
-        self.assertTrue(
-            dps[1].ports[2].output_only,
-            'output only port configured incorrectly'
-            )
-        self.assertTrue(
-            bool(dps[1].output_only_ports),
-            'no output only ports configured for dp'
-            )
-        self.assertEqual(
-            dps[1].output_only_ports[0].number,
-            2,
-            'output only port configured incorrectly'
-            )
-
     def test_valid_mac(self):
         """Test with valid MAC."""
         config = """

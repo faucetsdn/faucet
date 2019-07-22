@@ -87,19 +87,6 @@ class ValveHostManager(ValveManagerBase):
                             vlan.max_hosts, vlan.vid, eth_src, port))
         return ofmsgs
 
-    def add_port(self, port):
-        """initialise override_output_port if necessary"""
-        ofmsgs = []
-        if port.override_output_port:
-            ofmsgs.append(self.eth_src_table.flowmod(
-                match=self.eth_src_table.match(
-                    in_port=port.number),
-                priority=self.low_priority + 1,
-                inst=[valve_of.apply_actions([
-                    valve_of.output_controller(),
-                    valve_of.output_port(port.override_output_port.number)])]))
-        return ofmsgs
-
     def del_port(self, port):
         ofmsgs = []
         ofmsgs.append(
@@ -205,11 +192,7 @@ class ValveHostManager(ValveManagerBase):
 
         inst = []
 
-        if port.override_output_port:
-            inst.append(valve_of.apply_actions([
-                valve_of.output_port(port.override_output_port.number)]))
-        else:
-            inst.append(self.eth_src_table.goto(self.output_table))
+        inst.append(self.eth_src_table.goto(self.output_table))
 
         ofmsgs.append(self.eth_src_table.flowmod(
             match=src_match,
