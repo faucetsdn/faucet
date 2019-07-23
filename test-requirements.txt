@@ -11,4 +11,4 @@ pylint
 pytest-cov
 pytype==2019.7.11
 requests
-scapy
+-e git://github.com/gpotter2/scapy.git@e410a79bfaf667a5e9b351ce72011d4f169a3dbb#egg=scapy
