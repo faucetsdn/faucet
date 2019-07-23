@@ -1669,9 +1669,14 @@ class Valve:
 class TfmValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
+    USE_OXM_IDS = True
+    MAX_TABLE_ID = 0
+    MIN_MAX_FLOWS = 0
+
     def _pipeline_flows(self):
         return [valve_of.table_features(
-            tfm_pipeline.load_tables(self.dp, self))]
+            tfm_pipeline.load_tables(
+                self.dp, self, self.MAX_TABLE_ID, self.MIN_MAX_FLOWS, self.USE_OXM_IDS))]
 
     def _add_default_flows(self):
         ofmsgs = self._pipeline_flows()
@@ -1684,6 +1689,15 @@ class OVSValve(Valve):
     """Valve implementation for OVS."""
 
     USE_BARRIERS = False
+
+
+class OVSTfmValve(TfmValve):
+    """Valve implementation for OVS."""
+
+    USE_BARRIERS = False
+    USE_OXM_IDS = False
+    MAX_TABLE_ID = 253
+    MIN_MAX_FLOWS = 1000000
 
 
 class ArubaValve(TfmValve):
@@ -1729,6 +1743,7 @@ SUPPORTED_HARDWARE = {
     'Netronome': OVSValve,
     'NoviFlow': NoviFlowValve,
     'Open vSwitch': OVSValve,
+    'TFM Open vSwitch': OVSTfmValve,
     'ZodiacFX': OVSValve,
     'ZodiacGX': OVSValve,
 }

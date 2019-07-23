@@ -132,7 +132,7 @@ if [ "$HWTESTS" == 1 ] ; then
   done
   cat > /tmp/hw_switch_config.yaml << EOL
 hw_switch: True
-hardware: 'GenericTFM'
+hardware: 'TFM Open vSwitch'
 of_port: 6653
 gauge_of_port: 6654
 cpn_intf: lo
