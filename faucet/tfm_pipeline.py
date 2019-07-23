@@ -3,31 +3,66 @@
 from faucet import valve_of
 
 
-def load_tables(dp, valve_cl): # pylint: disable=invalid-name
+REQUIRED_PROPERTIES = set([
+    valve_of.ofp.OFPTFPT_WRITE_ACTIONS,
+    valve_of.ofp.OFPTFPT_WRITE_ACTIONS_MISS,
+    valve_of.ofp.OFPTFPT_APPLY_ACTIONS,
+    valve_of.ofp.OFPTFPT_APPLY_ACTIONS_MISS,
+    valve_of.ofp.OFPTFPT_WRITE_SETFIELD,
+    valve_of.ofp.OFPTFPT_WRITE_SETFIELD_MISS,
+    valve_of.ofp.OFPTFPT_MATCH,
+    valve_of.ofp.OFPTFPT_WILDCARDS,
+    valve_of.ofp.OFPTFPT_APPLY_SETFIELD_MISS,
+    valve_of.ofp.OFPTFPT_APPLY_SETFIELD,
+    valve_of.ofp.OFPTFPT_NEXT_TABLES,
+    valve_of.ofp.OFPTFPT_NEXT_TABLES_MISS,
+    valve_of.ofp.OFPTFPT_APPLY_SETFIELD,
+    valve_of.ofp.OFPTFPT_INSTRUCTIONS,
+    valve_of.ofp.OFPTFPT_INSTRUCTIONS_MISS])
+
+
+def fill_required_properties(new_table):
+    """Ensure TFM has all required properties."""
+    configured_props = set([prop.type for prop in new_table.properties])
+    missing_props = REQUIRED_PROPERTIES - configured_props
+    for prop in missing_props:
+        new_table.properties.append(
+            valve_of.parser.OFPTableFeaturePropOxm(type_=prop))
+
+
+def init_table(table_id, name, max_entries, metadata_match, metadata_write):
+    if not metadata_match:
+        metadata_match = 0
+    if not metadata_write:
+        metadata_write = 0
+    table_attr = {
+        'config': 3,
+        'max_entries': max_entries,
+        'metadata_match': metadata_match,
+        'metadata_write': metadata_write,
+        'name': name.encode('utf-8'),
+        'properties': [],
+        'table_id': table_id,
+    }
+    return valve_of.parser.OFPTableFeaturesStats(**table_attr)
+
+
+def load_tables(dp, valve_cl, max_table_id=253, min_max_flows=1000000): # pylint: disable=invalid-name
     """Configure switch tables with TFM messages."""
     table_array = []
     active_table_ids = sorted([valve_table.table_id for valve_table in dp.tables.values()])
     for table_id in active_table_ids:
         valve_table = dp.table_by_id(table_id)
-        table_attr = {
-            'config': 3,
-            'max_entries': valve_table.table_config.size,
-            'metadata_match': valve_table.metadata_match,
-            'metadata_write': valve_table.metadata_write,
-            'name': valve_table.name.encode('utf-8'),
-            'properties': [],
-            'table_id': table_id,
-        }
-        if valve_table.metadata_match:
-            table_attr.update({'metadata_match': valve_table.metadata_match})
-        if valve_table.metadata_write:
-            table_attr.update({'metadata_write': valve_table.metadata_write})
-        new_table = valve_of.parser.OFPTableFeaturesStats(**table_attr)
+        max_entries = max(min_max_flows, valve_table.table_config.size)
+        new_table = init_table(
+            table_id, valve_table.name, max_entries,
+            valve_table.metadata_match, valve_table.metadata_write)
         # Match types
         if valve_table.match_types:
             oxm_ids = [
                 valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
                 for match_type, hasmask in valve_table.match_types.items()]
+            oxm_ids = []
             new_table.properties.append(
                 valve_of.parser.OFPTableFeaturePropOxm(
                     oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_MATCH))
@@ -61,9 +96,9 @@ def load_tables(dp, valve_cl): # pylint: disable=invalid-name
             oxm_ids = [
                 valve_of.parser.OFPOxmId(type_=field, hasmask=False)
                 for field in valve_table.set_fields]
-            new_table.properties.append(
-                valve_of.parser.OFPTableFeaturePropOxm(
-                    oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_APPLY_SETFIELD))
+            #new_table.properties.append(
+            #   valve_of.parser.OFPTableFeaturePropOxm(
+            #        oxm_ids=oxm_ids, type_=valve_of.ofp.OFPTFPT_APPLY_SETFIELD))
         if valve_table.table_config.output:
             apply_actions.add(valve_of.ofp.OFPAT_OUTPUT)
             apply_actions.add(valve_of.ofp.OFPAT_POP_VLAN)
@@ -86,5 +121,14 @@ def load_tables(dp, valve_cl): # pylint: disable=invalid-name
                 valve_of.parser.OFPTableFeaturePropInstructions(
                     type_=valve_of.ofp.OFPTFPT_INSTRUCTIONS_MISS, instruction_ids=inst_ids))
 
+        fill_required_properties(new_table)
         table_array.append(new_table)
+
+    tfm_table_ids = set([table.table_id for table in table_array])
+    for missing_table_id in set(range(max_table_id+1)) - tfm_table_ids:
+        new_table = init_table(
+            missing_table_id, str(missing_table_id), min_max_flows, 0, 0)
+        fill_required_properties(new_table)
+        table_array.append(new_table)
+
     return table_array
