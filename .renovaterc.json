@@ -1,5 +1,5 @@
 {
-  "ignoreDeps": ["eventlet", "scapy"],
+  "ignoreDeps": ["eventlet"],
   "separateMajorMinor": false,
   "schedule": [
     "after 10pm every weekday",
