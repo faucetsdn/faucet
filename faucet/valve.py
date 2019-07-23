@@ -1694,6 +1694,8 @@ class OVSValve(Valve):
 class OVSTfmValve(TfmValve):
     """Valve implementation for OVS."""
 
+    # TODO: use OXMIDs acceptable to OVS.
+    # TODO: dynamically determine tables/flows
     USE_BARRIERS = False
     USE_OXM_IDS = False
     MAX_TABLE_ID = 253
