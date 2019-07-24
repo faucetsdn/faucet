@@ -1745,7 +1745,7 @@ SUPPORTED_HARDWARE = {
     'Netronome': OVSValve,
     'NoviFlow': NoviFlowValve,
     'Open vSwitch': OVSValve,
-    'TFM Open vSwitch': OVSTfmValve,
+    'Open vSwitch TFM': OVSTfmValve,
     'ZodiacFX': OVSValve,
     'ZodiacGX': OVSValve,
 }
