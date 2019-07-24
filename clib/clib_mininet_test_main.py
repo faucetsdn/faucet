@@ -422,10 +422,20 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
 class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-attr
 
     root_tmpdir = None
+    test_start_times = {}
+    test_times = {}
 
     def _test_tmpdir(self, test):
         return os.path.join(
             self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
+
+    def startTest(self, test):
+        self.test_start_times[test.id()] = time.time()
+        super(FaucetResult, self).startTest(test)
+
+    def stopTest(self, test):
+        self.test_times[test.id()] = time.time() - self.test_start_times[test.id()]
+        super(FaucetResult, self).stopTest(test)
 
 
 class FaucetCleanupResult(FaucetResult):
@@ -472,13 +482,14 @@ def run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests):
     return sanity_result
 
 
-def report_tests(test_status, test_list):
+def report_tests(test_status, test_list, result):
     tests_json = {}
     for test_class, test_text in test_list:
         test_text = test_text.replace('\n', '\t')
         test_text = test_text.replace('"', '\'')
+        test_time = str(int(result.test_times[test_class.id()]))
         tests_json.update({
-            test_class.id(): {'status': test_status, 'output': test_text}})
+            test_class.id(): {'status': test_status, 'output': test_text, 'time': test_time}})
     return tests_json
 
 
@@ -499,7 +510,7 @@ def report_results(results, hw_config, report_json_filename):
                 test_lists.append(
                     ('OK', result.successes))
             for test_status, test_list in test_lists:
-                tests_json.update(report_tests(test_status, test_list))
+                tests_json.update(report_tests(test_status, test_list, result))
         print(yaml.dump(
             tests_json, default_flow_style=False, explicit_start=True, explicit_end=True))
         if report_json_filename:
