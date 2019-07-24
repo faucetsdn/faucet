@@ -487,7 +487,7 @@ def report_tests(test_status, test_list, result):
     for test_class, test_text in test_list:
         test_text = test_text.replace('\n', '\t')
         test_text = test_text.replace('"', '\'')
-        test_time = str(int(result.test_times[test_class.id()]))
+        test_time = result.test_times[test_class.id()]
         tests_json.update({
             test_class.id(): {'status': test_status, 'output': test_text, 'time': test_time}})
     return tests_json
