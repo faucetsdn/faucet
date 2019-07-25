@@ -428,22 +428,16 @@ class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-att
         return os.path.join(
             self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
 
-    def _set_start_time(self, test):
-        # TODO: concurrent test worker doesn't have startTest() called
-        # before start, and we don't have access to the remote test class,
-        # so we have to share start time via a file.
-        start_file_name = os.path.join(self._test_tmpdir(test), 'start_time')
-        start_time = None
+    def _set_test_duration_secs(self, test):
+        duration_file_name = os.path.join(self._test_tmpdir(test), 'test_duration_secs')
         try:
-            with open(start_file_name) as start_time_file:
-                start_time = int(start_time_file.read())
+            with open(duration_file_name) as duration_file:
+                self.test_duration_secs[test.id()] = int(duration_file.read())
         except FileNotFoundError:
             pass
-        if start_time is not None:
-            self.test_duration_secs[test.id()] = int(time.time()) - start_time
 
     def stopTest(self, test):
-        self._set_start_time(test)
+        self._set_test_duration_secs(test)
         super(FaucetResult, self).stopTest(test)
 
 
@@ -452,9 +446,8 @@ class FaucetCleanupResult(FaucetResult):
     successes = []
 
     def addSuccess(self, test):
-        self._set_start_time(test)
-        test_tmpdir = self._test_tmpdir(test)
-        shutil.rmtree(test_tmpdir)
+        self._set_test_duration_secs(test)
+        shutil.rmtree(self._test_tmpdir(test))
         self.successes.append((test, ''))
         super(FaucetCleanupResult, self).addSuccess(test)
 
