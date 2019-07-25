@@ -30,6 +30,8 @@ from mininet.net import Mininet # pylint: disable=import-error
 from mininet.node import Intf # pylint: disable=import-error
 from mininet.util import dumpNodeConnections, pmonitor # pylint: disable=import-error
 
+from ryu.ofproto import ofproto_v1_3 as ofp
+
 from clib import mininet_test_util
 from clib import mininet_test_topo
 from clib.tcpdump_helper import TcpdumpHelper
@@ -37,7 +39,6 @@ from clib.tcpdump_helper import TcpdumpHelper
 MAX_TEST_VID = 512
 OFPVID_PRESENT = 0x1000
 MIN_FLAP_TIME = 1
-OFPPC_PORT_DOWN = 1 << 0 # TODO: avoid dependency on Python2 Ryu.
 PEER_BGP_AS = 2**16 + 1
 IPV4_ETH = 0x0800
 IPV6_ETH = 0x86dd
@@ -1038,11 +1039,14 @@ dbs:
                 self.assertIsNotNone(val, '%s missing for port %s' % (port_var, port))
                 port_counters[port][port_var] = val
             # Require port to be up and reporting non-zero speed.
-            for port_state_var in ('of_port_state', 'of_port_curr_speed'):
-                port_state_val = self.scrape_prometheus_var(
-                    port_state_var, labels=port_labels, controller='gauge', retries=3)
-                self.assertTrue(port_state_val and port_state_val > 0, msg='%s %s: %s' % (
-                    port_state_var, port_labels, port_state_val))
+            speed = self.scrape_prometheus_var(
+                'of_port_curr_speed', labels=port_labels, controller='gauge', retries=3)
+            self.assertTrue(speed and speed > 0, msg='%s %s: %s' % (
+                'of_port_curr_speed', port_labels, speed))
+            state = self.scrape_prometheus_var(
+                'of_port_state', labels=port_labels, controller='gauge', retries=3)
+            self.assertFalse(state & ofp.OFPPS_LINK_DOWN, msg='%s %s: %s' % (
+                'of_port_state', port_labels, state))
         return port_counters
 
     def wait_ports_updating(self, ports, port_vars, stimulate_counters_func=None):
@@ -1966,7 +1970,7 @@ dbs:
                 'port_status', self.port_labels(port_no), default=None, dpid=dpid)
             if port_status is not None and port_status == expected_status:
                 return
-            self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
+            self._portmod(dpid, port_no, status, ofp.OFPPC_PORT_DOWN)
             time.sleep(1)
         self.fail('dpid %x port %s status %s != expected %u' % (
             dpid, port_no, port_status, expected_status))
@@ -1975,14 +1979,14 @@ dbs:
         if dpid is None:
             dpid = self.dpid
         expected_status = 1
-        if status == OFPPC_PORT_DOWN:
+        if status == ofp.OFPPC_PORT_DOWN:
             expected_status = 0
-        self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
+        self._portmod(dpid, port_no, status, ofp.OFPPC_PORT_DOWN)
         if wait:
             self.wait_port_status(int(dpid), port_no, status, expected_status)
 
     def set_port_down(self, port_no, dpid=None, wait=True):
-        self.set_port_status(dpid, port_no, OFPPC_PORT_DOWN, wait)
+        self.set_port_status(dpid, port_no, ofp.OFPPC_PORT_DOWN, wait)
 
     def set_port_up(self, port_no, dpid=None, wait=True):
         self.set_port_status(dpid, port_no, 0, wait)
