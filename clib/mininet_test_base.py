@@ -344,6 +344,8 @@ class FaucetTestBase(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
+        with open(os.path.join(self.tmpdir, 'start_time'), 'w') as start_time_file:
+            start_time_file.write(str(int(time.time())))
         self._set_static_vars()
         self.topo_class = partial(
             mininet_test_topo.FaucetSwitchTopo, port_order=self.port_order,

@@ -422,19 +422,28 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
 class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-attr
 
     root_tmpdir = None
-    test_start_times = {}
-    test_times = {}
+    test_duration_secs = {}
 
     def _test_tmpdir(self, test):
         return os.path.join(
             self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
 
-    def startTest(self, test):
-        self.test_start_times[test.id()] = time.time()
-        super(FaucetResult, self).startTest(test)
+    def _set_start_time(self, test):
+        # TODO: concurrent test worker doesn't have startTest() called
+        # before start, and we don't have access to the remote test class,
+        # so we have to share start time via a file.
+        start_file_name = os.path.join(self._test_tmpdir(test), 'start_time')
+        start_time = None
+        try:
+            with open(start_file_name) as start_time_file:
+                start_time = int(start_time_file.read())
+        except FileNotFoundError:
+            pass
+        if start_time is not None:
+            self.test_duration_secs[test.id()] = int(time.time()) - start_time
 
     def stopTest(self, test):
-        self.test_times[test.id()] = time.time() - self.test_start_times[test.id()]
+        self._set_start_time(test)
         super(FaucetResult, self).stopTest(test)
 
 
@@ -443,6 +452,7 @@ class FaucetCleanupResult(FaucetResult):
     successes = []
 
     def addSuccess(self, test):
+        self._set_start_time(test)
         test_tmpdir = self._test_tmpdir(test)
         shutil.rmtree(test_tmpdir)
         self.successes.append((test, ''))
@@ -487,9 +497,10 @@ def report_tests(test_status, test_list, result):
     for test_class, test_text in test_list:
         test_text = test_text.replace('\n', '\t')
         test_text = test_text.replace('"', '\'')
-        test_time = result.test_times[test_class.id()]
+        test_duration_secs = result.test_duration_secs[test_class.id()]
         tests_json.update({
-            test_class.id(): {'status': test_status, 'output': test_text, 'time': test_time}})
+            test_class.id(): {
+                'status': test_status, 'output': test_text, 'test_duration_secs': test_duration_secs}})
     return tests_json
 
 
