@@ -430,6 +430,7 @@ class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-att
 
     def _set_test_duration_secs(self, test):
         duration_file_name = os.path.join(self._test_tmpdir(test), 'test_duration_secs')
+        self.test_duration_secs[test.id()] = 0
         try:
             with open(duration_file_name) as duration_file:
                 self.test_duration_secs[test.id()] = int(duration_file.read())
