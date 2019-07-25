@@ -422,10 +422,25 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
 class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-attr
 
     root_tmpdir = None
+    test_duration_secs = {}
 
     def _test_tmpdir(self, test):
         return os.path.join(
             self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
+
+    def _set_test_duration_secs(self, test):
+        duration_file_name = os.path.join(self._test_tmpdir(test), 'test_duration_secs')
+        if test.id() not in self.test_duration_secs:
+            self.test_duration_secs[test.id()] = 0
+        try:
+            with open(duration_file_name) as duration_file:
+                self.test_duration_secs[test.id()] = int(duration_file.read())
+        except FileNotFoundError:
+            pass
+
+    def stopTest(self, test):
+        self._set_test_duration_secs(test)
+        super(FaucetResult, self).stopTest(test)
 
 
 class FaucetCleanupResult(FaucetResult):
@@ -433,8 +448,8 @@ class FaucetCleanupResult(FaucetResult):
     successes = []
 
     def addSuccess(self, test):
-        test_tmpdir = self._test_tmpdir(test)
-        shutil.rmtree(test_tmpdir)
+        self._set_test_duration_secs(test)
+        shutil.rmtree(self._test_tmpdir(test))
         self.successes.append((test, ''))
         super(FaucetCleanupResult, self).addSuccess(test)
 
@@ -472,13 +487,15 @@ def run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests):
     return sanity_result
 
 
-def report_tests(test_status, test_list):
+def report_tests(test_status, test_list, result):
     tests_json = {}
     for test_class, test_text in test_list:
         test_text = test_text.replace('\n', '\t')
         test_text = test_text.replace('"', '\'')
+        test_duration_secs = result.test_duration_secs[test_class.id()]
         tests_json.update({
-            test_class.id(): {'status': test_status, 'output': test_text}})
+            test_class.id(): {
+                'status': test_status, 'output': test_text, 'test_duration_secs': test_duration_secs}})
     return tests_json
 
 
@@ -499,7 +516,7 @@ def report_results(results, hw_config, report_json_filename):
                 test_lists.append(
                     ('OK', result.successes))
             for test_status, test_list in test_lists:
-                tests_json.update(report_tests(test_status, test_list))
+                tests_json.update(report_tests(test_status, test_list, result))
         print(yaml.dump(
             tests_json, default_flow_style=False, explicit_start=True, explicit_end=True))
         if report_json_filename:

@@ -134,6 +134,7 @@ class FaucetTestBase(unittest.TestCase):
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
         self.port_order = port_order
+        self.start_time = None
 
     def hosts_name_ordered(self):
         """Return hosts in strict name only order."""
@@ -343,6 +344,7 @@ class FaucetTestBase(unittest.TestCase):
             self.net.stop()
 
     def setUp(self):
+        self.start_time = time.time()
         self.tmpdir = self._tmpdir_name()
         self._set_static_vars()
         self.topo_class = partial(
@@ -402,6 +404,8 @@ class FaucetTestBase(unittest.TestCase):
         self.assertFalse(
             oferrors,
             msg='log has OFPErrorMsgs: %s' % oferrors)
+        with open(os.path.join(self.tmpdir, 'test_duration_secs'), 'w') as duration_file:
+            duration_file.write(str(int(time.time() - self.start_time)))
 
     def _attach_physical_switch(self):
         """Bridge a physical switch into test topology."""
