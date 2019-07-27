@@ -662,6 +662,7 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
             sanity_result.wasSuccessful(), keep_logs, dumpfail)
     else:
         print('no tests selected')
+        shutil.rmtree(root_tmpdir)
         sys.exit(0)
 
     if not all_successful:
