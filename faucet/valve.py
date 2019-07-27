@@ -551,7 +551,7 @@ class Valve:
             if not port.is_stack_down():
                 next_state = port.stack_down
                 self.logger.error(
-                    'Stack %s DOWN, too many (%u) packets lost, last received %f ago' % (
+                    'Stack %s DOWN, too many (%u) packets lost, last received %u ago' % (
                         port, num_lost_lldp, time_since_lldp_seen))
         elif port.is_stack_down() and not port.is_stack_init():
             next_state = port.stack_init
@@ -566,21 +566,30 @@ class Valve:
 
         return next_state
 
-    def _update_stack_link_state(self, port, now, other_valves):
-        next_state = self._next_stack_link_state(port, now)
-        ofmsgs_by_valve = {}
-        if next_state is not None:
-            next_state()
-            self._set_var(
-                'port_stack_state',
-                port.dyn_stack_current_state,
-                labels=self.dp.port_labels(port.number))
-            if port.is_stack_up() or port.is_stack_down():
-                port_stack_up = port.is_stack_up()
-                for valve in [self] + other_valves:
-                    valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
-                    valve.update_tunnel_flowrules()
-                ofmsgs_by_valve[self] = self.get_tunnel_flowmods()
+    def _update_stack_link_state(self, ports, now, other_valves):
+        stack_change = False
+        all_valves = [self] + other_valves
+        ofmsgs_by_valve = {valve: [] for valve in all_valves}
+
+        for port in ports:
+            next_state = self._next_stack_link_state(port, now)
+            if next_state is not None:
+                next_state()
+                self._set_var(
+                    'port_stack_state',
+                    port.dyn_stack_current_state,
+                    labels=self.dp.port_labels(port.number))
+                if port.is_stack_up() or port.is_stack_down():
+                    stack_change = True
+                    port_stack_up = port.is_stack_up()
+                    for valve in all_valves:
+                        valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+                        valve.update_tunnel_flowrules()
+        if stack_change:
+            for valve in all_valves:
+                ofmsgs_by_valve[valve].extend(valve.get_tunnel_flowmods())
+                for vlan in self.dp.vlans.values():
+                    ofmsgs_by_valve[self].extend(self.flood_manager.add_vlan(vlan))
         return ofmsgs_by_valve
 
     def update_tunnel_flowrules(self):
@@ -600,16 +609,13 @@ class Valve:
 
     def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""
-        ofmsgs_by_valve = {}
-        for port in self.dp.stack_ports:
-            ofmsgs_by_valve.update(self._update_stack_link_state(port, now, other_valves))
         for port in self.dp.ports.values():
             if port.dyn_lldp_beacon_recv_state:
                 age = now - port.dyn_lldp_beacon_recv_time
                 if age > self.dp.lldp_beacon['send_interval'] * 3:
-                    self.logger.info('LLDP for port %s inactive after %s' % (port, age))
+                    self.logger.info('LLDP for port %s inactive after %u' % (port, age))
                     port.dyn_lldp_beacon_recv_state = None
-        return ofmsgs_by_valve
+        return self._update_stack_link_state(self.dp.stack_ports, now, other_valves)
 
     def _reset_dp_status(self):
         if self.dp.dyn_running:
@@ -1017,7 +1023,7 @@ class Valve:
             'remote_port_id': remote_port_id,
             'remote_port_state': remote_port_state
         }
-        return self._update_stack_link_state(port, now, other_valves)
+        return self._update_stack_link_state([port], now, other_valves)
 
     def lldp_handler(self, now, pkt_meta, other_valves):
         """Handle an LLDP packet.

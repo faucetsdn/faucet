@@ -149,6 +149,9 @@ class ValveFloodManager(ValveManagerBase):
                 vlan, exclude_unicast, port, exclude_all_external)
             flood_acts, port_output_ports, port_non_output_acts = self._output_non_output_actions(
                 flood_acts)
+            if not port_output_ports:
+                flood_acts = []
+                port_non_output_acts = []
         return (flood_acts, port_output_ports, port_non_output_acts)
 
     def _build_flood_match_priority(self, port, vlan, eth_dst, eth_dst_mask, add_match):
@@ -172,9 +175,9 @@ class ValveFloodManager(ValveManagerBase):
         ofmsgs = []
         if self.combinatorial_port_flood:
             for port in self._vlan_all_ports(vlan, exclude_unicast):
-                flood_acts, port_output_ports, _ = self._build_flood_acts_for_port(
+                flood_acts, _, _ = self._build_flood_acts_for_port(
                     vlan, exclude_unicast, port)
-                if port_output_ports:
+                if flood_acts:
                     ofmsgs.append(self._build_flood_rule_for_port(
                         vlan, eth_dst, eth_dst_mask, command, port, flood_acts))
         else:
@@ -189,7 +192,7 @@ class ValveFloodManager(ValveManagerBase):
                  port_output_ports,
                  port_non_output_acts) = self._build_flood_acts_for_port(
                      vlan, exclude_unicast, port)
-                if not port_output_ports:
+                if not flood_acts:
                     continue
                 if (vlan_output_ports - set([port.number]) == port_output_ports
                         and vlan_non_output_acts == port_non_output_acts):
@@ -518,29 +521,10 @@ class ValveFloodStackManager(ValveFloodManager):
         ofmsgs = super(ValveFloodStackManager, self)._build_mask_flood_rules(
             vlan, eth_dst, eth_dst_mask, exclude_unicast, command)
         external_ports = vlan.loop_protect_external_ports()
-        for port in self.stack_ports:
-            if self.externals and external_ports:
-                # If external flag is set, flood to external ports, otherwise exclude them.
-                for ext_port_flag, exclude_all_external in (
-                        (self.NONEXT_PORT_FLAG, True),
-                        (self.EXT_PORT_FLAG, False)):
-                    flood_acts, port_output_ports, _ = self._build_flood_acts_for_port(
-                        vlan, exclude_unicast, port, exclude_all_external=exclude_all_external)
-                    if not port_output_ports:
-                        flood_acts = []
-                    port_flood_ofmsg = self._build_flood_rule_for_port(
-                        vlan, eth_dst, eth_dst_mask, command, port, flood_acts,
-                        add_match={STACK_LOOP_PROTECT_FIELD: ext_port_flag})
-                    ofmsgs.append(port_flood_ofmsg)
-            else:
-                flood_acts, port_output_ports, _ = self._build_flood_acts_for_port(
-                    vlan, exclude_unicast, port)
-                if not port_output_ports:
-                    flood_acts = []
-                port_flood_ofmsg = self._build_flood_rule_for_port(
-                    vlan, eth_dst, eth_dst_mask, command, port, flood_acts)
-                ofmsgs.append(port_flood_ofmsg)
-            if not self._dp_is_root():
+
+        # for non-root DPs
+        if not self._dp_is_root():
+            for port in self.stack_ports:
                 # Drop bridge local traffic immediately.
                 bridge_local_match = {
                     'in_port': port.number,
@@ -560,6 +544,37 @@ class ValveFloodStackManager(ValveFloodManager):
                     ofmsgs.extend(self.pipeline.select_packets(
                         self.flood_table, match,
                         priority_offset=self.classification_offset))
+
+        towards_up_ports = sorted([
+            port for port in self.towards_root_stack_ports if port.is_stack_up()], key=lambda x: x.number)
+
+        for port in self.stack_ports:
+            # On a non root switch, perform flood pruning. Only propogate
+            # floods from one of the ports connected towards the root.
+            if port in self.towards_root_stack_ports:
+                if not towards_up_ports or port != towards_up_ports[0]:
+                    port_flood_ofmsg = self._build_flood_rule_for_port(
+                        vlan, eth_dst, eth_dst_mask, command, port, [])
+                    ofmsgs.append(port_flood_ofmsg)
+                    continue
+
+            if self.externals and external_ports:
+                # If external flag is set, flood to external ports, otherwise exclude them.
+                for ext_port_flag, exclude_all_external in (
+                        (self.NONEXT_PORT_FLAG, True),
+                        (self.EXT_PORT_FLAG, False)):
+                    flood_acts, _, _ = self._build_flood_acts_for_port(
+                        vlan, exclude_unicast, port, exclude_all_external=exclude_all_external)
+                    port_flood_ofmsg = self._build_flood_rule_for_port(
+                        vlan, eth_dst, eth_dst_mask, command, port, flood_acts,
+                        add_match={STACK_LOOP_PROTECT_FIELD: ext_port_flag})
+                    ofmsgs.append(port_flood_ofmsg)
+            else:
+                flood_acts, _, _ = self._build_flood_acts_for_port(
+                    vlan, exclude_unicast, port)
+                port_flood_ofmsg = self._build_flood_rule_for_port(
+                    vlan, eth_dst, eth_dst_mask, command, port, flood_acts)
+                ofmsgs.append(port_flood_ofmsg)
         return ofmsgs
 
     def _dp_is_root(self):
@@ -634,7 +649,8 @@ class ValveFloodStackManager(ValveFloodManager):
                 _stack_topo_up_dp(dp)
             else:
                 _stack_topo_down_dp(dp)
-        return True
+
+        self._reset_peer_distances()
 
     def edge_learn_port(self, other_valves, pkt_meta):
         """Possibly learn a host on a port.
