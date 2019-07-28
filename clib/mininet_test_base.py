@@ -1427,13 +1427,13 @@ dbs:
             'ether dst host ff:ff:ff:ff:ff:ff and ether src host %s' % host_a.MAC())
         partials = [partial(host_a.cmd, self.scapy_bcast(host_a))] * packets
         tcpdump_txt = self.tcpdump_helper(
-            host_b, tcpdump_filter, partials, packets=packets)
+            host_b, tcpdump_filter, partials, packets=(packets - 1), timeout=packets)
+        msg = '%s (%s) -> %s (%s): %s' % (
+            host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
         self.assertEqual(
-            broadcast_expected,
-            host_a.MAC() in tcpdump_txt,
-            msg=tcpdump_txt)
+            broadcast_expected, host_a.MAC() in tcpdump_txt, msg=msg)
 
-    def verify_unicast(self, hosts, unicast_expected=True, packets=3, timeout=2):
+    def verify_unicast(self, hosts, unicast_expected=True, packets=3):
         host_a = self.net.hosts[0]
         host_b = self.net.hosts[-1]
         if hosts is not None:
@@ -1446,14 +1446,16 @@ dbs:
         # Wait for at least one packet.
         tcpdump_txt = self.tcpdump_helper(
             host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)],
-            timeout=(packets * timeout), vflags='-vv', packets=1)
+            timeout=(packets - 1), vflags='-vv', packets=1)
         received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
+        msg = '%s (%s) -> %s (%s): %s' % (
+            host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
         if unicast_expected:
             # We expect unicast connectivity, so we should have got at least one packet.
-            self.assertFalse(received_no_packets)
+            self.assertFalse(received_no_packets, msg=msg)
         else:
             # We expect no unicast connectivity, so we must get no packets.
-            self.assertTrue(received_no_packets)
+            self.assertTrue(received_no_packets, msg=msg)
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
@@ -1477,7 +1479,7 @@ dbs:
                 host.cmd(mininet_test_util.timeout_cmd(bcast_cmd, timeout))
         self.verify_empty_caps(bcast_cap_files)
 
-    def verify_unicast_not_looped(self):
+    def verify_unicast_not_looped(self, packets=3):
         unicast_mac1 = '0e:00:00:00:00:02'
         unicast_mac2 = '0e:00:00:00:00:03'
         hello_template = (
@@ -1501,8 +1503,8 @@ dbs:
                         self.scapy_template(
                             hello_template % (unicast_mac1, unicast_mac2),
                             host.defaultIntf(),
-                            count=3)))],
-                timeout=5, vflags='-vv', packets=1)
+                            count=packets)))],
+                timeout=(packets - 1), vflags='-vv', packets=1)
             self.verify_no_packets(tcpdump_txt)
 
     def verify_controller_fping(self, host, faucet_vip,
