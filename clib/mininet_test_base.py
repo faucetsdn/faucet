@@ -1424,14 +1424,14 @@ dbs:
         if hosts is not None:
             host_a, host_b = hosts
         tcpdump_filter = (
-            'ether dst host ff:ff:ff:ff:ff:ff and icmp and host %s' % self.ipv4_vip_bcast())
+            'ether dst host ff:ff:ff:ff:ff:ff and ether src host %s' % host_a.MAC())
+        partials = [partial(host_a.cmd, self.scapy_bcast(host_a))] * packets
         tcpdump_txt = self.tcpdump_helper(
-            host_b, tcpdump_filter, [
-                partial(host_a.cmd, 'ping -b -c3 -t1 %s' % self.ipv4_vip_bcast())],
-            packets=packets)
+            host_b, tcpdump_filter, partials, packets=packets)
         self.assertEqual(
             broadcast_expected,
-            re.search('%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt) is not None)
+            host_a.MAC() in tcpdump_txt,
+            msg=tcpdump_txt)
 
     def verify_unicast(self, hosts, unicast_expected=True, packets=3, timeout=2):
         host_a = self.net.hosts[0]

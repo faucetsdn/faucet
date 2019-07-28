@@ -7140,30 +7140,34 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
-    def _verify_link(self, hosts=None, expected=True):
+    def _verify_link(self, hosts, expected):
         self.verify_broadcast(hosts, expected)
         self.verify_unicast(hosts, expected)
 
     def _connections_aye(self):
-        ext_port1, alt_port1, int_port1, ext_port2, alt_port2, int_port2 = self.net.hosts
-        self._verify_link(hosts=(ext_port1, ext_port2), expected=False)
-        self._verify_link(hosts=(ext_port1, int_port1), expected=True)
-        self._verify_link(hosts=(ext_port1, int_port2), expected=True)
-        self._verify_link(hosts=(int_port1, int_port2), expected=True)
-        self._verify_link(hosts=(int_port1, ext_port1), expected=True)
-        self._verify_link(hosts=(int_port1, ext_port2), expected=True)
-        self._verify_link(hosts=(ext_port2, int_port1), expected=True)
-        self._verify_link(hosts=(ext_port2, int_port2), expected=True)
-        self._verify_link(hosts=(ext_port2, ext_port1), expected=False)
-        self._verify_link(hosts=(int_port2, int_port1), expected=True)
-        self._verify_link(hosts=(int_port2, ext_port1), expected=True)
-        self._verify_link(hosts=(int_port2, ext_port2), expected=True)
+        self.verify_all_stack_up()
 
-        self._verify_link(hosts=(ext_port1, alt_port2), expected=False)
-        self._verify_link(hosts=(alt_port1, ext_port2), expected=False)
-        self._verify_link(hosts=(int_port1, alt_port1), expected=True)
-        self._verify_link(hosts=(int_port1, alt_port2), expected=True)
-        self._verify_link(hosts=(alt_port1, int_port2), expected=True)
+        a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1 = self.net.hosts
+        int_hosts = {a_int1, b_int1}
+        ext_hosts = {a_ext1, a_ext2, b_ext1, b_ext2}
+
+        for int_host in int_hosts:
+            # All internal hosts can reach other internal hosts.
+            for other_int_host in int_hosts - {int_host}:
+                self._verify_link(hosts=(int_host, other_int_host), expected=True)
+
+            # All internal hosts can reach all external hosts.
+            for ext_host in ext_hosts:
+                self._verify_link(hosts=(int_host, ext_host), expected=True)
+
+        for ext_host in ext_hosts:
+            # All external hosts can reach internal hosts
+            for int_host in int_hosts:
+                self._verify_link(hosts=(ext_host, int_host), expected=True)
+
+            # All external hosts cannot reach each other.
+            for other_ext_host in ext_hosts - {ext_host}:
+                self._verify_link(hosts=(ext_host, other_ext_host), expected=False)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
