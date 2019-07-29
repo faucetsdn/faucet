@@ -2166,6 +2166,9 @@ class FaucetUntaggedMultiDBWatcherTest(
         dbs: ['prometheus', 'influx']
 """ % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
+    def test_tagged(self):
+        return
+
     def test_untagged(self):
         self.wait_dp_status(1, controller='gauge')
         self.assertTrue(self.wait_ports_updating(self.port_map.keys(), self.PORT_VARS))
