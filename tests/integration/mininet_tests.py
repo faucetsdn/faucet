@@ -2166,6 +2166,9 @@ class FaucetUntaggedMultiDBWatcherTest(
         dbs: ['prometheus', 'influx']
 """ % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
+    def test_tagged(self):
+        return
+
     def test_untagged(self):
         self.wait_dp_status(1, controller='gauge')
         self.assertTrue(self.wait_ports_updating(self.port_map.keys(), self.PORT_VARS))
@@ -4004,7 +4007,7 @@ vlans:
             self.flap_all_switch_ports()
 
 
-class FaucetSingleUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
+class FaucetUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
@@ -4163,7 +4166,7 @@ vlans:
         note('test_fuzz_controller() complete')
 
 
-class FaucetSingleUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
+class FaucetUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
@@ -6908,13 +6911,13 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.verify_traveling_dhcp_mac()
 
 
-class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
+class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetSingleStackStringOfDPTaggedTest, self).setUp()
+        super(FaucetStackStringOfDPTaggedTest, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
@@ -7221,7 +7224,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.retry_net_ping([self.second_host, self.fifth_host])
 
 
-class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
+class FaucetStackAclControlTest(FaucetStringOfDPTest):
     """Test ACL control of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 3
@@ -7332,7 +7335,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     }
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetSingleStackAclControlTest, self).setUp()
+        super(FaucetStackAclControlTest, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,

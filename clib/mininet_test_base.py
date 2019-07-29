@@ -706,16 +706,16 @@ class FaucetTestBase(unittest.TestCase):
         return ('python3 -c \"from scapy.all import * ; sendp(%s, iface=\'%s\', count=%u)"' % (
             packet, iface, count))
 
-    def scapy_dhcp(self, mac, iface):
+    def scapy_dhcp(self, mac, iface, count=1):
         return self.scapy_template(
             ('Ether(dst=\'ff:ff:ff:ff:ff:ff\', src=\'%s\', type=%u) / '
              'IP(src=\'0.0.0.0\', dst=\'255.255.255.255\') / UDP(dport=67,sport=68) / '
              'BOOTP(op=1) / DHCP(options=[(\'message-type\', \'discover\'), (\'end\')])') % (
                  mac, IPV4_ETH),
-            iface)
+            iface, count)
 
-    def scapy_bcast(self, host):
-        return self.scapy_dhcp(host.MAC(), host.defaultIntf())
+    def scapy_bcast(self, host, count=1):
+        return self.scapy_dhcp(host.MAC(), host.defaultIntf(), count)
 
     @staticmethod
     def pre_start_net():
@@ -1425,9 +1425,10 @@ dbs:
             host_a, host_b = hosts
         tcpdump_filter = (
             'ether dst host ff:ff:ff:ff:ff:ff and ether src host %s' % host_a.MAC())
-        partials = [partial(host_a.cmd, self.scapy_bcast(host_a))] * packets
         tcpdump_txt = self.tcpdump_helper(
-            host_b, tcpdump_filter, partials, packets=(packets - 1), timeout=packets)
+            host_b, tcpdump_filter,
+            [partial(host_a.cmd, self.scapy_bcast(host_a), packets)],
+            packets=(packets - 1), timeout=(packets + 2))
         msg = '%s (%s) -> %s (%s): %s' % (
             host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
         self.assertEqual(
@@ -1445,8 +1446,8 @@ dbs:
         tcpdump_filter = 'ip and ether src %s and ether dst %s' % (host_a.MAC(), host_b.MAC())
         # Wait for at least one packet.
         tcpdump_txt = self.tcpdump_helper(
-            host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)],
-            timeout=(packets - 1), vflags='-vv', packets=1)
+            host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)], vflags='-vv',
+            packets=1, timeout=(packets + 2))
         received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
         msg = '%s (%s) -> %s (%s): %s' % (
             host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
