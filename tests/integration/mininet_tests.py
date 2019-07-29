@@ -7825,3 +7825,31 @@ class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
             self.wait_for_flowremoved_msg(src_mac=host.MAC())
             self.wait_for_host_log_msg(host.MAC(), 'expiring host')
             self.wait_for_host_removed(host, in_port=int(port))
+
+
+class FaucetDisconnectTest(FaucetUntaggedTest):
+    """Test that switch works properly after repeated disconnections
+       caused by DPID mismatch"""
+
+    def update_config(self, dpid):
+        """Update config with good/bad DPID"""
+        conf = self._get_faucet_conf()
+        conf['dps'][self.DP_NAME]['dp_id'] = int(dpid)
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=False)
+
+    def test_untagged(self):
+        """Run untagged test after disconnects and config update"""
+        # We update the config with a bad DPID and then wait for
+        # 'unknown datapath' messages, indicating switch connections that
+        # FAUCET has rejected. The switch should see them as
+        # 'connection reset by peer'.
+        mask = int(16*'f', 16)
+        bad_dpid = (int(self.dpid) + 0xdeadbeef) & mask
+        faucet_log = self.env['faucet']['FAUCET_LOG']
+        self.update_config(dpid=bad_dpid)
+        self.wait_until_matching_lines_from_file(
+            r'.*ERROR.*unknown datapath', faucet_log, timeout=60, count=4)
+        self.update_config(dpid=self.dpid)
+        super().test_untagged()

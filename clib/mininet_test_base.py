@@ -2310,16 +2310,16 @@ dbs:
         exp_re = re.compile(exp)
         with open(log_name) as log_file:
             return [log_line for log_line in log_file if exp_re.match(log_line)]
-        return []
 
-    def wait_until_matching_lines_from_file(self, exp, log_name, timeout=30):
-        """Require matching lines to be present in file."""
+    def wait_until_matching_lines_from_file(self, exp, log_name, timeout=30, count=1):
+        """Require (count) matching lines to be present in file."""
+        assert timeout >= 1
         for _ in range(timeout):
             lines = self.matching_lines_from_file(exp, log_name)
-            if lines:
+            if len(lines) >= count:
                 return lines
             time.sleep(1)
-        self.fail('%s not found in %s' % (exp, log_name))
+        self.fail('%s not found in %s (%d/%d)' % (exp, log_name, len(lines), count))
 
     def exabgp_updates(self, exabgp_log, timeout=60):
         """Verify that exabgp process has received BGP updates."""
