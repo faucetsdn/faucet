@@ -233,7 +233,7 @@ network={
 }
     """
 
-    freeradius_user_conf = '''user   Cleartext-Password := "microphone"
+    freeradius_user_conf = """user   Cleartext-Password := "microphone"
     Session-timeout = {0}
 admin  Cleartext-Password := "megaphone"
     Session-timeout = {0}
@@ -249,7 +249,7 @@ filter_id_user_accept  Cleartext-Password := "accept_pass"
     Filter-Id = "accept_acl"
 filter_id_user_deny  Cleartext-Password := "deny_pass"
     Filter-Id = "deny_acl"
-'''
+"""
 
     eapol1_host = None
     eapol2_host = None
@@ -261,8 +261,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
     event_log = ''
 
     def _priv_mac(self, host_id):
-        two_byte_port_num = ("%04x" % host_id)
-        two_byte_port_num_formatted = two_byte_port_num[:2] + ':' + two_byte_port_num[2:]
+        two_byte_port_num = '%04x' % host_id
+        two_byte_port_num_formatted = ':'.join((two_byte_port_num[:2], two_byte_port_num[2:]))
         return '00:00:00:00:%s' % two_byte_port_num_formatted
 
     def _init_faucet_config(self):
@@ -292,33 +292,29 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         self.nfv_portno = self.port_map['port_4']
 
         self.host_drop_all_ips(self.nfv_host)
+        tcpdump_args = '-e -n -U'
+        self.eapol1_host.cmd(
+            mininet_test_util.timeout_cmd(
+                'tcpdump -w %s/%s-start.pcap %s ether proto 0x888e &' % (
+                    self.tmpdir, self.eapol1_host.name, tcpdump_args), 300))
+
+        self.nfv_host.cmd(
+            mininet_test_util.timeout_cmd(
+                'tcpdump -i %s-eth0 -w %s/eap-lo.pcap %s ether proto 0x888e &' % (
+                    self.nfv_host.name, self.tmpdir, tcpdump_args), 300))
+
+        self.nfv_host.cmd(
+            mininet_test_util.timeout_cmd(
+                'tcpdump -i lo -w %s/radius.pcap %s udp port %d &' % (
+                    self.tmpdir, tcpdump_args, self.RADIUS_PORT), 300))
+
         self.radius_log_path = self.start_freeradius()
-        self.eapol1_host.cmd('tcpdump -w %s/%s-start.pcap ether proto 0x888e &' %
-                             (self.tmpdir, self.eapol1_host.name))
-        self.eapol1_tcpdump_pid = self.eapol1_host.lastPid
-
-        self.nfv_host.cmd('tcpdump -i %s-eth0 -w %s/eap-lo.pcap ether proto 0x888e &'
-                          % (self.nfv_host.name, self.tmpdir))
-        self.radius_tcpdump_pid = self.nfv_host.lastPid
-
-        self.nfv_host.cmd('tcpdump -i lo -w %s/radius.pcap udp port %d &'
-                          % (self.tmpdir, self.RADIUS_PORT))
-        self.eap_tcpdump_pid = self.nfv_host.lastPid
-
         self.event_log = os.path.join(self.tmpdir, 'event.log')
         controller = self._get_controller()
         sock = self.env['faucet']['FAUCET_EVENT_SOCK']
-        controller.cmd('nc -U %s > %s &' % (sock, self.event_log))
-        self.nc_pid = controller.lastPid
-
-    def tearDown(self):
-        self.nfv_host.cmd('kill %d' % self.freeradius_pid)
-        self.nfv_host.cmd('kill -sigint %d' % self.radius_tcpdump_pid)
-        self.nfv_host.cmd('kill -sigint %d' % self.eap_tcpdump_pid)
-        self.eapol1_host.cmd('kill -sigint %d' % self.eapol1_tcpdump_pid)
-        self._get_controller().cmd('kill %d' % self.nc_pid)
-
-        super(Faucet8021XBaseTest, self).tearDown()
+        controller.cmd(
+            mininet_test_util.timeout_cmd(
+                'nc -U %s > %s &' % (sock, self.event_log), 300))
 
     def post_test_checks(self):
         self.assertGreater(os.path.getsize(self.event_log), 0)
@@ -542,9 +538,11 @@ listen {
 
         os.system('chown -R root:freerad %s/freeradius/' % self.tmpdir)
 
-        self.nfv_host.cmd('freeradius -X -l %s -d %s/freeradius &' % (radius_log_path, self.tmpdir))
+        self.nfv_host.cmd(
+            mininet_test_util.timeout_cmd(
+                'freeradius -X -l %s -d %s/freeradius &' % (radius_log_path, self.tmpdir),
+                300))
 
-        self.freeradius_pid = self.nfv_host.lastPid
         self.wait_for_radius(radius_log_path)
         return radius_log_path
 

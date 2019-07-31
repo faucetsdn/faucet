@@ -184,11 +184,11 @@ class FaucetTestBase(unittest.TestCase):
         self.debug_log_path = os.path.join(
             self.tmpdir, 'ofchannel.txt')
         self.monitor_stats_file = os.path.join(
-            self.tmpdir, 'ports.txt')
+            self.tmpdir, 'gauge-ports.txt')
         self.monitor_state_file = os.path.join(
-            self.tmpdir, 'state.txt')
+            self.tmpdir, 'gauge-state.txt')
         self.monitor_flow_table_file = os.path.join(
-            self.tmpdir, 'flow.txt')
+            self.tmpdir, 'gauge-flow.txt')
         if self.config is not None:
             if 'hw_switch' in self.config:
                 self.hw_switch = self.config['hw_switch']
