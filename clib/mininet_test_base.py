@@ -2357,7 +2357,7 @@ dbs:
         wpasupplicant_cmd = mininet_test_util.timeout_cmd(
             'wpa_supplicant -dd -t -c %s -i %s -D wired -f %s %s &' % (
                 wpasupplicant_conf_file_name, host.defaultIntf(), wpasupplicant_log,
-                wpa_ctrl_socket), timeout * 3)
+                wpa_ctrl_socket), 300)
         host.cmd(wpasupplicant_cmd)
         for _ in range(timeout):
             if os.path.exists(wpasupplicant_log):
