@@ -558,56 +558,35 @@ class Faucet8021XSuccessTest(Faucet8021XBaseTest):
                              {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'logoff'}}]
     SESSION_TIMEOUT = 3600
 
+
+    def verify_host_success(self, eapol_host, port_no, wpasupplicant_conf, and_logoff):
+        port_labels = self.port_labels(port_no)
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels, default=0))
+        self.one_ipv4_ping(
+            eapol_host, self.ping_host.IP(), require_host_learned=False, expected_result=False)
+        tcpdump_txt = self.try_8021x(
+            eapol_host, port_no, wpasupplicant_conf, and_logoff=and_logoff)
+        self.assertIn('Success', tcpdump_txt)
+        self.assertEqual(
+            1,
+            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels, default=0))
+        self.assertEqual(
+            0,
+            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels, default=0))
+        logoff_total = self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels, default=0)
+        if and_logoff:
+            self.assertEqual(1, logoff_total)
+            self.assertIn('logoff', tcpdump_txt)
+        else:
+            self.assertEqual(0, logoff_total)
+
     def test_untagged(self):
-        # Log 1 on
-        # test 1 good, 2 bad.
-        # log 2 on
-        # test 1 good, 2 good.
-        # log 2 off
-        # test 1 good, 2 bad
-        port_no1 = self.port_map['port_1']
-        port_no2 = self.port_map['port_2']
-        port_labels1 = self.port_labels(port_no1)
-        port_labels2 = self.port_labels(port_no2)
-
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
-                           require_host_learned=False, expected_result=False)
-        tcpdump_txt_1 = self.try_8021x(
-            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False)
-        self.assertIn('Success', tcpdump_txt_1)
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels1, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels1, default=0))
-
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
-        self.one_ipv4_ping(self.eapol2_host, self.ping_host.IP(),
-                           require_host_learned=False, expected_result=False)
-        tcpdump_txt_2 = self.try_8021x(
-            self.eapol2_host, port_no2, self.wpasupplicant_conf_1, and_logoff=True,
-            terminate_wpasupplicant=True)
-        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(), require_host_learned=False)
-        self.assertIn('Success', tcpdump_txt_2)
-        self.assertIn('logoff', tcpdump_txt_2)
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels2, default=0))
-        self.assertEqual(
-            0,
-            self.scrape_prometheus_var('port_dot1x_failure_total', labels=port_labels2, default=0))
-        self.assertEqual(
-            1,
-            self.scrape_prometheus_var('port_dot1x_logoff_total', labels=port_labels2, default=0))
+        self.verify_host_success(
+            self.eapol1_host, self.port_map['port_1'], self.wpasupplicant_conf_1, False)
+        self.verify_host_success(
+            self.eapol2_host, self.port_map['port_2'], self.wpasupplicant_conf_1, True)
 
         self.assertEqual(
             2,
