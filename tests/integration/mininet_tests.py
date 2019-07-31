@@ -370,9 +370,10 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         tcpdump_filter = 'ether proto 0x888e'
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
-                lambda: self.wpa_supplicant_callback(host, port_num, conf, and_logoff,
-                                                     timeout=wpasup_timeout,
-                                                     terminate_wpasupplicant=terminate_wpasupplicant)],
+                lambda: self.wpa_supplicant_callback(
+                    host, port_num, conf, and_logoff,
+                    timeout=wpasup_timeout,
+                    terminate_wpasupplicant=terminate_wpasupplicant)],
             timeout=tcpdump_timeout, vflags='-vvv', packets=tcpdump_packets)
         return tcpdump_txt
 
@@ -414,15 +415,16 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
                 shutil.rmtree(wpa_ctrl_path)
             except FileNotFoundError:
                 pass
-        log_prefix = host.name + "_"
+        log_prefix = host.name + '_'
         self.start_wpasupplicant(
-            host, conf,
-            timeout=timeout, wpa_ctrl_socket_path=wpa_ctrl_path, log_prefix=log_prefix)
+            host, conf, timeout=timeout,
+            wpa_ctrl_socket_path=wpa_ctrl_path, log_prefix=log_prefix)
         if and_logoff:
             self.wait_for_eap_success(host, wpa_ctrl_path)
             self.wait_until_matching_flow(
                 {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0)
-            self.one_ipv4_ping(host, self.ping_host.IP(), require_host_learned=False)
+            self.one_ipv4_ping(
+                host, self.ping_host.IP(), require_host_learned=False)
             host.cmd('wpa_cli -p %s logoff' % wpa_ctrl_path)
             self.wait_until_no_matching_flow(
                 {'eth_src': host.MAC(), 'in_port': port_num}, table_id=0)
@@ -444,7 +446,7 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
 
     def get_wpa_status(self, host, wpa_ctrl_path):
         status = host.cmdPrint('wpa_cli -p %s status' % wpa_ctrl_path)
-        for line in status.split("\n"):
+        for line in status.splitlines():
             if line.startswith('EAP state'):
                 return line.split('=')[1].strip()
         return None
@@ -458,19 +460,11 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         self.fail('did not get EAP success: %s' % eap_state)
 
     def wait_for_radius(self, radius_log_path, timeout=10):
-        for _ in range(timeout):
-            if os.path.exists(radius_log_path):
-                break
-            time.sleep(1)
-        else:
-            self.fail('could not open radius log after %d seconds' % timeout)
-
-        self.wait_until_matching_lines_from_file(r'.*Ready to process requests',
-                                                 radius_log_path)
+        self.wait_until_matching_lines_from_file(
+            r'.*Ready to process requests', radius_log_path)
 
     def start_freeradius(self):
         radius_log_path = '%s/radius.log' % self.tmpdir
-        os.system('chmod o+rx %s' % self.root_tmpdir)
 
         listen_match = r'(listen {[^}]*(limit {[^}]*})[^}]*})|(listen {[^}]*})'
         listen_config = """listen {
@@ -519,10 +513,10 @@ listen {
             users_file.write(self.freeradius_user_conf.format(self.SESSION_TIMEOUT))
 
         with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
-            clients.write('''client localhost {
+            clients.write("""client localhost {
     ipaddr = 127.0.0.1
     secret = SECRET
-}''')
+}""")
 
         with open('%s/freeradius/sites-enabled/inner-tunnel' % self.tmpdir, 'r+') as innertunnel_site:
             tunnel_config = innertunnel_site.read()
@@ -536,6 +530,7 @@ listen {
             innertunnel_site.write(tunnel_config)
             innertunnel_site.truncate()
 
+        os.system('chmod o+rx %s' % self.root_tmpdir)
         os.system('chown -R root:freerad %s/freeradius/' % self.tmpdir)
 
         self.nfv_host.cmd(
@@ -944,7 +939,8 @@ class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
 
 
 class Faucet8021XMABTest(Faucet8021XSuccessTest):
-    """Ensure that 802.1x Port Supports Mac Auth Bypass"""
+    """Ensure that 802.1x Port Supports Mac Auth Bypass."""
+
     DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
                              {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
                              {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
@@ -986,25 +982,24 @@ class Faucet8021XMABTest(Faucet8021XSuccessTest):
         return super(Faucet8021XMABTest, self).start_freeradius()
 
     def dhclient_callback(self, host, timeout):
-        timeout_cmd = "timeout -k {}s {}".format(str(timeout), str(timeout))
         dhclient_cmd = 'dhclient -d -1 %s' % host.defaultIntf()
-        return host.cmd(timeout_cmd + " " + dhclient_cmd, verbose=True)
+        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         port_labels1 = self.port_labels(port_no1)
 
-        timeout = 10
-        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
-                           require_host_learned=False, expected_result=False)
-        # First ping fail
-        self.dhclient_callback(self.eapol1_host, timeout)
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=False)
 
-        log_file = os.path.join(self.tmpdir, 'faucet.log')
-        self.wait_until_matching_lines_from_file(r'.*AAA_SUCCESS.*', log_file)
-        # Second ping pass
-        self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
-                           require_host_learned=False, expected_result=True)
+        self.dhclient_callback(self.eapol1_host, 10)
+        self.wait_until_matching_lines_from_file(r'.*AAA_SUCCESS.*', self.env['faucet']['FAUCET_LOG'])
+
+        self.one_ipv4_ping(
+            self.eapol1_host, self.ping_host.IP(),
+            require_host_learned=False, expected_result=True)
+
         self.assertEqual(
             1,
             self.scrape_prometheus_var('port_dot1x_success_total', labels=port_labels1, default=0))

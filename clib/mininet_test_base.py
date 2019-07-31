@@ -2316,9 +2316,10 @@ dbs:
         """Require (count) matching lines to be present in file."""
         assert timeout >= 1
         for _ in range(timeout):
-            lines = self.matching_lines_from_file(exp, log_name)
-            if len(lines) >= count:
-                return lines
+            if os.path.exists(log_name):
+                lines = self.matching_lines_from_file(exp, log_name)
+                if len(lines) >= count:
+                    return lines
             time.sleep(1)
         self.fail('%s not found in %s (%d/%d)' % (exp, log_name, len(lines), count))
 
