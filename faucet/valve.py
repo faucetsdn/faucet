@@ -567,9 +567,8 @@ class Valve:
         return next_state
 
     def _update_stack_link_state(self, ports, now, other_valves):
-        stack_change = False
-        all_valves = [self] + other_valves
-        ofmsgs_by_valve = {valve: [] for valve in all_valves}
+        stack_changes = 0
+        ofmsgs_by_valve = defaultdict(list)
 
         for port in ports:
             next_state = self._next_stack_link_state(port, now)
@@ -580,16 +579,16 @@ class Valve:
                     port.dyn_stack_current_state,
                     labels=self.dp.port_labels(port.number))
                 if port.is_stack_up() or port.is_stack_down():
-                    stack_change = True
+                    stack_changes += 1
                     port_stack_up = port.is_stack_up()
-                    for valve in all_valves:
+                    for valve in [self] + other_valves:
                         valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
-                        valve.update_tunnel_flowrules()
-        if stack_change:
-            for valve in all_valves:
-                ofmsgs_by_valve[valve].extend(valve.get_tunnel_flowmods())
-                for vlan in self.dp.vlans.values():
-                    ofmsgs_by_valve[self].extend(self.flood_manager.add_vlan(vlan))
+        if stack_changes:
+            self.logger.info('%u stack ports changed state' % stack_changes)
+            self.update_tunnel_flowrules()
+            ofmsgs_by_valve[self].extend(self.get_tunnel_flowmods())
+            for vlan in self.dp.vlans.values():
+                ofmsgs_by_valve[self].extend(self.flood_manager.add_vlan(vlan))
         return ofmsgs_by_valve
 
     def update_tunnel_flowrules(self):
@@ -974,7 +973,8 @@ class Valve:
                         ofmsgs_by_valve[self].extend(self.lacp_up(pkt_meta.port))
                     else:
                         ofmsgs_by_valve[self].extend(self.lacp_down(pkt_meta.port))
-                if lacp_pkt_change or (age is not None and age > self.dp.ports[pkt_meta.port.number].lacp_resp_interval):
+                lacp_resp_interval = pkt_meta.port.lacp_resp_interval
+                if lacp_pkt_change or (age is not None and age > lacp_resp_interval):
                     ofmsgs_by_valve[self].extend(self._lacp_actions(lacp_pkt, pkt_meta.port))
                     pkt_meta.port.dyn_lacp_last_resp_time = now
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
@@ -1678,11 +1678,13 @@ class TfmValve(Valve):
     USE_OXM_IDS = True
     MAX_TABLE_ID = 0
     MIN_MAX_FLOWS = 0
+    FILL_REQ = True
 
     def _pipeline_flows(self):
         return [valve_of.table_features(
             tfm_pipeline.load_tables(
-                self.dp, self, self.MAX_TABLE_ID, self.MIN_MAX_FLOWS, self.USE_OXM_IDS))]
+                self.dp, self, self.MAX_TABLE_ID, self.MIN_MAX_FLOWS,
+                self.USE_OXM_IDS, self.FILL_REQ))]
 
     def _add_default_flows(self):
         ofmsgs = self._pipeline_flows()
@@ -1712,6 +1714,8 @@ class ArubaValve(TfmValve):
     """Valve implementation for Aruba."""
 
     DEC_TTL = False
+    # Aruba does not like empty miss instructions even if not used.
+    FILL_REQ = False
 
     def _delete_all_valve_flows(self):
         ofmsgs = super(ArubaValve, self)._delete_all_valve_flows()

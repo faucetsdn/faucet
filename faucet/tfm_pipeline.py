@@ -47,7 +47,10 @@ def init_table(table_id, name, max_entries, metadata_match, metadata_write):
     return valve_of.parser.OFPTableFeaturesStats(**table_attr)
 
 
-def load_tables(dp, valve_cl, max_table_id, min_max_flows, use_oxm_ids): # pylint: disable=invalid-name
+# pylint: disable=invalid-name
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-locals
+def load_tables(dp, valve_cl, max_table_id, min_max_flows, use_oxm_ids, fill_req):
     """Configure switch tables with TFM messages."""
     table_array = []
     active_table_ids = sorted([valve_table.table_id for valve_table in dp.tables.values()])
@@ -123,15 +126,16 @@ def load_tables(dp, valve_cl, max_table_id, min_max_flows, use_oxm_ids): # pylin
             new_table.properties.append(
                 valve_of.parser.OFPTableFeaturePropInstructions(
                     type_=valve_of.ofp.OFPTFPT_INSTRUCTIONS_MISS, instruction_ids=inst_ids))
-
-        fill_required_properties(new_table)
+        if fill_req:
+            fill_required_properties(new_table)
         table_array.append(new_table)
 
     tfm_table_ids = {table.table_id for table in table_array}
     for missing_table_id in set(range(max_table_id+1)) - tfm_table_ids:
         new_table = init_table(
             missing_table_id, str(missing_table_id), min_max_flows, 0, 0)
-        fill_required_properties(new_table)
+        if fill_req:
+            fill_required_properties(new_table)
         table_array.append(new_table)
 
     return table_array
