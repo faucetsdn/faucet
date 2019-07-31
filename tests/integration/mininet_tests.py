@@ -383,7 +383,7 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             timeout=tcpdump_timeout, vflags='-vvv', packets=tcpdump_packets)
         success = 'Success' in tcpdump_txt
         new_success_total = self.scrape_prometheus_var(
-            'port_dot1x_success_total', labels=port_labels, default=0
+            'port_dot1x_success_total', labels=port_labels, default=0)
         new_logoff_total = self.scrape_prometheus_var(
             'port_dot1x_logoff_total', labels=port_labels, default=0)
         if expect_success != success:
