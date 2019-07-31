@@ -1677,11 +1677,13 @@ class TfmValve(Valve):
     USE_OXM_IDS = True
     MAX_TABLE_ID = 0
     MIN_MAX_FLOWS = 0
+    FILL_REQ = True
 
     def _pipeline_flows(self):
         return [valve_of.table_features(
             tfm_pipeline.load_tables(
-                self.dp, self, self.MAX_TABLE_ID, self.MIN_MAX_FLOWS, self.USE_OXM_IDS))]
+                self.dp, self, self.MAX_TABLE_ID, self.MIN_MAX_FLOWS,
+                self.USE_OXM_IDS, self.FILL_REQ))]
 
     def _add_default_flows(self):
         ofmsgs = self._pipeline_flows()
@@ -1711,6 +1713,8 @@ class ArubaValve(TfmValve):
     """Valve implementation for Aruba."""
 
     DEC_TTL = False
+    # Aruba does not like empty miss instructions even if not used.
+    FILL_REQ = False
 
     def _delete_all_valve_flows(self):
         ofmsgs = super(ArubaValve, self)._delete_all_valve_flows()
