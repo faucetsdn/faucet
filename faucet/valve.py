@@ -567,9 +567,9 @@ class Valve:
         return next_state
 
     def _update_stack_link_state(self, ports, now, other_valves):
-        stack_change = False
+        stack_changes = 0
         all_valves = [self] + other_valves
-        ofmsgs_by_valve = {valve: [] for valve in all_valves}
+        ofmsgs_by_valve = defaultdict(list)
 
         for port in ports:
             next_state = self._next_stack_link_state(port, now)
@@ -580,16 +580,18 @@ class Valve:
                     port.dyn_stack_current_state,
                     labels=self.dp.port_labels(port.number))
                 if port.is_stack_up() or port.is_stack_down():
-                    stack_change = True
+                    stack_changes += 1
                     port_stack_up = port.is_stack_up()
                     for valve in all_valves:
                         valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
-                        valve.update_tunnel_flowrules()
-        if stack_change:
+        if stack_changes:
+            self.logger.info('%u stack ports changed state' % stack_changes)
             for valve in all_valves:
-                ofmsgs_by_valve[valve].extend(valve.get_tunnel_flowmods())
-                for vlan in self.dp.vlans.values():
-                    ofmsgs_by_valve[self].extend(self.flood_manager.add_vlan(vlan))
+                valve.update_tunnel_flowrules()
+                if valve.dp.dyn_running:
+                    ofmsgs_by_valve[valve].extend(valve.get_tunnel_flowmods())
+                    for vlan in valve.dp.vlans.values():
+                        ofmsgs_by_valve[valve].extend(self.flood_manager.add_vlan(vlan))
         return ofmsgs_by_valve
 
     def update_tunnel_flowrules(self):
@@ -974,7 +976,8 @@ class Valve:
                         ofmsgs_by_valve[self].extend(self.lacp_up(pkt_meta.port))
                     else:
                         ofmsgs_by_valve[self].extend(self.lacp_down(pkt_meta.port))
-                if lacp_pkt_change or (age is not None and age > self.dp.ports[pkt_meta.port.number].lacp_resp_interval):
+                lacp_resp_interval = pkt_meta.port.lacp_resp_interval
+                if lacp_pkt_change or (age is not None and age > lacp_resp_interval):
                     ofmsgs_by_valve[self].extend(self._lacp_actions(lacp_pkt, pkt_meta.port))
                     pkt_meta.port.dyn_lacp_last_resp_time = now
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
