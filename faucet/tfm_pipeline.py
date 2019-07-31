@@ -47,7 +47,7 @@ def init_table(table_id, name, max_entries, metadata_match, metadata_write):
     return valve_of.parser.OFPTableFeaturesStats(**table_attr)
 
 
-def load_tables(dp, valve_cl, max_table_id, min_max_flows, use_oxm_ids, fill_req): # pylint: disable=invalid-name
+def load_tables(dp, valve_cl, max_table_id, min_max_flows, use_oxm_ids, fill_req): # pylint: disable=invalid-name, pylint: disable=too-many-arguments
     """Configure switch tables with TFM messages."""
     table_array = []
     active_table_ids = sorted([valve_table.table_id for valve_table in dp.tables.values()])
