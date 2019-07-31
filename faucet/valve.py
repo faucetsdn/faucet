@@ -566,7 +566,7 @@ class Valve:
 
         return next_state
 
-    def _update_stack_link_state(self, ports, now, _other_valves):
+    def _update_stack_link_state(self, ports, now, other_valves):
         stack_changes = 0
         ofmsgs_by_valve = defaultdict(list)
 
@@ -581,7 +581,8 @@ class Valve:
                 if port.is_stack_up() or port.is_stack_down():
                     stack_changes += 1
                     port_stack_up = port.is_stack_up()
-                    self.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+                    for valve in [self] + other_valves:
+                        valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
         if stack_changes:
             self.logger.info('%u stack ports changed state' % stack_changes)
             self.update_tunnel_flowrules()
