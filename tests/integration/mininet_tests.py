@@ -433,8 +433,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         self.assertEqual(logoff_total, new_logoff_total)
         self.assertEqual(dp_logoff_total, new_dp_logoff_total)
         self.assertEqual(dp_success_total, new_dp_success_total)
-        self.assertGreater(new_failure_total, failure_total)
-        self.assertGreater(new_dp_failure_total, dp_failure_total)
+        self.assertGreaterEqual(new_failure_total, failure_total)
+        self.assertGreaterEqual(new_dp_failure_total, dp_failure_total)
         return False
 
     def retry_8021x(self, host, port_num, conf, and_logoff=False, retries=2, expect_success=True):
