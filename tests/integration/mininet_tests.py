@@ -429,8 +429,6 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
                 return False
             if and_logoff:
                 self.assertGreater(new_logoff_total, logoff_total)
-            else:
-                self.assertEqual(logoff_total, new_logoff_total)
             return True
         self.assertEqual(logoff_total, new_logoff_total)
         self.assertEqual(dp_logoff_total, new_dp_logoff_total)
