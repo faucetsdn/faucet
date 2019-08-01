@@ -292,6 +292,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         self.nfv_portno = self.port_map['port_4']
 
         self.host_drop_all_ips(self.nfv_host)
+        self.nfv_pids = []
+
         tcpdump_args = '-e -n -U'
         self.eapol1_host.cmd(
             mininet_test_util.timeout_cmd(
@@ -302,19 +304,26 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             mininet_test_util.timeout_cmd(
                 'tcpdump -i %s-eth0 -w %s/eap-lo.pcap %s ether proto 0x888e &' % (
                     self.nfv_host.name, self.tmpdir, tcpdump_args), 300))
-
+        self.nfv_pids.append(int(self.nfv_host.lastPid))
         self.nfv_host.cmd(
             mininet_test_util.timeout_cmd(
                 'tcpdump -i lo -w %s/radius.pcap %s udp port %d &' % (
                     self.tmpdir, tcpdump_args, self.RADIUS_PORT), 300))
-
+        self.nfv_pids.append(int(self.nfv_host.lastPid))
         self.radius_log_path = self.start_freeradius()
+        self.nfv_pids.append(int(self.nfv_host.lastPid))
+
         self.event_log = os.path.join(self.tmpdir, 'event.log')
         controller = self._get_controller()
         sock = self.env['faucet']['FAUCET_EVENT_SOCK']
         controller.cmd(
             mininet_test_util.timeout_cmd(
                 'nc -U %s > %s &' % (sock, self.event_log), 300))
+
+    def tearDown(self):
+        for pid in self.nfv_pids:
+            self.nfv_host.cmd('kill %u' % pid)
+        super(Faucet8021XBaseTest, self).tearDown()
 
     def post_test_checks(self):
         self.assertGreater(os.path.getsize(self.event_log), 0)
