@@ -392,7 +392,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             timeout=tcpdump_timeout, vflags='-vvv', packets=tcpdump_packets)
         if expect_success:
             self.wait_for_eap_success(host, self.get_wpa_ctrl_path(host))
-            self.wait_8021x_success_flows(host, port_num)
+            if not and_logoff:
+                self.wait_8021x_success_flows(host, port_num)
         success = 'Success' in tcpdump_txt
         new_success_total = self.scrape_prometheus_var(
             'port_dot1x_success_total', labels=port_labels, default=0)
