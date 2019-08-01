@@ -184,11 +184,11 @@ class FaucetTestBase(unittest.TestCase):
         self.debug_log_path = os.path.join(
             self.tmpdir, 'ofchannel.txt')
         self.monitor_stats_file = os.path.join(
-            self.tmpdir, 'ports.txt')
+            self.tmpdir, 'gauge-ports.txt')
         self.monitor_state_file = os.path.join(
-            self.tmpdir, 'state.txt')
+            self.tmpdir, 'gauge-state.txt')
         self.monitor_flow_table_file = os.path.join(
-            self.tmpdir, 'flow.txt')
+            self.tmpdir, 'gauge-flow.txt')
         if self.config is not None:
             if 'hw_switch' in self.config:
                 self.hw_switch = self.config['hw_switch']
@@ -2316,9 +2316,10 @@ dbs:
         """Require (count) matching lines to be present in file."""
         assert timeout >= 1
         for _ in range(timeout):
-            lines = self.matching_lines_from_file(exp, log_name)
-            if len(lines) >= count:
-                return lines
+            if os.path.exists(log_name):
+                lines = self.matching_lines_from_file(exp, log_name)
+                if len(lines) >= count:
+                    return lines
             time.sleep(1)
         self.fail('%s not found in %s (%d/%d)' % (exp, log_name, len(lines), count))
 
@@ -2356,7 +2357,7 @@ dbs:
         wpasupplicant_cmd = mininet_test_util.timeout_cmd(
             'wpa_supplicant -dd -t -c %s -i %s -D wired -f %s %s &' % (
                 wpasupplicant_conf_file_name, host.defaultIntf(), wpasupplicant_log,
-                wpa_ctrl_socket), timeout * 3)
+                wpa_ctrl_socket), 300)
         host.cmd(wpasupplicant_cmd)
         for _ in range(timeout):
             if os.path.exists(wpasupplicant_log):
