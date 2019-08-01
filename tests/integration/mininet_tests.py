@@ -335,8 +335,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             }
             return replacement_macs.get(host_no, None)
 
-        def insert_dynamic_values():
-            for dot1x_event in self.DOT1X_EXPECTED_EVENTS:
+        def insert_dynamic_values(dot1x_expected_events):
+            for dot1x_event in dot1x_expected_events:
                 top_level_key = list(dot1x_event.keys())[0]
                 l = [('dp_id', int(self.dpid))]
                 for k, v in dot1x_event[top_level_key].items():
@@ -350,7 +350,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         if not self.DOT1X_EXPECTED_EVENTS:
             return
 
-        insert_dynamic_values()
+        dot1x_expected_events = copy.deepcopy(self.DOT1X_EXPECTED_EVENTS)
+        insert_dynamic_values(dot1x_expected_events)
 
         with open(self.event_log, 'r') as event_file:
             events_that_happened = []
@@ -360,14 +361,10 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
                 event = json.loads(event_log_line.strip())
                 events_that_happened.append(event['DOT1X'])
 
-            expected_events_copy = copy.deepcopy(self.DOT1X_EXPECTED_EVENTS)
-            for expected_event in self.DOT1X_EXPECTED_EVENTS:
-                if expected_event in events_that_happened:
-                    expected_events_copy.remove(expected_event)
-                else:
-                    self.fail('expected event: %s not in events_that_happened %s' % (expected_event, events_that_happened))
-
-            self.assertFalse(expected_events_copy)
+            for expected_event in dot1x_expected_events:
+                self.assertTrue(expected_event in events_that_happened,
+                                msg='expected event: {} not in events_that_happened {}'.format(
+                                    expected_event, events_that_happened))
 
     def try_8021x(self, host, port_num, conf, and_logoff=False, terminate_wpasupplicant=False,
                   wpasup_timeout=180, tcpdump_timeout=15, tcpdump_packets=10):
