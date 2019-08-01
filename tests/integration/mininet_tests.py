@@ -377,7 +377,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
     def try_8021x(self, host, port_num, conf, and_logoff=False, terminate_wpasupplicant=False,
                   wpasup_timeout=180, tcpdump_timeout=15, tcpdump_packets=10,
                   expect_success=True):
-        self.wait_8021x_flows(port_num)
+        if expect_success:
+            self.wait_8021x_flows(port_num)
         port_labels = self.port_labels(port_num)
         success_total = self.scrape_prometheus_var(
             'port_dot1x_success_total', labels=port_labels, default=0)
@@ -419,23 +420,23 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         if expect_success != success:
             return False
         if expect_success and success:
-            self.assertEqual(success_total + 1, new_success_total)
-            self.assertEqual(dp_success_total + 1, new_dp_success_total)
+            self.assertGreater(new_success_total, success_total)
+            self.assertGreater(new_dp_success_total, dp_success_total)
             self.assertEqual(failure_total, new_failure_total)
             self.assertEqual(dp_failure_total, new_dp_failure_total)
             logoff = 'logoff' in tcpdump_txt
             if logoff != and_logoff:
                 return False
             if and_logoff:
-                self.assertEqual(logoff_total + 1, new_logoff_total)
+                self.assertGreater(new_logoff_total, logoff_total)
             else:
                 self.assertEqual(logoff_total, new_logoff_total)
             return True
         self.assertEqual(logoff_total, new_logoff_total)
         self.assertEqual(dp_logoff_total, new_dp_logoff_total)
         self.assertEqual(dp_success_total, new_dp_success_total)
-        self.assertEqual(failure_total + 1, new_failure_total)
-        self.assertEqual(dp_failure_total + 1, new_dp_failure_total)
+        self.assertGreater(new_failure_total, failure_total)
+        self.assertGreater(new_dp_failure_total, dp_failure_total)
         return False
 
     def retry_8021x(self, host, port_num, conf, and_logoff=False, retries=2, expect_success=True):
