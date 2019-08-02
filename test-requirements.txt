@@ -9,6 +9,6 @@ netifaces
 packaging
 pylint
 pytest-cov
-pytype==2019.7.26
+pytype==2019.7.30
 requests
 scapy==2.4.2
