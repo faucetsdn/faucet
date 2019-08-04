@@ -173,8 +173,9 @@ class ValveHostManager(ValveManagerBase):
             has_externals = has_externals | bool(vlan.loop_protect_external_ports())
         return has_externals
 
-    def learn_host_intervlan_routing_flows(self, now, port, vlan, eth_src, eth_dst, last_dp_coldstart_time=None):
-        """ 
+    def learn_host_intervlan_routing_flows(self, now, port, vlan,
+                                           eth_src, eth_dst, last_dp_coldstart_time=None):
+        """
         Returns flows for the eth_src_table that enable packets that have been routed to be
             accepted from an adjacent DP and then switched to the destination
         Eth_src_table flow rule to match on port, eth_src, eth_dst and vlan
@@ -188,8 +189,9 @@ class ValveHostManager(ValveManagerBase):
          src_rule_hard_timeout,
          _) = self.learn_host_timeouts(port)
         ofmsgs = []
-        ofmsgs.append(self.eth_src_table.flowdel(self.eth_src_table.match(vlan=vlan,eth_src=eth_src,eth_dst=eth_dst)))
-        src_match = self.eth_src_table.match(vlan=vlan,eth_src=eth_src,eth_dst=eth_dst)
+        ofmsgs.append(self.eth_src_table.flowdel(
+            self.eth_src_table.match(vlan=vlan, eth_src=eth_src, eth_dst=eth_dst)))
+        src_match = self.eth_src_table.match(vlan=vlan, eth_src=eth_src, eth_dst=eth_dst)
         src_priority = self.host_priority - 1
         inst = []
         inst.append(self.eth_src_table.goto(self.output_table))
@@ -198,7 +200,7 @@ class ValveHostManager(ValveManagerBase):
             priority=src_priority,
             inst=inst,
             hard_timeout=src_rule_hard_timeout,
-            idle_timeout=src_rule_idle_timeout)]) 
+            idle_timeout=src_rule_idle_timeout)])
         return ofmsgs
 
     def learn_host_on_vlan_port_flows(self, port, vlan, eth_src,
