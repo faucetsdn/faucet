@@ -1,0 +1,9 @@
+---
+linters:
+  flake8:
+    python: 3
+    max-line-length: 80
+  pep8:
+    python: 3
+    max-line-length: 80
+  py3k:
