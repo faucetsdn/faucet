@@ -7,6 +7,7 @@
 # pylint: disable=unbalanced-tuple-unpacking
 
 import binascii
+import collections
 import copy
 import itertools
 import ipaddress
@@ -7909,3 +7910,96 @@ class FaucetDisconnectTest(FaucetUntaggedTest):
             r'.*ERROR.*unknown datapath', faucet_log, timeout=60, count=4)
         self.update_config(dpid=self.dpid)
         super().test_untagged()
+
+
+class FaucetBadFlowModTest(FaucetUntaggedTest):
+    """Test that switch and FAUCET still work after we send some bad flow_mods"""
+
+    def base_flow_mod(self):
+        """Return a base flow mod that we mess with"""
+        return {'dpid': self.dpid,
+                'cookie': 0,
+                'cookie_mask': 0,
+                'table_id': 0,
+                'idle_timeout': 29,
+                'hard_timeout': 91,
+                'flags': 1,
+                'priority': 1,
+                'match': {'in_port': 1},
+                'actions': [{
+                    'type': 'OUTPUT',
+                    'port': 2}]}
+
+    # For now, the flow_mods are reasonably well-formed but with
+    # parameters that are incorrect for the switch and for FAUCET
+
+    def bad_dpid(self):
+        """Return a random, bad dpid parameter"""
+        mask = int(16*'f', 16)
+        dpid = (int(self.dpid) + random.randint(0, 1<<63)) & mask
+        return {'dpid': dpid}
+
+    @staticmethod
+    def bad_table():
+        """Return a bad table ID parameter"""
+        # This should be higher than FAUCET's max table ID
+        bad_table_start = 32
+        return {'table_id': random.randint(bad_table_start, 100)}
+
+    def bad_port(self):
+        """Return a (hopefully very) bad port number"""
+        max_port = max(self.port_map.values())
+        offset = random.randint(0x1000, 0xE0000000)
+        mask = 0xEFFFFFFF
+        return (max_port + offset) & mask
+
+    def bad_match(self):
+        """Match with bad input port"""
+        return {'match': {'in_port': self.bad_port()}}
+
+    def bad_actions(self, count=1):
+        """Return a questionable actions parameter"""
+        actions = (
+            {'type': 'OUTPUT', 'port': self.bad_port()},
+            {'type': 'PUSH_MPLS', 'ethertype': 0x8BAD},
+            {'type': 'SET_QUEUE', 'queue_id':
+             random.randint(0x8000, 0xFFFFFFFF)})
+        return {'actions': random.sample(actions, count)}
+
+    # Possible options for bad parameters
+    bad_options = ('dpid', 'table', 'match', 'actions')
+
+    def bad_flow_mod(self):
+        """Return a flow mod with some bad parameters"""
+        flow_mod = self.base_flow_mod()
+        # Add two or more bad options
+        options = random.sample(self.bad_options,
+                                random.randint(2, len(self.bad_options)))
+        for option in options:
+            param = getattr(self, 'bad_%s' % option)()
+            flow_mod.update(param)
+        return flow_mod
+
+    def send_flow_mod(self, flow_mod, timeout=5):
+        """Send flow_mod to switch via ofctl"""
+        int_dpid = mininet_test_util.str_int_dpid(self.dpid)
+        return self._ofctl_post(int_dpid, 'stats/flowentry/modify',
+                                timeout=timeout, params=flow_mod)
+
+    def tearDown(self, ignore_oferrors=True):
+        """Ignore OF errors on teardown"""
+        oferrors = super().tearDown(ignore_oferrors)
+        # We expect some OF errors from the bad flow mods
+        oferrors = re.findall(r'type: (\w+)', oferrors)
+        counter = collections.Counter(oferrors)
+        error('Ignored OF error count:  %s\n' % dict(counter))
+        self.assertTrue(oferrors)
+
+    # pylint: disable=arguments-differ
+    def test_untagged(self, count=10):
+        """Send a bunch of bad flow mods, then verify connectivity"""
+        for _ in range(count):
+            flow_mod = self.bad_flow_mod()
+            error('sending bad flow_mod', flow_mod, '\n')
+            self.send_flow_mod(flow_mod)
+        self.ping_all_when_learned()

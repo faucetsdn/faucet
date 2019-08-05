@@ -360,8 +360,9 @@ class FaucetTestBase(unittest.TestCase):
     def hostns(self, host):
         return '%s' % host.name
 
-    def tearDown(self):
-        """Clean up after a test."""
+    def tearDown(self, ignore_oferrors=False):
+        """Clean up after a test.
+           ignore_oferrors: return OF errors rather than failing"""
         if self.NETNS:
             for host in self.net.hosts[:1]:
                 if self.get_host_netns(host):
@@ -396,17 +397,19 @@ class FaucetTestBase(unittest.TestCase):
                         switch_ovs_log_name = os.path.join(self.tmpdir, os.path.basename(ovs_log))
                         with open(switch_ovs_log_name, 'w') as switch_ovs_log:
                             switch_ovs_log.write('\n'.join(lines))
-        # must not be any controller exception.
+        # Must not be any controller exception.
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
-        # must be no OFErrors
+        # Check for OFErrors
         oferrors = '\n\n'.join(
             self.matching_lines_from_file(
                 r'^.+(OFError.+)$', self.env['faucet']['FAUCET_LOG']))
-        self.assertFalse(
-            oferrors,
-            msg='log has OFPErrorMsgs: %s' % oferrors)
+        if not ignore_oferrors:
+            self.assertFalse(
+                oferrors,
+                msg='log has OFPErrorMsgs: %s' % oferrors)
         with open(os.path.join(self.tmpdir, 'test_duration_secs'), 'w') as duration_file:
             duration_file.write(str(int(time.time() - self.start_time)))
+        return oferrors
 
     def _attach_physical_switch(self):
         """Bridge a physical switch into test topology."""
