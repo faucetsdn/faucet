@@ -242,7 +242,8 @@ class FaucetSwitchTopo(Topo):
             sid_prefix = self._get_sid_prefix(serialno)
             tagged = [self._add_tagged_host(sid_prefix, tagged_vid, host_n)
                       for host_n in range(n_tagged)]
-            untagged = [self._add_untagged_host(sid_prefix, host_n, host_namespace.get(host_n, True))
+            untagged = [self._add_untagged_host(
+                sid_prefix, host_n, host_namespace.get(host_n, True))
                         for host_n in range(n_untagged)]
             extended = [self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
                         for host_n in range(n_extended)]
@@ -327,7 +328,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
             tagged = [self._add_tagged_host(sid_prefix, tagged_vid, host_n)
                       for host_n in range(n_tagged)]
             untagged = [self._add_untagged_host(sid_prefix, host_n)
-                for host_n in range(n_untagged_hosts)]
+                        for host_n in range(n_untagged_hosts)]
             switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
             next_index[switch] = self._add_links(switch, tagged + untagged, links_per_host)
             if first_switch is None:
