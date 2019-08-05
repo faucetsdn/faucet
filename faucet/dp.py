@@ -772,8 +772,8 @@ configuration.
                 remove_ids.append(tunnel_id)
         for tunnel_id in remove_ids:
             self.tunnel_acls.pop(tunnel_id)
-            self.tunnel_updated_flags.update({
-                tunnel_id: False for tunnel_id in self.tunnel_acls})
+        self.tunnel_updated_flags.update({
+            tunnel_id: False for tunnel_id in self.tunnel_acls})
 
     def shortest_path(self, dest_dp, src_dp=None):
         """Return shortest path to a DP, as a list of DPs."""
