@@ -122,7 +122,7 @@ configuration.
         # Number of seconds without a LACP message when we consider a LACP group down.
         'dp_acls': None,
         # List of dataplane ACLs (overriding per port ACLs).
-        'dot1x': None,
+        'dot1x': {},
         # Experimental dot1x configuration.
         'table_sizes': {},
         # Table sizes for TFM switches.
@@ -245,7 +245,7 @@ configuration.
         self.configured = False
         self.cookie = None
         self.description = None
-        self.dot1x = None
+        self.dot1x = {}
         self.dp_acls = None
         self.dp_id = None
         self.drop_broadcast_source_address = None
@@ -385,8 +385,7 @@ configuration.
             # NOTE: All acl's are added to the acl list and then referred to later by ports
             acls = [PORT_ACL_8021X, MAB_ACL_8021X,
                     self.acls.get(self.dot1x.get('auth_acl'), None),
-                    self.acls.get(self.dot1x.get('noauth_acl'), None)
-                ]
+                    self.acls.get(self.dot1x.get('noauth_acl'), None)]
 
             acls.extend([acl for acl_name, acl in self.acls.items() if acl.dot1x_assigned])
             all_acls['port_acl'] = [acl for acl in acls if acl is not None]
@@ -752,10 +751,10 @@ configuration.
             self.finalize_tunnel_acls(dps)
 
     def finalize_tunnel_acls(self, dps):
-        """
-        Turn off ACLs not in use and resolve the src dp & port for relevant ACLs
+        """Turn off ACLs not in use and resolve the ACL src dp and port.
+
         Args:
-            dps (list):
+            dps (list): DPs.
         """
         remove_ids = []
         for tunnel_id, tunnel_acl in self.tunnel_acls.items():
@@ -769,15 +768,12 @@ configuration.
                     if bsrc_dp is not None:
                         tunnel_acl.tunnel_info[tunnel_id]['src_dp'] = bsrc_dp
                         break
-                    else:
-                        continue
             if tunnel_acl.tunnel_info[tunnel_id]['src_dp'] is None:
                 remove_ids.append(tunnel_id)
-                continue
         for tunnel_id in remove_ids:
             self.tunnel_acls.pop(tunnel_id)
-        for tunnel_id, tunnel_acl in self.tunnel_acls.items():
-            self.tunnel_updated_flags[tunnel_id] = False
+        self.tunnel_updated_flags.update({
+            tunnel_id: False for tunnel_id in self.tunnel_acls})
 
     def shortest_path(self, dest_dp, src_dp=None):
         """Return shortest path to a DP, as a list of DPs."""
@@ -826,20 +822,19 @@ configuration.
         return None
 
     def is_in_path(self, src_dp, dst_dp):
-        """
-        Returns true if the current DP is in the path from src_dp to dst_dp
+        """Return True if the current DP is in the path from src_dp to dst_dp
+
         Args:
-            src_dp (DP):
-            dst_dp (DP):
+            src_dp (DP): DP
+            dst_dp (DP): DP
         Returns:
-            bool: True if self is in the path from the src_dp to the dst_dp
-                  False otherwise
+            bool: True if self is in the path from the src_dp to the dst_dp.
         """
         path = self.shortest_path(dst_dp.name, src_dp.name)
         return self.name in path
 
-    def reset_refs(self, vlans=None, root_dp=None):
-        """Resets vlan references"""
+    def reset_refs(self, vlans=None):
+        """Resets VLAN references."""
         if vlans is None:
             vlans = self.vlans
         self.vlans = {}
@@ -847,8 +842,6 @@ configuration.
             vlan.reset_ports(self.ports.values())
             if vlan.get_ports() or vlan.reserved_internal_vlan or vlan.dot1x_assigned:
                 self.vlans[vlan.vid] = vlan
-        if root_dp is not None:
-            self.stack['root_dp'] = root_dp
 
     def resolve_port(self, port_name):
         """Resolve a port by number or name."""

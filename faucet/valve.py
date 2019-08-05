@@ -190,14 +190,16 @@ class Valve:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         if self.dp.stack:
             self.flood_manager = valve_flood.ValveFloodStackManager(
-                self.logger, self.dp.tables['flood'], self.pipeline, self.dp.group_table,
-                self.dp.groups, self.dp.combinatorial_port_flood,
+                self.logger, self.dp.tables['flood'], self.pipeline,
+                self.dp.group_table, self.dp.groups,
+                self.dp.combinatorial_port_flood,
                 self.dp.stack, self.dp.stack_ports,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port)
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
-                self.logger, self.dp.tables['flood'], self.pipeline, self.dp.group_table,
-                self.dp.groups, self.dp.combinatorial_port_flood)
+                self.logger, self.dp.tables['flood'], self.pipeline,
+                self.dp.group_table, self.dp.groups,
+                self.dp.combinatorial_port_flood)
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
@@ -551,7 +553,7 @@ class Valve:
             if not port.is_stack_down():
                 next_state = port.stack_down
                 self.logger.error(
-                    'Stack %s DOWN, too many (%u) packets lost, last received %u ago' % (
+                    'Stack %s DOWN, too many (%u) packets lost, last received %us ago' % (
                         port, num_lost_lldp, time_since_lldp_seen))
         elif port.is_stack_down() and not port.is_stack_init():
             next_state = port.stack_init
@@ -612,7 +614,7 @@ class Valve:
             if port.dyn_lldp_beacon_recv_state:
                 age = now - port.dyn_lldp_beacon_recv_time
                 if age > self.dp.lldp_beacon['send_interval'] * 3:
-                    self.logger.info('LLDP for port %s inactive after %u' % (port, age))
+                    self.logger.info('LLDP for %s inactive after %us' % (port, age))
                     port.dyn_lldp_beacon_recv_state = None
         return self._update_stack_link_state(self.dp.stack_ports, now, other_valves)
 
@@ -1097,32 +1099,29 @@ class Valve:
                 return True
         return False
 
-    def _router_learn_host(self, now, other_valves, pkt_meta):
-        """
-        Construct a rule to enable packets that have been routed to
-            then be forwarded to the destination
+    def router_learn_host(self, pkt_meta):
+        """Add L3 forwarding rule.
 
         Args:
-            other_valves (list): of all Valves (datapaths).
             pkt_meta (PacketMeta): PacketMeta instance for packet received.
         Returns:
             list: OpenFlow messages, if any.
         """
         if pkt_meta.eth_src == pkt_meta.vlan.faucet_mac:
             return self.host_manager.learn_host_intervlan_routing_flows(
-                now, pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_src, pkt_meta.eth_dst)
-        elif pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
+                pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_src, pkt_meta.eth_dst)
+        if pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
             return self.host_manager.learn_host_intervlan_routing_flows(
-                now, pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_dst, pkt_meta.eth_src)
+                pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_dst, pkt_meta.eth_src)
         return []
 
-    def _learn_host(self, now, other_valves, pkt_meta):
-        """
-        Possibly learn a host on a port.
+    def learn_host(self, now, pkt_meta, other_valves):
+        """Possibly learn a host on a port.
 
         Args:
-            other_valves (list): of all Valves (datapaths).
+            now (float): current epoch time.
             pkt_meta (PacketMeta): PacketMeta instance for packet received.
+            other_valves (list): all Valves other than this one.
         Returns:
             list: OpenFlow messages, if any.
         """
@@ -1133,24 +1132,27 @@ class Valve:
                 now, learn_port, pkt_meta.vlan, pkt_meta.eth_src,
                 last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
             if update_cache:
-                port_move_text = ''
+                pkt_meta.vlan.add_cache_host(pkt_meta.eth_src, pkt_meta.port, now)
+                if pkt_meta.l3_pkt is None:
+                    pkt_meta.reparse_ip()
+                learn_log = 'L2 learned %s (%u hosts total)' % (pkt_meta.log(), pkt_meta.vlan.hosts_count())
+                if pkt_meta.port.stack:
+                    learn_log += ' from %s' % pkt_meta.port.stack_descr()
                 previous_port_no = None
                 if previous_port is not None:
                     previous_port_no = previous_port.number
                     if pkt_meta.port.number != previous_port_no:
-                        port_move_text = ', moved from port %u' % previous_port_no
-                pkt_meta.vlan.add_cache_host(pkt_meta.eth_src, pkt_meta.port, now)
-                if pkt_meta.l3_pkt is None:
-                    pkt_meta.reparse_ip()
-                self.logger.info(
-                    'L2 learned %s %s (%u hosts total)' % (
-                        pkt_meta.log(), port_move_text, pkt_meta.vlan.hosts_count()))
+                        learn_log += ', moved from %s' % previous_port
+                        if previous_port.stack:
+                            learn_log += ' from %s' % previous_port.stack_descr()
+                self.logger.info(learn_log)
                 self._notify(
                     {'L2_LEARN': {
                         'port_no': pkt_meta.port.number,
                         'previous_port_no': previous_port_no,
                         'vid': pkt_meta.vlan.vid,
                         'eth_src': pkt_meta.eth_src,
+                        'eth_dst': pkt_meta.eth_dst,
                         'eth_type': pkt_meta.eth_type,
                         'l3_src_ip': str(pkt_meta.l3_src),
                         'l3_dst_ip': str(pkt_meta.l3_dst)}})
@@ -1327,17 +1329,14 @@ class Valve:
         # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
         return self.lldp_handler(now, pkt_meta, other_valves)
 
-    def _router_rcv_packet(self, now, other_valves, pkt_meta):
-        """
-        Handle routing:
-            Send packets destined for the router to the router
-            Otherwise run router resolving tasks
+    def router_rcv_packet(self, now, pkt_meta):
+        """Process packets destined for router or run resolver.
 
         Args:
-            other_valves (list): all Valves other than this one.
+            now (float): current epoch time.
             pkt_meta (PacketMeta): packet for control plane.
         Returns:
-            dict: OpenFlow messages, if any by Valve.
+            list: OpenFlow messages.
         """
         if not pkt_meta.vlan.faucet_vips:
             return []
@@ -1366,11 +1365,10 @@ class Valve:
         return ofmsgs
 
     def _vlan_rcv_packet(self, now, other_valves, pkt_meta):
-        """
-        Attempt to handle a packet with VLAN tags using the current valve
-            and all stacked valves
+        """Handle packet with VLAN tag across all Valves.
 
         Args:
+            now (float): current epoch time.
             other_valves (list): all Valves other than this one.
             pkt_meta (PacketMeta): packet for control plane.
         Returns:
@@ -1384,30 +1382,26 @@ class Valve:
             # Received the packet from an adjacent DP, but do not know the eth_src,
             #   the actual src DP will probably initiate learning for this valve
             return {}
-        # Current valve can call for itself and stacked valves to handle receiving packets
-        dp_ofmsgs = {}
-        original_vlan = pkt_meta.vlan
-        original_port = pkt_meta.port
-        stacked_valves = [self] + [valve for valve in other_valves if valve.dp.stack is not None]
+        ofmsgs_by_valve = {}
+        stacked_valves = set([self] + [valve for valve in other_valves if valve.dp.stack is not None])
         for valve in stacked_valves:
+            valve_pkt_meta = pkt_meta
+            valve_other_valves = stacked_valves - {valve}
             ofmsgs = []
-            valve_other_valves = list(stacked_valves)
-            valve_other_valves.remove(valve)
             if valve is not self:
                 stack_port = valve.dp.shortest_path_port(self.dp.name)
                 if stack_port and pkt_meta.vlan.vid in valve.dp.vlans:
                     valve_vlan = valve.dp.vlans[pkt_meta.vlan.vid]
                 else:
                     continue
-                pkt_meta.vlan = valve_vlan
-                pkt_meta.port = stack_port
-            ofmsgs.extend(valve._learn_host(now, valve_other_valves, pkt_meta))
-            ofmsgs.extend(valve._router_rcv_packet(now, valve_other_valves, pkt_meta))
-            ofmsgs.extend(valve._router_learn_host(now, valve_other_valves, pkt_meta))
-            dp_ofmsgs[valve] = ofmsgs
-            pkt_meta.port = original_port
-            pkt_meta.vlan = original_vlan
-        return dp_ofmsgs
+                valve_pkt_meta = copy.copy(pkt_meta)
+                valve_pkt_meta.vlan = valve_vlan
+                valve_pkt_meta.port = stack_port
+            ofmsgs.extend(valve.learn_host(now, valve_pkt_meta, valve_other_valves))
+            ofmsgs.extend(valve.router_rcv_packet(now, valve_pkt_meta))
+            ofmsgs.extend(valve.router_learn_host(valve_pkt_meta))
+            ofmsgs_by_valve[valve] = ofmsgs
+        return ofmsgs_by_valve
 
     def rcv_packet(self, now, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).

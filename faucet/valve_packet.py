@@ -718,8 +718,8 @@ class PacketMeta:
         vlan_msg = ''
         if self.vlan:
             vlan_msg = 'VLAN %u' % self.vlan.vid
-        return '%s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) %s %s' % (
-            self.eth_src, self.eth_type, self.l3_src, self.l3_dst,
+        return '%s (L2 type 0x%4.4x, L2 dst %s, L3 src %s, L3 dst %s) %s %s' % (
+            self.eth_src, self.eth_type, self.eth_dst, self.l3_src, self.l3_dst,
             self.port, vlan_msg)
 
     def reparse(self, max_len):

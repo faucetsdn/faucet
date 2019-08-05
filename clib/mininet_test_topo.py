@@ -242,7 +242,8 @@ class FaucetSwitchTopo(Topo):
             sid_prefix = self._get_sid_prefix(serialno)
             tagged = [self._add_tagged_host(sid_prefix, tagged_vid, host_n)
                       for host_n in range(n_tagged)]
-            untagged = [self._add_untagged_host(sid_prefix, host_n, host_namespace.get(host_n, True))
+            untagged = [self._add_untagged_host(
+                sid_prefix, host_n, host_namespace.get(host_n, True))
                         for host_n in range(n_untagged)]
             extended = [self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
                         for host_n in range(n_extended)]
@@ -311,12 +312,12 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 next_index[src] += 1
                 next_index[dst] += 1
 
-        num_untagged_hosts = sum(untagged_hosts.values()) if untagged_hosts else 0
+        n_untagged_hosts = sum(untagged_hosts.values()) if untagged_hosts else 0
         self.hw_dpid = hw_dpid
         self.hw_ports = sorted(switch_map) if switch_map else []
         self.start_port = start_port
         self.switch_to_switch_links = switch_to_switch_links
-        max_ports = (n_tagged + num_untagged_hosts) * links_per_host + 2*switch_to_switch_links
+        max_ports = (n_tagged + n_untagged_hosts) * links_per_host + 2*switch_to_switch_links
         self.port_order = self.extend_port_order(port_order, max_ports)
         self.switch_peer_links = {}
 
@@ -327,7 +328,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
             tagged = [self._add_tagged_host(sid_prefix, tagged_vid, host_n)
                       for host_n in range(n_tagged)]
             untagged = [self._add_untagged_host(sid_prefix, host_n)
-                for host_n in range(num_untagged_hosts)]
+                        for host_n in range(n_untagged_hosts)]
             switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
             next_index[switch] = self._add_links(switch, tagged + untagged, links_per_host)
             if first_switch is None:
