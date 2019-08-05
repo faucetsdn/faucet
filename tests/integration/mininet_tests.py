@@ -261,7 +261,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
 
     event_log = ''
 
-    def _priv_mac(self, host_id):
+    @staticmethod
+    def _priv_mac(host_id):
         two_byte_port_num = '%04x' % host_id
         two_byte_port_num_formatted = ':'.join((two_byte_port_num[:2], two_byte_port_num[2:]))
         return '00:00:00:00:%s' % two_byte_port_num_formatted
@@ -463,9 +464,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         self.one_ipv4_ping(
             eapol_host, self.ping_host.IP(), require_host_learned=False, expected_result=False)
         self.assertTrue(
-                self.try_8021x(
-                    eapol_host, port_no, wpasupplicant_conf,
-                    and_logoff=and_logoff))
+            self.try_8021x(
+                eapol_host, port_no, wpasupplicant_conf, and_logoff=and_logoff))
         self.one_ipv4_ping(
             self.eapol1_host, self.ping_host.IP(), require_host_learned=False, expected_result=True)
 
@@ -511,7 +511,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             self.tmpdir, '%s/%s-wpasupplicant' % (self.tmpdir, host.name))
         return wpa_ctrl_path
 
-    def get_wpa_status(self, host, wpa_ctrl_path):
+    @staticmethod
+    def get_wpa_status(host, wpa_ctrl_path):
         status = host.cmdPrint('wpa_cli -p %s status' % wpa_ctrl_path)
         for line in status.splitlines():
             if line.startswith('EAP state'):
@@ -952,7 +953,8 @@ class Faucet8021XMABTest(Faucet8021XSuccessTest):
         )
         return super(Faucet8021XMABTest, self).start_freeradius()
 
-    def dhclient_callback(self, host, timeout):
+    @staticmethod
+    def dhclient_callback(host, timeout):
         dhclient_cmd = 'dhclient -d -1 %s' % host.defaultIntf()
         return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
 
@@ -2029,7 +2031,8 @@ class FaucetUntaggedMultiDBWatcherTest(
         dbs: ['prometheus', 'influx']
 """ % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
-    def test_tagged(self):
+    @staticmethod
+    def test_tagged():
         return
 
     def test_untagged(self):
@@ -2471,7 +2474,7 @@ vlans:
                     mac_ipv4 = '10.0.0.%u' % i
                     mac_ips.append(mac_ipv4)
                     self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
-                    macvlan_mac = self.get_mac_of_intf(second_host, mac_intf)
+                    macvlan_mac = self.get_mac_of_intf(mac_intf, second_host)
                     learned_mac_ports[macvlan_mac] = self.port_map['port_2']
                 return (mac_intfs, mac_ips, learned_mac_ports)
 
@@ -2550,7 +2553,7 @@ vlans:
             eth_dst: %u
             ipv4_fib: %u
 """ % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) +
-"""
+              """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2597,7 +2600,7 @@ vlans:
             eth_src: %u
             eth_dst: %u
 """ % (_max_hosts() + 64, _max_hosts() + 64) +
-"""
+              """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -4907,31 +4910,32 @@ acls:
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
-    STATIC_GW = False
-    IPV = 4
-    NETPREFIX = 24
-    ETH_TYPE = IPV4_ETH
-
     def _vids():
         return [i for i in range(100, 148)]
 
     def global_vid():
         return 2047
 
+    STATIC_GW = False
+    IPV = 4
+    NETPREFIX = 24
+    ETH_TYPE = IPV4_ETH
     NETNS = True
     VIDS = _vids()
     GLOBAL_VID = global_vid()
     STR_VIDS = [str(i) for i in _vids()]
     NEW_VIDS = VIDS[1:]
 
-    def netbase(self, vid, host):
+    @staticmethod
+    def netbase(vid, host):
         return ipaddress.ip_interface('192.168.%u.%u' % (vid, host))
+
+    @staticmethod
+    def fping(macvlan_int, ipg):
+        return 'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
     def fib_table(self):
         return self._IPV4_FIB_TABLE
-
-    def fping(self, macvlan_int, ipg):
-        return 'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
 
     def macvlan_ping(self, host, ipa, macvlan_int):
         return self.one_ipv4_ping(host, ipa, intf=macvlan_int)
@@ -6725,21 +6729,24 @@ class FaucetStringOfDPTest(FaucetTest):
                 self.wait_for_stack_port_status(
                     dpid, dp_name, link.port, 3) # up
 
-    def verify_stack_has_no_loop(self):
+    def verify_no_arp_storm(self, ping_host, tcpdump_host):
         num_arp_expected = self.topo.switch_to_switch_links * 2
+        tcpdump_filter = 'arp and ether src %s' % ping_host.MAC()
+        tcpdump_txt = self.tcpdump_helper(
+            tcpdump_host, tcpdump_filter, [
+                lambda: ping_host.cmd('arp -d %s' % tcpdump_host.IP()),
+                lambda: ping_host.cmd('ping -c1 %s' % tcpdump_host.IP())],
+            packets=(num_arp_expected+1))
+        num_arp_received = len(re.findall(
+            'who-has %s tell %s' % (tcpdump_host.IP(), ping_host.IP()), tcpdump_txt))
+        self.assertTrue(num_arp_received)
+        self.assertLessEqual(num_arp_received, num_arp_expected)
+
+    def verify_stack_has_no_loop(self):
         for ping_host, tcpdump_host in (
                 (self.net.hosts[0], self.net.hosts[-1]),
                 (self.net.hosts[-1], self.net.hosts[0])):
-            tcpdump_filter = 'arp and ether src %s' % ping_host.MAC()
-            tcpdump_txt = self.tcpdump_helper(
-                tcpdump_host, tcpdump_filter, [
-                    lambda: ping_host.cmd('arp -d %s' % tcpdump_host.IP()),
-                    lambda: ping_host.cmd('ping -c1 %s' % tcpdump_host.IP())],
-                packets=(num_arp_expected+1))
-            num_arp_received = len(re.findall(
-                'who-has %s tell %s' % (tcpdump_host.IP(), ping_host.IP()), tcpdump_txt))
-            self.assertTrue(num_arp_received)
-            self.assertLessEqual(num_arp_received, num_arp_expected)
+            self.verify_no_arp_storm(ping_host, tcpdump_host)
 
     def verify_all_stack_hosts(self):
         for _ in range(2):
@@ -6789,7 +6796,8 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
 
     FAUCET_MAC2 = '0e:00:00:00:00:02'
 
-    def get_dp_options(self):
+    @staticmethod
+    def get_dp_options():
         return {
             'drop_spoofed_faucet_mac': False,
             'arp_neighbor_timeout': 2,
@@ -6872,16 +6880,18 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
                 self.assertEqual(
                     self._ip_neigh(v200_host, second_faucet_vip.ip, self.IPV), self.FAUCET_MAC2)
         for src_host_tuple in v100_hosts:
-            src_host, src_ip = src_host_tuple
+            src_host, _ = src_host_tuple
             for dst_host_tuple in v100_hosts:
-                dst_host, dst_ip = dst_host_tuple
-                if src_host_tuple == dst_host_tuple: continue
+                _, dst_ip = dst_host_tuple
+                if src_host_tuple == dst_host_tuple:
+                    continue
                 self.host_ping(src_host, dst_ip.ip)
         for src_host_tuple in v200_hosts:
-            src_host, src_ip = src_host_tuple
+            src_host, _ = src_host_tuple
             for dst_host_tuple in v200_hosts:
-                dst_host, dst_ip = dst_host_tuple
-                if src_host_tuple == dst_host_tuple: continue
+                _, dst_ip = dst_host_tuple
+                if src_host_tuple == dst_host_tuple:
+                    continue
                 self.host_ping(src_host, dst_ip.ip)
 
     def test_intervlan_routing_stack_of_2_dp(self):
@@ -7289,106 +7299,106 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
     def acls(self):
         map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
         return {
-        1: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'nw_dst': '10.0.0.2',
-                'actions': {
-                    'output': {
-                        'port': map1['port_2']
-                    }
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'dl_dst': 'ff:ff:ff:ff:ff:ff',
-                'actions': {
-                    'output': {
-                        'ports': [
-                            map1['port_2'],
-                            map1['port_4']]
-                    }
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'actions': {
-                    'output': {
-                        'port': map1['port_4']
-                    }
-                },
-            }},
-            {'rule': {
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-        ],
-        2: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'actions': {
-                    'output': {
-                        'port': map2['port_5']
-                    }
-                },
-            }},
-            {'rule': {
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-        ],
-        3: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'nw_dst': '10.0.0.7',
-                'actions': {
-                    'output': {
-                        'port': map3['port_1']
-                    }
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'dl_dst': 'ff:ff:ff:ff:ff:ff',
-                'actions': {
-                    'output': {
-                        'ports': [map3['port_1']]
-                    }
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'actions': {
-                    'allow': 0,
-                },
-            }},
-            {'rule': {
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-        ],
-    }
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'nw_dst': '10.0.0.2',
+                    'actions': {
+                        'output': {
+                            'port': map1['port_2']
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
+                    'actions': {
+                        'output': {
+                            'ports': [
+                                map1['port_2'],
+                                map1['port_4']]
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'actions': {
+                        'output': {
+                            'port': map1['port_4']
+                        }
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+            2: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'actions': {
+                        'output': {
+                            'port': map2['port_5']
+                        }
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+            3: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'nw_dst': '10.0.0.7',
+                    'actions': {
+                        'output': {
+                            'port': map3['port_1']
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
+                    'actions': {
+                        'output': {
+                            'ports': [map3['port_1']]
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'actions': {
+                        'allow': 0,
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+        }
 
     # DP-to-acl_in port mapping.
     def acl_in_dp(self):
         map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
         return {
-        'faucet-1': {
-            # Port 1, acl_in = 1
-            map1['port_1']: 1,
-        },
-        'faucet-2': {
-            # Port 4, acl_in = 2
-            map2['port_4']: 2,
-        },
-        'faucet-3': {
-            # Port 4, acl_in = 3
-            map3['port_4']: 3,
-        },
-    }
+            'faucet-1': {
+                # Port 1, acl_in = 1
+                map1['port_1']: 1,
+            },
+            'faucet-2': {
+                # Port 4, acl_in = 2
+                map2['port_4']: 2,
+            },
+            'faucet-3': {
+                # Port 4, acl_in = 3
+                map3['port_4']: 3,
+            },
+        }
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStackAclControlTest, self).setUp()
@@ -7428,69 +7438,69 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     # ACL rules which will get overridden.
     def acls(self):
         return {
-        1: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 6,
-                'tcp_dst': 5001,
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 6,
-                'tcp_dst': 5002,
-                'actions': {
-                    'allow': 0,
-                },
-            }},
-            {'rule': {
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-        ],
-    }
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 6,
+                    'tcp_dst': 5001,
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 6,
+                    'tcp_dst': 5002,
+                    'actions': {
+                        'allow': 0,
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+        }
 
     # ACL rules which get put into an include-optional
     # file, then reloaded into FAUCET.
     def acls_override(self):
         return {
-        1: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 6,
-                'tcp_dst': 5001,
-                'actions': {
-                    'allow': 0,
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 6,
-                'tcp_dst': 5002,
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-            {'rule': {
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-        ],
-    }
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 6,
+                    'tcp_dst': 5001,
+                    'actions': {
+                        'allow': 0,
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 6,
+                    'tcp_dst': 5002,
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+        }
 
     # DP-to-acl_in port mapping.
     def acl_in_dp(self):
         port_1 = self.port_map['port_1']
         return {
-        'faucet-1': {
-            # First port, acl_in = 1
-            port_1: 1,
-        },
-    }
+            'faucet-1': {
+                # First port, acl_in = 1
+                port_1: 1,
+            },
+        }
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPACLOverrideTest, self).setUp()
@@ -7535,32 +7545,32 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
 
     def acls(self):
         return {
-        1: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 1,
-                'actions': {
-                    'allow': 0,
-                    'output': {
-                        'tunnel': {
-                            'type': 'vlan',
-                            'tunnel_id': 200,
-                            'dp': 'faucet-1',
-                            'port': 'b%(port_2)d'}
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': 'faucet-1',
+                                'port': 'b%(port_2)d'}
+                        }
                     }
-                }
-            }}
-        ]
+                }}
+            ]
         }
 
     # DP-to-acl_in port mapping.
     def acl_in_dp(self):
         port_1 = self.port_map['port_1']
         return {
-        'faucet-1': {
-            # First port 1, acl_in = 1
-            port_1: 1,
-        }
+            'faucet-1': {
+                # First port 1, acl_in = 1
+                port_1: 1,
+            }
         }
 
     def setUp(self): # pylint: disable=invalid-name
@@ -7591,32 +7601,32 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         dpid2 = self.dpids[1]
         port2_1 = self.port_maps[dpid2]['port_1']
         return {
-        1: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 1,
-                'actions': {
-                    'allow': 0,
-                    'output': {
-                        'tunnel': {
-                            'type': 'vlan',
-                            'tunnel_id': 200,
-                            'dp': 'faucet-2',
-                            'port': port2_1}
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': 'faucet-2',
+                                'port': port2_1}
+                        }
                     }
-                }
-            }}
-        ]
-    }
+                }}
+            ]
+        }
 
     # DP-to-acl_in port mapping.
     def acl_in_dp(self,):
         port_1 = self.port_map['port_1']
         return {
-        'faucet-1': {
-            # First port 1, acl_in = 1
-            port_1: 1,
-        }
+            'faucet-1': {
+                # First port 1, acl_in = 1
+                port_1: 1,
+            }
         }
 
     def setUp(self): # pylint: disable=invalid-name

@@ -21,16 +21,15 @@ import unittest
 import yaml
 
 import netaddr
-import netifaces
 import requests
+
+from ryu.ofproto import ofproto_v1_3 as ofp
 
 from mininet.link import TCLink # pylint: disable=import-error
 from mininet.log import error, output # pylint: disable=import-error
 from mininet.net import Mininet # pylint: disable=import-error
 from mininet.node import Intf # pylint: disable=import-error
 from mininet.util import dumpNodeConnections, pmonitor # pylint: disable=import-error
-
-from ryu.ofproto import ofproto_v1_3 as ofp
 
 from clib import mininet_test_util
 from clib import mininet_test_topo
@@ -226,26 +225,25 @@ class FaucetTestBase(unittest.TestCase):
         """Consistently name interface names/descriptions."""
         if 'dps' not in yaml_conf:
             return yaml_conf
-        else:
-            yaml_conf_remap = copy.deepcopy(yaml_conf)
-            for dp_key, dp_yaml in yaml_conf['dps'].items():
-                interfaces_yaml = dp_yaml.get('interfaces', None)
-                if interfaces_yaml is not None:
-                    remap_interfaces_yaml = {}
-                    for intf_key, orig_intf_conf in interfaces_yaml.items():
-                        intf_conf = copy.deepcopy(orig_intf_conf)
-                        port_no = None
-                        if isinstance(intf_key, int):
-                            port_no = intf_key
-                        number = intf_conf.get('number', port_no)
-                        if isinstance(number, int):
-                            port_no = number
-                        assert isinstance(number, int), '%u %s' % (intf_key, orig_intf_conf)
-                        intf_name = 'b%u' % port_no
-                        intf_conf.update({'name': intf_name, 'description': intf_name})
-                        remap_interfaces_yaml[intf_key] = intf_conf
-                    yaml_conf_remap['dps'][dp_key]['interfaces'] = remap_interfaces_yaml
-            return yaml_conf_remap
+        yaml_conf_remap = copy.deepcopy(yaml_conf)
+        for dp_key, dp_yaml in yaml_conf['dps'].items():
+            interfaces_yaml = dp_yaml.get('interfaces', None)
+            if interfaces_yaml is not None:
+                remap_interfaces_yaml = {}
+                for intf_key, orig_intf_conf in interfaces_yaml.items():
+                    intf_conf = copy.deepcopy(orig_intf_conf)
+                    port_no = None
+                    if isinstance(intf_key, int):
+                        port_no = intf_key
+                    number = intf_conf.get('number', port_no)
+                    if isinstance(number, int):
+                        port_no = number
+                    assert isinstance(number, int), '%u %s' % (intf_key, orig_intf_conf)
+                    intf_name = 'b%u' % port_no
+                    intf_conf.update({'name': intf_name, 'description': intf_name})
+                    remap_interfaces_yaml[intf_key] = intf_conf
+                yaml_conf_remap['dps'][dp_key]['interfaces'] = remap_interfaces_yaml
+        return yaml_conf_remap
 
     def _write_yaml_conf(self, yaml_path, yaml_conf):
         assert isinstance(yaml_conf, dict)
@@ -420,7 +418,7 @@ class FaucetTestBase(unittest.TestCase):
         for port_i, test_host_port in enumerate(sorted(self.switch_map), start=1):
             mapped_port_i = mapped_base + port_i
             phys_port = Intf(self.switch_map[test_host_port], node=switch)
-            phys_mac = netifaces.ifaddresses(phys_port.name)[netifaces.AF_LINK][0]['addr']
+            phys_mac = self.get_mac_of_intf(phys_port.name)
             self.assertFalse(phys_mac in phys_macs, 'duplicate physical MAC %s' % phys_mac)
             phys_macs.add(phys_mac)
             for phys_cmd in (
@@ -448,7 +446,7 @@ class FaucetTestBase(unittest.TestCase):
     def create_port_map(self, dpid):
         """Return a port map {'port_1': port...} for a dpid in self.topo"""
         ports = self.topo.dpid_ports(dpid)
-        port_map = { 'port_%d' % i: port for i,  port in enumerate(ports, start=1)}
+        port_map = {'port_%d' % i: port for i, port in enumerate(ports, start=1)}
         return port_map
 
     def start_net(self):
@@ -1930,7 +1928,7 @@ dbs:
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
     def verify_iperf_min(self, hosts_switch_ports, min_mbps, client_ip, server_ip,
-            seconds=5, prop=0.2, sync_counters_func=None):
+                         seconds=5, prop=0.2, sync_counters_func=None):
         """Verify minimum performance and OF counters match iperf approximately."""
         # Attempt loose counter sync before starting.
         self.wait_host_stats_updated(
@@ -2036,14 +2034,15 @@ dbs:
             self.flap_port(port_no, flap_time=flap_time)
 
     @staticmethod
-    def get_mac_of_intf(host, intf):
+    def get_mac_of_intf(intf, host=None):
         """Get MAC address of a port."""
-        return host.cmd(
-            '|'.join((
-                'ip link show %s' % intf,
-                'grep -o "..:..:..:..:..:.."',
-                'head -1',
-                'xargs echo -n'))).lower()
+        address_file_name = '/sys/class/net/%s/address' % intf
+        if host is None:
+            with open(address_file_name) as address_file:
+                address = address_file.read()
+        else:
+            address = host.cmd('cat %s' % address_file_name)
+        return address.strip().lower()
 
     def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24, mac=None, mode='vepa'):
         if mac is None:
@@ -2454,7 +2453,7 @@ dbs:
         learned_ip6 = ipaddress.ip_interface(self.host_ipv6(learned_host))
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
-    def iperf_client(self, client_host, iperf_client_cmd, ipv):
+    def iperf_client(self, client_host, iperf_client_cmd):
         iperf_results = client_host.cmd(iperf_client_cmd)
         iperf_csv = iperf_results.strip().split(',')
         if len(iperf_csv) == 9:
@@ -2478,7 +2477,7 @@ dbs:
                 self.wait_for_tcp_listen(
                     server_host, port, ipv=server_ip.version)
                 iperf_mbps = self.iperf_client(
-                    client_host, iperf_client_cmd, ipv=server_ip.version)
+                    client_host, iperf_client_cmd)
                 self._signal_proc_on_port(server_host, port, 9)
                 return iperf_mbps
             return None
