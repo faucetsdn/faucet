@@ -1,0 +1,16 @@
+version: '2'
+services:
+    faucetagent_adapter:
+        restart: always
+        build:
+            context: ./adapters/vendors/faucetagent/
+            dockerfile: Dockerfile
+        depends_on:
+            - faucet
+        image: 'faucet/event-adapter-faucetagent'
+        volumes_from:
+            - faucet
+        ports:
+            - '10161:10161'
+        volumes:
+            - '${FAUCET_PREFIX}/opt/faucetagent/certs:/opt/faucetagent/certs'
