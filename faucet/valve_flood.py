@@ -17,6 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import defaultdict
+
 from faucet import valve_of
 from faucet import valve_packet
 from faucet.faucet_pipeline import STACK_LOOP_PROTECT_FIELD
@@ -319,9 +321,6 @@ class ValveFloodStackManager(ValveFloodManager):
         self.shortest_path_port = shortest_path_port
         self.dp_shortest_path_to_root = dp_shortest_path_to_root
         self._reset_peer_distances()
-        self._flood_actions_func = self._flood_actions
-        if self.stack_size == 2:
-            self._flood_actions_func = self._flood_actions_size2
 
     def _reset_peer_distances(self):
         """Reset distances to/from root for this DP."""
@@ -334,13 +333,16 @@ class ValveFloodStackManager(ValveFloodManager):
         self.away_from_root_stack_ports = [
             port for port, port_peer_distance in port_peer_distances
             if port_peer_distance > my_root_distance]
-        self.stack_size = self.stack.get('longest_path_to_root_len', None)
         self.externals = self.stack.get('externals', False)
         self._set_ext_port_flag = []
         self._set_nonext_port_flag = []
         if self.externals:
             self._set_ext_port_flag = [self._set_ext_flag(self.EXT_PORT_FLAG)]
             self._set_nonext_port_flag = [self._set_ext_flag(self.NONEXT_PORT_FLAG)]
+        self._flood_actions_func = self._flood_actions
+        stack_size = self.stack.get('longest_path_to_root_len', None)
+        if stack_size == 2:
+            self._flood_actions_func = self._flood_actions_size2
 
     def _flood_actions_size2(self, in_port, external_ports,
                              away_flood_actions, toward_flood_actions, local_flood_actions):
@@ -515,48 +517,63 @@ class ValveFloodStackManager(ValveFloodManager):
             toward_flood_actions, local_flood_actions)
         return flood_acts
 
+    @staticmethod
+    def _canonical_stack_up_ports(ports):
+        return sorted([port for port in ports if port.is_stack_up()], key=lambda x: x.number)
+
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                 exclude_unicast, command):
         # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
         ofmsgs = super(ValveFloodStackManager, self)._build_mask_flood_rules(
             vlan, eth_dst, eth_dst_mask, exclude_unicast, command)
         external_ports = vlan.loop_protect_external_ports()
-
-        # On a non root switch, perform flood pruning. Only propogate
-        # floods from one of the ports connected towards the root.
-        towards_up_ports = sorted(
-            [port for port in self.towards_root_stack_ports if port.is_stack_up()],
-            key=lambda x: x.number)
+        towards_up_ports = self._canonical_stack_up_ports(self.towards_root_stack_ports)
+        away_up_ports_by_dp = defaultdict(list)
+        for port in self._canonical_stack_up_ports(self.away_from_root_stack_ports):
+            away_up_ports_by_dp[port.stack['dp']].append(port)
         towards_up_port = None
         if towards_up_ports:
             towards_up_port = towards_up_ports[0]
+        replace_priority_offset = (
+            self.classification_offset - (
+                self.pipeline.filter_priority - self.pipeline.select_priority))
 
-        # for non-root DPs
-        if not self._dp_is_root():
-            for port in self.stack_ports:
-                # Drop bridge local traffic immediately.
-                bridge_local_match = {
-                    'in_port': port.number,
-                    'vlan': vlan,
-                    'eth_dst': valve_packet.BRIDGE_GROUP_ADDRESS,
-                    'eth_dst_mask': valve_packet.BRIDGE_GROUP_MASK}
+        for port in self.stack_ports:
+            if self._dp_is_root():
+                # On the root switch, only flood from one port where multiply connected to a datapath.
+                away_up_port = None
+                remote_dp = port.stack['dp']
+                if away_up_ports_by_dp[remote_dp]:
+                    away_up_port = away_up_ports_by_dp[remote_dp][0]
+                prune = port in self.away_from_root_stack_ports and port != away_up_port
+            else:
+                # On a non root switch, only flood from one of the ports
+                # connected towards the root.
+                prune = port in self.towards_root_stack_ports and port != towards_up_port
+            flood_acts = []
+
+            match = {'in_port': port.number, 'vlan': vlan}
+            if eth_dst is not None:
+                match.update({'eth_dst': eth_dst, 'eth_dst_mask': eth_dst_mask})
+
+            priority_offset = replace_priority_offset
+            if eth_dst is None:
+                priority_offset -= 1
+            if prune:
+                # Allow the prune rule to be replaced with OF strict matching if
+                # this port is unpruned later.
                 ofmsgs.extend(self.pipeline.filter_packets(
-                    bridge_local_match, priority_offset=self.classification_offset))
-                # Because stacking uses reflected broadcasts from the root,
-                # don't try to learn broadcast sources from stacking ports.
-                if eth_dst is not None:
-                    match = {
-                        'in_port': port.number,
-                        'vlan': vlan,
-                        'eth_dst': eth_dst,
-                        'eth_dst_mask': eth_dst_mask}
+                    match, priority_offset=priority_offset))
+            else:
+                # Non-root switches don't need to learn hosts that only
+                # broadcast, to save resources.
+                if not self._dp_is_root() and eth_dst is not None:
                     ofmsgs.extend(self.pipeline.select_packets(
                         self.flood_table, match,
                         priority_offset=self.classification_offset))
-
-        for port in self.stack_ports:
-            prune = port in self.towards_root_stack_ports and port != towards_up_port
-            flood_acts = []
+                else:
+                    ofmsgs.extend(self.pipeline.remove_filter(
+                        match, priority_offset=priority_offset))
 
             if self.externals and external_ports:
                 # If external flag is set, flood to external ports, otherwise exclude them.
