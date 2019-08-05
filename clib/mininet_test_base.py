@@ -21,16 +21,15 @@ import unittest
 import yaml
 
 import netaddr
-import netifaces
 import requests
+
+from ryu.ofproto import ofproto_v1_3 as ofp
 
 from mininet.link import TCLink # pylint: disable=import-error
 from mininet.log import error, output # pylint: disable=import-error
 from mininet.net import Mininet # pylint: disable=import-error
 from mininet.node import Intf # pylint: disable=import-error
 from mininet.util import dumpNodeConnections, pmonitor # pylint: disable=import-error
-
-from ryu.ofproto import ofproto_v1_3 as ofp
 
 from clib import mininet_test_util
 from clib import mininet_test_topo
@@ -42,6 +41,10 @@ MIN_FLAP_TIME = 1
 PEER_BGP_AS = 2**16 + 1
 IPV4_ETH = 0x0800
 IPV6_ETH = 0x86dd
+EAPOL_ETH = 0x888e
+LLDP_ETH = 0x88cc
+
+ETH_BCAST = 'ff:ff:ff:ff:ff:ff'
 
 
 class FaucetTestBase(unittest.TestCase):
@@ -214,7 +217,8 @@ class FaucetTestBase(unittest.TestCase):
     def _set_log_level(self, name='faucet'):
         self._set_var(name, 'FAUCET_LOG_LEVEL', str(self.LOG_LEVEL))
 
-    def _read_yaml(self, yaml_path):
+    @staticmethod
+    def _read_yaml(yaml_path):
         with open(yaml_path) as yaml_file:
             content = yaml.safe_load(yaml_file.read())
         return content
@@ -222,32 +226,34 @@ class FaucetTestBase(unittest.TestCase):
     def _get_faucet_conf(self):
         return self._read_yaml(self.faucet_config_path)
 
-    def _annotate_interfaces_conf(self, yaml_conf):
+    @staticmethod
+    def _annotate_interfaces_conf(yaml_conf):
         """Consistently name interface names/descriptions."""
         if 'dps' not in yaml_conf:
             return yaml_conf
-        else:
-            yaml_conf_remap = copy.deepcopy(yaml_conf)
-            for dp_key, dp_yaml in yaml_conf['dps'].items():
-                interfaces_yaml = dp_yaml.get('interfaces', None)
-                if interfaces_yaml is not None:
-                    remap_interfaces_yaml = {}
-                    for intf_key, orig_intf_conf in interfaces_yaml.items():
-                        intf_conf = copy.deepcopy(orig_intf_conf)
-                        port_no = None
-                        if isinstance(intf_key, int):
-                            port_no = intf_key
-                        number = intf_conf.get('number', port_no)
-                        if isinstance(number, int):
-                            port_no = number
-                        assert isinstance(number, int), '%u %s' % (intf_key, orig_intf_conf)
-                        intf_name = 'b%u' % port_no
-                        intf_conf.update({'name': intf_name, 'description': intf_name})
-                        remap_interfaces_yaml[intf_key] = intf_conf
-                    yaml_conf_remap['dps'][dp_key]['interfaces'] = remap_interfaces_yaml
-            return yaml_conf_remap
 
-    def _write_yaml_conf(self, yaml_path, yaml_conf):
+        yaml_conf_remap = copy.deepcopy(yaml_conf)
+        for dp_key, dp_yaml in yaml_conf['dps'].items():
+            interfaces_yaml = dp_yaml.get('interfaces', None)
+            if interfaces_yaml is not None:
+                remap_interfaces_yaml = {}
+                for intf_key, orig_intf_conf in interfaces_yaml.items():
+                    intf_conf = copy.deepcopy(orig_intf_conf)
+                    port_no = None
+                    if isinstance(intf_key, int):
+                        port_no = intf_key
+                    number = intf_conf.get('number', port_no)
+                    if isinstance(number, int):
+                        port_no = number
+                    assert isinstance(number, int), '%u %s' % (intf_key, orig_intf_conf)
+                    intf_name = 'b%u' % port_no
+                    intf_conf.update({'name': intf_name, 'description': intf_name})
+                    remap_interfaces_yaml[intf_key] = intf_conf
+                yaml_conf_remap['dps'][dp_key]['interfaces'] = remap_interfaces_yaml
+        return yaml_conf_remap
+
+    @staticmethod
+    def _write_yaml_conf(yaml_path, yaml_conf):
         assert isinstance(yaml_conf, dict)
         new_conf_str = yaml.dump(yaml_conf).encode()
         with tempfile.NamedTemporaryFile(
@@ -357,7 +363,8 @@ class FaucetTestBase(unittest.TestCase):
         else:
             self.dpid = self.rand_dpid()
 
-    def hostns(self, host):
+    @staticmethod
+    def hostns(host):
         return '%s' % host.name
 
     def tearDown(self, ignore_oferrors=False):
@@ -420,7 +427,7 @@ class FaucetTestBase(unittest.TestCase):
         for port_i, test_host_port in enumerate(sorted(self.switch_map), start=1):
             mapped_port_i = mapped_base + port_i
             phys_port = Intf(self.switch_map[test_host_port], node=switch)
-            phys_mac = netifaces.ifaddresses(phys_port.name)[netifaces.AF_LINK][0]['addr']
+            phys_mac = self.get_mac_of_intf(phys_port.name)
             self.assertFalse(phys_mac in phys_macs, 'duplicate physical MAC %s' % phys_mac)
             phys_macs.add(phys_mac)
             for phys_cmd in (
@@ -448,7 +455,7 @@ class FaucetTestBase(unittest.TestCase):
     def create_port_map(self, dpid):
         """Return a port map {'port_1': port...} for a dpid in self.topo"""
         ports = self.topo.dpid_ports(dpid)
-        port_map = { 'port_%d' % i: port for i,  port in enumerate(ports, start=1)}
+        port_map = {'port_%d' % i: port for i, port in enumerate(ports, start=1)}
         return port_map
 
     def start_net(self):
@@ -709,21 +716,26 @@ class FaucetTestBase(unittest.TestCase):
         return ('python3 -c \"from scapy.all import * ; sendp(%s, iface=\'%s\', count=%u)"' % (
             packet, iface, count))
 
-    def scapy_dhcp(self, mac, iface, count=1):
+    @staticmethod
+    def scapy_all_template(packet, count=1):
+        return ('python3 -c \"from scapy.all import * ; scapy.all.send(%s, count=%u)"' % (
+            packet, count))
+
+    def scapy_dhcp(self, mac, iface, count=1, port=67):
         return self.scapy_template(
-            ('Ether(dst=\'ff:ff:ff:ff:ff:ff\', src=\'%s\', type=%u) / '
-             'IP(src=\'0.0.0.0\', dst=\'255.255.255.255\') / UDP(dport=67,sport=68) / '
+            ('Ether(dst=\'%s\', src=\'%s\', type=%u) / '
+             'IP(src=\'0.0.0.0\', dst=\'255.255.255.255\') / UDP(dport=%u,sport=68) / '
              'BOOTP(op=1) / DHCP(options=[(\'message-type\', \'discover\'), (\'end\')])') % (
-                 mac, IPV4_ETH),
+                 ETH_BCAST, mac, IPV4_ETH, port),
             iface, count)
 
-    def scapy_bcast(self, host, count=1):
-        return self.scapy_dhcp(host.MAC(), host.defaultIntf(), count)
+    def scapy_bcast(self, host, count=1, port=67):
+        return self.scapy_dhcp(host.MAC(), host.defaultIntf(), count, port)
 
     @staticmethod
     def pre_start_net():
         """Hook called after Mininet initializtion, before Mininet started."""
-        pass
+        return
 
     def get_config_header(self, config_global, debug_log, dpid, hardware):
         """Build v2 FAUCET config header."""
@@ -1427,7 +1439,7 @@ dbs:
         if hosts is not None:
             host_a, host_b = hosts
         tcpdump_filter = (
-            'ether dst host ff:ff:ff:ff:ff:ff and ether src host %s' % host_a.MAC())
+            'ether dst host %s and ether src host %s' % (ETH_BCAST, host_a.MAC()))
         tcpdump_txt = self.tcpdump_helper(
             host_b, tcpdump_filter,
             [partial(host_a.cmd, self.scapy_bcast(host_a), packets)],
@@ -1444,9 +1456,10 @@ dbs:
             host_a, host_b = hosts
         scapy_cmd = self.scapy_template(
             ('Ether(src=\'%s\', dst=\'%s\', type=%u) / '
-             'IP(src=\'10.0.0.1\', dst=\'10.0.0.2\') / UDP(dport=67,sport=68)') % (
-                 host_a.MAC(), host_b.MAC(), IPV4_ETH), host_a.defaultIntf(), packets)
-        tcpdump_filter = 'ip and ether src %s and ether dst %s' % (host_a.MAC(), host_b.MAC())
+             'IP(src=\'%s\', dst=\'%s\') / UDP(dport=67,sport=68)') % (
+                 host_a.MAC(), host_b.MAC(), IPV4_ETH, host_a.IP(), host_b.IP()),
+            host_a.defaultIntf(), packets)
+        tcpdump_filter = 'udp and ether src %s and ether dst %s' % (host_a.MAC(), host_b.MAC())
         # Wait for at least one packet.
         tcpdump_txt = self.tcpdump_helper(
             host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)], vflags='-vv',
@@ -1495,11 +1508,11 @@ dbs:
         for host in self.net.hosts:
             host.cmd(
                 self.scapy_template(
-                    hello_template % (unicast_mac1, 'ff:ff:ff:ff:ff:ff'),
+                    hello_template % (unicast_mac1, ETH_BCAST),
                     host.defaultIntf()))
             host.cmd(
                 self.scapy_template(
-                    hello_template % (unicast_mac2, 'ff:ff:ff:ff:ff:ff'),
+                    hello_template % (unicast_mac2, ETH_BCAST),
                     host.defaultIntf()))
             tcpdump_txt = self.tcpdump_helper(
                 host, tcpdump_filter, [
@@ -1706,20 +1719,17 @@ dbs:
             self.require_host_learned(host)
         self.retry_net_ping(hosts=(first_host, second_host))
         tcpdump_filter = (
-            'ether src %s and ether dst ff:ff:ff:ff:ff:ff and '
-            'icmp[icmptype] == 8') % second_host.MAC()
+            'ether src %s and ether dst %s and icmp[icmptype] == 8' % (second_host.MAC(), ETH_BCAST))
         if tagged:
             tcpdump_filter = 'vlan and %s' % tcpdump_filter
         else:
             tcpdump_filter = '%s and not vlan' % tcpdump_filter
-        second_ping_bcast = 'ping -c3 -b %s' % self.ipv4_vip_bcast()
+        second_ping_bcast = 'ping -c3 -t1 -b %s' % self.ipv4_vip_bcast()
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
                 partial(second_host.cmd, second_ping_bcast)],
             packets=1)
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt),
-                        msg=tcpdump_txt)
+        self.assertTrue(not self.tcpdump_rx_packets(tcpdump_txt, 0), msg=tcpdump_txt)
 
     def verify_ping_mirrored_multi(self, ping_pairs, mirror_host, both_mirrored=False):
         """ Verify that mirroring of multiple switchs works. Method
@@ -1776,15 +1786,16 @@ dbs:
                             msg=tcpdump_txt)
 
         # Validate we have received the eaxct number of packets
-        self.assertTrue(re.search(
-            '%d packets received by filter' % expected_pings, tcpdump_txt),
-                        msg=tcpdump_txt)
+        self.assertTrue(self.tcpdump_rx_packets(tcpdump_txt, expected_pings), msg=tcpdump_txt)
 
     def tcpdump_rx_packets(self, tcpdump_txt, packets=0):
-        return re.search(r'%u packets captured' % packets, tcpdump_txt)
+        return re.search(r'%u packets* captured' % packets, tcpdump_txt)
 
     def verify_no_packets(self, tcpdump_txt):
         self.assertTrue(self.tcpdump_rx_packets(tcpdump_txt, packets=0), msg=tcpdump_txt)
+
+    def verify_one_packet(self, tcpdump_txt):
+        self.assertTrue(self.tcpdump_rx_packets(tcpdump_txt, packets=1), msg=tcpdump_txt)
 
     def verify_eapol_mirrored(self, first_host, second_host, mirror_host):
         self.ping((first_host, second_host))
@@ -1794,7 +1805,7 @@ dbs:
         mirror_mac = mirror_host.MAC()
         tmp_eap_conf = os.path.join(self.tmpdir, 'eap.conf')
         tcpdump_filter = (
-            'not ether src %s and ether proto 0x888e' % mirror_mac)
+            'not ether src %s and ether proto %s' % (mirror_mac, EAPOL_ETH))
         eap_conf_cmd = (
             'echo "eapol_version=2\nap_scan=0\nnetwork={\n'
             'key_mgmt=IEEE8021X\neap=MD5\nidentity=\\"login\\"\n'
@@ -1811,9 +1822,7 @@ dbs:
                 partial(first_host.cmd, wpa_supplicant_cmd),
                 partial(first_host.cmd, wpa_supplicant_cmd)],
             timeout=20, packets=1)
-        self.assertTrue(
-            re.search('01:80:c2:00:00:03, ethertype EAPOL', tcpdump_txt),
-            msg=tcpdump_txt)
+        self.verify_one_packet(tcpdump_txt)
 
     def bogus_mac_flooded_to_port1(self):
         first_host, second_host, third_host = self.net.hosts[0:3]
@@ -1850,7 +1859,7 @@ dbs:
 
     def verify_lldp_blocked(self, hosts=None, timeout=3):
         self.ladvd_noisemaker(
-            '-L -o %s', 'ether proto 0x88cc',
+            '-L -o %s', 'ether proto %s' % LLDP_ETH,
             hosts, timeout=timeout)
 
     def verify_cdp_blocked(self, hosts=None, timeout=3):
@@ -1930,7 +1939,7 @@ dbs:
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
     def verify_iperf_min(self, hosts_switch_ports, min_mbps, client_ip, server_ip,
-            seconds=5, prop=0.2, sync_counters_func=None):
+                         seconds=5, prop=0.2, sync_counters_func=None):
         """Verify minimum performance and OF counters match iperf approximately."""
         # Attempt loose counter sync before starting.
         self.wait_host_stats_updated(
@@ -2036,14 +2045,15 @@ dbs:
             self.flap_port(port_no, flap_time=flap_time)
 
     @staticmethod
-    def get_mac_of_intf(host, intf):
+    def get_mac_of_intf(intf, host=None):
         """Get MAC address of a port."""
-        return host.cmd(
-            '|'.join((
-                'ip link show %s' % intf,
-                'grep -o "..:..:..:..:..:.."',
-                'head -1',
-                'xargs echo -n'))).lower()
+        address_file_name = '/sys/class/net/%s/address' % intf
+        if host is None:
+            with open(address_file_name) as address_file:
+                address = address_file.read()
+        else:
+            address = host.cmd('cat %s' % address_file_name)
+        return address.strip().lower()
 
     def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24, mac=None, mode='vepa'):
         if mac is None:
@@ -2228,31 +2238,36 @@ dbs:
         self.wait_nonzero_packet_count_flow(
             {'tp_dst': int(port), 'dl_type': IPV4_ETH, 'ip_proto': 6}, table_id)
 
-    def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re, retries):
-        tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
-            first_host.MAC(), "ff:ff:ff:ff:ff:ff")
-        target_addr = str(self.FAUCET_VIPV4.network.broadcast_address)
+    def bcast_dst_blocked_helper(self, port, first_host, second_host, retries, expected_blocked):
+        tcpdump_filter = 'udp and ether src %s and ether dst %s and port %u' % (
+            first_host.MAC(), ETH_BCAST, port)
         for _ in range(retries):
             tcpdump_txt = self.tcpdump_helper(
                 second_host, tcpdump_filter, [
-                    partial(first_host.cmd, (
-                        'date | socat - udp-datagram:%s:%d,broadcast' % (
-                            target_addr, port)))],
+                    partial(first_host.cmd, self.scapy_bcast(first_host, port=port))],
                 packets=1)
-            if re.search(success_re, tcpdump_txt):
-                return True
+            blocked = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
+            if expected_blocked:
+                # got a packet and blocked expected, fail.
+                if not blocked:
+                    self.fail('bcast not blocked: %s' % tcpdump_txt)
+            else:
+                # got a packet so not blocked as expected, no need to retry.
+                if not blocked:
+                    return
             time.sleep(1)
-        return False
+        # expected blocked and did not get any packets.
+        self.assertTrue(expected_blocked and blocked)
 
     def verify_bcast_dst_blocked(self, port, first_host, second_host):
         """Verify that a UDP port on a host is blocked from broadcast."""
-        self.assertTrue(self.bcast_dst_blocked_helper(
-            port, first_host, second_host, r'0 packets received by filter', 1))
+        self.bcast_dst_blocked_helper(
+            port, first_host, second_host, 3, expected_blocked=True)
 
     def verify_bcast_dst_notblocked(self, port, first_host, second_host):
         """Verify that a UDP port on a host is NOT blocked from broadcast."""
-        self.assertTrue(self.bcast_dst_blocked_helper(
-            port, first_host, second_host, r'1 packet received by filter', 3))
+        self.bcast_dst_blocked_helper(
+            port, first_host, second_host, 3, expected_blocked=False)
 
     @staticmethod
     def swap_host_macs(first_host, second_host):
@@ -2454,7 +2469,7 @@ dbs:
         learned_ip6 = ipaddress.ip_interface(self.host_ipv6(learned_host))
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
-    def iperf_client(self, client_host, iperf_client_cmd, ipv):
+    def iperf_client(self, client_host, iperf_client_cmd):
         iperf_results = client_host.cmd(iperf_client_cmd)
         iperf_csv = iperf_results.strip().split(',')
         if len(iperf_csv) == 9:
@@ -2478,7 +2493,7 @@ dbs:
                 self.wait_for_tcp_listen(
                     server_host, port, ipv=server_ip.version)
                 iperf_mbps = self.iperf_client(
-                    client_host, iperf_client_cmd, ipv=server_ip.version)
+                    client_host, iperf_client_cmd)
                 self._signal_proc_on_port(server_host, port, 9)
                 return iperf_mbps
             return None

@@ -28,14 +28,14 @@ import scapy.all
 
 import yaml # pytype: disable=pyi-error
 
-from mininet.log import error
-from mininet.util import pmonitor
+from mininet.log import error # pylint: disable=import-error
+from mininet.util import pmonitor # pylint: disable=import-error
 
 from clib import mininet_test_base
 from clib import mininet_test_util
 from clib import mininet_test_topo
 
-from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
+from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH, EAPOL_ETH, LLDP_ETH, ETH_BCAST
 
 MIN_MBPS = 100
 
@@ -261,7 +261,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
 
     event_log = ''
 
-    def _priv_mac(self, host_id):
+    @staticmethod
+    def _priv_mac(host_id):
         two_byte_port_num = '%04x' % host_id
         two_byte_port_num_formatted = ':'.join((two_byte_port_num[:2], two_byte_port_num[2:]))
         return '00:00:00:00:%s' % two_byte_port_num_formatted
@@ -298,13 +299,13 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         tcpdump_args = '-e -n -U'
         self.eapol1_host.cmd(
             mininet_test_util.timeout_cmd(
-                'tcpdump -w %s/%s-start.pcap %s ether proto 0x888e &' % (
-                    self.tmpdir, self.eapol1_host.name, tcpdump_args), 300))
+                'tcpdump -w %s/%s-start.pcap %s ether proto %s &' % (
+                    self.tmpdir, self.eapol1_host.name, tcpdump_args, EAPOL_ETH), 300))
 
         self.nfv_host.cmd(
             mininet_test_util.timeout_cmd(
-                'tcpdump -i %s-eth0 -w %s/eap-lo.pcap %s ether proto 0x888e &' % (
-                    self.nfv_host.name, self.tmpdir, tcpdump_args), 300))
+                'tcpdump -i %s-eth0 -w %s/eap-lo.pcap %s ether proto %s &' % (
+                    self.nfv_host.name, self.tmpdir, tcpdump_args, EAPOL_ETH), 300))
         self.nfv_pids.append(int(self.nfv_host.lastPid))
         self.nfv_host.cmd(
             mininet_test_util.timeout_cmd(
@@ -390,7 +391,7 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             'dp_dot1x_failure_total', default=0)
         dp_logoff_total = self.scrape_prometheus_var(
             'dp_dot1x_logoff_total', default=0)
-        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_filter = 'ether proto %s' % EAPOL_ETH
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
                 lambda: self.wpa_supplicant_callback(
@@ -448,7 +449,7 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         from_nfv_actions = [
             'SET_FIELD: {eth_src:01:80:c2:00:00:03}', 'OUTPUT:%d' % port_no]
         from_nfv_match = {
-            'in_port': self.nfv_portno, 'dl_src': self._priv_mac(port_no), 'dl_type': 0x888e}
+            'in_port': self.nfv_portno, 'dl_src': self._priv_mac(port_no), 'dl_type': EAPOL_ETH}
         self.wait_until_matching_flow(None, table_id=0, actions=port_actions)
         self.wait_until_matching_flow(from_nfv_match, table_id=0, actions=from_nfv_actions)
 
@@ -463,9 +464,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         self.one_ipv4_ping(
             eapol_host, self.ping_host.IP(), require_host_learned=False, expected_result=False)
         self.assertTrue(
-                self.try_8021x(
-                    eapol_host, port_no, wpasupplicant_conf,
-                    and_logoff=and_logoff))
+            self.try_8021x(
+                eapol_host, port_no, wpasupplicant_conf, and_logoff=and_logoff))
         self.one_ipv4_ping(
             self.eapol1_host, self.ping_host.IP(), require_host_learned=False, expected_result=True)
 
@@ -759,7 +759,7 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
             self.set_port_up(port)
             self.wait_8021x_flows(port)
 
-        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_filter = 'ether proto %s' % EAPOL_ETH
         tcpdump_txt = self.tcpdump_helper(
             self.eapol1_host, tcpdump_filter, [
                 lambda: port_up(port_no1)],
@@ -1508,7 +1508,7 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         first_host = self.net.hosts[0]
-        tcpdump_filter = 'ether proto 0x88cc'
+        tcpdump_filter = 'ether proto %s' % LLDP_ETH
         timeout = 5 * 3
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [
@@ -1548,7 +1548,7 @@ class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         first_host = self.net.hosts[0]
-        tcpdump_filter = 'ether proto 0x88cc'
+        tcpdump_filter = 'ether proto %s' % LLDP_ETH
         timeout = 5 * 3
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [
@@ -1656,7 +1656,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
             {'in_port': self.port_map['port_1'],
-             'dl_dst': 'ff:ff:ff:ff:ff:ff'},
+             'dl_dst': ETH_BCAST},
             table_id=self._FLOOD_TABLE, actions=['OUTPUT:IN_PORT'])
         self.wait_nonzero_packet_count_flow(
             {'in_port': self.port_map['port_1'],
@@ -2471,7 +2471,7 @@ vlans:
                     mac_ipv4 = '10.0.0.%u' % i
                     mac_ips.append(mac_ipv4)
                     self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
-                    macvlan_mac = self.get_mac_of_intf(second_host, mac_intf)
+                    macvlan_mac = self.get_mac_of_intf(mac_intf, second_host)
                     learned_mac_ports[macvlan_mac] = self.port_map['port_2']
                 return (mac_intfs, mac_ips, learned_mac_ports)
 
@@ -2550,7 +2550,7 @@ vlans:
             eth_dst: %u
             ipv4_fib: %u
 """ % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) +
-"""
+              """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2597,7 +2597,7 @@ vlans:
             eth_src: %u
             eth_dst: %u
 """ % (_max_hosts() + 64, _max_hosts() + 64) +
-"""
+              """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -3845,17 +3845,12 @@ vlans:
         self.one_ipv4_controller_ping(first_host)
         packets = 1000
         for fuzz_cmd in (
-                ('python3 -c \"from scapy.all import * ;'
-                 'scapy.all.send(IP(dst=\'%s\')/'
-                 'fuzz(%s(type=0)),count=%u)\"' % (self.FAUCET_VIPV4.ip, 'ICMP', packets)),
-                ('python3 -c \"from scapy.all import * ;'
-                 'scapy.all.send(IP(dst=\'%s\')/'
-                 'fuzz(%s(type=8)),count=%u)\"' % (self.FAUCET_VIPV4.ip, 'ICMP', packets))):
+                self.scapy_all_template('IP(dst=\'%s\')/fuzz(%s(type=0))' % (self.FAUCET_VIPV4.ip, 'ICMP'), packets),
+                self.scapy_all_template('IP(dst=\'%s\')/fuzz(%s(type=8))' % (self.FAUCET_VIPV4.ip, 'ICMP'), packets),
                 # TODO: ARP fuzzing currently broken in scapy 2.4.2.
                 # https://github.com/secdev/scapy/issues/2166
-                # ('python3 -c \"from scapy.all import * ;'
-                # 'scapy.all.send(fuzz(%s(pdst=\'%s\')),'
-                # 'count=%u)\"' % ('ARP', self.FAUCET_VIPV4.ip, packets))):
+                # self.scapy_all_template('fuzz(ARP(pdst=\'%s\'))' % self.FAUCET_VIPV4.ip, packets),
+                ):
             fuzz_out = first_host.cmd(fuzz_cmd)
             self.assertTrue(
                 re.search('Sent %u packets' % packets, fuzz_out), msg='%s: %s' % (
@@ -4532,24 +4527,23 @@ acls:
 
     def test_untagged(self):
         first_host, second_host, third_host, fourth_host = self.net.hosts[0:4]
-        tcpdump_filter = ('icmp')
         tcpdump_txt = self.tcpdump_helper(
-            second_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+            second_host, 'icmp and host %s' % second_host.IP(), [
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+            packets=1)
+        self.verify_one_packet(tcpdump_txt)
         tcpdump_txt = self.tcpdump_helper(
-            third_host, tcpdump_filter, [
+            third_host, 'icmp and host %s' % third_host.IP(), [
                 lambda: first_host.cmd(
-                    'arp -s %s %s' % (third_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % third_host.IP())])
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % third_host.IP(), tcpdump_txt))
+                    'arp -s %s %s' % (third_host.IP(), self.BOGUS_MAC)),
+                lambda: first_host.cmd('ping -c1 %s' % third_host.IP())],
+            packets=1)
+        self.verify_one_packet(tcpdump_txt)
         tcpdump_txt = self.tcpdump_helper(
-            fourth_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping -c1 %s' % fourth_host.IP())])
-        self.assertFalse(re.search(
-            '%s: ICMP echo request' % fourth_host.IP(), tcpdump_txt))
+            fourth_host, 'icmp and host %s' % fourth_host.IP(), [
+                lambda: first_host.cmd('ping -c1 %s' % fourth_host.IP())],
+            packets=1)
+        self.verify_no_packets(tcpdump_txt)
 
 
 class FaucetUntaggedOutputTest(FaucetUntaggedTest):
@@ -4587,16 +4581,14 @@ acls:
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN
-        tcpdump_filter = ('icmp and ether dst 06:06:06:06:06:06')
+        tcpdump_filter = ('icmp and ether dst 06:06:06:06:06:06 and vlan 123')
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
-                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
-        self.assertTrue(re.search(
-            'vlan 123', tcpdump_txt))
+                    'arp -s %s %s' % (second_host.IP(), self.BOGUS_MAC)),
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+                packets=1)
+        self.verify_one_packet(tcpdump_txt)
 
 
 class FaucetUntaggedMultiVlansOutputTest(FaucetUntaggedTest):
@@ -4638,10 +4630,10 @@ acls:
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
-                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+                    'arp -s %s %s' % (second_host.IP(), self.BOGUS_MAC)),
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+            packets=1)
+        self.verify_one_packet(tcpdump_txt)
         self.assertTrue(re.search(
             'vlan 456.+vlan 123', tcpdump_txt))
 
@@ -4685,7 +4677,7 @@ acls:
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
-                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                    'arp -s %s %s' % (second_host.IP(), self.BOGUS_MAC)),
                 lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
             packets=1)
         self.assertTrue(re.search(
@@ -4907,17 +4899,16 @@ acls:
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
-    STATIC_GW = False
-    IPV = 4
-    NETPREFIX = 24
-    ETH_TYPE = IPV4_ETH
-
     def _vids():
         return [i for i in range(100, 148)]
 
     def global_vid():
         return 2047
 
+    STATIC_GW = False
+    IPV = 4
+    NETPREFIX = 24
+    ETH_TYPE = IPV4_ETH
     NETNS = True
     VIDS = _vids()
     GLOBAL_VID = global_vid()
@@ -5364,8 +5355,9 @@ acls:
             tcpdump_txt = self.tcpdump_helper(
                 tcpdump_host, tcpdump_filter, [
                     lambda: first_host.cmd(
-                        'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                    lambda: first_host.cmd('ping -c1 %s' % second_host.IP())], root_intf=True)
+                        'arp -s %s %s' % (second_host.IP(), self.BOGUS_MAC)),
+                    lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+                root_intf=True, packets=1)
             self.assertTrue(re.search(
                 '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
             self.assertTrue(re.search(
@@ -5413,16 +5405,14 @@ acls:
     def test_tagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expected to see the swapped VLAN VID
-        tcpdump_filter = 'vlan 101'
+        tcpdump_filter = 'vlan 101 and icmp and host %s' % second_host.IP()
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
-                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())], root_intf=True)
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
-        self.assertTrue(re.search(
-            'vlan 101', tcpdump_txt))
+                    'arp -s %s %s' % (second_host.IP(), self.BOGUS_MAC)),
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+            root_intf=True, packets=1)
+        self.verify_one_packet(tcpdump_txt)
 
 
 class FaucetTaggedPopVlansOutputTest(FaucetTaggedTest):
@@ -5464,7 +5454,7 @@ acls:
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
-                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                    'arp -s %s %s' % (second_host.IP(), self.BOGUS_MAC)),
                 lambda: first_host.cmd(
                     'ping -c1 %s' % second_host.IP())], packets=10, root_intf=True)
         self.assertTrue(re.search(
@@ -6695,8 +6685,8 @@ class FaucetStringOfDPTest(FaucetTest):
             lldp_cap_file = os.path.join(self.tmpdir, '%s-lldp.cap' % host)
             lldp_cap_files.append(lldp_cap_file)
             host.cmd(mininet_test_util.timeout_cmd(
-                'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC and not ether src %s &' % (
-                    host.defaultIntf(), host.MAC(), lldp_cap_file), 60))
+                'tcpdump -U -n -c 1 -i %s -w %s ether proto %s and not ether src %s &' % (
+                    host.defaultIntf(), LLDP_ETH, host.MAC(), lldp_cap_file), 60))
         self.retry_net_ping(retries=retries)
         # hosts should see no LLDP probes
         self.verify_empty_caps(lldp_cap_files)
@@ -6708,6 +6698,14 @@ class FaucetStringOfDPTest(FaucetTest):
                 self.wait_nonzero_packet_count_flow(
                     {'dl_dst': '01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
                     dpid=dpid, table_id=self._FLOOD_TABLE, ofa_match=False)
+        first_host = self.net.hosts[0]
+        last_host = self.net.hosts[-1]
+        for host_a, host_b in (
+                (first_host, last_host),
+                (last_host, first_host)):
+            iperf_mbps = self.iperf(
+                host_a, ipaddress.ip_address(host_a.IP()), host_b, ipaddress.ip_address(host_b.IP()), 5)
+            self.assertGreater(iperf_mbps, MIN_MBPS)
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         labels = self.port_labels(port_no)
@@ -6725,21 +6723,28 @@ class FaucetStringOfDPTest(FaucetTest):
                 self.wait_for_stack_port_status(
                     dpid, dp_name, link.port, 3) # up
 
-    def verify_stack_has_no_loop(self):
+    def verify_no_arp_storm(self, ping_host, tcpdump_host, retries=3):
         num_arp_expected = self.topo.switch_to_switch_links * 2
-        for ping_host, tcpdump_host in (
-                (self.net.hosts[0], self.net.hosts[-1]),
-                (self.net.hosts[-1], self.net.hosts[0])):
-            tcpdump_filter = 'arp and ether src %s' % ping_host.MAC()
+        tcpdump_filter = 'arp and ether src %s and dst host %s' % (ping_host.MAC(), tcpdump_host.IP())
+        for _ in range(retries):
             tcpdump_txt = self.tcpdump_helper(
                 tcpdump_host, tcpdump_filter, [
                     lambda: ping_host.cmd('arp -d %s' % tcpdump_host.IP()),
-                    lambda: ping_host.cmd('ping -c1 %s' % tcpdump_host.IP())],
+                    lambda: ping_host.cmd('ping -c1 -t1 %s' % tcpdump_host.IP())],
                 packets=(num_arp_expected+1))
             num_arp_received = len(re.findall(
                 'who-has %s tell %s' % (tcpdump_host.IP(), ping_host.IP()), tcpdump_txt))
-            self.assertTrue(num_arp_received)
-            self.assertLessEqual(num_arp_received, num_arp_expected)
+            if num_arp_received:
+                break
+            time.sleep(1)
+        self.assertTrue(num_arp_received)
+        self.assertLessEqual(num_arp_received, num_arp_expected)
+
+    def verify_stack_has_no_loop(self):
+        for ping_host, tcpdump_host in (
+                (self.net.hosts[0], self.net.hosts[-1]),
+                (self.net.hosts[-1], self.net.hosts[0])):
+            self.verify_no_arp_storm(ping_host, tcpdump_host)
 
     def verify_all_stack_hosts(self):
         for _ in range(2):
@@ -7021,7 +7026,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 2
     NUM_HOSTS = 2
-    match_bcast = {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
+    match_bcast = {'dl_vlan': '100', 'dl_dst': ETH_BCAST}
     action_str = 'OUTPUT:%u'
 
     def setUp(self): # pylint: disable=invalid-name
@@ -7289,106 +7294,106 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
     def acls(self):
         map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
         return {
-        1: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'nw_dst': '10.0.0.2',
-                'actions': {
-                    'output': {
-                        'port': map1['port_2']
-                    }
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'dl_dst': 'ff:ff:ff:ff:ff:ff',
-                'actions': {
-                    'output': {
-                        'ports': [
-                            map1['port_2'],
-                            map1['port_4']]
-                    }
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'actions': {
-                    'output': {
-                        'port': map1['port_4']
-                    }
-                },
-            }},
-            {'rule': {
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-        ],
-        2: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'actions': {
-                    'output': {
-                        'port': map2['port_5']
-                    }
-                },
-            }},
-            {'rule': {
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-        ],
-        3: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'nw_dst': '10.0.0.7',
-                'actions': {
-                    'output': {
-                        'port': map3['port_1']
-                    }
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'dl_dst': 'ff:ff:ff:ff:ff:ff',
-                'actions': {
-                    'output': {
-                        'ports': [map3['port_1']]
-                    }
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'actions': {
-                    'allow': 0,
-                },
-            }},
-            {'rule': {
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-        ],
-    }
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'nw_dst': '10.0.0.2',
+                    'actions': {
+                        'output': {
+                            'port': map1['port_2']
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
+                    'actions': {
+                        'output': {
+                            'ports': [
+                                map1['port_2'],
+                                map1['port_4']]
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'actions': {
+                        'output': {
+                            'port': map1['port_4']
+                        }
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+            2: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'actions': {
+                        'output': {
+                            'port': map2['port_5']
+                        }
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+            3: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'nw_dst': '10.0.0.7',
+                    'actions': {
+                        'output': {
+                            'port': map3['port_1']
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
+                    'actions': {
+                        'output': {
+                            'ports': [map3['port_1']]
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'actions': {
+                        'allow': 0,
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+        }
 
     # DP-to-acl_in port mapping.
     def acl_in_dp(self):
         map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
         return {
-        'faucet-1': {
-            # Port 1, acl_in = 1
-            map1['port_1']: 1,
-        },
-        'faucet-2': {
-            # Port 4, acl_in = 2
-            map2['port_4']: 2,
-        },
-        'faucet-3': {
-            # Port 4, acl_in = 3
-            map3['port_4']: 3,
-        },
-    }
+            'faucet-1': {
+                # Port 1, acl_in = 1
+                map1['port_1']: 1,
+            },
+            'faucet-2': {
+                # Port 4, acl_in = 2
+                map2['port_4']: 2,
+            },
+            'faucet-3': {
+                # Port 4, acl_in = 3
+                map3['port_4']: 3,
+            },
+        }
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStackAclControlTest, self).setUp()
@@ -7428,69 +7433,69 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     # ACL rules which will get overridden.
     def acls(self):
         return {
-        1: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 6,
-                'tcp_dst': 5001,
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 6,
-                'tcp_dst': 5002,
-                'actions': {
-                    'allow': 0,
-                },
-            }},
-            {'rule': {
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-        ],
-    }
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 6,
+                    'tcp_dst': 5001,
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 6,
+                    'tcp_dst': 5002,
+                    'actions': {
+                        'allow': 0,
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+        }
 
     # ACL rules which get put into an include-optional
     # file, then reloaded into FAUCET.
     def acls_override(self):
         return {
-        1: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 6,
-                'tcp_dst': 5001,
-                'actions': {
-                    'allow': 0,
-                },
-            }},
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 6,
-                'tcp_dst': 5002,
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-            {'rule': {
-                'actions': {
-                    'allow': 1,
-                },
-            }},
-        ],
-    }
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 6,
+                    'tcp_dst': 5001,
+                    'actions': {
+                        'allow': 0,
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 6,
+                    'tcp_dst': 5002,
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+        }
 
     # DP-to-acl_in port mapping.
     def acl_in_dp(self):
         port_1 = self.port_map['port_1']
         return {
-        'faucet-1': {
-            # First port, acl_in = 1
-            port_1: 1,
-        },
-    }
+            'faucet-1': {
+                # First port, acl_in = 1
+                port_1: 1,
+            },
+        }
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPACLOverrideTest, self).setUp()
@@ -7535,32 +7540,32 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
 
     def acls(self):
         return {
-        1: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 1,
-                'actions': {
-                    'allow': 0,
-                    'output': {
-                        'tunnel': {
-                            'type': 'vlan',
-                            'tunnel_id': 200,
-                            'dp': 'faucet-1',
-                            'port': 'b%(port_2)d'}
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': 'faucet-1',
+                                'port': 'b%(port_2)d'}
+                        }
                     }
-                }
-            }}
-        ]
+                }}
+            ]
         }
 
     # DP-to-acl_in port mapping.
     def acl_in_dp(self):
         port_1 = self.port_map['port_1']
         return {
-        'faucet-1': {
-            # First port 1, acl_in = 1
-            port_1: 1,
-        }
+            'faucet-1': {
+                # First port 1, acl_in = 1
+                port_1: 1,
+            }
         }
 
     def setUp(self): # pylint: disable=invalid-name
@@ -7587,36 +7592,37 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     NUM_HOSTS = 2
     SWITCH_TO_SWITCH_LINKS = 2
     VID = 100
+
     def acls(self):
         dpid2 = self.dpids[1]
         port2_1 = self.port_maps[dpid2]['port_1']
         return {
-        1: [
-            {'rule': {
-                'dl_type': IPV4_ETH,
-                'ip_proto': 1,
-                'actions': {
-                    'allow': 0,
-                    'output': {
-                        'tunnel': {
-                            'type': 'vlan',
-                            'tunnel_id': 200,
-                            'dp': 'faucet-2',
-                            'port': port2_1}
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': 'faucet-2',
+                                'port': port2_1}
+                        }
                     }
-                }
-            }}
-        ]
-    }
+                }}
+            ]
+        }
 
     # DP-to-acl_in port mapping.
     def acl_in_dp(self,):
         port_1 = self.port_map['port_1']
         return {
-        'faucet-1': {
-            # First port 1, acl_in = 1
-            port_1: 1,
-        }
+            'faucet-1': {
+                # First port 1, acl_in = 1
+                port_1: 1,
+            }
         }
 
     def setUp(self): # pylint: disable=invalid-name
@@ -7660,7 +7666,7 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
         self.assertEqual(
             100,
             self.get_group_id_for_matching_flow(
-                {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'},
+                {'dl_vlan': '100', 'dl_dst': ETH_BCAST},
                 table_id=self._FLOOD_TABLE))
 
 
@@ -7674,11 +7680,12 @@ class FaucetTaggedGroupTableTest(FaucetTaggedTest):
         self.assertEqual(
             100,
             self.get_group_id_for_matching_flow(
-                {'dl_vlan': '100', 'dl_dst': 'ff:ff:ff:ff:ff:ff'},
+                {'dl_vlan': '100', 'dl_dst': ETH_BCAST},
                 table_id=self._FLOOD_TABLE))
 
 
 class FaucetEthSrcMaskTest(FaucetUntaggedTest):
+
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -7719,13 +7726,12 @@ acls:
 class FaucetDestRewriteTest(FaucetUntaggedTest):
 
     def override_mac():
-        return "0e:00:00:00:00:02"
-
-    OVERRIDE_MAC = override_mac()
+        return '0e:00:00:00:00:02'
 
     def rewrite_mac():
-        return "0e:00:00:00:00:03"
+        return '0e:00:00:00:00:03'
 
+    OVERRIDE_MAC = override_mac()
     REWRITE_MAC = rewrite_mac()
 
     CONFIG_GLOBAL = """
