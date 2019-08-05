@@ -202,6 +202,12 @@ class Port(Conf):
     def __repr__(self):
         return self.__str__()
 
+    def stack_descr(self):
+        """"Return stacking annotation if this is a stacking port."""
+        if self.stack:
+            return 'remote DP %s port %s' % (self.stack['dp'].name, self.stack['port'])
+        return ''
+
     def set_defaults(self):
         super(Port, self).set_defaults()
         self._set_default('number', self._id)
