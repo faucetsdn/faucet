@@ -610,13 +610,14 @@ listen {
 
 class Faucet8021XSuccessTest(Faucet8021XBaseTest):
 
-    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
-                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
-                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
-                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'success'}},
-                             {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'logoff'}}]
+    DOT1X_EXPECTED_EVENTS = [
+        {'ENABLED': {}},
+        {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+        {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+        {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'success'}},
+        {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'logoff'}}]
     SESSION_TIMEOUT = 3600
 
     def test_untagged(self):
@@ -640,11 +641,12 @@ class Faucet8021XFailureTest(Faucet8021XBaseTest):
     }
     """
 
-    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
-                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
-                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'failure'}}]
+    DOT1X_EXPECTED_EVENTS = [
+        {'ENABLED': {}},
+        {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+        {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'failure'}}]
 
     def test_untagged(self):
         self.assertFalse(
@@ -655,19 +657,20 @@ class Faucet8021XFailureTest(Faucet8021XBaseTest):
 
 class Faucet8021XPortStatusTest(Faucet8021XBaseTest):
 
-    DOT1X_EXPECTED_EVENTS = [{'ENABLED': {}},
-                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
-                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
-                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
-                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
-                             {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
-                             {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
-                             {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}}]
+    DOT1X_EXPECTED_EVENTS = [
+        {'ENABLED': {}},
+        {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_2', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+        {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+        {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
+        {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}},
+        {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'success'}},
+        {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
+        {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}}]
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -716,6 +719,7 @@ class Faucet8021XPortFlapTest(Faucet8021XBaseTest):
         port_no1 = self.port_map['port_1']
 
         for _ in range(2):
+
             self.set_port_up(port_no1)
             self.assertTrue(self.retry_8021x(
                 self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=True))
@@ -726,7 +730,8 @@ class Faucet8021XPortFlapTest(Faucet8021XBaseTest):
             self.one_ipv4_ping(
                 self.eapol1_host, self.ping_host.IP(),
                 require_host_learned=False, expected_result=False)
-            wpa_status = self.get_wpa_status(self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
+            wpa_status = self.get_wpa_status(
+                self.eapol1_host, self.get_wpa_ctrl_path(self.eapol1_host))
             self.assertNotEqual('SUCCESS', wpa_status)
             # Kill supplicant so cant reply to the port up identity request.
             self.terminate_wpasupplicant(self.eapol1_host)
@@ -3852,7 +3857,8 @@ vlans:
                 # 'count=%u)\"' % ('ARP', self.FAUCET_VIPV4.ip, packets))):
             fuzz_out = first_host.cmd(fuzz_cmd)
             self.assertTrue(
-                re.search('Sent %u packets' % packets, fuzz_out), msg='%s: %s' % (fuzz_cmd, fuzz_out))
+                re.search('Sent %u packets' % packets, fuzz_out), msg='%s: %s' % (
+                    fuzz_cmd, fuzz_out))
         self.one_ipv4_controller_ping(first_host)
 
     def test_flap_ping_controller(self):
@@ -6446,11 +6452,11 @@ class FaucetStringOfDPTest(FaucetTest):
 
     def build_net(self, stack=False, n_dps=1,
                   n_tagged=0, tagged_vid=100,
-                  untagged_hosts = None,
+                  untagged_hosts=None,
                   include=None, include_optional=None,
                   switch_to_switch_links=1, hw_dpid=None,
                   stack_ring=False, lacp=False, use_external=False,
-                  router = None, dp_options = None):
+                  router=None, dp_options=None):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
@@ -6464,7 +6470,7 @@ class FaucetStringOfDPTest(FaucetTest):
             dpids=self.dpids,
             n_tagged=n_tagged,
             tagged_vid=tagged_vid,
-            untagged_hosts = untagged_hosts,
+            untagged_hosts=untagged_hosts,
             links_per_host=self.LINKS_PER_HOST,
             switch_to_switch_links=switch_to_switch_links,
             test_name=self._test_name(),
@@ -6496,7 +6502,7 @@ class FaucetStringOfDPTest(FaucetTest):
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, untagged_hosts=None,
                    include=None, include_optional=None, acls=None, acl_in_dp=None,
-                   lacp=False, use_external=False, router = None, dp_options = None):
+                   lacp=False, use_external=False, router=None, dp_options=None):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
         if dpids is None:
             dpids = []
@@ -6799,20 +6805,20 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
             self.V100: {
                 'faucet_mac': self.FAUCET_MAC,
                 'faucet_vips': [self.get_faucet_vip(1)]
-            }, 
+            },
             self.V200: {
                 'faucet_mac': self.FAUCET_MAC2,
                 'faucet_vips': [self.get_faucet_vip(2)]
             }
         }
         self.build_net(
-            stack = True,
-            n_dps = self.NUM_DPS,
-            untagged_hosts = {self.V100: self.V100_NUM_HOSTS, self.V200: self.V200_NUM_HOSTS},
-            switch_to_switch_links = self.SWITCH_TO_SWITCH_LINKS,
-            hw_dpid = self.hw_dpid,
-            router = router_info,
-            dp_options = self.get_dp_options()
+            stack=True,
+            n_dps=self.NUM_DPS,
+            untagged_hosts={self.V100: self.V100_NUM_HOSTS, self.V200: self.V200_NUM_HOSTS},
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+            hw_dpid=self.hw_dpid,
+            router=router_info,
+            dp_options=self.get_dp_options()
         )
         self.start_net()
 
@@ -6834,17 +6840,17 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
 
     def set_host_ip(self, host, ip):
         """Set the host ip"""
-        host.setIP(str(ip.ip), prefixLen = self.NETPREFIX)
+        host.setIP(str(ip.ip), prefixLen=self.NETPREFIX)
 
     def verify_intervlan_routing(self):
         """Setup host routes and verify intervlan routing is possible"""
         num_hosts = self.V100_NUM_HOSTS + self.V200_NUM_HOSTS
         first_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(1))
         second_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(2))
-        v100_hosts = [(self.net.hosts[i], ipaddress.ip_interface(self.get_ip(i+1, 1)))
-            for i in range(len(self.net.hosts)) if (i % num_hosts) == 0]
-        v200_hosts = [(self.net.hosts[i], ipaddress.ip_interface(self.get_ip(i+1, 2)))
-            for i in range(len(self.net.hosts)) if (i % num_hosts) == 1]
+        v100_hosts = [(self.net.hosts[i], ipaddress.ip_interface(
+            self.get_ip(i+1, 1))) for i in range(len(self.net.hosts)) if (i % num_hosts) == 0]
+        v200_hosts = [(self.net.hosts[i], ipaddress.ip_interface(
+            self.get_ip(i+1, 2))) for i in range(len(self.net.hosts)) if (i % num_hosts) == 1]
         for host_tuple in v100_hosts:
             host, host_ip = host_tuple
             self.set_host_ip(host, host_ip)
@@ -6860,8 +6866,10 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
                 self.add_host_route(v200_host, v100_host_ip, second_faucet_vip.ip)
                 self.host_ping(v100_host, v200_host_ip.ip)
                 self.host_ping(v200_host, v100_host_ip.ip)
-                self.assertEqual(self._ip_neigh(v100_host, first_faucet_vip.ip, self.IPV), self.FAUCET_MAC)
-                self.assertEqual(self._ip_neigh(v200_host, second_faucet_vip.ip, self.IPV), self.FAUCET_MAC2)
+                self.assertEqual(
+                    self._ip_neigh(v100_host, first_faucet_vip.ip, self.IPV), self.FAUCET_MAC)
+                self.assertEqual(
+                    self._ip_neigh(v200_host, second_faucet_vip.ip, self.IPV), self.FAUCET_MAC2)
         for src_host_tuple in v100_hosts:
             src_host, src_ip = src_host_tuple
             for dst_host_tuple in v100_hosts:
@@ -6876,11 +6884,11 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
                 self.host_ping(src_host, dst_ip.ip)
 
     def test_intervlan_routing_stack_of_2_dp(self):
-       """Verify intervlan routing works with 2 DPs in a stack"""
-       self.NUM_DPS = 2
-       self.set_up()
-       self.verify_all_stack_up()
-       self.verify_intervlan_routing()
+        """Verify intervlan routing works with 2 DPs in a stack"""
+        self.NUM_DPS = 2
+        self.set_up()
+        self.verify_all_stack_up()
+        self.verify_intervlan_routing()
 
     def test_intervlan_routing_stack_of_3_dp(self):
         """Verify intervlan routing works with 3 DPs in a stack"""
@@ -6890,11 +6898,11 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         self.verify_intervlan_routing()
 
     def test_intervlan_routing_stack_of_4_dp(self):
-      """Verify intervlan routing works with 4 DPs in a stack"""
-      self.NUM_DPS = 4
-      self.set_up()
-      self.verify_all_stack_up()
-      self.verify_intervlan_routing()
+        """Verify intervlan routing works with 4 DPs in a stack"""
+        self.NUM_DPS = 4
+        self.set_up()
+        self.verify_all_stack_up()
+        self.verify_intervlan_routing()
 
 
 class FaucetUntaggedIPV6RoutingWithStackingTest(FaucetUntaggedIPV4RoutingWithStackingTest):
@@ -6919,7 +6927,7 @@ class FaucetUntaggedIPV6RoutingWithStackingTest(FaucetUntaggedIPV4RoutingWithSta
     def set_host_ip(self, host, ip):
         """ """
         self.add_host_ipv6_address(host, ip)
-    
+
     def get_faucet_vip(self, vindex):
         """Get the IPV6 faucet vip"""
         return 'fc0%u::1:254/112' % vindex
@@ -7068,7 +7076,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.wait_until_matching_flow(
             self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % second_lacp_port])
         self.wait_until_matching_flow(
-            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % remote_second_lacp_port],
+            self.match_bcast, self._FLOOD_TABLE, actions=[
+                self.action_str % remote_second_lacp_port],
             dpid=self.dpids[1])
         self.retry_net_ping()
         self.set_port_up(first_lacp_port)

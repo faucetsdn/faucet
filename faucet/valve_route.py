@@ -773,20 +773,6 @@ class ValveRouteManager(ValveManagerBase):
     def control_plane_handler(self, now, pkt_meta):
         return self._proactive_resolve_neighbor(now, pkt_meta)
 
-    def __str__(self):
-        s = ''
-        for router in self.routers.values():
-            s += '%s:[' % router
-            for vlan in router.vlans:
-                s += '%s:' % vlan.vid
-                s += '%s' % self._vlan_nexthop_cache(vlan)
-                s += ' '
-            s += ']'
-        return s
-
-    def __repr__(self):
-        return self.__str__()
-
 
 class ValveIPv4RouteManager(ValveRouteManager):
     """Implement IPv4 RIB/FIB."""
