@@ -1,0 +1,5 @@
+grpcio
+grpcio-tools
+prometheus_client
+protobuf
+requests
