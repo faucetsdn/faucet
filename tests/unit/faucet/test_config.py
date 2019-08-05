@@ -3377,6 +3377,49 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_stacking_with_intervlan_routing_accepted(self):
+        """Test config accepted when using intervlan routing with stacking"""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+        faucet_mac: '00:00:00:00:00:11'
+        faucet_vips: ['10.0.1.254/24']
+    vlan200:
+        vid: 200
+        faucet_mac: '00:00:00:00:00:22'
+        faucet_vips: ['10.0.2.254/24']
+routers:
+    router-1:
+        vlans: [vlan100, vlan200]
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                native_vlan: vlan200
+            3:
+                stack:
+                    dp: sw2
+                    port: 3
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                native_vlan: vlan200
+            3:
+                stack:
+                    dp: sw1
+                    port: 3
+"""
+        self.check_config_success(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main() # pytype: disable=module-attr

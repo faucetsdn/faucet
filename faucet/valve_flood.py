@@ -596,9 +596,6 @@ class ValveFloodStackManager(ValveFloodManager):
         # We find just one port that is the shortest unicast path to
         # the destination. We could use other factors (eg we could
         # load balance over multiple ports based on destination MAC).
-        # TODO: each DP learns independently. An edge DP could
-        # call other valves so they learn immediately without waiting
-        # for packet in.
         # TODO: edge DPs could use a different forwarding algorithm
         # (for example, just default switch to a neighbor).
         # Find port that forwards closer to destination DP that
@@ -655,7 +652,8 @@ class ValveFloodStackManager(ValveFloodManager):
         self._reset_peer_distances()
 
     def edge_learn_port(self, other_valves, pkt_meta):
-        """Possibly learn a host on a port.
+        """
+        Find a port towards the edge DP where the packet originated from
 
         Args:
             other_valves (list): All Valves other than this one.

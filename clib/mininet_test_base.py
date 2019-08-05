@@ -2076,15 +2076,17 @@ dbs:
             ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)
         self.quiet_commands(host, (add_cmd,))
 
-    def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned, expected_result=True):
+    def _ip_ping(self, host, ping_cmd, retries, require_host_learned, expected_result=True, count=1):
+        """Ping a destination from a host"""
+        good_ping = '%u packets transmitted, %u received, 0%% packet loss' % (count, count)
         if require_host_learned:
             self.require_host_learned(host)
         for _ in range(retries):
             ping_result = host.cmd(ping_cmd)
-            if re.search(self.ONE_GOOD_PING, ping_result):
+            if re.search(good_ping, ping_result):
                 break
         self.assertTrue(
-            bool(re.search(self.ONE_GOOD_PING, ping_result)) ^ (not expected_result),
+            bool(re.search(good_ping, ping_result)) ^ (not expected_result),
             msg='%s: %s' % (ping_cmd, ping_result))
 
     def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None,
@@ -2097,7 +2099,7 @@ dbs:
         else:
             timeout = '-W%u' % timeout
         ping_cmd = 'ping -c1 %s -I%s %s' % (timeout, intf, dst)
-        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned, expected_result)
+        return self._ip_ping(host, ping_cmd, retries, require_host_learned, expected_result, 1)
 
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
@@ -2115,7 +2117,7 @@ dbs:
         else:
             timeout = '-W%u' % timeout
         ping_cmd = 'ping6 -c1 %s -I%s %s' % (timeout, intf, dst)
-        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned, expected_result)
+        return self._ip_ping(host, ping_cmd, retries, require_host_learned, expected_result, 1)
 
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""

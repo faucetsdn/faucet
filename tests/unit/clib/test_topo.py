@@ -36,7 +36,7 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
         peer_link = FaucetStringOfDPSwitchTopo.peer_link
         args = self.string_of_dp_args(
             n_tagged=2,
-            n_untagged=2,
+            untagged_hosts={None: 2},
             links_per_host=1,
             switch_to_switch_links=2,
             start_port=1)
@@ -86,7 +86,7 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
         switch_map = {1:'p1', 2:'p2', 3:'p3', 4:'p4', 5:'p5', 6:'p6'}
         args = self.string_of_dp_args(
             n_tagged=2,
-            n_untagged=2,
+            untagged_hosts={None: 2},
             links_per_host=1,
             switch_to_switch_links=2,
             start_port=5,

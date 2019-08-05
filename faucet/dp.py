@@ -717,9 +717,6 @@ configuration.
                         'stack priority must be > 0'))
                     test_config_condition(root_dp is not None, 'cannot have multiple stack roots')
                     root_dp = dp
-                    for vlan in dp.vlans.values():
-                        test_config_condition(vlan.faucet_vips, (
-                            'routing + stacking not supported'))
 
         if root_dp is None:
             test_config_condition(stack_dps, 'stacking enabled but no root_dp')
