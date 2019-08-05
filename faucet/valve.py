@@ -1110,12 +1110,10 @@ class Valve:
         """
         if pkt_meta.eth_src == pkt_meta.vlan.faucet_mac:
             return self.host_manager.learn_host_intervlan_routing_flows(
-                now, pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_src, pkt_meta.eth_dst,
-                last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
+                now, pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_src, pkt_meta.eth_dst)
         elif pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
             return self.host_manager.learn_host_intervlan_routing_flows(
-                now, pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_dst, pkt_meta.eth_src,
-                last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
+                now, pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_dst, pkt_meta.eth_src)
         return []
 
     def _learn_host(self, now, other_valves, pkt_meta):

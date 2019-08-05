@@ -173,8 +173,7 @@ class ValveHostManager(ValveManagerBase):
             has_externals = has_externals | bool(vlan.loop_protect_external_ports())
         return has_externals
 
-    def learn_host_intervlan_routing_flows(self, now, port, vlan,
-                                           eth_src, eth_dst, last_dp_coldstart_time=None):
+    def learn_host_intervlan_routing_flows(self, now, port, vlan, eth_src, eth_dst):
         """
         Returns flows for the eth_src_table that enable packets that have been routed to be
             accepted from an adjacent DP and then switched to the destination
