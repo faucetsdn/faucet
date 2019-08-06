@@ -1548,17 +1548,20 @@ meters:
                     port.dyn_phys_up = True
                     port.dyn_finalized = True
 
-        def ip_to_address(self, ip_string, vid):
-            """Turns an IP address string into an IP address object"""
-            return ipaddress.ip_address(ip_string)
-
-        def create_mac(self, vindex, host):
+        @staticmethod
+        def create_mac(vindex, host):
             """Create a MAC address string"""
             return '00:00:00:0%u:00:0%u' % (vindex, host)
 
-        def create_ip(self, vindex, host):
+        @staticmethod
+        def create_ip(vindex, host):
             """Create a IP address string"""
             return '10.0.%u.%u' % (vindex, host)
+
+        @staticmethod
+        def get_eth_type():
+            """Returns IPV4 ether type"""
+            return valve_of.ether.ETH_TYPE_IP
 
         def create_match(self, vindex, host, faucet_mac, faucet_vip, code):
             """Create an ARP reply message"""
@@ -1569,10 +1572,6 @@ meters:
                 'arp_source_ip': self.create_ip(vindex, host),
                 'arp_target_ip': faucet_vip
             }
-
-        def get_eth_type(self, vid):
-            """Returns IPV4 ether type"""
-            return valve_of.ether.ETH_TYPE_IP
 
         def valve_rcv_packet(self, port, vid, match, dp_id):
             """Simulate control plane receiving a packet on a port/VID."""
@@ -1603,12 +1602,12 @@ meters:
             """Verify router nexthop cache stores correct values"""
             host_valve = self.valves_manager.valves[dp_id]
             for valve in self.valves_manager.valves.values():
-                vlan = valve.dp.vlans[vid]
+                valve_vlan = valve.dp.vlans[vid]
                 route_manager = valve._route_manager_by_eth_type.get(
-                    self.get_eth_type(vid), None)
-                vlan_nexthop_cache = route_manager._vlan_nexthop_cache(vlan)
+                    self.get_eth_type(), None)
+                vlan_nexthop_cache = route_manager._vlan_nexthop_cache(valve_vlan)
                 self.assertTrue(vlan_nexthop_cache)
-                ip = self.ip_to_address(ip_match, vid)
+                ip = ipaddress.ip_address(ip_match)
                 #Check IP address is properly cached
                 self.assertIn(ip, vlan_nexthop_cache)
                 nexthop = vlan_nexthop_cache[ip]
@@ -1638,7 +1637,6 @@ meters:
 class ValveTestCase(ValveTestBases.ValveTestBig):
     """Run complete set of basic tests."""
 
-    pass
 
 
 class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):
@@ -3024,9 +3022,15 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
     def setUp(self):
         self.setup_stack_routing()
 
-    def create_ip(self, vindex, host):
+    @staticmethod
+    def create_ip(vindex, host):
         """Create a IP address string"""
         return 'fc80::%u:%u' % (vindex, host)
+
+    @staticmethod
+    def get_eth_type():
+        """Returns IPV6 ether type"""
+        return valve_of.ether.ETH_TYPE_IPV6
 
     def create_match(self, vindex, host, faucet_mac, faucet_vip, code):
         """Create an NA message"""
@@ -3037,10 +3041,6 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
             'ipv6_dst': faucet_vip,
             'neighbor_advert_ip': self.create_ip(vindex, host)
         }
-
-    def get_eth_type(self, vid):
-        """Returns IPV6 ether type"""
-        return valve_of.ether.ETH_TYPE_IPV6
 
 
 class ValveGroupTestCase(ValveTestBases.ValveTestSmall):
