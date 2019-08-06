@@ -703,49 +703,48 @@ configuration.
 
     def resolve_stack_topology(self, dps):
         """Resolve inter-DP config for stacking."""
-        root_dp = None
-        stack_dps = []
-        for dp in dps:
-            if dp.stack is not None:
-                stack_dps.append(dp)
-                if 'priority' in dp.stack:
-                    test_config_condition(not isinstance(dp.stack['priority'], int), (
-                        'stack priority must be type %s not %s' % (
-                            int, type(dp.stack['priority']))))
-                    test_config_condition(dp.stack['priority'] <= 0, (
-                        'stack priority must be > 0'))
-                    test_config_condition(root_dp is not None, 'cannot have multiple stack roots')
-                    root_dp = dp
+        stack_dps = [dp for dp in dps if dp.stack is not None]
+        stack_priority_dps = [dp for dp in stack_dps if 'priority' in dp.stack]
+        stack_port_dps = [dp for dp in dps if dp.stack_ports]
 
-        if root_dp is None:
-            test_config_condition(stack_dps, 'stacking enabled but no root_dp')
+        if not stack_priority_dps:
+            test_config_condition(stack_dps, 'stacking enabled but no root DP')
             return
 
-        edge_count = Counter()
+        for dp in stack_priority_dps:
+            test_config_condition(not isinstance(dp.stack['priority'], int), (
+                'stack priority must be type %s not %s' % (
+                    int, type(dp.stack['priority']))))
+            test_config_condition(dp.stack['priority'] <= 0, (
+                'stack priority must be > 0'))
 
+        root_dps = sorted(stack_priority_dps, key=lambda x: x.stack['priority'])
+        root_dp = root_dps[0]
+
+        edge_count = Counter()
         graph = networkx.MultiGraph()
-        for dp in dps:
-            if dp.stack_ports:
-                graph.add_node(dp.name)
-                for port in dp.stack_ports:
-                    edge_name = self.add_stack_link(graph, dp, port)
-                    edge_count[edge_name] += 1
-        if graph.size():
-            for edge_name, count in edge_count.items():
-                test_config_condition(count != 2, '%s defined only in one direction' % edge_name)
-            if self.name in graph:
-                if self.stack is None:
-                    self.stack = {}
-                self.stack['root_dp'] = root_dp
-                self.stack['graph'] = graph
-                longest_path_to_root_len = 0
-                for dp in graph.nodes():
-                    path_to_root_len = len(self.shortest_path(root_dp.name, src_dp=dp))
-                    test_config_condition(
-                        path_to_root_len == 0, '%s not connected to stack' % dp)
-                    longest_path_to_root_len = max(
-                        path_to_root_len, longest_path_to_root_len)
-                self.stack['longest_path_to_root_len'] = longest_path_to_root_len
+        for dp in stack_port_dps:
+            graph.add_node(dp.name)
+            for port in dp.stack_ports:
+                edge_name = self.add_stack_link(graph, dp, port)
+                edge_count[edge_name] += 1
+        for edge_name, count in edge_count.items():
+            test_config_condition(count != 2, '%s defined only in one direction' % edge_name)
+        if graph.size() and self.name in graph:
+            if self.stack is None:
+                self.stack = {}
+            self.stack.update({
+                'root_dp': root_dp,
+                'root_dps': root_dps,
+                'graph': graph})
+            longest_path_to_root_len = 0
+            for dp in graph.nodes():
+                path_to_root_len = len(self.shortest_path(root_dp.name, src_dp=dp))
+                test_config_condition(
+                    path_to_root_len == 0, '%s not connected to stack' % dp)
+                longest_path_to_root_len = max(
+                    path_to_root_len, longest_path_to_root_len)
+            self.stack['longest_path_to_root_len'] = longest_path_to_root_len
 
         if self.tunnel_acls:
             self.finalize_tunnel_acls(dps)
@@ -800,11 +799,15 @@ configuration.
         """Return True if this DP is the root of the stack."""
         return self.stack and 'priority' in self.stack
 
+    def longest_path_to_root_len(self):
+        """Return length of longest path to root or None."""
+        if self.stack:
+            return self.stack.get('longest_path_to_root_len', None)
+        return None
+
     def is_stack_edge(self):
         """Return True if this DP is a stack edge."""
-        if self.stack and 'longest_path_to_root_len' in self.stack:
-            return self.stack['longest_path_to_root_len'] == len(self.shortest_path_to_root())
-        return False
+        return self.longest_path_to_root_len() == len(self.shortest_path_to_root())
 
     def peer_stack_up_ports(self, peer_dp):
         """Return list of stack ports that are up towards a peer."""
@@ -892,9 +895,6 @@ configuration.
         def resolve_stack_dps():
             """Resolve DP references in stacking config."""
             if self.stack_ports:
-                if self.stack is None:
-                    self.stack = {}
-                self.stack['externals'] = bool(vlans_with_external_ports)
                 port_stack_dp = {}
                 for port in self.stack_ports:
                     stack_dp = port.stack['dp']
