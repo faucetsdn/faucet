@@ -1458,7 +1458,6 @@ meters:
                 dp_desc=b'test_dp_desc')
             self.valve.ofdescstats_handler(invalid_body)
 
-
     class ValveTestStackedRouting(ValveTestSmall):
         """Test inter-vlan routing with stacking capabilities in an IPV4 network"""
 
@@ -1534,8 +1533,8 @@ meters:
             faucet_vips: ['%s']
     %s
     """ % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
-           self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
-           self.BASE_CONFIG)
+               self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
+               self.BASE_CONFIG)
 
         def setup_stack_routing(self):
             self.create_config()
@@ -1608,10 +1607,10 @@ meters:
                 vlan_nexthop_cache = route_manager._vlan_nexthop_cache(valve_vlan)
                 self.assertTrue(vlan_nexthop_cache)
                 ip = ipaddress.ip_address(ip_match)
-                #Check IP address is properly cached
+                # Check IP address is properly cached
                 self.assertIn(ip, vlan_nexthop_cache)
                 nexthop = vlan_nexthop_cache[ip]
-                #Check MAC address is properly cached
+                # Check MAC address is properly cached
                 self.assertEqual(eth_match, nexthop.eth_src)
                 if host_valve != valve:
                     #Check the proper nexthop port is cached
@@ -1620,13 +1619,13 @@ meters:
 
         def test_router_cache_learn_hosts(self):
             """Have all router caches contain proper host nexthops"""
-            #Learn Vlan100 hosts
+            # Learn Vlan100 hosts
             for host in [1, 2, 3, 4]:
                 self.valve_rcv_packet(1, self.V100, self.create_match(
                     1, host, self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIPS, arp.ARP_REPLY), host)
                 self.verify_router_cache(
                     self.create_ip(1, host), self.create_mac(1, host), self.V100, host)
-            #Learn Vlan200 hosts
+            # Learn Vlan200 hosts
             for host in [1, 2, 3, 4]:
                 self.valve_rcv_packet(2, self.V200, self.create_match(
                     2, host, self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIPS, arp.ARP_REPLY), host)
