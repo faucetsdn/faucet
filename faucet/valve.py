@@ -193,8 +193,10 @@ class Valve:
                 self.logger, self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood,
-                self.dp.stack, self.dp.stack_ports,
-                self.dp.shortest_path_to_root, self.dp.shortest_path_port)
+                self.dp.stack_ports, self.dp.has_externals,
+                self.dp.shortest_path_to_root, self.dp.shortest_path_port,
+                self.dp.longest_path_to_root_len, self.dp.is_stack_root,
+                self.dp.stack.get('graph', None))
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
                 self.logger, self.dp.tables['flood'], self.pipeline,

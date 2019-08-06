@@ -310,16 +310,25 @@ class ValveFloodStackManager(ValveFloodManager):
     def __init__(self, logger, flood_table, pipeline, # pylint: disable=too-many-arguments
                  use_group_table, groups,
                  combinatorial_port_flood,
-                 stack, stack_ports,
-                 dp_shortest_path_to_root, shortest_path_port):
+                 stack_ports, has_externals,
+                 dp_shortest_path_to_root, shortest_path_port,
+                 longest_path_to_root_len, is_stack_root,
+                 graph):
         super(ValveFloodStackManager, self).__init__(
             logger, flood_table, pipeline,
             use_group_table, groups,
             combinatorial_port_flood)
-        self.stack = stack
         self.stack_ports = stack_ports
+        self.externals = has_externals
         self.shortest_path_port = shortest_path_port
         self.dp_shortest_path_to_root = dp_shortest_path_to_root
+        self.longest_path_to_root_len = longest_path_to_root_len
+        self.is_stack_root = is_stack_root
+        self.graph = graph
+        if self.is_stack_root():
+            self.logger.info('root DP')
+        else:
+            self.logger.info('not root DP')
         self._reset_peer_distances()
 
     def _reset_peer_distances(self):
@@ -333,14 +342,13 @@ class ValveFloodStackManager(ValveFloodManager):
         self.away_from_root_stack_ports = [
             port for port, port_peer_distance in port_peer_distances
             if port_peer_distance > my_root_distance]
-        self.externals = self.stack.get('externals', False)
         self._set_ext_port_flag = []
         self._set_nonext_port_flag = []
         if self.externals:
             self._set_ext_port_flag = [self._set_ext_flag(self.EXT_PORT_FLAG)]
             self._set_nonext_port_flag = [self._set_ext_flag(self.NONEXT_PORT_FLAG)]
         self._flood_actions_func = self._flood_actions
-        stack_size = self.stack.get('longest_path_to_root_len', None)
+        stack_size = self.longest_path_to_root_len()
         if stack_size == 2:
             self._flood_actions_func = self._flood_actions_size2
 
@@ -358,7 +366,7 @@ class ValveFloodStackManager(ValveFloodManager):
         flood_actions = (
             flood_prefix + away_flood_actions + local_flood_actions)
 
-        if self._dp_is_root():
+        if self.is_stack_root():
             # Default strategy is flood locally and to non-roots.
             if in_port:
                 # If we have external ports, let the non-roots know we have already flooded
@@ -387,7 +395,7 @@ class ValveFloodStackManager(ValveFloodManager):
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
         # General case for stack with maximum distance > 2
-        if self._dp_is_root():
+        if self.is_stack_root():
             flood_actions = (
                 self._set_ext_port_flag + away_flood_actions + local_flood_actions)
 
@@ -539,7 +547,7 @@ class ValveFloodStackManager(ValveFloodManager):
                 self.pipeline.filter_priority - self.pipeline.select_priority))
 
         for port in self.stack_ports:
-            if self._dp_is_root():
+            if self.is_stack_root():
                 # On the root switch, only flood from one port where multiply connected to a datapath.
                 away_up_port = None
                 remote_dp = port.stack['dp']
@@ -567,7 +575,7 @@ class ValveFloodStackManager(ValveFloodManager):
             else:
                 # Non-root switches don't need to learn hosts that only
                 # broadcast, to save resources.
-                if not self._dp_is_root() and eth_dst is not None:
+                if not self.is_stack_root() and eth_dst is not None:
                     ofmsgs.extend(self.pipeline.select_packets(
                         self.flood_table, match,
                         priority_offset=self.classification_offset))
@@ -595,10 +603,6 @@ class ValveFloodStackManager(ValveFloodManager):
                     vlan, eth_dst, eth_dst_mask, command, port, flood_acts)
                 ofmsgs.append(port_flood_ofmsg)
         return ofmsgs
-
-    def _dp_is_root(self):
-        """Return True if this datapath is the root of the stack."""
-        return 'priority' in self.stack
 
     def _edge_dp_for_host(self, other_valves, pkt_meta):
         """Simple distributed unicast learning.
@@ -638,6 +642,9 @@ class ValveFloodStackManager(ValveFloodManager):
     def update_stack_topo(self, event, dp, port=None):
         """Update the stack topo according to the event."""
 
+        if self.graph is None:
+            return
+
         def _stack_topo_up_dp(_dp): # pylint: disable=invalid-name
             for port in [port for port in _dp.stack_ports]:
                 if port.is_stack_up():
@@ -650,10 +657,10 @@ class ValveFloodStackManager(ValveFloodManager):
                 _stack_topo_down_port(_dp, port)
 
         def _stack_topo_up_port(_dp, _port): # pylint: disable=invalid-name
-            _dp.add_stack_link(self.stack['graph'], _dp, _port)
+            _dp.add_stack_link(self.graph, _dp, _port)
 
         def _stack_topo_down_port(_dp, _port): # pylint: disable=invalid-name
-            _dp.remove_stack_link(self.stack['graph'], _dp, _port)
+            _dp.remove_stack_link(self.graph, _dp, _port)
 
         if port:
             if event:
