@@ -297,7 +297,11 @@ class ValveHostManager(ValveManagerBase):
             cache_port.lacp and port.lacp and cache_port.lacp == port.lacp)
         if cache_port == port or same_lag:
             # if we very very recently learned this host, don't do anything.
-            if cache_age < self.cache_update_guard_time:
+            guard_time = self.cache_update_guard_time
+            # aggressively re-learn on LAGs
+            if same_lag:
+                guard_time = 1
+            if cache_age < guard_time:
                 return (ofmsgs, cache_port, False)
             # skip delete if host didn't change ports or on same LAG.
             delete_existing = False
