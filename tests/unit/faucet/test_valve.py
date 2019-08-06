@@ -1532,9 +1532,9 @@ meters:
             faucet_mac: '%s'
             faucet_vips: ['%s']
     %s
-    """ % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
-               self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
-               self.BASE_CONFIG)
+           """ % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
+                  self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
+                  self.BASE_CONFIG)
 
         def setup_stack_routing(self):
             self.create_config()
@@ -1613,7 +1613,7 @@ meters:
                 # Check MAC address is properly cached
                 self.assertEqual(eth_match, nexthop.eth_src)
                 if host_valve != valve:
-                    #Check the proper nexthop port is cached
+                    # Check the proper nexthop port is cached
                     expected_port = valve.dp.shortest_path_port(host_valve.dp.name)
                     self.assertEqual(expected_port, nexthop.port)
 
