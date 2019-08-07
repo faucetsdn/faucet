@@ -1381,9 +1381,11 @@ class Valve:
         if ban_rules:
             return {self: ban_rules}
         if pkt_meta.port.stack:
-            # Received the packet from an adjacent DP, but do not know the eth_src,
-            #   the actual src DP will probably initiate learning for this valve
-            return {}
+            peer_dp = pkt_meta.port.stack['dp']
+            if peer_dp.dyn_running:
+                # Received the packet from an adjacent DP, but do not know the eth_src,
+                # let the other valve learn it.
+                return {}
         ofmsgs_by_valve = {}
         stacked_valves = set([self] + [valve for valve in other_valves if valve.dp.stack is not None])
         for valve in stacked_valves:
