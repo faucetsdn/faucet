@@ -3853,12 +3853,12 @@ vlans:
         first_host = self.net.hosts[0]
         self.one_ipv4_controller_ping(first_host)
         packets = 1000
-        fuzz_template = 'python3 -c \"from scapy.all import * ; scapy.all.send(%s, count=%u)'
+        fuzz_template = 'python3 -c \"from scapy.all import * ; scapy.all.send(%s, count=%u)\"'
         for fuzz_cmd in (
                 fuzz_template % ('IP(dst=\'%s\')/fuzz(%s(type=0))' % (self.FAUCET_VIPV4.ip, 'ICMP'), packets),
                 fuzz_template % ('IP(dst=\'%s\')/fuzz(%s(type=8))' % (self.FAUCET_VIPV4.ip, 'ICMP'), packets),
                 fuzz_template % ('fuzz(%s(pdst=\'%s\'))' % ('ARP', self.FAUCET_VIPV4.ip), packets)):
-            fuzz_out = first_host.cmd(fuzz_cmd)
+            fuzz_out = first_host.cmd(mininet_test_util.timeout_cmd(fuzz_cmd, 180))
             self.assertTrue(
                 re.search('Sent %u packets' % packets, fuzz_out), msg='%s: %s' % (
                     fuzz_cmd, fuzz_out))
