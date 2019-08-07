@@ -1932,40 +1932,46 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self.wait_until_matching_lines_from_file(
             r'.+error shipping.+', gauge_log_name, timeout=timeout)
 
-    def _verify_influx_log(self):
+    def _verify_influx_log(self, retries=3):
         self.assertTrue(os.path.exists(self.influx_log))
-        observed_vars = set()
-        with open(self.influx_log) as influx_log:
-            influx_log_lines = influx_log.readlines()
-        for point_line in influx_log_lines:
-            point_fields = point_line.strip().split()
-            self.assertEqual(3, len(point_fields), msg=point_fields)
-            ts_name, value_field, _ = point_fields
-            value = float(value_field.split('=')[1])
-            ts_name_fields = ts_name.split(',')
-            self.assertGreater(len(ts_name_fields), 1)
-            observed_vars.add(ts_name_fields[0])
-            label_values = {}
-            for label_value in ts_name_fields[1:]:
-                label, value = label_value.split('=')
-                label_values[label] = value
-            if ts_name.startswith('flow'):
-                self.assertTrue('inst_count' in label_values, msg=point_line)
-                if 'vlan_vid' in label_values:
-                    self.assertEqual(
-                        int(label_values['vlan']), int(value) ^ 0x1000)
-        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
-        self.assertEqual(set([
+        expected_vars = {
             'dropped_in', 'dropped_out', 'bytes_out', 'flow_packet_count',
             'errors_in', 'bytes_in', 'flow_byte_count', 'port_state_reason',
-            'packets_in', 'packets_out']), observed_vars)
+            'packets_in', 'packets_out'}
+
+        observed_vars = set()
+        for _ in range(retries):
+            with open(self.influx_log) as influx_log:
+                influx_log_lines = influx_log.readlines()
+            for point_line in influx_log_lines:
+                point_fields = point_line.strip().split()
+                self.assertEqual(3, len(point_fields), msg=point_fields)
+                ts_name, value_field, _ = point_fields
+                value = float(value_field.split('=')[1])
+                ts_name_fields = ts_name.split(',')
+                self.assertGreater(len(ts_name_fields), 1)
+                observed_vars.add(ts_name_fields[0])
+                label_values = {}
+                for label_value in ts_name_fields[1:]:
+                    label, value = label_value.split('=')
+                    label_values[label] = value
+                if ts_name.startswith('flow'):
+                    self.assertTrue('inst_count' in label_values, msg=point_line)
+                    if 'vlan_vid' in label_values:
+                        self.assertEqual(
+                            int(label_values['vlan']), int(value) ^ 0x1000)
+            if expected_vars == observed_vars:
+                break
+            time.sleep(1)
+
+        self.assertEqual(expected_vars, observed_vars)
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def _wait_influx_log(self):
         for _ in range(self.DB_TIMEOUT * 3):
             if os.path.exists(self.influx_log):
                 return
             time.sleep(1)
-        return
 
     def _start_gauge_check(self):
         influx_port = self.config_ports['gauge_influx_port']

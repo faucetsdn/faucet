@@ -14,6 +14,7 @@ import os
 import random
 import re
 import shutil
+import string
 import subprocess
 import tempfile
 import time
@@ -2175,10 +2176,10 @@ dbs:
             time.sleep(1)
         self.fail('%s never listened on port %u' % (host, port))
 
-    def serve_hello_on_tcp_port(self, host, port):
-        """Serve 'hello' on a TCP port on a host."""
+    def serve_str_on_tcp_port(self, host, port, serve_str='hello', timeout=20):
+        """Serve str on a TCP port on a host."""
         host.cmd(mininet_test_util.timeout_cmd(
-            'echo hello | nc -l %s %u &' % (host.IP(), port), 10))
+            'echo %s | nc -l %s %u &' % (serve_str, host.IP(), port), timeout))
         self.wait_for_tcp_listen(host, port)
 
     def wait_nonzero_packet_count_flow(self, match, table_id, timeout=15,
@@ -2200,11 +2201,9 @@ dbs:
 
     def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is blocked from another host."""
-        self.serve_hello_on_tcp_port(second_host, port)
-        self.quiet_commands(
-            first_host,
-            (mininet_test_util.timeout_cmd(
-                'nc %s %u' % (second_host.IP(), port), 10), ))
+        client_cmd = mininet_test_util.timeout_cmd('nc %s %u' % (second_host.IP(), port), 5)
+        self.serve_str_on_tcp_port(second_host, port)
+        self.quiet_commands(first_host, (client_cmd,))
         if table_id is None:
             return
         match = {
@@ -2215,13 +2214,15 @@ dbs:
             match_port = '/'.join((str(port), str(mask)))
         match['tp_dst'] = match_port
         self.wait_nonzero_packet_count_flow(match, table_id, ofa_match=False)
+        # cleanup listening nc (if any)
+        second_host.cmd(client_cmd)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
         """Verify that a TCP port on a host is NOT blocked from another host."""
-        self.serve_hello_on_tcp_port(second_host, port)
-        self.assertEqual(
-            'hello\r\n',
-            first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
+        serve_str = ''.join(random.choice(string.ascii_letters) for i in range(8))
+        self.serve_str_on_tcp_port(second_host, port, serve_str=serve_str)
+        client_str = first_host.cmd('nc -w 10 %s %u' % (second_host.IP(), port)).strip()
+        self.assertEqual(serve_str, client_str)
         if table_id is None:
             return
         self.wait_nonzero_packet_count_flow(
