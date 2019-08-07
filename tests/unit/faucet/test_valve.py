@@ -1458,11 +1458,184 @@ meters:
                 dp_desc=b'test_dp_desc')
             self.valve.ofdescstats_handler(invalid_body)
 
+    class ValveTestStackedRouting(ValveTestSmall):
+        """Test inter-vlan routing with stacking capabilities in an IPV4 network"""
+
+        V100 = 0x100
+        V200 = 0x200
+        VLAN100_FAUCET_MAC = '00:00:00:00:00:11'
+        VLAN200_FAUCET_MAC = '00:00:00:00:00:22'
+
+        VLAN100_FAUCET_VIPS = ''
+        VLAN100_FAUCET_VIP_SPACE = ''
+        VLAN200_FAUCET_VIPS = ''
+        VLAN200_FAUCET_VIP_SPACE = ''
+        BASE_CONFIG = """
+    routers:
+        router1:
+            vlans: [vlan100, vlan200]
+    dps:
+        s1:
+            hardware: 'GenericTFM'
+            dp_id: 0x1
+            stack: {priority: 1}
+            interfaces:
+                1:
+                    native_vlan: vlan100
+                2:
+                    native_vlan: vlan200
+                3:
+                    stack: {dp: s2, port: 3}
+        s2:
+            dp_id: 0x2
+            interfaces:
+                1:
+                    native_vlan: vlan100
+                2:
+                    native_vlan: vlan200
+                3:
+                    stack: {dp: s1, port: 3}
+                4:
+                    stack: {dp: s3, port: 3}
+        s3:
+            dp_id: 0x3
+            interfaces:
+                1:
+                    native_vlan: vlan100
+                2:
+                    native_vlan: vlan200
+                3:
+                    stack: {dp: s2, port: 4}
+                4:
+                    stack: {dp: s4, port: 3}
+        s4:
+            dp_id: 0x4
+            interfaces:
+                1:
+                    native_vlan: vlan100
+                2:
+                    native_vlan: vlan200
+                3:
+                    stack: {dp: s3, port: 4}
+    """
+
+        def create_config(self):
+            """Create the config file"""
+            self.CONFIG = """
+    vlans:
+        vlan100:
+            vid: 0x100
+            faucet_mac: '%s'
+            faucet_vips: ['%s']
+        vlan200:
+            vid: 0x200
+            faucet_mac: '%s'
+            faucet_vips: ['%s']
+    %s
+           """ % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
+                  self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
+                  self.BASE_CONFIG)
+
+        def setup_stack_routing(self):
+            self.create_config()
+            self.setup_valve(self.CONFIG)
+            for valve in self.valves_manager.valves.values():
+                valve.dp.dyn_running = True
+                for port in valve.dp.ports.values():
+                    port.dyn_finalized = False
+                    port.enabled = True
+                    port.dyn_phys_up = True
+                    port.dyn_finalized = True
+
+        @staticmethod
+        def create_mac(vindex, host):
+            """Create a MAC address string"""
+            return '00:00:00:0%u:00:0%u' % (vindex, host)
+
+        @staticmethod
+        def create_ip(vindex, host):
+            """Create a IP address string"""
+            return '10.0.%u.%u' % (vindex, host)
+
+        @staticmethod
+        def get_eth_type():
+            """Returns IPV4 ether type"""
+            return valve_of.ether.ETH_TYPE_IP
+
+        def create_match(self, vindex, host, faucet_mac, faucet_vip, code):
+            """Create an ARP reply message"""
+            return {
+                'eth_src': self.create_mac(vindex, host),
+                'eth_dst': faucet_mac,
+                'arp_code': code,
+                'arp_source_ip': self.create_ip(vindex, host),
+                'arp_target_ip': faucet_vip
+            }
+
+        def valve_rcv_packet(self, port, vid, match, dp_id):
+            """Simulate control plane receiving a packet on a port/VID."""
+            valve = self.valves_manager.valves[dp_id]
+            pkt = build_pkt(match)
+            vlan_pkt = pkt
+            if vid and vid not in match:
+                vlan_match = match
+                vlan_match['vid'] = vid
+                vlan_pkt = build_pkt(match)
+            msg = namedtuple(
+                'null_msg',
+                ('match', 'in_port', 'data', 'total_len', 'cookie', 'reason'))(
+                    {'in_port': port}, port, vlan_pkt.data, len(vlan_pkt.data),
+                    valve.dp.cookie, valve_of.ofp.OFPR_ACTION)
+            self.last_flows_to_dp[dp_id] = []
+            now = time.time()
+            self.valves_manager.valve_packet_in(now, valve, msg)
+            rcv_packet_ofmsgs = self.last_flows_to_dp[dp_id]
+            for valve_service in (
+                    'resolve_gateways', 'advertise', 'fast_advertise', 'state_expire'):
+                self.valves_manager.valve_flow_services(
+                    now, valve_service)
+            self.valves_manager.update_metrics(now)
+            return rcv_packet_ofmsgs
+
+        def verify_router_cache(self, ip_match, eth_match, vid, dp_id):
+            """Verify router nexthop cache stores correct values"""
+            host_valve = self.valves_manager.valves[dp_id]
+            for valve in self.valves_manager.valves.values():
+                valve_vlan = valve.dp.vlans[vid]
+                route_manager = valve._route_manager_by_eth_type.get(
+                    self.get_eth_type(), None)
+                vlan_nexthop_cache = route_manager._vlan_nexthop_cache(valve_vlan)
+                self.assertTrue(vlan_nexthop_cache)
+                ip = ipaddress.ip_address(ip_match)
+                # Check IP address is properly cached
+                self.assertIn(ip, vlan_nexthop_cache)
+                nexthop = vlan_nexthop_cache[ip]
+                # Check MAC address is properly cached
+                self.assertEqual(eth_match, nexthop.eth_src)
+                if host_valve != valve:
+                    # Check the proper nexthop port is cached
+                    expected_port = valve.dp.shortest_path_port(host_valve.dp.name)
+                    self.assertEqual(expected_port, nexthop.port)
+
+        def test_router_cache_learn_hosts(self):
+            """Have all router caches contain proper host nexthops"""
+            # Learn Vlan100 hosts
+            for host in [1, 2, 3, 4]:
+                self.valve_rcv_packet(1, self.V100, self.create_match(
+                    1, host, self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIPS, arp.ARP_REPLY), host)
+                self.verify_router_cache(
+                    self.create_ip(1, host), self.create_mac(1, host), self.V100, host)
+            # Learn Vlan200 hosts
+            for host in [1, 2, 3, 4]:
+                self.valve_rcv_packet(2, self.V200, self.create_match(
+                    2, host, self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIPS, arp.ARP_REPLY), host)
+                self.verify_router_cache(
+                    self.create_ip(2, host), self.create_mac(2, host), self.V200, host)
+
 
 class ValveTestCase(ValveTestBases.ValveTestBig):
     """Run complete set of basic tests."""
 
-    pass
 
 
 class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):
@@ -2825,182 +2998,19 @@ dps:
         self.assertEqual(len(self.get_valve(0x3).get_tunnel_flowmods()), 2)
 
 
-class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestSmall):
+class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):
     """Test inter-vlan routing with stacking capabilities in an IPV4 network"""
 
-    V100 = 0x100
-    V200 = 0x200
-    VLAN100_FAUCET_MAC = '00:00:00:00:00:11'
     VLAN100_FAUCET_VIPS = '10.0.1.254'
     VLAN100_FAUCET_VIP_SPACE = '10.0.1.254/24'
-    VLAN200_FAUCET_MAC = '00:00:00:00:00:22'
     VLAN200_FAUCET_VIPS = '10.0.2.254'
     VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
-    BASE_CONFIG = """
-routers:
-    router1:
-        vlans: [vlan100, vlan200]
-dps:
-    s1:
-        hardware: 'GenericTFM'
-        dp_id: 0x1
-        stack: {priority: 1}
-        interfaces:
-            1:
-                native_vlan: vlan100
-            2:
-                native_vlan: vlan200
-            3:
-                stack: {dp: s2, port: 3}
-    s2:
-        dp_id: 0x2
-        interfaces:
-            1:
-                native_vlan: vlan100
-            2:
-                native_vlan: vlan200
-            3:
-                stack: {dp: s1, port: 3}
-            4:
-                stack: {dp: s3, port: 3}
-    s3:
-        dp_id: 0x3
-        interfaces:
-            1:
-                native_vlan: vlan100
-            2:
-                native_vlan: vlan200
-            3:
-                stack: {dp: s2, port: 4}
-            4:
-                stack: {dp: s4, port: 3}
-    s4:
-        dp_id: 0x4
-        interfaces:
-            1:
-                native_vlan: vlan100
-            2:
-                native_vlan: vlan200
-            3:
-                stack: {dp: s3, port: 4}
-"""
-
-    def create_config(self):
-        """Create the config file"""
-        self.CONFIG = """
-vlans:
-    vlan100:
-        vid: 0x100
-        faucet_mac: %s
-        faucet_vips: [%s]
-    vlan200:
-        vid: 0x200
-        faucet_mac: %s
-        faucet_vips: [%s]
-%s
-""" % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
-       self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
-       self.BASE_CONFIG)
 
     def setUp(self):
-        self.create_config()
-        self.setup_valve(self.CONFIG)
-        for valve in self.valves_manager.valves.values():
-            valve.dp.dyn_running = True
-            for port in valve.dp.ports.values():
-                port.dyn_finalized = False
-                port.enabled = True
-                port.dyn_phys_up = True
-                port.dyn_finalized = True
-
-    def ip_to_address(self, ip_string, vid):
-        """Turns an IP address string into an IPV4 address object"""
-        return ipaddress.IPv4Address(ip_string)
-
-    def create_mac(self, vindex, host):
-        """Create a MAC address string"""
-        return '00:00:00:0%u:00:0%u' % (vindex, host)
-
-    def create_ip(self, vindex, host):
-        """Create a IP address string"""
-        return '10.0.%u.%u' % (vindex, host)
-
-    def create_match(self, vindex, host, faucet_mac, faucet_vip, code):
-        """Create an ARP reply message"""
-        return {
-            'eth_src': self.create_mac(vindex, host),
-            'eth_dst': faucet_mac,
-            'arp_code': code,
-            'arp_source_ip': self.create_ip(vindex, host),
-            'arp_target_ip': faucet_vip
-        }
-
-    def get_eth_type(self, vid):
-        """Returns IPV4 ether type"""
-        return valve_of.ether.ETH_TYPE_IP
-
-    def valve_rcv_packet(self, port, vid, match, dp_id):
-        """Simulate control plane receiving a packet on a port/VID."""
-        valve = self.valves_manager.valves[dp_id]
-        pkt = build_pkt(match)
-        vlan_pkt = pkt
-        if vid and vid not in match:
-            vlan_match = match
-            vlan_match['vid'] = vid
-            vlan_pkt = build_pkt(match)
-        msg = namedtuple(
-            'null_msg',
-            ('match', 'in_port', 'data', 'total_len', 'cookie', 'reason'))(
-                {'in_port': port}, port, vlan_pkt.data, len(vlan_pkt.data),
-                valve.dp.cookie, valve_of.ofp.OFPR_ACTION)
-        self.last_flows_to_dp[dp_id] = []
-        now = time.time()
-        self.valves_manager.valve_packet_in(now, valve, msg)
-        rcv_packet_ofmsgs = self.last_flows_to_dp[dp_id]
-        for valve_service in (
-                'resolve_gateways', 'advertise', 'fast_advertise', 'state_expire'):
-            self.valves_manager.valve_flow_services(
-                now, valve_service)
-        self.valves_manager.update_metrics(now)
-        return rcv_packet_ofmsgs
-
-    def verify_router_cache(self, ip_match, eth_match, vid, dp_id):
-        """Verify router nexthop cache stores correct values"""
-        host_valve = self.valves_manager.valves[dp_id]
-        for valve in self.valves_manager.valves.values():
-            vlan = valve.dp.vlans[vid]
-            route_manager = valve._route_manager_by_eth_type.get(
-                self.get_eth_type(vid), None)
-            vlan_nexthop_cache = route_manager._vlan_nexthop_cache(vlan)
-            self.assertTrue(vlan_nexthop_cache)
-            ip = self.ip_to_address(ip_match, vid)
-            #Check IP address is properly cached
-            self.assertIn(ip, vlan_nexthop_cache)
-            nexthop = vlan_nexthop_cache[ip]
-            #Check MAC address is properly cached
-            self.assertEqual(eth_match, nexthop.eth_src)
-            if host_valve != valve:
-                #Check the proper nexthop port is cached
-                expected_port = valve.dp.shortest_path_port(host_valve.dp.name)
-                self.assertEqual(expected_port, nexthop.port)
-
-    def test_router_cache_learn_hosts(self):
-        """Have all router caches contain proper host nexthops"""
-        #Learn Vlan100 hosts
-        for host in [1, 2, 3, 4]:
-            self.valve_rcv_packet(1, self.V100, self.create_match(
-                1, host, self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIPS, arp.ARP_REPLY), host)
-            self.verify_router_cache(
-                self.create_ip(1, host), self.create_mac(1, host), self.V100, host)
-        #Learn Vlan200 hosts
-        for host in [1, 2, 3, 4]:
-            self.valve_rcv_packet(2, self.V200, self.create_match(
-                2, host, self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIPS, arp.ARP_REPLY), host)
-            self.verify_router_cache(
-                self.create_ip(2, host), self.create_mac(2, host), self.V200, host)
+        self.setup_stack_routing()
 
 
-class ValveTestIPV6StackedRouting(ValveTestIPV4StackedRouting):
+class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
     """Test inter-vlan routing with stacking capabilities in an IPV6 network"""
 
     VLAN100_FAUCET_VIPS = 'fc80::1:254'
@@ -3008,13 +3018,18 @@ class ValveTestIPV6StackedRouting(ValveTestIPV4StackedRouting):
     VLAN100_FAUCET_VIP_SPACE = 'fc80::1:254/64'
     VLAN200_FAUCET_VIP_SPACE = 'fc80::1:254/64'
 
-    def ip_to_address(self, ip_string, vid):
-        """Turns an IP address string into an IPV6 address object"""
-        return ipaddress.IPv6Address(ip_string)
+    def setUp(self):
+        self.setup_stack_routing()
 
-    def create_ip(self, vindex, host):
+    @staticmethod
+    def create_ip(vindex, host):
         """Create a IP address string"""
         return 'fc80::%u:%u' % (vindex, host)
+
+    @staticmethod
+    def get_eth_type():
+        """Returns IPV6 ether type"""
+        return valve_of.ether.ETH_TYPE_IPV6
 
     def create_match(self, vindex, host, faucet_mac, faucet_vip, code):
         """Create an NA message"""
@@ -3025,10 +3040,6 @@ class ValveTestIPV6StackedRouting(ValveTestIPV4StackedRouting):
             'ipv6_dst': faucet_vip,
             'neighbor_advert_ip': self.create_ip(vindex, host)
         }
-
-    def get_eth_type(self, vid):
-        """Returns IPV6 ether type"""
-        return valve_of.ether.ETH_TYPE_IPV6
 
 
 class ValveGroupTestCase(ValveTestBases.ValveTestSmall):
