@@ -8,4 +8,5 @@ Tutorials
     acls
     vlans
     routing
+    stacking
     nfv_services
