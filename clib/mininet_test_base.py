@@ -1431,7 +1431,7 @@ dbs:
             tcpdump_txt = self.tcpdump_helper(
                 host_b, tcpdump_filter,
                 [partial(host_a.cmd, self.scapy_bcast(host_a), packets)],
-                packets=1, timeout=(packets + 2))
+                packets=1, timeout=2)
             msg = '%s (%s) -> %s (%s): %s' % (
                 host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
             received_packets = host_a.MAC() in tcpdump_txt
@@ -1440,7 +1440,7 @@ dbs:
                     return
             else:
                 self.assertFalse(received_packets, msg=msg)
-            time.sleep(1)
+            time.sleep(0.1)
         self.assertEqual(
             broadcast_expected, received_packets, msg=msg)
 
@@ -1457,7 +1457,7 @@ dbs:
         for _ in range(packets):
             tcpdump_txt = self.tcpdump_helper(
                 host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)], vflags='-vv',
-                packets=1, timeout=(packets + 2))
+                packets=1, timeout=2)
             received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
             received_packets = not received_no_packets
             msg = '%s (%s) -> %s (%s): %s' % (
@@ -1467,7 +1467,7 @@ dbs:
                     return
             else:
                 self.assertTrue(received_no_packets, msg=msg)
-            time.sleep(1)
+            time.sleep(0.1)
         self.assertEqual(unicast_expected, received_packets, msg=msg)
 
     def verify_empty_caps(self, cap_files):
