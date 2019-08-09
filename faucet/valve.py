@@ -19,7 +19,6 @@
 
 import copy
 import logging
-import random
 
 from collections import defaultdict, deque
 
@@ -1389,7 +1388,7 @@ class Valve:
         if pkt_meta.port.stack:
             peer_dp = pkt_meta.port.stack['dp']
             unicast_dst = valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)
-            if peer_dp.dyn_running and unicast_dst and random.random() > 0.5:
+            if peer_dp.dyn_running and unicast_dst:
                 # Received the packet from an adjacent DP, but do not know the eth_src,
                 # let the other valve learn it.
                 return {}
