@@ -612,12 +612,13 @@ class Valve:
 
     def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""
-        for port in self.dp.ports.values():
-            if port.dyn_lldp_beacon_recv_state:
-                age = now - port.dyn_lldp_beacon_recv_time
-                if age > self.dp.lldp_beacon['send_interval'] * 3:
-                    self.logger.info('LLDP for %s inactive after %us' % (port, age))
-                    port.dyn_lldp_beacon_recv_state = None
+        if self.dp.lldp_beacon:
+            for port in self.dp.ports.values():
+                if port.dyn_lldp_beacon_recv_state:
+                    age = now - port.dyn_lldp_beacon_recv_time
+                    if age > self.dp.lldp_beacon['send_interval'] * 3:
+                        self.logger.info('LLDP for %s inactive after %us' % (port, age))
+                        port.dyn_lldp_beacon_recv_state = None
         return self._update_stack_link_state(self.dp.stack_ports, now, other_valves)
 
     def _reset_dp_status(self):
