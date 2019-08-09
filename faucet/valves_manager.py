@@ -141,6 +141,8 @@ class ValvesManager:
             if self.meta_dp_state.stack_root_name:
                 stack_change = True
             self.meta_dp_state.stack_root_name = new_stack_root_name
+            dpids = [dp.dp_id for dp in stacked_dps if dp.name == new_stack_root_name]
+            self.metrics.faucet_stack_root_dpid.set(dpids[0])
         else:
             inconsistent_dps = [
                 dp.name for dp in stacked_dps
