@@ -1427,14 +1427,22 @@ dbs:
             host_a, host_b = hosts
         tcpdump_filter = (
             'ether dst host ff:ff:ff:ff:ff:ff and ether src host %s' % host_a.MAC())
-        tcpdump_txt = self.tcpdump_helper(
-            host_b, tcpdump_filter,
-            [partial(host_a.cmd, self.scapy_bcast(host_a), packets)],
-            packets=(packets - 1), timeout=(packets + 2))
-        msg = '%s (%s) -> %s (%s): %s' % (
-            host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
+        for _ in range(packets):
+            tcpdump_txt = self.tcpdump_helper(
+                host_b, tcpdump_filter,
+                [partial(host_a.cmd, self.scapy_bcast(host_a), packets)],
+                packets=1, timeout=(packets + 2))
+            msg = '%s (%s) -> %s (%s): %s' % (
+                host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
+            received_packets = host_a.MAC() in tcpdump_txt
+            if broadcast_expected:
+                if received_packets:
+                    return
+            else:
+                self.assertFalse(received_packets, msg=msg)
+            time.sleep(1)
         self.assertEqual(
-            broadcast_expected, host_a.MAC() in tcpdump_txt, msg=msg)
+            broadcast_expected, received_packets, msg=msg)
 
     def verify_unicast(self, hosts, unicast_expected=True, packets=3):
         host_a = self.net.hosts[0]
@@ -1444,21 +1452,23 @@ dbs:
         scapy_cmd = self.scapy_template(
             ('Ether(src=\'%s\', dst=\'%s\', type=%u) / '
              'IP(src=\'10.0.0.1\', dst=\'10.0.0.2\') / UDP(dport=67,sport=68)') % (
-                 host_a.MAC(), host_b.MAC(), IPV4_ETH), host_a.defaultIntf(), packets)
+                 host_a.MAC(), host_b.MAC(), IPV4_ETH), host_a.defaultIntf(), 1)
         tcpdump_filter = 'ip and ether src %s and ether dst %s' % (host_a.MAC(), host_b.MAC())
-        # Wait for at least one packet.
-        tcpdump_txt = self.tcpdump_helper(
-            host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)], vflags='-vv',
-            packets=1, timeout=(packets + 2))
-        received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
-        msg = '%s (%s) -> %s (%s): %s' % (
-            host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
-        if unicast_expected:
-            # We expect unicast connectivity, so we should have got at least one packet.
-            self.assertFalse(received_no_packets, msg=msg)
-        else:
-            # We expect no unicast connectivity, so we must get no packets.
-            self.assertTrue(received_no_packets, msg=msg)
+        for _ in range(packets):
+            tcpdump_txt = self.tcpdump_helper(
+                host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)], vflags='-vv',
+                packets=1, timeout=(packets + 2))
+            received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
+            received_packets = not received_no_packets
+            msg = '%s (%s) -> %s (%s): %s' % (
+                host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
+            if unicast_expected:
+                if received_packets:
+                    return
+            else:
+                self.assertTrue(received_no_packets, msg=msg)
+            time.sleep(1)
+        self.assertEqual(unicast_expected, received_packets, msg=msg)
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
