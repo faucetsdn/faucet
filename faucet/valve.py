@@ -19,6 +19,7 @@
 
 import copy
 import logging
+import random
 
 from collections import defaultdict, deque
 
@@ -1387,7 +1388,7 @@ class Valve:
             return {self: ban_rules}
         if pkt_meta.port.stack:
             peer_dp = pkt_meta.port.stack['dp']
-            if peer_dp.dyn_running:
+            if peer_dp.dyn_running and random.random() > 0.5:
                 # Received the packet from an adjacent DP, but do not know the eth_src,
                 # let the other valve learn it.
                 return {}
