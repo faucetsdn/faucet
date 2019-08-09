@@ -40,9 +40,6 @@ class ValveFloodManager(ValveManagerBase):
         (False, valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)), # eth broadcasts
     )
 
-    EXT_PORT_FLAG = 1
-    NONEXT_PORT_FLAG = 0
-
     def __init__(self, logger, flood_table, pipeline,
                  use_group_table, groups, combinatorial_port_flood):
         self.logger = logger
@@ -97,7 +94,7 @@ class ValveFloodManager(ValveManagerBase):
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port, exclude_all_external=False):
         tagged_flood_ports = vlan.tagged_flood_ports(exclude_unicast)
         has_external = vlan.loop_protect_external_ports() and tagged_flood_ports
-        pcp_prefix = [self._set_ext_flag(self.EXT_PORT_FLAG)] if has_external else []
+        pcp_prefix = [self._set_ext_flag(valve_packet.PCP_EXT_PORT_FLAG)] if has_external else []
         return pcp_prefix + self._build_flood_local_rule_actions(
             vlan, exclude_unicast, in_port, exclude_all_external)
 
@@ -345,10 +342,10 @@ class ValveFloodStackManager(ValveFloodManager):
         self._set_ext_port_flag = []
         self._set_nonext_port_flag = []
         if self.externals:
-            self._set_ext_port_flag = [self._set_ext_flag(self.EXT_PORT_FLAG)]
-            self._set_nonext_port_flag = [self._set_ext_flag(self.NONEXT_PORT_FLAG)]
+            self._set_ext_port_flag = [self._set_ext_flag(valve_packet.PCP_EXT_PORT_FLAG)]
+            self._set_nonext_port_flag = [self._set_ext_flag(valve_packet.PCP_NONEXT_PORT_FLAG)]
         self._flood_actions_func = self._flood_actions
-        stack_size = self.longest_path_to_root_len()
+        stack_size = self.longest_path_to_root_len
         if stack_size == 2:
             self._flood_actions_func = self._flood_actions_size2
 
@@ -583,11 +580,11 @@ class ValveFloodStackManager(ValveFloodManager):
                     ofmsgs.extend(self.pipeline.remove_filter(
                         match, priority_offset=priority_offset))
 
-            if self.externals and external_ports:
+            if self.externals:
                 # If external flag is set, flood to external ports, otherwise exclude them.
                 for ext_port_flag, exclude_all_external in (
-                        (self.NONEXT_PORT_FLAG, True),
-                        (self.EXT_PORT_FLAG, False)):
+                        (valve_packet.PCP_NONEXT_PORT_FLAG, True),
+                        (valve_packet.PCP_EXT_PORT_FLAG, False)):
                     if not prune:
                         flood_acts, _, _ = self._build_flood_acts_for_port(
                             vlan, exclude_unicast, port, exclude_all_external=exclude_all_external)

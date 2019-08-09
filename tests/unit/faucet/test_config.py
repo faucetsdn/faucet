@@ -68,11 +68,8 @@ class TestConfig(unittest.TestCase): # pytype: disable=module-attr
         self.assertEqual(config_success, True, config_err)
 
     def _get_dps_as_dict(self, config):
-        result = {}
-        _, dps = cp.dp_parser(self.create_config_file(config), LOGNAME)
-        for dp in dps:
-            result[dp.dp_id] = dp
-        return result
+        _, dps, _ = cp.dp_parser(self.create_config_file(config), LOGNAME)
+        return {dp.dp_id: dp for dp in dps}
 
     def test_one_port_dp(self):
         """Test basic port configuration."""
@@ -128,7 +125,7 @@ vlans:
     office:
         vid: 100
 dps:
-    sw1:
+    t1-1:
         dp_id: 0x1
         hardware: "Open vSwitch"
         stack:
@@ -136,20 +133,43 @@ dps:
         interfaces:
             1:
                 stack:
-                    dp: sw2
+                    dp: t2-1
                     port: 1
             2:
                 native_vlan: office
-    sw2:
+            3:
+                native_vlan: office
+                loop_protect_external: True
+    t1-2:
         dp_id: 0x2
+        hardware: "Open vSwitch"
+        stack:
+            priority: 2
+        interfaces:
+            1:
+                stack:
+                    dp: t2-1
+                    port: 2
+            2:
+                native_vlan: office
+            3:
+                native_vlan: office
+                loop_protect_external: True
+    t2-1:
+        dp_id: 0x3
         hardware: "Open vSwitch"
         interfaces:
             1:
                 stack:
-                    dp: sw1
+                    dp: t1-1
                     port: 1
             2:
+                stack:
+                    dp: t1-2
+                    port: 1
+            3:
                 native_vlan: office
+                loop_protect_external: False
 """
         self.check_config_success(config, cp.dp_parser)
         dps = self._get_dps_as_dict(config)
@@ -157,28 +177,35 @@ dps:
             self.assertTrue(
                 dp.stack is not None, 'stack not configured for DP')
             self.assertEqual(
-                dp.stack['root_dp'].dp_id, 1, 'root_dp configured incorrectly')
+                dp.stack_root_name, 't1-1', 'root_dp configured incorrectly')
+            self.assertEqual(
+                dp.stack_roots_names, ('t1-1', 't1-2'), 'root_dps configured incorrectly')
             self.assertEqual(
                 len(dp.stack['graph'].nodes),
-                2,
+                3,
                 'stack graph has incorrect nodes'
                 )
-        for dp_id, remote_dp_id in ((1, 2), (2, 1)):
-            stack_port = dps[dp_id].stack_ports[0]
-            self.assertEqual(
-                stack_port.number, 1, 'incorrect stack port configured')
             self.assertTrue(
-                stack_port.stack is not None, 'stack not configured for port')
-            self.assertEqual(
-                stack_port.stack['dp'].dp_id,
-                remote_dp_id,
-                'remote stack dp configured incorrectly'
-                )
-            self.assertEqual(
-                stack_port.stack['port'].number,
-                1,
-                'remote stack port configured incorrectly'
-                )
+                dp.has_externals,
+                'All DPs must have external flag set if one DP has it')
+
+        t2_dpid = 0x3
+        for root_dpid in (1, 2):
+            root_stack_port = dps[root_dpid].stack_ports[0]
+            t2_stack_port = dps[t2_dpid].stack_ports[root_dpid-1]
+            stack_link_a = (root_dpid, root_stack_port)
+            stack_link_b = (t2_dpid, t2_stack_port)
+            for dpid_a, port_a, dpid_b, port_b in (
+                    (stack_link_a + stack_link_b),
+                    (stack_link_b + stack_link_a)):
+                self.assertEqual(
+                    port_a.stack['dp'].dp_id,
+                    dpid_b,
+                    'remote stack dp configured incorrectly')
+                self.assertEqual(
+                    port_a.stack['port'].number,
+                    port_b.number,
+                    'remote stack dp configured incorrectly')
 
     def test_config_stack_and_non_stack(self):
         """Test stack and non-stacking config."""
@@ -746,7 +773,7 @@ dps:
                 native_vlan: 'v100'
 """
         conf_file = self.create_config_file(config)
-        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
         outputs = {
             's1': 2,
             's2': 3
@@ -787,7 +814,7 @@ dps:
                 description: "video conf"
 """
         conf_file = self.create_config_file(config)
-        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
         dp = dps[0]
         self.assertEqual(len(dp.ports), 8)
         self.assertTrue(all([p.permanent_learn for p in dp.ports.values() if p.number < 9]))
@@ -809,7 +836,7 @@ dps:
                 native_vlan: office
 """
         conf_file = self.create_config_file(config)
-        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
         dp = dps[0]
         self.assertEqual(len(dp.ports), 1)
 

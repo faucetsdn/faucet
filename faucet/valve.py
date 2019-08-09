@@ -195,7 +195,7 @@ class Valve:
                 self.dp.combinatorial_port_flood,
                 self.dp.stack_ports, self.dp.has_externals,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port,
-                self.dp.longest_path_to_root_len, self.dp.is_stack_root,
+                self.dp.stack_longest_path_to_root_len, self.dp.is_stack_root,
                 self.dp.stack.get('graph', None))
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
@@ -211,7 +211,8 @@ class Valve:
             self.dp.vlans, self.dp.tables['eth_src'],
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack)
+            self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack,
+            self.dp.has_externals)
         if any(t in self.dp.tables for t in ('port_acl', 'vlan_acl', 'egress_acl'))\
                 or self.dp.tunnel_acls:
             self.acl_manager = valve_acl.ValveAclManager(
@@ -673,8 +674,8 @@ class Valve:
             actions.extend(valve_of.push_vlan_act(
                 vlan_table, vlan.vid))
             match_vlan = NullVLAN()
-        if vlan.loop_protect_external_ports():
-            vlan_pcp = 0 if port.loop_protect_external else 1
+        if self.dp.has_externals:
+            vlan_pcp = valve_packet.PCP_NONEXT_PORT_FLAG if port.loop_protect_external else valve_packet.PCP_EXT_PORT_FLAG
             actions.append(valve_of.set_field(**{STACK_LOOP_PROTECT_FIELD: vlan_pcp}))
         inst = [
             valve_of.apply_actions(actions),

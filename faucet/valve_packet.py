@@ -68,6 +68,11 @@ LACP_SIZE = 124
 EUI_BITS = len(EUI(0).packed*8)
 MAC_MASK_BITMAP = {(2**EUI_BITS - 2**i): (EUI_BITS - i) for i in range(0, EUI_BITS + 1)}
 
+# https://en.wikipedia.org/wiki/IEEE_P802.1p
+# Avoid use of PCP 1 which is BK priority (lowest)
+PCP_EXT_PORT_FLAG = 2
+PCP_NONEXT_PORT_FLAG = 0
+
 
 def mac_mask_bits(mac_mask):
     """Return number of bits in MAC mask or 0."""

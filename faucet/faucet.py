@@ -42,38 +42,36 @@ from faucet import faucet_metrics
 from faucet import valve_of
 
 
-class EventFaucetExperimentalAPIRegistered(event.EventBase): # pylint: disable=too-few-public-methods
+class EventFaucetExperimentalAPIRegistered(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to notify that the API is registered with Faucet."""
-    pass
 
 
-class EventFaucetMetricUpdate(event.EventBase): # pylint: disable=too-few-public-methods
+class EventFaucetMaintainStackRoot(event.EventBase):  # pylint: disable=too-few-public-methods
+    """Event used to maintain stack root."""
+
+
+class EventFaucetMetricUpdate(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger update of metrics."""
-    pass
 
 
-class EventFaucetResolveGateways(event.EventBase): # pylint: disable=too-few-public-methods
+class EventFaucetResolveGateways(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger gateway re/resolution."""
-    pass
 
 
-class EventFaucetStateExpire(event.EventBase): # pylint: disable=too-few-public-methods
+class EventFaucetStateExpire(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger expiration of state in controller."""
-    pass
 
-class EventFaucetFastStateExpire(event.EventBase): # pylint: disable=too-few-public-methods
+
+class EventFaucetFastStateExpire(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger fast expiration of state in controller."""
-    pass
 
 
-class EventFaucetAdvertise(event.EventBase): # pylint: disable=too-few-public-methods
+class EventFaucetAdvertise(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger periodic network advertisements (eg IPv6 RAs)."""
-    pass
 
 
-class EventFaucetFastAdvertise(event.EventBase): # pylint: disable=too-few-public-methods
+class EventFaucetFastAdvertise(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger periodic fast network advertisements (eg LACP)."""
-    pass
 
 
 
@@ -90,6 +88,7 @@ class Faucet(RyuAppBase):
     _EVENTS = [EventFaucetExperimentalAPIRegistered]
     _VALVE_SERVICES = {
         EventFaucetMetricUpdate: (None, 5),
+        EventFaucetMaintainStackRoot: (None, valves_manager.STACK_ROOT_STATE_UPDATE_TIME),
         EventFaucetResolveGateways: ('resolve_gateways', 2),
         EventFaucetStateExpire: ('state_expire', 5),
         EventFaucetFastStateExpire: ('fast_state_expire', 2),
@@ -205,6 +204,11 @@ class Faucet(RyuAppBase):
         """Handle a request to update metrics in the controller."""
         self.valves_manager.update_metrics(time.time())
 
+    @set_ev_cls(EventFaucetMaintainStackRoot, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
+    def _maintain_stack_root(self, _):
+        self.valves_manager.maintain_stack_root(time.time())
+
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetFastStateExpire, MAIN_DISPATCHER)
@@ -281,7 +285,8 @@ class Faucet(RyuAppBase):
             port.port_no for port in list(ryu_dp.ports.values())
             if (valve_of.port_status_from_state(port.state) and
                 not valve_of.ignore_port(port.port_no))}
-        self._send_flow_msgs(valve, valve.datapath_connect(now, discovered_up_ports))
+        self._send_flow_msgs(
+            valve, self.valves_manager.datapath_connect(now, valve, discovered_up_ports))
         self.valves_manager.update_config_applied({valve.dp.dp_id: True})
 
     @kill_on_exception(exc_logname)
