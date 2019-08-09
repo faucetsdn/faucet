@@ -101,6 +101,19 @@ class ValvesManager:
         self.config_watcher = ConfigWatcher()
         self.meta_dp_state = MetaDPState()
 
+    def healthy_stack_roots(self, now, stacked_dps, candidate_stack_roots_names):
+        """Return list of healthy stack root names."""
+        # A healthy stack root is one that attempted connection recently,
+        # or was known to be running recently.
+        # TODO: timeout should be configurable
+        health_timeout = now - STACK_ROOT_DOWN_TIME
+        # TODO: consider a stack root that is up, but has all stack links down, unhealthy.
+        healthy_stack_roots_names = [
+            dp.name for dp in stacked_dps
+            if (self.meta_dp_state.dp_last_live_time.get(dp.name, 0) > health_timeout and
+                dp.name in candidate_stack_roots_names)]
+        return healthy_stack_roots_names
+
     def maintain_stack_root(self, now):
         """Maintain current stack root."""
         for valve in self.valves.values():
@@ -111,14 +124,9 @@ class ValvesManager:
         if not stacked_dps:
             return
 
-        # A healthy stack root is one that attempted connection recently,
-        # or was known to be running recently.
         candidate_stack_roots_names = stacked_dps[0].stack_roots_names
-        health_timeout = now - STACK_ROOT_DOWN_TIME
-        healthy_stack_roots_names = [
-            dp.name for dp in stacked_dps
-            if (self.meta_dp_state.dp_last_live_time.get(dp.name, 0) > health_timeout
-                and dp.name in candidate_stack_roots_names)]
+        healthy_stack_roots_names = self.healthy_stack_roots(
+            now, stacked_dps, candidate_stack_roots_names)
 
         # Pick first root that is considered healthy or just the first if none are.
         if healthy_stack_roots_names:
@@ -131,10 +139,8 @@ class ValvesManager:
             self.logger.info('stack root changed from %s to %s' % (
                 self.meta_dp_state.stack_root_name, new_stack_root_name))
             if self.meta_dp_state.stack_root_name:
-                self.meta_dp_state.stack_root_name = new_stack_root_name
                 stack_change = True
-            else:
-                self.meta_dp_state.stack_root_name = new_stack_root_name
+            self.meta_dp_state.stack_root_name = new_stack_root_name
         else:
             inconsistent_dps = [
                 dp.name for dp in stacked_dps
@@ -156,7 +162,8 @@ class ValvesManager:
         """Return parsed configs for Valves, or None."""
         self.metrics.faucet_config_hash_func.labels(algorithm=CONFIG_HASH_FUNC)
         try:
-            new_conf_hashes, new_dps, top_conf = dp_parser(new_config_file, self.logname, self.meta_dp_state)
+            new_conf_hashes, new_dps, top_conf = dp_parser(
+                new_config_file, self.logname, self.meta_dp_state)
             self.config_watcher.update(new_config_file, new_conf_hashes)
             new_present_conf_hashes = [
                 (conf_file, conf_hash) for conf_file, conf_hash in sorted(new_conf_hashes.items())

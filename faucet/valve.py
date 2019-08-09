@@ -675,7 +675,10 @@ class Valve:
                 vlan_table, vlan.vid))
             match_vlan = NullVLAN()
         if self.dp.has_externals:
-            vlan_pcp = valve_packet.PCP_NONEXT_PORT_FLAG if port.loop_protect_external else valve_packet.PCP_EXT_PORT_FLAG
+            if port.loop_protect_external:
+                vlan_pcp = valve_packet.PCP_NONEXT_PORT_FLAG
+            else:
+                vlan_pcp = valve_packet.PCP_EXT_PORT_FLAG
             actions.append(valve_of.set_field(**{STACK_LOOP_PROTECT_FIELD: vlan_pcp}))
         inst = [
             valve_of.apply_actions(actions),
