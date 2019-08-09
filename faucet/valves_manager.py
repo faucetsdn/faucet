@@ -122,7 +122,7 @@ class ValvesManager:
 
         stacked_dps = [valve.dp for valve in self.valves.values() if valve.dp.stack_root_name]
         if not stacked_dps:
-            False
+            return False
 
         candidate_stack_roots_names = stacked_dps[0].stack_roots_names
         healthy_stack_roots_names = self.healthy_stack_roots(
