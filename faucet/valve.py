@@ -1388,12 +1388,14 @@ class Valve:
             return {self: ban_rules}
         if pkt_meta.port.stack:
             peer_dp = pkt_meta.port.stack['dp']
-            if peer_dp.dyn_running and random.random() > 0.5:
+            unicast_dst = valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)
+            if peer_dp.dyn_running and unicast_dst and random.random() > 0.5:
                 # Received the packet from an adjacent DP, but do not know the eth_src,
                 # let the other valve learn it.
                 return {}
         ofmsgs_by_valve = {}
-        stacked_valves = set([self] + [valve for valve in other_valves if valve.dp.stack is not None])
+        stacked_valves = {self}.union({
+            valve for valve in other_valves if valve.dp.stack_root_name})
         for valve in stacked_valves:
             valve_pkt_meta = pkt_meta
             valve_other_valves = stacked_valves - {valve}
