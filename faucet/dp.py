@@ -34,6 +34,7 @@ from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.valve_table import ValveTable, ValveGroupTable
 
+
 # Documentation generated using documentation_generator.py
 # For attributues to be included in documentation they must
 # have a default value, and their descriptor must come
@@ -42,7 +43,8 @@ class DP(Conf):
     """Stores state related to a datapath controlled by Faucet, including
 configuration.
 """
-
+    DEFAULT_LLDP_SEND_INTERVAL = 5
+    DEFAULT_LLDP_MAX_PER_INTERVAL = 5
     mutable_attrs = frozenset(['stack', 'vlans'])
 
     # Values that are set to None will be set using set_defaults
@@ -368,10 +370,10 @@ configuration.
             self.learn_ban_timeout = self.learn_jitter
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
-            test_config_condition('send_interval' not in self.lldp_beacon, (
-                'lldp_beacon send_interval not set'))
-            test_config_condition('max_per_interval' not in self.lldp_beacon, (
-                'lldp_beacon max_per_interval not set'))
+            if 'send_interval' not in self.lldp_beacon:
+                self.lldp_beacon['send_interval'] = self.DEFAULT_LLDP_SEND_INTERVAL
+            if 'max_per_interval' not in self.lldp_beacon:
+                self.lldp_beacon['max_per_interval'] = self.DEFAULT_LLDP_MAX_PER_INTERVAL
             self.lldp_beacon = self._set_unknown_conf(
                 self.lldp_beacon, self.lldp_beacon_defaults_types)
             if self.lldp_beacon['system_name'] is None:

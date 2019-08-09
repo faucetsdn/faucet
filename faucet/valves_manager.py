@@ -110,19 +110,19 @@ class ValvesManager:
         # TODO: consider a stack root that is up, but has all stack links down, unhealthy.
         healthy_stack_roots_names = [
             dp.name for dp in stacked_dps
-            if (self.meta_dp_state.dp_last_live_time.get(dp.name, 0) > health_timeout and
+            if (self.meta_dp_state.dp_last_live_time.get(dp.name, 0) >= health_timeout and
                 dp.name in candidate_stack_roots_names)]
         return healthy_stack_roots_names
 
     def maintain_stack_root(self, now):
-        """Maintain current stack root."""
+        """Maintain current stack root and return True if stack root changes."""
         for valve in self.valves.values():
             if valve.dp.dyn_running:
                 self.meta_dp_state.dp_last_live_time[valve.dp.name] = now
 
         stacked_dps = [valve.dp for valve in self.valves.values() if valve.dp.stack_root_name]
         if not stacked_dps:
-            return
+            False
 
         candidate_stack_roots_names = stacked_dps[0].stack_roots_names
         healthy_stack_roots_names = self.healthy_stack_roots(
@@ -157,6 +157,7 @@ class ValvesManager:
                     healthy_stack_roots_names))
             dps = dp_preparsed_parser(self.meta_dp_state.top_conf, self.meta_dp_state)
             self._apply_configs(dps, now, None)
+        return stack_change
 
     def parse_configs(self, new_config_file):
         """Return parsed configs for Valves, or None."""

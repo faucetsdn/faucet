@@ -489,7 +489,7 @@ class Valve:
 
     def _send_lldp_beacon_on_port(self, port, now):
         chassis_id = str(self.dp.faucet_dp_mac)
-        ttl = self.dp.lldp_beacon['send_interval'] * 3
+        ttl = self.dp.lldp_beacon.get('send_interval', self.dp.DEFAULT_LLDP_SEND_INTERVAL) * 3
         org_tlvs = [
             (tlv['oui'], tlv['subtype'], tlv['info'])
             for tlv in port.lldp_beacon['org_tlvs']]
@@ -497,7 +497,7 @@ class Valve:
         org_tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(self.dp, port))
         system_name = port.lldp_beacon['system_name']
         if not system_name:
-            system_name = self.dp.lldp_beacon['system_name']
+            system_name = self.dp.lldp_beacon.get('system_name', self.dp.name)
         lldp_beacon_pkt = valve_packet.lldp_beacon(
             self.dp.faucet_dp_mac,
             chassis_id, port.number, ttl,
@@ -544,7 +544,8 @@ class Valve:
         remote_dp = port.stack['dp']
         stack_correct = port.dyn_stack_probe_info['stack_correct']
         remote_port_state = port.dyn_stack_probe_info['remote_port_state']
-        send_interval = remote_dp.lldp_beacon['send_interval']
+        send_interval = remote_dp.lldp_beacon.get(
+            'send_interval', remote_dp.DEFAULT_LLDP_SEND_INTERVAL)
         time_since_lldp_seen = now - last_seen_lldp_time
         num_lost_lldp = round(time_since_lldp_seen / float(send_interval))
 
