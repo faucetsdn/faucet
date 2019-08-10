@@ -7025,7 +7025,7 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetStringOfDPTest):
     NUM_DPS = 3
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetStackStringOfDPTagged0Test, self).setUp()
+        super(FaucetSingleStackStringOfDPTagged0Test, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
@@ -7046,7 +7046,7 @@ class FaucetSingleStackStringOfDPTagged1Test(FaucetStringOfDPTest):
     NUM_DPS = 3
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetStackStringOfDPTagged1Test, self).setUp()
+        super(FaucetSingleStackStringOfDPTagged1Test, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
