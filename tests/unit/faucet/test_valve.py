@@ -1470,14 +1470,22 @@ meters:
         VLAN100_FAUCET_VIP_SPACE = ''
         VLAN200_FAUCET_VIPS = ''
         VLAN200_FAUCET_VIP_SPACE = ''
-        BASE_CONFIG = """
+
+        V100_HOSTS = []
+        V200_HOSTS = []
+
+        def base_config(self):
+            """Create the base config"""
+            self.V100_HOSTS = [1, 2, 3, 4]
+            self.V200_HOSTS = [1, 2, 3, 4]
+            return """
     routers:
         router1:
             vlans: [vlan100, vlan200]
     dps:
         s1:
             hardware: 'GenericTFM'
-            dp_id: 0x1
+            dp_id: 1
             stack: {priority: 1}
             interfaces:
                 1:
@@ -1487,7 +1495,7 @@ meters:
                 3:
                     stack: {dp: s2, port: 3}
         s2:
-            dp_id: 0x2
+            dp_id: 2
             interfaces:
                 1:
                     native_vlan: vlan100
@@ -1498,7 +1506,7 @@ meters:
                 4:
                     stack: {dp: s3, port: 3}
         s3:
-            dp_id: 0x3
+            dp_id: 3
             interfaces:
                 1:
                     native_vlan: vlan100
@@ -1509,7 +1517,7 @@ meters:
                 4:
                     stack: {dp: s4, port: 3}
         s4:
-            dp_id: 0x4
+            dp_id: 4
             interfaces:
                 1:
                     native_vlan: vlan100
@@ -1534,7 +1542,7 @@ meters:
     %s
            """ % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
                   self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
-                  self.BASE_CONFIG)
+                  self.base_config())
 
         def setup_stack_routing(self):
             self.create_config()
@@ -1620,13 +1628,13 @@ meters:
         def test_router_cache_learn_hosts(self):
             """Have all router caches contain proper host nexthops"""
             # Learn Vlan100 hosts
-            for host in [1, 2, 3, 4]:
+            for host in self.V100_HOSTS:
                 self.valve_rcv_packet(1, self.V100, self.create_match(
                     1, host, self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIPS, arp.ARP_REPLY), host)
                 self.verify_router_cache(
                     self.create_ip(1, host), self.create_mac(1, host), self.V100, host)
             # Learn Vlan200 hosts
-            for host in [1, 2, 3, 4]:
+            for host in self.V200_HOSTS:
                 self.valve_rcv_packet(2, self.V200, self.create_match(
                     2, host, self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIPS, arp.ARP_REPLY), host)
                 self.verify_router_cache(
@@ -3005,6 +3013,121 @@ class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):
     VLAN100_FAUCET_VIP_SPACE = '10.0.1.254/24'
     VLAN200_FAUCET_VIPS = '10.0.2.254'
     VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
+
+    def setUp(self):
+        self.setup_stack_routing()
+
+
+class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRouting):
+    """Test stacked intervlan routing when each DP has only one of the routed VLANs"""
+
+    VLAN100_FAUCET_VIPS = '10.0.1.254'
+    VLAN100_FAUCET_VIP_SPACE = '10.0.1.254/24'
+    VLAN200_FAUCET_VIPS = '10.0.2.254'
+    VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
+
+    def base_config(self):
+        """Create the base config"""
+        self.V100_HOSTS = [1]
+        self.V200_HOSTS = [2]
+        return """
+    routers:
+        router1:
+            vlans: [vlan100, vlan200]
+    dps:
+        s1:
+            hardware: 'GenericTFM'
+            dp_id: 1
+            stack: {priority: 1}
+            interfaces:
+                1:
+                    native_vlan: vlan100
+                3:
+                    stack: {dp: s2, port: 3}
+        s2:
+            dp_id: 2
+            interfaces:
+                2:
+                    native_vlan: vlan200
+                3:
+                    stack: {dp: s1, port: 3}
+    """
+
+    def setUp(self):
+        self.setup_stack_routing()
+
+
+class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRouting):
+    """Test stacked intervlan routing when DP in path contains no routed VLANs"""
+
+    VLAN100_FAUCET_VIPS = '10.0.1.254'
+    VLAN100_FAUCET_VIP_SPACE = '10.0.1.254/24'
+    VLAN200_FAUCET_VIPS = '10.0.2.254'
+    VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
+
+    def create_config(self):
+        """Create the config file"""
+        self.CONFIG = """
+    vlans:
+        vlan100:
+            vid: 0x100
+            faucet_mac: '%s'
+            faucet_vips: ['%s']
+        vlan200:
+            vid: 0x200
+            faucet_mac: '%s'
+            faucet_vips: ['%s']
+        vlan300:
+            vid: 0x300
+    %s
+           """ % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
+                  self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
+                  self.base_config())
+
+    def base_config(self):
+        """Create the base config"""
+        self.V100_HOSTS = [1]
+        self.V200_HOSTS = [3]
+        return """
+    routers:
+        router1:
+            vlans: [vlan100, vlan200]
+    dps:
+        s1:
+            hardware: 'GenericTFM'
+            dp_id: 1
+            stack: {priority: 1}
+            interfaces:
+                1:
+                    native_vlan: vlan100
+                3:
+                    stack: {dp: s2, port: 3}
+        s2:
+            dp_id: 2
+            interfaces:
+                2:
+                    native_vlan: vlan300
+                3:
+                    stack: {dp: s1, port: 3}
+                4:
+                    stack: {dp: s3, port: 3}
+        s3:
+            dp_id: 3
+            interfaces:
+                2:
+                    native_vlan: vlan200
+                3:
+                    stack: {dp: s2, port: 4}
+                4:
+                    stack: {dp: s4, port: 3}
+        s4:
+            dp_id: 4
+            interfaces:
+                2:
+                    native_vlan: vlan300
+                3:
+                    stack: {dp: s3, port: 4}
+    """
 
     def setUp(self):
         self.setup_stack_routing()

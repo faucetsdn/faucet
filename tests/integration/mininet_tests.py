@@ -6789,9 +6789,11 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
 
     V100 = 100
     V200 = 200
+    V300 = 300
 
     V100_NUM_HOSTS = 1
     V200_NUM_HOSTS = 1
+    V300_NUM_HOSTS = 0
 
     FAUCET_MAC2 = '0e:00:00:00:00:02'
 
@@ -6819,10 +6821,13 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
                 'faucet_vips': [self.get_faucet_vip(2)]
             }
         }
+        untagged_hosts = {self.V100: self.V100_NUM_HOSTS,
+                          self.V200: self.V200_NUM_HOSTS,
+                          self.V300: self.V300_NUM_HOSTS}
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
-            untagged_hosts={self.V100: self.V100_NUM_HOSTS, self.V200: self.V200_NUM_HOSTS},
+            untagged_hosts=untagged_hosts,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
             hw_dpid=self.hw_dpid,
             router=router_info,
@@ -6852,7 +6857,7 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
 
     def verify_intervlan_routing(self):
         """Setup host routes and verify intervlan routing is possible"""
-        num_hosts = self.V100_NUM_HOSTS + self.V200_NUM_HOSTS
+        num_hosts = self.V100_NUM_HOSTS + self.V200_NUM_HOSTS + self.V300_NUM_HOSTS
         first_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(1))
         second_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(2))
         v100_hosts = [(self.net.hosts[i], ipaddress.ip_interface(
@@ -6913,6 +6918,73 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         self.set_up()
         self.verify_all_stack_up()
         self.verify_intervlan_routing()
+
+    def test_path_no_vlans(self):
+        """Test when a DP in the path of a intervlan route contains no routed VLANs"""
+        self.NUM_DPS = 3
+        self.set_up()
+        first_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(1))
+        second_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(2))
+        v100_host = self.net.hosts[0]
+        v100_host_ip = ipaddress.ip_interface(self.get_ip(1, 1))
+        v200_host = self.net.hosts[5]
+        v200_host_ip = ipaddress.ip_interface(self.get_ip(2, 2))
+        # Remove all hosts on the middle DP by chaning them to hosts on VLAN300
+        #   the middle DP now contains no hosts with VLAN 100 or VLAN 200
+        conf = self._get_faucet_conf()
+        interface_config = conf['dps']['faucet-2']['interfaces']
+        for port_key, port_dict in interface_config.items():
+            if 'stack' in port_dict:
+                continue
+            conf['dps']['faucet-2']['interfaces'][port_key]['native_vlan'] = self.V300
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=True, change_expected=True)
+        self.verify_all_stack_up()
+        self.set_host_ip(v100_host, v100_host_ip)
+        self.set_host_ip(v200_host, v200_host_ip)
+        self.add_host_route(v100_host, v200_host_ip, first_faucet_vip.ip)
+        self.add_host_route(v200_host, v100_host_ip, second_faucet_vip.ip)
+        self.host_ping(v100_host, v200_host_ip.ip)
+        self.host_ping(v200_host, v100_host_ip.ip)
+        self.assertEqual(
+            self._ip_neigh(v100_host, first_faucet_vip.ip, self.IPV), self.FAUCET_MAC)
+        self.assertEqual(
+            self._ip_neigh(v200_host, second_faucet_vip.ip, self.IPV), self.FAUCET_MAC2)
+
+    def test_dp_contains_only_one_vlan_from_router(self):
+        """Test when a DP has only one of the routed VLANs"""
+        self.NUM_DPS = 2
+        self.set_up()
+        first_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(1))
+        second_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(2))
+        v100_host = self.net.hosts[0]
+        v100_host_ip = ipaddress.ip_interface(self.get_ip(1, 1))
+        v200_host = self.net.hosts[3]
+        v200_host_ip = ipaddress.ip_interface(self.get_ip(2, 2))
+        # Remove host on VLAN100 by changing it to a host on VLAN300, there is now only
+        #   one host on the DP that is being routed (200)
+        conf = self._get_faucet_conf()
+        interface_config = conf['dps']['faucet-2']['interfaces']
+        for port_key, port_dict in interface_config.items():
+            if 'stack' in port_dict:
+                continue
+            if port_dict['native_vlan'] == self.V100:
+                conf['dps']['faucet-2']['interfaces'][port_key]['native_vlan'] = self.V300
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=True, change_expected=True)
+        self.verify_all_stack_up()
+        self.set_host_ip(v100_host, v100_host_ip)
+        self.set_host_ip(v200_host, v200_host_ip)
+        self.add_host_route(v100_host, v200_host_ip, first_faucet_vip.ip)
+        self.add_host_route(v200_host, v100_host_ip, second_faucet_vip.ip)
+        self.host_ping(v100_host, v200_host_ip.ip)
+        self.host_ping(v200_host, v100_host_ip.ip)
+        self.assertEqual(
+            self._ip_neigh(v100_host, first_faucet_vip.ip, self.IPV), self.FAUCET_MAC)
+        self.assertEqual(
+            self._ip_neigh(v200_host, second_faucet_vip.ip, self.IPV), self.FAUCET_MAC2)
 
 
 class FaucetUntaggedIPV6RoutingWithStackingTest(FaucetUntaggedIPV4RoutingWithStackingTest):
