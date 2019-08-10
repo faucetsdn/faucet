@@ -1388,7 +1388,7 @@ class Valve:
         if pkt_meta.port.stack:
             peer_dp = pkt_meta.port.stack['dp']
             unicast_dst = valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)
-            if peer_dp.dyn_running and unicast_dst:
+            if peer_dp.dyn_running and unicast_dst and peer_dp.dp_id < self.dp.dp_id:
                 # Received the packet from an adjacent DP, but do not know the eth_src,
                 # let the other valve learn it.
                 return {}
@@ -1401,13 +1401,13 @@ class Valve:
             ofmsgs = []
             if valve is not self:
                 stack_port = valve.dp.shortest_path_port(self.dp.name)
-                if stack_port and pkt_meta.vlan.vid in valve.dp.vlans:
-                    valve_vlan = valve.dp.vlans[pkt_meta.vlan.vid]
+                valve_vlan = valve.dp.vlans.get(pkt_meta.vlan.vid, None)
+                if stack_port and valve_vlan:
+                    valve_pkt_meta = copy.copy(pkt_meta)
+                    valve_pkt_meta.vlan = valve_vlan
+                    valve_pkt_meta.port = stack_port
                 else:
                     continue
-                valve_pkt_meta = copy.copy(pkt_meta)
-                valve_pkt_meta.vlan = valve_vlan
-                valve_pkt_meta.port = stack_port
             ofmsgs.extend(valve.learn_host(now, valve_pkt_meta, valve_other_valves))
             ofmsgs.extend(valve.router_rcv_packet(now, valve_pkt_meta))
             ofmsgs.extend(valve.router_learn_host(valve_pkt_meta))
