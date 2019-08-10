@@ -840,10 +840,13 @@ configuration.
         """Resets VLAN references."""
         if vlans is None:
             vlans = self.vlans
+            router_vlans = [vlan._id for router in self.routers.values() for vlan in router.vlans]
+        else:
+            router_vlans = [vlan for router in self.routers.values() for vlan in router.vlans]
         self.vlans = {}
         for vlan in vlans.values():
             vlan.reset_ports(self.ports.values())
-            if vlan.get_ports() or vlan.reserved_internal_vlan or vlan.dot1x_assigned:
+            if vlan.get_ports() or vlan.reserved_internal_vlan or vlan.dot1x_assigned or vlan._id in router_vlans:
                 self.vlans[vlan.vid] = vlan
 
     def resolve_port(self, port_name):

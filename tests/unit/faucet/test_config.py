@@ -2749,26 +2749,6 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_routers_unreferenced(self):
-        """Test with unreferenced router config."""
-        config = """
-routers:
-    router-1:
-        vlans: [guest]
-vlans:
-    office:
-        vid: 100
-    guest:
-        vid: 200
-dps:
-    sw1:
-        dp_id: 0x1
-        interfaces:
-            1:
-                native_vlan: office
-"""
-        self.check_config_failure(config, cp.dp_parser)
-
     def test_routers_overlapping_vips(self):
         """Test with unreferenced router config."""
         config = """
