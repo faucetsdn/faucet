@@ -6736,6 +6736,7 @@ class FaucetStringOfDPTest(FaucetTest):
                 dp_name = 'faucet-%u' % i
                 for link in self.non_host_links(dpid):
                     status = self.stack_port_status(dpid, dp_name, link.port)
+                    links += 1
                     if status == 3: # up
                         links_up += 1
             links_up = float(links_up)
