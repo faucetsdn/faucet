@@ -6737,10 +6737,8 @@ class FaucetStringOfDPTest(FaucetTest):
                 for link in self.non_host_links(dpid):
                     status = self.stack_port_status(dpid, dp_name, link.port)
                     links += 1
-                    if status == 3: # up
+                    if status == 3:  # up
                         links_up += 1
-            links_up = float(links_up)
-            links = float(links)
             prop_up = links_up / links
             if prop_up >= prop:
                 return
@@ -7119,7 +7117,7 @@ class FaucetSingleStackStringOfDPTagged1Test(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super(FaucetSingleStackStringOfDPTagged1Test, self).setUp()
         self.build_net(
             stack=True,
