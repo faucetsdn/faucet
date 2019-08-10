@@ -6712,12 +6712,12 @@ class FaucetStringOfDPTest(FaucetTest):
                     dpid=dpid, table_id=self._FLOOD_TABLE, ofa_match=False)
         self.retry_net_ping(retries=retries)
 
-    def stack_port_status(self, dpid, dp_name, port_no, timeout=25):
+    def stack_port_status(self, dpid, dp_name, port_no):
         labels = self.port_labels(port_no)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         return self.scrape_prometheus_var(
             'port_stack_state', labels=labels,
-            default=None, dpid=False, timeout=timeout)
+            default=None, dpid=False)
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         labels = self.port_labels(port_no)
