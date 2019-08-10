@@ -810,10 +810,15 @@ configuration.
         return (not self.is_stack_root() and
                 self.stack_longest_path_to_root_len == len(self.shortest_path_to_root()))
 
+    @staticmethod
+    def canonical_port_order(ports):
+        return sorted(ports, key=lambda x: x.number)
+
     def peer_stack_up_ports(self, peer_dp):
         """Return list of stack ports that are up towards a peer."""
-        return [port for port in self.stack_ports if port.running() and (
-            port.stack['dp'].name == peer_dp)]
+        return self.canonical_port_order([
+            port for port in self.stack_ports if port.running() and (
+                port.stack['dp'].name == peer_dp)])
 
     def shortest_path_port(self, dest_dp):
         """Return first port on our DP, that is the shortest path towards dest DP."""
