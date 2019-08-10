@@ -4871,7 +4871,7 @@ acls:
             actions:
                 output:
                     set_fields:
-                        - vlan_pcp: 2
+                        - vlan_pcp: 1
                 allow: 1
         - rule:
             actions:
@@ -4904,7 +4904,7 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'ping -c3 %s' % second_host.IP())], root_intf=True, packets=1)
-        self.assertTrue(re.search('vlan 100, p 2,', tcpdump_txt))
+        self.assertTrue(re.search('vlan 100, p 1,', tcpdump_txt))
 
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
@@ -6700,17 +6700,24 @@ class FaucetStringOfDPTest(FaucetTest):
             host.cmd(mininet_test_util.timeout_cmd(
                 'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC and not ether src %s &' % (
                     host.defaultIntf(), host.MAC(), lldp_cap_file), 60))
-        self.retry_net_ping(retries=retries)
-        # hosts should see no LLDP probes
-        self.verify_empty_caps(lldp_cap_files)
         # should not flood LLDP from hosts
         self.verify_lldp_blocked(self.net.hosts)
+        # hosts should see no LLDP probes
+        self.verify_empty_caps(lldp_cap_files)
         if verify_bridge_local_rule:
             # Verify 802.1x flood block triggered.
             for dpid in self.dpids:
                 self.wait_nonzero_packet_count_flow(
                     {'dl_dst': '01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
                     dpid=dpid, table_id=self._FLOOD_TABLE, ofa_match=False)
+        self.retry_net_ping(retries=retries)
+
+    def stack_port_status(self, dpid, dp_name, port_no):
+        labels = self.port_labels(port_no)
+        labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
+        return self.scrape_prometheus_var(
+            'port_stack_state', labels=labels,
+            default=None, dpid=False)
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         labels = self.port_labels(port_no)
@@ -6721,12 +6728,46 @@ class FaucetStringOfDPTest(FaucetTest):
             self.fail('did not get expected dpid %x port %u port_stack_state %u' % (
                 int(dpid), port_no, status))
 
-    def verify_all_stack_up(self):
-        for i, dpid in enumerate(self.dpids, start=1):
-            dp_name = 'faucet-%u' % i
-            for link in self.non_host_links(dpid):
-                self.wait_for_stack_port_status(
-                    dpid, dp_name, link.port, 3) # up
+    def verify_stack_up(self, prop=1.0, timeout=25):
+        for _ in range(timeout):
+            links = 0
+            links_up = 0
+            for i, dpid in enumerate(self.dpids, start=1):
+                dp_name = 'faucet-%u' % i
+                for link in self.non_host_links(dpid):
+                    status = self.stack_port_status(dpid, dp_name, link.port)
+                    links += 1
+                    if status == 3: # up
+                        links_up += 1
+            links_up = float(links_up)
+            links = float(links)
+            prop_up = links_up / links
+            if prop_up >= prop:
+                return
+            time.sleep(1)
+        self.fail('not enough links up: %f / %f' % (links_up, links))
+
+    def verify_one_stack_down(self, stack_offset_port, coldstart=False):
+        self.retry_net_ping()
+        stack_port = self.non_host_links(self.dpid)[stack_offset_port].port
+        remote_stack_port = self.non_host_links(self.dpid)[stack_offset_port].peer_port
+        self.set_port_down(stack_port, wait=False)
+        # self.dpids[1] is the intermediate switch.
+        self.set_port_down(remote_stack_port, self.dpids[1], wait=False)
+        # test case where one link is down when coldstarted.
+        if coldstart:
+            self.coldstart_conf()
+        self.verify_stack_up(prop=0.75)
+        self.verify_stack_hosts(verify_bridge_local_rule=False)
+        # Broadcast works, and first switch doesn't see broadcast packet ins from stack.
+        packet_in_before_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
+        self.verify_broadcast()
+        packet_in_after_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
+        self.assertEqual(
+            packet_in_before_broadcast,
+            packet_in_after_broadcast)
+        # TODO: re-enable.
+        # self.verify_no_cable_errors()
 
     def verify_no_arp_storm(self, ping_host, tcpdump_host):
         num_arp_expected = self.topo.switch_to_switch_links * 2
@@ -6749,7 +6790,7 @@ class FaucetStringOfDPTest(FaucetTest):
 
     def verify_all_stack_hosts(self):
         for _ in range(2):
-            self.verify_all_stack_up()
+            self.verify_stack_up()
             self.verify_no_cable_errors()
             self.verify_stack_hosts()
             self.verify_traveling_dhcp_mac()
@@ -6902,21 +6943,21 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         """Verify intervlan routing works with 2 DPs in a stack"""
         self.NUM_DPS = 2
         self.set_up()
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         self.verify_intervlan_routing()
 
     def test_intervlan_routing_stack_of_3_dp(self):
         """Verify intervlan routing works with 3 DPs in a stack"""
         self.NUM_DPS = 3
         self.set_up()
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         self.verify_intervlan_routing()
 
     def test_intervlan_routing_stack_of_4_dp(self):
         """Verify intervlan routing works with 4 DPs in a stack"""
         self.NUM_DPS = 4
         self.set_up()
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         self.verify_intervlan_routing()
 
     def test_path_no_vlans(self):
@@ -6940,7 +6981,7 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=True, change_expected=True)
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         self.set_host_ip(v100_host, v100_host_ip)
         self.set_host_ip(v200_host, v200_host_ip)
         self.add_host_route(v100_host, v200_host_ip, first_faucet_vip.ip)
@@ -6974,7 +7015,7 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=True, change_expected=True)
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         self.set_host_ip(v100_host, v100_host_ip)
         self.set_host_ip(v200_host, v200_host_ip)
         self.add_host_route(v100_host, v200_host_ip, first_faucet_vip.ip)
@@ -7051,13 +7092,13 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.verify_traveling_dhcp_mac()
 
 
-class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
+class FaucetSingleStackStringOfDPTagged0Test(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetStackStringOfDPTaggedTest, self).setUp()
+        super(FaucetSingleStackStringOfDPTagged0Test, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
@@ -7066,33 +7107,30 @@ class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
             switch_to_switch_links=2)
         self.start_net()
 
-    def verify_one_stack_down(self, stack_offset_port, coldstart=False):
-        self.retry_net_ping()
-        stack_port = self.non_host_links(self.dpid)[stack_offset_port].port
-        remote_stack_port = self.non_host_links(self.dpid)[stack_offset_port].peer_port
-        self.set_port_down(stack_port, wait=False)
-        # self.dpids[1] is the intermediate switch.
-        self.set_port_down(remote_stack_port, self.dpids[1], wait=False)
-        # test case where one link is down when coldstarted.
-        if coldstart:
-            self.coldstart_conf()
-        self.verify_stack_hosts(verify_bridge_local_rule=False)
-        # Broadcast works, and first switch doesn't see broadcast packet ins from stack.
-        packet_in_before_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
-        self.verify_broadcast()
-        packet_in_after_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
-        self.assertEqual(
-            packet_in_before_broadcast,
-            packet_in_after_broadcast)
-        # TODO: re-enable.
-        # self.verify_no_cable_errors()
-
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
+        self.verify_stack_up()
         for coldstart in (False, True):
             self.verify_one_stack_down(0, coldstart)
 
-    def test_other_tagged(self):
+
+class FaucetSingleStackStringOfDPTagged1Test(FaucetStringOfDPTest):
+    """Test topology of stacked datapaths with tagged hosts."""
+
+    NUM_DPS = 3
+
+    def setUp(self): # pylint: disable=invalid-name
+        super(FaucetSingleStackStringOfDPTagged1Test, self).setUp()
+        self.build_net(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_tagged=self.NUM_HOSTS,
+            tagged_vid=self.VID,
+            switch_to_switch_links=2)
+        self.start_net()
+
+    def test_tagged(self):
+        self.verify_stack_up()
         for coldstart in (False, True):
             self.verify_one_stack_down(1, coldstart)
 
@@ -7240,7 +7278,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
-        self.verify_all_stack_hosts()
+        self.verify_stack_hosts()
 
 
 class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
@@ -7262,6 +7300,8 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """Host can reach each other, unless both marked loop_protect_external"""
+        for host in self.net.hosts:
+            self.require_host_learned(host)
 
         # Part 1: Make sure things are connected properly.
         self._connections_aye() # Before reload
@@ -7282,12 +7322,11 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             restart=True, cold_start=False, change_expected=True)
 
     def _verify_link(self, hosts, expected):
-        self.verify_broadcast(hosts, expected)
         self.verify_unicast(hosts, expected)
+        self.verify_broadcast(hosts, expected)
 
     def _connections_aye(self):
-        self.verify_all_stack_up()
-
+        self.verify_stack_up()
         a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1 = self.net.hosts
         int_hosts = {a_int1, b_int1}
         ext_hosts = {a_ext1, a_ext2, b_ext1, b_ext2}
@@ -7344,14 +7383,14 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """Stack loop prevention works and hosts can ping each others."""
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         self.verify_stack_has_no_loop()
         self.retry_net_ping()
         self.verify_traveling_dhcp_mac()
 
     def test_stack_down(self):
         """Verify if a link down is reflected on stack-topology."""
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         # ping first pair
         self.retry_net_ping([self.first_host, self.last_host])
         self.one_stack_port_down()
@@ -7361,7 +7400,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.retry_net_ping([self.second_host, self.fifth_host])
 
 
-class FaucetStackAclControlTest(FaucetStringOfDPTest):
+class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     """Test ACL control of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 3
@@ -7472,7 +7511,7 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
         }
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetStackAclControlTest, self).setUp()
+        super(FaucetSingleStackAclControlTest, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
@@ -7483,7 +7522,7 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
     def test_unicast(self):
         """Hosts in stack topology can appropriately reach each other over unicast."""
         hosts = self.net.hosts
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         self.verify_tp_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
         self.verify_tp_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
         self.verify_tp_dst_notblocked(5000, hosts[0], hosts[6], table_id=None)
@@ -7493,7 +7532,7 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
     def test_broadcast(self):
         """Hosts in stack topology can appropriately reach each other over broadcast."""
         hosts = self.net.hosts
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1])
         self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3])
         self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[6])
@@ -7657,7 +7696,7 @@ class FaucetTunnelSameDpTest(FaucetStringOfDPTest):
 
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
@@ -7717,13 +7756,13 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
 
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
     def test_tunnel_path_rerouted(self):
         """Test a tunnel path is rerouted when a stack is down."""
-        self.verify_all_stack_up()
+        self.verify_stack_up()
         first_stack_port = self.non_host_links(self.dpid)[0].port
         self.one_stack_port_down(first_stack_port)
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
