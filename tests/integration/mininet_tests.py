@@ -6700,17 +6700,17 @@ class FaucetStringOfDPTest(FaucetTest):
             host.cmd(mininet_test_util.timeout_cmd(
                 'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC and not ether src %s &' % (
                     host.defaultIntf(), host.MAC(), lldp_cap_file), 60))
-        self.retry_net_ping(retries=retries)
-        # hosts should see no LLDP probes
-        self.verify_empty_caps(lldp_cap_files)
         # should not flood LLDP from hosts
         self.verify_lldp_blocked(self.net.hosts)
+        # hosts should see no LLDP probes
+        self.verify_empty_caps(lldp_cap_files)
         if verify_bridge_local_rule:
             # Verify 802.1x flood block triggered.
             for dpid in self.dpids:
                 self.wait_nonzero_packet_count_flow(
                     {'dl_dst': '01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
                     dpid=dpid, table_id=self._FLOOD_TABLE, ofa_match=False)
+        self.retry_net_ping(retries=retries)
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         labels = self.port_labels(port_no)
