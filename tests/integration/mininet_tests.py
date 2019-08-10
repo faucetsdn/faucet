@@ -7435,7 +7435,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
         }
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetStackAclControlTest, self).setUp()
+        super(FaucetSingleStackAclControlTest, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
