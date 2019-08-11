@@ -633,6 +633,14 @@ configuration.
         if port.lacp and port.lacp_active:
             self.lacp_active_ports.append(port)
 
+    def lacp_forwarding(self, port):
+        """Return 1 if should signal forwarding on a LACP bundle on this DP."""
+        # TODO: just handle stacks with multiple roots - add further useful combinations.
+        if port.loop_protect_external:
+            if self.stack_root_name and not self.is_stack_root():
+                return 0
+        return 1
+
     def lldp_beacon_send_ports(self, now):
         """Return list of ports to send LLDP packets; stacked ports always send LLDP."""
         send_ports = []

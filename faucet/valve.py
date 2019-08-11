@@ -921,13 +921,8 @@ class Valve:
         actor_state_activity = 0
         if port.lacp_active:
             actor_state_activity = 1
-        actor_state_collecting = 1
-        actor_state_distributing = 1
-        if (port.loop_protect_external and
-                self.dp.stack_root_name and not self.dp.is_stack_root()):
-            actor_state_collecting = 0
-            actor_state_distributing = 0
-
+        actor_state_collecting = self.dp.lacp_forwarding(port)
+        actor_state_distributing = actor_state_collecting
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
