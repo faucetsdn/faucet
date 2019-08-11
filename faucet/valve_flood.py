@@ -306,7 +306,7 @@ class ValveFloodStackManager(ValveFloodManager):
 
     def __init__(self, logger, flood_table, pipeline, # pylint: disable=too-many-arguments
                  use_group_table, groups,
-                 combinatorial_port_flood,
+                 combinatorial_port_flood, canonical_port_order,
                  stack_ports, has_externals,
                  dp_shortest_path_to_root, shortest_path_port,
                  longest_path_to_root_len, is_stack_root,
@@ -316,6 +316,7 @@ class ValveFloodStackManager(ValveFloodManager):
             use_group_table, groups,
             combinatorial_port_flood)
         self.stack_ports = stack_ports
+        self.canonical_port_order = canonical_port_order
         self.externals = has_externals
         self.shortest_path_port = shortest_path_port
         self.dp_shortest_path_to_root = dp_shortest_path_to_root
@@ -522,9 +523,8 @@ class ValveFloodStackManager(ValveFloodManager):
             toward_flood_actions, local_flood_actions)
         return flood_acts
 
-    @staticmethod
-    def _canonical_stack_up_ports(ports):
-        return sorted([port for port in ports if port.is_stack_up()], key=lambda x: x.number)
+    def _canonical_stack_up_ports(self, ports):
+        return self.canonical_port_order([port for port in ports if port.is_stack_up()])
 
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                 exclude_unicast, command):
