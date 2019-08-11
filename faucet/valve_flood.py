@@ -378,30 +378,24 @@ class ValveFloodStackManager(ValveFloodManager):
                        away_flood_actions, toward_flood_actions, local_flood_actions):
         # General case for stack with maximum distance > 2
         if self.is_stack_root():
-            flood_actions = (
-                self._set_ext_port_flag + away_flood_actions + local_flood_actions)
+            if external_ports:
+                flood_prefix = self._set_nonext_port_flag
+            else:
+                flood_prefix = self._set_ext_port_flag
+            flood_actions = (away_flood_actions + local_flood_actions)
 
-            if in_port:
-                if in_port in self.away_from_root_stack_ports:
-                    # Packet from a non-root switch, flood locally and to all non-root switches
-                    # (reflect it).
-                    flood_actions = (
-                        away_flood_actions + [valve_of.output_in_port()] + local_flood_actions)
-                    # If we have external ports, let the non-roots know they don't have to
-                    # flood externally.
-                    if external_ports:
-                        flood_actions = self._set_nonext_port_flag + flood_actions
-                    else:
-                        flood_actions = self._set_ext_port_flag + flood_actions
-                elif external_ports:
-                    # Packet from an external switch, locally. As above, let the non-roots
-                    # know they don't have to flood externally again.
-                    flood_actions = (
-                        self._set_nonext_port_flag + away_flood_actions + local_flood_actions)
+            if in_port and in_port in self.away_from_root_stack_ports:
+                # Packet from a non-root switch, flood locally and to all non-root switches
+                # (reflect it).
+                flood_actions = (away_flood_actions + [valve_of.output_in_port()] + local_flood_actions)
 
+            flood_actions = flood_prefix + flood_actions
         else:
             # Default non-root strategy is flood towards root.
-            flood_actions = self._set_ext_port_flag + toward_flood_actions
+            if external_ports:
+                flood_actions = self._set_nonext_port_flag + toward_flood_actions
+            else:
+                flood_actions = self._set_ext_port_flag + toward_flood_actions
 
             if in_port:
                 # Packet from switch further away, flood it to the root.
@@ -422,6 +416,8 @@ class ValveFloodStackManager(ValveFloodManager):
                 # flood to root (it came from an external switch so keep it within the stack).
                 elif in_port.loop_protect_external:
                     flood_actions = self._set_nonext_port_flag + toward_flood_actions
+                else:
+                    flood_actions = self._set_ext_port_flag + toward_flood_actions
 
         return flood_actions
 
