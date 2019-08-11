@@ -40,7 +40,8 @@ class ValveFloodManager(ValveManagerBase):
     )
 
     def __init__(self, logger, flood_table, pipeline,
-                 use_group_table, groups, combinatorial_port_flood):
+                 use_group_table, groups, combinatorial_port_flood,
+                 self.canonical_port_order):
         self.logger = logger
         self.flood_table = flood_table
         self.pipeline = pipeline
@@ -50,6 +51,7 @@ class ValveFloodManager(ValveManagerBase):
         self.bypass_priority = self._FILTER_PRIORITY
         self.flood_priority = self._MATCH_PRIORITY
         self.classification_offset = 0x100
+        self.canonical_port_order = canonical_port_order
 
     def initialise_tables(self):
         """Initialise the flood table with filtering flows."""
@@ -310,7 +312,8 @@ class ValveFloodStackManager(ValveFloodManager):
         super(ValveFloodStackManager, self).__init__(
             logger, flood_table, pipeline,
             use_group_table, groups,
-            combinatorial_port_flood)
+            combinatorial_port_flood,
+            canonical_port_order)
         self.stack_ports = stack_ports
         self.canonical_port_order = canonical_port_order
         self.externals = has_externals
