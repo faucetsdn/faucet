@@ -228,10 +228,11 @@ class ValveHostManager(ValveManagerBase):
             return ofmsgs
 
         external_forwarding_requested = None
-        vlan_pcp = None
+        match_dict = {
+            'vlan': vlan, 'eth_dst': eth_src, valve_of.EXTERNAL_FORWARDING_FIELD: None}
         if self.has_externals:
-            vlan_pcp = valve_of.PCP_EXT_PORT_FLAG
-
+            match_dict.update({
+                valve_of.EXTERNAL_FORWARDING_FIELD: valve_of.PCP_EXT_PORT_FLAG})
             if port.tagged_vlans and port.loop_protect_external and self.stack:
                 external_forwarding_requested = False
             elif not port.stack:
@@ -242,16 +243,16 @@ class ValveHostManager(ValveManagerBase):
 
         # Output packets for this MAC to specified port.
         ofmsgs.append(self.eth_dst_table.flowmod(
-            self.eth_dst_table.match(
-                vlan=vlan, eth_dst=eth_src, vlan_pcp=vlan_pcp),
+            self.eth_dst_table.match(**match_dict),
             priority=self.host_priority,
             inst=inst,
             idle_timeout=dst_rule_idle_timeout))
 
         if self.has_externals and not port.loop_protect_external:
+            match_dict.update({
+                valve_of.EXTERNAL_FORWARDING_FIELD: valve_of.PCP_NONEXT_PORT_FLAG})
             ofmsgs.append(self.eth_dst_table.flowmod(
-                self.eth_dst_table.match(
-                    vlan=vlan, eth_dst=eth_src, vlan_pcp=valve_of.PCP_NONEXT_PORT_FLAG),
+                self.eth_dst_table.match(**match_dict),
                 priority=self.host_priority,
                 inst=inst,
                 idle_timeout=dst_rule_idle_timeout))
