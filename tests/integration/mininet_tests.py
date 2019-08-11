@@ -7302,14 +7302,14 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             self.require_host_learned(host)
 
         # Part 1: Make sure things are connected properly.
-        self._connections_aye() # Before reload
+        self.verify_protected_connectivity() # Before reload
 
         # Part 2: Test the code on pipeline reconfiguration path.
         self._mark_external(True)
         self._mark_external(False)
 
         # Part 3: Make sure things are the same after reload.
-        self._connections_aye() # After reload
+        self.verify_protected_connectivity() # After reload
 
     def _mark_external(self, protect_external):
         conf = self._get_faucet_conf()
@@ -7319,33 +7319,31 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
-    def _verify_link(self, hosts, expected):
-        self.verify_unicast(hosts, expected)
-        self.verify_broadcast(hosts, expected)
-
-    def _connections_aye(self):
+    def verify_protected_connectivity(self):
         self.verify_stack_up()
         a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1 = self.net.hosts
         int_hosts = {a_int1, b_int1}
         ext_hosts = {a_ext1, a_ext2, b_ext1, b_ext2}
 
+        for local_int_host, local_ext_hosts, remote_ext_hosts in (
+                (a_int1, (a_ext1, a_ext2), (b_ext1, b_ext2)),
+                (b_int1, (b_ext1, b_ext2), (a_ext1, a_ext2))):
+            # ext hosts on remote switch should not get traffic flooded from
+            # int host on local switch, because traffic already flooded to
+            # an ext host on local switch.
+            for remote_ext_host in remote_ext_hosts:
+                self.verify_broadcast(hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
+
         for int_host in int_hosts:
             # All internal hosts can reach other internal hosts.
             for other_int_host in int_hosts - {int_host}:
-                self._verify_link(hosts=(int_host, other_int_host), expected=True)
-
-            # All internal hosts can reach all external hosts.
-            for ext_host in ext_hosts:
-                self._verify_link(hosts=(int_host, ext_host), expected=True)
+                self.verify_broadcast(hosts=(int_host, other_int_host), broadcast_expected=True)
+                self.verify_unicast(hosts=(int_host, other_int_host), unicast_expected=True)
 
         for ext_host in ext_hosts:
-            # All external hosts can reach internal hosts
-            for int_host in int_hosts:
-                self._verify_link(hosts=(ext_host, int_host), expected=True)
-
-            # All external hosts cannot reach each other.
+            # All external hosts cannot flood to each other
             for other_ext_host in ext_hosts - {ext_host}:
-                self._verify_link(hosts=(ext_host, other_ext_host), expected=False)
+                self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):

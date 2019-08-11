@@ -71,16 +71,15 @@ class ValveFloodManager(ValveManagerBase):
         """Return list of all ports that should be flooded to on a VLAN."""
         return list(vlan.flood_ports(vlan.get_ports(), exclude_unicast))
 
-    @staticmethod
-    def _build_flood_local_rule_actions(vlan, exclude_unicast, in_port, exclude_all_external):
+    def _build_flood_local_rule_actions(self, vlan, exclude_unicast, in_port, exclude_all_external):
         """Return a list of flood actions to flood packets from a port."""
-        external_ports = vlan.loop_protect_external_ports()
+        external_ports = self.canonical_port_order(vlan.loop_protect_external_ports_up())
         exclude_ports = vlan.exclude_same_lag_member_ports(in_port)
         exclude_ports.update(vlan.exclude_native_if_dot1x())
-        if external_ports:
-            if (exclude_all_external or
-                    in_port is not None and in_port.loop_protect_external):
-                exclude_ports |= set(external_ports)
+        if exclude_all_external or (in_port is not None and in_port.loop_protect_external):
+            exclude_ports.update(set(external_ports))
+        else:
+            exclude_ports.update(set(external_ports[1:]))
         return valve_of.flood_port_outputs(
             vlan.tagged_flood_ports(exclude_unicast),
             vlan.untagged_flood_ports(exclude_unicast),
@@ -352,38 +351,23 @@ class ValveFloodStackManager(ValveFloodManager):
         if not in_port or in_port in self.stack_ports:
             flood_prefix = []
         else:
-            if in_port.loop_protect_external:
+            if external_ports:
                 flood_prefix = self._set_nonext_port_flag
             else:
                 flood_prefix = self._set_ext_port_flag
 
         # Special case for stack with maximum distance 2 - we don't need to reflect off of the root.
-        flood_actions = (
-            flood_prefix + away_flood_actions + local_flood_actions)
-
         if self.is_stack_root():
-            # Default strategy is flood locally and to non-roots.
-            if in_port:
-                # If we have external ports, let the non-roots know we have already flooded
-                # externally, locally.
-                if external_ports:
-                    flood_actions = (
-                        flood_prefix + away_flood_actions + local_flood_actions)
+            flood_actions = (
+                flood_prefix + away_flood_actions + local_flood_actions)
         else:
             # Default strategy is flood locally and then to the root.
             flood_actions = (
                 flood_prefix + toward_flood_actions + local_flood_actions)
 
-            if in_port:
-                # If packet came from the root, flood it locally.
-                if in_port in self.towards_root_stack_ports:
-                    flood_actions = (
-                        flood_prefix + local_flood_actions)
-                # If we have external ports on this switch, then let the root know
-                # we have already flooded externally, locally.
-                elif external_ports:
-                    flood_actions = (
-                        flood_prefix + toward_flood_actions + local_flood_actions)
+            # If packet came from the root, flood it locally.
+            if in_port in self.towards_root_stack_ports:
+                flood_actions = (flood_prefix + local_flood_actions)
 
         return flood_actions
 
