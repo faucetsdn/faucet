@@ -23,7 +23,6 @@ import netaddr
 
 from faucet import valve_of
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
-from faucet.faucet_pipeline import STACK_LOOP_PROTECT_FIELD
 from faucet.valve_packet import FAUCET_MAC
 
 
@@ -512,7 +511,7 @@ class VLAN(Conf):
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged + self.dot1x_untagged, exclude_unicast)
 
-    def output_port(self, port, hairpin=False, output_table=None, loop_protect_field=None):
+    def output_port(self, port, hairpin=False, output_table=None, external_forwarding_requested=None):
         actions = []
         if self.port_is_untagged(port):
             actions.append(valve_of.pop_vlan())
@@ -520,8 +519,11 @@ class VLAN(Conf):
             actions.extend(port.mirror_actions())
         else:
             actions.extend(port.mirror_actions())
-            if loop_protect_field is not None:
-                actions.append(output_table.set_field(**{STACK_LOOP_PROTECT_FIELD: loop_protect_field}))
+            if external_forwarding_requested is not None:
+                if external_forwarding_requested:
+                    actions.append(output_table.set_external_forwarding_requested())
+                else:
+                    actions.append(output_table.set_no_external_forwarding_requested())
         if hairpin:
             actions.append(valve_of.output_port(valve_of.OFP_IN_PORT))
         else:

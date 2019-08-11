@@ -228,27 +228,30 @@ class ValveHostManager(ValveManagerBase):
         if refresh_rules and not hairpinning:
             return ofmsgs
 
-        loop_protect_field = None
+        external_forwarding_requested = None
         if port.tagged_vlans and port.loop_protect_external and self.stack:
-            loop_protect_field = valve_of.PCP_NONEXT_PORT_FLAG
+            external_forwarding_requested = False
         elif self.has_externals and not port.stack:
-            loop_protect_field = valve_of.PCP_EXT_PORT_FLAG
+            external_forwarding_requested = True
+
+        inst = self.pipeline.output(
+            port, vlan, external_forwarding_requested=external_forwarding_requested)
 
         # Output packets for this MAC to specified port.
         vlan_pcp = valve_of.PCP_EXT_PORT_FLAG if self.has_externals else None
         ofmsgs.append(self.eth_dst_table.flowmod(
-            self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src, vlan_pcp=vlan_pcp),
+            self.eth_dst_table.match(
+                vlan=vlan, eth_dst=eth_src, vlan_pcp=vlan_pcp),
             priority=self.host_priority,
-            inst=self.pipeline.output(port, vlan, loop_protect_field=loop_protect_field),
+            inst=inst,
             idle_timeout=dst_rule_idle_timeout))
 
         if self.has_externals and not port.loop_protect_external:
             ofmsgs.append(self.eth_dst_table.flowmod(
                 self.eth_dst_table.match(
-                    vlan=vlan, eth_dst=eth_src,
-                    vlan_pcp=valve_of.PCP_NONEXT_PORT_FLAG),
+                    vlan=vlan, eth_dst=eth_src, vlan_pcp=valve_of.PCP_NONEXT_PORT_FLAG),
                 priority=self.host_priority,
-                inst=self.pipeline.output(port, vlan, loop_protect_field=loop_protect_field),
+                inst=inst,
                 idle_timeout=dst_rule_idle_timeout))
 
         # If port is in hairpin mode, install a special rule

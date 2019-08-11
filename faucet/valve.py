@@ -677,10 +677,9 @@ class Valve:
             match_vlan = NullVLAN()
         if self.dp.has_externals:
             if port.loop_protect_external:
-                vlan_pcp = valve_of.PCP_NONEXT_PORT_FLAG
+                actions.append(vlan_table.set_no_external_forwarding_requested())
             else:
-                vlan_pcp = valve_of.PCP_EXT_PORT_FLAG
-            actions.append(valve_of.set_field(**{valve_of.STACK_LOOP_PROTECT_FIELD: vlan_pcp}))
+                actions.append(vlan_table.set_external_forwarding_requested())
         inst = [
             valve_of.apply_actions(actions),
             vlan_table.goto(self._find_forwarding_table(vlan))]

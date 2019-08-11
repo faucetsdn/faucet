@@ -66,9 +66,6 @@ class ValveFloodManager(ValveManagerBase):
     def _mask_flood_priority(self, eth_dst_mask):
         return self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
 
-    def _set_ext_flag(self, ext_flag):
-        return self.flood_table.set_field(**{valve_of.STACK_LOOP_PROTECT_FIELD: ext_flag})
-
     @staticmethod
     def _vlan_all_ports(vlan, exclude_unicast):
         """Return list of all ports that should be flooded to on a VLAN."""
@@ -91,11 +88,12 @@ class ValveFloodManager(ValveManagerBase):
             exclude_ports=exclude_ports)
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port, exclude_all_external=False):
-        tagged_flood_ports = vlan.tagged_flood_ports(exclude_unicast)
-        has_external = vlan.loop_protect_external_ports() and tagged_flood_ports
-        pcp_prefix = [self._set_ext_flag(valve_of.PCP_EXT_PORT_FLAG)] if has_external else []
-        return pcp_prefix + self._build_flood_local_rule_actions(
-            vlan, exclude_unicast, in_port, exclude_all_external)
+        actions = []
+        if vlan.loop_protect_external_ports() and vlan.tagged_flood_ports(exclude_unicast):
+            actions.append(self.flood_table.set_external_forwarding_requested())
+        actions.extend(self._build_flood_local_rule_actions(
+            vlan, exclude_unicast, in_port, exclude_all_external))
+        return actions
 
     def _build_flood_rule(self, match, command, flood_acts, flood_priority):
         return self.flood_table.flowmod(
@@ -342,8 +340,8 @@ class ValveFloodStackManager(ValveFloodManager):
         self._set_ext_port_flag = []
         self._set_nonext_port_flag = []
         if self.externals:
-            self._set_ext_port_flag = [self._set_ext_flag(valve_of.PCP_EXT_PORT_FLAG)]
-            self._set_nonext_port_flag = [self._set_ext_flag(valve_of.PCP_NONEXT_PORT_FLAG)]
+            self._set_ext_port_flag = [self.flood_table.set_external_forwarding_requested()]
+            self._set_nonext_port_flag = [self.flood_table.set_no_external_forwarding_requested()]
         self._flood_actions_func = self._flood_actions
         stack_size = self.longest_path_to_root_len
         if stack_size == 2:
@@ -588,7 +586,7 @@ class ValveFloodStackManager(ValveFloodManager):
                             vlan, exclude_unicast, port, exclude_all_external=exclude_all_external)
                     port_flood_ofmsg = self._build_flood_rule_for_port(
                         vlan, eth_dst, eth_dst_mask, command, port, flood_acts,
-                        add_match={valve_of.STACK_LOOP_PROTECT_FIELD: ext_port_flag})
+                        add_match={valve_of.EXTERNAL_FORWARDING_FIELD: ext_port_flag})
                     ofmsgs.append(port_flood_ofmsg)
             else:
                 if not prune:

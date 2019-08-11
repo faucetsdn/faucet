@@ -45,7 +45,7 @@ ECTP_ETH_TYPE = 0x9000
 # Avoid use of PCP 1 which is BK priority (lowest)
 PCP_EXT_PORT_FLAG = 2
 PCP_NONEXT_PORT_FLAG = 0
-STACK_LOOP_PROTECT_FIELD = 'vlan_pcp'
+EXTERNAL_FORWARDING_FIELD = 'vlan_pcp'
 
 
 OFERROR_TYPE_CODE = {

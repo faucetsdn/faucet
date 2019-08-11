@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from faucet.valve_of import STACK_LOOP_PROTECT_FIELD
 from faucet.faucet_metadata import EGRESS_METADATA_MASK
 
 

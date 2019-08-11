@@ -493,19 +493,15 @@ configuration.
                 table_config.table_id = relative_table_id
             table_configs[name] = table_config
 
-        # Stacking with external ports, so need loop protection field.
+        # Stacking with external ports, so need external forwarding request field.
         if self.has_externals:
-            flood_table = table_configs['flood']
-            flood_table.set_fields = (valve_of.STACK_LOOP_PROTECT_FIELD,)
-            flood_table.match_types += ((valve_of.STACK_LOOP_PROTECT_FIELD, False),)
-            vlan_table = table_configs['vlan']
-            vlan_table.set_fields += (valve_of.STACK_LOOP_PROTECT_FIELD,)
-            vlan_table.match_types += ((valve_of.STACK_LOOP_PROTECT_FIELD, False),)
-            eth_src_table = table_configs['eth_src']
-            eth_src_table.set_fields = (valve_of.STACK_LOOP_PROTECT_FIELD,)
-            eth_dst_table = table_configs['eth_dst']
-            eth_dst_table.set_fields = (valve_of.STACK_LOOP_PROTECT_FIELD,)
-            eth_dst_table.match_types += ((valve_of.STACK_LOOP_PROTECT_FIELD, False),)
+            for table_name in ('vlan', 'eth_dst', 'flood'):
+                table = table_configs[table_name]
+                table.match_types += ((valve_of.EXTERNAL_FORWARDING_FIELD, False),)
+                if table.set_fields is not None:
+                    table.set_fields += (valve_of.EXTERNAL_FORWARDING_FIELD,)
+                else:
+                    table.set_fields = (valve_of.EXTERNAL_FORWARDING_FIELD,)
 
         if 'egress_acl' in included_tables:
             table_configs['eth_dst'].miss_goto = 'egress_acl'

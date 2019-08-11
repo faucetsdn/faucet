@@ -72,6 +72,14 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
                         '%s not configured as set field in %s' % (field, self.name))
         return valve_of.set_field(**kwds)
 
+    def set_external_forwarding_requested(self):
+        """Set field for external forwarding requested."""
+        return self.set_field(**{valve_of.EXTERNAL_FORWARDING_FIELD: valve_of.PCP_EXT_PORT_FLAG})
+
+    def set_no_external_forwarding_requested(self):
+        """Set field for no external forwarding requested."""
+        return self.set_field(**{valve_of.EXTERNAL_FORWARDING_FIELD: valve_of.PCP_NONEXT_PORT_FLAG})
+
     def set_vlan_vid(self, vlan_vid):
         """Set VLAN VID with VID_PRESENT flag set.
 
