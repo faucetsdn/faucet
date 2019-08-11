@@ -41,7 +41,7 @@ class ValveFloodManager(ValveManagerBase):
 
     def __init__(self, logger, flood_table, pipeline,
                  use_group_table, groups, combinatorial_port_flood,
-                 self.canonical_port_order):
+                 canonical_port_order):
         self.logger = logger
         self.flood_table = flood_table
         self.pipeline = pipeline
