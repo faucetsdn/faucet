@@ -496,16 +496,16 @@ configuration.
         # Stacking with external ports, so need loop protection field.
         if self.has_externals:
             flood_table = table_configs['flood']
-            flood_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
-            flood_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
+            flood_table.set_fields = (valve_of.STACK_LOOP_PROTECT_FIELD,)
+            flood_table.match_types += ((valve_of.STACK_LOOP_PROTECT_FIELD, False),)
             vlan_table = table_configs['vlan']
-            vlan_table.set_fields += (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
-            vlan_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
+            vlan_table.set_fields += (valve_of.STACK_LOOP_PROTECT_FIELD,)
+            vlan_table.match_types += ((valve_of.STACK_LOOP_PROTECT_FIELD, False),)
             eth_src_table = table_configs['eth_src']
-            eth_src_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
+            eth_src_table.set_fields = (valve_of.STACK_LOOP_PROTECT_FIELD,)
             eth_dst_table = table_configs['eth_dst']
-            eth_dst_table.set_fields = (faucet_pipeline.STACK_LOOP_PROTECT_FIELD,)
-            eth_dst_table.match_types += ((faucet_pipeline.STACK_LOOP_PROTECT_FIELD, False),)
+            eth_dst_table.set_fields = (valve_of.STACK_LOOP_PROTECT_FIELD,)
+            eth_dst_table.match_types += ((valve_of.STACK_LOOP_PROTECT_FIELD, False),)
 
         if 'egress_acl' in included_tables:
             table_configs['eth_dst'].miss_goto = 'egress_acl'

@@ -230,12 +230,12 @@ class ValveHostManager(ValveManagerBase):
 
         loop_protect_field = None
         if port.tagged_vlans and port.loop_protect_external and self.stack:
-            loop_protect_field = valve_packet.PCP_NONEXT_PORT_FLAG
+            loop_protect_field = valve_of.PCP_NONEXT_PORT_FLAG
         elif self.has_externals and not port.stack:
-            loop_protect_field = valve_packet.PCP_EXT_PORT_FLAG
+            loop_protect_field = valve_of.PCP_EXT_PORT_FLAG
 
         # Output packets for this MAC to specified port.
-        vlan_pcp = valve_packet.PCP_EXT_PORT_FLAG if self.has_externals else None
+        vlan_pcp = valve_of.PCP_EXT_PORT_FLAG if self.has_externals else None
         ofmsgs.append(self.eth_dst_table.flowmod(
             self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src, vlan_pcp=vlan_pcp),
             priority=self.host_priority,
@@ -246,7 +246,7 @@ class ValveHostManager(ValveManagerBase):
             ofmsgs.append(self.eth_dst_table.flowmod(
                 self.eth_dst_table.match(
                     vlan=vlan, eth_dst=eth_src,
-                    vlan_pcp=valve_packet.PCP_NONEXT_PORT_FLAG),
+                    vlan_pcp=valve_of.PCP_NONEXT_PORT_FLAG),
                 priority=self.host_priority,
                 inst=self.pipeline.output(port, vlan, loop_protect_field=loop_protect_field),
                 idle_timeout=dst_rule_idle_timeout))

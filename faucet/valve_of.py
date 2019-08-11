@@ -41,6 +41,13 @@ OFP_IN_PORT = ofp.OFPP_IN_PORT
 MAX_PACKET_IN_BYTES = 160 # largest packet is icmp6 echo.
 ECTP_ETH_TYPE = 0x9000
 
+# https://en.wikipedia.org/wiki/IEEE_P802.1p
+# Avoid use of PCP 1 which is BK priority (lowest)
+PCP_EXT_PORT_FLAG = 2
+PCP_NONEXT_PORT_FLAG = 0
+STACK_LOOP_PROTECT_FIELD = 'vlan_pcp'
+
+
 OFERROR_TYPE_CODE = {
     0: ('OFPET_HELLO_FAILED', {
         ofp.OFPHFC_INCOMPATIBLE: 'OFPHFC_INCOMPATIBLE',
