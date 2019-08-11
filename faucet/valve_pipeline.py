@@ -95,7 +95,7 @@ class ValvePipeline(ValveManagerBase):
         assert self.egress_table is not None
         return self._accept_to_table(self.egress_table, actions)
 
-    def output(self, port, vlan, hairpin=False, loop_protect_field=None):
+    def output(self, port, vlan, hairpin=False, external_forwarding_requested=None):
         """Get instructions list to output a packet through the regular
         pipeline.
 
@@ -121,7 +121,7 @@ class ValvePipeline(ValveManagerBase):
         else:
             instructions.append(valve_of.apply_actions(vlan.output_port(
                 port, hairpin=hairpin, output_table=self.output_table,
-                loop_protect_field=loop_protect_field)))
+                external_forwarding_requested=external_forwarding_requested)))
         return instructions
 
     def initialise_tables(self):

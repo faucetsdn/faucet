@@ -21,9 +21,21 @@ from collections import defaultdict
 
 from faucet.conf import InvalidConfigError
 from faucet.config_parser_util import config_changed, CONFIG_HASH_FUNC
-from faucet.config_parser import dp_parser
+from faucet.config_parser import dp_parser, dp_preparsed_parser
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet.valve_util import dpid_log, stat_config_files
+
+STACK_ROOT_STATE_UPDATE_TIME = 10
+STACK_ROOT_DOWN_TIME = STACK_ROOT_STATE_UPDATE_TIME * 3
+
+
+class MetaDPState:
+    """Contains state/config about all DPs."""
+
+    def __init__(self):
+        self.stack_root_name = None
+        self.dp_last_live_time = {}
+        self.top_conf = None
 
 
 class ConfigWatcher:
@@ -87,12 +99,74 @@ class ValvesManager:
         self.valves = {}
         self.config_applied = {}
         self.config_watcher = ConfigWatcher()
+        self.meta_dp_state = MetaDPState()
+
+    def healthy_stack_roots(self, now, stacked_dps, candidate_stack_roots_names):
+        """Return list of healthy stack root names."""
+        # A healthy stack root is one that attempted connection recently,
+        # or was known to be running recently.
+        # TODO: timeout should be configurable
+        health_timeout = now - STACK_ROOT_DOWN_TIME
+        # TODO: consider a stack root that is up, but has all stack links down, unhealthy.
+        healthy_stack_roots_names = [
+            dp.name for dp in stacked_dps
+            if (self.meta_dp_state.dp_last_live_time.get(dp.name, 0) >= health_timeout and
+                dp.name in candidate_stack_roots_names)]
+        return healthy_stack_roots_names
+
+    def maintain_stack_root(self, now):
+        """Maintain current stack root and return True if stack root changes."""
+        for valve in self.valves.values():
+            if valve.dp.dyn_running:
+                self.meta_dp_state.dp_last_live_time[valve.dp.name] = now
+
+        stacked_dps = [valve.dp for valve in self.valves.values() if valve.dp.stack_root_name]
+        if not stacked_dps:
+            return False
+
+        candidate_stack_roots_names = stacked_dps[0].stack_roots_names
+        healthy_stack_roots_names = self.healthy_stack_roots(
+            now, stacked_dps, candidate_stack_roots_names)
+
+        # Pick first root that is considered healthy or just the first if none are.
+        if healthy_stack_roots_names:
+            new_stack_root_name = healthy_stack_roots_names[0]
+        else:
+            new_stack_root_name = candidate_stack_roots_names[0]
+
+        stack_change = False
+        if self.meta_dp_state.stack_root_name != new_stack_root_name:
+            self.logger.info('stack root changed from %s to %s' % (
+                self.meta_dp_state.stack_root_name, new_stack_root_name))
+            if self.meta_dp_state.stack_root_name:
+                stack_change = True
+            self.meta_dp_state.stack_root_name = new_stack_root_name
+            dpids = [dp.dp_id for dp in stacked_dps if dp.name == new_stack_root_name]
+            self.metrics.faucet_stack_root_dpid.set(dpids[0])
+        else:
+            inconsistent_dps = [
+                dp.name for dp in stacked_dps
+                if dp.stack_root_name != self.meta_dp_state.stack_root_name]
+            if inconsistent_dps:
+                self.logger.info('stack root on %s inconsistent' % inconsistent_dps)
+                stack_change = True
+
+        if stack_change:
+            self.logger.info(
+                'root now %s (all candidates %s, healthy %s)' % (
+                    self.meta_dp_state.stack_root_name,
+                    candidate_stack_roots_names,
+                    healthy_stack_roots_names))
+            dps = dp_preparsed_parser(self.meta_dp_state.top_conf, self.meta_dp_state)
+            self._apply_configs(dps, now, None)
+        return stack_change
 
     def parse_configs(self, new_config_file):
         """Return parsed configs for Valves, or None."""
         self.metrics.faucet_config_hash_func.labels(algorithm=CONFIG_HASH_FUNC)
         try:
-            new_conf_hashes, new_dps = dp_parser(new_config_file, self.logname)
+            new_conf_hashes, new_dps, top_conf = dp_parser(
+                new_config_file, self.logname, self.meta_dp_state)
             self.config_watcher.update(new_config_file, new_conf_hashes)
             new_present_conf_hashes = [
                 (conf_file, conf_hash) for conf_file, conf_hash in sorted(new_conf_hashes.items())
@@ -102,12 +176,13 @@ class ValvesManager:
             self.metrics.faucet_config_hash.info(
                 dict(config_files=','.join(conf_files), hashes=','.join(conf_hashes)))
             self.metrics.faucet_config_load_error.set(0)
+            self.meta_dp_state.top_conf = top_conf
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
             self.metrics.faucet_config_hash.info(
                 dict(config_files=new_config_file, hashes=''))
             self.metrics.faucet_config_load_error.set(1)
-            return None
+            new_dps = None
         return new_dps
 
     def new_valve(self, new_dp):
@@ -121,15 +196,11 @@ class ValvesManager:
             sorted(list(SUPPORTED_HARDWARE.keys())))
         return None
 
-    def load_configs(self, now, new_config_file, delete_dp=None):
-        """Load/apply new config to all Valves."""
-        new_dps = self.parse_configs(new_config_file)
+    def _apply_configs(self, new_dps, now, delete_dp):
         self.update_config_applied(reset=True)
         if new_dps is None:
             return False
-        deleted_dpids = (
-            set(self.valves.keys()) -
-            set([dp.dp_id for dp in new_dps]))
+        deleted_dpids = {v for v in self.valves} - {dp.dp_id for dp in new_dps}
         sent = {}
         for new_dp in new_dps:
             dp_id = new_dp.dp_id
@@ -154,6 +225,10 @@ class ValvesManager:
         self.dot1x.reset(self.valves)
         self.update_config_applied(sent)
         return True
+
+    def load_configs(self, now, new_config_file, delete_dp=None):
+        """Load/apply new config to all Valves."""
+        return self._apply_configs(self.parse_configs(new_config_file), now, delete_dp)
 
     def _send_ofmsgs_by_valve(self, ofmsgs_by_valve):
         if ofmsgs_by_valve:
@@ -234,3 +309,8 @@ class ValvesManager:
                          for dp_id in self.valves)
         fraction = configured/count if count > 0 else 0
         self.metrics.faucet_config_applied.set(fraction)
+
+    def datapath_connect(self, now, valve, discovered_up_ports):
+        """Handle connection from DP."""
+        self.meta_dp_state.dp_last_live_time[valve.dp.name] = now
+        return valve.datapath_connect(now, discovered_up_ports)

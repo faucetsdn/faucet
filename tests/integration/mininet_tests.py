@@ -4871,7 +4871,7 @@ acls:
             actions:
                 output:
                     set_fields:
-                        - vlan_pcp: 1
+                        - vlan_pcp: 2
                 allow: 1
         - rule:
             actions:
@@ -4904,7 +4904,7 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'ping -c3 %s' % second_host.IP())], root_intf=True, packets=1)
-        self.assertTrue(re.search('vlan 100, p 1,', tcpdump_txt))
+        self.assertTrue(re.search('vlan 100, p 2,', tcpdump_txt))
 
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
@@ -5243,7 +5243,7 @@ acls:
             actions:
                 output:
                     set_fields:
-                        - vlan_pcp: 1
+                        - vlan_pcp: 2
                 allow: 1
 """
 
@@ -5270,7 +5270,7 @@ acls:
                 lambda: from_port.cmd(
                     'ping -c3 %s' % to_port.IP())], root_intf=True, packets=2)
         if expected:
-            self.assertTrue(re.search('vlan 100, p 1,', tcpdump_txt))
+            self.assertTrue(re.search('vlan 100, p 2,', tcpdump_txt))
             self.assertFalse(re.search('vlan 100, p 0,', tcpdump_txt))
         else:
             self.assertFalse(re.search('vlan 100,', tcpdump_txt))
@@ -6816,7 +6816,7 @@ class FaucetStringOfDPTest(FaucetTest):
         ), 'Tunnel was not established')
 
 
-class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
+class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
     """IPV4 intervlan routing with stacking test"""
 
     IPV = 4
@@ -6849,7 +6849,7 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         pass
 
     def set_up(self):
-        super(FaucetUntaggedIPV4RoutingWithStackingTest, self).setUp()
+        super(FaucetSingleUntaggedIPV4RoutingWithStackingTest, self).setUp()
         router_info = {
             self.V100: {
                 'faucet_mac': self.FAUCET_MAC,
@@ -7026,7 +7026,7 @@ class FaucetUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
             self._ip_neigh(v200_host, second_faucet_vip.ip, self.IPV), self.FAUCET_MAC2)
 
 
-class FaucetUntaggedIPV6RoutingWithStackingTest(FaucetUntaggedIPV4RoutingWithStackingTest):
+class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4RoutingWithStackingTest):
     """IPV6 intervlan routing with stacking tests"""
 
     IPV = 6

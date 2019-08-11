@@ -35,6 +35,9 @@ class FaucetMetrics(PromClient):
         self.PORT_REQUIRED_LABELS = self.REQUIRED_LABELS + ['port', 'port_description']
         self._dpid_counters = {}
         self._dpid_gauges = {}
+        self.faucet_stack_root_dpid = self._gauge(
+            'faucet_stack_root_dpid',
+            'set to current stack root DPID', [])
         self.faucet_config_reload_requests = self._counter(
             'faucet_config_reload_requests',
             'number of config reload requests', [])

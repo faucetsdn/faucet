@@ -33,7 +33,6 @@ from faucet import valve_table
 from faucet import valve_util
 from faucet import valve_pipeline
 
-from faucet.faucet_pipeline import STACK_LOOP_PROTECT_FIELD
 from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
 
@@ -192,10 +191,10 @@ class Valve:
             self.flood_manager = valve_flood.ValveFloodStackManager(
                 self.logger, self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
-                self.dp.combinatorial_port_flood,
+                self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
                 self.dp.stack_ports, self.dp.has_externals,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port,
-                self.dp.longest_path_to_root_len, self.dp.is_stack_root,
+                self.dp.stack_longest_path_to_root_len, self.dp.is_stack_root,
                 self.dp.stack.get('graph', None))
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
@@ -211,7 +210,8 @@ class Valve:
             self.dp.vlans, self.dp.tables['eth_src'],
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack)
+            self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack,
+            self.dp.has_externals)
         if any(t in self.dp.tables for t in ('port_acl', 'vlan_acl', 'egress_acl'))\
                 or self.dp.tunnel_acls:
             self.acl_manager = valve_acl.ValveAclManager(
@@ -488,7 +488,7 @@ class Valve:
 
     def _send_lldp_beacon_on_port(self, port, now):
         chassis_id = str(self.dp.faucet_dp_mac)
-        ttl = self.dp.lldp_beacon['send_interval'] * 3
+        ttl = self.dp.lldp_beacon.get('send_interval', self.dp.DEFAULT_LLDP_SEND_INTERVAL) * 3
         org_tlvs = [
             (tlv['oui'], tlv['subtype'], tlv['info'])
             for tlv in port.lldp_beacon['org_tlvs']]
@@ -496,7 +496,7 @@ class Valve:
         org_tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(self.dp, port))
         system_name = port.lldp_beacon['system_name']
         if not system_name:
-            system_name = self.dp.lldp_beacon['system_name']
+            system_name = self.dp.lldp_beacon.get('system_name', self.dp.name)
         lldp_beacon_pkt = valve_packet.lldp_beacon(
             self.dp.faucet_dp_mac,
             chassis_id, port.number, ttl,
@@ -543,7 +543,8 @@ class Valve:
         remote_dp = port.stack['dp']
         stack_correct = port.dyn_stack_probe_info['stack_correct']
         remote_port_state = port.dyn_stack_probe_info['remote_port_state']
-        send_interval = remote_dp.lldp_beacon['send_interval']
+        send_interval = remote_dp.lldp_beacon.get(
+            'send_interval', remote_dp.DEFAULT_LLDP_SEND_INTERVAL)
         time_since_lldp_seen = now - last_seen_lldp_time
         num_lost_lldp = round(time_since_lldp_seen / float(send_interval))
 
@@ -674,9 +675,11 @@ class Valve:
             actions.extend(valve_of.push_vlan_act(
                 vlan_table, vlan.vid))
             match_vlan = NullVLAN()
-        if vlan.loop_protect_external_ports():
-            vlan_pcp = 0 if port.loop_protect_external else 1
-            actions.append(valve_of.set_field(**{STACK_LOOP_PROTECT_FIELD: vlan_pcp}))
+        if self.dp.has_externals:
+            if port.loop_protect_external:
+                actions.append(vlan_table.set_no_external_forwarding_requested())
+            else:
+                actions.append(vlan_table.set_external_forwarding_requested())
         inst = [
             valve_of.apply_actions(actions),
             vlan_table.goto(self._find_forwarding_table(vlan))]
@@ -916,10 +919,13 @@ class Valve:
         actor_state_activity = 0
         if port.lacp_active:
             actor_state_activity = 1
+        actor_state_collecting = self.dp.lacp_forwarding(port)
+        actor_state_distributing = actor_state_collecting
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
                 port.lacp, port.number, 1, actor_state_activity,
+                actor_state_collecting, actor_state_distributing,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
                 lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
                 lacp_pkt.actor_state_defaulted,
@@ -1388,20 +1394,21 @@ class Valve:
                 # let the other valve learn it.
                 return {}
         ofmsgs_by_valve = {}
-        stacked_valves = set([self] + [valve for valve in other_valves if valve.dp.stack is not None])
+        stacked_valves = {self}.union({
+            valve for valve in other_valves if valve.dp.stack_root_name})
         for valve in stacked_valves:
             valve_pkt_meta = pkt_meta
             valve_other_valves = stacked_valves - {valve}
             ofmsgs = []
             if valve is not self:
                 stack_port = valve.dp.shortest_path_port(self.dp.name)
-                if stack_port and pkt_meta.vlan.vid in valve.dp.vlans:
-                    valve_vlan = valve.dp.vlans[pkt_meta.vlan.vid]
+                valve_vlan = valve.dp.vlans.get(pkt_meta.vlan.vid, None)
+                if stack_port and valve_vlan:
+                    valve_pkt_meta = copy.copy(pkt_meta)
+                    valve_pkt_meta.vlan = valve_vlan
+                    valve_pkt_meta.port = stack_port
                 else:
                     continue
-                valve_pkt_meta = copy.copy(pkt_meta)
-                valve_pkt_meta.vlan = valve_vlan
-                valve_pkt_meta.port = stack_port
             ofmsgs.extend(valve.learn_host(now, valve_pkt_meta, valve_other_valves))
             ofmsgs.extend(valve.router_rcv_packet(now, valve_pkt_meta))
             ofmsgs.extend(valve.router_learn_host(valve_pkt_meta))

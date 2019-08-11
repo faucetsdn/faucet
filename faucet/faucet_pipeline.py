@@ -18,8 +18,6 @@
 
 from faucet.faucet_metadata import EGRESS_METADATA_MASK
 
-STACK_LOOP_PROTECT_FIELD = 'vlan_pcp'
-
 
 class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Configuration for a single table."""

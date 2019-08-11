@@ -28,7 +28,8 @@ class ValveHostManager(ValveManagerBase):
 
     def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
                  eth_dst_hairpin_table, pipeline, learn_timeout, learn_jitter,
-                 learn_ban_timeout, cache_update_guard_time, idle_dst, stack):
+                 learn_ban_timeout, cache_update_guard_time, idle_dst, stack,
+                 has_externals):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
@@ -45,7 +46,7 @@ class ValveHostManager(ValveManagerBase):
         self.output_table = self.eth_dst_table
         self.idle_dst = idle_dst
         self.stack = stack
-        self.has_externals = self._has_externals(vlans)
+        self.has_externals = has_externals
         if self.eth_dst_hairpin_table:
             self.output_table = self.eth_dst_hairpin_table
 
@@ -167,12 +168,6 @@ class ValveHostManager(ValveManagerBase):
             dst_rule_idle_timeout = 0
         return (src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout)
 
-    def _has_externals(self, vlans):
-        has_externals = False
-        for vlan in vlans.values():
-            has_externals = has_externals | bool(vlan.loop_protect_external_ports())
-        return has_externals
-
     def learn_host_intervlan_routing_flows(self, port, vlan, eth_src, eth_dst):
         """Returns flows for the eth_src_table that enable packets that have been
            routed to be accepted from an adjacent DP and then switched to the destination.
@@ -232,25 +227,33 @@ class ValveHostManager(ValveManagerBase):
         if refresh_rules and not hairpinning:
             return ofmsgs
 
-        loop_protect_field = None
-        if port.tagged_vlans and port.loop_protect_external and self.stack:
-            loop_protect_field = 0
-        elif self.has_externals and not port.stack:
-            loop_protect_field = 1
+        external_forwarding_requested = None
+        vlan_pcp = None
+        if self.has_externals:
+            vlan_pcp = valve_of.PCP_EXT_PORT_FLAG
+
+            if port.tagged_vlans and port.loop_protect_external and self.stack:
+                external_forwarding_requested = False
+            elif not port.stack:
+                external_forwarding_requested = True
+
+        inst = self.pipeline.output(
+            port, vlan, external_forwarding_requested=external_forwarding_requested)
 
         # Output packets for this MAC to specified port.
-        vlan_pcp = 1 if self.has_externals else None
         ofmsgs.append(self.eth_dst_table.flowmod(
-            self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src, vlan_pcp=vlan_pcp),
+            self.eth_dst_table.match(
+                vlan=vlan, eth_dst=eth_src, vlan_pcp=vlan_pcp),
             priority=self.host_priority,
-            inst=self.pipeline.output(port, vlan, loop_protect_field=loop_protect_field),
+            inst=inst,
             idle_timeout=dst_rule_idle_timeout))
 
         if self.has_externals and not port.loop_protect_external:
             ofmsgs.append(self.eth_dst_table.flowmod(
-                self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src, vlan_pcp=0),
+                self.eth_dst_table.match(
+                    vlan=vlan, eth_dst=eth_src, vlan_pcp=valve_of.PCP_NONEXT_PORT_FLAG),
                 priority=self.host_priority,
-                inst=self.pipeline.output(port, vlan, loop_protect_field=loop_protect_field),
+                inst=inst,
                 idle_timeout=dst_rule_idle_timeout))
 
         # If port is in hairpin mode, install a special rule
