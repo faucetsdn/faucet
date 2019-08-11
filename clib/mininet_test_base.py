@@ -708,12 +708,14 @@ class FaucetTestBase(unittest.TestCase):
         return ('python3 -c \"from scapy.all import * ; sendp(%s, iface=\'%s\', count=%u)"' % (
             packet, iface, count))
 
-    def scapy_dhcp(self, mac, iface, count=1):
+    def scapy_dhcp(self, mac, iface, count=1, dst=None):
+        if dst is None:
+            dst = 'ff:ff:ff:ff:ff:ff'
         return self.scapy_template(
-            ('Ether(dst=\'ff:ff:ff:ff:ff:ff\', src=\'%s\', type=%u) / '
+            ('Ether(dst=\'%s\', src=\'%s\', type=%u) / '
              'IP(src=\'0.0.0.0\', dst=\'255.255.255.255\') / UDP(dport=67,sport=68) / '
              'BOOTP(op=1) / DHCP(options=[(\'message-type\', \'discover\'), (\'end\')])') % (
-                 mac, IPV4_ETH),
+                 dst, mac, IPV4_ETH),
             iface, count)
 
     def scapy_bcast(self, host, count=1):
@@ -1149,16 +1151,21 @@ dbs:
         for host in self.net.hosts:
             self.reset_ipv4_prefix(host, prefix)
 
+    def stimulate_host_learn(self, host):
+        unicast_learn_cli = self.scapy_dhcp(host.MAC(), host.defaultIntf(), dst=self.FAUCET_MAC)
+        bcast_learn_cli = self.scapy_dhcp(host.MAC(), host.defaultIntf())
+        results = []
+        for learn_cli in (unicast_learn_cli, bcast_learn_cli):
+            results.append(host.cmd(learn_cli))
+        return ' '.join(results)
+
     def require_host_learned(self, host, retries=8, in_port=None, hard_timeout=1):
         """Require a host be learned on default DPID."""
-        # stimulate FAUCET's learning of this host with a DHCP request (generic broadcast)
-        learn_cli = self.scapy_bcast(host)
         for _ in range(retries):
             if self.host_learned(host, timeout=1, in_port=in_port, hard_timeout=hard_timeout):
                 return
-            learn_result = host.cmd(learn_cli)
-        self.fail('Could not learn host %s (%s) from running %s: %s' % (
-            host, host.MAC(), learn_cli, learn_result))
+            learn_result = self.stimulate_host_learn(host)
+        self.fail('Could not learn host %s (%s)' % (host, host.MAC(), learn_result))
 
     def get_prom_port(self):
         return int(self.env['faucet']['FAUCET_PROMETHEUS_PORT'])
@@ -1427,14 +1434,22 @@ dbs:
             host_a, host_b = hosts
         tcpdump_filter = (
             'ether dst host ff:ff:ff:ff:ff:ff and ether src host %s' % host_a.MAC())
-        tcpdump_txt = self.tcpdump_helper(
-            host_b, tcpdump_filter,
-            [partial(host_a.cmd, self.scapy_bcast(host_a), packets)],
-            packets=(packets - 1), timeout=(packets + 2))
-        msg = '%s (%s) -> %s (%s): %s' % (
-            host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
+        for _ in range(packets):
+            tcpdump_txt = self.tcpdump_helper(
+                host_b, tcpdump_filter,
+                [partial(host_a.cmd, self.scapy_bcast(host_a), packets)],
+                packets=1, timeout=2)
+            msg = '%s (%s) -> %s (%s): %s' % (
+                host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
+            received_packets = host_a.MAC() in tcpdump_txt
+            if broadcast_expected:
+                if received_packets:
+                    return
+            else:
+                self.assertFalse(received_packets, msg=msg)
+            time.sleep(0.1)
         self.assertEqual(
-            broadcast_expected, host_a.MAC() in tcpdump_txt, msg=msg)
+            broadcast_expected, received_packets, msg=msg)
 
     def verify_unicast(self, hosts, unicast_expected=True, packets=3):
         host_a = self.net.hosts[0]
@@ -1444,21 +1459,23 @@ dbs:
         scapy_cmd = self.scapy_template(
             ('Ether(src=\'%s\', dst=\'%s\', type=%u) / '
              'IP(src=\'10.0.0.1\', dst=\'10.0.0.2\') / UDP(dport=67,sport=68)') % (
-                 host_a.MAC(), host_b.MAC(), IPV4_ETH), host_a.defaultIntf(), packets)
+                 host_a.MAC(), host_b.MAC(), IPV4_ETH), host_a.defaultIntf(), 1)
         tcpdump_filter = 'ip and ether src %s and ether dst %s' % (host_a.MAC(), host_b.MAC())
-        # Wait for at least one packet.
-        tcpdump_txt = self.tcpdump_helper(
-            host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)], vflags='-vv',
-            packets=1, timeout=(packets + 2))
-        received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
-        msg = '%s (%s) -> %s (%s): %s' % (
-            host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
-        if unicast_expected:
-            # We expect unicast connectivity, so we should have got at least one packet.
-            self.assertFalse(received_no_packets, msg=msg)
-        else:
-            # We expect no unicast connectivity, so we must get no packets.
-            self.assertTrue(received_no_packets, msg=msg)
+        for _ in range(packets):
+            tcpdump_txt = self.tcpdump_helper(
+                host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)], vflags='-vv',
+                packets=1, timeout=2)
+            received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
+            received_packets = not received_no_packets
+            msg = '%s (%s) -> %s (%s): %s' % (
+                host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
+            if unicast_expected:
+                if received_packets:
+                    return
+            else:
+                self.assertTrue(received_no_packets, msg=msg)
+            time.sleep(0.1)
+        self.assertEqual(unicast_expected, received_packets, msg=msg)
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
