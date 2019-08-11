@@ -7353,7 +7353,7 @@ class FaucetStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     NUM_DPS = 3
     NUM_HOSTS = 3
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super(FaucetStackStringOf3DPExtLoopProtUntaggedTest, self).setUp()
         self.build_net(
             stack=True,
