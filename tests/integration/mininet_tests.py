@@ -7302,14 +7302,14 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             self.require_host_learned(host)
 
         # Part 1: Make sure things are connected properly.
-        self.verify_protected_connectivity() # Before reload
+        self.verify_protected_connectivity()  # Before reload
 
         # Part 2: Test the code on pipeline reconfiguration path.
         self._mark_external(True)
         self._mark_external(False)
 
         # Part 3: Make sure things are the same after reload.
-        self.verify_protected_connectivity() # After reload
+        self.verify_protected_connectivity()  # After reload
 
     def _mark_external(self, protect_external):
         conf = self._get_faucet_conf()
