@@ -229,16 +229,19 @@ class ValveHostManager(ValveManagerBase):
             return ofmsgs
 
         external_forwarding_requested = None
-        if port.tagged_vlans and port.loop_protect_external and self.stack:
-            external_forwarding_requested = False
-        elif self.has_externals and not port.stack:
-            external_forwarding_requested = True
+        vlan_pcp = None
+        if self.has_externals:
+            vlan_pcp = valve_of.PCP_EXT_PORT_FLAG
+
+            if port.tagged_vlans and port.loop_protect_external and self.stack:
+                external_forwarding_requested = False
+            elif not port.stack:
+                external_forwarding_requested = True
 
         inst = self.pipeline.output(
             port, vlan, external_forwarding_requested=external_forwarding_requested)
 
         # Output packets for this MAC to specified port.
-        vlan_pcp = valve_of.PCP_EXT_PORT_FLAG if self.has_externals else None
         ofmsgs.append(self.eth_dst_table.flowmod(
             self.eth_dst_table.match(
                 vlan=vlan, eth_dst=eth_src, vlan_pcp=vlan_pcp),
