@@ -70,7 +70,7 @@ MAC_MASK_BITMAP = {(2**EUI_BITS - 2**i): (EUI_BITS - i) for i in range(0, EUI_BI
 
 # https://en.wikipedia.org/wiki/IEEE_P802.1p
 # Avoid use of PCP 1 which is BK priority (lowest)
-PCP_EXT_PORT_FLAG = 1
+PCP_EXT_PORT_FLAG = 2
 PCP_NONEXT_PORT_FLAG = 0
 
 
