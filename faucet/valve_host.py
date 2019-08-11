@@ -20,7 +20,6 @@
 import random
 
 from faucet import valve_of
-from faucet import valve_packet
 from faucet.valve_manager_base import ValveManagerBase
 
 
