@@ -68,6 +68,11 @@ LACP_SIZE = 124
 EUI_BITS = len(EUI(0).packed*8)
 MAC_MASK_BITMAP = {(2**EUI_BITS - 2**i): (EUI_BITS - i) for i in range(0, EUI_BITS + 1)}
 
+# https://en.wikipedia.org/wiki/IEEE_P802.1p
+# Avoid use of PCP 1 which is BK priority (lowest)
+PCP_EXT_PORT_FLAG = 1
+PCP_NONEXT_PORT_FLAG = 0
+
 
 def mac_mask_bits(mac_mask):
     """Return number of bits in MAC mask or 0."""
@@ -351,6 +356,8 @@ def lacp_reqreply(eth_src,
                   actor_system, actor_key, actor_port,
                   actor_state_synchronization=0,
                   actor_state_activity=0,
+                  actor_state_collecting=1,
+                  actor_state_distibuting=1,
                   partner_system='00:00:00:00:00:00',
                   partner_key=0,
                   partner_port=0,
@@ -373,6 +380,8 @@ def lacp_reqreply(eth_src,
         actor_port (int): actor port number.
         actor_state_synchronization (int): 1 if we will use this link.
         actor_state_activity (int): 1 if actively sending LACP.
+        actor_state_collecting (int): 1 if receiving on this link.
+        actor_state_distibuting (int): 1 if transmitting on this link.
         partner_system (str): partner system ID (MAC address)
         partner_key (int): partner's LACP key assigned to this port.
         partner_port (int): partner port number.

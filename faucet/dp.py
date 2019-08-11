@@ -34,6 +34,7 @@ from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.valve_table import ValveTable, ValveGroupTable
 
+
 # Documentation generated using documentation_generator.py
 # For attributues to be included in documentation they must
 # have a default value, and their descriptor must come
@@ -42,7 +43,8 @@ class DP(Conf):
     """Stores state related to a datapath controlled by Faucet, including
 configuration.
 """
-
+    DEFAULT_LLDP_SEND_INTERVAL = 5
+    DEFAULT_LLDP_MAX_PER_INTERVAL = 5
     mutable_attrs = frozenset(['stack', 'vlans'])
 
     # Values that are set to None will be set using set_defaults
@@ -298,6 +300,9 @@ configuration.
         self.strict_packet_in_cookie = None
         self.multi_out = None
         self.idle_dst = None
+        self.stack_root_name = None
+        self.stack_roots_names = None
+        self.stack_longest_path_to_root_len = None
 
         self.acls = {}
         self.vlans = {}
@@ -365,15 +370,17 @@ configuration.
             self.learn_ban_timeout = self.learn_jitter
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
-            test_config_condition('send_interval' not in self.lldp_beacon, (
-                'lldp_beacon send_interval not set'))
-            test_config_condition('max_per_interval' not in self.lldp_beacon, (
-                'lldp_beacon max_per_interval not set'))
+            if 'send_interval' not in self.lldp_beacon:
+                self.lldp_beacon['send_interval'] = self.DEFAULT_LLDP_SEND_INTERVAL
+            if 'max_per_interval' not in self.lldp_beacon:
+                self.lldp_beacon['max_per_interval'] = self.DEFAULT_LLDP_MAX_PER_INTERVAL
             self.lldp_beacon = self._set_unknown_conf(
                 self.lldp_beacon, self.lldp_beacon_defaults_types)
             if self.lldp_beacon['system_name'] is None:
                 self.lldp_beacon['system_name'] = self.name
         if self.stack:
+            if 'graph' in self.stack:
+                del self.stack['graph']
             self._check_conf_types(self.stack, self.stack_defaults_types)
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
@@ -701,7 +708,7 @@ configuration.
         """Remove a stack link to the stack graph."""
         return cls.modify_stack_topology(graph, dp, port, False)
 
-    def resolve_stack_topology(self, dps):
+    def resolve_stack_topology(self, dps, meta_dp_state):
         """Resolve inter-DP config for stacking."""
         stack_dps = [dp for dp in dps if dp.stack is not None]
         stack_priority_dps = [dp for dp in stack_dps if 'priority' in dp.stack]
@@ -717,9 +724,17 @@ configuration.
                     int, type(dp.stack['priority']))))
             test_config_condition(dp.stack['priority'] <= 0, (
                 'stack priority must be > 0'))
+        stack_priority_dps = sorted(stack_priority_dps, key=lambda x: x.stack['priority'])
 
-        root_dps = sorted(stack_priority_dps, key=lambda x: x.stack['priority'])
-        root_dp = root_dps[0]
+        self.stack_roots_names = [dp.name for dp in stack_priority_dps]
+        self.stack_root_name = self.stack_roots_names[0]
+        if meta_dp_state:
+            if meta_dp_state.stack_root_name in self.stack_roots_names:
+                self.stack_root_name = meta_dp_state.stack_root_name
+        # Must set externals flag for entire stack.
+        for dp in stack_port_dps:
+            if dp.has_externals:
+                self.has_externals = True
 
         edge_count = Counter()
         graph = networkx.MultiGraph()
@@ -733,18 +748,14 @@ configuration.
         if graph.size() and self.name in graph:
             if self.stack is None:
                 self.stack = {}
-            self.stack.update({
-                'root_dp': root_dp,
-                'root_dps': root_dps,
-                'graph': graph})
-            longest_path_to_root_len = 0
+            self.stack.update({'graph': graph})
+            self.stack_longest_path_to_root_len = 0
             for dp in graph.nodes():
-                path_to_root_len = len(self.shortest_path(root_dp.name, src_dp=dp))
+                path_to_root_len = len(self.shortest_path(self.stack_root_name, src_dp=dp))
                 test_config_condition(
                     path_to_root_len == 0, '%s not connected to stack' % dp)
-                longest_path_to_root_len = max(
-                    path_to_root_len, longest_path_to_root_len)
-            self.stack['longest_path_to_root_len'] = longest_path_to_root_len
+                self.stack_longest_path_to_root_len = max(
+                    path_to_root_len, self.stack_longest_path_to_root_len)
 
         if self.tunnel_acls:
             self.finalize_tunnel_acls(dps)
@@ -778,41 +789,36 @@ configuration.
         """Return shortest path to a DP, as a list of DPs."""
         if src_dp is None:
             src_dp = self.name
-        if self.stack is not None and 'root_dp' in self.stack:
+        graph = self.stack.get('graph', None)
+        if graph:
             try:
-                return networkx.shortest_path(
-                    self.stack['graph'], src_dp, dest_dp)
+                return networkx.shortest_path(graph, src_dp, dest_dp)
             except (networkx.exception.NetworkXNoPath, networkx.exception.NodeNotFound):
                 pass
         return []
 
     def shortest_path_to_root(self):
         """Return shortest path to root DP, as list of DPs."""
-        # TODO: root_dp will be None, if stacking is enabled but the root DP is down.
-        if self.stack is not None and 'root_dp' in self.stack:
-            root_dp = self.stack['root_dp']
-            if root_dp is not None and root_dp != self:
-                return self.shortest_path(root_dp.name)
-        return []
+        return self.shortest_path(self.stack_root_name)
 
     def is_stack_root(self):
         """Return True if this DP is the root of the stack."""
-        return self.stack and 'priority' in self.stack
-
-    def longest_path_to_root_len(self):
-        """Return length of longest path to root or None."""
-        if self.stack:
-            return self.stack.get('longest_path_to_root_len', None)
-        return None
+        return self.stack_root_name == self.name
 
     def is_stack_edge(self):
         """Return True if this DP is a stack edge."""
-        return self.longest_path_to_root_len() == len(self.shortest_path_to_root())
+        return (not self.is_stack_root() and
+                self.stack_longest_path_to_root_len == len(self.shortest_path_to_root()))
+
+    @staticmethod
+    def canonical_port_order(ports):
+        return sorted(ports, key=lambda x: x.number)
 
     def peer_stack_up_ports(self, peer_dp):
         """Return list of stack ports that are up towards a peer."""
-        return [port for port in self.stack_ports if port.running() and (
-            port.stack['dp'].name == peer_dp)]
+        return self.canonical_port_order([
+            port for port in self.stack_ports if port.running() and (
+                port.stack['dp'].name == peer_dp)])
 
     def shortest_path_port(self, dest_dp):
         """Return first port on our DP, that is the shortest path towards dest DP."""
@@ -865,7 +871,6 @@ configuration.
 
         dp_by_name = {}
         vlan_by_name = {}
-        vlans_with_external_ports = set()
 
         def resolve_ports(port_names):
             """Resolve list of ports, by port by name or number."""
@@ -1148,16 +1153,13 @@ configuration.
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
         dp_by_name = {dp.name: dp for dp in dps}
         vlan_by_name = {vlan.name: vlan for vlan in self.vlans.values()}
-        vlans_with_external_ports = {
-            vlan for vlan in self.vlans.values() if vlan.loop_protect_external_ports()}
+        loop_protect_external_ports = {port for port in self.ports.values() if port.loop_protect_external}
+        self.has_externals = bool(loop_protect_external_ports)
 
-        self.has_externals = bool(vlans_with_external_ports)
         resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_acls()
         resolve_routers()
-
-        self._configure_tables()
 
         for port in self.ports.values():
             port.finalize()
@@ -1167,7 +1169,11 @@ configuration.
             acl.finalize()
         for router in self.routers.values():
             router.finalize()
-        self.finalize()
+
+    def finalize(self):
+        """Need to configure OF tables as very last step."""
+        self._configure_tables()
+        super(DP, self).finalize()
 
     def get_native_vlan(self, port_num):
         """Return native VLAN for a port by number, or None."""
@@ -1353,6 +1359,8 @@ configuration.
             logger.info('pipeline table config change - requires cold start')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
+        elif new_dp.stack_root_name != self.stack_root_name:
+            logger.info('Stack root change - requires cold start')
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
             deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)

@@ -43,7 +43,7 @@ def check_config(conf_files, debug_level, check_output_file):
             check_result = False
 
             try:
-                _, dps = dp_parser(conf_file, logname)
+                _, dps, _ = dp_parser(conf_file, logname)
                 if dps is not None:
                     dps_conf = [(valve.valve_factory(dp), dp.to_conf()) for dp in dps]
                     check_output.extend([conf for _, conf in dps_conf])

@@ -227,6 +227,68 @@ vlans:
 """ % DP1_CONFIG
 
 
+STACK_CONFIG = """
+dps:
+    s1:
+%s
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s2
+                    port: 1
+            2:
+                description: p2
+                stack:
+                    dp: s2
+                    port: 2
+            3:
+                description: p3
+                native_vlan: v100
+    s2:
+        hardware: 'GenericTFM'
+        dp_id: 0x2
+        stack:
+            priority: 2
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                description: p2
+                stack:
+                    dp: s1
+                    port: 2
+            3:
+                description: p3
+                stack:
+                    dp: s3
+                    port: 2
+            4:
+                description: p4
+                native_vlan: v100
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                description: p1
+                native_vlan: v100
+            2:
+                description: p2
+                stack:
+                    dp: s2
+                    port: 3
+vlans:
+    v100:
+        vid: 100
+    """ % DP1_CONFIG
+
+
 def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
 
@@ -430,13 +492,14 @@ class ValveTestBases:
             prof_stats.print_stats(amount)
             return (prof_stats, prof_stream.getvalue())
 
-        def get_prom(self, var, labels=None):
+        def get_prom(self, var, labels=None, bare=False):
             """Return a Prometheus variable value."""
             if labels is None:
                 labels = {}
-            labels.update({
-                'dp_name': self.DP,
-                'dp_id': '0x%x' % self.DP_ID})
+            if not bare:
+                labels.update({
+                    'dp_name': self.DP,
+                    'dp_id': '0x%x' % self.DP_ID})
             val = self.registry.get_sample_value(var, labels)
             if val is None:
                 val = 0
@@ -674,6 +737,19 @@ class ValveTestBases:
                     now, valve_service)
             self.valves_manager.update_metrics(now)
             return rcv_packet_ofmsgs
+
+        def rcv_lldp(self, port, other_dp, other_port):
+            """Receive an LLDP packet"""
+            tlvs = []
+            tlvs.extend(valve_packet.faucet_lldp_tlvs(other_dp))
+            tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(other_dp, other_port))
+            self.rcv_packet(port.number, 0, {
+                'eth_src': FAUCET_MAC,
+                'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
+                'port_id': other_port.number,
+                'chassis_id': FAUCET_MAC,
+                'system_name': other_dp.name,
+                'org_tlvs': tlvs})
 
 
     class ValveTestBig(ValveTestSmall):
@@ -2454,6 +2530,54 @@ acls:
             self.table.is_output(l3_drop_match, port=3),
             msg='Routed packet not blocked by ACL')
 
+
+class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
+    """Valve test for updating the stack graph"""
+
+    CONFIG = STACK_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_redundancy(self):
+        now = 1
+        # All switches are down to start with.
+        for dpid in self.valves_manager.valves:
+            self.valves_manager.valves[dpid].dp.dyn_running = False
+        for valve in self.valves_manager.valves.values():
+            self.assertFalse(valve.dp.dyn_running)
+            self.assertEqual('s1', valve.dp.stack_root_name)
+        # From a cold start - we pick the s1 as root.
+        self.assertEqual(None, self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        self.assertEqual('s1', self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
+        now += (valves_manager.STACK_ROOT_DOWN_TIME * 2)
+        # Time passes, still no change, s1 is still the root.
+        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        self.assertEqual('s1', self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
+        # s2 has come up, but s1 is still down. We expect s2 to be the new root.
+        self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
+        now += (valves_manager.STACK_ROOT_STATE_UPDATE_TIME * 2)
+        self.assertTrue(self.valves_manager.maintain_stack_root(now))
+        self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
+        # More time passes, s1 is still down, s2 is still the root.
+        now += (valves_manager.STACK_ROOT_DOWN_TIME * 2)
+        # s2 recently said something, s2 still the root.
+        self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now - 1
+        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
+        # now s1 came up too, so we change to s1 because we prefer it.
+        self.valves_manager.meta_dp_state.dp_last_live_time['s1'] = now + 1
+        now += valves_manager.STACK_ROOT_STATE_UPDATE_TIME
+        self.assertTrue(self.valves_manager.maintain_stack_root(now))
+        self.assertEqual('s1', self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
+
+
 class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
     """Test stacking/forwarding."""
 
@@ -2530,83 +2654,10 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
 class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
     """Test stack link probing."""
 
-    CONFIG = """
-dps:
-    s1:
-%s
-        stack:
-            priority: 1
-        interfaces:
-            1:
-                description: p1
-                stack:
-                    dp: s2
-                    port: 1
-            2:
-                description: p2
-                stack:
-                    dp: s2
-                    port: 2
-            3:
-                description: p3
-                native_vlan: v100
-    s2:
-        hardware: 'GenericTFM'
-        dp_id: 0x2
-        lldp_beacon:
-            send_interval: 5
-            max_per_interval: 1
-        interfaces:
-            1:
-                description: p1
-                stack:
-                    dp: s1
-                    port: 1
-            2:
-                description: p2
-                stack:
-                    dp: s1
-                    port: 2
-            3:
-                description: p3
-                stack:
-                    dp: s3
-                    port: 2
-            4:
-                description: p4
-                native_vlan: v100
-    s3:
-        dp_id: 0x3
-        hardware: 'GenericTFM'
-        interfaces:
-            1:
-                description: p1
-                native_vlan: v100
-            2:
-                description: p2
-                stack:
-                    dp: s2
-                    port: 3
-vlans:
-    v100:
-        vid: 100
-    """ % DP1_CONFIG
+    CONFIG = STACK_CONFIG
 
     def setUp(self):
         self.setup_valve(self.CONFIG)
-
-    def rcv_lldp(self, port, other_dp, other_port):
-        """Receive an LLDP packet"""
-        tlvs = []
-        tlvs.extend(valve_packet.faucet_lldp_tlvs(other_dp))
-        tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(other_dp, other_port))
-        self.rcv_packet(port.number, 0, {
-            'eth_src': FAUCET_MAC,
-            'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
-            'port_id': other_port.number,
-            'chassis_id': FAUCET_MAC,
-            'system_name': other_dp.name,
-            'org_tlvs': tlvs})
 
     def test_stack_probe(self):
         """Test probing works correctly."""
@@ -2651,11 +2702,17 @@ vlans:
         self.assertTrue(stack_port.is_stack_down())
 
 
-class ValveStackGraphUpdateTestCase(ValveStackProbeTestCase):
-    """Valve test for updating the stack graph"""
+class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestSmall):
+    """Valve test for updating the stack graph."""
+
+    CONFIG = STACK_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
 
     def test_update_stack_graph(self):
         """Test stack graph port UP and DOWN updates"""
+
         def all_stack_up():
             for valve in self.valves_manager.valves.values():
                 valve.dp.dyn_running = True
