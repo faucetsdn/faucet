@@ -382,6 +382,8 @@ configuration.
         self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
         if 'send_interval' not in self.lldp_beacon:
             self.lldp_beacon['send_interval'] = self.DEFAULT_LLDP_SEND_INTERVAL
+        test_config_condition(self.lldp_beacon['send_interval'] < 1, (
+            'DP ID %s LLDP beacon send_interval not in valid range' % self.dp_id))
         if 'max_per_interval' not in self.lldp_beacon:
             self.lldp_beacon['max_per_interval'] = self.DEFAULT_LLDP_MAX_PER_INTERVAL
         self.lldp_beacon = self._set_unknown_conf(

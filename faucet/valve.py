@@ -489,6 +489,8 @@ class Valve:
     def _send_lldp_beacon_on_port(self, port, now):
         chassis_id = str(self.dp.faucet_dp_mac)
         ttl = self.dp.lldp_beacon.get('send_interval', self.dp.DEFAULT_LLDP_SEND_INTERVAL) * 3
+        if ttl > 2**16-1:
+            ttl = 2**16-1
         org_tlvs = [
             (tlv['oui'], tlv['subtype'], tlv['info'])
             for tlv in port.lldp_beacon['org_tlvs']]
