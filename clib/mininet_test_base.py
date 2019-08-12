@@ -363,7 +363,7 @@ class FaucetTestBase(unittest.TestCase):
         """Clean up after a test.
            ignore_oferrors: return OF errors rather than failing"""
         if self.NETNS:
-            for host in self.net.hosts[:1]:
+            for host in self.hosts_name_ordered()[:1]:
                 if self.get_host_netns(host):
                     self.quiet_commands(host, ['ip netns del %s' % self.hostns(host)])
         self.first_switch().cmd('ip link > %s' % os.path.join(self.tmpdir, 'ip-links.log'))
@@ -467,7 +467,7 @@ class FaucetTestBase(unittest.TestCase):
         self._wait_debug_log()
         for port_no in self._dp_ports():
             self.set_port_up(port_no, wait=False)
-        dumpNodeConnections(self.net.hosts)
+        dumpNodeConnections(self.hosts_name_ordered())
         self.reset_all_ipv4_prefix(prefix=24)
 
     def _get_controller(self):
@@ -545,7 +545,7 @@ class FaucetTestBase(unittest.TestCase):
                 self._wait_load()
                 if self.NETNS:
                     # TODO: seemingly can't have more than one namespace.
-                    for host in self.net.hosts[:1]:
+                    for host in self.hosts_name_ordered()[:1]:
                         hostns = self.hostns(host)
                         if self.get_host_netns(host):
                             self.quiet_commands(host, ['ip netns del %s' % hostns])
@@ -1148,7 +1148,7 @@ dbs:
         host.setIP(host.IP(), prefixLen=prefix)
 
     def reset_all_ipv4_prefix(self, prefix=24):
-        for host in self.net.hosts:
+        for host in self.hosts_name_ordered():
             self.reset_ipv4_prefix(host, prefix)
 
     def stimulate_host_learn(self, host):
@@ -1412,7 +1412,7 @@ dbs:
     def verify_traveling_dhcp_mac(self, retries=10):
         mac = '0e:00:00:00:00:ff'
         locations = set()
-        for host in self.net.hosts:
+        for host in self.hosts_name_ordered():
             for _ in range(retries):
                 host.cmd(self.scapy_dhcp(mac, host.defaultIntf()))
                 new_locations = set()
@@ -1428,8 +1428,8 @@ dbs:
             locations = new_locations
 
     def verify_broadcast(self, hosts=None, broadcast_expected=True, packets=3):
-        host_a = self.net.hosts[0]
-        host_b = self.net.hosts[-1]
+        host_a = self.hosts_name_ordered()[0]
+        host_b = self.hosts_name_ordered()[-1]
         if hosts is not None:
             host_a, host_b = hosts
         tcpdump_filter = (
@@ -1452,8 +1452,8 @@ dbs:
             broadcast_expected, received_packets, msg=msg)
 
     def verify_unicast(self, hosts, unicast_expected=True, packets=3):
-        host_a = self.net.hosts[0]
-        host_b = self.net.hosts[-1]
+        host_a = self.hosts_name_ordered()[0]
+        host_b = self.hosts_name_ordered()[-1]
         if hosts is not None:
             host_a, host_b = hosts
         scapy_cmd = self.scapy_template(
@@ -1484,15 +1484,15 @@ dbs:
 
     def verify_no_bcast_to_self(self, timeout=3):
         bcast_cap_files = []
-        tcpdump_timeout = timeout * len(self.net.hosts) * 2
-        for host in self.net.hosts:
+        tcpdump_timeout = timeout * len(self.hosts_name_ordered()) * 2
+        for host in self.hosts_name_ordered():
             tcpdump_filter = '-Q in ether src %s' % host.MAC()
             bcast_cap_file = os.path.join(self.tmpdir, '%s-bcast.cap' % host)
             bcast_cap_files.append(bcast_cap_file)
             host.cmd(mininet_test_util.timeout_cmd(
                 'tcpdump -U -n -c 1 -i %s -w %s %s &' % (
                     host.defaultIntf(), bcast_cap_file, tcpdump_filter), tcpdump_timeout))
-        for host in self.net.hosts:
+        for host in self.hosts_name_ordered():
             for bcast_cmd in (
                     ('ndisc6 -w1 fe80::1 %s' % host.defaultIntf()),
                     ('ping -b -i0.1 -c3 %s' % self.ipv4_vip_bcast())):
@@ -1508,7 +1508,7 @@ dbs:
             'UDP(dport=9)/'
             'b\'hello\'')
         tcpdump_filter = '-Q in ether src %s' % unicast_mac1
-        for host in self.net.hosts:
+        for host in self.hosts_name_ordered():
             host.cmd(
                 self.scapy_template(
                     hello_template % (unicast_mac1, 'ff:ff:ff:ff:ff:ff'),
@@ -1588,9 +1588,9 @@ dbs:
                 if str(ipa).endswith('.255'):
                     continue
                 test_ipas.append(ipa)
-                if len(test_ipas) == max_hosts+len(self.net.hosts):
+                if len(test_ipas) == max_hosts+len(self.hosts_name_ordered()):
                     break
-            base_ipas = test_ipas[-len(self.net.hosts):]
+            base_ipas = test_ipas[-len(self.hosts_name_ordered()):]
             return (base_ipas, test_ipas)
 
         def generate_mac_intfs(test_ipas, other_hosts):
@@ -1602,13 +1602,13 @@ dbs:
                 mac_intf_ipv4s.append((host, mac_intf, mac_ipv4))
             return mac_intf_ipv4s
 
-        first_host = self.net.hosts[0]
-        other_hosts = self.net.hosts[1:]
+        first_host = self.hosts_name_ordered()[0]
+        other_hosts = self.hosts_name_ordered()[1:]
 
         base_ipas, test_ipas = generate_test_ipas()
         mac_intf_ipv4s = generate_mac_intfs(test_ipas, other_hosts)
 
-        for i, host in enumerate(self.net.hosts):
+        for i, host in enumerate(self.hosts_name_ordered()):
             host.setIP(str(base_ipas[i]), prefixLen=test_net.prefixlen)
         self.ping_all_when_learned()
 
@@ -1660,7 +1660,7 @@ dbs:
                         error('could not verify connectivity for all hosts\n')
                         return False
 
-                mininet_hosts = len(self.net.hosts)
+                mininet_hosts = len(self.hosts_name_ordered())
                 target_hosts = learn_hosts + mininet_hosts
                 return self.wait_for_prometheus_var(
                     'vlan_hosts_learned', target_hosts, labels={'vlan': '100'}, timeout=10)
@@ -1832,7 +1832,7 @@ dbs:
             msg=tcpdump_txt)
 
     def bogus_mac_flooded_to_port1(self):
-        first_host, second_host, third_host = self.net.hosts[0:3]
+        first_host, second_host, third_host = self.hosts_name_ordered()[0:3]
         unicast_flood_filter = 'ether host %s' % self.BOGUS_MAC
         static_bogus_arp = 'arp -s %s %s' % (first_host.IP(), self.BOGUS_MAC)
         curl_first_host = 'curl -m 5 http://%s' % first_host.IP()
@@ -1852,7 +1852,7 @@ dbs:
 
     def ladvd_noisemaker(self, send_cmd, tcpdump_filter, hosts=None, timeout=3, repeats=3):
         if hosts is None:
-            hosts = self.net.hosts[:2]
+            hosts = self.hosts_name_ordered()[:2]
         first_host = hosts[0]
         other_hosts = hosts[1:]
         other_host_cmds = []
@@ -2396,7 +2396,7 @@ dbs:
         for _ in range(retries):
             loss = self.pingAll()
             # we should have learned all hosts now, so should have no loss.
-            for host in self.net.hosts:
+            for host in self.hosts_name_ordered():
                 self.require_host_learned(host, hard_timeout=hard_timeout)
             if loss == 0:
                 return
@@ -2561,7 +2561,7 @@ dbs:
 
     def verify_ipv4_routing_mesh(self):
         """Verify hosts can route to each other via FAUCET."""
-        host_pair = self.net.hosts[:2]
+        host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddress.ip_interface('10.0.1.1/24')
         second_host_routed_ip = ipaddress.ip_interface('10.0.2.1/24')
@@ -2646,7 +2646,7 @@ dbs:
 
     def verify_ipv6_routing_mesh(self):
         """Verify IPv6 routing between hosts and multiple subnets."""
-        host_pair = self.net.hosts[:2]
+        host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_ip = ipaddress.ip_interface('fc00::1:1/112')
         second_host_ip = ipaddress.ip_interface('fc00::1:2/112')
