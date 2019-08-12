@@ -368,7 +368,11 @@ configuration.
             self.learn_jitter = int(max(math.sqrt(self.timeout) * 3, 1))
         if self.learn_ban_timeout == 0:
             self.learn_ban_timeout = self.learn_jitter
-        if self.lldp_beacon:
+        if self.stack:
+            if 'graph' in self.stack:
+                del self.stack['graph']
+            self._check_conf_types(self.stack, self.stack_defaults_types)
+        if self.lldp_beacon or self.stack:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
             if 'send_interval' not in self.lldp_beacon:
                 self.lldp_beacon['send_interval'] = self.DEFAULT_LLDP_SEND_INTERVAL
@@ -378,10 +382,6 @@ configuration.
                 self.lldp_beacon, self.lldp_beacon_defaults_types)
             if self.lldp_beacon['system_name'] is None:
                 self.lldp_beacon['system_name'] = self.name
-        if self.stack:
-            if 'graph' in self.stack:
-                del self.stack['graph']
-            self._check_conf_types(self.stack, self.stack_defaults_types)
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
         self._check_conf_types(self.table_sizes, self.default_table_sizes_types)
