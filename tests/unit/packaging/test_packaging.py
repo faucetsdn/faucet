@@ -43,7 +43,7 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
             'pyyaml': 'python3-yaml'
             }
 
-        with open(self.control_file) as handle:
+        with open(self.control_file, 'r', encoding='utf-8') as handle:
             control = handle.read()
 
         faucet_dpkg = str()
