@@ -6604,7 +6604,6 @@ class FaucetStringOfDPTest(FaucetTest):
                 'table_sizes': {'flood': 64},
                 'ofchannel_log': ofchannel_log + str(i) if ofchannel_log else None,
                 'interfaces': {},
-                'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
                 'group_table': self.GROUP_TABLE,
             }
 
