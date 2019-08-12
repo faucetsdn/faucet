@@ -5249,7 +5249,7 @@ class FaucetTaggedExtLoopProtectTest(FaucetTaggedTest):
 """
 
     def test_tagged(self):
-        ext_port1, ext_port2, int_port1, int_port2 = self.host_name_ordered()
+        ext_port1, ext_port2, int_port1, int_port2 = self.hosts_name_ordered()
         self.verify_broadcast((ext_port1, ext_port2), False)
         self.verify_broadcast((int_port1, int_port2), True)
         self.verify_unicast((int_port1, int_port2), True)
@@ -7334,7 +7334,7 @@ class FaucetStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         self.verify_stack_up()
-        a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1, c_ext1, c_ext2, c_int1 = self.host_name_ordered()
+        a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1, c_ext1, c_ext2, c_int1 = self.hosts_name_ordered()
         int_hosts = {a_int1, b_int1, c_int1}
         ext_hosts = {a_ext1, a_ext2, b_ext1, b_ext2, c_ext1, c_ext2}
 
