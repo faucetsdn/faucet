@@ -1,6 +1,6 @@
 ## Image name: faucet/gauge-pi
 
-FROM faucet/python3-pi
+FROM faucet/python3-pi:4.0.0
 
 COPY ./ /faucet-src/
 

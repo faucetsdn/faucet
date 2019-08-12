@@ -5,7 +5,7 @@ stages:
 
 build-package:
   stage: build-package
-  image: faucet/dbuilder
+  image: faucet/dbuilder:3.0.2
   script:
     - apt-get update && apt-get upgrade -y
     - mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
@@ -23,7 +23,7 @@ build-package:
 
 deploy-package:
   stage: deploy-package
-  image: faucet/dbuilder
+  image: faucet/dbuilder:3.0.2
   script:
     - cd built-packages/
     - ../gitlab/deploy_deb.sh
@@ -32,7 +32,7 @@ deploy-package:
 
 build-vm-image:
   stage: build-image
-  image: faucet/dbuilder
+  image: faucet/dbuilder:3.0.2
   script:
     - cd images/vm/
     - apt-get update && apt-get upgrade -y
@@ -51,7 +51,7 @@ build-vm-image:
 
 build-rpi-image:
   stage: build-image
-  image: faucet/dbuilder
+  image: faucet/dbuilder:3.0.2
   script:
     - cd images/raspbian/
     - apt-get update && apt-get upgrade -y
