@@ -69,7 +69,8 @@ class ConfigWatcher:
         self.config_file = new_config_file
         if new_config_hashes is None:
             new_config_hashes = {new_config_file: None}
-        self.config_hashes = new_config_hashes
+        if new_config_hashes:
+            self.config_hashes = new_config_hashes
 
 
 class ValvesManager:
@@ -179,6 +180,7 @@ class ValvesManager:
             self.meta_dp_state.top_conf = top_conf
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
+            self.config_watcher.update(new_config_file)
             self.metrics.faucet_config_hash.info(
                 dict(config_files=new_config_file, hashes=''))
             self.metrics.faucet_config_load_error.set(1)

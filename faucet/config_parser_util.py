@@ -69,22 +69,22 @@ def read_config(config_file, logname):
     logger = get_logger(logname)
     try:
         with open(config_file, 'r') as stream:
-            conf = yaml.safe_load(stream.read())
+            conf_txt = stream.read()
+        return yaml.safe_load(conf_txt)
     except (yaml.YAMLError, UnicodeDecodeError,
             PermissionError, ValueError) as err: # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
-        return None
     except FileNotFoundError as err: # pytype: disable=name-error
         logger.error('Could not find requested file: %s', config_file)
-        return None
-    return conf
+    return None
 
 
 def config_file_hash(config_file_name):
     """Return hash of YAML config file contents."""
+    config_hash = getattr(hashlib, CONFIG_HASH_FUNC)
     with open(config_file_name) as config_file:
-        config_hash = getattr(hashlib, CONFIG_HASH_FUNC)
-        return config_hash(config_file.read().encode('utf-8')).hexdigest()
+        config_file = config_file.read()
+    return config_hash(config_file.encode('utf-8')).hexdigest()
 
 
 def dp_config_path(config_file, parent_file=None):
