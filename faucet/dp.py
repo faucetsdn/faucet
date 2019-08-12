@@ -796,12 +796,13 @@ configuration.
         """Return shortest path to a DP, as a list of DPs."""
         if src_dp is None:
             src_dp = self.name
-        graph = self.stack.get('graph', None)
-        if graph:
-            try:
-                return networkx.shortest_path(graph, src_dp, dest_dp)
-            except (networkx.exception.NetworkXNoPath, networkx.exception.NodeNotFound):
-                pass
+        if self.stack:
+            graph = self.stack.get('graph', None)
+            if graph:
+                try:
+                    return networkx.shortest_path(graph, src_dp, dest_dp)
+                except (networkx.exception.NetworkXNoPath, networkx.exception.NodeNotFound):
+                    pass
         return []
 
     def shortest_path_to_root(self):
