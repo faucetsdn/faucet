@@ -5282,7 +5282,6 @@ acls:
         self._verify_link(hosts=(ext_port1, ext_port2), expected=False)
         self._verify_link(hosts=(ext_port1, int_port2), expected=True)
         self._verify_link(hosts=(ext_port2, int_port2), expected=True)
-        self._verify_link(hosts=(int_port1, ext_port2), expected=True)
         self._verify_link(hosts=(int_port1, int_port2), expected=True)
 
 
