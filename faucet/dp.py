@@ -725,6 +725,9 @@ configuration.
             test_config_condition(stack_dps, 'stacking enabled but no root DP')
             return
 
+        if not self.stack_ports:
+            return
+
         for dp in stack_priority_dps:
             test_config_condition(not isinstance(dp.stack['priority'], int), (
                 'stack priority must be type %s not %s' % (
