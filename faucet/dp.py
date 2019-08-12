@@ -368,23 +368,26 @@ configuration.
             self.learn_jitter = int(max(math.sqrt(self.timeout) * 3, 1))
         if self.learn_ban_timeout == 0:
             self.learn_ban_timeout = self.learn_jitter
-        if self.lldp_beacon:
-            self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
-            if 'send_interval' not in self.lldp_beacon:
-                self.lldp_beacon['send_interval'] = self.DEFAULT_LLDP_SEND_INTERVAL
-            if 'max_per_interval' not in self.lldp_beacon:
-                self.lldp_beacon['max_per_interval'] = self.DEFAULT_LLDP_MAX_PER_INTERVAL
-            self.lldp_beacon = self._set_unknown_conf(
-                self.lldp_beacon, self.lldp_beacon_defaults_types)
-            if self.lldp_beacon['system_name'] is None:
-                self.lldp_beacon['system_name'] = self.name
         if self.stack:
             if 'graph' in self.stack:
                 del self.stack['graph']
             self._check_conf_types(self.stack, self.stack_defaults_types)
+        if self.lldp_beacon:
+            self._lldp_defaults()
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
         self._check_conf_types(self.table_sizes, self.default_table_sizes_types)
+
+    def _lldp_defaults(self):
+        self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
+        if 'send_interval' not in self.lldp_beacon:
+            self.lldp_beacon['send_interval'] = self.DEFAULT_LLDP_SEND_INTERVAL
+        if 'max_per_interval' not in self.lldp_beacon:
+            self.lldp_beacon['max_per_interval'] = self.DEFAULT_LLDP_MAX_PER_INTERVAL
+        self.lldp_beacon = self._set_unknown_conf(
+            self.lldp_beacon, self.lldp_beacon_defaults_types)
+        if self.lldp_beacon['system_name'] is None:
+            self.lldp_beacon['system_name'] = self.name
 
     def _generate_acl_tables(self):
         all_acls = {}
@@ -1153,6 +1156,8 @@ configuration.
                 test_config_condition(
                     len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
 
+        if self.stack_ports or self.stack:
+            self._lldp_defaults()
 
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
         dp_by_name = {dp.name: dp for dp in dps}
