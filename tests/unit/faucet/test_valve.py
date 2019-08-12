@@ -549,6 +549,7 @@ class ValveTestBases:
                 else:
                     self.apply_ofmsgs(reload_ofmsgs)
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
+            self.assertEqual(0, self.get_prom('faucet_config_load_error', bare=True))
             return reload_ofmsgs
 
         def connect_dp(self):
@@ -1750,6 +1751,56 @@ dps:
     def test_include_optional(self):
         """Test include optional files."""
         self.assertEqual(1, int(self.get_prom('dp_status')))
+
+
+class ValveBadConfTestCase(ValveTestBases.ValveTestSmall):
+    """Test recovery from a bad config file."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    MORE_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    BAD_CONFIG = """
+dps: {}
+"""
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_bad_conf(self):
+        for config, load_error in (
+                (self.CONFIG, 0),
+                (self.BAD_CONFIG, 1),
+                (self.CONFIG, 0),
+                (self.MORE_CONFIG, 0),
+                (self.BAD_CONFIG, 1),
+                (self.CONFIG, 0)):
+            with open(self.config_file, 'w') as config_file:
+                config_file.write(config)
+            self.valves_manager.request_reload_configs(time.time(), self.config_file)
+            self.assertEqual(
+                load_error,
+                self.get_prom('faucet_config_load_error', bare=True),
+                msg='%u: %s' % (load_error, config))
 
 
 class ValveFuzzTestCase(ValveTestBases.ValveTestSmall):
