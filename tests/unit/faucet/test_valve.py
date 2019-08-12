@@ -2582,6 +2582,153 @@ acls:
             msg='Routed packet not blocked by ACL')
 
 
+class ValveStackRootExtLoopProtectTestCase(ValveTestBases.ValveTestSmall):
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s2
+                    port: 1
+            2:
+                description: p2
+                native_vlan: 100
+            3:
+                description: p3
+                native_vlan: 100
+                loop_protect_external: True
+            4:
+                description: p4
+                native_vlan: 100
+                loop_protect_external: True
+    s2:
+        hardware: 'GenericTFM'
+        dp_id: 0x2
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                description: p2
+                native_vlan: 100
+            3:
+                description: p3
+                native_vlan: 100
+                loop_protect_external: True
+            4:
+                description: p4
+                native_vlan: 100
+                loop_protect_external: True
+""" % BASE_DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_loop_protect(self):
+        mcast_match = {
+            'in_port': 2,
+            'eth_dst': mac.BROADCAST_STR,
+            'vlan_vid': 0,
+            'eth_type': 0x800,
+            'ipv4_dst': '224.0.0.5',
+        }
+        self.assertTrue(
+            self.table.is_output(mcast_match, port=1),
+            msg='mcast packet not flooded to non-root stack')
+        self.assertTrue(
+            self.table.is_output(mcast_match, port=3),
+            msg='mcast packet not flooded locally on root')
+        self.assertFalse(
+            self.table.is_output(mcast_match, port=4),
+            msg='mcast packet multiply flooded externally on root')
+
+
+class ValveStackNonRootExtLoopProtectTestCase(ValveTestBases.ValveTestSmall):
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s2
+                    port: 1
+            2:
+                description: p2
+                native_vlan: 100
+            3:
+                description: p3
+                native_vlan: 100
+                loop_protect_external: True
+            4:
+                description: p4
+                native_vlan: 100
+                loop_protect_external: True
+    s2:
+        hardware: 'GenericTFM'
+        dp_id: 0x2
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                description: p2
+                stack:
+                    dp: s3
+                    port: 1
+            3:
+                description: p2
+                native_vlan: 100
+    s3:
+        hardware: 'GenericTFM'
+        dp_id: 0x3
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s2
+                    port: 2
+            2:
+                description: p2
+                native_vlan: 100
+""" % BASE_DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_loop_protect(self):
+        mcast_match = {
+            'in_port': 2,
+            'eth_dst': mac.BROADCAST_STR,
+            'vlan_vid': 0,
+            'eth_type': 0x800,
+            'ipv4_dst': '224.0.0.5',
+        }
+        self.assertTrue(
+            self.table.is_output(mcast_match, port=1),
+            msg='mcast packet not flooded to root of stack')
+        self.assertFalse(
+            self.table.is_output(mcast_match, port=3),
+            msg='mcast packet flooded locally on non-root')
+        self.assertFalse(
+            self.table.is_output(mcast_match, port=4),
+            msg='mcast packet flooded locally on non-root')
+
+
 class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
     """Valve test for updating the stack graph"""
 
