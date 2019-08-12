@@ -1165,7 +1165,7 @@ dbs:
             if self.host_learned(host, timeout=1, in_port=in_port, hard_timeout=hard_timeout):
                 return
             learn_result = self.stimulate_host_learn(host)
-        self.fail('Could not learn host %s (%s)' % (host, host.MAC(), learn_result))
+        self.fail('Could not learn host %s (%s): %s' % (host, host.MAC(), learn_result))
 
     def get_prom_port(self):
         return int(self.env['faucet']['FAUCET_PROMETHEUS_PORT'])
