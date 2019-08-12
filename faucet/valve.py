@@ -910,12 +910,18 @@ class Valve:
 
     def _lacp_actions(self, lacp_pkt, port):
         if port.lacp_passthrough:
+            self.logger.warning("LACP received. LLDP passthough enabled")
+            pass_down = False
             for peer_num in port.lacp_passthrough:
                 lacp_peer = self.dp.ports.get(peer_num, None)
-                if not lacp_peer.dyn_lacp_up:
-                    self.logger.warning('Suppressing LACP LAG %s on %s, peer %s link is down' %
+                if lacp_peer and lacp_peer.stack:
+                    if lacp_peer.is_stack_down():
+                        self.logger.warning("Remote port %r for stack port %r is down" % (lacp_peer, port))
+                        if lacp_peer.stack['dp'].dyn_running:
+                            self.logger.warning("Remote dp %r is still up." % (lacp_peer.stack['dp']))
+                            self.logger.warning('Suppressing LACP LAG %s on %s, peer %s link is down' %
                                         (port.lacp, port, lacp_peer))
-                    return []
+                            return []
         actor_state_activity = 0
         if port.lacp_active:
             actor_state_activity = 1
