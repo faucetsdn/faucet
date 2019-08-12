@@ -74,8 +74,7 @@ if [[ "$FILES_CHANGED" != "" ]] ; then
   fi
 fi
 
-docker pull faucet/test-base
-docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests . || exit 1
+docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests . || exit 1
 docker rmi faucet/test-base
 docker images
 
