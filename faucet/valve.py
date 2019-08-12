@@ -200,7 +200,7 @@ class Valve:
             self.flood_manager = valve_flood.ValveFloodManager(
                 self.logger, self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
-                self.dp.combinatorial_port_flood)
+                self.dp.combinatorial_port_flood, self.dp.canonical_port_order)
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
