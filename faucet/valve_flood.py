@@ -387,7 +387,8 @@ class ValveFloodStackManager(ValveFloodManager):
             if in_port and in_port in self.away_from_root_stack_ports:
                 # Packet from a non-root switch, flood locally and to all non-root switches
                 # (reflect it).
-                flood_actions = (away_flood_actions + [valve_of.output_in_port()] + local_flood_actions)
+                flood_actions = (
+                    away_flood_actions + [valve_of.output_in_port()] + local_flood_actions)
 
             flood_actions = flood_prefix + flood_actions
         else:
@@ -524,7 +525,7 @@ class ValveFloodStackManager(ValveFloodManager):
 
         for port in self.stack_ports:
             if self.is_stack_root():
-                # On the root switch, only flood from one port where multiply connected to a datapath.
+                # On the root switch, only flood from one port where multiply connected to a DP.
                 away_up_port = None
                 remote_dp = port.stack['dp']
                 if away_up_ports_by_dp[remote_dp]:
