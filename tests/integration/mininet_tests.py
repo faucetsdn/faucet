@@ -5234,25 +5234,11 @@ class FaucetTaggedBroadcastTest(FaucetTaggedTest):
 
 class FaucetTaggedExtLoopProtectTest(FaucetTaggedTest):
 
-
-    CONFIG_GLOBAL = """
-acls:
-    pcp_force:
-        - rule:
-            vlan_vid: 100
-            actions:
-                output:
-                    set_fields:
-                        - vlan_pcp: 2
-                allow: 1
-"""
-
     CONFIG = """
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
                 loop_protect_external: True
-                acl_in: pcp_force
             %(port_2)d:
                 tagged_vlans: [100]
                 loop_protect_external: True
@@ -5262,27 +5248,11 @@ acls:
                 tagged_vlans: [100]
 """
 
-    def _verify_link(self, hosts=None, expected=True):
-        from_port, to_port = hosts[:2]
-        tcpdump_filter = 'ether src %s' % from_port.MAC()
-        tcpdump_txt = self.tcpdump_helper(
-            to_port, tcpdump_filter, [
-                lambda: from_port.cmd(
-                    'ping -c3 %s' % to_port.IP())], root_intf=True, packets=2)
-        if expected:
-            self.assertTrue(re.search('vlan 100, p 2,', tcpdump_txt))
-            self.assertFalse(re.search('vlan 100, p 0,', tcpdump_txt))
-        else:
-            self.assertFalse(re.search('vlan 100,', tcpdump_txt))
-        self.verify_broadcast(hosts, expected)
-        self.verify_unicast(hosts, expected)
-
     def test_tagged(self):
         ext_port1, ext_port2, int_port1, int_port2 = self.net.hosts
-        self._verify_link(hosts=(ext_port1, ext_port2), expected=False)
-        self._verify_link(hosts=(ext_port1, int_port2), expected=True)
-        self._verify_link(hosts=(ext_port2, int_port2), expected=True)
-        self._verify_link(hosts=(int_port1, int_port2), expected=True)
+        self.verify_broadcast((ext_port1, ext_port2), False)
+        self.verify_broadcast((int_port1, int_port2), True)
+        self.verify_unicast((int_port1, int_port2), True)
 
 
 class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):
