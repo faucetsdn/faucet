@@ -43,7 +43,7 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
             'pyyaml': 'python3-yaml'
             }
 
-        with open(self.control_file) as handle:
+        with open(self.control_file, 'r', encoding='utf-8') as handle:
             control = handle.read()
 
         faucet_dpkg = str()
@@ -88,23 +88,24 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
                     dpkg_name = "python3-{}".format(pip_req.name)
 
                 if pip_req.req.specifier:
-                    pip_req_version = str(pip_req.req.specifier)
+                    pip_req_versions = str(pip_req.req.specifier)
                     debian_package_dependencies = [
                         pip_req.name+x for x in self.faucet_dpkg_deps[dpkg_name]
                     ]
-                    if str(pip_req_version).startswith('=='):
-                        # debian/control is annoying about how it handles exact
-                        # versions, calculate the debian equivalent of the
-                        # pip requirements match and compare that
-                        lower_match = pip_req_version.replace('==', '>=')
-                        upper_match = pip_req_version.replace('==', '<<').split('.')
-                        upper_match[-1] = str(int(upper_match[-1]) + 1)
-                        upper_match = '.'.join(upper_match)
+                    for pip_req_version in pip_req_versions.split(','):
+                        if str(pip_req_version).startswith('=='):
+                            # debian/control is annoying about how it handles exact
+                            # versions, calculate the debian equivalent of the
+                            # pip requirements match and compare that
+                            lower_match = pip_req_version.replace('==', '>=')
+                            upper_match = pip_req_version.replace('==', '<<').split('.')
+                            upper_match[-1] = str(int(upper_match[-1]) + 1)
+                            upper_match = '.'.join(upper_match)
 
-                        self.assertIn(pip_req.name+lower_match, debian_package_dependencies)
-                        self.assertIn(pip_req.name+upper_match, debian_package_dependencies)
-                    else:
-                        self.assertIn(pip_req.name+pip_req_version, debian_package_dependencies)
+                            self.assertIn(pip_req.name+lower_match, debian_package_dependencies)
+                            self.assertIn(pip_req.name+upper_match, debian_package_dependencies)
+                        else:
+                            self.assertIn(pip_req.name+pip_req_version, debian_package_dependencies)
 
 
 if __name__ == "__main__":
