@@ -268,7 +268,7 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         return '00:00:00:00:%s' % two_byte_port_num_formatted
 
     def _init_faucet_config(self):
-        self.eapol1_host, self.eapol2_host, self.ping_host, self.nfv_host = self.net.hosts
+        self.eapol1_host, self.eapol2_host, self.ping_host, self.nfv_host = self.hosts_name_ordered()
         switch = self.first_switch()
         last_host_switch_link = switch.connectionsTo(self.nfv_host)[0]
         nfv_intf = [
@@ -1375,7 +1375,7 @@ class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
     last_host_switch_intf = None
 
     def _init_faucet_config(self):
-        last_host = self.net.hosts[-1]
+        last_host = self.hosts_name_ordered()[-1]
         switch = self.first_switch()
         last_host_switch_link = switch.connectionsTo(last_host)[0]
         self.last_host_switch_intf = [intf for intf in last_host_switch_link if intf in switch.intfList()][0]
@@ -1509,7 +1509,7 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
         return formatted_payload_str
 
     def test_untagged(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         tcpdump_filter = 'ether proto 0x88cc'
         timeout = 5 * 3
         tcpdump_txt = self.tcpdump_helper(
@@ -1549,7 +1549,7 @@ class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
 """
 
     def test_untagged(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         tcpdump_filter = 'ether proto 0x88cc'
         timeout = 5 * 3
         tcpdump_txt = self.tcpdump_helper(
@@ -1612,7 +1612,7 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
 
     def test_untagged(self):
         super(FaucetUntaggedApplyMeterTest, self).test_untagged()
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         error('metered ping flood: %s' % first_host.cmd('ping -c 10000 -f %s' % second_host.IP()))
 
 
@@ -1635,7 +1635,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
     def test_untagged(self):
         # Create macvlan interfaces, with one in a separate namespace,
         # to force traffic between them to be hairpinned via FAUCET.
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         macvlan1_intf = 'macvlan1'
         macvlan1_ipv4 = '10.0.0.100'
         macvlan2_intf = 'macvlan2'
@@ -1686,7 +1686,7 @@ class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):
 class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         first_host_ip = ipaddress.ip_address(first_host.IP())
         second_host_ip = ipaddress.ip_address(second_host.IP())
         for _ in range(3):
@@ -1702,7 +1702,7 @@ class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
 class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         first_host_ip = ipaddress.ip_interface('fc00::1:1/112')
         second_host_ip = ipaddress.ip_interface('fc00::1:2/112')
         self.add_host_ipv6_address(first_host, first_host_ip)
@@ -1747,7 +1747,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
         self.assertIsNotNone(prom_desc, msg='Cannot scrape of_dp_desc_stats')
         error('DP: %s\n' % prom_desc[0])
         error('port_map: %s\n' % self.port_map)
-        for i, host in enumerate(self.net.hosts, start=1):
+        for i, host in enumerate(self.hosts_name_ordered(), start=1):
             in_port = 'port_%u' % i
             dp_port = self.port_map[in_port]
             if dp_port in self.switch_map:
@@ -1760,9 +1760,9 @@ class FaucetSanityTest(FaucetUntaggedTest):
             self.require_host_learned(host, in_port=dp_port)
         learned = self.prom_macs_learned()
         self.assertEqual(
-            len(self.net.hosts), len(learned),
+            len(self.hosts_name_ordered()), len(learned),
             msg='test requires exactly %u hosts learned (got %s)' % (
-                len(self.net.hosts), learned))
+                len(self.hosts_name_ordered()), learned))
 
     def test_listening(self):
         msg_template = (
@@ -1783,10 +1783,10 @@ class FaucetSanityTest(FaucetUntaggedTest):
 
     def test_silence(self):
         # Make all test hosts silent and ensure we hear no other packets.
-        for host in self.net.hosts:
+        for host in self.hosts_name_ordered():
             self.host_drop_all_ips(host)
             host.cmd('echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6' % host.defaultIntf())
-        for host in self.net.hosts:
+        for host in self.hosts_name_ordered():
             tcpdump_filter = ''
             tcpdump_txt = self.tcpdump_helper(
                 host, tcpdump_filter, [], timeout=10, vflags='-vv', packets=1)
@@ -1843,7 +1843,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 
         for _ in range(self.DB_TIMEOUT * 3):
             updated_counters = True
-            for host in self.net.hosts:
+            for host in self.hosts_name_ordered():
                 host_labels = {
                     'dp_id': self.dpid,
                     'dp_name': self.DP_NAME,
@@ -2167,7 +2167,7 @@ acls:
 """
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         first_host.setMAC('0e:00:00:00:01:01')
         second_host.setMAC('0e:00:00:00:02:02')
         self.one_ipv4_ping(
@@ -2242,7 +2242,7 @@ acls:
 """
 
     def test_untagged(self):
-        first_host, second_host, third_host = self.net.hosts[0:3]
+        first_host, second_host, third_host = self.hosts_name_ordered()[0:3]
         first_host.setMAC('0e:00:00:00:01:01')
         second_host.setMAC('0e:00:00:00:02:02')
         third_host.setMAC('0e:00:00:00:02:02')
@@ -2364,7 +2364,7 @@ vlans:
     def test_untagged(self):
         self.pingAll()
         learned_hosts = [
-            host for host in self.net.hosts if self.host_learned(host)]
+            host for host in self.hosts_name_ordered() if self.host_learned(host)]
         self.assertEqual(2, len(learned_hosts))
         self.assertEqual(2, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
@@ -2396,7 +2396,7 @@ vlans:
 """
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         self.ping_all_when_learned()
         for i in range(10, 10+(self.MAX_HOSTS*2)):
             mac_intf = 'mac%u' % i
@@ -2465,7 +2465,7 @@ vlans:
             mac_ips, macs_learned, fping_out, first_host_diag, second_host_diag))
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         all_learned_mac_ports = {}
 
         # learn batches of hosts, then down them
@@ -2506,7 +2506,7 @@ vlans:
         for _ in range(self.TIMEOUT * 3):
             learned_macs = self.hosts_learned(all_learned_mac_ports)
             self.verify_learn_counters(
-                100, list(range(1, len(self.net.hosts) + 1)))
+                100, list(range(1, len(self.hosts_name_ordered()) + 1)))
             if not learned_macs:
                 break
             time.sleep(1)
@@ -2934,7 +2934,7 @@ vlans:
 """
 
     def test_port_down_flow_gone(self):
-        last_host = self.net.hosts[-1]
+        last_host = self.hosts_name_ordered()[-1]
         self.require_host_learned(last_host)
         second_host_dst_match = {'eth_dst': last_host.MAC()}
         self.wait_until_matching_flow(
@@ -2972,8 +2972,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.assertEqual(0, self.scrape_prometheus_var('faucet_config_load_error', dpid=False))
 
     def test_port_change_vlan(self):
-        first_host, second_host = self.net.hosts[:2]
-        third_host, fourth_host = self.net.hosts[2:]
+        first_host, second_host = self.hosts_name_ordered()[:2]
+        third_host, fourth_host = self.hosts_name_ordered()[2:]
         self.ping_all_when_learned()
         self.change_port_config(
             self.port_map['port_1'], 'native_vlan', 200,
@@ -2993,7 +2993,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
 
     def test_port_change_acl(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         orig_conf = self._get_faucet_conf()
         self.change_port_config(
             self.port_map['port_1'], 'acl_in', 1,
@@ -3013,7 +3013,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             5002, first_host, second_host, table_id=None)
 
     def test_port_change_perm_learn(self):
-        first_host, second_host, third_host = self.net.hosts[0:3]
+        first_host, second_host, third_host = self.hosts_name_ordered()[0:3]
         self.change_port_config(
             self.port_map['port_1'], 'permanent_learn', True,
             restart=True, cold_start=False)
@@ -3093,7 +3093,7 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
 
     def test_port_acls(self):
         hup = not self.STAT_RELOAD
-        first_host, second_host, third_host = self.net.hosts[:3]
+        first_host, second_host, third_host = self.hosts_name_ordered()[:3]
         self._verify_hosts_learned((first_host, second_host))
         self.change_port_config(
             self.port_map['port_3'], 'acl_in', 'allow',
@@ -3158,7 +3158,7 @@ routers:
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         first_host_alias_ip = ipaddress.ip_interface('10.99.99.99/24')
         first_host_alias_host_ip = ipaddress.ip_interface(
             ipaddress.ip_network(first_host_alias_ip.ip))
@@ -3222,7 +3222,7 @@ routers:
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         first_host_alias_ip = ipaddress.ip_interface('10.99.99.99/24')
         first_host_alias_host_ip = ipaddress.ip_interface(
             ipaddress.ip_network(first_host_alias_ip.ip))
@@ -3293,7 +3293,7 @@ routers:
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         # wait until 10.0.0.1 has been resolved
         self.wait_for_route_as_flow(
             first_host.MAC(), ipaddress.IPv4Network('10.99.99.0/24'))
@@ -3380,7 +3380,7 @@ routers:
         self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
         self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
         # test nexthop expired when port goes down
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         match, table = self.match_table(ipaddress.IPv4Network('10.0.0.1/32'))
         ofmsg = None
         for _ in range(5):
@@ -3486,7 +3486,7 @@ vlans:
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.retry_net_ping(hosts=(first_host, second_host))
         self.swap_host_macs(first_host, second_host)
         self.ping((first_host, second_host))
@@ -3520,7 +3520,7 @@ vlans:
 
     def test_untagged(self):
         self.ping_all_when_learned(hard_timeout=0)
-        first_host, second_host, third_host = self.net.hosts[:3]
+        first_host, second_host, third_host = self.hosts_name_ordered()[:3]
         self.assertTrue(self.prom_mac_learned(first_host.MAC(), port=self.port_map['port_1']))
 
         # 3rd host impersonates 1st but 1st host still OK
@@ -3580,7 +3580,7 @@ vlans:
         return total_bans
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts
+        first_host, second_host = self.hosts_name_ordered()
         # Normal learning works
         self.one_ipv4_ping(first_host, second_host.IP())
 
@@ -3663,7 +3663,7 @@ vlans:
         self.start_net()
 
     def test_untagged(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         bond = 'bond0'
         # Linux driver should have this state (0x3f/63)
         #
@@ -3813,7 +3813,7 @@ class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
     """Ensure remote LACP system ID mismatch is logged."""
 
     def test_untagged(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         orig_ip = first_host.IP()
         switch = self.first_switch()
         bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
@@ -3845,12 +3845,12 @@ vlans:
 """ + CONFIG_BOILER_UNTAGGED
 
     def test_ping_fragment_controller(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         first_host.cmd('ping -s 1476 -c 3 %s' % self.FAUCET_VIPV4.ip)
         self.one_ipv4_controller_ping(first_host)
 
     def test_fuzz_controller(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         self.one_ipv4_controller_ping(first_host)
         packets = 1000
         fuzz_template = 'python3 -c \"from scapy.all import * ; scapy.all.send(%s, count=%u)\"'
@@ -3865,7 +3865,7 @@ vlans:
         self.one_ipv4_controller_ping(first_host)
 
     def test_flap_ping_controller(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         for _ in range(5):
             self.one_ipv4_ping(first_host, second_host.IP())
             for host in first_host, second_host:
@@ -3887,7 +3887,7 @@ vlans:
 """ + CONFIG_BOILER_UNTAGGED
 
     def test_fping_controller(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         self.one_ipv4_controller_ping(first_host)
         self.verify_controller_fping(first_host, self.FAUCET_VIPV4)
 
@@ -3909,14 +3909,14 @@ vlans:
 """ + CONFIG_BOILER_UNTAGGED
 
     def test_ndisc6(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         for vip in ('fe80::1:254', 'fc00::1:254', 'fc00::2:254'):
             self.assertEqual(
                 self.FAUCET_MAC.upper(),
                 first_host.cmd('ndisc6 -q %s %s' % (vip, first_host.defaultIntf())).strip())
 
     def test_rdisc6(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         rdisc6_results = sorted(list(set(first_host.cmd(
             'rdisc6 -q %s' % first_host.defaultIntf()).splitlines())))
         self.assertEqual(
@@ -3924,7 +3924,7 @@ vlans:
             rdisc6_results)
 
     def test_ra_advertise(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         tcpdump_filter = ' and '.join((
             'ether dst 33:33:00:00:00:01',
             'ether src %s' % self.FAUCET_MAC,
@@ -3944,7 +3944,7 @@ vlans:
                 msg='%s: %s' % (ra_required, tcpdump_txt))
 
     def test_rs_reply(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         tcpdump_filter = ' and '.join((
             'ether src %s' % self.FAUCET_MAC,
             'ether dst %s' % first_host.MAC(),
@@ -3980,7 +3980,7 @@ vlans:
 """ + CONFIG_BOILER_UNTAGGED
 
     def test_flap_ping_controller(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         for _ in range(5):
@@ -3990,7 +3990,7 @@ vlans:
             self.flap_all_switch_ports()
 
     def test_fuzz_controller(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.one_ipv6_controller_ping(first_host)
         fuzz_success = False
@@ -4046,7 +4046,7 @@ vlans:
 """ + CONFIG_BOILER_UNTAGGED
 
     def test_fping_controller(self):
-        first_host = self.net.hosts[0]
+        first_host = self.hosts_name_ordered()[0]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.one_ipv6_controller_ping(first_host)
         self.verify_controller_fping(first_host, self.FAUCET_VIPV6)
@@ -4086,8 +4086,8 @@ vlans:
         self.start_net()
 
     def test_separate_untagged_tagged(self):
-        tagged_host_pair = self.net.hosts[:2]
-        untagged_host_pair = self.net.hosts[2:]
+        tagged_host_pair = self.hosts_name_ordered()[:2]
+        untagged_host_pair = self.hosts_name_ordered()[2:]
         self.verify_vlan_flood_limited(
             tagged_host_pair[0], tagged_host_pair[1], untagged_host_pair[0])
         self.verify_vlan_flood_limited(
@@ -4139,12 +4139,12 @@ acls:
 
     def test_port5001_blocked(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(5001, first_host, second_host)
 
     def test_port5002_notblocked(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 class FaucetUntaggedEgressACLTest(FaucetUntaggedTest):
@@ -4190,7 +4190,7 @@ acls:
             'faucet_config_table_names',
             labels={'table_name': 'egress_acl'}
             )
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(
             5001, first_host, second_host, table_id=egress_acl_table)
         self.ping_all_when_learned()
@@ -4203,7 +4203,7 @@ acls:
             labels={'table_name': 'egress_acl'}
             )
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(
             5002, first_host, second_host, table_id=egress_acl_table)
 
@@ -4238,12 +4238,12 @@ acls:
 
     def test_port5001_blocked(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(5001, first_host, second_host)
 
     def test_port5002_notblocked(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
@@ -4286,7 +4286,7 @@ acls:
             'eth_type': IPV4_ETH,
             'ip_proto': 6}
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.wait_until_matching_flow(
             matches, table_id=self._PORT_ACL_TABLE, actions=[])
@@ -4334,7 +4334,7 @@ acls:
 
     def test_port_gt1023_blocked(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(1024, first_host, second_host, mask=1024)
         self.verify_tp_dst_notblocked(1023, first_host, second_host, table_id=None)
 
@@ -4368,13 +4368,13 @@ vlans:
 
     def test_port5001_blocked(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(
             5001, first_host, second_host, table_id=self._VLAN_ACL_TABLE)
 
     def test_port5002_notblocked(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(
             5002, first_host, second_host, table_id=self._VLAN_ACL_TABLE)
 
@@ -4398,7 +4398,7 @@ class FaucetUntaggedOutputOnlyTest(FaucetUntaggedTest):
             {'in_port': int(self.port_map['port_1'])},
             table_id=self._VLAN_TABLE,
             actions=[])
-        first_host, second_host, third_host = self.net.hosts[:3]
+        first_host, second_host, third_host = self.hosts_name_ordered()[:3]
         self.assertEqual(100.0, self.ping((first_host, second_host)))
         self.assertEqual(0, self.ping((third_host, second_host)))
 
@@ -4433,11 +4433,11 @@ acls:
 """
 
     def test_untagged(self):
-        first_host, second_host, mirror_host = self.net.hosts[0:3]
+        first_host, second_host, mirror_host = self.hosts_name_ordered()[0:3]
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
 
     def test_eapol_mirrored(self):
-        first_host, second_host, mirror_host = self.net.hosts[0:3]
+        first_host, second_host, mirror_host = self.hosts_name_ordered()[0:3]
         self.verify_eapol_mirrored(first_host, second_host, mirror_host)
 
 
@@ -4472,7 +4472,7 @@ acls:
 """
 
     def test_untagged(self):
-        first_host, second_host, mirror_host = self.net.hosts[0:3]
+        first_host, second_host, mirror_host = self.hosts_name_ordered()[0:3]
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
 
 
@@ -4533,7 +4533,7 @@ acls:
 """
 
     def test_untagged(self):
-        first_host, second_host, third_host, fourth_host = self.net.hosts[0:4]
+        first_host, second_host, third_host, fourth_host = self.hosts_name_ordered()[0:4]
         tcpdump_filter = ('icmp')
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
@@ -4587,7 +4587,7 @@ acls:
 """
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         # we expected to see the rewritten address and VLAN
         tcpdump_filter = ('icmp and ether dst 06:06:06:06:06:06')
         tcpdump_txt = self.tcpdump_helper(
@@ -4634,7 +4634,7 @@ acls:
 """
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         # we expected to see the rewritten address and VLAN
         tcpdump_filter = 'vlan'
         tcpdump_txt = self.tcpdump_helper(
@@ -4681,7 +4681,7 @@ acls:
 """
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         # we expected to see the rewritten address and VLAN
         tcpdump_filter = 'ether proto 0x88a8'
         tcpdump_txt = self.tcpdump_helper(
@@ -4718,7 +4718,7 @@ vlans:
 """
 
     def test_untagged(self):
-        first_host, second_host, mirror_host = self.net.hosts[0:3]
+        first_host, second_host, mirror_host = self.hosts_name_ordered()[0:3]
         self.flap_all_switch_ports()
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
         self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
@@ -4752,7 +4752,7 @@ vlans:
 """
 
     def test_untagged(self):
-        first_host, second_host, mirror_host = self.net.hosts[:3]
+        first_host, second_host, mirror_host = self.hosts_name_ordered()[:3]
         ping_pairs = (
             (first_host, second_host),
             (second_host, first_host))
@@ -4790,10 +4790,10 @@ vlans:
         self.flap_all_switch_ports()
 
         # Make sure the two hosts both mirror from port 1
-        first_host, second_host = self.net.hosts[0:2]
-        mirror_host = self.net.hosts[2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
+        mirror_host = self.hosts_name_ordered()[2]
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
-        mirror_host = self.net.hosts[3]
+        mirror_host = self.hosts_name_ordered()[3]
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
 
 
@@ -4844,7 +4844,7 @@ vlans:
 """
 
     def test_tagged(self):
-        first_host, second_host, mirror_host = self.net.hosts[0:3]
+        first_host, second_host, mirror_host = self.hosts_name_ordered()[0:3]
         self.flap_all_switch_ports()
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
         self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
@@ -4891,7 +4891,7 @@ acls:
 """
 
     def test_tagged(self):
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         self.quiet_commands(
             first_host,
             ['ip link set %s type vlan egress %u:1' % (
@@ -4981,7 +4981,7 @@ vlans:
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
     def test_tagged(self):
-        first_host, second_host, mirror_host = self.net.hosts[:3]
+        first_host, second_host, mirror_host = self.hosts_name_ordered()[:3]
         hosts = (first_host, second_host)
         required_ipds = set()
         ipd_to_macvlan = {}
@@ -5191,7 +5191,7 @@ vlans:
 
     def test_tagged(self):
         self.ping_all_when_learned()
-        for host in self.net.hosts:
+        for host in self.hosts_name_ordered():
             setup_commands = []
             for vid in self.NEW_VIDS:
                 vlan_int = '%s.%u' % (host.intf_root_name, vid)
@@ -5200,7 +5200,7 @@ vlans:
                         host.intf_root_name, vlan_int, vid),
                     'ip link set dev %s up' % vlan_int])
             self.quiet_commands(host, setup_commands)
-        for host in self.net.hosts:
+        for host in self.hosts_name_ordered():
             rdisc6_commands = []
             for vid in self.NEW_VIDS:
                 vlan_int = '%s.%u' % (host.intf_root_name, vid)
@@ -5210,13 +5210,13 @@ vlans:
         for vlan in self.NEW_VIDS:
             vlan_int = '%s.%u' % (host.intf_root_name, vid)
             for _ in range(3):
-                for host in self.net.hosts:
+                for host in self.hosts_name_ordered():
                     self.quiet_commands(
                         host,
                         ['rdisc6 -r2 -w1 -q %s 2> /dev/null' % vlan_int])
                 vlan_hosts_learned = self.scrape_prometheus_var(
                     'vlan_hosts_learned', {'vlan': str(vlan)})
-                if vlan_hosts_learned == len(self.net.hosts):
+                if vlan_hosts_learned == len(self.hosts_name_ordered()):
                     break
                 time.sleep(1)
             self.assertGreater(
@@ -5249,7 +5249,7 @@ class FaucetTaggedExtLoopProtectTest(FaucetTaggedTest):
 """
 
     def test_tagged(self):
-        ext_port1, ext_port2, int_port1, int_port2 = self.net.hosts
+        ext_port1, ext_port2, int_port1, int_port2 = self.hosts_name_ordered()
         self.verify_broadcast((ext_port1, ext_port2), False)
         self.verify_broadcast((int_port1, int_port2), True)
         self.verify_unicast((int_port1, int_port2), True)
@@ -5287,10 +5287,10 @@ vlans:
     def test_tagged(self):
         self.ping_all_when_learned()
         native_ips = [
-            ipaddress.ip_interface('10.99.99.%u/24' % (i + 1)) for i in range(len(self.net.hosts))]
-        for native_ip, host in zip(native_ips, self.net.hosts):
+            ipaddress.ip_interface('10.99.99.%u/24' % (i + 1)) for i in range(len(self.hosts_name_ordered()))]
+        for native_ip, host in zip(native_ips, self.hosts_name_ordered()):
             self.host_ipv4_alias(host, native_ip, intf=host.intf_root_name)
-        for own_native_ip, host in zip(native_ips, self.net.hosts):
+        for own_native_ip, host in zip(native_ips, self.hosts_name_ordered()):
             for native_ip in native_ips:
                 if native_ip != own_native_ip:
                     self.one_ipv4_ping(host, native_ip.ip, intf=host.intf_root_name)
@@ -5330,7 +5330,7 @@ acls:
     """
 
     def test_tagged(self):
-        first_host, second_host, third_host = self.net.hosts[:3]
+        first_host, second_host, third_host = self.hosts_name_ordered()[:3]
 
         def test_acl(tcpdump_host, tcpdump_filter):
             tcpdump_txt = self.tcpdump_helper(
@@ -5383,7 +5383,7 @@ acls:
 """
 
     def test_tagged(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         # we expected to see the swapped VLAN VID
         tcpdump_filter = 'vlan 101'
         tcpdump_txt = self.tcpdump_helper(
@@ -5431,7 +5431,7 @@ acls:
 """
 
     def test_tagged(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         tcpdump_filter = 'not vlan and icmp and ether dst 06:06:06:06:06:06'
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
@@ -5457,7 +5457,7 @@ vlans:
 """ + CONFIG_TAGGED_BOILER
 
     def test_ping_controller(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.one_ipv4_ping(first_host, second_host.IP())
         for host in first_host, second_host:
             self.one_ipv4_controller_ping(host)
@@ -5477,7 +5477,7 @@ vlans:
 """ + CONFIG_TAGGED_BOILER
 
     def test_ping_controller(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         self.one_ipv6_ping(first_host, 'fc00::1:2')
@@ -5523,7 +5523,7 @@ vlans:
 """
 
     def test_icmpv6_acl_match(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         self.one_ipv6_ping(first_host, 'fc00::1:2')
@@ -5570,7 +5570,7 @@ vlans:
 """
 
     def test_tagged(self):
-        host_pair = self.net.hosts[:2]
+        host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddress.ip_interface('10.0.1.1/24')
         second_host_routed_ip = ipaddress.ip_interface('10.0.2.1/24')
@@ -5625,7 +5625,7 @@ vlans:
 """ + CONFIG_TAGGED_BOILER
 
     def test_tagged(self):
-        host_pair = self.net.hosts[:2]
+        host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_alias_ip = ipaddress.ip_interface('10.0.0.99/24')
         first_host_alias_host_ip = ipaddress.ip_interface(
@@ -5655,7 +5655,7 @@ vlans:
 """ + CONFIG_TAGGED_BOILER
 
     def test_tagged(self):
-        host_pair = self.net.hosts[:2]
+        host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_alias_ip = ipaddress.ip_interface('fc00::1:99/64')
         faucet_vip_ip = ipaddress.ip_interface('fc00::1:3/126')
@@ -5738,7 +5738,7 @@ routers:
         first_faucet_vip = ipaddress.ip_interface('10.100.0.254/24')
         second_host_ip = ipaddress.ip_interface('10.200.0.1/24')
         second_faucet_vip = ipaddress.ip_interface('10.200.0.254/24')
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         first_host.setIP(str(first_host_ip.ip), prefixLen=24)
         second_host.setIP(str(second_host_ip.ip), prefixLen=24)
         self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
@@ -5792,7 +5792,7 @@ routers:
         first_faucet_vip = ipaddress.ip_interface('10.100.0.254/24')
         second_host_ip = ipaddress.ip_interface('10.200.0.1/24')
         second_faucet_vip = ipaddress.ip_interface('10.200.0.254/24')
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         first_host.setIP(str(first_host_ip.ip), prefixLen=24)
         second_host.setIP(str(second_host_ip.ip), prefixLen=24)
         self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
@@ -5843,7 +5843,7 @@ routers:
         first_faucet_vip = ipaddress.ip_interface('10.100.0.254/24')
         second_host_ip = ipaddress.ip_interface('10.200.0.1/24')
         second_faucet_vip = ipaddress.ip_interface('10.200.0.254/24')
-        first_host, second_host, third_host = self.net.hosts[:3]
+        first_host, second_host, third_host = self.hosts_name_ordered()[:3]
         first_host.setIP(str(first_host_ip.ip), prefixLen=24)
         second_host.setIP(str(second_host_ip.ip), prefixLen=24)
         self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
@@ -5908,7 +5908,7 @@ routers:
         first_faucet_vip = ipaddress.ip_interface('10.100.0.254/24')
         second_host_ip = ipaddress.ip_interface('10.200.0.1/24')
         second_faucet_vip = ipaddress.ip_interface('10.200.0.254/24')
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         first_host.setIP(str(first_host_ip.ip), prefixLen=24)
         second_host.setIP(str(second_host_ip.ip), prefixLen=24)
         self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
@@ -5958,7 +5958,7 @@ routers:
 """
 
     def test_untagged(self):
-        host_pair = self.net.hosts[:2]
+        host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_net = ipaddress.ip_interface('fc00::1:1/64')
         second_host_net = ipaddress.ip_interface('fc01::1:1/64')
@@ -6045,7 +6045,7 @@ routers:
         second_faucet_vip = ipaddress.ip_interface('10.20.0.254/24')
         third_host_ip = ipaddress.ip_interface('10.30.0.3/24')
         third_faucet_vip = ipaddress.ip_interface('10.30.0.254/24')
-        first_host, second_host, third_host = self.net.hosts[:3]
+        first_host, second_host, third_host = self.hosts_name_ordered()[:3]
         remote_ip = ipaddress.ip_interface('10.99.0.1/24')
         remote_ip2 = ipaddress.ip_interface('10.99.0.2/24')
         second_host.setIP(str(second_host_ip.ip), prefixLen=24)
@@ -6083,7 +6083,7 @@ vlans:
 """ + CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
-        host_pair = self.net.hosts[:2]
+        host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_net = ipaddress.ip_interface('10.0.0.1/24')
         second_host_net = ipaddress.ip_interface('172.16.0.1/24')
@@ -6113,7 +6113,7 @@ vlans:
 """ + CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
-        host_pair = self.net.hosts[:2]
+        host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_net = ipaddress.ip_interface('fc00::1:1/64')
         second_host_net = ipaddress.ip_interface('fc01::1:1/64')
@@ -6171,7 +6171,7 @@ routers:
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         first_host_alias_ip = ipaddress.ip_interface('fc00::50:1/112')
@@ -6236,7 +6236,7 @@ routers:
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         self.wait_bgp_up('::1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
@@ -6274,7 +6274,7 @@ vlans:
 """ + CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         first_host_ip = ipaddress.ip_interface('fc00::10:2/112')
         first_host_ctrl_ip = ipaddress.ip_address('fc00::10:1')
         second_host_ip = ipaddress.ip_interface('fc00::20:2/112')
@@ -6342,7 +6342,7 @@ routers:
 
     def test_untagged(self):
         self.verify_ipv6_routing_mesh()
-        second_host = self.net.hosts[1]
+        second_host = self.hosts_name_ordered()[1]
         self.flap_all_switch_ports()
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddress.IPv6Network('fc00::30:0/112'))
@@ -6383,7 +6383,7 @@ vlans:
 
     def test_tagged(self):
         """Test IPv6 routing works."""
-        host_pair = self.net.hosts[:2]
+        host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_ip = ipaddress.ip_interface('fc00::1:1/112')
         second_host_ip = ipaddress.ip_interface('fc00::1:2/112')
@@ -6662,14 +6662,14 @@ class FaucetStringOfDPTest(FaucetTest):
 
     def verify_stack_hosts(self, verify_bridge_local_rule=True, retries=3):
         lldp_cap_files = []
-        for host in self.net.hosts:
+        for host in self.hosts_name_ordered():
             lldp_cap_file = os.path.join(self.tmpdir, '%s-lldp.cap' % host)
             lldp_cap_files.append(lldp_cap_file)
             host.cmd(mininet_test_util.timeout_cmd(
                 'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC and not ether src %s &' % (
                     host.defaultIntf(), host.MAC(), lldp_cap_file), 60))
         # should not flood LLDP from hosts
-        self.verify_lldp_blocked(self.net.hosts)
+        self.verify_lldp_blocked(self.hosts_name_ordered())
         # hosts should see no LLDP probes
         self.verify_empty_caps(lldp_cap_files)
         if verify_bridge_local_rule:
@@ -6750,8 +6750,8 @@ class FaucetStringOfDPTest(FaucetTest):
 
     def verify_stack_has_no_loop(self):
         for ping_host, tcpdump_host in (
-                (self.net.hosts[0], self.net.hosts[-1]),
-                (self.net.hosts[-1], self.net.hosts[0])):
+                (self.hosts_name_ordered()[0], self.hosts_name_ordered()[-1]),
+                (self.hosts_name_ordered()[-1], self.hosts_name_ordered()[0])):
             self.verify_no_arp_storm(ping_host, tcpdump_host)
 
     def verify_all_stack_hosts(self):
@@ -6867,10 +6867,10 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         num_hosts = self.V100_NUM_HOSTS + self.V200_NUM_HOSTS + self.V300_NUM_HOSTS
         first_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(1))
         second_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(2))
-        v100_hosts = [(self.net.hosts[i], ipaddress.ip_interface(
-            self.get_ip(i+1, 1))) for i in range(len(self.net.hosts)) if (i % num_hosts) == 0]
-        v200_hosts = [(self.net.hosts[i], ipaddress.ip_interface(
-            self.get_ip(i+1, 2))) for i in range(len(self.net.hosts)) if (i % num_hosts) == 1]
+        v100_hosts = [(self.hosts_name_ordered()[i], ipaddress.ip_interface(
+            self.get_ip(i+1, 1))) for i in range(len(self.hosts_name_ordered())) if (i % num_hosts) == 0]
+        v200_hosts = [(self.hosts_name_ordered()[i], ipaddress.ip_interface(
+            self.get_ip(i+1, 2))) for i in range(len(self.hosts_name_ordered())) if (i % num_hosts) == 1]
         for host_tuple in v100_hosts:
             host, host_ip = host_tuple
             self.set_host_ip(host, host_ip)
@@ -6932,9 +6932,9 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         self.set_up()
         first_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(1))
         second_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(2))
-        v100_host = self.net.hosts[0]
+        v100_host = self.hosts_name_ordered()[0]
         v100_host_ip = ipaddress.ip_interface(self.get_ip(1, 1))
-        v200_host = self.net.hosts[5]
+        v200_host = self.hosts_name_ordered()[5]
         v200_host_ip = ipaddress.ip_interface(self.get_ip(2, 2))
         # Remove all hosts on the middle DP by chaning them to hosts on VLAN300
         #   the middle DP now contains no hosts with VLAN 100 or VLAN 200
@@ -6965,9 +6965,9 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         self.set_up()
         first_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(1))
         second_faucet_vip = ipaddress.ip_interface(self.get_faucet_vip(2))
-        v100_host = self.net.hosts[0]
+        v100_host = self.hosts_name_ordered()[0]
         v100_host_ip = ipaddress.ip_interface(self.get_ip(1, 1))
-        v200_host = self.net.hosts[3]
+        v200_host = self.hosts_name_ordered()[3]
         v200_host_ip = ipaddress.ip_interface(self.get_ip(2, 2))
         # Remove host on VLAN100 by changing it to a host on VLAN300, there is now only
         #   one host on the DP that is being routed (200)
@@ -7266,7 +7266,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """Host can reach each other, unless both marked loop_protect_external"""
-        for host in self.net.hosts:
+        for host in self.hosts_name_ordered():
             self.require_host_learned(host)
 
         # Part 1: Make sure things are connected properly.
@@ -7289,7 +7289,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def verify_protected_connectivity(self):
         self.verify_stack_up()
-        a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1 = self.net.hosts
+        a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1 = self.hosts_name_ordered()
         int_hosts = {a_int1, b_int1}
         ext_hosts = {a_ext1, a_ext2, b_ext1, b_ext2}
 
@@ -7334,7 +7334,7 @@ class FaucetStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         self.verify_stack_up()
-        a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1, c_ext1, c_ext2, c_int1 = self.net.hosts
+        a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1, c_ext1, c_ext2, c_int1 = self.hosts_name_ordered()
         int_hosts = {a_int1, b_int1, c_int1}
         ext_hosts = {a_ext1, a_ext2, b_ext1, b_ext2, c_ext1, c_ext2}
 
@@ -7378,10 +7378,10 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
             switch_to_switch_links=2,
             stack_ring=True)
         self.start_net()
-        self.first_host = self.net.hosts[0]
-        self.second_host = self.net.hosts[1]
-        self.fifth_host = self.net.hosts[4]
-        self.last_host = self.net.hosts[self.NUM_HOSTS * self.NUM_DPS - 1]
+        self.first_host = self.hosts_name_ordered()[0]
+        self.second_host = self.hosts_name_ordered()[1]
+        self.fifth_host = self.hosts_name_ordered()[4]
+        self.last_host = self.hosts_name_ordered()[self.NUM_HOSTS * self.NUM_DPS - 1]
 
     def one_stack_port_down(self):
         port = self.non_host_links(self.dpid)[1].port
@@ -7528,7 +7528,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
 
     def test_unicast(self):
         """Hosts in stack topology can appropriately reach each other over unicast."""
-        hosts = self.net.hosts
+        hosts = self.hosts_name_ordered()
         self.verify_stack_up()
         self.verify_tp_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
         self.verify_tp_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
@@ -7538,7 +7538,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
 
     def test_broadcast(self):
         """Hosts in stack topology can appropriately reach each other over broadcast."""
-        hosts = self.net.hosts
+        hosts = self.hosts_name_ordered()
         self.verify_stack_up()
         self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1])
         self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3])
@@ -7633,7 +7633,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     def test_port5001_blocked(self):
         """Test that TCP port 5001 is blocked."""
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
         with open(self.acls_config, 'w') as config_file:
             config_file.write(self.get_config(acls=self.acls_override()))
@@ -7644,7 +7644,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     def test_port5002_notblocked(self):
         """Test that TCP port 5002 is not blocked."""
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(5002, first_host, second_host)
         with open(self.acls_config, 'w') as config_file:
             config_file.write(self.get_config(acls=self.acls_override()))
@@ -7835,7 +7835,7 @@ acls:
 """
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         first_host.setMAC('0e:0d:00:00:00:99')
         self.retry_net_ping(hosts=(first_host, second_host))
         self.wait_nonzero_packet_count_flow(
@@ -7887,7 +7887,7 @@ acls:
 """
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[0:2]
+        first_host, second_host = self.hosts_name_ordered()[0:2]
         # we expect to see the rewritten mac address.
         tcpdump_filter = ('icmp and ether dst %s' % self.REWRITE_MAC)
         tcpdump_txt = self.tcpdump_helper(
@@ -7928,7 +7928,7 @@ acls:
            and the packet will only go out the port of the new mac.
            (Continues through faucet pipeline)
         """
-        source_host, overridden_host, rewrite_host = self.net.hosts[0:3]
+        source_host, overridden_host, rewrite_host = self.hosts_name_ordered()[0:3]
         self.verify_dest_rewrite(
             source_host, overridden_host, rewrite_host, overridden_host)
 
@@ -7976,7 +7976,7 @@ vlans:
 
     def test_untagged(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[:2]
+        first_host, second_host = self.hosts_name_ordered()[:2]
         self.swap_host_macs(first_host, second_host)
         for host, port in (
                 (first_host, self.port_map['port_1']),
@@ -7993,7 +7993,7 @@ class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
         rule expires. Host that is not sending expires as usual.
         """
         self.ping_all_when_learned()
-        first_host, second_host, third_host, fourth_host = self.net.hosts
+        first_host, second_host, third_host, fourth_host = self.hosts_name_ordered()
         self.host_ipv4_alias(first_host, ipaddress.ip_interface('10.99.99.1/24'))
         first_host.cmd('arp -s %s %s' % (second_host.IP(), second_host.MAC()))
         first_host.cmd('timeout 120s ping -I 10.99.99.1 %s &' % second_host.IP())
