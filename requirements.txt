@@ -1,4 +1,4 @@
-chewie==0.0.18
+chewie==0.0.19
 eventlet==0.24.1
 influxdb
 msgpack
