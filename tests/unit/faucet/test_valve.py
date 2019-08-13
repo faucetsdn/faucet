@@ -2729,6 +2729,54 @@ dps:
             msg='mcast packet flooded locally on non-root')
 
 
+class ValveStackAndNonStackTestCase(ValveTestBases.ValveTestSmall):
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s2
+                    port: 1
+            2:
+                description: p2
+                native_vlan: 0x100
+    s2:
+        hardware: 'GenericTFM'
+        dp_id: 0x2
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                description: p2
+                native_vlan: 0x100
+    s3:
+        hardware: 'GenericTFM'
+        dp_id: 0x3
+        interfaces:
+            1:
+                description: p1
+                native_vlan: 0x100
+            2:
+                description: p2
+                native_vlan: 0x100
+""" % BASE_DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_nonstack_dp_port(self):
+        self.assertEqual(None, self.valves_manager.valves[0x3].dp.shortest_path_port('s1'))
+
+
 class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
     """Valve test for updating the stack graph"""
 

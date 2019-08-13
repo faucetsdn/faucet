@@ -727,6 +727,9 @@ configuration.
             test_config_condition(stack_dps, 'stacking enabled but no root DP')
             return
 
+        if not self.stack_ports:
+            return
+
         for dp in stack_priority_dps:
             test_config_condition(not isinstance(dp.stack['priority'], int), (
                 'stack priority must be type %s not %s' % (
@@ -798,12 +801,13 @@ configuration.
         """Return shortest path to a DP, as a list of DPs."""
         if src_dp is None:
             src_dp = self.name
-        graph = self.stack.get('graph', None)
-        if graph:
-            try:
-                return networkx.shortest_path(graph, src_dp, dest_dp)
-            except (networkx.exception.NetworkXNoPath, networkx.exception.NodeNotFound):
-                pass
+        if self.stack:
+            graph = self.stack.get('graph', None)
+            if graph:
+                try:
+                    return networkx.shortest_path(graph, src_dp, dest_dp)
+                except (networkx.exception.NetworkXNoPath, networkx.exception.NodeNotFound):
+                    pass
         return []
 
     def shortest_path_to_root(self):
