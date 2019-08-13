@@ -1432,8 +1432,10 @@ dbs:
         host_b = self.hosts_name_ordered()[-1]
         if hosts is not None:
             host_a, host_b = hosts
-        tcpdump_filter = (
-            'ether dst host ff:ff:ff:ff:ff:ff and ether src host %s' % host_a.MAC())
+        tcpdump_filter = ' and '.join((
+            'ether dst host ff:ff:ff:ff:ff:ff',
+            'ether src host %s' % host_a.MAC(),
+            'udp'))
         scapy_cmd = self.scapy_bcast(host_a, count=packets)
         for _ in range(packets):
             tcpdump_txt = self.tcpdump_helper(
@@ -1459,9 +1461,13 @@ dbs:
             host_a, host_b = hosts
         scapy_cmd = self.scapy_template(
             ('Ether(src=\'%s\', dst=\'%s\', type=%u) / '
-             'IP(src=\'10.0.0.1\', dst=\'10.0.0.2\') / UDP(dport=67,sport=68)') % (
-                 host_a.MAC(), host_b.MAC(), IPV4_ETH), host_a.defaultIntf(), count=packets)
-        tcpdump_filter = 'ip and ether src %s and ether dst %s' % (host_a.MAC(), host_b.MAC())
+             'IP(src=\'%s\', dst=\'%s\') / UDP(dport=67,sport=68)') % (
+                 host_a.MAC(), host_b.MAC(), IPV4_ETH,
+                 host_a.IP(), host_b.IP()), host_a.defaultIntf(), count=packets)
+        tcpdump_filter = ' and '.join((
+            'ether dst %s' % host_b.MAC(),
+            'ether src %s' % host_a.MAC(),
+            'udp'))
         for _ in range(packets):
             tcpdump_txt = self.tcpdump_helper(
                 host_b, tcpdump_filter, [partial(host_a.cmd, scapy_cmd)], vflags='-vv',
