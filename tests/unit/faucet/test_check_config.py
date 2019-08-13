@@ -252,24 +252,6 @@ dps:
 """
         self.check_config_failure(unknown_hardware_config)
 
-    def test_stacking_noroot(self):
-        """Test that a stacking root is defined."""
-        stacking_config = """
-vlans:
-    100:
-        description: "100"
-dps:
-    switch1:
-        dp_id: 0xcafef00d
-        hardware: 'Open vSwitch'
-        stack:
-            priority: 0
-        interfaces:
-            1:
-                native_vlan: 100
-"""
-        self.check_config_failure(stacking_config)
-
     def test_bad_acl_action(self):
         """Test that an ACL with a bad match field is rejected."""
         acl_config = """
