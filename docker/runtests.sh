@@ -1,5 +1,7 @@
 #!/bin/bash
 
+INTEGRATIONTESTS=1
+TOLERANCETESTS=0
 UNITTESTS=1
 DEPCHECK=1
 SKIP_PIP=0
@@ -9,12 +11,13 @@ set -e  # quit on error
 
 # allow user to skip parts of docker test
 # this wrapper script only cares about -n, -u, -i, others passed to test suite.
-while getopts "cdijknrsuxozlp" o $FAUCET_TESTS; do
+while getopts "cdijknrstuxozlp" o $FAUCET_TESTS; do
   case "${o}" in
         i)
             # run only integration tests
             UNITTESTS=0
             DEPCHECK=0
+            TOLTESTS=0
             ;;
         n)
             # skip code check
@@ -28,6 +31,14 @@ while getopts "cdijknrsuxozlp" o $FAUCET_TESTS; do
             # Skip pip installer
             echo "Option set to assume environment is set up."
             SKIP_PIP=1
+            ;;
+        t)
+            # run only tolerance test
+            echo "Running only the tolerance tests"
+            UNITTESTS=0
+            DEPCHECK=0
+            INTEGRATIONTESTS=0
+            TOLERANCETESTS=1
             ;;
         *)
             ;;
@@ -101,9 +112,17 @@ test_failures=
 export FAUCET_DIR=/faucet-src/faucet
 export http_proxy=
 
-cd /faucet-src/tests/integration
-./mininet_main.py -c
+if [ "$INTEGRATIONTESTS" == 1 ]; then
+    echo "========== Running faucet integration tests =========="
+    cd /faucet-src/tests/integration
+    ./mininet_main.py -c
+fi
 
+if [ "$TOLERANCETESTS" == 1 ]; then
+    echo "========== Running faucet tolerance tests =========="
+    cd /faucet-src/tests/tolerance
+    ./mininet_main.py -c
+fi
 
 if [ "$HWTESTS" == 1 ] ; then
   echo "========== Simulating hardware test switch =========="

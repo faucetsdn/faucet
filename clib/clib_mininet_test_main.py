@@ -703,6 +703,8 @@ def parse_args():
         '-x', help='list of test classes to exclude')
     parser.add_argument(
         '-r', '--repeat', action='store_true', help='repeat tests until failure')
+    parser.add_argument(
+        '-t', '--tolerance', default=False, action='store_false', help='run fault-tolerance tests')
 
     excluded_test_classes = []
     report_json_filename = None
