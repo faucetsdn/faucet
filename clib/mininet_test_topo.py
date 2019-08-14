@@ -12,7 +12,7 @@ import netifaces
 
 # pylint: disable=too-many-arguments
 
-from mininet.log import output
+from mininet.log import output, warn
 from mininet.topo import Topo
 from mininet.node import Controller
 from mininet.node import CPULimitedHost
@@ -24,7 +24,6 @@ from clib import mininet_test_util
 
 # TODO: this should be configurable (e.g for randomization)
 SWITCH_START_PORT = 5
-HW_OFFSET = 16  # Must be > max(dp_ports)
 
 
 class FaucetIntf(TCIntf):
@@ -69,17 +68,39 @@ class FaucetSwitch(OVSSwitch):
         super().__init__(
             name=name, reconnectms=8000, **params)
 
+    @staticmethod
+    def _workaround(args):
+        """Workarounds/hacks for errors resulting from
+           cmd() calls within Mininet"""
+        # Workaround: ignore ethtool errors on tap interfaces
+        # This allows us to use tap tunnels as cables to switch ports,
+        # for example to test against OvS in a VM.
+        if (len(args) > 1 and args[0] == 'ethtool -K' and
+                getattr(args[1], 'name', '').startswith('tap')):
+            return True
+        return False
+
     def cmd(self, *args, success=0, **kwargs):
-        """Switch commands should always succeed,
+        """Commands typically must succeed for proper switch operation,
            so we check the exit code of the last command in *args.
            success: desired exit code (or None to skip check)"""
         # pylint: disable=arguments-differ
         cmd_output = super().cmd(*args, **kwargs)
         exit_code = int(super().cmd('echo $?'))
         if success is not None and exit_code != success:
-            raise RuntimeError(
-                "%s exited with (%d):'%s'" % (args, exit_code, cmd_output))
+            msg = "%s exited with (%d):'%s'" % (args, exit_code, cmd_output)
+            if self._workaround(args):
+                warn('Ignoring:', msg, '\n')
+            else:
+                raise RuntimeError(msg)
         return cmd_output
+
+    def attach(self, intf):
+        "Attach an interface and set its port"
+        super().attach(intf)
+        # This should be done in Mininet, but we do it for now
+        port = self.ports[intf]
+        self.cmd('ovs-vsctl set Interface', intf, 'ofport_request=%s' % port)
 
     def start(self, controllers):
         # Transcluded from Mininet source, since need to insert
