@@ -104,6 +104,11 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
 
                             self.assertIn(pip_req.name+lower_match, debian_package_dependencies)
                             self.assertIn(pip_req.name+upper_match, debian_package_dependencies)
+                        elif str(pip_req_version).startswith('<'):
+                            # debian/control uses << instead of <
+                            earlier_match = pip_req_version.replace('<', '<<')
+
+                            self.assertIn(pip_req.name+earlier_match, debian_package_dependencies)
                         else:
                             self.assertIn(pip_req.name+pip_req_version, debian_package_dependencies)
 
