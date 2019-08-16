@@ -410,10 +410,27 @@ class FaucetTestBase(unittest.TestCase):
             duration_file.write(str(int(time.time() - self.start_time)))
         return oferrors
 
+    def _block_non_faucet_packets(self):
+
+        def _cmd(cmd):
+            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = p.communicate()
+            self.assertFalse(stdout, msg='%s: %s' % (stdout, cmd))
+            self.assertFalse(stderr, msg='%s: %s' % (stderr, cmd))
+
+        _cmd('ebtables --f OUTPUT')
+        for phys_port in self.switch_map.values():
+            phys_mac = self.get_mac_of_intf(phys_port)
+            for cmd in (
+                    'ip link set dev %s up' % phys_port,
+                    'ip -4 addr flush dev %s' % phys_port,
+                    'ip -6 addr flush dev %s' % phys_port,
+                    'ebtables -A OUTPUT -s %s -o %s -j DROP' % (phys_mac, phys_port)):
+                _cmd(cmd)
+
     def _attach_physical_switch(self):
         """Bridge a physical switch into test topology."""
         switch = self.first_switch()
-        self.assertEqual('', switch.cmd('ebtables --f OUTPUT'))
         phys_macs = set()
         mapped_base = len(self.switch_map)
         for port_i, test_host_port in enumerate(sorted(self.switch_map), start=1):
@@ -422,12 +439,6 @@ class FaucetTestBase(unittest.TestCase):
             phys_mac = self.get_mac_of_intf(phys_port.name)
             self.assertFalse(phys_mac in phys_macs, 'duplicate physical MAC %s' % phys_mac)
             phys_macs.add(phys_mac)
-            for phys_cmd in (
-                    'ip link set dev %s up' % phys_port,
-                    'ip -4 addr flush dev %s' % phys_port,
-                    'ip -6 addr flush dev %s' % phys_port,
-                    'ebtables -A OUTPUT -s %s -o %s -j DROP' % (phys_mac, phys_port)):
-                self.assertEqual('', switch.cmd(phys_cmd))
             switch.cmd(
                 ('ovs-vsctl add-port %s %s -- '
                  'set Interface %s ofport_request=%u') % (
@@ -460,6 +471,7 @@ class FaucetTestBase(unittest.TestCase):
         if not self.port_map:
             # Sometimes created in build_net for config purposes, sometimes not
             self.port_map = self.create_port_map(self.dpid)
+        self._block_non_faucet_packets()
         self._start_faucet(controller_intf, controller_ipv6)
         self.pre_start_net()
         if self.hw_switch:
