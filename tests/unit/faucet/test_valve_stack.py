@@ -101,6 +101,92 @@ dps:
             msg='mcast packet multiply flooded externally on root')
 
 
+class ValveStackRedundantLink(ValveTestBases.ValveTestSmall):
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s2
+                    port: 1
+            2:
+                description: p2
+                stack:
+                    dp: s3
+                    port: 1
+            3:
+                description: p3
+                native_vlan: 100
+    s2:
+        hardware: 'GenericTFM'
+        dp_id: 0x2
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                description: p2
+                stack:
+                    dp: s3
+                    port: 2
+            3:
+                description: p3
+                native_vlan: 100
+    s3:
+        hardware: 'GenericTFM'
+        dp_id: 0x3
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 2
+            2:
+                description: p2
+                stack:
+                    dp: s2
+                    port: 2
+            3:
+                description: p3
+                native_vlan: 100
+""" % BASE_DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_loop_protect(self):
+        self.set_stack_port_up(1)
+        self.set_stack_port_up(2)
+        mcast_match = {
+            'in_port': 3,
+            'eth_dst': mac.BROADCAST_STR,
+            'vlan_vid': 0,
+            'eth_type': 0x800,
+            'ipv4_dst': '224.0.0.5',
+        }
+        self.assertTrue(
+            self.table.is_output(mcast_match, port=2),
+            msg='mcast packet not flooded to root of stack')
+        self.assertFalse(
+            self.table.is_output(mcast_match, port=1),
+            msg='mcast packet flooded root of stack via not shortest path')
+        self.set_stack_port_down(2)
+        self.assertFalse(
+            self.table.is_output(mcast_match, port=2),
+            msg='mcast packet flooded to root of stack via redundant path')
+        self.assertTrue(
+            self.table.is_output(mcast_match, port=1),
+            msg='mcast packet not flooded root of stack')
+
+
 class ValveStackNonRootExtLoopProtectTestCase(ValveTestBases.ValveTestSmall):
 
     CONFIG = """

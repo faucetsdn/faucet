@@ -745,13 +745,21 @@ class ValveTestBases:
                 'system_name': other_dp.name,
                 'org_tlvs': tlvs})
 
-        def set_stack_port_up(self, port_no):
+        def set_stack_port_status(self, port_no, status):
             """Set stack port up recalculating topology as necessary."""
             port = self.valve.dp.ports[port_no]
-            port.dyn_stack_current_state = 3
+            port.dyn_stack_current_state = status
             self.valve.flood_manager.update_stack_topo(True, self.valve.dp, port)
             for valve_vlan in self.valve.dp.vlans.values():
                 self.apply_ofmsgs(self.valve.flood_manager.add_vlan(valve_vlan))
+
+        def set_stack_port_up(self, port_no):
+            """Set stack port up recalculating topology as necessary."""
+            self.set_stack_port_status(port_no, 3)
+
+        def set_stack_port_down(self, port_no):
+            """Set stack port up recalculating topology as necessary."""
+            self.set_stack_port_status(port_no, 2)
 
     class ValveTestBig(ValveTestSmall):
         """Test basic switching/L2/L3 functions."""
