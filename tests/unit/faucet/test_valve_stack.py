@@ -621,5 +621,141 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
         }
 
 
+class ValveTestTunnel(ValveTestBases.ValveTestSmall):
+    """Test valve tunnel methods"""
+    TUNNEL_ID = 200
+    CONFIG = """
+acls:
+    tunnel_acl:
+        - rule:
+            actions:
+                output:
+                    tunnel: {type: 'vlan', tunnel_id: %u, dp: s3, port: 1}
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack:
+                    dp: s2
+                    port: 2
+            3:
+                stack:
+                    dp: s2
+                    port: 3
+            4:
+                stack:
+                    dp: s3
+                    port: 2
+            5:
+                stack:
+                    dp: s3
+                    port: 3
+    s2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel_acl]
+            2:
+                stack:
+                    dp: s1
+                    port: 2
+            3:
+                stack:
+                    dp: s1
+                    port: 3
+    s3:
+        dp_id: 0x3
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack:
+                    dp: s1
+                    port: 4
+            3:
+                stack:
+                    dp: s1
+                    port: 5
+""" % TUNNEL_ID
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def all_stack_up(self):
+        """Force stack ports UP and enabled"""
+        for valve in self.valves_manager.valves.values():
+            valve.dp.dyn_running = True
+            for port in valve.dp.stack_ports:
+                port.stack_up()
+                port.dyn_finalized = False
+                port.enabled = True
+                port.dyn_phys_up = True
+                port.dyn_finalized = True
+
+    @staticmethod
+    def down_stack_port(port):
+        """Force stack port DOWN"""
+        peer_port = port.stack['port']
+        peer_port.stack_down()
+        port.dyn_finalized = False
+        port.enabled = False
+        port.dyn_phys_up = False
+        port.dyn_finalized = True
+
+    def update_all_flowrules(self):
+        """Update all valve tunnel flowrules"""
+        for valve in self.valves_manager.valves.values():
+            valve.update_tunnel_flowrules()
+
+    def update_all_tunnels(self, state):
+        """Force DP tunnel updated flag state"""
+        for valve in self.valves_manager.valves.values():
+            valve.dp.tunnel_updated_flags[self.TUNNEL_ID] = state
+
+    def get_valve(self, dp_id):
+        """Get valve with dp_id"""
+        return self.valves_manager.valves[dp_id]
+
+    def test_update_on_stack_link_up(self):
+        """Test updating acl tunnel rules on stack link status UP"""
+        self.all_stack_up()
+        self.update_all_flowrules()
+        for valve in self.valves_manager.valves.values():
+            self.assertTrue(valve.dp.tunnel_updated_flags[self.TUNNEL_ID])
+
+    def test_update_on_stack_link_down(self):
+        """Test updating acl tunnel rules on stack link status DOWN"""
+        self.all_stack_up()
+        self.update_all_flowrules()
+        self.update_all_tunnels(False)
+        self.down_stack_port(self.get_valve(0x1).dp.ports[2])
+        self.down_stack_port(self.get_valve(0x1).dp.ports[4])
+        self.down_stack_port(self.get_valve(0x2).dp.ports[2])
+        self.down_stack_port(self.get_valve(0x3).dp.ports[2])
+        self.update_all_flowrules()
+        self.assertTrue(self.get_valve(0x1).dp.tunnel_updated_flags[self.TUNNEL_ID])
+        self.assertTrue(self.get_valve(0x2).dp.tunnel_updated_flags[self.TUNNEL_ID])
+
+    def test_tunnel_flowmod_count(self):
+        """Test the correct number of tunnel flowmods are created"""
+        for valve in self.valves_manager.valves.values():
+            self.assertEqual(len(valve.get_tunnel_flowmods()), 0)
+        self.all_stack_up()
+        self.update_all_flowrules()
+        self.assertEqual(len(self.get_valve(0x1).get_tunnel_flowmods()), 2)
+        self.assertEqual(len(self.get_valve(0x2).get_tunnel_flowmods()), 1)
+        self.assertEqual(len(self.get_valve(0x3).get_tunnel_flowmods()), 2)
+
+
 if __name__ == "__main__":
     unittest.main()  # pytype: disable=module-attr
