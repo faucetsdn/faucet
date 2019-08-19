@@ -147,6 +147,9 @@ class ValveHostManager(ValveManagerBase):
         # the same hosts will timeout approximately the same time on a stack.
         jitter = hash(eth_dst) % self.learn_jitter
         min_learn_timeout = base_learn_timeout - (self.learn_jitter / 2)
+        # Bias towards relearning non-stack ports first.
+        if port.stack:
+            jitter += 2
         return int(max(abs(min_learn_timeout + jitter), self.cache_update_guard_time))
 
     def learn_host_timeouts(self, port, eth_src):
