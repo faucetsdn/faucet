@@ -268,6 +268,10 @@ class ValvesManager:
             with self.metrics.faucet_valve_service_secs.labels( # pylint: disable=no-member
                     **valve_service_labels).time():
                 for service_valve, ofmsgs in valve_service_func(now, other_valves).items():
+                    # Since we are calling all Valves, keep only the ofmsgs
+                    # provided by the last Valve called (eventual consistency).
+                    if service_valve in ofmsgs_by_valve:
+                        ofmsgs_by_valve[service_valve] = []
                     ofmsgs_by_valve[service_valve].extend(ofmsgs)
         self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 

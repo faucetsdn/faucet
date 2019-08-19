@@ -752,6 +752,14 @@ class ValveTestBases:
                 'system_name': other_dp.name,
                 'org_tlvs': tlvs})
 
+        def set_stack_port_up(self, port_no):
+            """Set stack port up recalculating topology as necessary."""
+            port = self.valve.dp.ports[port_no]
+            port.dyn_stack_current_state = 3
+            self.valve.flood_manager.update_stack_topo(True, self.valve.dp, port)
+            for vlan in self.valve.dp.vlans.values():
+                self.apply_ofmsgs(self.valve.flood_manager.add_vlan(vlan))
+
 
     class ValveTestBig(ValveTestSmall):
         """Test basic switching/L2/L3 functions."""
@@ -2631,6 +2639,7 @@ dps:
 
     def setUp(self):
         self.setup_valve(self.CONFIG)
+        self.set_stack_port_up(1)
 
     def test_loop_protect(self):
         mcast_match = {
@@ -2709,6 +2718,7 @@ dps:
 
     def setUp(self):
         self.setup_valve(self.CONFIG)
+        self.set_stack_port_up(1)
 
     def test_loop_protect(self):
         mcast_match = {
@@ -2832,6 +2842,7 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
 
     def setUp(self):
         self.setup_valve(CONFIG)
+        self.set_stack_port_up(5)
 
     def test_stack_learn(self):
         """Test host learning on stack root."""
@@ -2863,6 +2874,7 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
 
     def setUp(self):
         self.setup_valve(CONFIG)
+        self.set_stack_port_up(5)
 
     def test_stack_learn(self):
         """Test host learning on non-root switch."""
@@ -2894,7 +2906,8 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
         match = {
             'vlan_vid': unexpressed_vid,
             'eth_dst': self.UNKNOWN_MAC}
-        self.assertFalse(self.table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=unexpressed_vid))
+        self.assertFalse(
+            self.table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=unexpressed_vid))
 
 
 class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
@@ -2912,9 +2925,8 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         other_port = other_dp.ports[1]
         other_valves = self.valves_manager._other_running_valves(self.valve)
         self.valve.fast_state_expire(time.time(), other_valves)
-        self.assertTrue(stack_port.is_stack_down())
+        self.assertTrue(stack_port.is_stack_init())
         for change_func, check_func in [
-                ('stack_init', 'is_stack_init'),
                 ('stack_up', 'is_stack_up'),
                 ('stack_down', 'is_stack_down')]:
             getattr(other_port, change_func)()
@@ -2928,11 +2940,13 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         other_port = other_dp.ports[1]
         wrong_port = other_dp.ports[2]
         wrong_dp = self.valves_manager.valves[3].dp
+        other_valves = self.valves_manager._other_running_valves(self.valve)
+        self.valve.fast_state_expire(time.time(), other_valves)
         for remote_dp, remote_port in [
                 (wrong_dp, other_port),
                 (other_dp, wrong_port)]:
             self.rcv_lldp(stack_port, other_dp, other_port)
-            self.assertTrue(stack_port.is_stack_init())
+            self.assertTrue(stack_port.is_stack_down() or stack_port.is_stack_init())
             self.rcv_lldp(stack_port, remote_dp, remote_port)
             self.assertTrue(stack_port.is_stack_down())
 
@@ -2941,9 +2955,10 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         stack_port = self.valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
+        other_valves = self.valves_manager._other_running_valves(self.valve)
+        self.valve.fast_state_expire(time.time(), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_init())
-        other_valves = self.valves_manager._other_running_valves(self.valve)
         self.valve.fast_state_expire(time.time() + 300, other_valves) # simulate packet loss
         self.assertTrue(stack_port.is_stack_down())
 

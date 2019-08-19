@@ -302,7 +302,7 @@ configuration.
         self.idle_dst = None
         self.stack_root_name = None
         self.stack_roots_names = None
-        self.stack_longest_path_to_root_len = None
+        self.stack_route_learning = None
 
         self.acls = {}
         self.vlans = {}
@@ -527,6 +527,9 @@ configuration.
             size = self.table_sizes.get(table_name, self.min_wildcard_table_size)
             if table_config.vlan_port_scale:
                 vlan_port_factor = len(self.vlans) * len(self.ports)
+                # Need more flows for external loop protection.
+                if self.has_externals:
+                    vlan_port_factor *= 2
                 size = max(size, int(vlan_port_factor * float(table_config.vlan_port_scale)))
             if not table_config.exact_match:
                 size = min(size, self.max_wildcard_table_size)
@@ -743,10 +746,15 @@ configuration.
         if meta_dp_state:
             if meta_dp_state.stack_root_name in self.stack_roots_names:
                 self.stack_root_name = meta_dp_state.stack_root_name
-        # Must set externals flag for entire stack.
+
+        self.stack_route_learning = False
         for dp in stack_port_dps:
+            # Must set externals flag for entire stack.
             if dp.has_externals:
                 self.has_externals = True
+            for vlan in dp.vlans.values():
+                if vlan.faucet_vips:
+                    self.stack_route_learning = True
 
         edge_count = Counter()
         graph = networkx.MultiGraph()
@@ -761,16 +769,27 @@ configuration.
             if self.stack is None:
                 self.stack = {}
             self.stack.update({'graph': graph})
-            self.stack_longest_path_to_root_len = 0
             for dp in graph.nodes():
                 path_to_root_len = len(self.shortest_path(self.stack_root_name, src_dp=dp))
                 test_config_condition(
                     path_to_root_len == 0, '%s not connected to stack' % dp)
-                self.stack_longest_path_to_root_len = max(
-                    path_to_root_len, self.stack_longest_path_to_root_len)
 
         if self.tunnel_acls:
             self.finalize_tunnel_acls(dps)
+
+    def stack_longest_path_to_root_len(self):
+        """Return length of the longest path to root in the stack."""
+        if not self.stack or not self.stack_root_name:
+            return None
+        graph = self.stack.get('graph', None)
+        if not graph:
+            return None
+        len_paths_to_root = [
+            len(self.shortest_path(self.stack_root_name, src_dp=dp))
+            for dp in graph.nodes()]
+        if len_paths_to_root:
+            return max(len_paths_to_root)
+        return None
 
     def finalize_tunnel_acls(self, dps):
         """Turn off ACLs not in use and resolve the ACL src dp and port.
@@ -818,10 +837,14 @@ configuration.
         """Return True if this DP is the root of the stack."""
         return self.stack_root_name == self.name
 
+    def is_stack_root_candidate(self):
+        """Return True if this DP could be a root of the stack."""
+        return self.name in self.stack_roots_names
+
     def is_stack_edge(self):
         """Return True if this DP is a stack edge."""
         return (not self.is_stack_root() and
-                self.stack_longest_path_to_root_len == len(self.shortest_path_to_root()))
+                self.stack_longest_path_to_root_len() == len(self.shortest_path_to_root()))
 
     @staticmethod
     def canonical_port_order(ports):

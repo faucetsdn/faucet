@@ -308,7 +308,7 @@ class ValveFloodStackManager(ValveFloodManager):
                  stack_ports, has_externals,
                  dp_shortest_path_to_root, shortest_path_port,
                  longest_path_to_root_len, is_stack_root,
-                 graph):
+                 is_stack_root_candidate, graph):
         super(ValveFloodStackManager, self).__init__(
             logger, flood_table, pipeline,
             use_group_table, groups,
@@ -321,33 +321,62 @@ class ValveFloodStackManager(ValveFloodManager):
         self.dp_shortest_path_to_root = dp_shortest_path_to_root
         self.longest_path_to_root_len = longest_path_to_root_len
         self.is_stack_root = is_stack_root
+        self.is_stack_root_candidate = is_stack_root_candidate
         self.graph = graph
-        if self.is_stack_root():
-            self.logger.info('root DP')
+        stack_size = self.longest_path_to_root_len()
+        if stack_size is not None and stack_size > 2:
+            self.logger.info('stack size %u' % stack_size)
+            self._flood_actions_func = self._flood_actions
         else:
-            self.logger.info('not root DP')
+            self.logger.info('stack size <= 2, using non root-reflection stacking')
+            self._flood_actions_func = self._flood_actions_size2
+        self._set_ext_port_flag = []
+        self._set_nonext_port_flag = []
+        self.external_root_only = False
+        if self.externals:
+            self.logger.info('external ports present, using loop protection')
+            self._set_ext_port_flag = [self.flood_table.set_external_forwarding_requested()]
+            self._set_nonext_port_flag = [self.flood_table.set_no_external_forwarding_requested()]
+            if not self.is_stack_root() and self.is_stack_root_candidate():
+                self.logger.info('external flooding on root only')
+                self.external_root_only = True
         self._reset_peer_distances()
 
     def _reset_peer_distances(self):
         """Reset distances to/from root for this DP."""
-        port_peer_distances = [
-            (port, len(port.stack['dp'].shortest_path_to_root())) for port in self.stack_ports]
-        my_root_distance = len(self.dp_shortest_path_to_root())
-        self.towards_root_stack_ports = [
-            port for port, port_peer_distance in port_peer_distances
-            if port_peer_distance < my_root_distance]
-        self.away_from_root_stack_ports = [
-            port for port, port_peer_distance in port_peer_distances
-            if port_peer_distance > my_root_distance]
-        self._set_ext_port_flag = []
-        self._set_nonext_port_flag = []
-        if self.externals:
-            self._set_ext_port_flag = [self.flood_table.set_external_forwarding_requested()]
-            self._set_nonext_port_flag = [self.flood_table.set_no_external_forwarding_requested()]
-        self._flood_actions_func = self._flood_actions
-        stack_size = self.longest_path_to_root_len
-        if stack_size == 2:
-            self._flood_actions_func = self._flood_actions_size2
+        self.all_towards_root_stack_ports = set()
+        self.towards_root_stack_ports = set()
+        self.away_from_root_stack_ports = set()
+        all_peer_ports = {port for port in self._canonical_stack_up_ports(self.stack_ports)}
+
+        if self.is_stack_root():
+            self.away_from_root_stack_ports = all_peer_ports
+        else:
+            # TODO: assume all DPs have a redundant path.
+            port_peer_distances = {
+                port: len(port.stack['dp'].shortest_path_to_root()) for port in all_peer_ports}
+            shortest_peer_distance = None
+            for port, port_peer_distance in port_peer_distances.items():
+                if shortest_peer_distance is None:
+                    shortest_peer_distance = port_peer_distance
+                    continue
+                shortest_peer_distance = min(shortest_peer_distance, port_peer_distance)
+            self.all_towards_root_stack_ports = {
+                port for port, port_peer_distance in port_peer_distances.items()
+                if port_peer_distance == shortest_peer_distance}
+            if self.all_towards_root_stack_ports:
+                first_peer_dp = list(self.all_towards_root_stack_ports)[0].stack['dp']
+                self.towards_root_stack_ports = {
+                    port for port in self.all_towards_root_stack_ports
+                    if port.stack['dp'] == first_peer_dp}
+            self.away_from_root_stack_ports = all_peer_ports - self.all_towards_root_stack_ports
+
+        if not self.is_stack_root():
+            if self.towards_root_stack_ports:
+                self.logger.info(
+                    'shortest path to root is via %s' % self.towards_root_stack_ports)
+            else:
+                self.logger.info('no path available to root')
 
     def _flood_actions_size2(self, in_port, external_ports,
                              away_flood_actions, toward_flood_actions, local_flood_actions):
@@ -369,7 +398,7 @@ class ValveFloodStackManager(ValveFloodManager):
                 flood_prefix + toward_flood_actions + local_flood_actions)
 
             # If packet came from the root, flood it locally.
-            if in_port in self.towards_root_stack_ports:
+            if in_port in self.all_towards_root_stack_ports:
                 flood_actions = (flood_prefix + local_flood_actions)
 
         return flood_actions
@@ -403,7 +432,7 @@ class ValveFloodStackManager(ValveFloodManager):
                 if in_port in self.away_from_root_stack_ports:
                     flood_actions = toward_flood_actions
                 # Packet from the root.
-                elif in_port in self.towards_root_stack_ports:
+                elif in_port in self.all_towards_root_stack_ports:
                     # If we have external ports, and packet hasn't already been flooded
                     # externally, flood it externally before passing it to further away switches,
                     # and mark it flooded.
@@ -524,6 +553,7 @@ class ValveFloodStackManager(ValveFloodManager):
                 self.pipeline.filter_priority - self.pipeline.select_priority))
 
         for port in self.stack_ports:
+            prune = False
             if self.is_stack_root():
                 # On the root switch, only flood from one port where multiply connected to a DP.
                 away_up_port = None
@@ -534,7 +564,7 @@ class ValveFloodStackManager(ValveFloodManager):
             else:
                 # On a non root switch, only flood from one of the ports
                 # connected towards the root.
-                prune = port in self.towards_root_stack_ports and port != towards_up_port
+                prune = port in self.all_towards_root_stack_ports and port != towards_up_port
             flood_acts = []
 
             match = {'in_port': port.number, 'vlan': vlan}
@@ -550,21 +580,23 @@ class ValveFloodStackManager(ValveFloodManager):
                 ofmsgs.extend(self.pipeline.filter_packets(
                     match, priority_offset=priority_offset))
             else:
+                ofmsgs.extend(self.pipeline.remove_filter(
+                    match, priority_offset=priority_offset))
                 # Non-root switches don't need to learn hosts that only
                 # broadcast, to save resources.
-                if not self.is_stack_root() and eth_dst is not None:
-                    ofmsgs.extend(self.pipeline.select_packets(
-                        self.flood_table, match,
-                        priority_offset=self.classification_offset))
-                else:
-                    ofmsgs.extend(self.pipeline.remove_filter(
-                        match, priority_offset=priority_offset))
+                if not self.is_stack_root():
+                    if eth_dst is not None:
+                        ofmsgs.extend(self.pipeline.select_packets(
+                            self.flood_table, match,
+                            priority_offset=self.classification_offset))
 
             if self.externals:
                 # If external flag is set, flood to external ports, otherwise exclude them.
                 for ext_port_flag, exclude_all_external in (
                         (valve_of.PCP_NONEXT_PORT_FLAG, True),
                         (valve_of.PCP_EXT_PORT_FLAG, False)):
+                    if self.external_root_only:
+                        exclude_all_external = True
                     if not prune:
                         flood_acts, _, _ = self._build_flood_acts_for_port(
                             vlan, exclude_unicast, port, exclude_all_external=exclude_all_external)
@@ -579,6 +611,7 @@ class ValveFloodStackManager(ValveFloodManager):
                 port_flood_ofmsg = self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask, command, port, flood_acts)
                 ofmsgs.append(port_flood_ofmsg)
+
         return ofmsgs
 
     def _edge_dp_for_host(self, other_valves, pkt_meta):
