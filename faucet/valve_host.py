@@ -146,7 +146,7 @@ class ValveHostManager(ValveManagerBase):
         # Jitter learn timeout based on eth address, so timeout processing is jittered,
         # the same hosts will timeout approximately the same time on a stack.
         jitter = hash(eth_dst) % self.learn_jitter
-        min_learn_timeout = base_learn_timeout - (self.learn_jitter / 2)
+        min_learn_timeout = base_learn_timeout - self.learn_jitter
         # Bias towards relearning non-stack ports first.
         if port.stack:
             jitter += 2
