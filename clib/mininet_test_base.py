@@ -26,14 +26,13 @@ import requests
 
 from ryu.ofproto import ofproto_v1_3 as ofp
 
-from mininet.link import TCLink # pylint: disable=import-error
 from mininet.log import error, output # pylint: disable=import-error
 from mininet.net import Mininet # pylint: disable=import-error
-from mininet.node import Intf # pylint: disable=import-error
 from mininet.util import dumpNodeConnections, pmonitor # pylint: disable=import-error
 
 from clib import mininet_test_util
 from clib import mininet_test_topo
+from clib.mininet_test_topo import FaucetLink, FaucetIntf
 from clib.tcpdump_helper import TcpdumpHelper
 
 MAX_TEST_VID = 512
@@ -340,7 +339,8 @@ class FaucetTestBase(unittest.TestCase):
     def _stop_net(self):
         if self.net is not None:
             for switch in self.net.switches:
-                switch.cmd('%s del-controller %s' % (self.VSCTL, switch.name))
+                switch.cmd(
+                    self.VSCTL, 'del-controller', switch.name, '|| true')
             self.net.stop()
 
     def setUp(self):
@@ -435,7 +435,7 @@ class FaucetTestBase(unittest.TestCase):
         mapped_base = len(self.switch_map)
         for port_i, test_host_port in enumerate(sorted(self.switch_map), start=1):
             mapped_port_i = mapped_base + port_i
-            phys_port = Intf(self.switch_map[test_host_port], node=switch)
+            phys_port = FaucetIntf(self.switch_map[test_host_port], node=switch)
             phys_mac = self.get_mac_of_intf(phys_port.name)
             self.assertFalse(phys_mac in phys_macs, 'duplicate physical MAC %s' % phys_mac)
             phys_macs.add(phys_mac)
@@ -522,7 +522,7 @@ class FaucetTestBase(unittest.TestCase):
                 os.remove(log)
             self.net = Mininet(
                 self.topo,
-                link=TCLink,
+                link=FaucetLink,
                 controller=self.CONTROLLER_CLASS(
                     name='faucet', tmpdir=self.tmpdir,
                     controller_intf=controller_intf,

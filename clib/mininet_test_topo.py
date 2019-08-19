@@ -17,6 +17,7 @@ from mininet.topo import Topo
 from mininet.node import Controller
 from mininet.node import CPULimitedHost
 from mininet.node import OVSSwitch
+from mininet.link import TCIntf, Link
 
 from clib import mininet_test_util
 
@@ -24,6 +25,32 @@ from clib import mininet_test_util
 # TODO: this should be configurable (e.g for randomization)
 SWITCH_START_PORT = 5
 HW_OFFSET = 16  # Must be > max(dp_ports)
+
+
+class FaucetIntf(TCIntf):
+    """TCIntf that doesn't complain unnecessarily"""
+
+    def delete(self):
+        """Ignore interface deletion failure;
+           this is common after a veth pair has been deleted
+           on the other side."""
+        self.cmd('ip link del', self.name, '|| true')
+        self.node.delIntf(self)
+        self.link = None
+
+
+class FaucetLink(Link):
+    """Link using FaucetIntfs"""
+
+    # TODO: This can be simplified when we update Mininet in the test image
+    def __init__(self, node1, node2, port1=None, port2=None,
+                 intfName1=None, intfName2=None,
+                 addr1=None, addr2=None, **params):
+        Link.__init__(self, node1, node2, port1=port1, port2=port2,
+                      intfName1=intfName1, intfName2=intfName2,
+                      cls1=FaucetIntf, cls2=FaucetIntf,
+                      addr1=addr1, addr2=addr2,
+                      params1=params, params2=params)
 
 
 class FaucetHost(CPULimitedHost):
@@ -43,6 +70,17 @@ class FaucetSwitch(OVSSwitch):
     def __init__(self, name, **params):
         super(FaucetSwitch, self).__init__(
             name=name, reconnectms=8000, **params)
+
+    def cmd(self, *args, success=0, **kwargs):
+        """Switch commands should always succeed,
+           so we check the exit code of the last command in *args.
+           success: desired exit code (or None to skip check)"""
+        # pylint: disable=arguments-differ
+        cmd_output = super().cmd(*args, **kwargs)
+        exit_code = int(super().cmd('echo $?'))
+        if success is not None and exit_code != success:
+            raise RuntimeError('%s exited with %d' % (args, exit_code))
+        return cmd_output
 
     def start(self, controllers):
         # Transcluded from Mininet source, since need to insert
