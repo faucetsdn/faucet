@@ -307,7 +307,7 @@ class ValveHostManager(ValveManagerBase):
                 # aggressively re-learn on LAGs, and prefer recently learned
                 # locally learned hosts on a stack.
                 if same_lag or local_stack_learn:
-                    guard_time = 1
+                    guard_time = self.learn_jitter / 2
                 # recent cache update, don't do anything.
                 if cache_age < guard_time:
                     return (ofmsgs, cache_port, False)
