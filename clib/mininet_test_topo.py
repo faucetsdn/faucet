@@ -56,8 +56,6 @@ class FaucetLink(Link):
 class FaucetHost(CPULimitedHost):
     """Base Mininet Host class, for Mininet-based tests."""
 
-    pass
-
 
 class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (netdev based OVS)."""
@@ -68,7 +66,7 @@ class FaucetSwitch(OVSSwitch):
     }
 
     def __init__(self, name, **params):
-        super(FaucetSwitch, self).__init__(
+        super().__init__(
             name=name, reconnectms=8000, **params)
 
     def cmd(self, *args, success=0, **kwargs):
@@ -131,7 +129,7 @@ class NoControllerFaucetSwitch(FaucetSwitch):
     """A switch without any controllers (typically for remapping hardware to software."""
 
     def start(self, _controllers):
-        super(NoControllerFaucetSwitch, self).start(controllers=[])
+        super().start(controllers=[])
 
 
 class VLANHost(FaucetHost):
@@ -139,10 +137,10 @@ class VLANHost(FaucetHost):
 
     intf_root_name = None
 
-    def config(self, vlan=100, **params):
+    def config(self, vlan=100, **params):  # pylint: disable=arguments-differ
         """Configure VLANHost according to (optional) parameters:
            vlan: VLAN ID for default interface"""
-        super_config = super(VLANHost, self).config(**params)
+        super_config = super().config(**params)
         intf = self.defaultIntf()
         vlan_intf_name = '%s.%d' % (intf, vlan)
         for cmd in (
@@ -174,7 +172,8 @@ class FaucetSwitchTopo(Topo):
     def _get_sid_prefix(ports_served):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
-        id_chars = ''.join(sorted(string.ascii_letters + string.digits)) # pytype: disable=module-attr
+        # pytype: disable=module-attr
+        id_chars = ''.join(sorted(string.ascii_letters + string.digits))
         id_a = int(ports_served / len(id_chars))
         id_b = ports_served - (id_a * len(id_chars))
         return '%s%s' % (
@@ -263,6 +262,7 @@ class FaucetSwitchTopo(Topo):
                 index += 1
         return index
 
+    # pylint: disable=too-many-locals,arguments-differ
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0,
               n_extended=0, e_cls=None, tmpdir=None, hw_dpid=None, switch_map=None,
@@ -300,6 +300,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         links = [self.hw_remap_peer_link(dpid, link) for link in self.switch_peer_links[name]]
         return links
 
+    # pylint: disable=too-many-locals,arguments-differ
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, untagged_hosts=None,
               links_per_host=0, switch_to_switch_links=1,
@@ -412,7 +413,7 @@ socket_timeout=15
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
         self.controller_ipv6 = controller_ipv6
-        super(BaseFAUCET, self).__init__(
+        super().__init__(
             name, cargs=self._add_cargs(cargs, name), **kwargs)
 
     def _add_cargs(self, cargs, name):
@@ -433,10 +434,10 @@ socket_timeout=15
         return ' '.join((
             self.BASE_CARGS, pid_file_arg, ryu_conf_arg, ofp_listen_host_arg, cargs))
 
-    def IP(self): # pylint: disable=invalid-name
+    def IP(self):  # pylint: disable=invalid-name,arguments-differ
         if self.controller_intf is not None:
             return self.controller_ip
-        return super(BaseFAUCET, self).IP()
+        return super().IP()
 
     def _start_tcpdump(self):
         """Start a tcpdump for OF port."""
@@ -548,7 +549,7 @@ socket_timeout=15
     def start(self):
         """Start tcpdump for OF port and then start controller."""
         self._start_tcpdump()
-        super(BaseFAUCET, self).start()
+        super().start()
 
     def _stop_cap(self):
         """Stop tcpdump for OF port and run tshark to decode it."""
@@ -568,7 +569,7 @@ socket_timeout=15
                     stderr=mininet_test_util.DEVNULL,
                     close_fds=True)
 
-    def stop(self):
+    def stop(self):  # pylint: disable=arguments-differ
         """Stop controller."""
         try:
             if self.CPROFILE:
@@ -578,7 +579,7 @@ socket_timeout=15
         except ProcessLookupError:
             pass
         self._stop_cap()
-        super(BaseFAUCET, self).stop()
+        super().stop()
         if os.path.exists(self.logname()):
             tmpdir_logname = os.path.join(
                 self.tmpdir, os.path.basename(self.logname()))
@@ -592,6 +593,7 @@ class FAUCET(BaseFAUCET):
 
     START_ARGS = ['--ryu-app=ryu.app.ofctl_rest']
 
+    # pylint: disable=too-many-locals
     def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, prom_port, port, test_name, **kwargs):
@@ -602,7 +604,7 @@ class FAUCET(BaseFAUCET):
             '--ryu-wsapi-host=%s' % mininet_test_util.LOCALHOSTV6,
             '--ryu-wsapi-port=%u' % self.ofctl_port,
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
-        super(FAUCET, self).__init__(
+        super().__init__(
             name,
             tmpdir,
             controller_intf,
@@ -616,7 +618,7 @@ class FAUCET(BaseFAUCET):
         return (
             self.listen_port(self.ofctl_port) and
             self.listen_port(self.prom_port) and
-            super(FAUCET, self).listening())
+            super().listening())
 
 
 class Gauge(BaseFAUCET):
@@ -625,7 +627,7 @@ class Gauge(BaseFAUCET):
     def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  port, **kwargs):
-        super(Gauge, self).__init__(
+        super().__init__(
             name,
             tmpdir,
             controller_intf, controller_ipv6,
