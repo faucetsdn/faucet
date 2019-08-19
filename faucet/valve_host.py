@@ -17,8 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import random
-
 from faucet import valve_of
 from faucet.valve_manager_base import ValveManagerBase
 
@@ -97,7 +95,10 @@ class ValveHostManager(ValveManagerBase):
                 # per OF 1.3.5 B.6.23, the OFA will match flows
                 # that have an action targeting this port.
                 ofmsgs.append(table.flowdel(out_port=port.number))
-        for vlan in port.vlans():
+        vlans = port.vlans()
+        if port.stack:
+            vlans = self.vlans.values()
+        for vlan in vlans:
             vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
 
@@ -135,22 +136,22 @@ class ValveHostManager(ValveManagerBase):
                     vlan.hosts_count(), vlan.vid, expired_hosts))
         return expired_hosts
 
-    def _jitter_learn_timeout(self):
+    def _jitter_learn_timeout(self, base_learn_timeout, port, eth_dst):
         """Calculate jittered learning timeout to avoid synchronized host timeouts."""
-        return int(max(abs(
-            self.learn_timeout -
-            (self.learn_jitter / 2) + random.randint(0, self.learn_jitter)),
-                       self.cache_update_guard_time))
-
-    def learn_host_timeouts(self, port):
-        """Calculate flow timeouts for learning on a port."""
-        # hosts learned on this port never relearned
+        # Hosts on this port never timeout.
         if port.permanent_learn:
-            learn_timeout = 0
-        else:
-            learn_timeout = self.learn_timeout
-            if self.learn_timeout:
-                learn_timeout = self._jitter_learn_timeout()
+            return 0
+        if not base_learn_timeout:
+            return 0
+        # Jitter learn timeout based on eth address, so timeout processing is jittered,
+        # the same hosts will timeout approximately the same time on a stack.
+        jitter = hash(eth_dst) % self.learn_jitter
+        min_learn_timeout = base_learn_timeout - self.learn_jitter
+        return int(max(abs(min_learn_timeout + jitter), self.cache_update_guard_time))
+
+    def learn_host_timeouts(self, port, eth_src):
+        """Calculate flow timeouts for learning on a port."""
+        learn_timeout = self._jitter_learn_timeout(self.learn_timeout, port, eth_src)
 
         # Update datapath to no longer send packets from this mac to controller
         # note the use of hard_timeout here and idle_timeout for the dst table
@@ -179,10 +180,8 @@ class ValveHostManager(ValveManagerBase):
             eth_src: source MAC address (should be the router MAC)
             eth_dst: destination MAC address
         """
-        (src_rule_idle_timeout, src_rule_hard_timeout, _) = self.learn_host_timeouts(port)
         ofmsgs = []
-        ofmsgs.append(self.eth_src_table.flowdel(
-            self.eth_src_table.match(vlan=vlan, eth_src=eth_src, eth_dst=eth_dst)))
+        (src_rule_idle_timeout, src_rule_hard_timeout, _) = self.learn_host_timeouts(port, eth_src)
         src_match = self.eth_src_table.match(vlan=vlan, eth_src=eth_src, eth_dst=eth_dst)
         src_priority = self.host_priority - 1
         inst = [self.eth_src_table.goto(self.output_table)]
@@ -296,20 +295,26 @@ class ValveHostManager(ValveManagerBase):
             cache_age = now - entry.cache_time
             cache_port = entry.port
 
-        same_lag = (
-            cache_port is not None and
-            cache_port.lacp and port.lacp and cache_port.lacp == port.lacp)
-        if cache_port == port or same_lag:
-            # if we very very recently learned this host, don't do anything.
+        if cache_port is not None:
+            # packet was received on same member of a LAG.
+            same_lag = (port.lacp and port.lacp == cache_port.lacp)
+            # stacks of size > 2 will have an unknown MAC flooded towards the root,
+            # and flooded down again. If we learned the MAC on a local port and
+            # heard the reflected flooded copy, discard the reflection.
+            local_stack_learn = (port.stack and not cache_port.stack)
             guard_time = self.cache_update_guard_time
-            # aggressively re-learn on LAGs
-            if same_lag:
-                guard_time = 1
-            if cache_age < guard_time:
-                return (ofmsgs, cache_port, False)
-            # skip delete if host didn't change ports or on same LAG.
-            delete_existing = False
-            refresh_rules = True
+            if cache_port == port or same_lag or local_stack_learn:
+                # aggressively re-learn on LAGs, and prefer recently learned
+                # locally learned hosts on a stack.
+                if same_lag or local_stack_learn:
+                    guard_time = 2
+                # recent cache update, don't do anything.
+                if cache_age < guard_time:
+                    return (ofmsgs, cache_port, False)
+                # skip delete if host didn't change ports or on same LAG.
+                if cache_port == port or same_lag:
+                    delete_existing = False
+                    refresh_rules = True
 
         if port.loop_protect:
             ban_age = None
@@ -339,7 +344,7 @@ class ValveHostManager(ValveManagerBase):
 
         (src_rule_idle_timeout,
          src_rule_hard_timeout,
-         dst_rule_idle_timeout) = self.learn_host_timeouts(port)
+         dst_rule_idle_timeout) = self.learn_host_timeouts(port, eth_src)
 
         ofmsgs.extend(self.learn_host_on_vlan_port_flows(
             port, vlan, eth_src, delete_existing, refresh_rules,
@@ -386,13 +391,9 @@ class ValveHostFlowRemovedManager(ValveHostManager):
     def expire_hosts_from_vlan(self, _vlan, _now):
         return []
 
-    def learn_host_timeouts(self, port):
+    def learn_host_timeouts(self, port, eth_src):
         """Calculate flow timeouts for learning on a port."""
-        # hosts learned on this port never relearned
-        if port.permanent_learn:
-            learn_timeout = 0
-        else:
-            learn_timeout = self._jitter_learn_timeout()
+        learn_timeout = self._jitter_learn_timeout(self.learn_timeout, port, eth_src)
 
         # Disable hard_time, dst rule expires after src rule.
         src_rule_idle_timeout = learn_timeout

@@ -1454,7 +1454,7 @@ dbs:
                     return
             else:
                 self.assertFalse(received_packets, msg=msg)
-            time.sleep(0.5)
+            time.sleep(1)
         self.assertEqual(
             received_expected, received_packets, msg=msg)
 
