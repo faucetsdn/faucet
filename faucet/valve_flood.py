@@ -352,7 +352,6 @@ class ValveFloodStackManager(ValveFloodManager):
         if self.is_stack_root():
             self.away_from_root_stack_ports = all_peer_ports
         else:
-            # TODO: assume all DPs have a redundant path.
             port_peer_distances = {
                 port: len(port.stack['dp'].shortest_path_to_root()) for port in all_peer_ports}
             shortest_peer_distance = None
@@ -631,9 +630,6 @@ class ValveFloodStackManager(ValveFloodManager):
         # (for example, just default switch to a neighbor).
         # Find port that forwards closer to destination DP that
         # has already learned this host (if any).
-        # TODO: stacking handles failure of redundant links between DPs,
-        # but not failure of an entire DP (should be able to find
-        # shortest path via alternate DP).
         if pkt_meta.port.stack:
             peer_dp = pkt_meta.port.stack['dp']
             if peer_dp.is_stack_edge() or peer_dp.is_stack_root():

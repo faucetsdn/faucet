@@ -599,7 +599,7 @@ class Valve:
                     'port_stack_state',
                     port.dyn_stack_current_state,
                     labels=self.dp.port_labels(port.number))
-                if port.is_stack_up() or port.is_stack_down():
+                if port.is_stack_up() or port.is_stack_down() or port.is_stack_init():
                     stack_changes += 1
                     port_stack_up = port.is_stack_up()
                     for valve in stacked_valves:
