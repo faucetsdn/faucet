@@ -8,3 +8,4 @@ linters:
     max-line-length: 120
   py3k:
     ignore: 'W1618'
+    ignore: 'W1619'
