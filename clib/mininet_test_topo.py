@@ -77,7 +77,8 @@ class FaucetSwitch(OVSSwitch):
         cmd_output = super().cmd(*args, **kwargs)
         exit_code = int(super().cmd('echo $?'))
         if success is not None and exit_code != success:
-            raise RuntimeError('%s exited with %d' % (args, exit_code))
+            raise RuntimeError(
+                "%s exited with (%d):'%s'" % (args, exit_code, cmd_output))
         return cmd_output
 
     def start(self, controllers):
