@@ -7315,14 +7315,14 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
                 self.verify_broadcast(hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
 
 
-class FaucetStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
+class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 3
     NUM_HOSTS = 3
 
     def setUp(self):  # pylint: disable=invalid-name
-        super(FaucetStackStringOf3DPExtLoopProtUntaggedTest, self).setUp()
+        super(FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
