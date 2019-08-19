@@ -1433,30 +1433,27 @@ class Valve:
         stacked_other_valves = self._stacked_valves(other_valves)
         all_stacked_valves = {self}.union(stacked_other_valves)
 
-        # TODO: generalize multi DP routing
-        if self.dp.stack_route_learning:
-            # TODO: multi DP routing requires learning from directly attached switch first.
-            if pkt_meta.port.stack:
-                peer_dp = pkt_meta.port.stack['dp']
-                if peer_dp.dyn_running:
-                    faucet_macs = {pkt_meta.vlan.faucet_mac}.union(
-                        {valve.dp.faucet_dp_mac for valve in all_stacked_valves})
-                    # Must always learn FAUCET VIP, but rely on neighbor
-                    # to learn other hosts first.
-                    if pkt_meta.eth_src not in faucet_macs:
-                        return {}
+        # TODO: multi DP routing requires learning from directly attached switch first.
+        if pkt_meta.port.stack and self.dp.stack_route_learning:
+            peer_dp = pkt_meta.port.stack['dp']
+            if peer_dp.dyn_running:
+                faucet_macs = {pkt_meta.vlan.faucet_mac}.union(
+                    {valve.dp.faucet_dp_mac for valve in all_stacked_valves})
+                # Must always learn FAUCET VIP, but rely on neighbor
+                # to learn other hosts first.
+                if pkt_meta.eth_src not in faucet_macs:
+                    return {}
 
-            for valve in stacked_other_valves:
-                # TODO: does not handle pruning.
-                stack_port = valve.dp.shortest_path_port(self.dp.name)
-                valve_vlan = valve.dp.vlans.get(pkt_meta.vlan.vid, None)
-                if stack_port and valve_vlan:
-                    valve_pkt_meta = copy.copy(pkt_meta)
-                    valve_pkt_meta.vlan = valve_vlan
-                    valve_pkt_meta.port = stack_port
-                    valve_other_valves = all_stacked_valves - {valve}
-                    ofmsgs_by_valve[valve] = handle_pkt(
-                        valve, now, valve_pkt_meta, valve_other_valves)
+        for valve in stacked_other_valves:
+            stack_port = valve.dp.shortest_path_port(self.dp.name)
+            valve_vlan = valve.dp.vlans.get(pkt_meta.vlan.vid, None)
+            if stack_port and valve_vlan:
+                valve_pkt_meta = copy.copy(pkt_meta)
+                valve_pkt_meta.vlan = valve_vlan
+                valve_pkt_meta.port = stack_port
+                valve_other_valves = all_stacked_valves - {valve}
+                ofmsgs_by_valve[valve] = handle_pkt(
+                    valve, now, valve_pkt_meta, valve_other_valves)
 
         ofmsgs_by_valve[self] = handle_pkt(
             self, now, pkt_meta, other_valves)
