@@ -560,7 +560,7 @@ class Valve:
 
         if last_seen_lldp_time is not None:
             time_since_lldp_seen = now - last_seen_lldp_time
-            num_lost_lldp = round(time_since_lldp_seen / float(send_interval))
+            num_lost_lldp = time_since_lldp_seen / send_interval
             if num_lost_lldp < port.max_lldp_lost:
                 stack_timed_out = False
 
@@ -581,7 +581,7 @@ class Valve:
                     next_state = port.stack_down
                     self.logger.error('Stack %s DOWN, remote port is down' % port)
             elif (not stack_timed_out and
-                    remote_port_state in frozenset([STACK_STATE_UP, STACK_STATE_INIT])):
+                  remote_port_state in frozenset([STACK_STATE_UP, STACK_STATE_INIT])):
                 next_state = port.stack_up
                 self.logger.info('Stack %s UP' % port)
         return next_state

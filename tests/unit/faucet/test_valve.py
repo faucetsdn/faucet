@@ -757,8 +757,8 @@ class ValveTestBases:
             port = self.valve.dp.ports[port_no]
             port.dyn_stack_current_state = 3
             self.valve.flood_manager.update_stack_topo(True, self.valve.dp, port)
-            for vlan in self.valve.dp.vlans.values():
-                self.apply_ofmsgs(self.valve.flood_manager.add_vlan(vlan))
+            for valve_vlan in self.valve.dp.vlans.values():
+                self.apply_ofmsgs(self.valve.flood_manager.add_vlan(valve_vlan))
 
 
     class ValveTestBig(ValveTestSmall):
