@@ -454,11 +454,10 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         self.valve.fast_state_expire(time.time(), other_valves)
         self.assertTrue(stack_port.is_stack_init())
         for change_func, check_func in [
-                ('stack_up', 'is_stack_up'),
-                ('stack_down', 'is_stack_down')]:
+                ('stack_up', 'is_stack_up')]:
             getattr(other_port, change_func)()
             self.rcv_lldp(stack_port, other_dp, other_port)
-            self.assertTrue(getattr(stack_port, check_func)())
+            self.assertTrue(getattr(stack_port, check_func)(), msg=change_func)
 
     def test_stack_miscabling(self):
         """Test probing stack with miscabling."""
@@ -473,7 +472,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
                 (wrong_dp, other_port),
                 (other_dp, wrong_port)]:
             self.rcv_lldp(stack_port, other_dp, other_port)
-            self.assertTrue(stack_port.is_stack_down() or stack_port.is_stack_init())
+            self.assertTrue(stack_port.is_stack_down() or stack_port.is_stack_up())
             self.rcv_lldp(stack_port, remote_dp, remote_port)
             self.assertTrue(stack_port.is_stack_down())
 
@@ -485,10 +484,13 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         other_valves = self.valves_manager._other_running_valves(self.valve)
         self.valve.fast_state_expire(time.time(), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
-        self.assertTrue(stack_port.is_stack_init())
+        self.assertTrue(stack_port.is_stack_up())
         # simulate packet loss
         self.valve.fast_state_expire(time.time() + 300, other_valves)
         self.assertTrue(stack_port.is_stack_down())
+        self.valve.fast_state_expire(time.time() + 300, other_valves)
+        self.rcv_lldp(stack_port, other_dp, other_port)
+        self.assertTrue(stack_port.is_stack_up())
 
 
 class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestSmall):
