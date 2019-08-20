@@ -1490,16 +1490,14 @@ class Valve:
         Return:
             dict: OpenFlow messages, if any by Valve.
         """
-        ofmsgs = []
-        lacp_up_ports = [port for port in self.dp.ports.values() if port.lacp and port.dyn_lacp_up]
-        for port in lacp_up_ports:
-            lacp_age = now - port.dyn_lacp_updated_time
-            if lacp_age > self.dp.lacp_timeout:
-                self.logger.info('LACP on %s expired (age %u)' % (port, lacp_age))
-                ofmsgs.extend(self.lacp_down(port))
-        if ofmsgs:
-            return {self: ofmsgs}
-        return {}
+        ofmsgs_by_valve = defaultdict(list)
+        for lag, ports_up in self.dp.lags_up().items():
+            for port in ports_up:
+                lacp_age = now - port.dyn_lacp_updated_time
+                if lacp_age > self.dp.lacp_timeout:
+                    self.logger.info('LACP %s on %s expired (age %u)' % (lag, port, lacp_age))
+                    ofmsgs_by_valve[self].extend(self.lacp_down(port))
+        return ofmsgs_by_valve
 
     def state_expire(self, now, other_valves):
         """Expire controller caches/state (e.g. hosts learned).

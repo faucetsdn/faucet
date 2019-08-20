@@ -110,9 +110,11 @@ class ValvesManager:
         health_timeout = now - STACK_ROOT_DOWN_TIME
         # TODO: consider a stack root that is up, but has all stack links down, unhealthy.
         # Too long since last contact.
-        if self.meta_dp_state.dp_last_live_time.get(candidate_dp.name, 0) >= health_timeout:
-            return True
-        return False
+        if self.meta_dp_state.dp_last_live_time.get(candidate_dp.name, 0) < health_timeout:
+            return False
+        if not candidate_dp.all_lags_up():
+            return False
+        return True
 
     def healthy_stack_roots(self, now, candidate_dps):
         """Return list of healthy stack root names."""
@@ -134,10 +136,13 @@ class ValvesManager:
         candidate_dps = [dp for dp in stacked_dps if dp.name in candidate_stack_roots_names]
         healthy_stack_roots_names = self.healthy_stack_roots(now, candidate_dps)
 
-        # Pick first root that is considered healthy or just the first if none are.
         if healthy_stack_roots_names:
-            new_stack_root_name = healthy_stack_roots_names[0]
+            new_stack_root_name = self.meta_dp_state.stack_root_name
+            # Only pick a new root if the current one is unhealthy.
+            if self.meta_dp_state.stack_root_name not in healthy_stack_roots_names:
+                new_stack_root_name = healthy_stack_roots_names[0]
         else:
+            # Pick the first candidate if no roots are healthy
             new_stack_root_name = candidate_stack_roots_names[0]
 
         stack_change = False

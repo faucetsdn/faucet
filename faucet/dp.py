@@ -16,8 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 from collections import defaultdict, Counter
+import copy
 import random
 import math
 import netaddr
@@ -613,6 +613,32 @@ configuration.
     def in_port_tables(self):
         """Return list of tables that specify in_port as a match."""
         return self.match_tables('in_port')
+
+    def lacp_ports(self):
+        """Return ports that have LACP."""
+        return tuple([port for port in self.ports.values() if port.lacp])
+
+    def lacp_up_ports(self):
+        """Return ports that have LACP up."""
+        return tuple([port for port in self.lacp_ports() if port.dyn_lacp_up])
+
+    def lags(self):
+        """Return dict of LAGs mapped to member ports."""
+        lags = defaultdict(list)
+        for port in self.lacp_ports():
+            lags[port.lacp].append(port)
+        return lags
+
+    def lags_up(self):
+        """Return dict of LAGs mapped to member ports that have LACP up."""
+        lags = defaultdict(list)
+        for port in self.lacp_up_ports():
+            lags[port.lacp].append(port)
+        return lags
+
+    def all_lags_up(self):
+        """Return True if all LAGs have at least one port up."""
+        return set(self.lags()) == set(self.lags_up())
 
     def add_acl(self, acl_ident, acl):
         """Add an ACL to this DP."""
