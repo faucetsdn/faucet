@@ -549,8 +549,6 @@ class Valve:
         remote_dp = port.stack['dp']
         stack_correct = port.dyn_stack_probe_info.get(
             'stack_correct', None)
-        remote_port_state = port.dyn_stack_probe_info.get(
-            'remote_port_state', STACK_STATE_DOWN)
         send_interval = remote_dp.lldp_beacon.get(
             'send_interval', remote_dp.DEFAULT_LLDP_SEND_INTERVAL)
 
