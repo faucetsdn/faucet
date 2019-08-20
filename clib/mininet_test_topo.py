@@ -167,6 +167,7 @@ class FaucetSwitchTopo(Topo):
         self.dpid_names = {}  # maps dpids to switch names
         self.switch_dpids = {}  # maps switch names to dpids
         self.switch_ports = {}  # maps switch names to port lists
+        self.dpid_port_host = {}  # maps switch hosts to ports
         super().__init__(*args, **kwargs)
 
     @staticmethod
@@ -249,8 +250,9 @@ class FaucetSwitchTopo(Topo):
             port_order = []
         return port_order + list(range(len(port_order), max_length + 1))
 
-    def _add_links(self, switch, hosts, links_per_host):
+    def _add_links(self, switch, dpid, hosts, links_per_host):
         self.switch_ports.setdefault(switch, [])
+        self.dpid_port_host.setdefault(dpid, {})
         index = 0
         for host in hosts:
             for _ in range(links_per_host):
@@ -260,6 +262,7 @@ class FaucetSwitchTopo(Topo):
                 # Keep track of switch ports
                 self.switch_ports.setdefault(switch, [])
                 self.switch_ports[switch].append(port)
+                self.dpid_port_host[dpid][port] = host
                 index += 1
         return index
 
@@ -287,7 +290,7 @@ class FaucetSwitchTopo(Topo):
             extended = [self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
                         for host_n in range(n_extended)]
             switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
-            self._add_links(switch, tagged + untagged + extended, links_per_host)
+            self._add_links(switch, dpid, tagged + untagged + extended, links_per_host)
 
 
 class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
@@ -370,7 +373,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
             untagged = [self._add_untagged_host(sid_prefix, host_n)
                         for host_n in range(n_untagged_hosts)]
             switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
-            next_index[switch] = self._add_links(switch, tagged + untagged, links_per_host)
+            next_index[switch] = self._add_links(switch, dpid, tagged + untagged, links_per_host)
             if first_switch is None:
                 first_switch = switch
             else:
