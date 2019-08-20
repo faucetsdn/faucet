@@ -33,7 +33,6 @@ from faucet import valve_table
 from faucet import valve_util
 from faucet import valve_pipeline
 
-from faucet.port import STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
 
 
