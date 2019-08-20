@@ -33,7 +33,6 @@ from faucet import valve_table
 from faucet import valve_util
 from faucet import valve_pipeline
 
-from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
 
 
@@ -549,8 +548,6 @@ class Valve:
         remote_dp = port.stack['dp']
         stack_correct = port.dyn_stack_probe_info.get(
             'stack_correct', None)
-        remote_port_state = port.dyn_stack_probe_info.get(
-            'remote_port_state', STACK_STATE_DOWN)
         send_interval = remote_dp.lldp_beacon.get(
             'send_interval', remote_dp.DEFAULT_LLDP_SEND_INTERVAL)
 
@@ -568,20 +565,18 @@ class Valve:
             if not port.is_stack_down():
                 next_state = port.stack_down
                 self.logger.error('Stack %s DOWN, incorrect cabling' % port)
-        elif stack_timed_out and not port.is_stack_down():
-            # Stay in init state if we never got a packet.
-            if time_since_lldp_seen:
-                next_state = port.stack_down
-                self.logger.error(
-                    'Stack %s DOWN, too many (%u) packets lost, last received %us ago' % (
-                        port, num_lost_lldp, time_since_lldp_seen))
-        else:
-            if port.is_stack_up():
-                if remote_port_state == STACK_STATE_DOWN:
+            return next_state
+
+        if stack_timed_out:
+            if not port.is_stack_down():
+                # Stay in init state if we never got a packet.
+                if time_since_lldp_seen:
                     next_state = port.stack_down
-                    self.logger.error('Stack %s DOWN, remote port is down' % port)
-            elif (not stack_timed_out and
-                  remote_port_state in frozenset([STACK_STATE_UP, STACK_STATE_INIT])):
+                    self.logger.error(
+                        'Stack %s DOWN, too many (%u) packets lost, last received %us ago' % (
+                            port, num_lost_lldp, time_since_lldp_seen))
+        else:
+            if not port.is_stack_up():
                 next_state = port.stack_up
                 self.logger.info('Stack %s UP' % port)
         return next_state
