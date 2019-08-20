@@ -33,7 +33,7 @@ from faucet import valve_table
 from faucet import valve_util
 from faucet import valve_pipeline
 
-from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
+from faucet.port import STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
 
 
@@ -580,10 +580,10 @@ class Valve:
                 if remote_port_state == STACK_STATE_DOWN:
                     next_state = port.stack_down
                     self.logger.error('Stack %s DOWN, remote port is down' % port)
-            elif (not stack_timed_out and
-                  remote_port_state in frozenset([STACK_STATE_UP, STACK_STATE_INIT])):
-                next_state = port.stack_up
-                self.logger.info('Stack %s UP' % port)
+            else:
+                if not stack_timed_out:
+                    next_state = port.stack_up
+                    self.logger.info('Stack %s UP' % port)
         return next_state
 
     def _update_stack_link_state(self, ports, now, other_valves):
