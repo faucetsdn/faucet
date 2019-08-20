@@ -6783,6 +6783,29 @@ class FaucetStringOfDPTest(FaucetTest):
             '%s: ICMP echo request' % other_host.IP(), tcpdump_text
         ), 'Tunnel was not established')
 
+    def map_int_ext_hosts(self):
+        conf = self._get_faucet_conf()
+        host_name_map = {host.name: host for host in self.hosts_name_ordered()}
+        int_hosts = set()
+        ext_hosts = set()
+        dp_hosts = {}
+        for dp_name, dp_conf in conf['dps'].items():
+            dpid = int(dp_conf['dp_id'])
+            dp_int_hosts = set()
+            dp_ext_hosts = set()
+            for p, p_conf in dp_conf['interfaces'].items():
+                if 'stack' in p_conf:
+                    continue
+                host = host_name_map[self.net.topo.dpid_port_host[dpid][p]]
+                if p_conf.get('loop_protect_external', False):
+                    dp_ext_hosts.add(host)
+                else:
+                    dp_int_hosts.add(host)
+            dp_hosts[dp_name] = (dp_int_hosts, dp_ext_hosts)
+            int_hosts.update(dp_int_hosts)
+            ext_hosts.update(dp_ext_hosts)
+        return int_hosts, ext_hosts, dp_hosts
+
 
 class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
     """IPV4 intervlan routing with stacking test"""
@@ -7289,9 +7312,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def verify_protected_connectivity(self):
         self.verify_stack_up()
-        a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1 = self.hosts_name_ordered()
-        int_hosts = {a_int1, b_int1}
-        ext_hosts = {a_ext1, a_ext2, b_ext1, b_ext2}
+        int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
 
         for int_host in int_hosts:
             # All internal hosts can reach other internal hosts.
@@ -7304,10 +7325,9 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             for other_ext_host in ext_hosts - {ext_host}:
                 self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
 
-        for local_int_host, local_ext_hosts in (
-                (a_int1, (a_ext1, a_ext2)),
-                (b_int1, (b_ext1, b_ext2))):
-            remote_ext_hosts = ext_hosts - set(local_ext_hosts)
+        for local_int_hosts, local_ext_hosts, _ in dp_hosts.values():
+            local_int_host = local_int_hosts[0]
+            remote_ext_hosts = ext_hosts - local_ext_hosts
             # ext hosts on remote switch should not get traffic flooded from
             # int host on local switch, because traffic already flooded to
             # an ext host on local switch.
@@ -7334,9 +7354,8 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         self.verify_stack_up()
-        a_ext1, a_ext2, a_int1, b_ext1, b_ext2, b_int1, c_ext1, c_ext2, c_int1 = self.hosts_name_ordered()
-        int_hosts = {a_int1, b_int1, c_int1}
-        ext_hosts = {a_ext1, a_ext2, b_ext1, b_ext2, c_ext1, c_ext2}
+        int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
+        _, root_ext_hosts = dp_hosts[self.DP_NAME]
 
         for int_host in int_hosts:
             # All internal hosts can reach other internal hosts.
@@ -7349,10 +7368,10 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             for other_ext_host in ext_hosts - {ext_host}:
                 self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
 
-        root_ext_hosts = (a_ext1, a_ext2)
         remote_ext_hosts = ext_hosts - set(root_ext_hosts)
         # int host should never be broadcast to an ext host that is not on the root.
-        for local_int_host in (a_int1, b_int1, c_int1):
+        for local_int_hosts, _ in dp_hosts.values():
+            local_int_host = local_int_hosts[0]
             for remote_ext_host in remote_ext_hosts:
                 self.verify_broadcast(hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
 
