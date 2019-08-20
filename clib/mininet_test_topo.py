@@ -252,7 +252,7 @@ class FaucetSwitchTopo(Topo):
 
     def _add_links(self, switch, dpid, hosts, links_per_host):
         self.switch_ports.setdefault(switch, [])
-        self.dpid_port_host.setdefault(dpid, {})
+        self.dpid_port_host.setdefault(int(dpid), {})
         index = 0
         for host in hosts:
             for _ in range(links_per_host):
@@ -262,7 +262,7 @@ class FaucetSwitchTopo(Topo):
                 # Keep track of switch ports
                 self.switch_ports.setdefault(switch, [])
                 self.switch_ports[switch].append(port)
-                self.dpid_port_host[dpid][port] = host
+                self.dpid_port_host[int(dpid)][port] = host
                 index += 1
         return index
 
