@@ -315,7 +315,7 @@ dps:
 
 
 class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
-    """Valve test for updating the stack graph"""
+    """Valve test for root selection."""
 
     CONFIG = STACK_CONFIG
 

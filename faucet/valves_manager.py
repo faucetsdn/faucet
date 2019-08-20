@@ -102,17 +102,22 @@ class ValvesManager:
         self.config_watcher = ConfigWatcher()
         self.meta_dp_state = MetaDPState()
 
-    def healthy_stack_roots(self, now, stacked_dps, candidate_stack_roots_names):
-        """Return list of healthy stack root names."""
+    def _stack_root_healthy(self, now, candidate_dp):
+        """Return True if a candidate DP is healthy."""
         # A healthy stack root is one that attempted connection recently,
         # or was known to be running recently.
         # TODO: timeout should be configurable
         health_timeout = now - STACK_ROOT_DOWN_TIME
         # TODO: consider a stack root that is up, but has all stack links down, unhealthy.
+        # Too long since last contact.
+        if self.meta_dp_state.dp_last_live_time.get(candidate_dp.name, 0) >= health_timeout:
+            return True
+        return False
+
+    def healthy_stack_roots(self, now, candidate_dps):
+        """Return list of healthy stack root names."""
         healthy_stack_roots_names = [
-            dp.name for dp in stacked_dps
-            if (self.meta_dp_state.dp_last_live_time.get(dp.name, 0) >= health_timeout and
-                dp.name in candidate_stack_roots_names)]
+            dp.name for dp in candidate_dps if self._stack_root_healthy(now, dp)]
         return healthy_stack_roots_names
 
     def maintain_stack_root(self, now):
@@ -126,8 +131,8 @@ class ValvesManager:
             return False
 
         candidate_stack_roots_names = stacked_dps[0].stack_roots_names
-        healthy_stack_roots_names = self.healthy_stack_roots(
-            now, stacked_dps, candidate_stack_roots_names)
+        candidate_dps = [dp for dp in stacked_dps if dp.name in candidate_stack_roots_names]
+        healthy_stack_roots_names = self.healthy_stack_roots(now, candidate_dps)
 
         # Pick first root that is considered healthy or just the first if none are.
         if healthy_stack_roots_names:
