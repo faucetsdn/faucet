@@ -7326,7 +7326,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
                 self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
 
         for local_int_hosts, local_ext_hosts, _ in dp_hosts.values():
-            local_int_host = local_int_hosts[0]
+            local_int_host = list(local_int_hosts)[0]
             remote_ext_hosts = ext_hosts - local_ext_hosts
             # ext hosts on remote switch should not get traffic flooded from
             # int host on local switch, because traffic already flooded to
@@ -7371,7 +7371,7 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         remote_ext_hosts = ext_hosts - set(root_ext_hosts)
         # int host should never be broadcast to an ext host that is not on the root.
         for local_int_hosts, _ in dp_hosts.values():
-            local_int_host = local_int_hosts[0]
+            local_int_host = list(local_int_hosts)[0]
             for remote_ext_host in remote_ext_hosts:
                 self.verify_broadcast(hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
 
