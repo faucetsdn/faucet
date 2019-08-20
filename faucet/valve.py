@@ -568,22 +568,20 @@ class Valve:
             if not port.is_stack_down():
                 next_state = port.stack_down
                 self.logger.error('Stack %s DOWN, incorrect cabling' % port)
-        elif stack_timed_out and not port.is_stack_down():
-            # Stay in init state if we never got a packet.
-            if time_since_lldp_seen:
-                next_state = port.stack_down
-                self.logger.error(
-                    'Stack %s DOWN, too many (%u) packets lost, last received %us ago' % (
-                        port, num_lost_lldp, time_since_lldp_seen))
-        else:
-            if port.is_stack_up():
-                if remote_port_state == STACK_STATE_DOWN:
+            return next_state
+
+        if stack_timed_out:
+            if not port.is_stack_down():
+                # Stay in init state if we never got a packet.
+                if time_since_lldp_seen:
                     next_state = port.stack_down
-                    self.logger.error('Stack %s DOWN, remote port is down' % port)
-            else:
-                if not stack_timed_out:
-                    next_state = port.stack_up
-                    self.logger.info('Stack %s UP' % port)
+                    self.logger.error(
+                        'Stack %s DOWN, too many (%u) packets lost, last received %us ago' % (
+                            port, num_lost_lldp, time_since_lldp_seen))
+        else:
+            if not port.is_stack_up():
+                next_state = port.stack_up
+                self.logger.info('Stack %s UP' % port)
         return next_state
 
     def _update_stack_link_state(self, ports, now, other_valves):
