@@ -110,7 +110,7 @@ A few tutorial videos are available on our
 `YouTube channel <https://www.youtube.com/channel/UChRZ5O2diT7QREazfQX0stQ>`_.
 
 The
-`faucetsdn blog <https://faucet-sdn.blogspot.co.nz>`_
+`FAUCET dev log <https://www.vandervecken.com/faucet>`_
 and
 `faucetsdn twitter <https://twitter.com/faucetsdn>`_
 are good places to keep up with the latest news about faucet.
