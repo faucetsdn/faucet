@@ -315,7 +315,7 @@ dps:
 
 
 class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
-    """Valve test for updating the stack graph"""
+    """Valve test for root selection."""
 
     CONFIG = STACK_CONFIG
 
@@ -353,12 +353,12 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
         self.assertFalse(self.valves_manager.maintain_stack_root(now))
         self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
-        # now s1 came up too, so we change to s1 because we prefer it.
+        # now s1 came up too, but we stay on s2 because it's healthy.
         self.valves_manager.meta_dp_state.dp_last_live_time['s1'] = now + 1
         now += valves_manager.STACK_ROOT_STATE_UPDATE_TIME
-        self.assertTrue(self.valves_manager.maintain_stack_root(now))
-        self.assertEqual('s1', self.valves_manager.meta_dp_state.stack_root_name)
-        self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
+        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
 
 
 class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
