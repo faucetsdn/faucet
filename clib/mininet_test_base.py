@@ -375,7 +375,9 @@ class FaucetTestBase(unittest.TestCase):
                     'dump-flows', 'dump-groups', 'dump-meters',
                     'dump-group-stats', 'dump-ports', 'dump-ports-desc'):
                 switch_dump_name = os.path.join(self.tmpdir, '%s-%s.log' % (switch.name, dump_cmd))
-                switch.cmd('%s %s %s > %s' % (self.OFCTL, dump_cmd, switch.name, switch_dump_name))
+                # This seems to fail occasionally, so we warn on error rather than quitting
+                switch.cmd('%s %s %s > %s' % (self.OFCTL, dump_cmd, switch.name, switch_dump_name),
+                           success=None)
             for other_cmd in ('show', 'list controller', 'list manager'):
                 other_dump_name = os.path.join(self.tmpdir, '%s.log' % other_cmd.replace(' ', ''))
                 switch.cmd('%s %s > %s' % (self.VSCTL, other_cmd, other_dump_name))
@@ -1213,7 +1215,15 @@ dbs:
                 self.get_prom_addr(), self.config_ports['gauge_prom_port'])
         raise NotImplementedError
 
+    _last_scrape_time = 0.0  # last scrape time
+
     def scrape_prometheus(self, controller='faucet', timeout=15, var=None):
+        # Pause a bit if it has been less than a second since last request
+        min_interval = 1
+        scrape_interval = time.time() - self._last_scrape_time
+        if scrape_interval < min_interval:
+            time.sleep(min_interval - scrape_interval)
+        self._last_scrape_time = time.time()
         url = self._prometheus_url(controller)
         try:
             prom_raw = requests.get(url, {}, timeout=timeout).text
@@ -1248,16 +1258,24 @@ dbs:
                 dpid=dpid, multiple=multiple, controller=controller, retries=retries)
             if result == result_wanted:
                 return True
-            time.sleep(1)
         return False
 
+    _prometheus_cache = ''
+
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
-                              dpid=True, multiple=False, controller='faucet', retries=3):
+                              dpid=True, multiple=False, controller='faucet', retries=3,
+                              cache=False):
+        """Scrape a variable from prometheus
+           var: prometheus variable name
+           label: label if any
+           any_labels: accept any/all labels? (False)
+           default: default value to return if var is missing (None)
+           dpid: dpid | True (use self.dpid) | None (True)
+           controller: controller to scrape ('faucet')
+           retries: number of times to retry before giving up
+           cache: check cached results instead? (False)"""
         if dpid:
-            if dpid is True:
-                dpid = int(self.dpid)
-            else:
-                dpid = int(dpid)
+            dpid = int(self.dpid) if dpid is True else int(dpid)
         label_values_re = r''
         if any_labels:
             label_values_re = r'\{[^\}]+\}'
@@ -1273,10 +1291,17 @@ dbs:
                 label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         var_re = re.compile(r'^%s%s$' % (var, label_values_re))
         for _ in range(retries):
-            results = []
-            prom_lines = self.scrape_prometheus(controller, var=var)
-            for prom_line in prom_lines:
-                prom_var, prom_val = self.parse_prom_var(prom_line)
+            results, prom_lines = [], []
+            if cache:
+                prom_lines = [line for line in self._prometheus_cache
+                              if line.startswith(var)]
+            if not prom_lines:
+                prom_lines = self.scrape_prometheus(controller)
+                self._prometheus_cache = prom_lines
+                prom_lines = [line for line in prom_lines
+                              if line.startswith(var)]
+            for line in prom_lines:
+                prom_var, prom_val = self.parse_prom_var(line)
                 if var_re.match(prom_var):
                     results.append((var, prom_val))
                     if not multiple:
@@ -1285,7 +1310,8 @@ dbs:
                 if multiple:
                     return results
                 return results[0][1]
-            time.sleep(1)
+            if cache and prom_lines:
+                break
         return default
 
     def gauge_smoke_test(self):
@@ -1331,7 +1357,6 @@ dbs:
                 'faucet_config_reload_requests_total', default=None, dpid=False)
             if count:
                 break
-            time.sleep(1)
         self.assertTrue(count, msg='configure count stayed zero')
         return count
 
@@ -1453,7 +1478,6 @@ dbs:
                         new_locations.add(location)
                 if locations != new_locations:
                     break
-                time.sleep(1)
             # TODO: verify port/host association, not just that host moved.
             self.assertNotEqual(locations, new_locations)
             locations = new_locations
@@ -1924,7 +1948,6 @@ dbs:
             configure_count = self.get_configure_count()
             if configure_count > start_configure_count:
                 break
-            time.sleep(1)
         self.assertNotEqual(
             start_configure_count, configure_count, 'FAUCET did not reconfigure')
         if change_expected:
@@ -1933,7 +1956,6 @@ dbs:
                     self.scrape_prometheus_var(var, dpid=True, default=0))
                 if new_count > old_count:
                     break
-                time.sleep(1)
             self.assertTrue(
                 new_count > old_count,
                 msg='%s did not increment: %u' % (var, new_count))
@@ -2021,7 +2043,6 @@ dbs:
             if port_status is not None and port_status == expected_status:
                 return
             self._portmod(dpid, port_no, status, ofp.OFPPC_PORT_DOWN)
-            time.sleep(1)
         self.fail('dpid %x port %s status %s != expected %u' % (
             dpid, port_no, port_status, expected_status))
 
@@ -2045,26 +2066,30 @@ dbs:
         return self.wait_for_prometheus_var(
             'dp_status', expected_status, any_labels=True, controller=controller, default=None, timeout=timeout)
 
-    def _get_tableid(self, name):
-        return self.scrape_prometheus_var(
-            'faucet_config_table_names', {'table_name': name})
-
     def quiet_commands(self, host, commands):
         for command in commands:
             result = host.cmd(command)
             self.assertEqual('', result, msg='%s: %s' % (command, result))
 
     def _config_tableids(self):
-        self._PORT_ACL_TABLE = self._get_tableid('port_acl')
-        self._VLAN_TABLE = self._get_tableid('vlan')
-        self._VLAN_ACL_TABLE = self._get_tableid('vlan_acl')
-        self._ETH_SRC_TABLE = self._get_tableid('eth_src')
-        self._IPV4_FIB_TABLE = self._get_tableid('ipv4_fib')
-        self._IPV6_FIB_TABLE = self._get_tableid('ipv6_fib')
-        self._VIP_TABLE = self._get_tableid('vip')
-        self._ETH_DST_HAIRPIN_TABLE = self._get_tableid('eth_dst_hairpin')
-        self._ETH_DST_TABLE = self._get_tableid('eth_dst')
-        self._FLOOD_TABLE = self._get_tableid('flood')
+        def get_tableid(name, retries=1, cache=True):
+            return self.scrape_prometheus_var(
+                'faucet_config_table_names',
+                {'table_name': name}, retries=retries, cache=cache)
+        # Always-there tables
+        self._VLAN_TABLE = get_tableid('vlan', retries=3, cache=False)
+        self._ETH_SRC_TABLE = get_tableid('eth_src')
+        self._ETH_DST_TABLE = get_tableid('eth_dst')
+        self._FLOOD_TABLE = get_tableid('flood')
+        self.assertTrue(None not in (self._VLAN_TABLE, self._ETH_SRC_TABLE,
+                                     self._ETH_DST_TABLE, self._FLOOD_TABLE))
+        # Sometimes-there tables
+        self._PORT_ACL_TABLE = get_tableid('port_acl')
+        self._VLAN_ACL_TABLE = get_tableid('vlan_acl')
+        self._IPV4_FIB_TABLE = get_tableid('ipv4_fib')
+        self._IPV6_FIB_TABLE = get_tableid('ipv6_fib')
+        self._VIP_TABLE = get_tableid('vip')
+        self._ETH_DST_HAIRPIN_TABLE = get_tableid('eth_dst_hairpin')
 
     def _dp_ports(self):
         return list(sorted(self.port_map.values()))
