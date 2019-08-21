@@ -69,6 +69,6 @@ We run a number of mailing lists for communication between users and developers 
 - https://list.waikato.ac.nz/mailman/listinfo/faucet-dev
 - https://lists.geant.org/sympa/info/faucet-users
 
-Faucet blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz.
+Faucet dev blog by Josh Bailey available at https://www.vandervecken.com/faucet.
 
 To create a issue, use `GitHub Issues <https://github.com/faucetsdn/faucet/issues>`_.
