@@ -8100,8 +8100,24 @@ class FaucetBadFlowModTest(FaucetUntaggedTest):
         return (max_port + offset) & mask
 
     def bad_match(self):
-        """Match with bad input port"""
-        return {'match': {'in_port': self.bad_port()}}
+        """Return a bad match field"""
+        matches = (
+            # Bad input port
+            {'in_port': self.bad_port()},
+            # IPv4 (broadcast) src with bad ('reserved') ethertype
+            {'nw_src': '255.255.255.255', 'dl_type': 0xFFFF},
+            # IPv4 with IPv6 ethertype:
+            {'nw_src': '1.2.3.4', 'dl_type': 0x86DD},
+            # IPv4 address as IPv6 dst
+            {'ipv6_dst': '1.2.3.4', 'dl_type': 0x86DD},
+            # IPv6 dst with Bad/reserved ip_proto
+            {'ipv6_dst': '2001::aaaa:bbbb:cccc:1111', 'ip_proto': 255},
+            # Destination port but no transport protocol
+            {'tp_dst': 80},
+            # ARP opcode on non-ARP packetx
+            {'arp_op': 0x3, 'dl_type': 0x1234})
+        match = random.sample(matches, 1)[0]
+        return {'match': match}
 
     def bad_actions(self, count=1):
         """Return a questionable actions parameter"""
