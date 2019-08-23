@@ -27,7 +27,7 @@ class ValveHostManager(ValveManagerBase):
     def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
                  eth_dst_hairpin_table, pipeline, learn_timeout, learn_jitter,
                  learn_ban_timeout, cache_update_guard_time, idle_dst, stack,
-                 has_externals):
+                 has_externals, stack_root_flood_reflection):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
@@ -45,6 +45,7 @@ class ValveHostManager(ValveManagerBase):
         self.idle_dst = idle_dst
         self.stack = stack
         self.has_externals = has_externals
+        self.stack_root_flood_reflection = stack_root_flood_reflection
         if self.eth_dst_hairpin_table:
             self.output_table = self.eth_dst_hairpin_table
 
@@ -301,7 +302,8 @@ class ValveHostManager(ValveManagerBase):
             # stacks of size > 2 will have an unknown MAC flooded towards the root,
             # and flooded down again. If we learned the MAC on a local port and
             # heard the reflected flooded copy, discard the reflection.
-            local_stack_learn = (port.stack and not cache_port.stack)
+            local_stack_learn = (
+                self.stack_root_flood_reflection and port.stack and not cache_port.stack)
             guard_time = self.cache_update_guard_time
             if cache_port == port or same_lag or local_stack_learn:
                 # aggressively re-learn on LAGs, and prefer recently learned

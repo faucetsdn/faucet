@@ -193,7 +193,7 @@ class Valve:
                 self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
                 self.dp.stack_ports, self.dp.has_externals,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port,
-                self.dp.stack_longest_path_to_root_len, self.dp.is_stack_root,
+                self.dp.stack_root_flood_reflection, self.dp.is_stack_root,
                 self.dp.is_stack_root_candidate, self.dp.stack.get('graph', None))
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
@@ -210,7 +210,7 @@ class Valve:
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack,
-            self.dp.has_externals)
+            self.dp.has_externals, self.dp.stack_root_flood_reflection)
         if any(t in self.dp.tables for t in ('port_acl', 'vlan_acl', 'egress_acl'))\
                 or self.dp.tunnel_acls:
             self.acl_manager = valve_acl.ValveAclManager(
