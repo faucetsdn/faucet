@@ -9,7 +9,7 @@ set -e  # quit on error
 
 # allow user to skip parts of docker test
 # this wrapper script only cares about -n, -u, -i, others passed to test suite.
-while getopts "cdijknrsuxoz" o $FAUCET_TESTS; do
+while getopts "cdijknrsuxozl" o $FAUCET_TESTS; do
   case "${o}" in
         i)
             # run only integration tests

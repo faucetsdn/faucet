@@ -680,6 +680,10 @@ def parse_args():
         '-d', '--dumpfail', action='store_true', help='dump logs for failed tests')
     parser.add_argument(
         '-k', '--keep_logs', action='store_true', help='keep logs even for OK tests')
+    loglevels = ('debug', 'error', 'warning', 'info', 'output')
+    parser.add_argument(
+        '-l', '--loglevel', choices=loglevels, default='warning',
+        help='set mininet logging level')
     parser.add_argument(
         '-n', '--nocheck', action='store_true', help='skip dependency check')
     parser.add_argument(
@@ -722,16 +726,19 @@ def parse_args():
     return (
         requested_test_classes, args.clean, args.dumpfail,
         args.keep_logs, args.nocheck, args.serial, args.repeat,
-        excluded_test_classes, report_json_filename, port_order)
+        excluded_test_classes, report_json_filename, port_order,
+        args.loglevel)
 
 
 def test_main(module):
     """Test main."""
-    setLogLevel('error')
     print('testing module %s' % module)
 
     (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
-     serial, repeat, excluded_test_classes, report_json_filename, port_order) = parse_args()
+     serial, repeat, excluded_test_classes, report_json_filename, port_order,
+     loglevel) = parse_args()
+
+    setLogLevel(loglevel)
 
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '
