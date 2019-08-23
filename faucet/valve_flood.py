@@ -307,7 +307,7 @@ class ValveFloodStackManager(ValveFloodManager):
                  combinatorial_port_flood, canonical_port_order,
                  stack_ports, has_externals,
                  dp_shortest_path_to_root, shortest_path_port,
-                 longest_path_to_root_len, is_stack_root,
+                 stack_root_flood_reflection, is_stack_root,
                  is_stack_root_candidate, graph):
         super(ValveFloodStackManager, self).__init__(
             logger, flood_table, pipeline,
@@ -319,16 +319,13 @@ class ValveFloodStackManager(ValveFloodManager):
         self.externals = has_externals
         self.shortest_path_port = shortest_path_port
         self.dp_shortest_path_to_root = dp_shortest_path_to_root
-        self.longest_path_to_root_len = longest_path_to_root_len
         self.is_stack_root = is_stack_root
         self.is_stack_root_candidate = is_stack_root_candidate
         self.graph = graph
-        stack_size = self.longest_path_to_root_len()
-        if stack_size is not None and stack_size > 2:
-            self.logger.info('stack size %u' % stack_size)
+        self.stack_root_flood_reflection = stack_root_flood_reflection
+        if self.stack_root_flood_reflection:
             self._flood_actions_func = self._flood_actions
         else:
-            self.logger.info('stack size <= 2, using non root-reflection stacking')
             self._flood_actions_func = self._flood_actions_size2
         self._set_ext_port_flag = []
         self._set_nonext_port_flag = []

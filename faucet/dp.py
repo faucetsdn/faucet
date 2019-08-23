@@ -303,6 +303,7 @@ configuration.
         self.stack_root_name = None
         self.stack_roots_names = None
         self.stack_route_learning = None
+        self.stack_root_flood_reflection = None
 
         self.acls = {}
         self.vlans = {}
@@ -799,6 +800,9 @@ configuration.
                 path_to_root_len = len(self.shortest_path(self.stack_root_name, src_dp=dp))
                 test_config_condition(
                     path_to_root_len == 0, '%s not connected to stack' % dp)
+
+            if self.stack_longest_path_to_root_len() > 2:
+                self.stack_root_flood_reflection = True
 
         if self.tunnel_acls:
             self.finalize_tunnel_acls(dps)
