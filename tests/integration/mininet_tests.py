@@ -2,6 +2,7 @@
 
 """Mininet tests for FAUCET."""
 
+# pylint: disable=too-many-lines
 # pylint: disable=missing-docstring
 # pylint: disable=too-many-arguments
 # pylint: disable=unbalanced-tuple-unpacking
@@ -122,9 +123,12 @@ vlans:
         description: "untagged"
 """
 
+    # pylint: disable=invalid-name
     CONFIG = CONFIG_BOILER_UNTAGGED
 
-    def setUp(self): # pylint: disable=invalid-name
+    EVENT_LOGGER_TIMEOUT = 120  # Timeout for event logger process
+
+    def setUp(self):  # pylint: disable=invalid-name
         super(FaucetUntaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -157,8 +161,11 @@ vlans:
         event_log = os.path.join(self.tmpdir, 'event.log')
         controller = self._get_controller()
         sock = self.env['faucet']['FAUCET_EVENT_SOCK']
+        # Relying on a timeout seems a bit brittle;
+        # as an alternative we might possibly use something like
+        # `with popen(cmd...) as proc` to clean up on exceptions
         controller.cmd(mininet_test_util.timeout_cmd(
-            'nc -U %s > %s &' % (sock, event_log), 120))
+            'nc -U %s > %s &' % (sock, event_log), self.EVENT_LOGGER_TIMEOUT))
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.verify_traveling_dhcp_mac()
@@ -8169,3 +8176,50 @@ class FaucetBadFlowModTest(FaucetUntaggedTest):
             error('sending bad flow_mod', flow_mod, '\n')
             self.send_flow_mod(flow_mod)
         self.ping_all_when_learned()
+
+
+class FaucetUntaggedMorePortsBase(FaucetUntaggedTest):
+    """Base class for untagged test with more ports"""
+
+    # pylint: disable=invalid-name
+    N_UNTAGGED = 16  # Maximum number of ports to test
+    EVENT_LOGGER_TIMEOUT = 180  # Timeout for event logger process
+
+    # Config lines for additional ports
+    CONFIG_EXTRA_PORT = """
+            {port}:
+                native_vlan: 100""" + "\n"
+
+    def _init_faucet_config(self):  # pylint: disable=invalid-name
+        """Extend config with more ports if needed"""
+        self.assertTrue(self.CONFIG.endswith(CONFIG_BOILER_UNTAGGED))
+        # We know how to extend the config for more ports
+        base_port_count = len(re.findall('port', CONFIG_BOILER_UNTAGGED))
+        ports = self.topo.dpid_ports(self.dpid)
+        for port in ports[base_port_count:]:
+            self.CONFIG += self.CONFIG_EXTRA_PORT.format(port=port)
+        super()._init_faucet_config()
+
+    def setUp(self):
+        """Make sure N_UNTAGGED doesn't exceed hw port count"""
+        if self.config and self.config.get('hw_switch', False):
+            self.N_UNTAGGED = min(len(self.config['dp_ports']),
+                                  self.N_UNTAGGED)
+        error('(%d ports) ' % self.N_UNTAGGED)
+        super().setUp()
+
+
+class FaucetUntagged32PortTest(FaucetUntaggedMorePortsBase):
+    """Untagged test with up to 32 ports"""
+
+    # pylint: disable=invalid-name
+    N_UNTAGGED = 32  # Maximum number of ports to test
+
+
+@unittest.skip('slow and potentially unreliable on travis')
+class FaucetUntagged48PortTest(FaucetUntaggedMorePortsBase):
+    """Untagged test with up to 48 ports"""
+
+    # pylint: disable=invalid-name
+    N_UNTAGGED = 48  # Maximum number of ports to test
+    EVENT_LOGGER_TIMEOUT = 360  # Timeout for event logger process

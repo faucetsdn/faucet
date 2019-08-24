@@ -152,8 +152,8 @@ def import_hw_config():
                     valid_types, config_file_name))
                 sys.exit(-1)
         dp_ports = config['dp_ports']
-        if len(dp_ports) != REQUIRED_TEST_PORTS:
-            print('Exactly %u dataplane ports are required, '
+        if len(dp_ports) < REQUIRED_TEST_PORTS:
+            print('At least %u dataplane ports are required, '
                   '%d are provided in %s.' %
                   (REQUIRED_TEST_PORTS, len(dp_ports), config_file_name))
             sys.exit(-1)

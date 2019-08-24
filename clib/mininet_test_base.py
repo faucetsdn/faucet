@@ -26,9 +26,10 @@ import requests
 
 from ryu.ofproto import ofproto_v1_3 as ofp
 
-from mininet.log import error, output # pylint: disable=import-error
-from mininet.net import Mininet # pylint: disable=import-error
-from mininet.util import dumpNodeConnections, pmonitor # pylint: disable=import-error
+from mininet.link import Intf as HWIntf  # pylint: disable=import-error
+from mininet.log import error, output  # pylint: disable=import-error
+from mininet.net import Mininet  # pylint: disable=import-error
+from mininet.util import dumpNodeConnections, pmonitor  # pylint: disable=import-error
 
 from clib import mininet_test_util
 from clib import mininet_test_topo
@@ -429,31 +430,49 @@ class FaucetTestBase(unittest.TestCase):
                 _cmd(cmd)
 
     def _attach_physical_switch(self):
-        """Bridge a physical switch into test topology."""
+        """Bridge a physical switch into test topology.
+
+           We do this for now to enable us to reconnect
+           virtual ethernet interfaces which may already
+           exist on emulated hosts and other OVS instances.
+
+           (One alternative would be to create a Link() class
+           that uses the hardware interfaces directly.)
+
+           We repurpose the first OvS switch in the topology
+           as a patch panel that transparently connects the
+           hardware interfaces to the host/switch veth links."""
         switch = self.first_switch()
-        phys_macs = set()
-        mapped_base = len(self.switch_map)
-        for port_i, test_host_port in enumerate(sorted(self.switch_map), start=1):
-            mapped_port_i = mapped_base + port_i
-            phys_port = FaucetIntf(self.switch_map[test_host_port], node=switch)
-            phys_mac = self.get_mac_of_intf(phys_port.name)
-            self.assertFalse(phys_mac in phys_macs, 'duplicate physical MAC %s' % phys_mac)
-            phys_macs.add(phys_mac)
-            switch.cmd(
-                ('ovs-vsctl add-port %s %s -- '
-                 'set Interface %s ofport_request=%u') % (
-                     switch.name,
-                     phys_port.name,
-                     phys_port.name,
-                     mapped_port_i))
-            switch.cmd('%s add-flow %s in_port=%u,eth_src=%s,priority=2,actions=drop' % (
-                self.OFCTL, switch.name, mapped_port_i, phys_mac))
-            switch.cmd('%s add-flow %s in_port=%u,eth_dst=%s,priority=2,actions=drop' % (
-                self.OFCTL, switch.name, port_i, phys_mac))
-            for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
-                in_port, out_port = port_pair
-                switch.cmd('%s add-flow %s in_port=%u,priority=1,actions=output:%u' % (
-                    self.OFCTL, switch.name, in_port, out_port))
+        # hw_names are the names of the server hardware interfaces
+        # that are cabled to the device under test, sorted by OF port number
+        hw_names = [self.switch_map[port] for port in sorted(self.switch_map)]
+        hw_macs = set()
+        # ovs_ports are the (sorted) OF port numbers of the OvS interfaces
+        # that are already attached to the emulated network.
+        # The actual tests reorder them according to port_map
+        ovs_ports = sorted(self.topo.switch_ports[switch.name])
+        # Patch hardware interfaces through to to OvS interfaces
+        for hw_name, ovs_port in zip(hw_names, ovs_ports):
+            # Note we've already removed any Linux IP addresses from hw_name
+            # and blocked traffic to/from its meaningless MAC
+            hw_mac = self.get_mac_of_intf(hw_name)
+            self.assertFalse(hw_mac in hw_macs,
+                             'duplicate hardware MAC %s' % hw_mac)
+            hw_macs.add(hw_mac)
+            # Create mininet Intf and attach it to the switch
+            hw_intf = HWIntf(hw_name, node=switch)
+            switch.attach(hw_intf)
+            hw_port = switch.ports[hw_intf]
+            # Connect hw_port <-> ovs_port
+            src, dst = hw_port, ovs_port
+            for flow in (
+                    # Drop anything to or from the meaningless hw_mac
+                    'eth_src=%s,priority=2,actions=drop' % hw_mac,
+                    'eth_dst=%s,priority=2,actions=drop' % hw_mac,
+                    # Forward traffic bidirectionally src <-> dst
+                    'in_port=%u,priority=1,actions=output:%u' % (src, dst),
+                    'in_port=%u,priority=1,actions=output:%u' % (dst, src)):
+                switch.cmd(self.OFCTL, 'add-flow', switch, flow)
 
     def create_port_map(self, dpid):
         """Return a port map {'port_1': port...} for a dpid in self.topo"""
