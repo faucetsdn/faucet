@@ -7360,6 +7360,9 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         for int_host in int_hosts:
             # All internal hosts can reach other internal hosts.
             for other_int_host in int_hosts - {int_host}:
+                # force ARP to test broadcast.
+                int_host.cmd(
+                    'arp -d %s' % other_int_host.IP())
                 self.one_ipv4_ping(
                     int_host, other_int_host.IP(), require_host_learned=False)
 
