@@ -7367,11 +7367,10 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         for int_host in int_hosts:
             # All internal hosts can reach other internal hosts.
             for other_int_host in int_hosts - {int_host}:
-                # force ARP to test broadcast.
-                int_host.cmd(
-                    'arp -d %s' % other_int_host.IP())
-                self.one_ipv4_ping(
-                    int_host, other_int_host.IP(), require_host_learned=False)
+                self.verify_broadcast(
+                    hosts=(int_host, other_int_host), broadcast_expected=True)
+                self.verify_unicast(
+                    hosts=(int_host, other_int_host), unicast_expected=True)
 
         for ext_host in ext_hosts:
             # All external hosts cannot flood to each other
@@ -7382,10 +7381,10 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         remote_ext_hosts = ext_hosts - set(root_ext_hosts)
         # int host should never be broadcast to an ext host that is not on the root.
         for local_int_hosts, _ in dp_hosts.values():
-            local_int_host = list(local_int_hosts)[0]
-            for remote_ext_host in remote_ext_hosts:
-                self.verify_broadcast(
-                    hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
+            for local_int_host in local_int_hosts:
+                for remote_ext_host in remote_ext_hosts:
+                    self.verify_broadcast(
+                        hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
