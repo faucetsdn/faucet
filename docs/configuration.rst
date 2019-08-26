@@ -261,7 +261,7 @@ Stacking (DP)
 
 Stacking is configured in the dp configuration block and in the interface
 configuration block. At the dp level the following attributes can be configured
-withing the configuration block 'stack':
+within the configuration block 'stack':
 
 .. list-table:: dps: <dp name or id>: stack: {}
     :widths: 30 15 15 40
@@ -291,7 +291,7 @@ NOTE: while FAUCET can receive and log LLDP from other devices, FAUCET
 does not do spanning tree those LLDP packets will have no influence
 on FAUCET's forwarding decisions.
 
-The following attributes can be configured withing the 'lldp_beacon'
+The following attributes can be configured within the 'lldp_beacon'
 configuration block at the dp level:
 
 .. list-table:: dps: <dp name or id>: lldp_beacon: {}
@@ -408,7 +408,7 @@ Interfaces
 ##########
 
 Configuration for each interface is entered in the 'interfaces' configuration
-block withing the config for the datapath. Each interface configuration block
+block within the config for the datapath. Each interface configuration block
 is a dictionary keyed by the interface name.
 
 Defaults for groups of interfaces can also be configured under the
