@@ -217,17 +217,13 @@ class ValveFloodManager(ValveManagerBase):
 
     def _build_group_flood_rules(self, vlan, modify, command):
         """Build flooding rules for a VLAN using groups."""
-        ofmsgs = []
-        groups_by_unicast_eth = {}
-
         _, vlan_flood_acts = self._build_flood_rule_for_vlan(
             vlan, None, None, False, command)
-
         group_id = vlan.vid
         group = self.groups.get_entry(
             group_id, valve_of.build_group_flood_buckets(vlan_flood_acts))
-        groups_by_unicast_eth[False] = group
-        groups_by_unicast_eth[True] = group
+        groups_by_unicast_eth = {False: group, True: group}
+        ofmsgs = []
 
         # Only configure unicast flooding group if has different output
         # actions to non unicast flooding.
@@ -299,7 +295,7 @@ class ValveFloodManager(ValveManagerBase):
         return pkt_meta.port
 
 
-class ValveFloodStackManager(ValveFloodManager):
+class ValveFloodStackManagerBase(ValveFloodManager):
     """Implement dataplane based flooding for stacked dataplanes."""
 
     def __init__(self, logger, flood_table, pipeline, # pylint: disable=too-many-arguments
@@ -307,9 +303,8 @@ class ValveFloodStackManager(ValveFloodManager):
                  combinatorial_port_flood, canonical_port_order,
                  stack_ports, has_externals,
                  dp_shortest_path_to_root, shortest_path_port,
-                 stack_root_flood_reflection, is_stack_root,
-                 is_stack_root_candidate, graph):
-        super(ValveFloodStackManager, self).__init__(
+                 is_stack_root, is_stack_root_candidate, graph):
+        super(ValveFloodStackManagerBase, self).__init__(
             logger, flood_table, pipeline,
             use_group_table, groups,
             combinatorial_port_flood,
@@ -322,11 +317,6 @@ class ValveFloodStackManager(ValveFloodManager):
         self.is_stack_root = is_stack_root
         self.is_stack_root_candidate = is_stack_root_candidate
         self.graph = graph
-        self.stack_root_flood_reflection = stack_root_flood_reflection
-        if self.stack_root_flood_reflection:
-            self._flood_actions_func = self._flood_actions
-        else:
-            self._flood_actions_func = self._flood_actions_size2
         self._set_ext_port_flag = []
         self._set_nonext_port_flag = []
         self.external_root_only = False
@@ -338,6 +328,10 @@ class ValveFloodStackManager(ValveFloodManager):
                 self.logger.info('external flooding on root only')
                 self.external_root_only = True
         self._reset_peer_distances()
+
+    def _flood_actions(self, in_port, external_ports,
+                       away_flood_actions, toward_flood_actions, local_flood_actions):
+        raise NotImplementedError()
 
     def _reset_peer_distances(self):
         """Reset distances to/from root for this DP."""
@@ -374,142 +368,7 @@ class ValveFloodStackManager(ValveFloodManager):
             else:
                 self.logger.info('no path available to root')
 
-    def _flood_actions_size2(self, in_port, external_ports,
-                             away_flood_actions, toward_flood_actions, local_flood_actions):
-        if not in_port or in_port in self.stack_ports:
-            flood_prefix = []
-        else:
-            if external_ports:
-                flood_prefix = self._set_nonext_port_flag
-            else:
-                flood_prefix = self._set_ext_port_flag
-
-        # Special case for stack with maximum distance 2 - we don't need to reflect off of the root.
-        if self.is_stack_root():
-            flood_actions = (
-                flood_prefix + away_flood_actions + local_flood_actions)
-        else:
-            # Default strategy is flood locally and then to the root.
-            flood_actions = (
-                flood_prefix + toward_flood_actions + local_flood_actions)
-
-            # If packet came from the root, flood it locally.
-            if in_port in self.all_towards_root_stack_ports:
-                flood_actions = (flood_prefix + local_flood_actions)
-
-        return flood_actions
-
-    def _flood_actions(self, in_port, external_ports,
-                       away_flood_actions, toward_flood_actions, local_flood_actions):
-        # General case for stack with maximum distance > 2
-        if self.is_stack_root():
-            if external_ports:
-                flood_prefix = self._set_nonext_port_flag
-            else:
-                flood_prefix = self._set_ext_port_flag
-            flood_actions = (away_flood_actions + local_flood_actions)
-
-            if in_port and in_port in self.away_from_root_stack_ports:
-                # Packet from a non-root switch, flood locally and to all non-root switches
-                # (reflect it).
-                flood_actions = (
-                    away_flood_actions + [valve_of.output_in_port()] + local_flood_actions)
-
-            flood_actions = flood_prefix + flood_actions
-        else:
-            # Default non-root strategy is flood towards root.
-            if external_ports:
-                flood_actions = self._set_nonext_port_flag + toward_flood_actions
-            else:
-                flood_actions = self._set_ext_port_flag + toward_flood_actions
-
-            if in_port:
-                # Packet from switch further away, flood it to the root.
-                if in_port in self.away_from_root_stack_ports:
-                    flood_actions = toward_flood_actions
-                # Packet from the root.
-                elif in_port in self.all_towards_root_stack_ports:
-                    # If we have external ports, and packet hasn't already been flooded
-                    # externally, flood it externally before passing it to further away switches,
-                    # and mark it flooded.
-                    if external_ports:
-                        flood_actions = (
-                            self._set_nonext_port_flag + away_flood_actions + local_flood_actions)
-                    else:
-                        flood_actions = (
-                            away_flood_actions + self._set_nonext_port_flag + local_flood_actions)
-                # Packet from external port, locally. Mark it already flooded externally and
-                # flood to root (it came from an external switch so keep it within the stack).
-                elif in_port.loop_protect_external:
-                    flood_actions = self._set_nonext_port_flag + toward_flood_actions
-                else:
-                    flood_actions = self._set_ext_port_flag + toward_flood_actions
-
-        return flood_actions
-
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port, exclude_all_external=False):
-        """Calculate flooding destinations based on this DP's position.
-
-        If a standalone switch, then flood to local VLAN ports.
-
-        If a distributed switch where all switches are directly
-        connected to the root (star topology), edge switches flood locally
-        and to the root, and the root floods to the other edges.
-
-        If a non-star distributed switch topologies, use selective
-        flooding (see the following example).
-
-                               Hosts
-                               ||||
-                               ||||
-                 +----+       +----+       +----+
-              ---+1   |       |1234|       |   1+---
-        Hosts ---+2   |       |    |       |   2+--- Hosts
-              ---+3   |       |    |       |   3+---
-              ---+4  5+-------+5  6+-------+5  4+---
-                 +----+       +----+       +----+
-
-                 Root DP
-
-        Non-root switches flood only to the root. The root switch
-        reflects incoming floods back out. Non-root switches
-        flood packets from the root locally and further away.
-        Flooding is entirely implemented in the dataplane.
-
-        A host connected to a non-root switch can receive a copy
-        of its own flooded packet (because the non-root switch
-        does not know it has seen the packet already).
-
-        A host connected to the root switch does not have this problem
-        (because flooding is always away from the root). Therefore,
-        connections to other non-FAUCET stacking networks should only
-        be made to the root.
-
-        On the root switch (left), flood destinations are:
-
-        1: 2 3 4 5(s)
-        2: 1 3 4 5(s)
-        3: 1 2 4 5(s)
-        4: 1 2 3 5(s)
-        5: 1 2 3 4 5(s, note reflection)
-
-        On the middle switch:
-
-        1: 5(s)
-        2: 5(s)
-        3: 5(s)
-        4: 5(s)
-        5: 1 2 3 4 6(s)
-        6: 5(s)
-
-        On the rightmost switch:
-
-        1: 5(s)
-        2: 5(s)
-        3: 5(s)
-        4: 5(s)
-        5: 1 2 3 4
-        """
         exclude_ports = []
         external_ports = vlan.loop_protect_external_ports()
 
@@ -524,7 +383,7 @@ class ValveFloodStackManager(ValveFloodManager):
             self.away_from_root_stack_ports, in_port, exclude_ports=exclude_ports)
         toward_flood_actions = valve_of.flood_tagged_port_outputs(
             self.towards_root_stack_ports, in_port)
-        flood_acts = self._flood_actions_func(
+        flood_acts = self._flood_actions(
             in_port, external_ports, away_flood_actions,
             toward_flood_actions, local_flood_actions)
         return flood_acts
@@ -535,7 +394,7 @@ class ValveFloodStackManager(ValveFloodManager):
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                 exclude_unicast, command):
         # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
-        ofmsgs = super(ValveFloodStackManager, self)._build_mask_flood_rules(
+        ofmsgs = super(ValveFloodStackManagerBase, self)._build_mask_flood_rules(
             vlan, eth_dst, eth_dst_mask, exclude_unicast, command)
         towards_up_ports = self._canonical_stack_up_ports(self.towards_root_stack_ports)
         away_up_ports_by_dp = defaultdict(list)
@@ -694,5 +553,148 @@ class ValveFloodStackManager(ValveFloodManager):
             if edge_dp is None:
                 return None
             return self.shortest_path_port(edge_dp.name)
-        return super(ValveFloodStackManager, self).edge_learn_port(
+        return super(ValveFloodStackManagerBase, self).edge_learn_port(
             other_valves, pkt_meta)
+
+
+class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
+    """Special case for networks of size 2 - no need to reflect off root,
+       we can just flood locally and then to the "other" switch."""
+
+    def _flood_actions(self, in_port, external_ports,
+                       away_flood_actions, toward_flood_actions, local_flood_actions):
+        if not in_port or in_port in self.stack_ports:
+            flood_prefix = []
+        else:
+            if external_ports:
+                flood_prefix = self._set_nonext_port_flag
+            else:
+                flood_prefix = self._set_ext_port_flag
+
+        if self.is_stack_root():
+            flood_actions = (
+                flood_prefix + away_flood_actions + local_flood_actions)
+        else:
+            # Default strategy is flood locally and then to the root.
+            flood_actions = (
+                flood_prefix + toward_flood_actions + local_flood_actions)
+
+            # If packet came from the root, flood it locally.
+            if in_port in self.all_towards_root_stack_ports:
+                flood_actions = (flood_prefix + local_flood_actions)
+
+        return flood_actions
+
+
+class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
+    """General case for networks > size 2 - floods are reflected off
+       of the root.
+
+       If a standalone switch, then flood to local VLAN ports.
+
+       If a distributed switch where all switches are directly
+       connected to the root (star topology), edge switches flood
+       locally and to the root, and the root floods to the other
+       edges.
+
+       If a non-star distributed switch topologies, use selective
+       flooding (see the following example).
+
+                              Hosts
+                               ||||
+                               ||||
+                 +----+       +----+       +----+
+              ---+1   |       |1234|       |   1+---
+        Hosts ---+2   |       |    |       |   2+--- Hosts
+              ---+3   |       |    |       |   3+---
+              ---+4  5+-------+5  6+-------+5  4+---
+                 +----+       +----+       +----+
+
+                 Root DP
+
+       Non-root switches flood only to the root. The root switch
+       reflects incoming floods back out. Non-root switches flood
+       packets from the root locally and further away.  Flooding is
+       entirely implemented in the dataplane.
+
+       A host connected to a non-root switch can receive a copy of its
+       own flooded packet (because the non-root switch does not know
+       it has seen the packet already).
+
+       A host connected to the root switch does not have this problem
+       (because flooding is always away from the root). Therefore,
+       connections to other non-FAUCET stacking networks should only
+       be made to the root.
+
+       On the root switch (left), flood destinations are:
+
+       1: 2 3 4 5(s)
+       2: 1 3 4 5(s)
+       3: 1 2 4 5(s)
+       4: 1 2 3 5(s)
+       5: 1 2 3 4 5(s, note reflection)
+
+       On the middle switch:
+
+       1: 5(s)
+       2: 5(s)
+       3: 5(s)
+       4: 5(s)
+       5: 1 2 3 4 6(s)
+       6: 5(s)
+
+       On the rightmost switch:
+
+       1: 5(s)
+       2: 5(s)
+       3: 5(s)
+       4: 5(s)
+       5: 1 2 3 4
+    """
+
+    def _flood_actions(self, in_port, external_ports,
+                       away_flood_actions, toward_flood_actions, local_flood_actions):
+        if self.is_stack_root():
+            if external_ports:
+                flood_prefix = self._set_nonext_port_flag
+            else:
+                flood_prefix = self._set_ext_port_flag
+            flood_actions = (away_flood_actions + local_flood_actions)
+
+            if in_port and in_port in self.away_from_root_stack_ports:
+                # Packet from a non-root switch, flood locally and to all non-root switches
+                # (reflect it).
+                flood_actions = (
+                    away_flood_actions + [valve_of.output_in_port()] + local_flood_actions)
+
+            flood_actions = flood_prefix + flood_actions
+        else:
+            # Default non-root strategy is flood towards root.
+            if external_ports:
+                flood_actions = self._set_nonext_port_flag + toward_flood_actions
+            else:
+                flood_actions = self._set_ext_port_flag + toward_flood_actions
+
+            if in_port:
+                # Packet from switch further away, flood it to the root.
+                if in_port in self.away_from_root_stack_ports:
+                    flood_actions = toward_flood_actions
+                # Packet from the root.
+                elif in_port in self.all_towards_root_stack_ports:
+                    # If we have external ports, and packet hasn't already been flooded
+                    # externally, flood it externally before passing it to further away switches,
+                    # and mark it flooded.
+                    if external_ports:
+                        flood_actions = (
+                            self._set_nonext_port_flag + away_flood_actions + local_flood_actions)
+                    else:
+                        flood_actions = (
+                            away_flood_actions + self._set_nonext_port_flag + local_flood_actions)
+                # Packet from external port, locally. Mark it already flooded externally and
+                # flood to root (it came from an external switch so keep it within the stack).
+                elif in_port.loop_protect_external:
+                    flood_actions = self._set_nonext_port_flag + toward_flood_actions
+                else:
+                    flood_actions = self._set_ext_port_flag + toward_flood_actions
+
+        return flood_actions

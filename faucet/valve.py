@@ -187,14 +187,17 @@ class Valve:
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         if self.dp.stack:
-            self.flood_manager = valve_flood.ValveFloodStackManager(
+            flood_class = valve_flood.ValveFloodStackManagerNoReflection
+            if self.dp.stack_root_flood_reflection:
+                flood_class = valve_flood.ValveFloodStackManagerReflection
+            self.flood_manager = flood_class(
                 self.logger, self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
                 self.dp.stack_ports, self.dp.has_externals,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port,
-                self.dp.stack_root_flood_reflection, self.dp.is_stack_root,
-                self.dp.is_stack_root_candidate, self.dp.stack.get('graph', None))
+                self.dp.is_stack_root, self.dp.is_stack_root_candidate,
+                self.dp.stack.get('graph', None))
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
                 self.logger, self.dp.tables['flood'], self.pipeline,
@@ -1838,8 +1841,6 @@ class ArubaValve(TfmValve):
 
 class CiscoC9KValve(TfmValve):
     """Valve implementation for C9K."""
-
-    pass
 
 
 class AlliedTelesis(OVSValve):
