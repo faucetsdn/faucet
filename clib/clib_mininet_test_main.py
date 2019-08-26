@@ -15,12 +15,14 @@ all dependencies correctly installed. See ../docs/.
 import argparse
 import collections
 import copy
+import cProfile
 import json
 import glob
 import inspect
 import os
 import sys
 import multiprocessing
+import pstats
 import random
 import re
 import shutil
@@ -690,6 +692,9 @@ def parse_args():
         '-o', '--order', default='random',
         help='port order for tests: 0,1,2,3 | random (default: random)')
     parser.add_argument(
+        '-p', '--profile', action='store_true',
+        help='use Cprofile to report elapsed wall clock time per function')
+    parser.add_argument(
         '-i', '--integration', default=True, action='store_true', help='run integration tests')
     parser.add_argument(
         '-s', '--serial', action='store_true', help='run tests serially')
@@ -727,16 +732,17 @@ def parse_args():
         requested_test_classes, args.clean, args.dumpfail,
         args.keep_logs, args.nocheck, args.serial, args.repeat,
         excluded_test_classes, report_json_filename, port_order,
-        args.loglevel)
+        args.loglevel, args.profile)
 
 
 def test_main(module):
     """Test main."""
+
     print('testing module %s' % module)
 
     (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
      serial, repeat, excluded_test_classes, report_json_filename, port_order,
-     loglevel) = parse_args()
+     loglevel, profile) = parse_args()
 
     setLogLevel(loglevel)
 
@@ -756,7 +762,18 @@ def test_main(module):
 
     print("port order: -o", ','.join(str(i) for i in port_order))
 
+
     hw_config = import_hw_config()
+
+    if profile:
+        pr = cProfile.Profile(time.time)  # use wall clock time
+        pr.enable()
+
     run_tests(
         module, hw_config, requested_test_classes, dumpfail,
         keep_logs, serial, repeat, excluded_test_classes, report_json_filename, port_order)
+
+    if profile:
+        pr.disable()
+        ps = pstats.Stats(pr).sort_stats('cumulative')
+        ps.print_stats()
