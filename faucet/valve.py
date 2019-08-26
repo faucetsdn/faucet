@@ -197,7 +197,7 @@ class Valve:
                 self.dp.stack_ports, self.dp.has_externals,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port,
                 self.dp.is_stack_root, self.dp.is_stack_root_candidate,
-                self.dp.stack.get('graph', None))
+                self.dp.is_stack_edge, self.dp.stack.get('graph', None))
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
                 self.logger, self.dp.tables['flood'], self.pipeline,

@@ -303,7 +303,8 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                  combinatorial_port_flood, canonical_port_order,
                  stack_ports, has_externals,
                  dp_shortest_path_to_root, shortest_path_port,
-                 is_stack_root, is_stack_root_candidate, graph):
+                 is_stack_root, is_stack_root_candidate,
+                 is_stack_edge, graph):
         super(ValveFloodStackManagerBase, self).__init__(
             logger, flood_table, pipeline,
             use_group_table, groups,
@@ -316,6 +317,7 @@ class ValveFloodStackManagerBase(ValveFloodManager):
         self.dp_shortest_path_to_root = dp_shortest_path_to_root
         self.is_stack_root = is_stack_root
         self.is_stack_root_candidate = is_stack_root_candidate
+        self.is_stack_edge = is_stack_edge
         self.graph = graph
         self._set_ext_port_flag = []
         self._set_nonext_port_flag = []
@@ -396,11 +398,11 @@ class ValveFloodStackManagerBase(ValveFloodManager):
         # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
         ofmsgs = super(ValveFloodStackManagerBase, self)._build_mask_flood_rules(
             vlan, eth_dst, eth_dst_mask, exclude_unicast, command)
-        towards_up_ports = self._canonical_stack_up_ports(self.towards_root_stack_ports)
         away_up_ports_by_dp = defaultdict(list)
         for port in self._canonical_stack_up_ports(self.away_from_root_stack_ports):
             away_up_ports_by_dp[port.stack['dp']].append(port)
         towards_up_port = None
+        towards_up_ports = self._canonical_stack_up_ports(self.towards_root_stack_ports)
         if towards_up_ports:
             towards_up_port = towards_up_ports[0]
         replace_priority_offset = (
@@ -408,19 +410,23 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 self.pipeline.filter_priority - self.pipeline.select_priority))
 
         for port in self.stack_ports:
-            prune = False
-            if self.is_stack_root():
-                # On the root switch, only flood from one port where multiply connected to a DP.
-                away_up_port = None
-                remote_dp = port.stack['dp']
-                if away_up_ports_by_dp[remote_dp]:
-                    away_up_port = away_up_ports_by_dp[remote_dp][0]
-                prune = port in self.away_from_root_stack_ports and port != away_up_port
-            else:
-                # On a non root switch, only flood from one of the ports
-                # connected towards the root.
-                prune = port in self.all_towards_root_stack_ports and port != towards_up_port
+            remote_dp = port.stack['dp']
+            away_up_port = None
+            away_up_ports = away_up_ports_by_dp.get(remote_dp, None)
+            if away_up_ports:
+                # Pick the lowest port number on the remote DP.
+                away_up_ports = sorted(
+                    away_up_ports, key=lambda x: x.stack['port'].number)
+                away_up_port = away_up_ports[0]
+            away_port = port in self.away_from_root_stack_ports
+            towards_port = not away_port
             flood_acts = []
+
+            # Prune where multiply connected to the same DP.
+            if towards_port:
+                prune = port != towards_up_port
+            else:
+                prune = port != away_up_port
 
             match = {'in_port': port.number, 'vlan': vlan}
             if eth_dst is not None:
@@ -437,13 +443,18 @@ class ValveFloodStackManagerBase(ValveFloodManager):
             else:
                 ofmsgs.extend(self.pipeline.remove_filter(
                     match, priority_offset=priority_offset))
-                # Non-root switches don't need to learn hosts that only
-                # broadcast, to save resources.
-                if not self.is_stack_root():
-                    if eth_dst is not None:
+                # Control learning from multicast/broadcast on non-root DPs.
+                if not self.is_stack_root() and eth_dst is not None:
+                    # If ths is an edge DP, we don't have to learn from
+                    # hosts that only broadcast.  If we're an intermediate
+                    # DP, only learn from broadcasts further away from
+                    # the root (and ignore the reflected broadcast for
+                    # learning purposes).
+                    if self.is_stack_edge() or towards_port:
                         ofmsgs.extend(self.pipeline.select_packets(
                             self.flood_table, match,
                             priority_offset=self.classification_offset))
+
 
             if self.externals:
                 # If external flag is set, flood to external ports, otherwise exclude them.
