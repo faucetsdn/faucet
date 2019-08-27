@@ -460,7 +460,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         stack_port = self.valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        other_valves = self.valves_manager._other_running_valves(self.valve)
+        other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
         self.valve.fast_state_expire(time.time(), other_valves)
         self.assertTrue(stack_port.is_stack_init())
         for change_func, check_func in [
@@ -476,7 +476,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         other_port = other_dp.ports[1]
         wrong_port = other_dp.ports[2]
         wrong_dp = self.valves_manager.valves[3].dp
-        other_valves = self.valves_manager._other_running_valves(self.valve)
+        other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
         self.valve.fast_state_expire(time.time(), other_valves)
         for remote_dp, remote_port in [
                 (wrong_dp, other_port),
@@ -491,7 +491,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         stack_port = self.valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        other_valves = self.valves_manager._other_running_valves(self.valve)
+        other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
         self.valve.fast_state_expire(time.time(), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
@@ -856,6 +856,7 @@ dps:
 
 
 class ValveTwoDpRoot(ValveTestBases.ValveTestSmall):
+    """Test simple stack topology from root."""
 
     CONFIG = """
 dps:
@@ -887,12 +888,14 @@ dps:
         self.setup_valve(self.CONFIG)
 
     def test_topo(self):
+        """Test topology functions."""
         dp = self.valves_manager.valves[self.DP_ID].dp
         self.assertTrue(dp.is_stack_root())
         self.assertFalse(dp.is_stack_edge())
 
 
 class ValveTwoDpRootEdge(ValveTestBases.ValveTestSmall):
+    """Test simple stack topology from edge."""
 
     CONFIG = """
 dps:
@@ -924,8 +927,8 @@ dps:
         self.setup_valve(self.CONFIG)
 
     def test_topo(self):
-        valve = self.valves_manager.valves[self.DP_ID]
-        dp = valve.dp
+        """Test topology functions."""
+        dp = self.valves_manager.valves[self.DP_ID].dp
         self.assertFalse(dp.is_stack_root())
         self.assertTrue(dp.is_stack_edge())
 
