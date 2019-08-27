@@ -392,6 +392,11 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
             }]
         self.verify_flooding(matches)
 
+    def test_topo(self):
+        dp = self.valves_manager.valves[self.DP_ID].dp
+        self.assertTrue(dp.is_stack_root())
+        self.assertFalse(dp.is_stack_edge())
+
 
 class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
     """Test stacking/forwarding."""
@@ -435,6 +440,11 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
             'eth_dst': self.UNKNOWN_MAC}
         self.assertFalse(
             self.table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=unexpressed_vid))
+
+    def test_topo(self):
+        dp = self.valves_manager.valves[self.DP_ID].dp
+        self.assertFalse(dp.is_stack_root())
+        self.assertTrue(dp.is_stack_edge())
 
 
 class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
@@ -843,6 +853,81 @@ dps:
         self.assertEqual(len(self.get_valve(0x1).get_tunnel_flowmods()), 2)
         self.assertEqual(len(self.get_valve(0x2).get_tunnel_flowmods()), 1)
         self.assertEqual(len(self.get_valve(0x3).get_tunnel_flowmods()), 2)
+
+
+class ValveTwoDpRoot(ValveTestBases.ValveTestSmall):
+
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s2
+                    port: 2
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s1
+                    port: 2
+    """
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_topo(self):
+        dp = self.valves_manager.valves[self.DP_ID].dp
+        self.assertTrue(dp.is_stack_root())
+        self.assertFalse(dp.is_stack_edge())
+
+
+class ValveTwoDpRootEdge(ValveTestBases.ValveTestSmall):
+
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s2
+                    port: 2
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s1
+                    port: 2
+    """
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_topo(self):
+        valve = self.valves_manager.valves[self.DP_ID]
+        dp = valve.dp
+        self.assertFalse(dp.is_stack_root())
+        self.assertTrue(dp.is_stack_edge())
 
 
 if __name__ == "__main__":

@@ -357,13 +357,12 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 port for port, port_peer_distance in port_peer_distances.items()
                 if port_peer_distance == shortest_peer_distance}
             if self.all_towards_root_stack_ports:
-                first_peer_dp = list(self.all_towards_root_stack_ports)[0].stack['dp']
+                first_peer_port = list(self.all_towards_root_stack_ports)[0]
+                first_peer_dp = first_peer_port.stack['dp']
                 self.towards_root_stack_ports = {
                     port for port in self.all_towards_root_stack_ports
                     if port.stack['dp'] == first_peer_dp}
             self.away_from_root_stack_ports = all_peer_ports - self.all_towards_root_stack_ports
-
-        if not self.is_stack_root():
             if self.towards_root_stack_ports:
                 self.logger.info(
                     'shortest path to root is via %s' % self.towards_root_stack_ports)
@@ -480,38 +479,6 @@ class ValveFloodStackManagerBase(ValveFloodManager):
 
         return ofmsgs
 
-    def _edge_dp_for_host(self, other_valves, pkt_meta):
-        """Simple distributed unicast learning.
-
-        Args:
-            other_valves (list): All Valves other than this one.
-            pkt_meta (PacketMeta): PacketMeta instance for packet received.
-        Returns:
-            Valve instance or None (of edge datapath where packet received)
-        """
-        # TODO: simplest possible unicast learning.
-        # We find just one port that is the shortest unicast path to
-        # the destination. We could use other factors (eg we could
-        # load balance over multiple ports based on destination MAC).
-        # TODO: edge DPs could use a different forwarding algorithm
-        # (for example, just default switch to a neighbor).
-        # Find port that forwards closer to destination DP that
-        # has already learned this host (if any).
-        if pkt_meta.port.stack:
-            peer_dp = pkt_meta.port.stack['dp']
-            if peer_dp.is_stack_edge() or peer_dp.is_stack_root():
-                return peer_dp
-        stacked_valves = [valve for valve in other_valves if valve.dp.stack is not None]
-        eth_src = pkt_meta.eth_src
-        vlan_vid = pkt_meta.vlan.vid
-        for other_valve in stacked_valves:
-            if vlan_vid in other_valve.dp.vlans:
-                other_dp_vlan = other_valve.dp.vlans[vlan_vid]
-                entry = other_dp_vlan.cached_host(eth_src)
-                if entry and not entry.port.stack:
-                    return other_valve.dp
-        return None
-
     def update_stack_topo(self, event, dp, port=None):
         """Update the stack topo according to the event."""
 
@@ -567,6 +534,17 @@ class ValveFloodStackManagerBase(ValveFloodManager):
         return super(ValveFloodStackManagerBase, self).edge_learn_port(
             other_valves, pkt_meta)
 
+    def _edge_dp_for_host(self, other_valves, pkt_meta):
+        """Simple distributed unicast learning.
+
+        Args:
+            other_valves (list): All Valves other than this one.
+            pkt_meta (PacketMeta): PacketMeta instance for packet received.
+        Returns:
+            Valve instance or None (of edge datapath where packet received)
+        """
+        raise NotImplementedError
+
 
 class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
     """Special case for networks of size 2 - no need to reflect off root,
@@ -595,6 +573,10 @@ class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
                 flood_actions = (flood_prefix + local_flood_actions)
 
         return flood_actions
+
+    def _edge_dp_for_host(self, other_valves, pkt_meta):
+        """Size 2 stack means shortest path is always directly connected."""
+        return pkt_meta.port.stack['dp']
 
 
 class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
@@ -709,3 +691,29 @@ class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
                     flood_actions = self._set_ext_port_flag + toward_flood_actions
 
         return flood_actions
+
+    def _edge_dp_for_host(self, other_valves, pkt_meta):
+        """General case for stacks size > 2."""
+        # TODO: currently requires controller to manage all switches
+        # in the stack to keep each DP's graph consistent.
+        # TODO: simplest possible unicast learning.
+        # We find just one port that is the shortest unicast path to
+        # the destination. We could use other factors (eg we could
+        # load balance over multiple ports based on destination MAC).
+        # TODO: edge DPs could use a different forwarding algorithm
+        # (for example, just default switch to a neighbor).
+        # Find port that forwards closer to destination DP that
+        # has already learned this host (if any).
+        peer_dp = pkt_meta.port.stack['dp']
+        if peer_dp.is_stack_edge() or peer_dp.is_stack_root():
+            return peer_dp
+        stacked_valves = [
+            valve for valve in other_valves if valve.dp.stack_root_name]
+        vlan_vid = pkt_meta.vlan.vid
+        for other_valve in stacked_valves:
+            other_dp_vlan = other_valve.dp.vlans.get(vlan_vid, None)
+            if other_dp_vlan is not None:
+                entry = other_dp_vlan.cached_host(pkt_meta.eth_src)
+                if entry and not entry.port.stack:
+                    return other_valve.dp
+        return None
