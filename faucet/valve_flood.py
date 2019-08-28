@@ -707,10 +707,8 @@ class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
         peer_dp = pkt_meta.port.stack['dp']
         if peer_dp.is_stack_edge() or peer_dp.is_stack_root():
             return peer_dp
-        stacked_valves = [
-            valve for valve in other_valves if valve.dp.stack_root_name]
         vlan_vid = pkt_meta.vlan.vid
-        for other_valve in stacked_valves:
+        for other_valve in other_valves:
             other_dp_vlan = other_valve.dp.vlans.get(vlan_vid, None)
             if other_dp_vlan is not None:
                 entry = other_dp_vlan.cached_host(pkt_meta.eth_src)
