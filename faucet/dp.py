@@ -389,7 +389,7 @@ configuration.
             self.lldp_beacon['max_per_interval'] = self.DEFAULT_LLDP_MAX_PER_INTERVAL
         self.lldp_beacon = self._set_unknown_conf(
             self.lldp_beacon, self.lldp_beacon_defaults_types)
-        if self.lldp_beacon['system_name'] is None:
+        if self.lldp_beacon.get('system_name', None) is None:
             self.lldp_beacon['system_name'] = self.name
 
     def _generate_acl_tables(self):
