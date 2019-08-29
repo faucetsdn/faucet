@@ -392,6 +392,11 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
             }]
         self.verify_flooding(matches)
 
+    def test_topo(self):
+        dp = self.valves_manager.valves[self.DP_ID].dp
+        self.assertTrue(dp.is_stack_root())
+        self.assertFalse(dp.is_stack_edge())
+
 
 class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
     """Test stacking/forwarding."""
@@ -436,6 +441,11 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
         self.assertFalse(
             self.table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=unexpressed_vid))
 
+    def test_topo(self):
+        dp = self.valves_manager.valves[self.DP_ID].dp
+        self.assertFalse(dp.is_stack_root())
+        self.assertTrue(dp.is_stack_edge())
+
 
 class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
     """Test stack link probing."""
@@ -450,7 +460,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         stack_port = self.valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        other_valves = self.valves_manager._other_running_valves(self.valve)
+        other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
         self.valve.fast_state_expire(time.time(), other_valves)
         self.assertTrue(stack_port.is_stack_init())
         for change_func, check_func in [
@@ -466,7 +476,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         other_port = other_dp.ports[1]
         wrong_port = other_dp.ports[2]
         wrong_dp = self.valves_manager.valves[3].dp
-        other_valves = self.valves_manager._other_running_valves(self.valve)
+        other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
         self.valve.fast_state_expire(time.time(), other_valves)
         for remote_dp, remote_port in [
                 (wrong_dp, other_port),
@@ -481,7 +491,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         stack_port = self.valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        other_valves = self.valves_manager._other_running_valves(self.valve)
+        other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
         self.valve.fast_state_expire(time.time(), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
@@ -843,6 +853,84 @@ dps:
         self.assertEqual(len(self.get_valve(0x1).get_tunnel_flowmods()), 2)
         self.assertEqual(len(self.get_valve(0x2).get_tunnel_flowmods()), 1)
         self.assertEqual(len(self.get_valve(0x3).get_tunnel_flowmods()), 2)
+
+
+class ValveTwoDpRoot(ValveTestBases.ValveTestSmall):
+    """Test simple stack topology from root."""
+
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s2
+                    port: 2
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s1
+                    port: 2
+    """
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_topo(self):
+        """Test topology functions."""
+        dp = self.valves_manager.valves[self.DP_ID].dp
+        self.assertTrue(dp.is_stack_root())
+        self.assertFalse(dp.is_stack_edge())
+
+
+class ValveTwoDpRootEdge(ValveTestBases.ValveTestSmall):
+    """Test simple stack topology from edge."""
+
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s2
+                    port: 2
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s1
+                    port: 2
+    """
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_topo(self):
+        """Test topology functions."""
+        dp = self.valves_manager.valves[self.DP_ID].dp
+        self.assertFalse(dp.is_stack_root())
+        self.assertTrue(dp.is_stack_edge())
 
 
 if __name__ == "__main__":
