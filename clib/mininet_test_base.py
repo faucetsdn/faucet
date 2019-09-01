@@ -377,7 +377,7 @@ class FaucetTestBase(unittest.TestCase):
                 switch_dump_name = os.path.join(self.tmpdir, '%s-%s.log' % (switch.name, dump_cmd))
                 # TODO: occasionally fails with socket error.
                 switch.cmd('%s %s %s > %s' % (self.OFCTL, dump_cmd, switch.name, switch_dump_name),
-                    success=None)
+                           success=None)
             for other_cmd in ('show', 'list controller', 'list manager'):
                 other_dump_name = os.path.join(self.tmpdir, '%s.log' % other_cmd.replace(' ', ''))
                 switch.cmd('%s %s > %s' % (self.VSCTL, other_cmd, other_dump_name))
