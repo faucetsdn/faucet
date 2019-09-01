@@ -1272,7 +1272,7 @@ dbs:
                     label_values.append('%s="%s"' % (label, value))
                 label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         var_re = re.compile(r'^%s%s$' % (var, label_values_re))
-        for _ in range(retries):
+        for i in range(retries):
             results = []
             prom_lines = self.scrape_prometheus(controller, var=var)
             for prom_line in prom_lines:
@@ -1285,7 +1285,8 @@ dbs:
                 if multiple:
                     return results
                 return results[0][1]
-            time.sleep(1)
+            if i < (retries - 1):
+                time.sleep(1)
         return default
 
     def gauge_smoke_test(self):
