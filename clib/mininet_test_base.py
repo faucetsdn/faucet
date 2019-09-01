@@ -2058,7 +2058,8 @@ dbs:
 
     def _config_tableids(self):
         # Wait for VLAN table to appear, rapidly scrape the rest.
-        self._VLAN_TABLE = self._get_tableid('vlan')
+        self._VLAN_TABLE = self._get_tableid(
+            'vlan', 1, self._VLAN_TABLE)
         self._PORT_ACL_TABLE = self._get_tableid(
             'port_acl', 1, self._PORT_ACL_TABLE)
         self._VLAN_ACL_TABLE = self._get_tableid(
