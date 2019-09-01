@@ -2045,9 +2045,10 @@ dbs:
         return self.wait_for_prometheus_var(
             'dp_status', expected_status, any_labels=True, controller=controller, default=None, timeout=timeout)
 
-    def _get_tableid(self, name):
+    def _get_tableid(self, name, retries, default):
         return self.scrape_prometheus_var(
-            'faucet_config_table_names', {'table_name': name})
+            'faucet_config_table_names', {'table_name': name},
+            retries=retries, default=default)
 
     def quiet_commands(self, host, commands):
         for command in commands:
@@ -2055,16 +2056,26 @@ dbs:
             self.assertEqual('', result, msg='%s: %s' % (command, result))
 
     def _config_tableids(self):
-        self._PORT_ACL_TABLE = self._get_tableid('port_acl')
+        # Wait for VLAN table to appear, rapidly scrape the rest.
         self._VLAN_TABLE = self._get_tableid('vlan')
-        self._VLAN_ACL_TABLE = self._get_tableid('vlan_acl')
-        self._ETH_SRC_TABLE = self._get_tableid('eth_src')
-        self._IPV4_FIB_TABLE = self._get_tableid('ipv4_fib')
-        self._IPV6_FIB_TABLE = self._get_tableid('ipv6_fib')
-        self._VIP_TABLE = self._get_tableid('vip')
-        self._ETH_DST_HAIRPIN_TABLE = self._get_tableid('eth_dst_hairpin')
-        self._ETH_DST_TABLE = self._get_tableid('eth_dst')
-        self._FLOOD_TABLE = self._get_tableid('flood')
+        self._PORT_ACL_TABLE = self._get_tableid(
+            'port_acl', 1, self._PORT_ACL_TABLE)
+        self._VLAN_ACL_TABLE = self._get_tableid(
+            'vlan_acl', 1, self._VLAN_ACL_TABLE)
+        self._ETH_SRC_TABLE = self._get_tableid(
+            'eth_src', 1, self._ETH_SRC_TABLE)
+        self._IPV4_FIB_TABLE = self._get_tableid(
+            'ipv4_fib', 1, self._IPV4_FIB_TABLE)
+        self._IPV6_FIB_TABLE = self._get_tableid(
+            'ipv6_fib', 1, self._IPV6_FIB_TABLE)
+        self._VIP_TABLE = self._get_tableid(
+            'vip', 1, self._VIP_TABLE)
+        self._ETH_DST_HAIRPIN_TABLE = self._get_tableid(
+            'eth_dst_hairpin', 1, self._ETH_DST_HAIRPIN_TABLE)
+        self._ETH_DST_TABLE = self._get_tableid(
+            'eth_dst', 1, self._ETH_DST_TABLE)
+        self._FLOOD_TABLE = self._get_tableid(
+            'flood', 1, self._FLOOD_TABLE)
 
     def _dp_ports(self):
         return list(sorted(self.port_map.values()))
