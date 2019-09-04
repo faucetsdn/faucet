@@ -31,7 +31,6 @@ class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):
     """ + DP1_CONFIG
 
 
-
 class ValveEgressACLTestCase(ValveTestBases.ValveTestSmall):
     """Test ACL drop/allow and reloading."""
 
@@ -171,4 +170,4 @@ acls:
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr

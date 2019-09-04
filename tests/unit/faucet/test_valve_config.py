@@ -675,7 +675,7 @@ dps:
 
     def setUp(self):
         pstats_out, _ = self.profile(partial(self.setup_valve, self.CONFIG))
-        self.baseline_total_tt = pstats_out.total_tt # pytype: disable=attribute-error
+        self.baseline_total_tt = pstats_out.total_tt  # pytype: disable=attribute-error
 
     def test_profile_reload(self):
         """Test reload processing time."""
@@ -839,4 +839,4 @@ class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr
