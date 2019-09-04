@@ -36,15 +36,12 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from faucet import config_parser_util
 from faucet import faucet
-from faucet import faucet_dot1x
 from faucet import faucet_experimental_api
 from faucet import valve_of
 
 
 from valve_test_lib import (
-    CONFIG,
-    DP1_CONFIG, DOT1X_CONFIG, DOT1X_ACL_CONFIG,
-    FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
+    CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
     ValveTestBases)
 
 
@@ -166,163 +163,6 @@ dps:
                 'ipv4_src': '10.0.0.2',
                 'ipv4_dst': '10.0.0.3',
                 'vid': 0x100})
-
-
-class ValveDot1xSmokeTestCase(ValveTestBases.ValveTestSmall):
-    """Smoke test to check dot1x can be initialized."""
-
-    CONFIG = """
-dps:
-    s1:
-%s
-        interfaces:
-            p1:
-                number: 1
-                native_vlan: v100
-                dot1x: true
-            p2:
-                number: 2
-                output_only: True
-vlans:
-    v100:
-        vid: 0x100
-    student:
-        vid: 0x200
-        dot1x_assigned: True
-
-""" % DOT1X_CONFIG
-
-    def setUp(self):
-        self.setup_valve(self.CONFIG)
-
-    def test_get_mac_str(self):
-        """Test NFV port formatter."""
-        self.assertEqual('00:00:00:0f:01:01', faucet_dot1x.get_mac_str(15, 257))
-
-    def test_handlers(self):
-        valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]
-        port_no = 1
-        vlan_name = 'student'
-        filter_id = 'block_http'
-        for handler in (
-                self.dot1x.logoff_handler,
-                self.dot1x.failure_handler):
-            handler(
-                '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
-        self.dot1x.auth_handler(
-            '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no),
-            vlan_name=vlan_name, filter_id=filter_id)
-
-
-class ValveDot1xACLSmokeTestCase(ValveDot1xSmokeTestCase):
-    """Smoke test to check dot1x can be initialized."""
-    ACL_CONFIG = """
-acls:
-    auth_acl:
-        - rule:
-            actions:
-                allow: 1
-    noauth_acl:
-        - rule:
-            actions:
-                allow: 0
-"""
-
-    CONFIG = """
-{}
-dps:
-    s1:
-{}
-        interfaces:
-            p1:
-                number: 1
-                native_vlan: v100
-                dot1x: true
-                dot1x_acl: True
-            p2:
-                number: 2
-                output_only: True
-vlans:
-    v100:
-        vid: 0x100
-    student:
-        vid: 0x200
-        dot1x_assigned: True
-""".format(ACL_CONFIG, DOT1X_ACL_CONFIG)
-
-
-class ValveDot1xMABSmokeTestCase(ValveDot1xSmokeTestCase):
-    """Smoke test to check dot1x can be initialized."""
-
-    CONFIG = """
-dps:
-    s1:
-{}
-        interfaces:
-            p1:
-                number: 1
-                native_vlan: v100
-                dot1x: true
-                dot1x_mab: True
-            p2:
-                number: 2
-                output_only: True
-vlans:
-    v100:
-        vid: 0x100
-""".format(DOT1X_CONFIG)
-
-
-class ValveDot1xDynACLSmokeTestCase(ValveDot1xSmokeTestCase):
-    """Smoke test to check dot1x can be initialized."""
-    CONFIG = """
-acls:
-    accept_acl:
-        dot1x_assigned: True
-        rules:
-        - rule:
-            dl_type: 0x800      # Allow ICMP / IPv4
-            ip_proto: 1
-            actions:
-                allow: True
-        - rule:
-            dl_type: 0x0806     # ARP Packets
-            actions:
-                allow: True
-dps:
-    s1:
-%s
-        interfaces:
-            p1:
-                number: 1
-                native_vlan: v100
-                dot1x: true
-                dot1x_dyn_acl: True
-
-            p2:
-                number: 2
-                output_only: True
-vlans:
-    v100:
-        vid: 0x100
-""" % DOT1X_CONFIG
-
-    def setUp(self):
-        self.setup_valve(self.CONFIG)
-
-    def test_handlers(self):
-        valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]
-        port_no = 1
-        vlan_name = None
-        filter_id = 'accept_acl'
-        for handler in (
-                self.dot1x.logoff_handler,
-                self.dot1x.failure_handler):
-            handler(
-                '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
-        self.dot1x.auth_handler(
-            '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no),
-            vlan_name=vlan_name, filter_id=filter_id)
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
