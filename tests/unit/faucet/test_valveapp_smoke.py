@@ -29,7 +29,7 @@ from faucet import faucet_experimental_api
 
 
 
-class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
+class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
     """Test bare instantiation of controller classes."""
 
     @staticmethod
