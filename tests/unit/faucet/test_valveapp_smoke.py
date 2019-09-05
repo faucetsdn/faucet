@@ -68,8 +68,8 @@ class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
             event = EventOFPMsgBase(msg=msg)
             event.dp = msg.datapath
             event_handler(event)
-        ryu_app._check_thread_exception()
-        ryu_app._thread_jitter(1)
+        ryu_app._check_thread_exception()  # pylint: disable=protected-access
+        ryu_app._thread_jitter(1)  # pylint: disable=protected-access
 
 
 if __name__ == "__main__":
