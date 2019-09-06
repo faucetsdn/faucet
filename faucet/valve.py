@@ -214,29 +214,25 @@ class Valve:
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack,
             self.dp.has_externals, self.dp.stack_root_flood_reflection)
-        if any(t in self.dp.tables for t in ('port_acl', 'vlan_acl', 'egress_acl'))\
-                or self.dp.tunnel_acls:
+        self.acl_manager = None
+        if self.dp.has_acls:
             self.acl_manager = valve_acl.ValveAclManager(
                 self.dp.tables.get('port_acl'), self.dp.tables.get('vlan_acl'),
                 self.dp.tables.get('egress_acl'), self.pipeline,
                 self.dp.meters, self.dp.dp_acls)
-        else:
-            self.acl_manager = None
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
         for table_id, table_config in table_configs:
             self.logger.info('table ID %u %s' % (table_id, table_config))
 
     def _get_managers(self):
-        managers = (
-            self.pipeline,
-            self.host_manager,
-            self._route_manager_by_ipv.get(4),
-            self._route_manager_by_ipv.get(6),
-            self.flood_manager,
-            self.acl_manager
-            )
-        for manager in managers:
+        for manager in (
+                self.pipeline,
+                self.host_manager,
+                self._route_manager_by_ipv.get(4),
+                self._route_manager_by_ipv.get(6),
+                self.flood_manager,
+                self.acl_manager):
             if manager is not None:
                 yield manager
 
@@ -490,9 +486,9 @@ class Valve:
 
     def _send_lldp_beacon_on_port(self, port, now):
         chassis_id = str(self.dp.faucet_dp_mac)
-        ttl = self.dp.lldp_beacon.get('send_interval', self.dp.DEFAULT_LLDP_SEND_INTERVAL) * 3
-        if ttl > 2**16-1:
-            ttl = 2**16-1
+        ttl = min(
+            self.dp.lldp_beacon.get('send_interval', self.dp.DEFAULT_LLDP_SEND_INTERVAL) * 3,
+            2**16-1)
         org_tlvs = [
             (tlv['oui'], tlv['subtype'], tlv['info'])
             for tlv in port.lldp_beacon['org_tlvs']]
@@ -1549,11 +1545,11 @@ class Valve:
         Args:
             new_dp: (DP): new dataplane configuration.
             changes (tuple) of:
-                deleted_ports (list): deleted port numbers.
-                changed_ports (list): changed/added port numbers.
+                deleted_ports (set): deleted port numbers.
+                changed_ports (set): changed/added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
-                deleted_vids (list): deleted VLAN IDs.
-                changed_vids (list): changed/added VLAN IDs.
+                deleted_vids (set): deleted VLAN IDs.
+                changed_vids (set): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
         Returns:
             tuple:
@@ -1580,20 +1576,16 @@ class Valve:
         ofmsgs = []
 
         if deleted_ports:
-            self.logger.info('ports deleted: %s' % deleted_ports)
             ofmsgs.extend(self.ports_delete(deleted_ports))
         if deleted_vids:
-            self.logger.info('VLANs deleted: %s' % deleted_vids)
             deleted_vlans = [self.dp.vlans[vid] for vid in deleted_vids]
             ofmsgs.extend(self._del_vlans(deleted_vlans))
         if changed_ports:
-            self.logger.info('ports changed/added: %s' % changed_ports)
             ofmsgs.extend(self.ports_delete(changed_ports))
 
         self.dp_init(new_dp)
 
         if changed_vids:
-            self.logger.info('VLANs changed/added: %s' % changed_vids)
             changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
             # TODO: handle change versus add separately so can avoid delete first.
             ofmsgs.extend(self._del_vlans(changed_vlans))
@@ -1601,7 +1593,6 @@ class Valve:
         if changed_ports:
             ofmsgs.extend(self.ports_add(all_up_port_nos))
         if self.acl_manager and changed_acl_ports:
-            self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
                 ofmsgs.extend(self.acl_manager.cold_start_port(port))
