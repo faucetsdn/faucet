@@ -275,8 +275,24 @@ dps:
         self.setup_valve(self.CONFIG)
 
     def test_warm_start(self):
-        """Test VLAN change is warm startable."""
+        """Test VLAN change is warm startable and metrics maintained."""
+        self.rcv_packet(9, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
+        vlan_labels = {'vlan': str(int(0x100))}
+        port_labels = {'port': 'p1', 'port_description': 'p1'}
+        port_labels.update(vlan_labels)
+        self.assertEqual(
+            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
+        self.assertEqual(
+            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
         self.update_config(self.WARM_CONFIG, reload_type='warm')
+        self.assertEqual(
+            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
+        self.assertEqual(
+            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
 
 
 class ValveDeleteVLANTestCase(ValveTestBases.ValveTestSmall):
@@ -443,7 +459,24 @@ dps:
     def test_change_port_acl(self):
         """Test port ACL can be changed."""
         self.update_config(self.SAME_CONTENT_CONFIG, reload_type='warm')
+        self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
+        vlan_labels = {'vlan': str(int(0x100))}
+        port_labels = {'port': 'p1', 'port_description': 'p1'}
+        port_labels.update(vlan_labels)
+        self.assertEqual(
+            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
+        self.assertEqual(
+            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+        # ACL changed but we kept the learn cache.
         self.update_config(self.DIFF_CONTENT_CONFIG, reload_type='warm')
+        self.assertEqual(
+            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
+        self.assertEqual(
+            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
 
 
 class ValveACLTestCase(ValveTestBases.ValveTestSmall):

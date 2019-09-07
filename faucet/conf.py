@@ -133,10 +133,13 @@ class Conf:
             conf_keys.append((key, value))
         return conf_keys
 
+    @staticmethod
+    def _conf_dyn_keys(conf):
+        return [(key, value) for key, value in conf.__dict__.items() if key.startswith('dyn')]
+
     def merge_dyn(self, other_conf):
         """Merge dynamic state from other conf object."""
-        self.__dict__.update(
-            {k: v for k, v in self._conf_keys(other_conf, dyn=True)})
+        self.__dict__.update({k: v for k, v in self._conf_dyn_keys(other_conf)})
 
     def _str_conf(self, conf_v):
         if isinstance(conf_v, (bool, str, int)):

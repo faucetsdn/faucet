@@ -221,16 +221,6 @@ class Faucet(RyuAppBase):
             time.time(),
             self._VALVE_SERVICES[type(ryu_event)][0])
 
-    def get_config(self):
-        """FAUCET experimental API: return config for all Valves."""
-        return get_config_for_api(self.valves_manager.valves)
-
-    def get_tables(self, dp_id):
-        """FAUCET experimental API: return config tables for one Valve."""
-        if dp_id in self.valves_manager.valves:
-            return self.valves_manager.valves[dp_id].dp.get_tables()
-        return {}
-
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def packet_in_handler(self, ryu_event):
@@ -340,3 +330,13 @@ class Faucet(RyuAppBase):
             return
         if msg.reason == ryu_dp.ofproto.OFPRR_IDLE_TIMEOUT:
             self._send_flow_msgs(valve, valve.flow_timeout(time.time(), msg.table_id, msg.match))
+
+    def get_config(self):
+        """FAUCET experimental API: return config for all Valves."""
+        return get_config_for_api(self.valves_manager.valves)
+
+    def get_tables(self, dp_id):
+        """FAUCET experimental API: return config tables for one Valve."""
+        if dp_id in self.valves_manager.valves:
+            return self.valves_manager.valves[dp_id].dp.get_tables()
+        return {}

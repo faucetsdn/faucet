@@ -767,12 +767,6 @@ class ValveTestBases:
         def setUp(self):
             self.setup_valve(CONFIG)
 
-        def test_get_config_dict(self):
-            """Test API call for DP config."""
-            # TODO: test actual config contents.
-            self.assertTrue(self.valve.get_config_dict())
-            self.assertTrue(self.valve.dp.get_tables())
-
         def test_notifier_socket_path(self):
             """Test notifier socket path checker."""
             new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
@@ -1541,6 +1535,13 @@ meters:
                 serial_num=b'99',
                 dp_desc=b'test_dp_desc')
             self.valve.ofdescstats_handler(invalid_body)
+
+        def test_get_config_dict(self):
+            """Test API call for DP config."""
+            # TODO: test actual config contents.
+            self.assertTrue(self.valve.get_config_dict())
+            self.assertTrue(self.valve.dp.get_tables())
+
 
     class ValveTestStackedRouting(ValveTestSmall):
         """Test inter-vlan routing with stacking capabilities in an IPV4 network"""
