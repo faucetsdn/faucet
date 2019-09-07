@@ -472,7 +472,7 @@ configuration.
         included_tables = copy.deepcopy(faucet_pipeline.MINIMUM_FAUCET_PIPELINE_TABLES)
         acl_tables = self._generate_acl_tables()
         if acl_tables:
-            included_tables.update(acl_tables.keys())
+            included_tables.update({k for k in acl_tables})
             self.has_acls = True
         # Only configure IP routing tables if enabled.
         for vlan in self.vlans.values():
