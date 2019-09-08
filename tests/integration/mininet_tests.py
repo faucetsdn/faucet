@@ -798,17 +798,17 @@ class Faucet8021XPeriodicReauthTest(Faucet8021XBaseTest):
         self.assertTrue(self.try_8021x(
             self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False))
 
-        start_total = self.scrape_prometheus_var(
+        last_total = self.scrape_prometheus_var(
             'port_dot1x_success_total', labels=port_labels1, default=0)
-        for expected_offset in range(4):
-            expected_total = start_total + expected_offset
+        for _ in range(4):
             for _ in range(self.SESSION_TIMEOUT * 2):
                 total = self.scrape_prometheus_var(
                     'port_dot1x_success_total', labels=port_labels1, default=0)
-                if total == expected_total:
+                if total > last_total:
                     break
                 time.sleep(1)
-            self.assertEqual(expected_total, total, msg='failed to successfully re-auth')
+            self.assertGreater(total, last_total, msg='failed to successfully re-auth')
+            last_total = total
         self.post_test_checks()
 
 
