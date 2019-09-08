@@ -2427,12 +2427,8 @@ vlans:
 
 
 class FaucetSingleHostsTimeoutPrometheusTest(FaucetUntaggedTest):
-    """Test for hosts that have been learnt are exported via prometheus.
-       Hosts should timeout, and the exported prometheus values should
-       be overwritten.
-       If the maximum number of MACs at any one time is 5, then only 5 values
-       should be exported, even if over 2 hours, there are 100 MACs learnt
-    """
+    """Test that hosts learned and reported in Prometheus, time out."""
+
     TIMEOUT = 15
     CONFIG_GLOBAL = """
 vlans:
@@ -2459,9 +2455,13 @@ vlans:
         return macs_learned
 
     def verify_hosts_learned(self, first_host, second_host, mac_ips, hosts):
+        mac_ipv4s = [mac_ipv4 for mac_ipv4, _ in mac_ips]
+        fping_cmd = mininet_test_util.timeout_cmd(
+            'fping %s -c%u %s' % (self.FPING_ARGS_SHORT, self.TIMEOUT / 3, ' '.join(mac_ipv4s)),
+            self.TIMEOUT / 2)
         for _ in range(3):
-            fping_out = first_host.cmd(mininet_test_util.timeout_cmd(
-                'fping -i300 -c3 %s' % ' '.join(mac_ips), 5))
+            fping_out = first_host.cmd(fping_cmd)
+            self.assertTrue(fping_out, msg='fping did not complete: %s' % fping_cmd)
             macs_learned = self.hosts_learned(hosts)
             if len(macs_learned) == len(hosts):
                 return
@@ -2485,10 +2485,10 @@ vlans:
                     mac_intf = 'mac%u' % i
                     mac_intfs.append(mac_intf)
                     mac_ipv4 = '10.0.0.%u' % i
-                    mac_ips.append(mac_ipv4)
                     self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
                     macvlan_mac = self.get_mac_of_intf(mac_intf, second_host)
                     learned_mac_ports[macvlan_mac] = self.port_map['port_2']
+                    mac_ips.append((mac_ipv4, macvlan_mac))
                 return (mac_intfs, mac_ips, learned_mac_ports)
 
             def down_macvlans(macvlans):
@@ -3617,7 +3617,7 @@ vlans:
 
         # Flood some traffic into the loop
         for _ in range(3):
-            first_host.cmd('fping -i10 -c3 10.0.0.254')
+            first_host.cmd('fping %s -c3 10.0.0.254' % self.FPING_ARGS_SHORT)
             end_bans = self.total_port_bans()
             if end_bans > start_bans:
                 return
@@ -4922,7 +4922,6 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def global_vid():
         return 2047
 
-    STATIC_GW = False
     IPV = 4
     NETPREFIX = 24
     ETH_TYPE = IPV4_ETH
@@ -4936,9 +4935,9 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def netbase(vid, host):
         return ipaddress.ip_interface('192.168.%u.%u' % (vid, host))
 
-    @staticmethod
-    def fping(macvlan_int, ipg):
-        return 'fping -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
+    def fping(self, macvlan_int, ipg):
+        return 'fping %s -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (
+            self.FPING_ARGS_SHORT, macvlan_int, ipg)
 
     def fib_table(self):
         return self._IPV4_FIB_TABLE
@@ -4987,8 +4986,7 @@ vlans:
        '%(port_3)d', '%(port_1)d', '%(port_1)d',
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
-    def test_tagged(self):
-        first_host, second_host, mirror_host = self.hosts_name_ordered()[:3]
+    def configure_mesh(self, first_host, second_host):
         hosts = (first_host, second_host)
         required_ipds = set()
         ipd_to_macvlan = {}
@@ -5021,18 +5019,16 @@ vlans:
                         other_ip = self.netbase(vid, j)
                         setup_commands.append(
                             self.ip('route add %s via %s table %u' % (other_ip, ipg.ip, vid)))
-                if self.STATIC_GW:
-                    setup_commands.append(
-                        self.ip('neigh add %s lladdr %s dev %s' % (ipg.ip, self.FAUCET_MAC, macvlan_int)))
-                else:
-                    setup_commands.append(
-                        self.fping(macvlan_int, ipg.ip))
-                setup_commands.append(self.fping(macvlan_int, ipd.ip))
+                for ipa in (ipg.ip, ipd.ip):
+                    setup_commands.append(self.fping(macvlan_int, ipa))
 
             self.quiet_commands(host, setup_commands)
+        return required_ipds, ipd_to_macvlan
 
-        # verify drop rules present for down hosts
+    def verify_drop_rules(self, required_ipds, ipd_to_macvlan):
         for _ in range(10):
+            if not required_ipds:
+                break
             drop_rules = self.get_matching_flows_on_dpid(
                 self.dpid, {'dl_type': self.ETH_TYPE, 'dl_vlan': str(self.GLOBAL_VID)},
                 table_id=self.fib_table(), actions=[])
@@ -5045,15 +5041,13 @@ vlans:
                     ipd = list(match.values())[0].split('/')[0]
                     if ipd in required_ipds:
                         required_ipds.remove(ipd)
-                if not required_ipds:
-                    break
-                for ipd in required_ipds:
-                    macvlan_int, host = ipd_to_macvlan[ipd]
-                    host.cmd(self.fping(macvlan_int, ipd))
+            for ipd in required_ipds:
+                macvlan_int, host = ipd_to_macvlan[ipd]
+                host.cmd(self.fping(macvlan_int, ipd))
             time.sleep(1)
         self.assertFalse(required_ipds, msg='no drop rules for %s' % required_ipds)
 
-        # verify routing performance
+    def verify_routing_performance(self, first_host, second_host):
         for first_host_ip, second_host_ip in (
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[0], 2)),
                 (self.netbase(self.NEW_VIDS[0], 1), self.netbase(self.NEW_VIDS[-1], 2)),
@@ -5064,7 +5058,7 @@ vlans:
                 MIN_MBPS, first_host_ip.ip, second_host_ip.ip,
                 sync_counters_func=lambda: self.scapy_bcast(first_host))
 
-        # verify L3 reachability between hosts within each subnet
+    def verify_l3_mesh(self, first_host, second_host):
         for vid in self.NEW_VIDS:
             macvlan_int = 'macvlan%u' % vid
             first_host_ip = self.netbase(vid, 1)
@@ -5072,7 +5066,7 @@ vlans:
             self.macvlan_ping(first_host, second_host_ip.ip, macvlan_int)
             self.macvlan_ping(second_host, first_host_ip.ip, macvlan_int)
 
-        # verify L3 hairpin reachability
+    def verify_l3_hairpin(self, first_host, second_host):
         macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
         macvlan2_int = 'macvlan%u' % self.NEW_VIDS[1]
         macvlan2_ip = self.netbase(self.NEW_VIDS[1], 1)
@@ -5092,14 +5086,19 @@ vlans:
         self.quiet_commands(first_host, setup_cmds)
         self.macvlan_ping(first_host, macvlan2_ip.ip, macvlan1_int)
 
-        # Verify mirror.
+    def test_tagged(self):
+        first_host, second_host, mirror_host = self.hosts_name_ordered()[:3]
+        required_ipds, ipd_to_macvlan = self.configure_mesh(first_host, second_host)
+        self.verify_drop_rules(required_ipds, ipd_to_macvlan)
+        self.verify_routing_performance(first_host, second_host)
+        self.verify_l3_mesh(first_host, second_host)
+        self.verify_l3_hairpin(first_host, second_host)
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
         self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
 
 
 class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
 
-    STATIC_GW = True
     IPV = 6
     NETPREFIX = 112
     ETH_TYPE = IPV6_ETH
@@ -5122,10 +5121,11 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
         return self._IPV6_FIB_TABLE
 
     def fping(self, macvlan_int, ipg):
-        return 'fping6 -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (macvlan_int, ipg)
+        return 'fping6 %s -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (
+            self.FPING_ARGS_SHORT, macvlan_int, ipg)
 
     def macvlan_ping(self, host, ipa, macvlan_int):
-        return self.one_ipv6_ping(host, ipa, intf=macvlan_int, timeout=2)
+        return self.one_ipv6_ping(host, ipa, intf=macvlan_int)
 
     def ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
@@ -5163,7 +5163,6 @@ vlans:
                 hairpin_unicast: True
 """ % (global_vid(), '%(port_3)d', '%(port_1)d', '%(port_1)d',
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
-
 
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):

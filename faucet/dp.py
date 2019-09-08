@@ -342,9 +342,6 @@ configuration.
         self.dyn_running = prev_dp.dyn_running
         self.dyn_up_port_nos = set(prev_dp.dyn_up_port_nos)
         self.dyn_last_coldstart_time = prev_dp.dyn_last_coldstart_time
-        for port in prev_dp.ports:
-            if port in self.ports:
-                self.ports[port].clone_dyn_state(prev_dp.ports[port])
 
     def check_config(self):
         super(DP, self).check_config()

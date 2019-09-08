@@ -33,7 +33,7 @@ from mininet.util import dumpNodeConnections, pmonitor  # pylint: disable=import
 
 from clib import mininet_test_util
 from clib import mininet_test_topo
-from clib.mininet_test_topo import FaucetLink, FaucetIntf
+from clib.mininet_test_topo import FaucetLink
 from clib.tcpdump_helper import TcpdumpHelper
 
 MAX_TEST_VID = 512
@@ -42,6 +42,7 @@ MIN_FLAP_TIME = 1
 PEER_BGP_AS = 2**16 + 1
 IPV4_ETH = 0x0800
 IPV6_ETH = 0x86dd
+FPING_ARGS = '-s -T 1 -A'
 
 
 class FaucetTestBase(unittest.TestCase):
@@ -78,6 +79,9 @@ class FaucetTestBase(unittest.TestCase):
     LINKS_PER_HOST = 1
     SOFTWARE_ONLY = False
     NETNS = False
+
+    FPING_ARGS = FPING_ARGS
+    FPING_ARGS_SHORT = ' '.join((FPING_ARGS, '-i10 -p100 -t100'))
 
     RUN_GAUGE = True
     REQUIRES_METERS = False
@@ -757,7 +761,7 @@ class FaucetTestBase(unittest.TestCase):
     @staticmethod
     def pre_start_net():
         """Hook called after Mininet initializtion, before Mininet started."""
-        pass
+        return
 
     def get_config_header(self, config_global, debug_log, dpid, hardware):
         """Build v2 FAUCET config header."""
@@ -1563,8 +1567,8 @@ dbs:
         fping_bin = 'fping'
         if faucet_vip.version == 6:
             fping_bin = 'fping6'
-        fping_cli = '%s -s -b %u -c %u -i %u -p 1 -T 1 %s' % (
-            fping_bin, size, total_packets, packet_interval_ms, faucet_vip.ip)
+        fping_cli = '%s %s -b %u -c %u -i %u %s' % (
+            fping_bin, self.FPING_ARGS_SHORT, size, total_packets, packet_interval_ms, faucet_vip.ip)
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(mininet_test_util.timeout_cmd(
             fping_cli, timeout))
@@ -1646,7 +1650,7 @@ dbs:
         learn_hosts = min_hosts
         successful_learn_hosts = 0
 
-        fping_prefix = 'fping -q -c 1 -t 10 -i 10'
+        fping_prefix = 'fping %s -q -c 1' % self.FPING_ARGS_SHORT
         pps_ms = 1e3 / learn_pps
         while learn_hosts <= max_hosts and successful_learn_hosts < max_hosts:
             error('will learn %u hosts\n' % learn_hosts)
@@ -2139,30 +2143,36 @@ dbs:
             ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)
         self.quiet_commands(host, (add_cmd,))
 
-    def _ip_ping(self, host, ping_cmd, retries, require_host_learned, expected_result=True, count=1):
+    def _ip_ping(self, host, dst, retries, timeout=500,
+                 fping_bin='fping', intf=None, expected_result=True, count=1,
+                 require_host_learned=require_host_learned):
         """Ping a destination from a host"""
-        good_ping = '%u packets transmitted, %u received, 0%% packet loss' % (count, count)
-        if require_host_learned:
-            self.require_host_learned(host)
-        for _ in range(retries):
-            ping_result = host.cmd(ping_cmd)
-            if re.search(good_ping, ping_result):
-                break
-        self.assertTrue(
-            bool(re.search(good_ping, ping_result)) ^ (not expected_result),
-            msg='%s: %s' % (ping_cmd, ping_result))
-
-    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None,
-                      expected_result=True, timeout=None):
-        """Ping an IPv4 destination from a host."""
         if intf is None:
             intf = host.defaultIntf()
-        if timeout is None:
-            timeout = ''
-        else:
-            timeout = '-W%u' % timeout
-        ping_cmd = 'ping -c1 %s -I%s %s' % (timeout, intf, dst)
-        return self._ip_ping(host, ping_cmd, retries, require_host_learned, expected_result, 1)
+        good_ping = r'xmt/rcv/%%loss = %u/%u/0%%' % (count, count)
+        ping_cmd = '%s %s -c%u -I%s -t%u %s' % (
+            fping_bin, self.FPING_ARGS, count, intf, timeout, dst)
+        if require_host_learned:
+            self.require_host_learned(host)
+        pause = timeout / 1e3
+        for _ in range(retries):
+            ping_out = host.cmd(ping_cmd)
+            ping_result = bool(re.search(good_ping, ping_out))
+            if ping_result:
+                break
+            time.sleep(pause)
+            pause *= 2
+        self.assertEqual(ping_result, expected_result, msg='%s %s: %s' % (
+            ping_cmd, ping_result, ping_out))
+
+    def one_ipv4_ping(self, host, dst, retries=3, timeout=1000, intf=None,
+                      require_host_learned=True, expected_result=True):
+        """Ping an IPv4 destination from a host."""
+        return self._ip_ping(
+            host, dst, retries,
+            timeout=timeout, fping_bin='fping', intf=intf,
+            require_host_learned=require_host_learned,
+            expected_result=expected_result)
 
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
@@ -2170,17 +2180,14 @@ dbs:
         self.verify_ipv4_host_learned_mac(
             host, self.FAUCET_VIPV4.ip, self.FAUCET_MAC)
 
-    def one_ipv6_ping(self, host, dst, retries=3, require_host_learned=True, intf=None,
-                      expected_result=True, timeout=None):
+    def one_ipv6_ping(self, host, dst, retries=5, timeout=1000, intf=None,
+                      require_host_learned=True, expected_result=True):
         """Ping an IPv6 destination from a host."""
-        if intf is None:
-            intf = host.defaultIntf()
-        if timeout is None:
-            timeout = ''
-        else:
-            timeout = '-W%u' % timeout
-        ping_cmd = 'ping6 -c1 %s -I%s %s' % (timeout, intf, dst)
-        return self._ip_ping(host, ping_cmd, retries, require_host_learned, expected_result, 1)
+        return self._ip_ping(
+            host, dst, retries,
+            timeout=timeout, fping_bin='fping6', intf=intf,
+            require_host_learned=require_host_learned,
+            expected_result=expected_result)
 
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
