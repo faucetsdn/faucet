@@ -1261,6 +1261,11 @@ class Valve:
                 'packet with non-unicast eth_src %s port %u' % (
                     pkt_meta.eth_src, in_port))
             return None
+        if valve_packet.mac_addr_all_zeros(pkt_meta.eth_src):
+            self.logger.info(
+                'packet with all zeros eth_src %s port %u' % (
+                    pkt_meta.eth_src, in_port))
+            return None
         if self.dp.stack is not None:
             if (not pkt_meta.port.stack and
                     pkt_meta.vlan and

@@ -189,6 +189,18 @@ def parse_packet_in_pkt(data, max_len, eth_pkt=None, vlan_pkt=None):
     return (pkt, eth_pkt, eth_type, vlan_pkt, vlan_vid)
 
 
+def mac_addr_all_zeros(mac_addr):
+    """Returns True if mac_addr is all zeros.
+
+    Args:
+        mac_addr (str): MAC address.
+    Returns:
+        bool: True if all zeros.
+    """
+    mac_bin = haddr_to_bin(mac_addr)
+    return not mac_bin
+
+
 def mac_addr_is_unicast(mac_addr):
     """Returns True if mac_addr is a unicast Ethernet address.
 
