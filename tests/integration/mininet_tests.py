@@ -6838,7 +6838,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         return {
             'drop_spoofed_faucet_mac': False,
             'arp_neighbor_timeout': 2,
-            'max_resolve_backoff_time': 1,
+            'max_resolve_backoff_time': 2,
             'proactive_learn_v4': True
         }
 
@@ -6851,10 +6851,12 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
             self.V100: {
                 'faucet_mac': self.FAUCET_MAC,
                 'faucet_vips': [self.get_faucet_vip(1)]
+                'targeted_gw_resolution': False,
             },
             self.V200: {
                 'faucet_mac': self.FAUCET_MAC2,
                 'faucet_vips': [self.get_faucet_vip(2)]
+                'targeted_gw_resolution': False,
             }
         }
         untagged_hosts = {self.V100: self.V100_NUM_HOSTS,
