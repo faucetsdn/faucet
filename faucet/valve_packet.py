@@ -23,7 +23,7 @@ import struct
 from netaddr import EUI
 
 from ryu.lib import addrconv
-from ryu.lib.mac import BROADCAST, is_multicast, haddr_to_bin
+from ryu.lib.mac import BROADCAST, DONTCARE, is_multicast, haddr_to_bin
 from ryu.lib.packet import (
     arp, bpdu, ethernet,
     icmp, icmpv6, ipv4, ipv6,
@@ -187,6 +187,18 @@ def parse_packet_in_pkt(data, max_len, eth_pkt=None, vlan_pkt=None):
         pass
 
     return (pkt, eth_pkt, eth_type, vlan_pkt, vlan_vid)
+
+
+def mac_addr_all_zeros(mac_addr):
+    """Returns True if mac_addr is all zeros.
+
+    Args:
+        mac_addr (str): MAC address.
+    Returns:
+        bool: True if all zeros.
+    """
+    mac_bin = haddr_to_bin(mac_addr)
+    return mac_bin == DONTCARE
 
 
 def mac_addr_is_unicast(mac_addr):

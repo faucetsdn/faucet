@@ -215,20 +215,6 @@ class Port(Conf):
         self._set_default('description', self.name)
         self._set_default('tagged_vlans', [])
 
-    def clone_dyn_state(self, old_port):
-        self.dyn_dot1x_native_vlan = old_port.dyn_dot1x_native_vlan
-        self.dyn_lacp_up = old_port.dyn_lacp_up
-        self.dyn_lacp_updated_time = old_port.dyn_lacp_updated_time
-        self.dyn_last_ban_time = old_port.dyn_last_ban_time
-        self.dyn_last_lacp_pkt = old_port.dyn_last_lacp_pkt
-        self.dyn_last_lldp_beacon_time = old_port.dyn_last_lldp_beacon_time
-        self.dyn_lldp_beacon_recv_state = old_port.dyn_lldp_beacon_recv_state
-        self.dyn_lldp_beacon_recv_time = old_port.dyn_lldp_beacon_recv_time
-        self.dyn_learn_ban_count = old_port.dyn_learn_ban_count
-        self.dyn_phys_up = old_port.dyn_phys_up
-        self.dyn_stack_current_state = old_port.dyn_stack_current_state
-        self.dyn_stack_probe_info = old_port.dyn_stack_probe_info.copy()
-
     def check_config(self):
         super(Port, self).check_config()
         test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
