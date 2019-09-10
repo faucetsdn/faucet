@@ -6850,12 +6850,12 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         router_info = {
             self.V100: {
                 'faucet_mac': self.FAUCET_MAC,
-                'faucet_vips': [self.get_faucet_vip(1)]
+                'faucet_vips': [self.get_faucet_vip(1)],
                 'targeted_gw_resolution': False,
             },
             self.V200: {
                 'faucet_mac': self.FAUCET_MAC2,
-                'faucet_vips': [self.get_faucet_vip(2)]
+                'faucet_vips': [self.get_faucet_vip(2)],
                 'targeted_gw_resolution': False,
             }
         }
