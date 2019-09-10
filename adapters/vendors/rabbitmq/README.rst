@@ -3,6 +3,16 @@ RabbitMQ Adapter for Event Notifications
 
 This adapter will hook into the Unix socket FAUCET is pushing events to.
 
+
+Use with Poseidon
+^^^^^^^^^^^^^^^^^
+
+See https://github.com/CyberReboot/poseidon for full instructions.
+
+* Poseidon *requires* this adaptor.  Log only parsing is NOT supported.
+* Poseidon has its on RabbitMQ server.  Start the adapter, as below, but NOT the RabbitMQ server.
+* FA_RABBIT_HOST must be set to an IP address that Poseidon will run as (so the adapter can connect to Poseidon's RabbitMQ server).
+
 To add this plugin using ``docker-compose``, from the top level
 directory of FAUCET, export the following additional FAUCET Adapter
 environment variables:
