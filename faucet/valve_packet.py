@@ -23,7 +23,7 @@ import struct
 from netaddr import EUI
 
 from ryu.lib import addrconv
-from ryu.lib.mac import BROADCAST, is_multicast, haddr_to_bin
+from ryu.lib.mac import BROADCAST, DONTCARE, is_multicast, haddr_to_bin
 from ryu.lib.packet import (
     arp, bpdu, ethernet,
     icmp, icmpv6, ipv4, ipv6,
@@ -198,7 +198,7 @@ def mac_addr_all_zeros(mac_addr):
         bool: True if all zeros.
     """
     mac_bin = haddr_to_bin(mac_addr)
-    return not mac_bin
+    return mac_bin == DONTCARE
 
 
 def mac_addr_is_unicast(mac_addr):
