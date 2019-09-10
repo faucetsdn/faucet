@@ -6885,7 +6885,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
 
     def host_ping(self, src_host, dst_ip):
         """ping host"""
-        self.one_ipv4_ping(src_host, dst_ip, require_host_learned=False)
+        self.one_ipv4_ping(src_host, dst_ip, require_host_learned=False, retries=5)
 
     def set_host_ip(self, host, ip):
         """Set the host ip"""
