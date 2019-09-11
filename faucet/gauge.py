@@ -74,6 +74,7 @@ class Gauge(RyuAppBase):
             conf_hash, faucet_config_files, faucet_conf_hashes, new_confs = watcher_parser(
                 self.config_file, self.logname, self.prom_client)
         except InvalidConfigError as err:
+            self.config_watcher.update(self.config_file)
             self.logger.error('invalid config: %s', err)
             return
 
