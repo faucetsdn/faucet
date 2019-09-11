@@ -70,7 +70,8 @@ class Gauge(RyuAppBase):
     def _load_config(self):
         """Load Gauge config."""
         try:
-            new_confs = watcher_parser(self.config_file, self.logname, self.prom_client)
+            _, _, new_confs = watcher_parser(
+                self.config_file, self.logname, self.prom_client)
         except InvalidConfigError as err:
             self.logger.error('invalid config: %s', err)
             return
