@@ -943,7 +943,6 @@ dbs:
         self.assertTrue(self.ryu_app.watchers)
         self.ryu_app.reload_config(None)
         self.assertTrue(self.ryu_app.watchers)
-        self.assertFalse(self.ryu_app._config_files_changed())
 
 
 if __name__ == "__main__":
