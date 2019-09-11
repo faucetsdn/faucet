@@ -6838,7 +6838,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         return {
             'drop_spoofed_faucet_mac': False,
             'arp_neighbor_timeout': 2,
-            'max_resolve_backoff_time': 1,
+            'max_resolve_backoff_time': 2,
             'proactive_learn_v4': True
         }
 
@@ -6850,11 +6850,13 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         router_info = {
             self.V100: {
                 'faucet_mac': self.FAUCET_MAC,
-                'faucet_vips': [self.get_faucet_vip(1)]
+                'faucet_vips': [self.get_faucet_vip(1)],
+                'targeted_gw_resolution': False,
             },
             self.V200: {
                 'faucet_mac': self.FAUCET_MAC2,
-                'faucet_vips': [self.get_faucet_vip(2)]
+                'faucet_vips': [self.get_faucet_vip(2)],
+                'targeted_gw_resolution': False,
             }
         }
         untagged_hosts = {self.V100: self.V100_NUM_HOSTS,
@@ -6885,7 +6887,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
 
     def host_ping(self, src_host, dst_ip):
         """ping host"""
-        self.one_ipv4_ping(src_host, dst_ip, require_host_learned=False)
+        self.one_ipv4_ping(src_host, dst_ip, require_host_learned=False, retries=5)
 
     def set_host_ip(self, host, ip):
         """Set the host ip"""
@@ -6913,6 +6915,9 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
                 v200_host, v200_host_ip = v200_host_tuple
                 self.add_host_route(v100_host, v200_host_ip, first_faucet_vip.ip)
                 self.add_host_route(v200_host, v100_host_ip, second_faucet_vip.ip)
+                # TODO: multi DP route resolver needs to flood out stack ports
+                self.host_ping(v100_host, first_faucet_vip.ip)
+                self.host_ping(v200_host, second_faucet_vip.ip)
                 self.host_ping(v100_host, v200_host_ip.ip)
                 self.host_ping(v200_host, v100_host_ip.ip)
                 self.assertEqual(
@@ -6981,6 +6986,9 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         self.set_host_ip(v200_host, v200_host_ip)
         self.add_host_route(v100_host, v200_host_ip, first_faucet_vip.ip)
         self.add_host_route(v200_host, v100_host_ip, second_faucet_vip.ip)
+        # TODO: multi DP route resolver needs to flood out stack ports
+        self.host_ping(v100_host, first_faucet_vip.ip)
+        self.host_ping(v200_host, second_faucet_vip.ip)
         self.host_ping(v100_host, v200_host_ip.ip)
         self.host_ping(v200_host, v100_host_ip.ip)
         self.assertEqual(
@@ -7015,6 +7023,9 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         self.set_host_ip(v200_host, v200_host_ip)
         self.add_host_route(v100_host, v200_host_ip, first_faucet_vip.ip)
         self.add_host_route(v200_host, v100_host_ip, second_faucet_vip.ip)
+        # TODO: multi DP route resolver needs to flood out stack ports
+        self.host_ping(v100_host, first_faucet_vip.ip)
+        self.host_ping(v200_host, second_faucet_vip.ip)
         self.host_ping(v100_host, v200_host_ip.ip)
         self.host_ping(v200_host, v100_host_ip.ip)
         self.assertEqual(

@@ -163,6 +163,7 @@ class ValveRouteManager(ValveManagerBase):
 
     def _resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         """Return flood packet-out actions for gw resolving"""
+        # TODO: in multi DP routing, need to flood out stack ports as well
         return vlan.flood_pkt(
             self._gw_resolve_pkt(), self.multi_out,
             vlan.faucet_mac, valve_of.mac.BROADCAST_STR, faucet_vip.ip, ip_gw)
