@@ -98,7 +98,7 @@ class RabbitAdapter:
             print("Unable to connect to RabbitMQ at %s:%s because: %s" %
                   (self.host, self.port, err))
             return False
-        except socket.gaierror as err:
+        except (socket.gaierror, OSError) as err:
             print("Unable to connect to RabbitMQ at %s:%s because: %s" %
                   (self.host, self.port, err))
             return False
