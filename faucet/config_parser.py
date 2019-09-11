@@ -252,6 +252,10 @@ def watcher_parser(config_file, logname, prom_client):
 def _parse_dps_for_watchers(conf, logname, meta_dp_state=None):
     all_dps_list = []
     faucet_conf_hashes = {}
+
+    if not isinstance(conf, dict):
+        raise InvalidConfigError('Gauge config not valid')
+
     faucet_config_files = conf.get('faucet_configs', [])
     for faucet_config_file in faucet_config_files:
         conf_hashes, dp_list, _ = dp_parser(faucet_config_file, logname)

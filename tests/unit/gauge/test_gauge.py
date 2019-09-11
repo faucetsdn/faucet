@@ -860,7 +860,8 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
 
     def tearDown(self):
         valve_util.close_logger(self.ryu_app.logger)
-        # shutil.rmtree(self.tmpdir)
+        valve_util.close_logger(self.ryu_app.exc_logger)
+        shutil.rmtree(self.tmpdir)
 
     @staticmethod
     def _fake_dp():
@@ -922,8 +923,7 @@ dps:
         os.environ['FAUCET_CONFIG'] = os.path.join(self.tmpdir, 'faucet.yaml')
         self._write_config(os.environ['FAUCET_CONFIG'], faucet_conf1)
         os.environ['GAUGE_CONFIG'] = os.path.join(self.tmpdir, 'gauge.yaml')
-        self._write_config(os.environ['GAUGE_CONFIG'],
-                """
+        gauge_conf = """
 faucet_configs:
    - '%s'
 watchers:
@@ -946,7 +946,8 @@ dbs:
         type: 'prometheus'
         prometheus_addr: '0.0.0.0'
         prometheus_port: 0
-""" % os.environ['FAUCET_CONFIG'])
+""" % os.environ['FAUCET_CONFIG']
+        self._write_config(os.environ['GAUGE_CONFIG'], gauge_conf)
         self.ryu_app = gauge.Gauge(
             dpset={},
             reg=CollectorRegistry())
@@ -956,7 +957,21 @@ dbs:
         self.ryu_app.reload_config(None)
         self.assertTrue(self.ryu_app.watchers)
         self.assertFalse(self.ryu_app._config_files_changed())
+        # Load a new FAUCET config.
         self._write_config(os.environ['FAUCET_CONFIG'], faucet_conf2)
+        self.assertTrue(self.ryu_app._config_files_changed())
+        self.ryu_app.reload_config(None)
+        self.assertTrue(self.ryu_app.watchers)
+        self.assertFalse(self.ryu_app._config_files_changed())
+        # Load an invalid Gauge config
+        self._write_config(os.environ['GAUGE_CONFIG'], 'invalid')
+        self.assertTrue(self.ryu_app._config_files_changed())
+        self.ryu_app.reload_config(None)
+        self.assertTrue(self.ryu_app.watchers)
+        # Keep trying to load a valid version.
+        self.assertTrue(self.ryu_app._config_files_changed())
+        # Load good Gauge config back
+        self._write_config(os.environ['GAUGE_CONFIG'], gauge_conf)
         self.assertTrue(self.ryu_app._config_files_changed())
         self.ryu_app.reload_config(None)
         self.assertTrue(self.ryu_app.watchers)
