@@ -895,9 +895,7 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
 
     def test_gauge_config(self):
         """Test Gauge minimal config."""
-        os.environ['FAUCET_CONFIG'] = os.path.join(self.tmpdir, 'faucet.yaml')
-        self._write_config(os.environ['FAUCET_CONFIG'],
-                """
+        faucet_conf1 = """
 vlans:
    100:
        description: "100"
@@ -908,7 +906,21 @@ dps:
            1:
                description: "1"
                native_vlan: 100
-""")
+"""
+        faucet_conf2 = """
+vlans:
+   100:
+       description: "200"
+dps:
+   dp1:
+       dp_id: 0x1
+       interfaces:
+           2:
+               description: "2"
+               native_vlan: 100
+"""
+        os.environ['FAUCET_CONFIG'] = os.path.join(self.tmpdir, 'faucet.yaml')
+        self._write_config(os.environ['FAUCET_CONFIG'], faucet_conf1)
         os.environ['GAUGE_CONFIG'] = os.path.join(self.tmpdir, 'gauge.yaml')
         self._write_config(os.environ['GAUGE_CONFIG'],
                 """
@@ -943,6 +955,12 @@ dbs:
         self.assertTrue(self.ryu_app.watchers)
         self.ryu_app.reload_config(None)
         self.assertTrue(self.ryu_app.watchers)
+        self.assertFalse(self.ryu_app._config_files_changed())
+        self._write_config(os.environ['FAUCET_CONFIG'], faucet_conf2)
+        self.assertTrue(self.ryu_app._config_files_changed())
+        self.ryu_app.reload_config(None)
+        self.assertTrue(self.ryu_app.watchers)
+        self.assertFalse(self.ryu_app._config_files_changed())
 
 
 if __name__ == "__main__":

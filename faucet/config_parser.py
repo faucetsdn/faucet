@@ -243,7 +243,10 @@ def _config_parser_v2(config_file, logname, meta_dp_state):
 def watcher_parser(config_file, logname, prom_client):
     """Return Watcher instances from config."""
     conf = config_parser_util.read_config(config_file, logname)
-    return _watcher_parser_v2(conf, logname, prom_client)
+    conf_hash = config_parser_util.config_file_hash(config_file)
+    faucet_config_files, faucet_conf_hashes, result = _watcher_parser_v2(
+        conf, logname, prom_client)
+    return conf_hash, faucet_config_files, faucet_conf_hashes, result
 
 
 def _parse_dps_for_watchers(conf, logname, meta_dp_state=None):
