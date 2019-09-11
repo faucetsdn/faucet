@@ -94,7 +94,7 @@ dbs:
 """
         conf = self.get_config(GAUGE_CONF)
         gauge_file, _ = self.create_config_files(conf)
-        watcher_confs = cp.watcher_parser(gauge_file, 'gauge_config_test', None)
+        _, _, _, watcher_confs = cp.watcher_parser(gauge_file, 'gauge_config_test', None)
         self.assertEqual(len(watcher_confs), 2, 'failed to create config for each dp')
         for watcher_conf in watcher_confs:
             msg = 'all_dps config not applied to each dp'
@@ -162,8 +162,9 @@ dbs:
         type: 'prometheus'
 """
         gauge_file, _ = self.create_config_files(GAUGE_CONF, '')
-        watcher_conf = cp.watcher_parser(
-            gauge_file, 'gauge_config_test', None)[0]
+        _, _, _, watcher_confs = cp.watcher_parser(
+            gauge_file, 'gauge_config_test', None)
+        watcher_conf = watcher_confs[0]
         msg = 'failed to create watcher correctly when dps configured in gauge.yaml'
         self.assertEqual(watcher_conf.dps[0], 'dp1', msg)
         self.assertEqual(watcher_conf.type, 'port_stats', msg)

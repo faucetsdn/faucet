@@ -243,26 +243,35 @@ def _config_parser_v2(config_file, logname, meta_dp_state):
 def watcher_parser(config_file, logname, prom_client):
     """Return Watcher instances from config."""
     conf = config_parser_util.read_config(config_file, logname)
-    return _watcher_parser_v2(conf, logname, prom_client)
+    conf_hash = config_parser_util.config_file_hash(config_file)
+    faucet_config_files, faucet_conf_hashes, result = _watcher_parser_v2(
+        conf, logname, prom_client)
+    return conf_hash, faucet_config_files, faucet_conf_hashes, result
 
 
 def _parse_dps_for_watchers(conf, logname, meta_dp_state=None):
-    dps = {}
-    if 'faucet_configs' in conf:
-        for faucet_file in conf['faucet_configs']:
-            _, dp_list, _ = dp_parser(faucet_file, logname)
-            if dp_list:
-                for dp in dp_list:
-                    dps[dp.name] = dp
+    all_dps_list = []
+    faucet_conf_hashes = {}
 
-    if 'faucet' in conf:
-        faucet_conf = conf['faucet']
-        dps = {dp.name: dp for dp in dp_preparsed_parser(faucet_conf, meta_dp_state)}
+    if not isinstance(conf, dict):
+        raise InvalidConfigError('Gauge config not valid')
 
+    faucet_config_files = conf.get('faucet_configs', [])
+    for faucet_config_file in faucet_config_files:
+        conf_hashes, dp_list, _ = dp_parser(faucet_config_file, logname)
+        if dp_list:
+            faucet_conf_hashes[faucet_config_file] = conf_hashes
+            all_dps_list.extend(dp_list)
+
+    faucet_config = conf.get('faucet', None)
+    if faucet_config:
+        all_dps_list.extend(dp_preparsed_parser(faucet_config, meta_dp_state))
+
+    dps = {dp.name: dp for dp in all_dps_list}
     if not dps:
         raise InvalidConfigError(
             'Gauge configured without any FAUCET configuration')
-    return dps
+    return faucet_config_files, faucet_conf_hashes, dps
 
 
 def _watcher_parser_v2(conf, logname, prom_client):
@@ -270,7 +279,8 @@ def _watcher_parser_v2(conf, logname, prom_client):
 
     if conf is None:
         conf = {}
-    dps = _parse_dps_for_watchers(conf, logname)
+    faucet_config_files, faucet_conf_hashes, dps = _parse_dps_for_watchers(
+        conf, logname)
     dbs = conf.pop('dbs')
 
     result = []
@@ -300,7 +310,7 @@ def _watcher_parser_v2(conf, logname, prom_client):
                 watcher.add_dp(dp)
                 result.append(watcher)
 
-    return result
+    return faucet_config_files, faucet_conf_hashes, result
 
 
 def get_config_for_api(valves):

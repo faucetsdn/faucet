@@ -50,6 +50,7 @@ class Gauge(RyuAppBase):
         super(Gauge, self).__init__(*args, **kwargs)
         self.watchers = {}
         self.config_watcher = ConfigWatcher()
+        self.faucet_config_watchers = []
         self.prom_client = GaugePrometheusClient(reg=self._reg)
         self.thread_managers = (self.prom_client,)
 
@@ -70,8 +71,10 @@ class Gauge(RyuAppBase):
     def _load_config(self):
         """Load Gauge config."""
         try:
-            new_confs = watcher_parser(self.config_file, self.logname, self.prom_client)
+            conf_hash, faucet_config_files, faucet_conf_hashes, new_confs = watcher_parser(
+                self.config_file, self.logname, self.prom_client)
         except InvalidConfigError as err:
+            self.config_watcher.update(self.config_file)
             self.logger.error('invalid config: %s', err)
             return
 
@@ -97,7 +100,14 @@ class Gauge(RyuAppBase):
                 self._start_watchers(ryu_dp, watchers, timestamp)
 
         self.watchers = new_watchers
-        self.config_watcher.update(self.config_file)
+        self.config_watcher.update(
+            self.config_file, {self.config_file: conf_hash})
+        self.faucet_config_watchers = []
+        for faucet_config_file, faucet_conf_hash in faucet_conf_hashes.items():
+            faucet_config_watcher = ConfigWatcher()
+            faucet_config_watcher.update(faucet_config_file, faucet_conf_hash)
+            self.faucet_config_watchers.append(faucet_config_watcher)
+            self.logger.info('watching FAUCET config %s' % faucet_config_file)
         self.logger.info('config complete')
 
     @kill_on_exception(exc_logname)
@@ -111,7 +121,10 @@ class Gauge(RyuAppBase):
                 watcher.update(ryu_event.timestamp, ryu_dp.id, msg)
 
     def _config_files_changed(self):
-        return self.config_watcher.files_changed()
+        for config_watcher in [self.config_watcher] + self.faucet_config_watchers:
+            if config_watcher.files_changed():
+                return True
+        return False
 
     @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
     def reload_config(self, ryu_event):
