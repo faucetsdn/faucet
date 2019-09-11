@@ -258,7 +258,7 @@ def _parse_dps_for_watchers(conf, logname, meta_dp_state=None):
 
     faucet_config = conf.get('faucet', None)
     if faucet_config:
-        all_dps_list.append(dp_preparsed_parser(faucet_config, meta_dp_state))
+        all_dps_list.extend(dp_preparsed_parser(faucet_config, meta_dp_state))
 
     dps = {dp.name: dp for dp in all_dps_list}
     if not dps:
