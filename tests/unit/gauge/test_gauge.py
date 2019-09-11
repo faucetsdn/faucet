@@ -26,7 +26,7 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from prometheus_client import CollectorRegistry
 
-from faucet import gauge, gauge_prom, gauge_influx, gauge_pollers, watcher
+from faucet import gauge, gauge_prom, gauge_influx, gauge_pollers, watcher, valve_util
 
 
 class QuietHandler(BaseHTTPRequestHandler):
@@ -853,8 +853,14 @@ class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
 class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
 
     def setUp(self):
-        os.environ['GAUGE_LOG'] = '/dev/null'
-        os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
+        self.tmpdir = tempfile.mkdtemp()
+        os.environ['GAUGE_LOG'] = os.path.join(self.tmpdir, 'gauge.log')
+        os.environ['GAUGE_EXCEPTION_LOG'] = os.path.join(self.tmpdir, 'gauge-exception.log')
+        self.ryu_app = None
+
+    def tearDown(self):
+        valve_util.close_logger(self.ryu_app.logger)
+        # shutil.rmtree(self.tmpdir)
 
     @staticmethod
     def _fake_dp():
@@ -868,28 +874,29 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
         event.dp = msg.datapath
         return event
 
+    def _write_config(self, config_file_name, config):
+        with open(config_file_name, 'w') as config_file:
+            config_file.write(config)
+
     def test_gauge(self):
         """Test Gauge can be initialized."""
         os.environ['GAUGE_CONFIG'] = '/dev/null'
-        ryu_app = gauge.Gauge(
+        self.ryu_app = gauge.Gauge(
             dpset={},
             reg=CollectorRegistry())
-        ryu_app.reload_config(None)
-        self.assertFalse(ryu_app._config_files_changed())
-        ryu_app._update_watcher(None, self._fake_event())
-        ryu_app._start_watchers(self._fake_dp(), {}, time.time())
+        self.ryu_app.reload_config(None)
+        self.assertFalse(self.ryu_app._config_files_changed())
+        self.ryu_app._update_watcher(None, self._fake_event())
+        self.ryu_app._start_watchers(self._fake_dp(), {}, time.time())
         for event_handler in (
-                ryu_app._datapath_connect,
-                ryu_app._datapath_disconnect):
+                self.ryu_app._datapath_connect,
+                self.ryu_app._datapath_disconnect):
             event_handler(self._fake_event())
 
     def test_gauge_config(self):
         """Test Gauge minimal config."""
-        tmpdir = tempfile.mkdtemp()
-        os.environ['FAUCET_CONFIG'] = os.path.join(tmpdir, 'faucet.yaml')
-        os.environ['GAUGE_CONFIG'] = os.path.join(tmpdir, 'gauge.yaml')
-        with open(os.environ['FAUCET_CONFIG'], 'w') as faucet_config:
-            faucet_config.write(
+        os.environ['FAUCET_CONFIG'] = os.path.join(self.tmpdir, 'faucet.yaml')
+        self._write_config(os.environ['FAUCET_CONFIG'],
                 """
 vlans:
    100:
@@ -902,9 +909,8 @@ dps:
                description: "1"
                native_vlan: 100
 """)
-        os.environ['GAUGE_CONFIG'] = os.path.join(tmpdir, 'gauge.yaml')
-        with open(os.environ['GAUGE_CONFIG'], 'w') as gauge_config:
-            gauge_config.write(
+        os.environ['GAUGE_CONFIG'] = os.path.join(self.tmpdir, 'gauge.yaml')
+        self._write_config(os.environ['GAUGE_CONFIG'],
                 """
 faucet_configs:
    - '%s'
@@ -929,14 +935,13 @@ dbs:
         prometheus_addr: '0.0.0.0'
         prometheus_port: 0
 """ % os.environ['FAUCET_CONFIG'])
-        ryu_app = gauge.Gauge(
+        self.ryu_app = gauge.Gauge(
             dpset={},
             reg=CollectorRegistry())
-        ryu_app.reload_config(None)
-        self.assertTrue(ryu_app.watchers)
-        ryu_app.reload_config(None)
-        self.assertTrue(ryu_app.watchers)
-        shutil.rmtree(tmpdir)
+        self.ryu_app.reload_config(None)
+        self.assertTrue(self.ryu_app.watchers)
+        self.ryu_app.reload_config(None)
+        self.assertTrue(self.ryu_app.watchers)
 
 
 if __name__ == "__main__":
