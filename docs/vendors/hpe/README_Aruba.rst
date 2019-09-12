@@ -74,6 +74,7 @@ must be reserved as tagged on the switch.
 .. code-block:: none
 
 	// Increase the maximum number of allowed VLANs on the box and save the configuration.
+        // If the switch cannot reserve the full range, reserve only the maximum you need.
 	switch (config)# max-vlans 4094
 	switch (config)# write mem
 
@@ -84,6 +85,7 @@ must be reserved as tagged on the switch.
 	switch (config)# oobm ip address 10.0.0.2/24
 
 	// Create maximum number of VLANs and tag every dataplane port available to each vlan. Takes up to 30 minutes.
+        // If the switch cannot reserve the full range, reserve only the VLANs needed individually.
 	switch (config)# vlan 2-4094 tagged all
 
 * *Using VLAN control-plane (2930)*
@@ -91,6 +93,8 @@ must be reserved as tagged on the switch.
 .. code-block:: none
 
 	// Increase the maximum number of allowed VLANs on the box and save the configuration.
+        // If the switch cannot reserve the full range, reserve only the maximum you
+need.
 	switch (config)# max-vlans 2048
 	switch (config)# write mem
 
@@ -104,6 +108,7 @@ must be reserved as tagged on the switch.
 	// Create maximum number of VLANs and tag every dataplane port available to each vlan,
 	// except for the control-plane vlan (above). Note that the command below assumes it
 	// is run on a 52-port switch, with port 48 as the control-plane. Takes up to 20 minutes.
+        // If the switch cannot reserve the full range, reserve only the VLANs needed individually.
 	switch (config)# vlan 2-2047 tagged 1-47,49-52
 
 **OpenFlow configuration**
@@ -198,6 +203,9 @@ At this point, OpenFlow is enabled and running on the switch. If the
 FAUCET controller is running and has connected to the switch
 successfully, you should see the FAUCET pipeline programmed on the
 switch.
+
+NOTE: following is an example only, and may look different depending
+on FAUCET version and which FAUCET features have been enabled.
 
 .. code-block:: none
 
