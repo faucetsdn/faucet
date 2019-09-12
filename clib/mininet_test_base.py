@@ -1578,7 +1578,8 @@ dbs:
             msg=fping_out)
 
     def verify_learn_counters(self, vlan, ports, verify_neighbors=False):
-        for _ in range(3):
+        # Need to synchronize with stats update thread.
+        for _ in range(7):
             vlan_hosts_learned = self.scrape_prometheus_var(
                 'vlan_hosts_learned',
                 {'vlan': str(vlan)})
