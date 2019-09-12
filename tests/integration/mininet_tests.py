@@ -2409,7 +2409,11 @@ vlans:
             mac_intf = 'mac%u' % i
             mac_ipv4 = '10.0.0.%u' % i
             self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
-            second_host.cmd('ping -c1 -I%s %s > /dev/null &' % (mac_intf, first_host.IP()))
+            ping_cmd = mininet_test_util.timeout_cmd(
+                'fping %s -c1 -t1 -I%s %s > /dev/null 2> /dev/null' % (
+                    self.FPING_ARGS_SHORT, mac_intf, first_host.IP()),
+                2)
+            second_host.cmd(ping_cmd)
         flows = self.get_matching_flows_on_dpid(
             self.dpid,
             {'dl_vlan': '100', 'in_port': int(self.port_map['port_2'])},
