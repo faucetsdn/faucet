@@ -109,7 +109,7 @@ class RabbitAdapter:
         """Make connection to sock to receive events"""
         # check if socket events are enabled
         if self.event_sock == '0':
-            print('Not connecting to any socket, FA_EVENT_SOCK is none.')
+            print('Not connecting to any socket, FAUCET_EVENT_SOCK is none.')
             return False
         if self.event_sock == '1':
             self.event_sock = get_sys_prefix() + '/var/run/faucet/faucet.sock'
@@ -146,6 +146,8 @@ class RabbitAdapter:
                                 if err.errno != errno.EWOULDBLOCK:
                                     recv_data = False
                                 continue_recv = False
+                    else:
+                        recv_data = False
                 # send events to rabbit
                 try:
                     buffers = buffer.strip().split(b'\n')
