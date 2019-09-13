@@ -23,6 +23,7 @@ import os
 import select
 import socket
 import sys
+import time
 
 import pika
 
@@ -53,11 +54,9 @@ class RabbitAdapter:
     def __init__(self):
         super(RabbitAdapter, self).__init__()
 
-        # setup socket
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-
         # get environment variables and set defaults
         self.channel = None
+        self.sock = None
         self.event_sock = os.getenv('FAUCET_EVENT_SOCK', '0')
         self.host = os.getenv('FA_RABBIT_HOST', '')
         self.port = os.getenv('FA_RABBIT_PORT')
@@ -94,14 +93,12 @@ class RabbitAdapter:
             self.channel = pika.BlockingConnection(params).channel()
             self.channel.exchange_declare(exchange=self.exchange,
                                           exchange_type=self.exchange_type)
-        except pika.exceptions.AMQPError as err:
+        except (pika.exceptions.AMQPError, socket.gaierror, OSError) as err:
             print("Unable to connect to RabbitMQ at %s:%s because: %s" %
                   (self.host, self.port, err))
+            self.channel = None
             return False
-        except (socket.gaierror, OSError) as err:
-            print("Unable to connect to RabbitMQ at %s:%s because: %s" %
-                  (self.host, self.port, err))
-            return False
+
         print("Connected to RabbitMQ at %s:%s" % (self.host, self.port))
         return True
 
@@ -109,7 +106,7 @@ class RabbitAdapter:
         """Make connection to sock to receive events"""
         # check if socket events are enabled
         if self.event_sock == '0':
-            print('Not connecting to any socket, FA_EVENT_SOCK is none.')
+            print('Not connecting to any socket, FAUCET_EVENT_SOCK is none.')
             return False
         if self.event_sock == '1':
             self.event_sock = get_sys_prefix() + '/var/run/faucet/faucet.sock'
@@ -117,25 +114,50 @@ class RabbitAdapter:
 
         # create connection to unix socket
         try:
+            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self.sock.connect(self.event_sock)
+            self.sock.setblocking(False)
         except socket.error as err:
             print("Failed to connect to the socket because: %s" % err)
             return False
+
         print("Connected to the socket at %s" % self.event_sock)
         return True
+
+    def send_rabbit(self, buffer):
+        """Send events in buffer to Rabbit."""
+        buffers = buffer.strip().split(b'\n')
+        if not buffers:
+            return True
+
+        if not self.channel:
+            if not self.rabbit_conn():
+                return False
+
+        try:
+            for buff in buffers:
+                self.channel.basic_publish(exchange=self.exchange,
+                                           routing_key=self.routing_key,
+                                           body=buff,
+                                           properties=pika.BasicProperties(
+                                               delivery_mode=2))
+        except pika.exceptions.AMQPError as err:
+            print("Unable to send event to RabbitMQ because: %s" % err)
+            self.channel = None
+            return False
+
+        return True
+
 
     def main(self):
         """Make connections to sock and rabbit and receive messages from sock
         to sent to rabbit
         """
-        # ensure connections to the socket and rabbit before getting messages
-        if self.rabbit_conn() and self.socket_conn():
-            # get events from socket
-            self.sock.setblocking(False)
-            recv_data = True
-            buffer = b''
-            while recv_data:
-                if not buffer:
+        buffer = b''
+        while True:
+            if self.socket_conn():
+                socket_ok = True
+                while socket_ok:
                     read_ready, _, _ = select.select([self.sock], [], [])
                     if self.sock in read_ready:
                         continue_recv = True
@@ -144,25 +166,13 @@ class RabbitAdapter:
                                 buffer += self.sock.recv(1024)
                             except socket.error as err:
                                 if err.errno != errno.EWOULDBLOCK:
-                                    recv_data = False
+                                    socket_ok = False
                                 continue_recv = False
-                # send events to rabbit
-                try:
-                    buffers = buffer.strip().split(b'\n')
-                    for buff in buffers:
-                        self.channel.basic_publish(exchange=self.exchange,
-                                                   routing_key=self.routing_key,
-                                                   body=buff,
-                                                   properties=pika.BasicProperties(
-                                                       delivery_mode=2,
-                                                   ))
-                    buffer = b''
-                except pika.exceptions.AMQPError as err:
-                    print("Unable to send event to RabbitMQ because: %s" % err)
-                    print("The following event will be retried: %r" % buffer)
-                    self.rabbit_conn()
-                sys.stdout.flush()
-            self.sock.close()
+                    if self.send_rabbit(buffer):
+                        buffer = b''
+                    sys.stdout.flush()
+                self.sock.close()
+            time.sleep(1)
 
 
 if __name__ == "__main__":  # pragma: no cover
