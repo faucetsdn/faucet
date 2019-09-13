@@ -82,7 +82,7 @@ class RabbitAdapter:
         """Make connection to rabbit to send events"""
         # check if a rabbit host was specified
         if not self.host:
-            print('Not connecting to any RabbitMQ, host is None.')
+            print('Not connecting to any RabbitMQ, host is None.')  # pylint: disable=print-statement
             return False
 
         # create connection to rabbit
@@ -94,22 +94,18 @@ class RabbitAdapter:
             self.channel = pika.BlockingConnection(params).channel()
             self.channel.exchange_declare(exchange=self.exchange,
                                           exchange_type=self.exchange_type)
-        except pika.exceptions.AMQPError as err:
+        except (pika.exceptions.AMQPError, socket.gaierror, OSError) as err:
             print("Unable to connect to RabbitMQ at %s:%s because: %s" %
-                  (self.host, self.port, err))
+                  (self.host, self.port, err))  # pylint: disable=print-statement
             return False
-        except (socket.gaierror, OSError) as err:
-            print("Unable to connect to RabbitMQ at %s:%s because: %s" %
-                  (self.host, self.port, err))
-            return False
-        print("Connected to RabbitMQ at %s:%s" % (self.host, self.port))
+        print("Connected to RabbitMQ at %s:%s" % (self.host, self.port))  # pylint: disable=print-statement
         return True
 
     def socket_conn(self):
         """Make connection to sock to receive events"""
         # check if socket events are enabled
         if self.event_sock == '0':
-            print('Not connecting to any socket, FA_EVENT_SOCK is none.')
+            print('Not connecting to any socket, FAUCET_EVENT_SOCK is none.')  # pylint: disable=print-statement
             return False
         if self.event_sock == '1':
             self.event_sock = get_sys_prefix() + '/var/run/faucet/faucet.sock'
@@ -119,9 +115,9 @@ class RabbitAdapter:
         try:
             self.sock.connect(self.event_sock)
         except socket.error as err:
-            print("Failed to connect to the socket because: %s" % err)
+            print("Failed to connect to the socket because: %s" % err)  # pylint: disable=print-statement
             return False
-        print("Connected to the socket at %s" % self.event_sock)
+        print("Connected to the socket at %s" % self.event_sock)  # pylint: disable=print-statement
         return True
 
     def main(self):
@@ -146,6 +142,8 @@ class RabbitAdapter:
                                 if err.errno != errno.EWOULDBLOCK:
                                     recv_data = False
                                 continue_recv = False
+                    else:
+                        recv_data = False
                 # send events to rabbit
                 try:
                     buffers = buffer.strip().split(b'\n')
@@ -158,8 +156,8 @@ class RabbitAdapter:
                                                    ))
                     buffer = b''
                 except pika.exceptions.AMQPError as err:
-                    print("Unable to send event to RabbitMQ because: %s" % err)
-                    print("The following event will be retried: %r" % buffer)
+                    print("Unable to send event to RabbitMQ because: %s" % err)  # pylint: disable=print-statement
+                    print("The following event will be retried: %r" % buffer)  # pylint: disable=print-statement
                     self.rabbit_conn()
                 sys.stdout.flush()
             self.sock.close()
