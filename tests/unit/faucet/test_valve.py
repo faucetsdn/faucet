@@ -308,6 +308,56 @@ vlans:
             0, int(self.get_prom('port_lacp_status', labels=labels)))
 
 
+class ValveTFMSize(ValveTestBases.ValveTestSmall):
+    """Test TFM sizer."""
+
+    NUM_PORTS = 128
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        lacp_timeout: 5
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                lacp: 1
+                lacp_active: True
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                tagged_vlans: [v300]
+        interface_ranges:
+            6-128:
+                native_vlan: v100
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+    v300:
+        vid: 0x300
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_size(self):
+        tfm_by_name = {body.name: body for body in self.table.tfm.values()}
+        flood_table = tfm_by_name.get(b'flood', None)
+        self.assertGreater(flood_table.max_entries, self.NUM_PORTS * 2)
+
+
 class ValveActiveLACPTestCase(ValveTestBases.ValveTestSmall):
     """Test LACP."""
 

@@ -168,7 +168,6 @@ FAUCET_MAC = '0e:00:00:00:00:01'
 BASE_DP1_CONFIG = """
         dp_id: 1
         hardware: 'GenericTFM'
-        egress_pipeline: True
         ignore_learn_ins: 100
         ofchannel_log: '/dev/null'
         packetin_pps: 99

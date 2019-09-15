@@ -525,16 +525,33 @@ configuration.
                 test_config_condition(
                     not matches.issubset(oxm_fields),
                     'matches not all OpenFlow OXM fields %s' % (matches - oxm_fields))
-            size = self.table_sizes.get(table_name, self.min_wildcard_table_size)
-            if table_config.vlan_port_scale:
-                vlan_port_factor = len(self.vlans) * len(self.ports)
-                # Need more flows for external loop protection.
-                if self.has_externals:
-                    vlan_port_factor *= 2
-                size = max(size, int(vlan_port_factor * float(table_config.vlan_port_scale)))
+
+            size = max(self.table_sizes.get(table_name, self.min_wildcard_table_size),
+                    self.min_wildcard_table_size)
+
+            scale_factor = 1.0
+            # Need flows for internal/external.
+            if self.has_externals:
+                scale_factor *= 2
+
+            # Table scales with number of VLANs only.
+            if table_config.vlan_scale:
+                scale_factor *= (len(self.vlans) * table_config.vlan_scale)
+
+                # We need flows for all ports when using combinatorial port flood.
+                if self.combinatorial_port_flood and table_config.name == 'flood':
+                    scale_factor *= len(self.ports)
+
+            # Table scales with number of ports and VLANs.
+            elif table_config.vlan_port_scale:
+                scale_factor *= (len(self.vlans) * len(self.ports) * table_config.vlan_port_scale)
+
+            # Always multiple of min_wildcard_table_size
+            size = (int(scale_factor / self.min_wildcard_table_size) + 1) * self.min_wildcard_table_size
+
             if not table_config.exact_match:
                 size = min(size, self.max_wildcard_table_size)
-                size = int(size / self.min_wildcard_table_size) * self.min_wildcard_table_size
+
             table_config.size = size
             table_config.next_tables = [
                 table_name for table_name in table_config.next_tables

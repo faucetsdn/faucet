@@ -6581,7 +6581,6 @@ class FaucetStringOfDPTest(FaucetTest):
             dp_config = {
                 'dp_id': int(dpid),
                 'hardware': hardware if dpid == hw_dpid else 'Open vSwitch',
-                'table_sizes': {'flood': 64},
                 'ofchannel_log': ofchannel_log + str(i) if ofchannel_log else None,
                 'interfaces': {},
                 'group_table': self.GROUP_TABLE,
