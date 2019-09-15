@@ -329,7 +329,7 @@ dps:
 
     def test_delete_vlan(self):
         """Test VLAN can be deleted."""
-        self.update_config(self.LESS_CONFIG, reload_type='warm')
+        self.update_config(self.LESS_CONFIG, reload_type='cold')
 
 
 class ValveAddVLANTestCase(ValveTestBases.ValveTestSmall):
@@ -366,7 +366,7 @@ dps:
 
     def test_add_vlan(self):
         """Test VLAN can added."""
-        self.update_config(self.MORE_CONFIG, reload_type='warm')
+        self.update_config(self.MORE_CONFIG, reload_type='cold')
 
 
 class ValveChangeACLTestCase(ValveTestBases.ValveTestSmall):
