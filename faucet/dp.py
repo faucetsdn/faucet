@@ -527,7 +527,7 @@ configuration.
                     'matches not all OpenFlow OXM fields %s' % (matches - oxm_fields))
 
             size = max(self.table_sizes.get(table_name, self.min_wildcard_table_size),
-                    self.min_wildcard_table_size)
+                       self.min_wildcard_table_size)
 
             scale_factor = 1.0
             # Need flows for internal/external.
