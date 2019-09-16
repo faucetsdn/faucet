@@ -186,9 +186,9 @@ class Valve:
                         route_manager.IPV, vlan, vlan.faucet_vips_by_ipv(route_manager.IPV)))
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
+        restricted_bcast_arpnd = bool(self.dp.restricted_bcast_arpnd_ports())
         if self.dp.stack:
             flood_class = valve_flood.ValveFloodStackManagerNoReflection
-            restricted_bcast_arpnd = bool(self.dp.restricted_bcast_arpnd_ports())
             if self.dp.stack_root_flood_reflection:
                 flood_class = valve_flood.ValveFloodStackManagerReflection
             self.flood_manager = flood_class(
