@@ -3409,6 +3409,27 @@ routers:
         self.fail('host route %s still present' % match)
 
 
+class FaucetUntaggedRestBcastIPv4RouteTest(FaucetUntaggedIPv4RouteTest):
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                restricted_broadcast: true
+            %(port_2)d:
+                native_vlan: 100
+                restricted_broadcast: true
+            %(port_3)d:
+                native_vlan: 100
+                restricted_broadcast: true
+            %(port_4)d:
+                native_vlan: 100
+                restricted_broadcast: true
+"""
+
+
 class FaucetUntaggedVLanUnicastFloodTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """

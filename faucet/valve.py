@@ -194,6 +194,7 @@ class Valve:
                 self.logger, self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
+                bool(self.dp.restricted_broadcast_ports),
                 self.dp.stack_ports, self.dp.has_externals,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port,
                 self.dp.is_stack_root, self.dp.is_stack_root_candidate,
@@ -202,7 +203,8 @@ class Valve:
             self.flood_manager = valve_flood.ValveFloodManager(
                 self.logger, self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
-                self.dp.combinatorial_port_flood, self.dp.canonical_port_order)
+                self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
+                bool(self.dp.restricted_broadcast_ports))
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:

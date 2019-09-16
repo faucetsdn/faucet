@@ -538,9 +538,13 @@ configuration.
             if table_config.vlan_scale:
                 scale_factor *= (len(self.vlans) * table_config.vlan_scale)
 
-                # We need flows for all ports when using combinatorial port flood.
-                if self.combinatorial_port_flood and table_config.name == 'flood':
-                    scale_factor *= len(self.ports)
+                if table_config.name == 'flood':
+                    # We need flows for all ports when using combinatorial port flood.
+                    if self.combinatorial_port_flood:
+                        scale_factor *= len(self.ports)
+                    # We need more flows for more broadcast rules.
+                    if self.restricted_broadcast_ports():
+                        scale_factor *= 2
 
             # Table scales with number of ports and VLANs.
             elif table_config.vlan_port_scale:
@@ -631,6 +635,10 @@ configuration.
     def in_port_tables(self):
         """Return list of tables that specify in_port as a match."""
         return self.match_tables('in_port')
+
+    def restricted_broadcast_ports(self):
+        """Return ports that have restricted broadcast set."""
+        return tuple([port for port in self.ports.values() if port.restricted_broadcast])
 
     def lacp_ports(self):
         """Return ports that have LACP."""
