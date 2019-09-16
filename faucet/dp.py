@@ -543,7 +543,7 @@ configuration.
                     if self.combinatorial_port_flood:
                         scale_factor *= len(self.ports)
                     # We need more flows for more broadcast rules.
-                    if self.restricted_broadcast_ports():
+                    if self.restricted_bcast_arpnd_ports():
                         scale_factor *= 2
 
             # Table scales with number of ports and VLANs.
@@ -636,9 +636,9 @@ configuration.
         """Return list of tables that specify in_port as a match."""
         return self.match_tables('in_port')
 
-    def restricted_broadcast_ports(self):
+    def restricted_bcast_arpnd_ports(self):
         """Return ports that have restricted broadcast set."""
-        return tuple([port for port in self.ports.values() if port.restricted_broadcast])
+        return tuple([port for port in self.ports.values() if port.restricted_bcast_arpnd])
 
     def lacp_ports(self):
         """Return ports that have LACP."""

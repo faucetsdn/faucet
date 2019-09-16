@@ -431,9 +431,9 @@ class VLAN(Conf):
         """Return all ports on this VLAN."""
         return self.tagged + self.untagged + self.dot1x_untagged
 
-    def restricted_broadcast_ports(self):
+    def restricted_bcast_arpnd_ports(self):
         """Return all ports with restricted broadcast enabled."""
-        return tuple([port for port in self.get_ports() if port.restricted_broadcast])
+        return tuple([port for port in self.get_ports() if port.restricted_bcast_arpnd])
 
     def hairpin_ports(self):
         """Return all ports with hairpin enabled."""
