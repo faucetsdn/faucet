@@ -165,7 +165,8 @@ class ValveFloodManager(ValveManagerBase):
         port_non_output_acts = []
         if port.dyn_phys_up:
             flood_acts = self._build_flood_rule_actions(
-                vlan, exclude_unicast, port, exclude_all_external, exclude_restricted_bcast_arpnd)
+                vlan, exclude_unicast, port, exclude_all_external,
+                (port.restricted_bcast_arpnd and exclude_restricted_bcast_arpnd))
             flood_acts, port_output_ports, port_non_output_acts = self._output_non_output_actions(
                 flood_acts)
             if not port_output_ports:
