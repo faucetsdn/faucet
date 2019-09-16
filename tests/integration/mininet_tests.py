@@ -2952,7 +2952,7 @@ vlans:
             second_host_dst_match, table_id=self._ETH_DST_TABLE)
         self.change_port_config(
             self.port_map['port_4'], None, None,
-            restart=True, cold_start=False)
+            restart=True, cold_start=True)
         self.wait_until_no_matching_flow(
             second_host_dst_match, table_id=self._ETH_DST_TABLE)
 
