@@ -20,14 +20,15 @@
 
 import time
 import unittest
+from ryu.lib import mac
 from ryu.lib.packet import slow
+from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from faucet import valve_of
 from valve_test_lib import (
     CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
     ValveTestBases)
-
 
 
 class ValveTestCase(ValveTestBases.ValveTestBig):
@@ -66,6 +67,42 @@ dps:
                 'ipv4_src': '10.0.0.2',
                 'ipv4_dst': '10.0.0.3',
                 'vid': 0x100})
+
+
+class ValveRestBcastTestCase(ValveTestBases.ValveTestSmall):
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                restricted_bcast_arpnd: true
+            p2:
+                number: 2
+                native_vlan: 0x100
+            p3:
+                number: 3
+                native_vlan: 0x100
+                restricted_bcast_arpnd: true
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_rest_bcast(self):
+        match = {
+            'in_port': 1, 'vlan_vid': 0, 'eth_type': ether.ETH_TYPE_IP,
+            'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
+        self.assertTrue(self.table.is_output(match, port=2))
+        self.assertFalse(self.table.is_output(match, port=3))
+        match = {
+            'in_port': 2, 'vlan_vid': 0, 'eth_type': ether.ETH_TYPE_IP,
+            'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
+        self.assertTrue(self.table.is_output(match, port=1))
+        self.assertTrue(self.table.is_output(match, port=3))
 
 
 class ValveOFErrorTestCase(ValveTestBases.ValveTestSmall):

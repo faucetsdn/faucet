@@ -3409,6 +3409,27 @@ routers:
         self.fail('host route %s still present' % match)
 
 
+class FaucetUntaggedRestBcastIPv4RouteTest(FaucetUntaggedIPv4RouteTest):
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                restricted_bcast_arpnd: true
+            %(port_2)d:
+                native_vlan: 100
+                restricted_bcast_arpnd: true
+            %(port_3)d:
+                native_vlan: 100
+                restricted_bcast_arpnd: true
+            %(port_4)d:
+                native_vlan: 100
+                restricted_bcast_arpnd: true
+"""
+
+
 class FaucetUntaggedVLanUnicastFloodTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -6367,6 +6388,27 @@ routers:
         self.assertTrue(re.search('fc00::10:0/112 next-hop fc00::1:1', updates))
         self.assertTrue(re.search('fc00::20:0/112 next-hop fc00::1:2', updates))
         self.assertTrue(re.search('fc00::30:0/112 next-hop fc00::1:2', updates))
+
+
+class FaucetUntaggedRestBcastIPv6RouteTest(FaucetUntaggedIPv6RouteTest):
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                restricted_bcast_arpnd: true
+            %(port_2)d:
+                native_vlan: 100
+                restricted_bcast_arpnd: true
+            %(port_3)d:
+                native_vlan: 100
+                restricted_bcast_arpnd: true
+            %(port_4)d:
+                native_vlan: 100
+                restricted_bcast_arpnd: true
+"""
 
 
 class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):

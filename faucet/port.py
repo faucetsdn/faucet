@@ -87,6 +87,8 @@ class Port(Conf):
         # If true, allows Mac Auth Bypass on port (NOTE: this is less secure as MACs can be spoofed)
         'dot1x_dyn_acl': False,
         # If true, expects authentication and ACLs with dot1x_assigned flag set
+        'restricted_bcast_arpnd': False,
+        # If true, this port cannot send non-ARP/IPv6 ND broadcasts to other restricted_bcast_arpnd ports.
     }
 
     defaults_types = {
@@ -121,6 +123,7 @@ class Port(Conf):
         'dot1x_mab': bool,
         'dot1x_dyn_acl': bool,
         'max_lldp_lost': int,
+        'restricted_bcast_arpnd': bool,
     }
 
     stack_defaults_types = {
@@ -173,6 +176,7 @@ class Port(Conf):
         self.lldp_peer_mac = None
         self.stack = {}
         self.unicast_flood = None
+        self.restricted_bcast_arpnd = None
 
         self.dyn_dot1x_native_vlan = None
         self.dyn_lacp_up = None

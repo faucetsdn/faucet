@@ -186,6 +186,7 @@ class Valve:
                         route_manager.IPV, vlan, vlan.faucet_vips_by_ipv(route_manager.IPV)))
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
+        restricted_bcast_arpnd = bool(self.dp.restricted_bcast_arpnd_ports())
         if self.dp.stack:
             flood_class = valve_flood.ValveFloodStackManagerNoReflection
             if self.dp.stack_root_flood_reflection:
@@ -194,6 +195,7 @@ class Valve:
                 self.logger, self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
+                restricted_bcast_arpnd,
                 self.dp.stack_ports, self.dp.has_externals,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port,
                 self.dp.is_stack_root, self.dp.is_stack_root_candidate,
@@ -202,7 +204,8 @@ class Valve:
             self.flood_manager = valve_flood.ValveFloodManager(
                 self.logger, self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
-                self.dp.combinatorial_port_flood, self.dp.canonical_port_order)
+                self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
+                restricted_bcast_arpnd)
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
