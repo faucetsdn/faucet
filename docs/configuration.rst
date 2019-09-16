@@ -535,6 +535,10 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - True
       - If False unicast packets will not be flooded to this port.
+    * - restricted_bcast_arpnd
+      - boolean
+      - False
+      - If True, this port cannot send non-ARP/IPv6 ND broadcasts to other restricted_bcast_arpnd ports.
 
 
 Stacking (Interfaces)

@@ -88,7 +88,7 @@ class Port(Conf):
         'dot1x_dyn_acl': False,
         # If true, expects authentication and ACLs with dot1x_assigned flag set
         'restricted_bcast_arpnd': False,
-        # If true, this port cannot receive non ARP/ND broadcasts
+        # If true, this port cannot send non-ARP/IPv6 ND broadcasts to other restricted_bcast_arpnd ports.
     }
 
     defaults_types = {
