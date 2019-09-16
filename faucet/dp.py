@@ -509,6 +509,9 @@ configuration.
                 else:
                     table.set_fields = (valve_of.EXTERNAL_FORWARDING_FIELD,)
 
+        if self.restricted_bcast_arpnd_ports():
+            table_configs['flood'].match_types += (('eth_type', False),)
+
         if 'egress_acl' in included_tables:
             table_configs['eth_dst'].miss_goto = 'egress_acl'
 

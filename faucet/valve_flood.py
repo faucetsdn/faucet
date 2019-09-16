@@ -129,7 +129,7 @@ class ValveFloodManager(ValveManagerBase):
             priority += eth_type
         return priority
 
-    def _build_flood_rule_for_vlan(self, vlan, eth_type, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
+    def _build_flood_rule_for_vlan(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
                                    exclude_unicast, command):
         flood_priority = self._vlan_flood_priority(eth_type, eth_dst_mask)
         match = self.flood_table.match(
@@ -193,13 +193,13 @@ class ValveFloodManager(ValveManagerBase):
             **add_match)
         return (flood_priority, match)
 
-    def _build_flood_rule_for_port(self, vlan, eth_type, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
+    def _build_flood_rule_for_port(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
                                    command, port, flood_acts, add_match=None):
         flood_priority, match = self._build_flood_match_priority(
             port, vlan, eth_type, eth_dst, eth_dst_mask, add_match)
         return self._build_flood_rule(match, command, flood_acts, flood_priority)
 
-    def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
+    def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
                                 exclude_unicast, exclude_restricted_bcast_arpnd, command):
         ofmsgs = []
         if self.combinatorial_port_flood:
@@ -430,7 +430,7 @@ class ValveFloodStackManagerBase(ValveFloodManager):
     def _canonical_stack_up_ports(self, ports):
         return self.canonical_port_order([port for port in ports if port.is_stack_up()])
 
-    def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
+    def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
                                 exclude_unicast, exclude_restricted_bcast_arpnd, command):
         # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
         ofmsgs = super(ValveFloodStackManagerBase, self)._build_mask_flood_rules(
