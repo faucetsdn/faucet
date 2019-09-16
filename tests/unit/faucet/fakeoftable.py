@@ -69,15 +69,17 @@ class FakeOFTable:
         """Adds, Deletes and modify flow modification messages are applied
            according to section 6.4 of the OpenFlow 1.3 specification."""
 
-        def _validate_flowmod_tfm(table_id, ofmsg):
-            if self.requires_tfm:
-                if table_id == ofp.OFPTT_ALL:
-                    if ofmsg.match.items() and not self.tfm:
-                        raise FakeOFTableException('got %s with matches before TFM that defines tables' % ofmsg)
-                else:
-                    tfm_body = self.tfm.get(table_id, None)
-                    if tfm_body is None:
-                        raise FakeOFTableException('got %s before TFM that defines table %u' % (ofmsg, table_id))
+        def _validate_flowmod_tfm(table_id, tfm_body, ofmsg):
+            if not self.requires_tfm:
+                return
+
+            if table_id == ofp.OFPTT_ALL:
+                if ofmsg.match.items() and not self.tfm:
+                    raise FakeOFTableException('got %s with matches before TFM that defines tables' % ofmsg)
+                return
+
+            if tfm_body is None:
+                raise FakeOFTableException('got %s before TFM that defines table %u' % (ofmsg, table_id))
 
         def _add(table, flowmod):
             # From the 1.3 spec, section 6.4:
@@ -139,20 +141,30 @@ class FakeOFTable:
         }
 
         table_id = ofmsg.table_id
+        tfm_body = self.tfm.get(table_id, None)
+
         if table_id == ofp.OFPTT_ALL or table_id is None:
             tables = self.tables
         else:
             tables = [self.tables[table_id]]
 
-        _validate_flowmod_tfm(table_id, ofmsg)
+        _validate_flowmod_tfm(table_id, tfm_body, ofmsg)
         flowmod = FlowMod(ofmsg)
 
         for table in tables:
             _flowmod_handlers[ofmsg.command](table, flowmod)
 
+        if tfm_body:
+            for table in tables:
+                entries = len(table)
+                if entries > tfm_body.max_entries:
+                    flow_dump = '\n\n'.join(
+                        ('table %u %s full (max %u)' % (table_id, tfm_body.name, tfm_body.max_entries),
+                            str(ofmsg), str(tfm_body)))
+                    raise FakeOFTableException(flow_dump)
+
     def _apply_tfm(self, ofmsg):
-        for body in ofmsg.body:
-            self.tfm[body.table_id] = body
+        self.tfm = {body.table_id: body for body in ofmsg.body}
 
     def apply_ofmsgs(self, ofmsgs):
         """Update state of test flow tables."""

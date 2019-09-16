@@ -25,8 +25,8 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
     def __init__(self, name, table_id, # pylint: disable=too-many-arguments
                  exact_match=None, meter=None, output=True, miss_goto=None,
                  size=None, match_types=None, set_fields=None, dec_ttl=None,
-                 vlan_port_scale=None, next_tables=None, metadata_match=0,
-                 metadata_write=0):
+                 vlan_scale=None, vlan_port_scale=None,
+                 next_tables=None, metadata_match=0, metadata_write=0):
         self.name = name
         self.table_id = table_id
         self.exact_match = exact_match
@@ -37,6 +37,7 @@ class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instan
         self.match_types = match_types
         self.set_fields = set_fields
         self.dec_ttl = dec_ttl
+        self.vlan_scale = vlan_scale
         self.vlan_port_scale = vlan_port_scale
         self.metadata_match = metadata_match
         self.metadata_write = metadata_write
@@ -124,6 +125,7 @@ VIP_DEFAULT_CONFIG = ValveTableConfig(
     match_types=(('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
                  ('icmpv6_type', False), ('ip_proto', False)),
     next_tables=_NEXT_ETH,
+    vlan_scale=8,
     )
 ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst_hairpin',
@@ -162,7 +164,7 @@ FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
     EGRESS_DEFAULT_CONFIG.table_id + 1,
     match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
-    vlan_port_scale=2.1,
+    vlan_scale=16,
     )
 MINIMUM_FAUCET_PIPELINE_TABLES = {
     'vlan', 'eth_src', 'eth_dst', 'flood'}

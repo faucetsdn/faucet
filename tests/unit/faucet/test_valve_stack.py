@@ -579,6 +579,7 @@ class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRoutin
     VLAN100_FAUCET_VIP_SPACE = '10.0.1.254/24'
     VLAN200_FAUCET_VIPS = '10.0.2.254'
     VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
+    NUM_PORTS = 64
 
     def base_config(self):
         """Create the base config"""
@@ -598,6 +599,9 @@ class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRoutin
                     native_vlan: vlan100
                 3:
                     stack: {dp: s2, port: 3}
+            interface_ranges:
+                4-64:
+                    native_vlan: vlan100
         s2:
             dp_id: 2
             interfaces:
