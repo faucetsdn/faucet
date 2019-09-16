@@ -211,7 +211,8 @@ class ValveFloodManager(ValveManagerBase):
                 (flood_acts,
                  port_output_ports,
                  port_non_output_acts) = self._build_flood_acts_for_port(
-                     vlan, exclude_unicast, port, exclude_restricted_bcast_arpnd=(eth_type is None))
+                     vlan, exclude_unicast, port,
+                     exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
                 if not flood_acts:
                     continue
                 if (vlan_output_ports - set([port.number]) == port_output_ports
