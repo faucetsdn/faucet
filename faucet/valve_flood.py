@@ -33,20 +33,24 @@ class ValveFloodManager(ValveManagerBase):
     # then we flood all destination eth_dsts).
     FLOOD_DSTS = (
         (True, None, None, None),
-        (False, None, valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.mac_byte_mask(3)), # 802.x
-        (False, None, '01:00:5E:00:00:00', valve_packet.mac_byte_mask(3)), # IPv4 multicast
-        (False, None, '33:33:00:00:00:00', valve_packet.mac_byte_mask(2)), # IPv6 multicast
-        (False, None, valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)), # eth broadcasts
+        (False, None, valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.mac_byte_mask(3)),  # 802.x
+        (False, None, '01:00:5E:00:00:00', valve_packet.mac_byte_mask(3)),  # IPv4 multicast
+        (False, None, '33:33:00:00:00:00', valve_packet.mac_byte_mask(2)),  # IPv6 multicast
+        (False, None, valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)),  # eth broadcasts
     )
     # Ports with restricted broadcast enabled may only receive these broadcasts.
     RESTRICTED_FLOOD_DISTS = (
-        (False, valve_of.ether.ETH_TYPE_ARP, valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)), # ARP
-        (False, valve_of.ether.ETH_TYPE_IPV6, '33:33:FF:00:00:00', valve_packet.mac_byte_mask(3)), # IPv6 multicast
-        (False, valve_of.ether.ETH_TYPE_IPV6, valve_packet.IPV6_ALL_ROUTERS_MCAST, valve_packet.mac_byte_mask(6)),
-        (False, valve_of.ether.ETH_TYPE_IPV6, valve_packet.IPV6_ALL_NODES_MCAST, valve_packet.mac_byte_mask(6)),
+        (False, valve_of.ether.ETH_TYPE_ARP,
+         valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)),  # ARP
+        (False, valve_of.ether.ETH_TYPE_IPV6,
+         '33:33:FF:00:00:00', valve_packet.mac_byte_mask(3)),  # IPv6 multicast for ND
+        (False, valve_of.ether.ETH_TYPE_IPV6,
+         valve_packet.IPV6_ALL_ROUTERS_MCAST, valve_packet.mac_byte_mask(6)),  # IPV6 all routers
+        (False, valve_of.ether.ETH_TYPE_IPV6,
+         valve_packet.IPV6_ALL_NODES_MCAST, valve_packet.mac_byte_mask(6)),  # IPv6 all nodes
     )
 
-    def __init__(self, logger, flood_table, pipeline,
+    def __init__(self, logger, flood_table, pipeline,  # pylint: disable=too-many-arguments
                  use_group_table, groups, combinatorial_port_flood,
                  canonical_port_order, restricted_bcast_arpnd):
         self.logger = logger
@@ -85,7 +89,7 @@ class ValveFloodManager(ValveManagerBase):
         """Return list of all ports that should be flooded to on a VLAN."""
         return list(vlan.flood_ports(vlan.get_ports(), exclude_unicast))
 
-    def _build_flood_local_rule_actions(self, vlan, exclude_unicast, in_port,
+    def _build_flood_local_rule_actions(self, vlan, exclude_unicast, in_port,  # pylint: disable=too-many-arguments
                                         exclude_all_external, exclude_restricted_bcast_arpnd):
         """Return a list of flood actions to flood packets from a port."""
         external_ports = self.canonical_port_order(vlan.loop_protect_external_ports_up())
@@ -103,7 +107,7 @@ class ValveFloodManager(ValveManagerBase):
             in_port=in_port,
             exclude_ports=exclude_ports)
 
-    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port,
+    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port,  # pylint: disable=too-many-arguments
                                   exclude_all_external=False, exclude_restricted_bcast_arpnd=False):
         actions = []
         if vlan.loop_protect_external_ports() and vlan.tagged_flood_ports(exclude_unicast):
@@ -158,15 +162,19 @@ class ValveFloodManager(ValveManagerBase):
         nonoutput_actions = all_nonoutput_actions - set([str(valve_of.pop_vlan())])
         return (deduped_acts, output_ports, nonoutput_actions)
 
-    def _build_flood_acts_for_port(self, vlan, exclude_unicast, port,
-                                   exclude_all_external=False, exclude_restricted_bcast_arpnd=False):
+    def _build_flood_acts_for_port(self, vlan, exclude_unicast, port,  # pylint: disable=too-many-arguments
+                                   exclude_all_external=False,
+                                   exclude_restricted_bcast_arpnd=False):
         flood_acts = []
         port_output_ports = []
         port_non_output_acts = []
         if port.dyn_phys_up:
-            flood_acts = self._build_flood_rule_actions(
-                vlan, exclude_unicast, port, exclude_all_external,
-                (port.restricted_bcast_arpnd and exclude_restricted_bcast_arpnd))
+            if exclude_restricted_bcast_arpnd:
+                flood_acts = self._build_flood_rule_actions(
+                    vlan, exclude_unicast, port, exclude_all_external, port.restricted_bcast_arpnd)
+            else:
+                flood_acts = self._build_flood_rule_actions(
+                    vlan, exclude_unicast, port, exclude_all_external, False)
             flood_acts, port_output_ports, port_non_output_acts = self._output_non_output_actions(
                 flood_acts)
             if not port_output_ports:
@@ -174,7 +182,8 @@ class ValveFloodManager(ValveManagerBase):
                 port_non_output_acts = []
         return (flood_acts, port_output_ports, port_non_output_acts)
 
-    def _build_flood_match_priority(self, port, vlan, eth_type, eth_dst, eth_dst_mask, add_match):
+    def _build_flood_match_priority(self, port, vlan, eth_type,  # pylint: disable=too-many-arguments
+                                    eth_dst, eth_dst_mask, add_match):
         flood_priority = self._vlan_flood_priority(eth_type, eth_dst_mask) + 1
         if add_match is None:
             add_match = {}
