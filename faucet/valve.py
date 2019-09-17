@@ -886,7 +886,7 @@ class Valve:
         """Return OpenFlow messages when LACP is down on a port."""
         ofmsgs = []
         if port.dyn_lacp_up != 0:
-            self.logger.info('LAG %u port %s down (previous state %s)' % (
+            self.logger.info('LAG %u %s down (previous state %s)' % (
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 0
         port.dyn_last_lacp_pkt = None
@@ -915,7 +915,7 @@ class Valve:
         vlan_table = self.dp.tables['vlan']
         ofmsgs = []
         if port.dyn_lacp_up != 1:
-            self.logger.info('LAG %u Port %s up (previous state %s)' % (
+            self.logger.info('LAG %u %s up (previous state %s)' % (
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 1
         # Only enable learning if this bundle is selected for forwarding.
@@ -992,19 +992,18 @@ class Valve:
                 age = None
                 if pkt_meta.port.dyn_lacp_last_resp_time:
                     age = now - pkt_meta.port.dyn_lacp_last_resp_time
-                lacp_state_change = (
-                    pkt_meta.port.dyn_lacp_up !=
-                    lacp_pkt.actor_state_synchronization)
+                actor_up = valve_packet.lacp_actor_up(lacp_pkt)
+                lacp_state_change = pkt_meta.port.dyn_lacp_up != actor_up
                 lacp_pkt_change = (
                     pkt_meta.port.dyn_last_lacp_pkt is None or
                     str(lacp_pkt) != str(pkt_meta.port.dyn_last_lacp_pkt))
                 if lacp_state_change:
                     self.logger.info(
                         'remote LACP state change from %s to %s from %s LAG %u (%s)' % (
-                            pkt_meta.port.dyn_lacp_up, lacp_pkt.actor_state_synchronization,
+                            pkt_meta.port.dyn_lacp_up, actor_up,
                             lacp_pkt.actor_system, pkt_meta.port.lacp,
                             pkt_meta.log()))
-                    if lacp_pkt.actor_state_synchronization:
+                    if actor_up:
                         ofmsgs_by_valve[self].extend(self.lacp_up(pkt_meta.port))
                     else:
                         ofmsgs_by_valve[self].extend(self.lacp_down(pkt_meta.port))
