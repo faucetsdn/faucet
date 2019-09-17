@@ -3834,10 +3834,15 @@ details partner lacp pdu:
                 self.set_port_up(self.port_map['port_%u' % port])
             require_lag_status(2)
             require_linux_bond_up()
+            up_lag_ports = set(lag_ports)
+            port = random.choice(lag_ports)
+            up_lag_ports.remove(port)
+            self.set_port_down(self.port_map['port_%u' % port])
             self.one_ipv4_ping(
                 first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
-            for port in lag_ports:
-                self.set_port_down(self.port_map['port_%u' % port])
+            require_lag_status(1)
+            remaining_port = list(up_lag_ports)[0]
+            self.set_port_down(self.port_map['port_%u' % remaining_port])
             require_lag_status(0)
 
 
