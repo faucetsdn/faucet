@@ -886,7 +886,7 @@ class Valve:
         """Return OpenFlow messages when LACP is down on a port."""
         ofmsgs = []
         if port.dyn_lacp_up != 0:
-            self.logger.info('LAG %u port %s down (previous state %s)' % (
+            self.logger.info('LAG %u %s down (previous state %s)' % (
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 0
         port.dyn_last_lacp_pkt = None
@@ -915,7 +915,7 @@ class Valve:
         vlan_table = self.dp.tables['vlan']
         ofmsgs = []
         if port.dyn_lacp_up != 1:
-            self.logger.info('LAG %u Port %s up (previous state %s)' % (
+            self.logger.info('LAG %u %s up (previous state %s)' % (
                 port.lacp, port, port.dyn_lacp_up))
         port.dyn_lacp_up = 1
         # Only enable learning if this bundle is selected for forwarding.
