@@ -359,6 +359,15 @@ def parse_faucet_lldp(lldp_pkt, faucet_dp_mac):
     return (remote_dp_id, remote_dp_name, remote_port_id, remote_port_state)
 
 
+def lacp_actor_up(lacp_pkt):
+    """Return 1 if remote LACP link is up."""
+    if (lacp_pkt.actor_state_synchronization and
+            actor_state_collecting and
+            actor_state_distributing):
+        return 1
+    return 0
+
+
 def lacp_reqreply(eth_src,
                   actor_system, actor_key, actor_port,
                   actor_state_synchronization=0,

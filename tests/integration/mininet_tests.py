@@ -3809,6 +3809,9 @@ details partner lacp pdu:
                 msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
                     result, synced_state_txt))
 
+        # Start with ports down.
+        for port in lag_ports:
+            self.set_port_down(self.port_map['port_%u' % port])
         self.assertEqual(0, prom_lag_status())
         orig_ip = first_host.IP()
         switch = self.first_switch()
@@ -3830,20 +3833,31 @@ details partner lacp pdu:
                 'ip link set dev %s master %s' % (bond_member, bond),))
 
         for _flaps in range(2):
+            # All ports down.
             for port in lag_ports:
-                self.set_port_up(self.port_map['port_%u' % port])
-            require_lag_status(2)
-            require_linux_bond_up()
-            up_lag_ports = set(lag_ports)
-            port = random.choice(lag_ports)
-            up_lag_ports.remove(port)
-            self.set_port_down(self.port_map['port_%u' % port])
+                self.set_port_down(self.port_map['port_%u' % port])
+            require_lag_status(0)
+            # Pick a random port to come up.
+            up_port = random.choice(lag_ports)
+            self.set_port_up(self.port_map['port_%u' % up_port])
+            require_lag_status(1)
+            # We have connectivity with only one port.
             self.one_ipv4_ping(
                 first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+            for port in lag_ports:
+                self.set_port_up(self.port_map['port_%u' % port])
+            # We have connectivity with two ports.
+            require_lag_status(2)
+            require_linux_bond_up()
+            self.one_ipv4_ping(
+                first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+            # We have connectivity if that random port goes down.
+            self.set_port_down(self.port_map['port_%u' % up_port])
             require_lag_status(1)
-            remaining_port = list(up_lag_ports)[0]
-            self.set_port_down(self.port_map['port_%u' % remaining_port])
-            require_lag_status(0)
+            self.one_ipv4_ping(
+                first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+            for port in lag_ports:
+                self.set_port_up(self.port_map['port_%u' % port])
 
 
 class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
