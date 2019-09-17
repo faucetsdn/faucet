@@ -479,6 +479,60 @@ dps:
             1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
 
 
+class ValveChangeMirrorTestCase(ValveTestBases.ValveTestSmall):
+    """Test changes mirroring port."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                output_only: True
+""" % DP1_CONFIG
+
+    MIRROR_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                mirror: p1
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_change_port_acl(self):
+        """Test port ACL can be changed."""
+        self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
+        vlan_labels = {'vlan': str(int(0x100))}
+        port_labels = {'port': 'p1', 'port_description': 'p1'}
+        port_labels.update(vlan_labels)
+        self.assertEqual(
+            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
+        self.assertEqual(
+            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+        # Now mirroring port 1 but we kept the cache.
+        self.update_config(self.MIRROR_CONFIG, reload_type='warm')
+        self.assertEqual(
+            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
+        self.assertEqual(
+            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+
+
 class ValveACLTestCase(ValveTestBases.ValveTestSmall):
     """Test ACL drop/allow and reloading."""
 
