@@ -392,7 +392,9 @@ vlans:
     def test_size(self):
         tfm_by_name = {body.name: body for body in self.table.tfm.values()}
         flood_table = tfm_by_name.get(b'flood', None)
-        self.assertGreater(flood_table.max_entries, self.NUM_PORTS * 2)
+        self.assertTrue(flood_table)
+        if flood_table is not None:
+            self.assertGreater(flood_table.max_entries, self.NUM_PORTS * 2)
 
 
 class ValveActiveLACPTestCase(ValveTestBases.ValveTestSmall):
