@@ -362,8 +362,8 @@ def parse_faucet_lldp(lldp_pkt, faucet_dp_mac):
 def lacp_actor_up(lacp_pkt):
     """Return 1 if remote LACP link is up."""
     if (lacp_pkt.actor_state_synchronization and
-            actor_state_collecting and
-            actor_state_distributing):
+            lacp_pkt.actor_state_collecting and
+            lacp_pkt.actor_state_distributing):
         return 1
     return 0
 
