@@ -31,7 +31,6 @@ class InfluxShipper:
     ship_error_prefix = 'error shipping points: '
     logger = None
 
-
     def ship_points(self, points):
         """Make a connection to InfluxDB and ship points."""
 
@@ -44,17 +43,17 @@ class InfluxShipper:
                     password=self.conf.influx_pwd,
                     database=self.conf.influx_db,
                     timeout=self.conf.influx_timeout)
-                if not client:
-                    self.logger.warning('%s error connecting to InfluxDB' % self.ship_error_prefix)
-                    return False
-                if not client.write_points(points=points, time_precision='s'):
-                    self.logger.warning('%s failed to update InfluxDB' % self.ship_error_prefix)
-                    return False
+                if client:
+                    if client.write_points(points=points, time_precision='s'):
+                        return True
+                    self.logger.warning(
+                        '%s failed to update InfluxDB' % self.ship_error_prefix)
+                else:
+                    self.logger.warning(
+                        '%s error connecting to InfluxDB' % self.ship_error_prefix)
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout,
                     InfluxDBClientError, InfluxDBServerError) as err:
                 self.logger.warning('%s %s' % (self.ship_error_prefix, err))
-                return False
-            return True
         return False
 
     @staticmethod
@@ -71,7 +70,7 @@ class InfluxShipper:
             'fields': {'value': float(stat_val)}}
         return point
 
-    def make_port_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):
+    def make_port_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):  # pylint: disable=too-many-arguments
         """Make an InfluxDB point about a port measurement."""
         port_tags = {
             'dp_name': dp_name,
@@ -106,8 +105,7 @@ Example:
 
     """
 
-    def update(self, rcv_time, dp_id, msg):
-        super(GaugePortStateInfluxDBLogger, self).update(rcv_time, dp_id, msg)
+    def _update(self, rcv_time, msg):
         reason = msg.reason
         port_no = msg.desc.port_no
         if port_no in self.dp.ports:
@@ -153,15 +151,13 @@ Example:
      2017-03-06T05:20:32Z    windscale-faucet-1      port1.0.1       76068211
      2017-03-06T05:20:22Z    windscale-faucet-1      port1.0.1       76065982
      2017-03-06T05:20:12Z    windscale-faucet-1      port1.0.1       76063941
-
     """
 
-    def update(self, rcv_time, dp_id, msg):
-        super(GaugePortStatsInfluxDBLogger, self).update(rcv_time, dp_id, msg)
+    def _update(self, rcv_time, msg):
         points = []
         for stat in msg.body:
             port_name = str(stat.port_no)
-            for stat_name, stat_val in self._format_port_stats('_', stat):
+            for stat_name, stat_val in self._format_stat_pairs('_', stat):
                 points.append(
                     self.make_port_point(
                         self.dp.name, port_name, rcv_time, stat_name, stat_val))
@@ -198,8 +194,7 @@ Example:
 
 """
 
-    def update(self, rcv_time, dp_id, msg):
-        super(GaugeFlowTableInfluxDBLogger, self).update(rcv_time, dp_id, msg)
+    def _update(self, rcv_time, msg):
         points = []
         jsondict = msg.to_jsondict()
         for stats_reply in jsondict['OFPFlowStatsReply']['body']:

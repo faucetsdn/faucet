@@ -1601,6 +1601,65 @@ vlans:
         description: "untagged"
 """
 
+    def get_gauge_watcher_config(self):
+        return """
+    port_stats:
+        dps: ['%s']
+        type: 'port_stats'
+        interval: 5
+        db: 'stats_file'
+    port_state:
+        dps: ['%s']
+        type: 'port_state'
+        interval: 5
+        db: 'state_file'
+    meter_stats:
+        dps: ['%s']
+        type: 'meter_stats'
+        interval: 5
+        db: 'meter_file'
+""" % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
+
+    def get_gauge_config(self, faucet_config_file,
+                         monitor_stats_file,
+                         monitor_state_file,
+                         monitor_meter_stats_file):
+        """Build Gauge config."""
+        return """
+faucet_configs:
+    - %s
+watchers:
+    %s
+dbs:
+    stats_file:
+        type: 'text'
+        file: %s
+    state_file:
+        type: 'text'
+        file: %s
+    meter_file:
+        type: 'text'
+        file: %s
+%s
+    """ % (faucet_config_file, self.get_gauge_watcher_config(),
+           monitor_stats_file, monitor_state_file, monitor_meter_stats_file,
+           self.GAUGE_CONFIG_DBS)
+
+    def _init_gauge_config(self):
+        gauge_config = self.get_gauge_config(
+            self.faucet_config_path,
+            self.monitor_stats_file,
+            self.monitor_state_file,
+            self.monitor_meter_stats_file)
+        if self.config_ports:
+            gauge_config = gauge_config % self.config_ports
+        self._write_yaml_conf(self.gauge_config_path, yaml.safe_load(gauge_config))
+
+    def test_untagged(self):
+        """All hosts on the same untagged VLAN should have connectivity."""
+        # TODO: userspace DP port status not reliable.
+        self.ping_all_when_learned()
+
 
 class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
 
@@ -1620,7 +1679,12 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
     def test_untagged(self):
         super(FaucetUntaggedApplyMeterTest, self).test_untagged()
         first_host, second_host = self.hosts_name_ordered()[:2]
-        error('metered ping flood: %s' % first_host.cmd('ping -c 10000 -f %s' % second_host.IP()))
+        error('metered ping flood: %s' % first_host.cmd(
+            'ping -c 1000 -f %s' % second_host.IP()))
+        # Require meter band bytes to match.
+        self.wait_until_matching_lines_from_file(
+            r'.+faucet-1-1-band-bytes-in.+[1-9].+',
+            self.monitor_meter_stats_file)
 
 
 class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
