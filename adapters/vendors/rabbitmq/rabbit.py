@@ -146,8 +146,10 @@ class RabbitAdapter:
         # ensure connections to the socket and rabbit before getting messages
         if self.rabbit_conn() and self.socket_conn():
             socket_ok = True
+            events = []
             while socket_ok:
-                socket_ok, events = self.poll_events()
+                if not events:
+                    socket_ok, events = self.poll_events()
                 try:
                     for event in events:
                         self.channel.basic_publish(
