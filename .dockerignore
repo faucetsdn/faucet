@@ -1,3 +1,4 @@
+# .git is required by the release process - do not 'ignore' it
 .vagrant
 
 **/__pycache__
