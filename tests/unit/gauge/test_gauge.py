@@ -16,7 +16,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import yaml
 
 import requests
-from requests.exceptions import ConnectionError, ReadTimeout
+from requests.exceptions import ReadTimeout
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import type_desc
@@ -637,7 +637,7 @@ class GaugeThreadPollerTest(unittest.TestCase): # pytype: disable=module-attr
     def fake_no_response(self):
         """This should be called instead of the no_response method in the
         GaugeThreadPoller class, which just throws an error"""
-        pass
+        return
 
     def test_start(self):
         """ Checks if the poller is started """
@@ -859,6 +859,7 @@ class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
 
 
 class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
+    """Test Gauge Ryu app."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
