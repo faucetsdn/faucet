@@ -22,6 +22,8 @@ import random
 import math
 import netaddr
 
+import json
+
 import networkx
 
 from faucet import faucet_pipeline
@@ -762,6 +764,9 @@ configuration.
                 key=edge_name, port_map=edge_attr)
         elif (edge_a_dp.name, edge_z_dp.name, edge_name) in graph.edges:
             graph.remove_edge(edge_a_dp.name, edge_z_dp.name, edge_name)
+
+        with open('/etc/faucet/dp_graph.json', 'w') as outfile:
+            outfile.write(json.dumps(networkx.json_graph.node_link_data(graph), default=str))
 
         return edge_name
 
