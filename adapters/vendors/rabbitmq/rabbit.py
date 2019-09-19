@@ -23,6 +23,7 @@ import os
 import select
 import socket
 import sys
+import time
 
 import pika
 
@@ -114,11 +115,29 @@ class RabbitAdapter:
         # create connection to unix socket
         try:
             self.sock.connect(self.event_sock)
+            self.sock.setblocking(False)
         except socket.error as err:
             print("Failed to connect to the socket because: %s" % err)  # pylint: disable=print-statement
             return False
         print("Connected to the socket at %s" % self.event_sock)  # pylint: disable=print-statement
         return True
+
+    def poll_events(self):
+        """Poll FAUCET socket for events."""
+        socket_ok = False
+        event_buffer = b''
+        read_ready, _, _ = select.select([self.sock], [], [])
+        if self.sock in read_ready:
+            socket_ok = True
+            while True:
+                try:
+                    event_buffer += self.sock.recv(1024)
+                except socket.error as err:
+                    socket_ok = err.errno == errno.EWOULDBLOCK
+                    break
+
+        events = event_buffer.strip().split(b'\n')
+        return (socket_ok, events)
 
     def main(self):
         """Make connections to sock and rabbit and receive messages from sock
@@ -126,40 +145,25 @@ class RabbitAdapter:
         """
         # ensure connections to the socket and rabbit before getting messages
         if self.rabbit_conn() and self.socket_conn():
-            # get events from socket
-            self.sock.setblocking(False)
-            recv_data = True
-            buffer = b''
-            while recv_data:
-                if not buffer:
-                    read_ready, _, _ = select.select([self.sock], [], [])
-                    if self.sock in read_ready:
-                        continue_recv = True
-                        while continue_recv:
-                            try:
-                                buffer += self.sock.recv(1024)
-                            except socket.error as err:
-                                if err.errno != errno.EWOULDBLOCK:
-                                    recv_data = False
-                                continue_recv = False
-                    else:
-                        recv_data = False
-                # send events to rabbit
+            socket_ok = True
+            events = []
+            while socket_ok:
+                if not events:
+                    socket_ok, events = self.poll_events()
                 try:
-                    buffers = buffer.strip().split(b'\n')
-                    for buff in buffers:
-                        self.channel.basic_publish(exchange=self.exchange,
-                                                   routing_key=self.routing_key,
-                                                   body=buff,
-                                                   properties=pika.BasicProperties(
-                                                       delivery_mode=2,
-                                                   ))
-                    buffer = b''
+                    for event in events:
+                        self.channel.basic_publish(
+                            exchange=self.exchange,
+                            routing_key=self.routing_key,
+                            body=event,
+                            properties=pika.BasicProperties(delivery_mode=2,))
+                    events = []
                 except pika.exceptions.AMQPError as err:
-                    print("Unable to send event to RabbitMQ because: %s" % err)  # pylint: disable=print-statement
-                    print("The following event will be retried: %r" % buffer)  # pylint: disable=print-statement
+                    print("Unable to send events %s to RabbitMQ: %s, retrying" % (  # pylint: disable=print-statement
+                        events, err))
+                    time.sleep(1)
                     self.rabbit_conn()
-                sys.stdout.flush()
+                    sys.stdout.flush()
             self.sock.close()
 
 
