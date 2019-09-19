@@ -159,8 +159,8 @@ class RabbitAdapter:
                             properties=pika.BasicProperties(delivery_mode=2,))
                     events = []
                 except pika.exceptions.AMQPError as err:
-                    print("Unable to send events %s to RabbitMQ: %s, retrying" % (
-                        events, err))  # pylint: disable=print-statement
+                    print("Unable to send events %s to RabbitMQ: %s, retrying" % (  # pylint: disable=print-statement
+                        events, err))
                     time.sleep(1)
                     self.rabbit_conn()
                     sys.stdout.flush()
