@@ -46,10 +46,9 @@ DEFAULT_HARDWARE = 'Open vSwitch'
 
 # Only these hardware types will be tested with meters.
 SUPPORTS_METERS = (
+    DEFAULT_HARDWARE,  # TODO: tested with OVS userspace only.
     'Aruba',
     'NoviFlow',
-    # TODO: troubleshoot meters in OVS 2.10.0
-    # DEFAULT_HARDWARE,
     'ZodiacGX',
 )
 

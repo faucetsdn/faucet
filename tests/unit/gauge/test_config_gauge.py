@@ -13,6 +13,7 @@ from faucet.conf import InvalidConfigError
 LOGNAME = '/dev/null'
 
 
+# pylint: disable=invalid-name
 class TestGaugeConfig(unittest.TestCase): # pytype: disable=module-attr
     """Test gauge.yaml config parsing."""
 
@@ -109,6 +110,23 @@ watchers:
     port_stats_poller:
         type: 'port_stats'
         dps: []
+        all_dps: True
+        interval: 10
+        db: 'prometheus'
+dbs:
+    prometheus:
+        type: 'prometheus'
+"""
+        conf = self.get_config(GAUGE_CONF)
+        gauge_file, _ = self.create_config_files(conf)
+        self.assertFalse(self.parse_conf_result(gauge_file, 'gauge_config_test'))
+
+    def test_invalid_watcher_type(self):
+        """Test setting invalid watcher type."""
+        GAUGE_CONF = """
+watchers:
+    port_stats_poller:
+        type: 'not known'
         all_dps: True
         interval: 10
         db: 'prometheus'

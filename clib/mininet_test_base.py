@@ -193,6 +193,8 @@ class FaucetTestBase(unittest.TestCase):
             self.tmpdir, 'gauge-state.txt')
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'gauge-flow.txt')
+        self.monitor_meter_stats_file = os.path.join(
+            self.tmpdir, 'gauge-meter.txt')
         if self.config is not None:
             if 'hw_switch' in self.config:
                 self.hw_switch = self.config['hw_switch']
@@ -377,7 +379,8 @@ class FaucetTestBase(unittest.TestCase):
             switch_names.append(switch.name)
             for dump_cmd in (
                     'dump-flows', 'dump-groups', 'dump-meters',
-                    'dump-group-stats', 'dump-ports', 'dump-ports-desc'):
+                    'dump-group-stats', 'dump-ports', 'dump-ports-desc',
+                    'meter-stats'):
                 switch_dump_name = os.path.join(self.tmpdir, '%s-%s.log' % (switch.name, dump_cmd))
                 # TODO: occasionally fails with socket error.
                 switch.cmd('%s %s %s > %s' % (self.OFCTL, dump_cmd, switch.name, switch_dump_name),

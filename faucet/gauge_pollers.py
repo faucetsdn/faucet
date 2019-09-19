@@ -18,8 +18,11 @@
 
 import logging
 import random
+import time
 
 from ryu.lib import hub
+from ryu.ofproto import ofproto_v1_3 as ofp
+from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from faucet.valve_of import devid_present
 from faucet.valve_of_old import OLD_MATCH_FIELDS
@@ -39,6 +42,7 @@ class GaugePoller:
             )
         # _running indicates that the watcher is receiving data
         self._running = False
+        self.req = None
 
     def report_dp_status(self, dp_status):
         """Report DP status."""
@@ -48,12 +52,14 @@ class GaugePoller:
     def start(self, ryudp, active):
         """Start the poller."""
         self.ryudp = ryudp
+        self._running = True
         if active:
             self.logger.info('starting')
 
     def stop(self):
         """Stop the poller."""
         self.logger.info('stopping')
+        self._running = False
 
     def running(self):
         """Return True if the poller is running."""
@@ -70,9 +76,9 @@ class GaugePoller:
 
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError # pragma: no cover
+        self.logger.info('no response to %s' % self.req)
 
-    def update(self, rcv_time, dp_id, msg):
+    def update(self, rcv_time, msg):
         """Handle the responses to requests.
 
         Called when a reply to a stats request sent by this object is received
@@ -83,41 +89,54 @@ class GaugePoller:
 
         Args:
             rcv_time: the time the response was received
-            dp_id: DP ID
             msg: the stats reply message
         """
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
-        if not self._running:
+        if not self.running():
             self.logger.debug('update received when not running')
             return
         self.reply_pending = False
-        self._update()
-
-    def _update(self):
-        # TODO: this should be implemented by subclasses instead of having a
-        # super call to update
-        pass
+        self._update(rcv_time, msg)
 
     @staticmethod
-    def _format_port_stats(delim, stat):
-        formatted_port_stats = []
-        for stat_name_list, stat_val in (
-                (('packets', 'out'), stat.tx_packets),
-                (('packets', 'in'), stat.rx_packets),
-                (('bytes', 'out'), stat.tx_bytes),
-                (('bytes', 'in'), stat.rx_bytes),
-                (('dropped', 'out'), stat.tx_dropped),
-                (('dropped', 'in'), stat.rx_dropped),
-                (('errors', 'in'), stat.rx_errors)):
+    def _format_stat_pairs(_delim, _stat):
+        return ()
+
+    @staticmethod
+    def _dp_stat_name(_stat, _stat_name):
+        return ''
+
+    @staticmethod
+    def _rcv_time(rcv_time):
+        return time.strftime('%b %d %H:%M:%S', time.localtime(rcv_time))
+
+    def _update(self, rcv_time, msg):
+        if not self.conf.file:
+            return
+        rcv_time_str = self._rcv_time(rcv_time)
+        log_lines = []
+        for stat in msg.body:
+            for stat_name, stat_val in self._format_stat_pairs('-', stat):
+                dp_stat_name = self._dp_stat_name(stat, stat_name)
+                log_lines.append(self._update_line(rcv_time_str, dp_stat_name, stat_val))
+        with open(self.conf.file, 'a') as logfile:
+            logfile.writelines(log_lines)
+
+    @staticmethod
+    def _format_stats(delim, stat_pairs):
+        formatted_stats = []
+        for stat_name_list, stat_val in stat_pairs:
             stat_name = delim.join(stat_name_list)
-            # For openvswitch, unsupported statistics are set to
-            # all-1-bits (UINT64_MAX), skip reporting them
-            if stat_val != 2**64-1:
-                formatted_port_stats.append((stat_name, stat_val))
-            else:
-                formatted_port_stats.append((stat_name, 0))
-        return formatted_port_stats
+            # OVS reports unsupported statistics as all-1-bits (UINT64_MAX)
+            if stat_val == 2**64-1:
+                stat_val = 0
+            formatted_stats.append((stat_name, stat_val))
+        return formatted_stats
+
+    @staticmethod
+    def _update_line(rcv_time_str, stat_name, stat_val):
+        return '\t'.join((rcv_time_str, stat_name, str(stat_val))) + '\n'
 
 
 class GaugeThreadPoller(GaugePoller):
@@ -137,16 +156,14 @@ class GaugeThreadPoller(GaugePoller):
         self.ryudp = None
 
     def start(self, ryudp, active):
-        super(GaugeThreadPoller, self).start(ryudp, active)
         self.stop()
-        self._running = True
+        super(GaugeThreadPoller, self).start(ryudp, active)
         if active:
             self.thread = hub.spawn(self)
             self.thread.name = 'GaugeThreadPoller'
 
     def stop(self):
         super(GaugeThreadPoller, self).stop()
-        self._running = False
         if self.is_active():
             hub.kill(self.thread)
             hub.joinall([self.thread])
@@ -174,9 +191,14 @@ class GaugeThreadPoller(GaugePoller):
         """Send a stats request to a datapath."""
         raise NotImplementedError # pragma: no cover
 
-    def no_response(self):
-        """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError # pragma: no cover
+
+class GaugeMeterStatsPoller(GaugeThreadPoller):
+    """Poll for all meter stats."""
+
+    def send_req(self):
+        if self.ryudp:
+            self.req = parser.OFPMeterStatsRequest(self.ryudp, 0, ofp.OFPM_ALL)
+            self.ryudp.send_msg(self.req)
 
 
 class GaugePortStatsPoller(GaugeThreadPoller):
@@ -186,13 +208,19 @@ class GaugePortStatsPoller(GaugeThreadPoller):
 
     def send_req(self):
         if self.ryudp:
-            ofp = self.ryudp.ofproto
-            ofp_parser = self.ryudp.ofproto_parser
-            req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
-            self.ryudp.send_msg(req)
+            self.req = parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
+            self.ryudp.send_msg(self.req)
 
-    def no_response(self):
-        self.logger.info('port stats request timed out')
+    def _format_stat_pairs(self, delim, stat):
+        stat_pairs = (
+            (('packets', 'out'), stat.tx_packets),
+            (('packets', 'in'), stat.rx_packets),
+            (('bytes', 'out'), stat.tx_bytes),
+            (('bytes', 'in'), stat.rx_bytes),
+            (('dropped', 'out'), stat.tx_dropped),
+            (('dropped', 'in'), stat.rx_dropped),
+            (('errors', 'in'), stat.rx_errors))
+        return self._format_stats(delim, stat_pairs)
 
 
 class GaugeFlowTablePoller(GaugeThreadPoller):
@@ -205,16 +233,11 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
 
     def send_req(self):
         if self.ryudp:
-            ofp = self.ryudp.ofproto
-            ofp_parser = self.ryudp.ofproto_parser
-            match = ofp_parser.OFPMatch()
-            req = ofp_parser.OFPFlowStatsRequest(
+            match = parser.OFPMatch()
+            self.req = parser.OFPFlowStatsRequest(
                 self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
                 0, 0, match)
-            self.ryudp.send_msg(req)
-
-    def no_response(self):
-        self.logger.info('flow dump request timed out')
+            self.ryudp.send_msg(self.req)
 
     def _parse_flow_stats(self, stats):
         """Parse flow stats reply message into tags/labels and byte/packet counts."""

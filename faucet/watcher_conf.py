@@ -188,3 +188,9 @@ For Prometheus:
         test_config_condition(
             self.all_dps and self.dps is not None,
             'all_dps and dps cannot be set together')
+        test_config_condition(
+            not self.type, 'type must be set')
+        valid_types = {'flow_table', 'port_stats', 'port_state', 'meter_stats'}
+        test_config_condition(
+            self.type not in valid_types,
+            'type %s not one of %s' % (self.type, valid_types))
