@@ -1618,7 +1618,20 @@ vlans:
         type: 'meter_stats'
         interval: 5
         db: 'meter_file'
-""" % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
+    meter_stats_prom:
+        dps: ['%s']
+        type: 'meter_stats'
+        db: 'prometheus'
+        interval: 5
+""" % (self.DP_NAME, self.DP_NAME, self.DP_NAME, self.DP_NAME)
+
+    GAUGE_CONFIG_DBS = """
+    prometheus:
+        type: 'prometheus'
+        prometheus_addr: '::1'
+        prometheus_port: %(gauge_prom_port)d
+"""
+    config_ports = {'gauge_prom_port': None}
 
     def get_gauge_config(self, faucet_config_file,
                          monitor_stats_file,
@@ -1683,8 +1696,16 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
             'ping -c 1000 -f %s' % second_host.IP()))
         # Require meter band bytes to match.
         self.wait_until_matching_lines_from_file(
-            r'.+faucet-1-1-band-bytes-in.+[1-9].+',
+            r'.+faucet-1-1-byte-band-count.+[1-9].+',
             self.monitor_meter_stats_file)
+        meter_labels = {
+            'dp_id': self.dpid,
+            'dp_name': self.DP_NAME,
+            'meter_id': 1
+        }
+        byte_band_count = self.scrape_prometheus_var(
+            'of_meter_byte_band_count', labels=meter_labels, controller='gauge')
+        self.assertTrue(byte_band_count)
 
 
 class FaucetUntaggedHairpinTest(FaucetUntaggedTest):

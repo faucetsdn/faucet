@@ -23,13 +23,15 @@ import gzip
 
 from ryu.ofproto import ofproto_v1_3 as ofp
 
+from faucet.conf import InvalidConfigError
 from faucet.valve_util import dpid_log
 from faucet.gauge_influx import (
     GaugePortStateInfluxDBLogger, GaugePortStatsInfluxDBLogger, GaugeFlowTableInfluxDBLogger)
 from faucet.gauge_pollers import (
     GaugePortStatePoller, GaugePortStatsPoller, GaugeFlowTablePoller, GaugeMeterStatsPoller)
 from faucet.gauge_prom import (
-    GaugePortStatsPrometheusPoller, GaugePortStatePrometheusPoller, GaugeFlowTablePrometheusPoller)
+    GaugePortStatsPrometheusPoller, GaugePortStatePrometheusPoller, GaugeFlowTablePrometheusPoller,
+    GaugeMeterStatsPrometheusPoller)
 
 
 def watcher_factory(conf):
@@ -57,6 +59,7 @@ def watcher_factory(conf):
             },
         'meter_stats': {
             'text': GaugeMeterStatsLogger,
+            'prometheus': GaugeMeterStatsPrometheusPoller,
             },
     }
 
@@ -65,7 +68,7 @@ def watcher_factory(conf):
     try:
         return WATCHER_TYPES[w_type][db_type]
     except KeyError:
-        return None
+        raise InvalidConfigError('invalid water config')
 
 
 class GaugePortStateLogger(GaugePortStatePoller):
@@ -118,10 +121,10 @@ class GaugeMeterStatsLogger(GaugeMeterStatsPoller):
         band_stats = stat.band_stats[0]
         stat_pairs = (
             (('flow', 'count'), stat.flow_count),
-            (('bytes', 'in'), stat.byte_in_count),
-            (('packets', 'in'), stat.packet_in_count),
-            (('band', 'bytes', 'in'), band_stats.byte_band_count),
-            (('band', 'packets', 'in'), band_stats.packet_band_count))
+            (('byte', 'in', 'count'), stat.byte_in_count),
+            (('packet', 'in', 'count'), stat.packet_in_count),
+            (('byte', 'band', 'count'), band_stats.byte_band_count),
+            (('packet', 'band', 'count'), band_stats.packet_band_count))
         return self._format_stats(delim, stat_pairs)
 
     def _dp_stat_name(self, stat, stat_name):  # pylint: disable=arguments-differ
