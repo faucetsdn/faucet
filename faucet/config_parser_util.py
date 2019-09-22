@@ -67,16 +67,19 @@ def get_logger(logname):
 def read_config(config_file, logname):
     """Return a parsed YAML config file or None."""
     logger = get_logger(logname)
+    conf_txt = None
+    conf = None
+
     try:
         with open(config_file, 'r') as stream:
             conf_txt = stream.read()
-        return yaml.safe_load(conf_txt)
+        conf = yaml.safe_load(conf_txt)
     except (yaml.YAMLError, UnicodeDecodeError,
             PermissionError, ValueError) as err: # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
     except FileNotFoundError as err: # pytype: disable=name-error
         logger.error('Could not find requested file: %s', config_file)
-    return None
+    return conf, conf_txt
 
 
 def config_file_hash(config_file_name):
@@ -100,7 +103,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     if not os.path.isfile(config_file):
         logger.warning('not a regular file or does not exist: %s', config_file)
         return False
-    conf = read_config(config_file, logname)
+    conf, _ = read_config(config_file, logname)
     if not conf:
         logger.warning('error loading config from file: %s', config_file)
         return False
