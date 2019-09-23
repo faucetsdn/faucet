@@ -120,7 +120,7 @@ def dp_include(config_hashes, config_contents, config_file, logname, top_confs):
     new_config_hashes = config_hashes.copy()
     new_config_hashes[config_file] = config_file_hash(config_file)
     new_config_contents = config_contents.copy()
-    new_config_contents[config_file] = config_contents
+    new_config_contents[config_file] = config_content
 
     # Save the updated configuration state in separate dicts,
     # so if an error is found, the changes can simply be thrown away.

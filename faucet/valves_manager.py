@@ -175,6 +175,18 @@ class ValvesManager:
             self._apply_configs(dps, now, None)
         return stack_change
 
+    def revert_config(self):
+        """Attempt to revert config to last known good version."""
+        for config_file_name, config_content in self.last_good_config.items():
+            self.logger.info('attempting to revert to last good config: %s' % config_file_name)
+            try:
+                with open(config_file_name, 'w') as config_file:
+                    config_file.write(str(config_content))
+            except (FileNotFoundError, OSError, PermissionError) as err:
+                self.logger.error('could not revert %s: %s' % (config_file_name, err))
+                return
+        self.logger.info('successfully reverted to last good config')
+
     def parse_configs(self, new_config_file):
         """Return parsed configs for Valves, or None."""
         self.metrics.faucet_config_hash_func.labels(algorithm=CONFIG_HASH_FUNC)
@@ -194,6 +206,9 @@ class ValvesManager:
             self.metrics.faucet_config_load_error.set(0)
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
+            # If the config was reverted, let the watcher notice.
+            if self.config_auto_revert:
+                self.revert_config()
             self.config_watcher.update(new_config_file)
             self.metrics.faucet_config_hash.info(
                 dict(config_files=new_config_file, hashes=''))
