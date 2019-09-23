@@ -49,10 +49,10 @@ def dp_parser(config_file, logname, meta_dp_state=None):
     test_config_condition(not isinstance(conf, dict), 'Config file does not have valid syntax')
     version = conf.pop('version', 2)
     test_config_condition(version != 2, 'Only config version 2 is supported')
-    config_hashes, dps, top_conf = _config_parser_v2(config_file, logname, meta_dp_state)
+    config_hashes, config_contents, dps, top_conf = _config_parser_v2(config_file, logname, meta_dp_state)
     test_config_condition(dps is None, 'no DPs are not defined')
 
-    return config_hashes, dps, top_conf
+    return config_hashes, config_contents, dps, top_conf
 
 
 def _get_vlan_by_key(dp_id, vlan_key, vlans):
@@ -226,17 +226,18 @@ def _config_parser_v2(config_file, logname, meta_dp_state):
     config_path = config_parser_util.dp_config_path(config_file)
     top_confs = {top_conf: {} for top_conf in V2_TOP_CONFS}
     config_hashes = {}
+    config_contents = {}
     dps = None
 
     if not config_parser_util.dp_include(
-            config_hashes, config_path, logname, top_confs):
+            config_hashes, config_contents, config_path, logname, top_confs):
         raise InvalidConfigError('Error found while loading config file: %s' % config_path)
 
     if not top_confs['dps']:
         raise InvalidConfigError('DPs not configured in file: %s' % config_path)
 
     dps = dp_preparsed_parser(top_confs, meta_dp_state)
-    return (config_hashes, dps, top_confs)
+    return (config_hashes, config_contents, dps, top_confs)
 
 
 def watcher_parser(config_file, logname, prom_client):
@@ -257,7 +258,7 @@ def _parse_dps_for_watchers(conf, logname, meta_dp_state=None):
 
     faucet_config_files = conf.get('faucet_configs', [])
     for faucet_config_file in faucet_config_files:
-        conf_hashes, dp_list, _ = dp_parser(faucet_config_file, logname)
+        conf_hashes, _, dp_list, _ = dp_parser(faucet_config_file, logname)
         if dp_list:
             faucet_conf_hashes[faucet_config_file] = conf_hashes
             all_dps_list.extend(dp_list)

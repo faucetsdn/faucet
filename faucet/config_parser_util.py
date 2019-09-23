@@ -97,21 +97,19 @@ def dp_config_path(config_file, parent_file=None):
     return os.path.realpath(config_file)
 
 
-def dp_include(config_hashes, config_file, logname, top_confs):
+def dp_include(config_hashes, config_contents, config_file, logname, top_confs):
     """Handles including additional config files"""
     logger = get_logger(logname)
     if not os.path.isfile(config_file):
         logger.warning('not a regular file or does not exist: %s', config_file)
         return False
-    conf, _ = read_config(config_file, logname)
+    conf, config_content = read_config(config_file, logname)
     if not conf:
         logger.warning('error loading config from file: %s', config_file)
         return False
 
-    unknown_top_confs = (
-        set(conf.keys()) -
-        set(list(top_confs.keys()) +
-            ['include', 'include-optional', 'version']))
+    valid_conf_keys = set(top_confs.keys()).union({'include', 'include-optional', 'version'})
+    unknown_top_confs = set(conf.keys()) - valid_conf_keys
     if unknown_top_confs:
         logger.error('unknown top level config items: %s', unknown_top_confs)
         return False
@@ -121,6 +119,8 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     # a HUP signal.
     new_config_hashes = config_hashes.copy()
     new_config_hashes[config_file] = config_file_hash(config_file)
+    new_config_contents = config_contents.copy()
+    new_config_contents[config_file] = config_contents
 
     # Save the updated configuration state in separate dicts,
     # so if an error is found, the changes can simply be thrown away.
@@ -152,7 +152,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
                     include_path, config_file,)
                 return False
             if not dp_include(
-                    new_config_hashes, include_path, logname, new_top_confs):
+                    new_config_hashes, config_contents, include_path, logname, new_top_confs):
                 if file_required:
                     logger.error('unable to load required include file: %s', include_path)
                     return False
@@ -162,6 +162,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.
     config_hashes.update(new_config_hashes)
+    config_contents.update(new_config_contents)
     for conf_name, new_conf in new_top_confs.items():
         top_confs[conf_name].update(new_conf)
     return True

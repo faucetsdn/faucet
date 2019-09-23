@@ -176,7 +176,7 @@ class ValvesManager:
         """Return parsed configs for Valves, or None."""
         self.metrics.faucet_config_hash_func.labels(algorithm=CONFIG_HASH_FUNC)
         try:
-            new_conf_hashes, new_dps, top_conf = dp_parser(
+            new_conf_hashes, _, new_dps, top_conf = dp_parser(
                 new_config_file, self.logname, self.meta_dp_state)
             self.config_watcher.update(new_config_file, new_conf_hashes)
             new_present_conf_hashes = [

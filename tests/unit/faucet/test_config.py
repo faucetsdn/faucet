@@ -68,7 +68,7 @@ class TestConfig(unittest.TestCase): # pytype: disable=module-attr
         self.assertEqual(config_success, True, config_err)
 
     def _get_dps_as_dict(self, config):
-        _, dps, _ = cp.dp_parser(self.create_config_file(config), LOGNAME)
+        _, _, dps, _ = cp.dp_parser(self.create_config_file(config), LOGNAME)
         return {dp.dp_id: dp for dp in dps}
 
     def test_one_port_dp(self):
