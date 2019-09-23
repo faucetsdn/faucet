@@ -331,7 +331,7 @@ class ValveFloodManager(ValveManagerBase):
 
 
 class ValveFloodStackManagerBase(ValveFloodManager):
-    """Implement dataplane based flooding for stacked dataplanes."""
+    """Base class for dataplane based flooding on stacked dataplanes."""
 
     def __init__(self, logger, flood_table, pipeline, # pylint: disable=too-many-arguments
                  use_group_table, groups,
@@ -370,7 +370,7 @@ class ValveFloodStackManagerBase(ValveFloodManager):
 
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def _reset_peer_distances(self):
         """Reset distances to/from root for this DP."""
@@ -589,8 +589,12 @@ class ValveFloodStackManagerBase(ValveFloodManager):
 
 
 class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
-    """Special case for networks of size 2 - no need to reflect off root,
-       we can just flood locally and then to the "other" switch."""
+    """Stacks of size 2 - all switches directly connected to root.
+
+    Root switch simply floods to all other switches.
+
+    Non-root switches simply flood to the root.
+    """
 
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
@@ -617,40 +621,31 @@ class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
         return flood_actions
 
     def _edge_dp_for_host(self, other_valves, pkt_meta):
-        """Size 2 stack means shortest path is always directly connected."""
+        """Size 2 means root shortest path is always directly connected."""
         return pkt_meta.port.stack['dp']
 
 
 class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
-    """General case for networks > size 2 - floods are reflected off
-       of the root.
+    """Stacks size > 2 reflect floods off of root (selective flooding).
 
-       If a standalone switch, then flood to local VLAN ports.
+       .. code-block:: none
 
-       If a distributed switch where all switches are directly
-       connected to the root (star topology), edge switches flood
-       locally and to the root, and the root floods to the other
-       edges.
+                                Hosts
+                                 ||||
+                                 ||||
+                   +----+       +----+       +----+
+                ---+1   |       |1234|       |   1+---
+          Hosts ---+2   |       |    |       |   2+--- Hosts
+                ---+3   |       |    |       |   3+---
+                ---+4  5+-------+5  6+-------+5  4+---
+                   +----+       +----+       +----+
 
-       If a non-star distributed switch topologies, use selective
-       flooding (see the following example).
-
-                              Hosts
-                               ||||
-                               ||||
-                 +----+       +----+       +----+
-              ---+1   |       |1234|       |   1+---
-        Hosts ---+2   |       |    |       |   2+--- Hosts
-              ---+3   |       |    |       |   3+---
-              ---+4  5+-------+5  6+-------+5  4+---
-                 +----+       +----+       +----+
-
-                 Root DP
+                   Root DP
 
        Non-root switches flood only to the root. The root switch
        reflects incoming floods back out. Non-root switches flood
-       packets from the root locally and further away.  Flooding is
-       entirely implemented in the dataplane.
+       packets from the root locally and to switches further away
+       from the root. Flooding is entirely implemented in the dataplane.
 
        A host connected to a non-root switch can receive a copy of its
        own flooded packet (because the non-root switch does not know
@@ -735,7 +730,7 @@ class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
         return flood_actions
 
     def _edge_dp_for_host(self, other_valves, pkt_meta):
-        """General case for stacks size > 2."""
+        """For stacks size > 2."""
         # TODO: currently requires controller to manage all switches
         # in the stack to keep each DP's graph consistent.
         # TODO: simplest possible unicast learning.
