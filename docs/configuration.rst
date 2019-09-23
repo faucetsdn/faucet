@@ -1078,7 +1078,11 @@ such as paths for configuration files and port numbers.
       - Colon-separated list of file paths
       - | /etc/faucet/faucet.yaml:
         | /etc/ryu/faucet/faucet.yaml
-      - Faucet will load it's configuration from the first valid file in list
+      - Faucet will load its configuration from the first valid file in list
+    * - FAUCET_CONFIG_AUTO_REVERT
+      - boolean
+      - False
+      - If true, Faucet will attempt to revert a bad config file back to the last known good version.
     * - FAUCET_CONFIG_STAT_RELOAD
       - boolean
       - False
