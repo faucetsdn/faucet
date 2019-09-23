@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import collections
 import copy
 import re
 
@@ -46,10 +45,13 @@ def dp_parser(config_file, logname, meta_dp_state=None):
     dps = None
 
     test_config_condition(conf is None, 'Config file is empty')
-    test_config_condition(not isinstance(conf, dict), 'Config file does not have valid syntax')
+    test_config_condition(
+        not isinstance(conf, dict),
+        'Config file does not have valid syntax')
     version = conf.pop('version', 2)
     test_config_condition(version != 2, 'Only config version 2 is supported')
-    config_hashes, config_contents, dps, top_conf = _config_parser_v2(config_file, logname, meta_dp_state)
+    config_hashes, config_contents, dps, top_conf = _config_parser_v2(
+        config_file, logname, meta_dp_state)
     test_config_condition(dps is None, 'no DPs are not defined')
 
     return config_hashes, config_contents, dps, top_conf
