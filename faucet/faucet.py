@@ -116,6 +116,7 @@ class Faucet(RyuAppBase):
             self.logname, self.logger, self.metrics, self.notifier, self.bgp,
             self.dot1x, self._send_flow_msgs)
         self.thread_managers = (self.bgp, self.dot1x, self.metrics, self.notifier)
+        self.config_auto_revert = self.get_setting('AUTO_REVERT')
 
     @kill_on_exception(exc_logname)
     def _check_thread_exception(self):
