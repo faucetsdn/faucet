@@ -407,6 +407,7 @@ class ValveTestBases:
         LOGNAME = 'faucet'
         ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8')  # must support 64b payload.
         REQUIRE_TFM = True
+        CONFIG_AUTO_REVERT = False
 
         def __init__(self, *args, **kwargs):
             self.dot1x = None
@@ -444,7 +445,7 @@ class ValveTestBases:
                 self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
             self.valves_manager = valves_manager.ValvesManager(
                 self.LOGNAME, self.logger, self.metrics, self.notifier,
-                self.bgp, self.dot1x, self.send_flows_to_dp_by_id)
+                self.bgp, self.dot1x, self.CONFIG_AUTO_REVERT, self.send_flows_to_dp_by_id)
             self.last_flows_to_dp[self.DP_ID] = []
             self.notifier.start()
             initial_ofmsgs = self.update_config(config, reload_expected=False)
@@ -514,7 +515,8 @@ class ValveTestBases:
             flows = valve.prepare_send_flows(flows)
             self.last_flows_to_dp[valve.dp.dp_id] = flows
 
-        def update_config(self, config, reload_type='cold', reload_expected=True):
+        def update_config(self, config, reload_type='cold',
+                          reload_expected=True, error_expected=0):
             """Update FAUCET config with config as text."""
             before_dp_status = int(self.get_prom('dp_status'))
             existing_config = None
@@ -528,20 +530,26 @@ class ValveTestBases:
                 content_change_expected,
                 self.valves_manager.config_watcher.content_changed(self.config_file))
             self.last_flows_to_dp[self.DP_ID] = []
-            var = 'faucet_config_reload_%s_total' % reload_type
-            self.prom_inc(
-                partial(self.valves_manager.request_reload_configs,
-                        time.time(), self.config_file), var=var, inc_expected=reload_expected)
-            self.valve = self.valves_manager.valves[self.DP_ID]
-            if self.DP_ID in self.last_flows_to_dp:
-                reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
-                # DP requested reconnection
-                if reload_ofmsgs is None:
-                    reload_ofmsgs = self.connect_dp()
-                else:
-                    self.apply_ofmsgs(reload_ofmsgs)
+            reload_ofmsgs = []
+            reload_func = partial(
+                self.valves_manager.request_reload_configs,
+                time.time(), self.config_file)
+
+            if error_expected:
+                reload_func()
+            else:
+                var = 'faucet_config_reload_%s_total' % reload_type
+                self.prom_inc(reload_func, var=var, inc_expected=reload_expected)
+                self.valve = self.valves_manager.valves[self.DP_ID]
+                if self.DP_ID in self.last_flows_to_dp:
+                    reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
+                    # DP requested reconnection
+                    if reload_ofmsgs is None:
+                        reload_ofmsgs = self.connect_dp()
+                    else:
+                        self.apply_ofmsgs(reload_ofmsgs)
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
-            self.assertEqual(0, self.get_prom('faucet_config_load_error', bare=True))
+            self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
             return reload_ofmsgs
 
         def connect_dp(self):

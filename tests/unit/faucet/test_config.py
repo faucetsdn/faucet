@@ -68,7 +68,7 @@ class TestConfig(unittest.TestCase): # pytype: disable=module-attr
         self.assertEqual(config_success, True, config_err)
 
     def _get_dps_as_dict(self, config):
-        _, dps, _ = cp.dp_parser(self.create_config_file(config), LOGNAME)
+        _, _, dps, _ = cp.dp_parser(self.create_config_file(config), LOGNAME)
         return {dp.dp_id: dp for dp in dps}
 
     def test_one_port_dp(self):
@@ -773,7 +773,7 @@ dps:
                 native_vlan: 'v100'
 """
         conf_file = self.create_config_file(config)
-        _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
+        _, _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
         outputs = {
             's1': 2,
             's2': 3
@@ -814,7 +814,7 @@ dps:
                 description: "video conf"
 """
         conf_file = self.create_config_file(config)
-        _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
+        _, _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
         dp = dps[0]
         self.assertEqual(len(dp.ports), 8)
         self.assertTrue(all([p.permanent_learn for p in dp.ports.values() if p.number < 9]))
@@ -836,7 +836,7 @@ dps:
                 native_vlan: office
 """
         conf_file = self.create_config_file(config)
-        _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
+        _, _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
         dp = dps[0]
         self.assertEqual(len(dp.ports), 1)
 

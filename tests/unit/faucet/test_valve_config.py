@@ -864,8 +864,44 @@ dps:
                          'hashes should be restored to starting values')
 
 
+class ValveTestConfigRevert(ValveTestBases.ValveTestSmall):
+
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+"""
+
+    CONFIG_AUTO_REVERT = True
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_config_revert(self):
+        """Verify config is automatically reverted if bad."""
+        self.assertEqual(self.get_prom('faucet_config_load_error', bare=True), 0)
+        self.update_config('***broken***', reload_expected=True, error_expected=1)
+        self.assertEqual(self.get_prom('faucet_config_load_error', bare=True), 1)
+        with open(self.config_file, 'r') as config_file:
+            config_content = config_file.read()
+        self.assertEqual(self.CONFIG, config_content)
+        self.update_config(self.CONFIG + '\n', reload_expected=False, error_expected=0)
+        more_config = self.CONFIG + """
+            p2:
+                number: 2
+                native_vlan: 0x100
+        """
+        self.update_config(more_config, reload_expected=True, error_expected=0)
+
+
 class ValveTestConfigApplied(ValveTestBases.ValveTestSmall):
-    """Test cases for faucet_config_applied"""
+    """Test cases for faucet_config_applied."""
+
     CONFIG = """
 dps:
     s1:
@@ -880,23 +916,10 @@ dps:
     def setUp(self):
         self.setup_valve(self.CONFIG)
 
-    def _get_value(self, name):
-        """Return value of a single prometheus sample"""
-        metric = getattr(self.metrics, name)
-        # There doesn't seem to be a nice API for this,
-        # so we use the prometheus client internal API
-        metrics = list(metric.collect())
-        self.assertEqual(len(metrics), 1)
-        samples = metrics[0].samples
-        self.assertEqual(len(samples), 1)
-        sample = samples[0]
-        self.assertEqual(sample.name, name)
-        return sample.value
-
     def test_config_applied_update(self):
         """Verify that config_applied increments after DP connect"""
         # 100% for a single datapath
-        self.assertEqual(self._get_value('faucet_config_applied'), 1.0)
+        self.assertEqual(self.get_prom('faucet_config_applied', bare=True), 1.0)
         # Add a second datapath, which currently isn't programmed
         self.CONFIG += """
     s2:
@@ -908,12 +931,12 @@ dps:
 """
         self.update_config(self.CONFIG, reload_expected=False)
         # Should be 50%
-        self.assertEqual(self._get_value('faucet_config_applied'), .5)
+        self.assertEqual(self.get_prom('faucet_config_applied', bare=True), .5)
         # We don't have a way to simulate the second datapath connecting,
         # we update the statistic manually
         self.valves_manager.update_config_applied({0x2: True})
         # Should be 100% now
-        self.assertEqual(self._get_value('faucet_config_applied'), 1.0)
+        self.assertEqual(self.get_prom('faucet_config_applied', bare=True), 1.0)
 
 
 class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):

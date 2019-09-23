@@ -36,6 +36,7 @@ class MetaDPState:
         self.stack_root_name = None
         self.dp_last_live_time = {}
         self.top_conf = None
+        self.last_good_config = {}
 
 
 class ConfigWatcher:
@@ -79,15 +80,16 @@ class ValvesManager:
     valves = None # type: dict
 
     def __init__(self, logname, logger, metrics, notifier, bgp,
-                 dot1x, send_flows_to_dp_by_id):
+                 dot1x, config_auto_revert, send_flows_to_dp_by_id):
         """Initialize ValvesManager.
 
         Args:
             logname (str): log name to use in logging.
-            logger  (logging.logging): logger instance to use for logging.
+            logger (logging.logging): logger instance to use for logging.
             metrics (FaucetMetrics): metrics instance.
             notifier (FaucetEvent): event notifier instance.
             bgp (FaucetBgp): BGP instance.
+            config_auto_revert (bool): True if FAUCET should attempt to revert bad configs.
             send_flows_to_dp_by_id: callable, two args - DP ID and list of flows to send to DP.
         """
         self.logname = logname
@@ -96,6 +98,7 @@ class ValvesManager:
         self.notifier = notifier
         self.bgp = bgp
         self.dot1x = dot1x
+        self.config_auto_revert = config_auto_revert
         self.send_flows_to_dp_by_id = send_flows_to_dp_by_id
         self.valves = {}
         self.config_applied = {}
@@ -172,24 +175,40 @@ class ValvesManager:
             self._apply_configs(dps, now, None)
         return stack_change
 
+    def revert_config(self):
+        """Attempt to revert config to last known good version."""
+        for config_file_name, config_content in self.last_good_config.items():
+            self.logger.info('attempting to revert to last good config: %s' % config_file_name)
+            try:
+                with open(config_file_name, 'w') as config_file:
+                    config_file.write(str(config_content))
+            except (FileNotFoundError, OSError, PermissionError) as err:
+                self.logger.error('could not revert %s: %s' % (config_file_name, err))
+                return
+        self.logger.info('successfully reverted to last good config')
+
     def parse_configs(self, new_config_file):
         """Return parsed configs for Valves, or None."""
         self.metrics.faucet_config_hash_func.labels(algorithm=CONFIG_HASH_FUNC)
         try:
-            new_conf_hashes, new_dps, top_conf = dp_parser(
+            new_conf_hashes, new_config_content, new_dps, top_conf = dp_parser(
                 new_config_file, self.logname, self.meta_dp_state)
-            self.config_watcher.update(new_config_file, new_conf_hashes)
             new_present_conf_hashes = [
                 (conf_file, conf_hash) for conf_file, conf_hash in sorted(new_conf_hashes.items())
                 if conf_hash is not None]
             conf_files = [conf_file for conf_file, _ in new_present_conf_hashes]
             conf_hashes = [conf_hash for _, conf_hash in new_present_conf_hashes]
+            self.config_watcher.update(new_config_file, new_conf_hashes)
+            self.meta_dp_state.top_conf = top_conf
+            self.last_good_config = new_config_content
             self.metrics.faucet_config_hash.info(
                 dict(config_files=','.join(conf_files), hashes=','.join(conf_hashes)))
             self.metrics.faucet_config_load_error.set(0)
-            self.meta_dp_state.top_conf = top_conf
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
+            # If the config was reverted, let the watcher notice.
+            if self.config_auto_revert:
+                self.revert_config()
             self.config_watcher.update(new_config_file)
             self.metrics.faucet_config_hash.info(
                 dict(config_files=new_config_file, hashes=''))

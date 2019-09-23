@@ -73,6 +73,7 @@ DEFAULTS = {
         _PREFIX,
         '/etc/ryu/faucet/faucet.yaml')),
     'FAUCET_CONFIG_STAT_RELOAD': False,
+    'FAUCET_CONFIG_AUTO_REVERT': False,
     'FAUCET_LOG_LEVEL': 'INFO',
     'FAUCET_LOG': _PREFIX + '/var/log/faucet/faucet.log',
     'FAUCET_EVENT_SOCK': '',  # Special-case, see get_setting().
