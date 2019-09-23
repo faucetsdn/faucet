@@ -200,12 +200,11 @@ def _dp_parser_v2(dps_conf, acls_conf, meters_conf,
             'DPID %u is duplicated' % dp.dp_id))
         dpid_refs.add(dp.dp_id)
 
-    router_ref_dps = collections.defaultdict(set)
+    routers_referenced = set()
     for dp in dps:
-        for router in dp.routers.keys():
-            router_ref_dps[router].add(dp)
-    for router in routers_conf.keys():
-        test_config_condition(not router_ref_dps[router], (
+        routers_referenced.update(dp.routers.keys())
+    for router in routers_conf:
+        test_config_condition(router not in routers_referenced, (
             'router %s configured but not used by any DP' % router))
 
     return dps
