@@ -407,6 +407,7 @@ class ValveTestBases:
         LOGNAME = 'faucet'
         ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8')  # must support 64b payload.
         REQUIRE_TFM = True
+        CONFIG_AUTO_REVERT = False
 
         def __init__(self, *args, **kwargs):
             self.dot1x = None
@@ -444,7 +445,7 @@ class ValveTestBases:
                 self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
             self.valves_manager = valves_manager.ValvesManager(
                 self.LOGNAME, self.logger, self.metrics, self.notifier,
-                self.bgp, self.dot1x, self.send_flows_to_dp_by_id)
+                self.bgp, self.dot1x, self.CONFIG_AUTO_REVERT, self.send_flows_to_dp_by_id)
             self.last_flows_to_dp[self.DP_ID] = []
             self.notifier.start()
             initial_ofmsgs = self.update_config(config, reload_expected=False)
