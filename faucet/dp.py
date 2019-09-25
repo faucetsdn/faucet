@@ -484,6 +484,8 @@ configuration.
             included_tables.add('classification')
         if self.egress_pipeline:
             included_tables.add('egress')
+        if self.coprocessor_ports():
+            included_tables.add('copro')
         canonical_configs = [
             config for config in faucet_pipeline.FAUCET_PIPELINE
             if config.name in included_tables]
@@ -514,6 +516,10 @@ configuration.
 
         if 'egress_acl' in included_tables:
             table_configs['eth_dst'].miss_goto = 'egress_acl'
+
+        if 'copro' in included_tables:
+            if 'vlan_acl' in included_tables:
+                table_configs['copro'].miss_goto = 'vlan_acl'
 
         oxm_fields = set(valve_of.MATCH_FIELDS.keys())
 
@@ -638,6 +644,17 @@ configuration.
     def in_port_tables(self):
         """Return list of tables that specify in_port as a match."""
         return self.match_tables('in_port')
+
+    def non_vlan_ports(self):
+        """Ports that don't have VLANs on them."""
+        ports = set()
+        for non_vlan in (self.output_only_ports, self.stack_ports, self.coprocessor_ports()):
+            ports.update({port for port in non_vlan})
+        return ports
+
+    def coprocessor_ports(self):
+        """Return list of coprocessor ports."""
+        return tuple([port for port in self.ports.values() if port.coprocessor])
 
     def restricted_bcast_arpnd_ports(self):
         """Return ports that have restricted broadcast set."""
@@ -1027,7 +1044,8 @@ configuration.
                 mirrored_port.mirror = []
                 for mirror_port in mirror_ports:
                     mirrored_port.mirror.append(mirror_port.number)
-                    mirror_port.output_only = True
+                    if not mirror_port.coprocessor:
+                        mirror_port.output_only = True
 
         def resolve_acl(acl_in, dp=None, vid=None, port_num=None): #pylint: disable=invalid-name
             """

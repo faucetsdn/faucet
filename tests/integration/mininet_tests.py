@@ -3653,6 +3653,43 @@ vlans:
         self.ping_all_when_learned(hard_timeout=0)
 
 
+class FaucetCoprocessorTest(FaucetUntaggedTest):
+
+    N_UNTAGGED = 3
+    N_TAGGED = 1
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                coprocessor: {enable: True}
+                mirror: %(port_4)d
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    def test_untagged(self):
+        # Inject packet into pipeline using coprocessor.
+        coprocessor_host, first_host, second_host, _ = self.hosts_name_ordered()
+        self.one_ipv4_ping(first_host, second_host.IP())
+        tcpdump_filter = ' and '.join((
+            'ether dst %s' % first_host.MAC(),
+            'ether src %s' % coprocessor_host.MAC(),
+            'icmp'))
+        cmds = [
+            lambda: coprocessor_host.cmd(
+                'arp -s %s %s' % (first_host.IP(), first_host.MAC())),
+            lambda: coprocessor_host.cmd(
+                'fping %s -c3 %s' % (self.FPING_ARGS_SHORT, first_host.IP())),
+        ]
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, tcpdump_filter, cmds, timeout=5, vflags='-vv', packets=1)
+        self.assertFalse(self.tcpdump_rx_packets(tcpdump_txt, packets=0))
+
+
 class FaucetUntaggedLoopTest(FaucetTest):
 
     NUM_DPS = 1
@@ -7478,16 +7515,24 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self.verify_protected_connectivity()  # Before reload
 
         # Part 2: Test the code on pipeline reconfiguration path.
-        self._mark_external(True)
-        self._mark_external(False)
+        conf = self._get_faucet_conf()
+        loop_interface = None
+        for interface, interface_conf in conf['dps']['faucet-2']['interfaces'].items():
+            if 'stack' in interface_conf:
+                continue
+            if not interface_conf.get('loop_protect_external', False):
+                loop_interface = interface
+                break
+
+        self._mark_external(loop_interface, True)
+        self._mark_external(loop_interface, False)
 
         # Part 3: Make sure things are the same after reload.
         self.verify_protected_connectivity()  # After reload
 
-    def _mark_external(self, protect_external):
+    def _mark_external(self, loop_interface, protect_external):
         conf = self._get_faucet_conf()
-        loop_port = self.non_host_links(self.dpids[1])[0].port
-        conf['dps']['faucet-2']['interfaces'][loop_port]['loop_protect_external'] = protect_external
+        conf['dps']['faucet-2']['interfaces'][loop_interface]['loop_protect_external'] = protect_external
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)

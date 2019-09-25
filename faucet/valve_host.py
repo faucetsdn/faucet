@@ -40,6 +40,7 @@ class ValveHostManager(ValveManagerBase):
         self.learn_ban_timeout = learn_ban_timeout
         self.low_priority = self._LOW_PRIORITY
         self.host_priority = self._MATCH_PRIORITY
+        self.high_priority = self._HIGH_PRIORITY
         self.cache_update_guard_time = cache_update_guard_time
         self.output_table = self.eth_dst_table
         self.idle_dst = idle_dst
@@ -85,6 +86,15 @@ class ValveHostManager(ValveManagerBase):
                         'temporarily banning learning on this VLAN, '
                         'and not learning %s on %s' % (
                             vlan.max_hosts, vlan.vid, eth_src, port))
+        return ofmsgs
+
+    def add_port(self, port):
+        ofmsgs = []
+        if port.coprocessor:
+            ofmsgs.append(self.eth_src_table.flowmod(
+                match=self.eth_src_table.match(in_port=port.number),
+                priority=self.high_priority,
+                inst=[self.eth_src_table.goto(self.output_table)]))
         return ofmsgs
 
     def del_port(self, port):

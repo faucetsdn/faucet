@@ -366,13 +366,10 @@ class Valve:
         return ofmsgs
 
     def _get_all_configured_port_nos(self):
-        ports = set()
-        ports.update({
-            port.number for port in self.dp.stack_ports})
-        ports.update({
-            port.number for port in self.dp.output_only_ports})
+        ports = {port for port in self.dp.non_vlan_ports()}
         for vlan in self.dp.vlans.values():
-            ports.update({port.number for port in vlan.get_ports()})
+            ports.update({port for port in vlan.get_ports()})
+        ports = {port.number for port in ports}
         return ports
 
     @staticmethod
@@ -767,6 +764,14 @@ class Valve:
 
             for manager in self._get_managers():
                 ofmsgs.extend(manager.add_port(port))
+
+            if port.coprocessor:
+                copro_table = self.dp.tables['copro']
+                ofmsgs.append(vlan_table.flowmod(
+                    vlan_table.match(in_port=port.number),
+                    priority=self.dp.low_priority,
+                    inst=[vlan_table.goto(copro_table)]))
+                continue
 
             if self.dp.dot1x:
                 nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]

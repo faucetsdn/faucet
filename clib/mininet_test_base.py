@@ -89,14 +89,15 @@ class FaucetTestBase(unittest.TestCase):
 
     _PORT_ACL_TABLE = 0
     _VLAN_TABLE = 1
-    _VLAN_ACL_TABLE = 2
-    _ETH_SRC_TABLE = 3
-    _IPV4_FIB_TABLE = 4
-    _IPV6_FIB_TABLE = 5
-    _VIP_TABLE = 6
-    _ETH_DST_HAIRPIN_TABLE = 7
-    _ETH_DST_TABLE = 8
-    _FLOOD_TABLE = 9
+    _COPRO_TABLE = 2
+    _VLAN_ACL_TABLE = 3
+    _ETH_SRC_TABLE = 4
+    _IPV4_FIB_TABLE = 5
+    _IPV6_FIB_TABLE = 6
+    _VIP_TABLE = 7
+    _ETH_DST_HAIRPIN_TABLE = 8
+    _ETH_DST_TABLE = 9
+    _FLOOD_TABLE = 10
 
     # Standard Gauge port counters.
     PORT_VARS = {
@@ -2070,6 +2071,8 @@ dbs:
         # Wait for VLAN table to appear, rapidly scrape the rest.
         self._VLAN_TABLE = self._get_tableid(
             'vlan', 1, self._VLAN_TABLE)
+        self._COPRO_TABLE = self._get_tableid(
+            'vlan', 1, self._COPRO_TABLE)
         self._PORT_ACL_TABLE = self._get_tableid(
             'port_acl', 1, self._PORT_ACL_TABLE)
         self._VLAN_ACL_TABLE = self._get_tableid(
