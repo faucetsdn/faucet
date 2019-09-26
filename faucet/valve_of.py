@@ -835,6 +835,11 @@ def is_global_groupdel(ofmsg):
     return is_groupdel(ofmsg) and ofmsg.group_id == ofp.OFPG_ALL
 
 
+def is_global_meterdel(ofmsg):
+    """Is a delete of all meters."""
+    return is_meterdel(ofmsg) and ofmsg.meter_id == ofp.OFPM_ALL
+
+
 # We can tell right away what kind of OF messages these are.
 _MSG_KINDS_TYPES = {
     parser.OFPPacketOut: 'packetout',
@@ -846,7 +851,7 @@ _MSG_KINDS_TYPES = {
 _MSG_KINDS = {
     parser.OFPFlowMod: (('deleteglobal', is_global_flowdel), ('delete', is_flowdel)),
     parser.OFPGroupMod: (('deleteglobal', is_global_groupdel), ('delete', is_groupdel), ('groupadd', is_groupadd)),
-    parser.OFPMeterMod: (('delete', is_meterdel), ('meteradd', is_meteradd)),
+    parser.OFPMeterMod: (('deleteglobal', is_global_meterdel), ('delete', is_meterdel), ('meteradd', is_meteradd)),
 }
 
 
