@@ -97,8 +97,6 @@ class ValveFloodManager(ValveManagerBase):
         exclude_ports.update(vlan.exclude_native_if_dot1x())
         if exclude_all_external or (in_port is not None and in_port.loop_protect_external):
             exclude_ports.update(set(external_ports))
-        else:
-            exclude_ports.update(set(external_ports[1:]))
         if exclude_restricted_bcast_arpnd:
             exclude_ports.update(set(vlan.restricted_bcast_arpnd_ports()))
         return valve_of.flood_port_outputs(
@@ -598,25 +596,15 @@ class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
 
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
-        if not in_port or in_port in self.stack_ports:
-            flood_prefix = []
-        else:
-            if external_ports:
-                flood_prefix = self._set_nonext_port_flag
-            else:
-                flood_prefix = self._set_ext_port_flag
-
         if self.is_stack_root():
-            flood_actions = (
-                flood_prefix + away_flood_actions + local_flood_actions)
+            flood_actions = away_flood_actions + local_flood_actions
         else:
             # Default strategy is flood locally and then to the root.
-            flood_actions = (
-                flood_prefix + toward_flood_actions + local_flood_actions)
+            flood_actions = toward_flood_actions + local_flood_actions
 
             # If packet came from the root, flood it locally.
             if in_port in self.all_towards_root_stack_ports:
-                flood_actions = (flood_prefix + local_flood_actions)
+                flood_actions = local_flood_actions
 
         return flood_actions
 
@@ -685,10 +673,6 @@ class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
         if self.is_stack_root():
-            if external_ports:
-                flood_prefix = self._set_nonext_port_flag
-            else:
-                flood_prefix = self._set_ext_port_flag
             flood_actions = (away_flood_actions + local_flood_actions)
 
             if in_port and in_port in self.away_from_root_stack_ports:
@@ -696,14 +680,9 @@ class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
                 # (reflect it).
                 flood_actions = (
                     away_flood_actions + [valve_of.output_in_port()] + local_flood_actions)
-
-            flood_actions = flood_prefix + flood_actions
         else:
             # Default non-root strategy is flood towards root.
-            if external_ports:
-                flood_actions = self._set_nonext_port_flag + toward_flood_actions
-            else:
-                flood_actions = self._set_ext_port_flag + toward_flood_actions
+            flood_actions = toward_flood_actions
 
             if in_port:
                 # Packet from switch further away, flood it to the root.
@@ -715,17 +694,15 @@ class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
                     # externally, flood it externally before passing it to further away switches,
                     # and mark it flooded.
                     if external_ports:
-                        flood_actions = (
-                            self._set_nonext_port_flag + away_flood_actions + local_flood_actions)
+                        flood_actions = (away_flood_actions + local_flood_actions)
                     else:
-                        flood_actions = (
-                            away_flood_actions + self._set_nonext_port_flag + local_flood_actions)
+                        flood_actions = (away_flood_actions + local_flood_actions)
                 # Packet from external port, locally. Mark it already flooded externally and
                 # flood to root (it came from an external switch so keep it within the stack).
                 elif in_port.loop_protect_external:
-                    flood_actions = self._set_nonext_port_flag + toward_flood_actions
+                    flood_actions = toward_flood_actions
                 else:
-                    flood_actions = self._set_ext_port_flag + toward_flood_actions
+                    flood_actions = toward_flood_actions
 
         return flood_actions
 

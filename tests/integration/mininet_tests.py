@@ -7495,26 +7495,24 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     def verify_protected_connectivity(self):
         self.verify_stack_up()
         int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
+        all_hosts = int_hosts.union(ext_hosts)
 
+        # All internal hosts can reach other all other hosts.
         for int_host in int_hosts:
-            # All internal hosts can reach other internal hosts.
-            for other_int_host in int_hosts - {int_host}:
-                self.verify_broadcast(hosts=(int_host, other_int_host), broadcast_expected=True)
-                self.verify_unicast(hosts=(int_host, other_int_host), unicast_expected=True)
+            for other_host in all_hosts - {int_host}:
+                self.verify_broadcast(hosts=(int_host, other_host), broadcast_expected=True)
+                self.verify_unicast(hosts=(int_host, other_host), unicast_expected=True)
 
         for ext_host in ext_hosts:
-            # All external hosts cannot flood to each other
+            # All external hosts cannot reach each other.
             for other_ext_host in ext_hosts - {ext_host}:
                 self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
+                self.verify_unicast(hosts=(ext_host, other_ext_host), unicast_expected=False)
 
-        for local_int_hosts, local_ext_hosts in dp_hosts.values():
-            local_int_host = list(local_int_hosts)[0]
-            remote_ext_hosts = ext_hosts - local_ext_hosts
-            # ext hosts on remote switch should not get traffic flooded from
-            # int host on local switch, because traffic already flooded to
-            # an ext host on local switch.
-            for remote_ext_host in remote_ext_hosts:
-                self.verify_broadcast(hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
+            # All external hosts can reach internal hosts.
+            for other_int_host in int_hosts:
+                self.verify_broadcast(hosts=(ext_host, other_int_host), broadcast_expected=True)
+                self.verify_unicast(hosts=(ext_host, other_int_host), unicast_expected=True)
 
 
 class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
@@ -7536,30 +7534,31 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         self.verify_stack_up()
-        int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
-        _, root_ext_hosts = dp_hosts[self.DP_NAME]
+        int_hosts, all_ext_hosts, dp_hosts = self.map_int_ext_hosts()
 
+        ext_hosts = set()
+        for dp in dp_hosts:
+            # For each dp, take the first ext host to minimize total number.
+            ext_hosts.add(list(dp_hosts[dp][1])[0])
+
+        all_hosts = int_hosts.union(ext_hosts)
+
+        # All internal hosts can reach all other hosts.
         for int_host in int_hosts:
-            # All internal hosts can reach other internal hosts.
-            for other_int_host in int_hosts - {int_host}:
-                self.verify_broadcast(
-                    hosts=(int_host, other_int_host), broadcast_expected=True)
-                self.verify_unicast(
-                    hosts=(int_host, other_int_host), unicast_expected=True)
+            for other_host in all_hosts - {int_host}:
+                self.verify_broadcast(hosts=(int_host, other_host), broadcast_expected=True)
+                self.verify_unicast(hosts=(int_host, other_host), unicast_expected=True)
 
         for ext_host in ext_hosts:
-            # All external hosts cannot flood to each other
+            # All external hosts cannot reach each other.
             for other_ext_host in ext_hosts - {ext_host}:
-                self.verify_broadcast(
-                    hosts=(ext_host, other_ext_host), broadcast_expected=False)
+                self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
+                self.verify_unicast(hosts=(ext_host, other_ext_host), unicast_expected=False)
 
-        remote_ext_hosts = ext_hosts - set(root_ext_hosts)
-        # int host should never be broadcast to an ext host that is not on the root.
-        for local_int_hosts, _ in dp_hosts.values():
-            for local_int_host in local_int_hosts:
-                for remote_ext_host in remote_ext_hosts:
-                    self.verify_broadcast(
-                        hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
+            # All external hosts can reach internal hosts.
+            for other_int_host in int_hosts - {ext_host}:
+                self.verify_broadcast(hosts=(ext_host, other_int_host), broadcast_expected=True)
+                self.verify_unicast(hosts=(ext_host, other_int_host), unicast_expected=True)
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):

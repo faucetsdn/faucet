@@ -51,8 +51,11 @@ dps:
             3:
                 description: p3
                 native_vlan: 100
-                loop_protect_external: True
             4:
+                description: p4
+                native_vlan: 100
+                loop_protect_external: True
+            5:
                 description: p4
                 native_vlan: 100
                 loop_protect_external: True
@@ -96,9 +99,12 @@ dps:
         self.assertTrue(
             self.table.is_output(mcast_match, port=3),
             msg='mcast packet not flooded locally on root')
-        self.assertFalse(
+        self.assertTrue(
             self.table.is_output(mcast_match, port=4),
-            msg='mcast packet multiply flooded externally on root')
+            msg='mcast packet not flooded externally on root')
+        self.assertTrue(
+            self.table.is_output(mcast_match, port=5),
+            msg='mcast packet not flooded externally on root')
 
 
 class ValveStackRedundantLink(ValveTestBases.ValveTestSmall):
