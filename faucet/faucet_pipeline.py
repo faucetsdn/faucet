@@ -95,7 +95,15 @@ VLAN_DEFAULT_CONFIG = ValveTableConfig(
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid',),
     vlan_port_scale=1.5,
-    next_tables=('vlan_acl', 'classification', 'eth_src')
+    next_tables=('copro', 'vlan_acl', 'classification', 'eth_src')
+    )
+COPRO_DEFAULT_CONFIG = ValveTableConfig(
+    'copro',
+    VLAN_DEFAULT_CONFIG.table_id + 1,
+    match_types=(('in_port', False), ('eth_type', False), ('vlan_vid', False)),
+    vlan_port_scale=1.5,
+    miss_goto='eth_src',
+    next_tables=(('eth_src',) + _NEXT_VIP),
     )
 VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
     'vlan_acl',
@@ -175,6 +183,7 @@ MINIMUM_FAUCET_PIPELINE_TABLES = {
 FAUCET_PIPELINE = (
     PORT_ACL_DEFAULT_CONFIG,
     VLAN_DEFAULT_CONFIG,
+    COPRO_DEFAULT_CONFIG,
     VLAN_ACL_DEFAULT_CONFIG,
     CLASSIFICATION_DEFAULT_CONFIG,
     ETH_SRC_DEFAULT_CONFIG,
@@ -191,6 +200,7 @@ FAUCET_PIPELINE = (
 DEFAULT_CONFIGS = {
     'port_acl': PORT_ACL_DEFAULT_CONFIG,
     'vlan': VLAN_DEFAULT_CONFIG,
+    'copro': COPRO_DEFAULT_CONFIG,
     'vlan_acl': VLAN_ACL_DEFAULT_CONFIG,
     'eth_src': ETH_SRC_DEFAULT_CONFIG,
     'ipv4_fib': IPV4_FIB_DEFAULT_CONFIG,

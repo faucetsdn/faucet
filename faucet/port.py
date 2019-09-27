@@ -89,6 +89,8 @@ class Port(Conf):
         # If true, expects authentication and ACLs with dot1x_assigned flag set
         'restricted_bcast_arpnd': False,
         # If true, this port cannot send non-ARP/IPv6 ND broadcasts to other restricted_bcast_arpnd ports.
+        'coprocessor': {},
+        # If defined, this port is attached to a packet coprocessor.
     }
 
     defaults_types = {
@@ -124,6 +126,7 @@ class Port(Conf):
         'dot1x_dyn_acl': bool,
         'max_lldp_lost': int,
         'restricted_bcast_arpnd': bool,
+        'coprocessor': dict,
     }
 
     stack_defaults_types = {
@@ -142,6 +145,11 @@ class Port(Conf):
         'oui': (int, bytearray),
         'subtype': (int, bytearray),
         'info': (str, bytearray)
+    }
+
+    coprocessor_defaults_types = {
+        'strategy': str,
+        'vlan_vid_base': int,
     }
 
     def __init__(self, _id, dp_id, conf=None):
@@ -168,7 +176,6 @@ class Port(Conf):
         self.name = None
         self.native_vlan = None
         self.number = None
-        self.op_status_reconf = None
         self.opstatus_reconf = None
         self.output_only = None
         self.permanent_learn = None
@@ -177,6 +184,7 @@ class Port(Conf):
         self.stack = {}
         self.unicast_flood = None
         self.restricted_bcast_arpnd = None
+        self.coprocessor = {}
 
         self.dyn_dot1x_native_vlan = None
         self.dyn_lacp_up = None
@@ -223,6 +231,36 @@ class Port(Conf):
         super(Port, self).check_config()
         test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
             not valve_of.ignore_port(self.number))), ('Port number invalid: %s' % self.number))
+        non_vlan_options = {'stack', 'mirror', 'coprocessor', 'output_only'}
+        vlan_agnostic_options = {'enabled', 'number', 'name', 'description'}
+        vlan_port = self.tagged_vlans or self.native_vlan
+        non_vlan_port_options = {option for option in non_vlan_options if getattr(self, option)}
+        test_config_condition(
+            vlan_port and non_vlan_port_options,
+            'cannot have VLANs configured on non-VLAN ports: %s' % self)
+        if self.output_only:
+            test_config_condition(
+                not non_vlan_port_options.issubset({'mirror', 'output_only'}),
+                'output_only can only coexist with mirror option on same port %s' % self)
+        elif self.mirror:
+            test_config_condition(
+                not non_vlan_port_options.issubset({'mirror', 'coprocessor'}),
+                'coprocessor can only coexist with mirror option on same port %s' % self)
+        else:
+            test_config_condition(
+                len(non_vlan_port_options) > 1,
+                'cannot have multiple non-VLAN port options %s on same port: %s' % (
+                    non_vlan_port_options, self))
+        if non_vlan_port_options:
+            for key, default_val in self.defaults.items():
+                if key in vlan_agnostic_options or key in non_vlan_port_options:
+                    continue
+                if key.startswith('acl') and self.stack:
+                    continue
+                val = getattr(self, key)
+                if val != default_val and val:
+                    raise InvalidConfigError(
+                        'Cannot have VLAN option %s: %s on non-VLAN port %s' % (key, val, self))
         test_config_condition(
             self.hairpin and self.hairpin_unicast,
             'Cannot have both hairpin and hairpin_unicast enabled')
@@ -244,9 +282,12 @@ class Port(Conf):
                 '802.1x_DYN_ACL cannot be used with 802.1x_ACL'))
             test_config_condition(self.dot1x_acl, (
                 '802.1x_DYN_ACL cannot be used with 802.1x_MAB'))
-        if self.mirror:
-            test_config_condition(self.tagged_vlans or self.native_vlan, (
-                'mirror port %s cannot have any VLANs assigned' % self))
+        if self.coprocessor:
+            self._check_conf_types(self.coprocessor, self.coprocessor_defaults_types)
+            test_config_condition(
+                self.coprocessor.get('strategy', None) != 'vlan_vid',
+                'coprocessor only supports vlan_vid strategy')
+            self.coprocessor['vlan_vid_base'] = self.coprocessor.get('vlan_vid_base', 1000)
         if self.stack:
             self._check_conf_types(self.stack, self.stack_defaults_types)
             for stack_config in list(self.stack_defaults_types.keys()):
@@ -257,12 +298,12 @@ class Port(Conf):
             if not self.lldp_beacon_enabled():
                 self.lldp_beacon.update({'enable': True})
         if self.lacp_resp_interval is not None:
-            test_config_condition(self.lacp_resp_interval > 65535 or self.lacp_resp_interval < 0.3, 
-                    ('interval must be atleast 0.3 and less than 65536'))
+            test_config_condition(
+                self.lacp_resp_interval > 65535 or self.lacp_resp_interval < 0.3,
+                ('interval must be at least 0.3 and less than 65536'))
         if self.lldp_peer_mac:
             test_config_condition(not netaddr.valid_mac(self.lldp_peer_mac), (
                 'invalid MAC address %s' % self.lldp_peer_mac))
-
         if self.lldp_beacon:
             self._check_conf_types(
                 self.lldp_beacon, self.lldp_beacon_defaults_types)
@@ -271,7 +312,6 @@ class Port(Conf):
             if self.lldp_beacon_enabled():
                 if self.lldp_beacon['port_descr'] is None:
                     self.lldp_beacon['port_descr'] = self.description
-
                 org_tlvs = []
                 for org_tlv in self.lldp_beacon['org_tlvs']:
                     self._check_conf_types(org_tlv, self.lldp_org_tlv_defaults_types)
@@ -299,10 +339,6 @@ class Port(Conf):
                                       'ACL names must be int or str')
 
     def finalize(self):
-        test_config_condition(not (self.vlans() or self.stack or self.output_only), (
-            '%s must have a VLAN, be a stack port, or have output_only: True' % self))
-        test_config_condition(self.vlans() and self.stack, (
-            '%s cannot have stack and VLANs on same port' % self))
         if self.native_vlan:
             test_config_condition(self.native_vlan in self.tagged_vlans, (
                 'cannot have same native and tagged VLAN on same port'))
