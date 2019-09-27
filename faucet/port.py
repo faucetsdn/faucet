@@ -299,7 +299,7 @@ class Port(Conf):
                 self.lldp_beacon.update({'enable': True})
         if self.lacp_resp_interval is not None:
             test_config_condition(
-                self.lacp_resp_interval > 65535 or self.lacp_resp_interval < 0.3, 
+                self.lacp_resp_interval > 65535 or self.lacp_resp_interval < 0.3,
                 ('interval must be at least 0.3 and less than 65536'))
         if self.lldp_peer_mac:
             test_config_condition(not netaddr.valid_mac(self.lldp_peer_mac), (
