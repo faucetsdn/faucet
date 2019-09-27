@@ -748,7 +748,7 @@ class Valve:
             inst=[vlan_table.goto(copro_table)]))
         # TODO: add additional output port strategies (eg. MPLS)
         # TODO: support tagged ports with additional VLAN VID ranges.
-        dp_port_numbers = [port.number for port in self.dp.ports.values()]
+        dp_port_numbers = [dp_port.number for dp_port in self.dp.ports.values()]
         vlan_vid_base = port.coprocessor.get('vlan_vid_base', 0)
         for in_port_num in dp_port_numbers:
             inst = [valve_of.apply_actions([
