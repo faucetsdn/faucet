@@ -539,6 +539,14 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - False
       - If True, this port cannot send non-ARP/IPv6 ND broadcasts to other restricted_bcast_arpnd ports.
+    * - coprocessor
+      - dictionary
+      - None
+      - When enabled (strategy: vlan_vid), a packet received on this port is injected directly
+        into the FAUCET pipeline as if it were received on another port. Additionally, if a packet
+        is received with a VLAN corresponding to a port (by default, VID 1001 to port 1 - offset
+        is set with vlan_vid_base) the packet will be output to that port popping the outermost
+        VLAN header.
 
 
 Stacking (Interfaces)
