@@ -69,6 +69,33 @@ dps:
                 'vid': 0x100})
 
 
+class ValveCoprocessorTestCase(ValveTestBases.ValveTestSmall):
+    """Test direct packet output using coprocessor."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                coprocessor: {strategy: vlan_vid, vlan_vid_base: 100}
+            p2:
+                number: 2
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_output(self):
+        copro_vid_out = 102 | ofp.OFPVID_PRESENT
+        match = {
+            'in_port': 1, 'vlan_vid': copro_vid_out, 'eth_type': ether.ETH_TYPE_IP,
+            'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
+        self.assertTrue(self.table.is_output(match, port=2))
+
+
 class ValveRestBcastTestCase(ValveTestBases.ValveTestSmall):
 
     CONFIG = """
