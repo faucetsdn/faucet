@@ -3661,7 +3661,7 @@ class FaucetCoprocessorTest(FaucetUntaggedTest):
     CONFIG = """
         interfaces:
             %(port_1)d:
-                coprocessor: {enable: True}
+                coprocessor: {strategy: vlan_vid}
                 mirror: %(port_4)d
             %(port_2)d:
                 native_vlan: 100

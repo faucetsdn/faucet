@@ -33,7 +33,7 @@ from faucet import valve_table
 from faucet import valve_util
 from faucet import valve_pipeline
 
-from faucet.vlan import NullVLAN
+from faucet.vlan import NullVLAN, OFVLAN
 
 
 class ValveLogger:
@@ -737,6 +737,30 @@ class Valve:
         ofmsgs.extend(self._port_delete_manager_state(port))
         return ofmsgs
 
+    def _coprocessor_flows(self, port):
+        """Add flows to allow coprocessor to inject or output packets."""
+        ofmsgs = []
+        copro_table = self.dp.tables['copro']
+        vlan_table = self.dp.tables['vlan']
+        ofmsgs.append(vlan_table.flowmod(
+            vlan_table.match(in_port=port.number),
+            priority=self.dp.low_priority,
+            inst=[vlan_table.goto(copro_table)]))
+        # TODO: add additional output port strategies (eg. MPLS)
+        # TODO: support tagged ports with additional VLAN VID ranges.
+        dp_port_numbers = [port.number for port in self.dp.ports.values()]
+        vlan_vid_base = port.coprocessor.get('vlan_vid_base', 0)
+        for in_port_num in dp_port_numbers:
+            inst = [valve_of.apply_actions([
+                valve_of.pop_vlan(),
+                valve_of.output_port(in_port_num)])]
+            vid = vlan_vid_base + in_port_num
+            vlan = OFVLAN(str(vid), vid)
+            match = copro_table.match(vlan=vlan)
+            ofmsgs.append(copro_table.flowmod(
+                match=match, priority=self.dp.high_priority, inst=inst))
+        return ofmsgs
+
     def ports_add(self, port_nums, cold_start=False, log_msg='up'):
         """Handle the addition of ports.
 
@@ -766,11 +790,7 @@ class Valve:
                 ofmsgs.extend(manager.add_port(port))
 
             if port.coprocessor:
-                copro_table = self.dp.tables['copro']
-                ofmsgs.append(vlan_table.flowmod(
-                    vlan_table.match(in_port=port.number),
-                    priority=self.dp.low_priority,
-                    inst=[vlan_table.goto(copro_table)]))
+                ofmsgs.extend(self._coprocessor_flows(port))
                 continue
 
             if self.dp.dot1x:

@@ -100,8 +100,7 @@ VLAN_DEFAULT_CONFIG = ValveTableConfig(
 COPRO_DEFAULT_CONFIG = ValveTableConfig(
     'copro',
     VLAN_DEFAULT_CONFIG.table_id + 1,
-    match_types=(('eth_type', True), ('eth_type', False)),
-    set_fields=('vlan_vid',),
+    match_types=(('in_port', False), ('eth_type', False), ('vlan_vid', False)),
     vlan_port_scale=1.5,
     miss_goto='eth_src',
     next_tables=(('eth_src',) + _NEXT_VIP),

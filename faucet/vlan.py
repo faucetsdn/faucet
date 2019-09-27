@@ -26,6 +26,13 @@ from faucet.conf import Conf, test_config_condition, InvalidConfigError
 from faucet.valve_packet import FAUCET_MAC
 
 
+class OFVLAN:
+
+    def __init__(self, name, vid):
+        self.name = name
+        self.vid = vid
+
+
 class NullVLAN:
     """Placeholder null VLAN."""
 

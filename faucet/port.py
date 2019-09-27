@@ -148,7 +148,8 @@ class Port(Conf):
     }
 
     coprocessor_defaults_types = {
-        'enable': bool,
+        'strategy': str,
+        'vlan_vid_base': int,
     }
 
     def __init__(self, _id, dp_id, conf=None):
@@ -283,6 +284,10 @@ class Port(Conf):
                 '802.1x_DYN_ACL cannot be used with 802.1x_MAB'))
         if self.coprocessor:
             self._check_conf_types(self.coprocessor, self.coprocessor_defaults_types)
+            test_config_condition(
+                self.coprocessor.get('strategy', None) != 'vlan_vid',
+                'coprocessor only supports vlan_vid strategy')
+            self.coprocessor['vlan_vid_base'] = self.coprocessor.get('vlan_vid_base', 1000)
         if self.stack:
             self._check_conf_types(self.stack, self.stack_defaults_types)
             for stack_config in list(self.stack_defaults_types.keys()):
@@ -294,7 +299,7 @@ class Port(Conf):
                 self.lldp_beacon.update({'enable': True})
         if self.lacp_resp_interval is not None:
             test_config_condition(self.lacp_resp_interval > 65535 or self.lacp_resp_interval < 0.3, 
-                    ('interval must be atleast 0.3 and less than 65536'))
+                    ('interval must be at least 0.3 and less than 65536'))
         if self.lldp_peer_mac:
             test_config_condition(not netaddr.valid_mac(self.lldp_peer_mac), (
                 'invalid MAC address %s' % self.lldp_peer_mac))
