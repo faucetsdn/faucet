@@ -380,10 +380,10 @@ production-grade software switch with very good OpenFlow support.
        First let's define some useful bash functions by coping and pasting the
        following definitions into our bash terminal:
 
-       .. literalinclude:: ../_static/tutorial/create_ns
+       .. literalinclude:: ../_static/tutorial/as_ns
           :language: bash
 
-       .. literalinclude:: ../_static/tutorial/as_ns
+       .. literalinclude:: ../_static/tutorial/create_ns
           :language: bash
 
        NOTE: all the tutorial helper functions can be defined by sourcing

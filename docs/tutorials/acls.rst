@@ -16,10 +16,10 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-    .. literalinclude:: ../_static/tutorial/create_ns
+    .. literalinclude:: ../_static/tutorial/as_ns
        :language: bash
 
-    .. literalinclude:: ../_static/tutorial/as_ns
+    .. literalinclude:: ../_static/tutorial/create_ns
        :language: bash
 
 .. note:: If not continuing on from the 'Installing Faucet for first time tutorial' to setup the hosts and switch run:
