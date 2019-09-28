@@ -65,7 +65,8 @@ Overview
 
 Faucet ACLs are made up of lists of rules.
 The order of the rules in the list denote the priority with the first rules
-being highest and last lowest. Each of these lists has a name
+being highest and last lowest. The first rule that matches a packet, will
+set the actions for the packet. Each of these lists has a name
 (e.g. 'block-ping'), and can be used on multiple port or VLAN 'acls_in' fields.
 Again these are applied in order so all of 'block-ping' rules will be higher
 than 'allow-all'.
@@ -74,11 +75,13 @@ Each rule contains two main items 'matches' and 'actions'.
 Matches are any packet field such as MAC/IP/transport source/destination fields.
 For a full list visit the
 `Ryu documentation <https://ryu.readthedocs.io/en/latest/ofproto_v1_3_ref.html#flow-match-structure>`_.
+If no matches are specified, the rule will match all packets.
 
 Actions are used to control what the packet does, for example normal L2
-forwarding ('allow'). Apply a 'meter' to rate limit traffic, and manipulation of
-the packet contents and output. Full list is available in the
+forwarding ('allow'), apply a 'meter' to rate limit traffic, and manipulation of
+the packet contents and output destination. The full list is available in the
 :ref:`configuration-meters` section of the documentation.
+
 
 The example below has defined two ACLs 'block-ping' & 'allow-all' these can be
 used on any and multiple ports or VLANs (more on VLANs later) using the
@@ -89,6 +92,8 @@ The 'allow' action is a boolean, if it's True allow the packet to continue
 through the Faucet pipeline, if False drop the packet. 'allow' can be used in
 conjunction with the other actions to let the traffic flow with the expected
 layer 2 forwarding behaviour AND be mirrored to another port.
+The default 'allow' for ACLs is False (i.e. drop the packet). ACL rules will
+need to define 'allow: True' for those packets that are to be forwarded.
 
 
 Network setup
