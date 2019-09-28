@@ -386,6 +386,9 @@ production-grade software switch with very good OpenFlow support.
        .. literalinclude:: ../_static/tutorial/as_ns
           :language: bash
 
+       NOTE: all the tutorial helper functions can be defined by sourcing
+       ``helper-funcs`` into your shell enviroment.
+
        Now we will create ``host1`` and ``host2`` and assign them some IPs:
 
        .. code:: bash

@@ -1,0 +1,6 @@
+# Source tutorial 'helper' functions into shell environment
+
+. docs/_static/tutorial/as_ns
+. docs/_static/tutorial/create_ns
+. docs/_static/tutorial/add_tagged_interface
+. docs/_static/tutorial/cleanup
