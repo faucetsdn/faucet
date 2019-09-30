@@ -32,7 +32,7 @@ services:
 
     grafana:
         restart: always
-        image: 'grafana/grafana-arm32v7-linux:6.3.5'
+        image: 'grafana/grafana-arm32v7-linux:6.3.6'
         user: 'root'
         ports:
             - '3000:3000'
