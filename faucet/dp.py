@@ -899,7 +899,7 @@ configuration.
             graph = self.stack.get('graph', None)
             if graph:
                 try:
-                    return networkx.shortest_path(graph, src_dp, dest_dp)
+                    return sorted(networkx.all_shortest_paths(graph, src_dp, dest_dp))[0]
                 except (networkx.exception.NetworkXNoPath, networkx.exception.NodeNotFound):
                     pass
         return []

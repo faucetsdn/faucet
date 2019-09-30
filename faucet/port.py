@@ -217,7 +217,7 @@ class Port(Conf):
     def stack_descr(self):
         """"Return stacking annotation if this is a stacking port."""
         if self.stack:
-            return 'remote DP %s port %s' % (self.stack['dp'].name, self.stack['port'])
+            return 'remote DP %s %s' % (self.stack['dp'].name, self.stack['port'])
         return ''
 
     def set_defaults(self):

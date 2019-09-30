@@ -1189,10 +1189,10 @@ class Valve:
                 now, learn_port, pkt_meta.vlan, pkt_meta.eth_src,
                 last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
             if update_cache:
-                pkt_meta.vlan.add_cache_host(pkt_meta.eth_src, pkt_meta.port, now)
+                pkt_meta.vlan.add_cache_host(pkt_meta.eth_src, learn_port, now)
                 if pkt_meta.l3_pkt is None:
                     pkt_meta.reparse_ip()
-                learn_log = 'L2 learned %s (%u hosts total)' % (pkt_meta.log(), pkt_meta.vlan.hosts_count())
+                learn_log = 'L2 learned on %s %s (%u hosts total)' % (learn_port, pkt_meta.log(), pkt_meta.vlan.hosts_count())
                 if pkt_meta.port.stack:
                     learn_log += ' from %s' % pkt_meta.port.stack_descr()
                 previous_port_no = None
@@ -1205,7 +1205,7 @@ class Valve:
                 self.logger.info(learn_log)
                 self._notify(
                     {'L2_LEARN': {
-                        'port_no': pkt_meta.port.number,
+                        'port_no': learn_port,
                         'previous_port_no': previous_port_no,
                         'vid': pkt_meta.vlan.vid,
                         'eth_src': pkt_meta.eth_src,
