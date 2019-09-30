@@ -14,10 +14,10 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-    .. literalinclude:: ../_static/tutorial/create_ns
+    .. literalinclude:: ../_static/tutorial/as_ns
        :language: bash
 
-    .. literalinclude:: ../_static/tutorial/as_ns
+    .. literalinclude:: ../_static/tutorial/create_ns
        :language: bash
 
     .. literalinclude:: ../_static/tutorial/cleanup
@@ -100,8 +100,8 @@ Then add the following hosts with the corresponding VLAN:
 
     create_ns host3 0.0.0.0
     create_ns host4 0.0.0.0
-    add_tagged_interface host3 192.168.0.3/24 100
-    add_tagged_interface host4 192.168.0.4/24 100
+    add_tagged_interface host3 100 192.168.0.3/24
+    add_tagged_interface host4 100 192.168.0.4/24
 
 - Assign host5 and host6 an IP address from the VLAN 200 range.
 
@@ -116,17 +116,17 @@ Then add the following hosts with the corresponding VLAN:
 
     create_ns host7 0.0.0.0
     create_ns host8 0.0.0.0
-    add_tagged_interface host7 192.168.3.7/24 300
-    add_tagged_interface host8 192.168.3.8/24 300
+    add_tagged_interface host7 300 192.168.3.7/24
+    add_tagged_interface host8 300 192.168.3.8/24
 
 - Add host9 to all VLANs (100, 200, 300) to work as a NFV host.
 
 .. code:: console
 
     create_ns host9 0.0.0.0
-    add_tagged_interface host9 192.168.0.9/24 100
-    add_tagged_interface host9 192.168.2.9/24 200
-    add_tagged_interface host9 192.168.3.9/24 300
+    add_tagged_interface host9 100 192.168.0.9/24
+    add_tagged_interface host9 200 192.168.2.9/24
+    add_tagged_interface host9 300 192.168.3.9/24
 
 
 Then connect all the hosts to the switch (br0)

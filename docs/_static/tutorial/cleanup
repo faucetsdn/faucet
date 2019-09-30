@@ -1,7 +1,7 @@
 # Clean up namespaces, bridges and processes created during faucet tutorial
 cleanup () {
     for NETNS in $(sudo ip netns list | grep "faucet-" | awk '{print $1}'); do
-        [ -n "$NETNS" ] || continue
+        [ -n "${NETNS}" ] || continue
         NAME=${NETNS#faucet-}
         if [ -f "/run/dhclient-${NAME}.pid" ]; then
             # Stop dhclient
@@ -17,10 +17,10 @@ cleanup () {
         fi
         # Remove netns and veth pair
         sudo ip link delete veth-${NAME}
-        sudo ip netns delete $NETNS
+        sudo ip netns delete ${NETNS}
     done
     for DNSMASQ in /run/dnsmasq-vlan*.pid; do
-        [ -e "$DNSMASQ" ] || continue
+        [ -e "${DNSMASQ}" ] || continue
         # Stop dnsmasq
         sudo pkill -F "${DNSMASQ}"
     done

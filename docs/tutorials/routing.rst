@@ -18,10 +18,10 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-    .. literalinclude::  ../_static/tutorial/create_ns
+    .. literalinclude:: ../_static/tutorial/as_ns
        :language: bash
 
-    .. literalinclude:: ../_static/tutorial/as_ns
+    .. literalinclude::  ../_static/tutorial/create_ns
        :language: bash
 
     .. literalinclude:: ../_static/tutorial/cleanup

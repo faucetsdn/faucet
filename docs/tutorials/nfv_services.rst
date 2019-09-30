@@ -24,10 +24,10 @@ Prerequisites
   bash terminal, or to make them persistent between sessions add them to the
   bottom of your .bashrc and run 'source .bashrc'.
 
-    .. literalinclude:: ../_static/tutorial/create_ns
+    .. literalinclude:: ../_static/tutorial/as_ns
        :language: bash
 
-    .. literalinclude:: ../_static/tutorial/as_ns
+    .. literalinclude:: ../_static/tutorial/create_ns
        :language: bash
 
     .. literalinclude:: ../_static/tutorial/cleanup
@@ -61,8 +61,8 @@ To start, let's create our hosts and dnsmasq namespaces.
 
     # DHCP/DNS server
     create_ns dnsmasq 0.0.0.0
-    add_tagged_interface dnsmasq 192.168.2.1/24 200 # to serve VLAN 200
-    add_tagged_interface dnsmasq 192.168.3.1/24 300 # to serve VLAN 300
+    add_tagged_interface dnsmasq 200 192.168.2.1/24 # to serve VLAN 200
+    add_tagged_interface dnsmasq 300 192.168.3.1/24 # to serve VLAN 300
 
     # VLAN 200 hosts
     create_ns host1 0.0.0.0

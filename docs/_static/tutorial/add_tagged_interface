@@ -1,11 +1,11 @@
 # Add tagged VLAN interface to network namespace
 add_tagged_interface () {
      NAME=$1
-     IP=$2
-     VLAN=$3
+     VLAN=$2
+     IP=$3
      NETNS=faucet-${NAME}
-     sudo ip netns exec ${NETNS} ip link add link veth0 name veth0.${VLAN} type vlan id $VLAN
-     sudo ip netns exec ${NETNS} ip link set dev veth0.${VLAN} up
-     sudo ip netns exec ${NETNS} ip addr flush dev veth0
-     sudo ip netns exec ${NETNS} ip addr add dev veth0.${VLAN} $IP
+     as_ns ${NAME} ip link add link veth0 name veth0.${VLAN} type vlan id ${VLAN}
+     [ -n "${IP}" ] && as_ns ${NAME} ip addr add dev veth0.${VLAN} ${IP}
+     as_ns ${NAME} ip link set dev veth0.${VLAN} up
+     as_ns ${NAME} ip addr flush dev veth0
  }
