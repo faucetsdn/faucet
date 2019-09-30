@@ -1192,7 +1192,8 @@ class Valve:
                 pkt_meta.vlan.add_cache_host(pkt_meta.eth_src, learn_port, now)
                 if pkt_meta.l3_pkt is None:
                     pkt_meta.reparse_ip()
-                learn_log = 'L2 learned on %s %s (%u hosts total)' % (learn_port, pkt_meta.log(), pkt_meta.vlan.hosts_count())
+                learn_log = 'L2 learned on %s %s (%u hosts total)' % (
+                    learn_port, pkt_meta.log(), pkt_meta.vlan.hosts_count())
                 if pkt_meta.port.stack:
                     learn_log += ' from %s' % pkt_meta.port.stack_descr()
                 previous_port_no = None

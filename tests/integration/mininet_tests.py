@@ -7651,7 +7651,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         # ping first pair
         self.retry_net_ping([self.first_host, self.last_host])
         self.one_stack_port_down()
-        # ping fails for now because failures are not handled yet
+        # TODO: non-reflection based flood does not handle broken ring.
         self.retry_net_ping([self.first_host, self.last_host], required_loss=100, retries=1)
         # newly learned hosts should work
         self.retry_net_ping([self.second_host, self.fifth_host])
@@ -7662,7 +7662,7 @@ class FaucetStack4RingOfDPTest(FaucetStringOfDPTest):
     NUM_DPS = 4
     SOFTWARE_ONLY = True
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super(FaucetStack4RingOfDPTest, self).setUp()
         self.build_net(
             stack=True,
@@ -7672,12 +7672,20 @@ class FaucetStack4RingOfDPTest(FaucetStringOfDPTest):
             stack_ring=True)
         self.start_net()
 
+    def one_stack_port_down(self):
+        port = self.non_host_links(self.dpid)[1].port
+        self.set_port_down(port, self.dpid)
+        self.wait_for_stack_port_status(self.dpid, self.DP_NAME, port, 2)  # down
+
     def test_untagged(self):
         """Stack loop prevention works and hosts can ping each others."""
         self.verify_stack_up()
         self.verify_stack_has_no_loop()
         self.retry_net_ping()
         self.verify_traveling_dhcp_mac()
+        # Reflection based flood can handle a broken ring.
+        self.one_stack_port_down()
+        self.retry_net_ping()
 
 
 class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
