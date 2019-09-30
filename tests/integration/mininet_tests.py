@@ -7657,6 +7657,29 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.retry_net_ping([self.second_host, self.fifth_host])
 
 
+class FaucetStack4RingOfDPTest(FaucetStringOfDPTest):
+
+    NUM_DPS = 4
+    SOFTWARE_ONLY = True
+
+    def setUp(self): # pylint: disable=invalid-name
+        super(FaucetStack4RingOfDPTest, self).setUp()
+        self.build_net(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            untagged_hosts={self.VID: self.NUM_HOSTS},
+            switch_to_switch_links=1,
+            stack_ring=True)
+        self.start_net()
+
+    def test_untagged(self):
+        """Stack loop prevention works and hosts can ping each others."""
+        self.verify_stack_up()
+        self.verify_stack_has_no_loop()
+        self.retry_net_ping()
+        self.verify_traveling_dhcp_mac()
+
+
 class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     """Test ACL control of stacked datapaths with untagged hosts."""
 
