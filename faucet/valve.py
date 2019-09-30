@@ -1205,7 +1205,7 @@ class Valve:
                 self.logger.info(learn_log)
                 self._notify(
                     {'L2_LEARN': {
-                        'port_no': learn_port,
+                        'port_no': learn_port.number,
                         'previous_port_no': previous_port_no,
                         'vid': pkt_meta.vlan.vid,
                         'eth_src': pkt_meta.eth_src,
