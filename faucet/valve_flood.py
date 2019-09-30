@@ -394,7 +394,7 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 port for port, port_peer_distance in port_peer_distances.items()
                 if port_peer_distance == shortest_peer_distance}
             if self.all_towards_root_stack_ports:
-                first_peer_port = list(self.all_towards_root_stack_ports)[0]
+                first_peer_port = self.canonical_port_order(self.all_towards_root_stack_ports)[0]
                 first_peer_dp = first_peer_port.stack['dp']
                 self.towards_root_stack_ports = {
                     port for port in self.all_towards_root_stack_ports
@@ -453,22 +453,24 @@ class ValveFloodStackManagerBase(ValveFloodManager):
             away_up_ports = away_up_ports_by_dp.get(remote_dp, None)
             if away_up_ports:
                 # Pick the lowest port number on the remote DP.
-                away_up_ports = sorted(
-                    away_up_ports, key=lambda x: x.stack['port'].number)
-                away_up_port = away_up_ports[0]
+                remote_away_ports = self.canonical_port_order(
+                    [away_port.stack['port'] for away_port in away_up_ports])
+                away_up_port = remote_away_ports[0].stack['port']
             away_port = port in self.away_from_root_stack_ports
             towards_port = not away_port
             flood_acts = []
 
-            # Prune where multiply connected to the same DP.
-            if towards_port:
-                prune = port != towards_up_port
-            else:
-                prune = port != away_up_port
-
             match = {'in_port': port.number, 'vlan': vlan}
             if eth_dst is not None:
                 match.update({'eth_dst': eth_dst, 'eth_dst_mask': eth_dst_mask})
+                # Prune broadcast flooding where multiply connected to same DP
+                if towards_port:
+                    prune = port != towards_up_port
+                else:
+                    prune = port != away_up_port
+            else:
+                # Do not prune unicast, may be reply from directly connected DP.
+                prune = False
 
             priority_offset = replace_priority_offset
             if eth_dst is None:
@@ -741,9 +743,6 @@ class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
         # (for example, just default switch to a neighbor).
         # Find port that forwards closer to destination DP that
         # has already learned this host (if any).
-        peer_dp = pkt_meta.port.stack['dp']
-        if peer_dp.is_stack_edge() or peer_dp.is_stack_root():
-            return peer_dp
         vlan_vid = pkt_meta.vlan.vid
         for other_valve in other_valves:
             other_dp_vlan = other_valve.dp.vlans.get(vlan_vid, None)
@@ -751,4 +750,7 @@ class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
                 entry = other_dp_vlan.cached_host(pkt_meta.eth_src)
                 if entry and not entry.port.stack:
                     return other_valve.dp
+        peer_dp = pkt_meta.port.stack['dp']
+        if peer_dp.is_stack_edge() or peer_dp.is_stack_root():
+            return peer_dp
         return None
