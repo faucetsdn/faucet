@@ -372,6 +372,35 @@ vlans:
             0, int(self.get_prom('port_lacp_status', labels=labels)))
 
 
+class ValveTFMSizeOverride(ValveTestBases.ValveTestSmall):
+    """Test TFM size override."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        table_sizes:
+            eth_src: 999
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+vlans:
+    v100:
+        vid: 0x100
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_size(self):
+        tfm_by_name = {body.name: body for body in self.table.tfm.values()}
+        eth_src_table = tfm_by_name.get(b'eth_src', None)
+        self.assertTrue(eth_src_table)
+        if eth_src_table is not None:
+            self.assertEqual(999, eth_src_table.max_entries)
+
+
 class ValveTFMSize(ValveTestBases.ValveTestSmall):
     """Test TFM sizer."""
 
