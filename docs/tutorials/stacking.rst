@@ -65,32 +65,38 @@ We can start by considering two switches with one host on each switch on the sam
                     description: "host2 network namespace"
                     native_vlan: hosts
 
+Now lets signal faucet to reload the configuration file.
+
+.. code:: console
+
+    sudo systemctl reload faucet
+
 To setup multiple switches in Open vSwitch we can define two bridges with different datapath-ids and names.
 We'll be using br1 and br2.
 
 .. code:: console
 
-    create_ns host1 10.0.1.1/24
-    create_ns host2 10.0.1.2/24
+   create_ns host1 10.0.1.1/24
+   create_ns host2 10.0.1.2/24
 
-    sudo ovs-vsctl add-br br1 \
-    -- set bridge br1 other-config:datapath-id=0000000000000001 \
-    -- set bridge br1 other-config:disable-in-band=true \
-    -- set bridge br1 fail_mode=secure \
-    -- add-port br1 veth-host1 -- set interface veth-host1 ofport_request=1 \
-    -- set-controller br1 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
-   
+   sudo ovs-vsctl add-br br1 \
+   -- set bridge br1 other-config:datapath-id=0000000000000001 \
+   -- set bridge br1 other-config:disable-in-band=true \
+   -- set bridge br1 fail_mode=secure \
+   -- add-port br1 veth-host1 -- set interface veth-host1 ofport_request=1 \
+   -- set-controller br1 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
+
    sudo ovs-vsctl add-br br2 \
-    -- set bridge br2 other-config:datapath-id=0000000000000002 \
-    -- set bridge br2 other-config:disable-in-band=true \
-    -- set bridge br2 fail_mode=secure \
-    -- add-port br2 veth-host2 -- set interface veth-host2 ofport_request=1 \
-    -- set-controller br2 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
+   -- set bridge br2 other-config:datapath-id=0000000000000002 \
+   -- set bridge br2 other-config:disable-in-band=true \
+   -- set bridge br2 fail_mode=secure \
+   -- add-port br2 veth-host2 -- set interface veth-host2 ofport_request=1 \
+   -- set-controller br2 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
 
 Since the switches are not connected it will be impossible to ping between the two hosts.
 
 .. code:: console
-   
+
    as_ns host1 ping 10.0.1.2
 
 To properly connect the switches we can use the Faucet switch stacking feature.
@@ -206,8 +212,12 @@ However, we need to set 'drop_spoofed_faucet_mac' to false on each DP. Doing thi
     vlans:
         hosts:
             vid: 100
+            faucet_vips: ["10.0.1.254/24"]
+            faucet_mac: "00:00:00:00:00:11"
         servers:
             vid: 200
+            faucet_vips: ["10.0.2.254/24"]
+            faucet_mac: "00:00:00:00:00:22"
     routers:
         router-1:
             vlans: [hosts, servers]
@@ -253,6 +263,12 @@ However, we need to set 'drop_spoofed_faucet_mac' to false on each DP. Doing thi
                     description: "server2 network namespace"
                     native_vlan: servers
 
+Reload faucet to enable inter-VLAN routing.
+
+.. code:: console
+
+    sudo systemctl reload faucet
+
 As we have learnt previously. First, set up the hosts:
 
 .. code:: console
@@ -266,30 +282,30 @@ Now we can set-up the default routes for each host.
 
 .. code:: console
 
-   as_ns host1 ip route add default via 10.0.1.254/24
-   as_ns host2 ip route add default via 10.0.1.254/24
-   as_ns server1 ip route add default via 10.0.2.254/24
-   as_ns server2 ip route add default via 10.0.2.254/24
+   as_ns host1 ip route add default via 10.0.1.254
+   as_ns host2 ip route add default via 10.0.1.254
+   as_ns server1 ip route add default via 10.0.2.254
+   as_ns server2 ip route add default via 10.0.2.254
 
 Next, we can create the bridges.
 
 .. code:: console
 
-    sudo ovs-vsctl add-br br1 \
-    -- set bridge br1 other-config:datapath-id=0000000000000001 \
-    -- set bridge br1 other-config:disable-in-band=true \
-    -- set bridge br1 fail_mode=secure \
-    -- add-port br1 veth-host1 -- set interface veth-host1 ofport_request=1 \
-    -- add-port br1 veth-server1 -- set interface veth-server1 ofport_request=3 \
-    -- set-controller br1 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
-   
-   sudo ovs-vsctl add-br br2 \
-    -- set bridge br2 other-config:datapath-id=0000000000000002 \
-    -- set bridge br2 other-config:disable-in-band=true \
-    -- set bridge br2 fail_mode=secure \
-    -- add-port br2 veth-host2 -- set interface veth-host2 ofport_request=1 \
-    -- add-port br2 veth-server2 -- set interface veth-server2 ofport_request=3 \
-    -- set-controller br2 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
+  sudo ovs-vsctl add-br br1 \
+  -- set bridge br1 other-config:datapath-id=0000000000000001 \
+  -- set bridge br1 other-config:disable-in-band=true \
+  -- set bridge br1 fail_mode=secure \
+  -- add-port br1 veth-host1 -- set interface veth-host1 ofport_request=1 \
+  -- add-port br1 veth-server1 -- set interface veth-server1 ofport_request=3 \
+  -- set-controller br1 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
+
+  sudo ovs-vsctl add-br br2 \
+  -- set bridge br2 other-config:datapath-id=0000000000000002 \
+  -- set bridge br2 other-config:disable-in-band=true \
+  -- set bridge br2 fail_mode=secure \
+  -- add-port br2 veth-host2 -- set interface veth-host2 ofport_request=1 \
+  -- add-port br2 veth-server2 -- set interface veth-server2 ofport_request=3 \
+  -- set-controller br2 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
 
 And finally, we can create the patches to connect the bridges to each other.
 
