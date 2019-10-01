@@ -28,15 +28,6 @@ Developer Documentation
    fuzzing
    source/index
 
-Quick References
-----------------
-
-.. toctree::
-   :maxdepth: 1
-
-   faq
-
-
 Indices and tables
 ------------------
 
