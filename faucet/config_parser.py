@@ -187,8 +187,14 @@ def _parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
 def _dp_parser_v2(dps_conf, acls_conf, meters_conf,
                   routers_conf, vlans_conf, meta_dp_state):
 
-    dps = [_parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
-           for dp_key, dp_conf in dps_conf.items()]
+    dps = []
+    for dp_key, dp_conf in dps_conf.items():
+        try:
+            dps.append(_parse_dp(
+                dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf))
+        except InvalidConfigError as err:
+            raise InvalidConfigError('DP %s: %s' % (dp_key, err))
+
     for dp in dps:
         dp.finalize_config(dps)
     for dp in dps:
