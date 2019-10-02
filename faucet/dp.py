@@ -132,6 +132,8 @@ configuration.
         # Minimum table size for wildcard tables.
         'max_wildcard_table_size': 1024 + 256,
         # Maximum table size for wildcard tables.
+        'port_table_scale_factor': 1.0,
+        # Amount to scale port scaled table sizes by.
         'global_vlan': 0,
         # Reserved VID for internal global router VLAN.
         'cache_update_guard_time': 0,
@@ -190,6 +192,7 @@ configuration.
         'table_sizes': dict,
         'min_wildcard_table_size': int,
         'max_wildcard_table_size': int,
+        'port_table_scale_factor': float,
         'global_vlan': int,
         'cache_update_guard_time': int,
         'use_classification': bool,
@@ -295,6 +298,7 @@ configuration.
         self.vlans = None
         self.min_wildcard_table_size = None
         self.max_wildcard_table_size = None
+        self.port_table_scale_factor = None
         self.cache_update_guard_time = None
         self.use_classification = None
         self.strict_packet_in_cookie = None
@@ -535,9 +539,6 @@ configuration.
                     not matches.issubset(oxm_fields),
                     'matches not all OpenFlow OXM fields %s' % (matches - oxm_fields))
 
-            size = max(self.table_sizes.get(table_name, self.min_wildcard_table_size),
-                       self.min_wildcard_table_size)
-
             scale_factor = 1.0
             # Need flows for internal/external.
             if self.has_externals:
@@ -558,12 +559,17 @@ configuration.
             # Table scales with number of ports and VLANs.
             elif table_config.vlan_port_scale:
                 scale_factor *= (len(self.vlans) * len(self.ports) * table_config.vlan_port_scale)
+                scale_factor *= self.port_table_scale_factor
 
             # Always multiple of min_wildcard_table_size
             size = (int(scale_factor / self.min_wildcard_table_size) + 1) * self.min_wildcard_table_size
 
             if not table_config.exact_match:
+                size = max(size, self.min_wildcard_table_size)
                 size = min(size, self.max_wildcard_table_size)
+
+            # Hard override for size if present.
+            size = self.table_sizes.get(table_name, size)
 
             table_config.size = size
             table_config.next_tables = [

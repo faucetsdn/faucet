@@ -249,7 +249,11 @@ string names given to the datapath, or the OFP datapath id.
     * - table_sizes
       - dictionary
       - {}
-      - For TFM based switches, size of each FAUCET table (all must be specified)
+      - For TFM based switches, size of each FAUCET table (any may be specified)
+    * - port_table_scale_factor
+      - float
+      - 1.0
+      - For TFM based switches, and for tables that are sized by number of ports, scale size estimate.
     * - global_vlan
       - int
       - 2**11-1
