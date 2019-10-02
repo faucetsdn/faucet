@@ -26,6 +26,8 @@ cleanup () {
     done
     # Remove faucet dataplane connection
     sudo ip link delete veth-faucet 2>/dev/null || true
-    # Remove openvswitch bridge
-    sudo ovs-vsctl del-br br0
+    # Remove openvswitch bridges
+    sudo ovs-vsctl --if-exists del-br br0
+    sudo ovs-vsctl --if-exists del-br br1
+    sudo ovs-vsctl --if-exists del-br br2
 }

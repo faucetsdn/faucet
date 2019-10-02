@@ -287,9 +287,9 @@ troubleshooting (e.g. so that a standard cable tester can display port
 information), verify FAUCET stacking topology, and cue a phone to use
 the right voice VLAN.
 
-NOTE: while FAUCET can receive and log LLDP from other devices, FAUCET
-does not do spanning tree those LLDP packets will have no influence
-on FAUCET's forwarding decisions.
+.. note:: While FAUCET can receive and log LLDP from other devices, FAUCET
+  does not do spanning tree. Those LLDP packets will have no influence
+  on FAUCET's forwarding decisions.
 
 The following attributes can be configured within the 'lldp_beacon'
 configuration block at the dp level:
@@ -314,6 +314,9 @@ configuration block at the dp level:
       - integer
       - None
       - The maximum number of beacons, across all ports to send each interval
+
+.. note:: When stack ports are enabled FAUCET automatically configures LLDP
+  with the default values for send_interval and max_per_interval to 5.
 
 802.1X (DP)
 ###########
@@ -567,7 +570,7 @@ interface configuration block. The following attributes can be configured:
     * - dp
       - integer or string
       - None
-      - The name of dp_id of the dp connected to this port
+      - The name or dp_id of the dp connected to this port
     * - port
       - integer or string
       - None
