@@ -28,7 +28,6 @@ import pstats
 import shutil
 import socket
 import tempfile
-import time
 import unittest
 
 from ryu.lib import mac
@@ -385,6 +384,67 @@ vlans:
         vid: 100
     """ % DP1_CONFIG
 
+STACK_LOOP_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s2
+                    port: 1
+            2:
+                description: p2
+                stack:
+                    dp: s3
+                    port: 1
+            3:
+                description: p3
+                native_vlan: 100
+    s2:
+        hardware: 'GenericTFM'
+        faucet_dp_mac: 0e:00:00:00:01:02
+        dp_id: 0x2
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                description: p2
+                stack:
+                    dp: s3
+                    port: 2
+            3:
+                description: p3
+                native_vlan: 100
+    s3:
+        hardware: 'GenericTFM'
+        faucet_dp_mac: 0e:00:00:00:01:03
+        dp_id: 0x3
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 2
+            2:
+                description: p2
+                stack:
+                    dp: s2
+                    port: 2
+            3:
+                description: p3
+                native_vlan: 100
+vlans:
+    v100:
+        vid: 100
+""" % BASE_DP1_CONFIG
+
 
 class ValveTestBases:
     """Insulate test base classes from unittest so we can reuse base clases."""
@@ -424,7 +484,13 @@ class ValveTestBases:
             self.sock = None
             self.notifier = None
             self.config_file = None
+            self.up_ports = {}
+            self.mock_now_sec = 100
             super(ValveTestBases.ValveTestSmall, self).__init__(*args, **kwargs)
+
+        def mock_time(self, increment_sec=1):
+            self.mock_now_sec += increment_sec
+            return self.mock_now_sec
 
         def setup_valve(self, config):
             """Set up test DP with config."""
@@ -511,7 +577,6 @@ class ValveTestBases:
 
         def send_flows_to_dp_by_id(self, valve, flows):
             """Callback for ValvesManager to simulate sending flows to DP."""
-            valve = self.valves_manager.valves[self.DP_ID]
             flows = valve.prepare_send_flows(flows)
             self.last_flows_to_dp[valve.dp.dp_id] = flows
 
@@ -533,7 +598,7 @@ class ValveTestBases:
             reload_ofmsgs = []
             reload_func = partial(
                 self.valves_manager.request_reload_configs,
-                time.time(), self.config_file)
+                self.mock_time(10), self.config_file)
 
             if error_expected:
                 reload_func()
@@ -557,7 +622,7 @@ class ValveTestBases:
             discovered_up_ports = set(list(self.valve.dp.ports.keys())[:self.NUM_PORTS])
             connect_msgs = (
                 self.valve.switch_features(None) +
-                self.valve.datapath_connect(time.time(), discovered_up_ports))
+                self.valve.datapath_connect(self.mock_time(10), discovered_up_ports))
             self.apply_ofmsgs(connect_msgs)
             self.valves_manager.update_config_applied(sent={self.DP_ID: True})
             self.assertEqual(1, int(self.get_prom('dp_status')))
@@ -596,6 +661,45 @@ class ValveTestBases:
             """Flap op status on a port."""
             self.set_port_down(port_no)
             self.set_port_up(port_no)
+
+        def all_stack_up(self):
+            for valve in self.valves_manager.valves.values():
+                valve.dp.dyn_running = True
+                for port in valve.dp.stack_ports:
+                    port.stack_up()
+
+        def up_stack_port(self, port, dp_id=None):
+            peer_dp = port.stack['dp']
+            peer_port = port.stack['port']
+            for state_func in [peer_port.stack_init, peer_port.stack_up]:
+                state_func()
+                self.rcv_lldp(port, peer_dp, peer_port, dp_id)
+            self.assertTrue(port.is_stack_up())
+
+        def down_stack_port(self, port):
+            self.up_stack_port(port)
+            peer_port = port.stack['port']
+            peer_port.stack_down()
+            now = self.mock_time(600)
+            self.valves_manager.valve_flow_services(
+                now,
+                'fast_state_expire')
+            self.assertTrue(port.is_stack_down())
+
+        def update_port_map(self, port, add_else_remove):
+            this_dp = port.dp_id
+            this_num = port.number
+            this_key = '%s:%s' % (this_dp, this_num)
+            peer_dp = port.stack['dp'].dp_id
+            peer_num = port.stack['port'].number
+            peer_key = '%s:%s' % (peer_dp, peer_num)
+            key_array = [this_key, peer_key]
+            key_array.sort()
+            key = key_array[0]
+            if add_else_remove:
+                self.up_ports[key] = port
+            else:
+                del self.up_ports[key]
 
         @staticmethod
         def packet_outs_from_flows(flows):
@@ -637,9 +741,8 @@ class ValveTestBases:
 
         def verify_expiry(self):
             """Verify FIB resolution attempts expire."""
-            now = time.time()
             for _ in range(self.valve.dp.max_host_fib_retry_count + 1):
-                now += (self.valve.dp.timeout * 2)
+                now = self.mock_time(self.valve.dp.timeout * 2)
                 self.valve.state_expire(now, None)
                 self.valve.resolve_gateways(now, None)
             # TODO: verify state expired
@@ -726,7 +829,7 @@ class ValveTestBases:
                     {'in_port': port}, port, vlan_pkt.data, len(vlan_pkt.data),
                     self.valve.dp.cookie, valve_of.ofp.OFPR_ACTION)
             self.last_flows_to_dp[self.DP_ID] = []
-            now = time.time()
+            now = self.mock_time(0)
             self.prom_inc(
                 partial(self.valves_manager.valve_packet_in, now, self.valve, msg),
                 'of_packet_ins_total')
@@ -739,18 +842,47 @@ class ValveTestBases:
             self.valves_manager.update_metrics(now)
             return rcv_packet_ofmsgs
 
-        def rcv_lldp(self, port, other_dp, other_port):
+        def rcv_lldp(self, port, other_dp, other_port, dp_id=None):
             """Receive an LLDP packet"""
+            dp_id = dp_id if dp_id else self.DP_ID
             tlvs = []
             tlvs.extend(valve_packet.faucet_lldp_tlvs(other_dp))
             tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(other_dp, other_port))
-            self.rcv_packet(port.number, 0, {
-                'eth_src': FAUCET_MAC,
+            dp_mac = other_dp.faucet_dp_mac if other_dp.faucet_dp_mac else FAUCET_MAC
+            flows = self.valve_rcv_packet(port.number, 0, {
+                'eth_src': dp_mac,
                 'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
                 'port_id': other_port.number,
-                'chassis_id': FAUCET_MAC,
+                'chassis_id': dp_mac,
                 'system_name': other_dp.name,
-                'org_tlvs': tlvs})
+                'org_tlvs': tlvs}, dp_id)
+            if dp_id == self.DP_ID:
+                self.apply_ofmsgs(flows)
+
+        def valve_rcv_packet(self, port, vid, match, dp_id):
+            """Simulate control plane receiving a packet on a port/VID."""
+            valve = self.valves_manager.valves[dp_id]
+            pkt = build_pkt(match)
+            vlan_pkt = pkt
+            if vid and vid not in match:
+                vlan_match = match
+                vlan_match['vid'] = vid
+                vlan_pkt = build_pkt(match)
+            msg = namedtuple(
+                'null_msg',
+                ('match', 'in_port', 'data', 'total_len', 'cookie', 'reason'))(
+                    {'in_port': port}, port, vlan_pkt.data, len(vlan_pkt.data),
+                    valve.dp.cookie, valve_of.ofp.OFPR_ACTION)
+            self.last_flows_to_dp[dp_id] = []
+            now = self.mock_time(0)
+            self.valves_manager.valve_packet_in(now, valve, msg)
+            for valve_service in (
+                    'resolve_gateways', 'advertise', 'fast_advertise', 'state_expire'):
+                self.valves_manager.valve_flow_services(
+                    now, valve_service)
+            self.valves_manager.update_metrics(now)
+            rcv_packet_ofmsgs = self.last_flows_to_dp[dp_id]
+            return rcv_packet_ofmsgs
 
         def set_stack_port_status(self, port_no, status):
             """Set stack port up recalculating topology as necessary."""
@@ -815,7 +947,7 @@ class ValveTestBases:
                 isinstance(self.valve, TfmValve),
                 msg=type(self.valve))
             discovered_up_ports = {port_no for port_no in range(1, self.NUM_PORTS + 1)}
-            flows = self.valve.datapath_connect(time.time(), discovered_up_ports)
+            flows = self.valve.datapath_connect(self.mock_time(10), discovered_up_ports)
             self.apply_ofmsgs(flows)
             tfm_flows = [
                 flow for flow in flows if isinstance(
@@ -963,10 +1095,10 @@ class ValveTestBases:
                 valve_vlan, ip_gw, ip_dst)
             self.assertFalse(route_add_replies)
             resolve_replies = self.valve.resolve_gateways(
-                time.time(), None)
+                self.mock_time(10), None)
             self.assertFalse(resolve_replies)
             resolve_replies = self.valve.resolve_gateways(
-                time.time() + 99, None)
+                self.mock_time(99), None)
             self.assertTrue(resolve_replies)
 
         def test_add_del_route(self):
@@ -1461,7 +1593,7 @@ meters:
         def test_lldp_beacon(self):
             """Test LLDP beacon service."""
             # TODO: verify LLDP packet content.
-            self.assertTrue(self.valve.fast_advertise(time.time(), None))
+            self.assertTrue(self.valve.fast_advertise(self.mock_time(10), None))
 
         def test_unknown_port(self):
             """Test port status change for unknown port handled."""
@@ -1520,7 +1652,7 @@ meters:
 
         def test_packet_in_rate(self):
             """Test packet in rate limit triggers."""
-            now = time.time()
+            now = self.mock_time(10)
             for _ in range(self.valve.dp.ignore_learn_ins * 2 + 1):
                 if self.valve.rate_limit_packet_ins(now):
                     return
@@ -1672,31 +1804,6 @@ meters:
                 'arp_source_ip': self.create_ip(vindex, host),
                 'arp_target_ip': faucet_vip
             }
-
-        def valve_rcv_packet(self, port, vid, match, dp_id):
-            """Simulate control plane receiving a packet on a port/VID."""
-            valve = self.valves_manager.valves[dp_id]
-            pkt = build_pkt(match)
-            vlan_pkt = pkt
-            if vid and vid not in match:
-                vlan_match = match
-                vlan_match['vid'] = vid
-                vlan_pkt = build_pkt(match)
-            msg = namedtuple(
-                'null_msg',
-                ('match', 'in_port', 'data', 'total_len', 'cookie', 'reason'))(
-                    {'in_port': port}, port, vlan_pkt.data, len(vlan_pkt.data),
-                    valve.dp.cookie, valve_of.ofp.OFPR_ACTION)
-            self.last_flows_to_dp[dp_id] = []
-            now = time.time()
-            self.valves_manager.valve_packet_in(now, valve, msg)
-            rcv_packet_ofmsgs = self.last_flows_to_dp[dp_id]
-            for valve_service in (
-                    'resolve_gateways', 'advertise', 'fast_advertise', 'state_expire'):
-                self.valves_manager.valve_flow_services(
-                    now, valve_service)
-            self.valves_manager.update_metrics(now)
-            return rcv_packet_ofmsgs
 
         def verify_router_cache(self, ip_match, eth_match, vid, dp_id):
             """Verify router nexthop cache stores correct values"""

@@ -19,7 +19,6 @@
 
 from functools import partial
 import hashlib
-import time
 import unittest
 from ryu.ofproto import ofproto_v1_3 as ofp
 from faucet import config_parser_util
@@ -91,7 +90,7 @@ dps: {}
                 (self.CONFIG, 0)):
             with open(self.config_file, 'w') as config_file:
                 config_file.write(config)
-            self.valves_manager.request_reload_configs(time.time(), self.config_file)
+            self.valves_manager.request_reload_configs(self.mock_time(), self.config_file)
             self.assertEqual(
                 load_error,
                 self.get_prom('faucet_config_load_error', bare=True),

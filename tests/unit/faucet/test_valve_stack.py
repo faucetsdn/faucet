@@ -18,7 +18,6 @@
 # limitations under the License.
 
 from functools import partial
-import time
 import unittest
 
 from ryu.lib import mac
@@ -28,10 +27,11 @@ from faucet import valves_manager
 from faucet import valve_of
 
 from valve_test_lib import (
-    BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, ValveTestBases)
+    BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
 
 
 class ValveStackRootExtLoopProtectTestCase(ValveTestBases.ValveTestSmall):
+    """External loop protect test cases"""
 
     CONFIG = """
 dps:
@@ -83,6 +83,7 @@ dps:
         self.set_stack_port_up(1)
 
     def test_loop_protect(self):
+        """test basic loop protection"""
         mcast_match = {
             'in_port': 2,
             'eth_dst': mac.BROADCAST_STR,
@@ -102,67 +103,15 @@ dps:
 
 
 class ValveStackRedundantLink(ValveTestBases.ValveTestSmall):
+    """Check stack situations with a redundant link"""
 
-    CONFIG = """
-dps:
-    s1:
-%s
-        interfaces:
-            1:
-                description: p1
-                stack:
-                    dp: s2
-                    port: 1
-            2:
-                description: p2
-                stack:
-                    dp: s3
-                    port: 1
-            3:
-                description: p3
-                native_vlan: 100
-    s2:
-        hardware: 'GenericTFM'
-        dp_id: 0x2
-        interfaces:
-            1:
-                description: p1
-                stack:
-                    dp: s1
-                    port: 1
-            2:
-                description: p2
-                stack:
-                    dp: s3
-                    port: 2
-            3:
-                description: p3
-                native_vlan: 100
-    s3:
-        hardware: 'GenericTFM'
-        dp_id: 0x3
-        stack:
-            priority: 1
-        interfaces:
-            1:
-                description: p1
-                stack:
-                    dp: s1
-                    port: 2
-            2:
-                description: p2
-                stack:
-                    dp: s2
-                    port: 2
-            3:
-                description: p3
-                native_vlan: 100
-""" % BASE_DP1_CONFIG
+    CONFIG = STACK_LOOP_CONFIG
 
     def setUp(self):
         self.setup_valve(self.CONFIG)
 
     def test_loop_protect(self):
+        """Basic loop protection check"""
         self.set_stack_port_up(1)
         self.set_stack_port_up(2)
         mcast_match = {
@@ -461,7 +410,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
         other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
-        self.valve.fast_state_expire(time.time(), other_valves)
+        self.valve.fast_state_expire(self.mock_time(), other_valves)
         self.assertTrue(stack_port.is_stack_init())
         for change_func, check_func in [
                 ('stack_up', 'is_stack_up')]:
@@ -477,7 +426,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         wrong_port = other_dp.ports[2]
         wrong_dp = self.valves_manager.valves[3].dp
         other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
-        self.valve.fast_state_expire(time.time(), other_valves)
+        self.valve.fast_state_expire(self.mock_time(), other_valves)
         for remote_dp, remote_port in [
                 (wrong_dp, other_port),
                 (other_dp, wrong_port)]:
@@ -492,13 +441,13 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
         other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
-        self.valve.fast_state_expire(time.time(), other_valves)
+        self.valve.fast_state_expire(self.mock_time(), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
         # simulate packet loss
-        self.valve.fast_state_expire(time.time() + 300, other_valves)
+        self.valve.fast_state_expire(self.mock_time(300), other_valves)
         self.assertTrue(stack_port.is_stack_down())
-        self.valve.fast_state_expire(time.time() + 300, other_valves)
+        self.valve.fast_state_expire(self.mock_time(300), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
 
@@ -514,29 +463,6 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestSmall):
     def test_update_stack_graph(self):
         """Test stack graph port UP and DOWN updates"""
 
-        def all_stack_up():
-            for valve in self.valves_manager.valves.values():
-                valve.dp.dyn_running = True
-                for port in valve.dp.stack_ports:
-                    port.stack_up()
-
-        def up_stack_port(port):
-            peer_dp = port.stack['dp']
-            peer_port = port.stack['port']
-            for state_func in [peer_port.stack_init, peer_port.stack_up]:
-                state_func()
-                self.rcv_lldp(port, peer_dp, peer_port)
-            self.assertTrue(port.is_stack_up())
-
-        def down_stack_port(port):
-            up_stack_port(port)
-            peer_port = port.stack['port']
-            peer_port.stack_down()
-            self.valves_manager.valve_flow_services(
-                time.time() + 600,
-                'fast_state_expire')
-            self.assertTrue(port.is_stack_down())
-
         def verify_stack_learn_edges(num_edges, edge=None, test_func=None):
             for dpid in (1, 2, 3):
                 valve = self.valves_manager.valves[dpid]
@@ -548,15 +474,15 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestSmall):
                     test_func(edge in graph.edges(keys=True))
 
         num_edges = 3
-        all_stack_up()
+        self.all_stack_up()
         verify_stack_learn_edges(num_edges)
         ports = [self.valve.dp.ports[1], self.valve.dp.ports[2]]
         edges = [('s1', 's2', 's1:1-s2:1'), ('s1', 's2', 's1:2-s2:2')]
         for port, edge in zip(ports, edges):
             num_edges -= 1
-            down_stack_port(port)
+            self.down_stack_port(port)
             verify_stack_learn_edges(num_edges, edge, self.assertFalse)
-        up_stack_port(ports[0])
+        self.up_stack_port(ports[0])
         verify_stack_learn_edges(2, edges[0], self.assertTrue)
 
 
@@ -932,9 +858,9 @@ dps:
 
     def test_topo(self):
         """Test topology functions."""
-        dp = self.valves_manager.valves[self.DP_ID].dp
-        self.assertFalse(dp.is_stack_root())
-        self.assertTrue(dp.is_stack_edge())
+        dp_obj = self.valves_manager.valves[self.DP_ID].dp
+        self.assertFalse(dp_obj.is_stack_root())
+        self.assertTrue(dp_obj.is_stack_edge())
 
 
 if __name__ == "__main__":
