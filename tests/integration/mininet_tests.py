@@ -7447,6 +7447,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         interfaces_conf[dst_port]['loop_protect_external'] = True
         interfaces_conf[dst_port]['lacp'] = 2
         interfaces_conf[src_port]['loop_protect_external'] = True
+        interfaces_conf = conf['dps']['faucet-2']['interfaces']
         interfaces_conf[fail_port]['loop_protect_external'] = True
         interfaces_conf[end_port]['loop_protect_external'] = True
         interfaces_conf[end_port]['lacp'] = 2
@@ -7457,7 +7458,6 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.wait_for_all_lacp_up()
         self.verify_stack_hosts()
 
-        interfaces_conf = conf['dps']['faucet-2']['interfaces']
         interfaces_conf[fail_port]['lacp'] = 0
         interfaces_conf[fail_port]['lacp_active'] = False
         self.reload_conf(conf, self.faucet_config_path, restart=True,
