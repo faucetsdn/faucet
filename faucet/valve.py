@@ -191,6 +191,9 @@ class Valve:
             flood_class = valve_flood.ValveFloodStackManagerNoReflection
             if self.dp.stack_root_flood_reflection:
                 flood_class = valve_flood.ValveFloodStackManagerReflection
+                self.logger.info('Using stacking root flood reflection')
+            else:
+                self.logger.info('Not using stacking root flood reflection')
             self.flood_manager = flood_class(
                 self.logger, self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
