@@ -486,6 +486,49 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestSmall):
         verify_stack_learn_edges(2, edges[0], self.assertTrue)
 
 
+class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
+    """Valve test for updating the stack graph."""
+
+    CONFIG = STACK_LOOP_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def validate_in_out(self, in_port, out_port, expected, msg):
+        bcast_match = {
+            'in_port': in_port,
+            'eth_dst': mac.BROADCAST_STR,
+            'vlan_vid': 0x1064 if in_port < 3 else 0,
+            'eth_type': 0x800,
+        }
+        if expected:
+            self.assertTrue(self.table.is_output(bcast_match, port=out_port), msg=msg)
+        else:
+            self.assertFalse(self.table.is_output(bcast_match, port=out_port), msg=msg)
+
+    def validate_flooding(self, broken):
+        self.validate_in_out(1, 1, False, 'flooded out input stack port')
+        self.validate_in_out(1, 2, True, 'not flooded to stack root')
+        self.validate_in_out(1, 3, True, 'not flooded to external host')
+        self.validate_in_out(2, 1, broken, 'flooded out other stack port')
+        self.validate_in_out(2, 2, False, 'flooded out input stack port')
+        self.validate_in_out(2, 3, True, 'not flooded to external host')
+        self.validate_in_out(3, 1, broken, 'flooded out inactive port')
+        self.validate_in_out(3, 2, True, 'not flooded to stack root')
+        self.validate_in_out(3, 3, True, 'flooded out hairpin')
+
+    def test_update_stack_graph(self):
+        """Test stack graph port UP and DOWN updates"""
+
+        self.activate_all_ports()
+        self.validate_flooding(False)
+        # Deactivate link between the two other switches, not the one under test.
+        other_dp = self.valves_manager.valves[2].dp
+        other_port = other_dp.ports[2]
+        self.deactivate_stack_port(other_port)
+        self.validate_flooding(True)
+
+
 class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):
     """Test inter-vlan routing with stacking capabilities in an IPV4 network"""
 

@@ -701,6 +701,34 @@ class ValveTestBases:
             else:
                 del self.up_ports[key]
 
+        def activate_all_ports(self):
+            for valve in self.valves_manager.valves.values():
+                valve.dp.dyn_running = True
+                for port in valve.dp.stack_ports:
+                    self.up_stack_port(port, dp_id=valve.dp.dp_id)
+                    self.update_port_map(port, True)
+            self.trigger_all_ports()
+
+        def trigger_all_ports(self):
+            for retry in range(1, 10):
+                for port in self.up_ports.values():
+                    dp_id = port.dp_id
+                    this_dp = self.valves_manager.valves[dp_id].dp
+                    peer_dp = port.stack['dp']
+                    peer_port = port.stack['port']
+                    self.rcv_lldp(port, peer_dp, peer_port, dp_id)
+                    self.rcv_lldp(peer_port, this_dp, port, peer_dp.dp_id)
+                self.last_flows_to_dp[self.DP_ID] = []
+                now = self.mock_time(2)
+                self.valves_manager.valve_flow_services(
+                    now, 'fast_state_expire')
+                flows = self.last_flows_to_dp[self.DP_ID]
+                self.apply_ofmsgs(flows)
+
+        def deactivate_stack_port(self, port):
+            self.update_port_map(port, False)
+            self.trigger_all_ports()
+
         @staticmethod
         def packet_outs_from_flows(flows):
             """Return flows that are packetout actions."""

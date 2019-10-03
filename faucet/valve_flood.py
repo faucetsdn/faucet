@@ -333,6 +333,9 @@ class ValveFloodManager(ValveManagerBase):
 class ValveFloodStackManagerBase(ValveFloodManager):
     """Base class for dataplane based flooding on stacked dataplanes."""
 
+    # By default, no reflection used for flooding algorithms.
+    _USES_REFLECTION = False
+
     def __init__(self, logger, flood_table, pipeline, # pylint: disable=too-many-arguments
                  use_group_table, groups,
                  combinatorial_port_flood, canonical_port_order,
@@ -377,7 +380,7 @@ class ValveFloodStackManagerBase(ValveFloodManager):
         self.all_towards_root_stack_ports = set()
         self.towards_root_stack_ports = set()
         self.away_from_root_stack_ports = set()
-        all_peer_ports = {port for port in self._canonical_stack_up_ports(self.stack_ports)}
+        all_peer_ports = set(self._canonical_stack_up_ports(self.stack_ports))
 
         if self.is_stack_root():
             self.away_from_root_stack_ports = all_peer_ports
@@ -408,12 +411,12 @@ class ValveFloodStackManagerBase(ValveFloodManager):
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port,
                                   exclude_all_external=False, exclude_restricted_bcast_arpnd=False):
-        exclude_ports = []
+        exclude_ports = self._inactive_away_stack_ports()
         external_ports = vlan.loop_protect_external_ports()
 
         if in_port and in_port in self.stack_ports:
             in_port_peer_dp = in_port.stack['dp']
-            exclude_ports = [
+            exclude_ports = exclude_ports + [
                 port for port in self.stack_ports
                 if port.stack['dp'] == in_port_peer_dp]
         local_flood_actions = self._build_flood_local_rule_actions(
@@ -426,6 +429,19 @@ class ValveFloodStackManagerBase(ValveFloodManager):
             in_port, external_ports, away_flood_actions,
             toward_flood_actions, local_flood_actions)
         return flood_acts
+
+    def _inactive_away_stack_ports(self):
+        all_peer_ports = set(self._canonical_stack_up_ports(self.stack_ports))
+        shortest_path = self.dp_shortest_path_to_root()
+        if not shortest_path or len(shortest_path) < 2:
+            return []
+        self_dp = shortest_path[0]
+        inactive = []
+        for port in all_peer_ports:
+            shortest_path = port.stack['dp'].shortest_path_to_root()
+            if len(shortest_path) > 1 and shortest_path[1] != self_dp:
+                inactive.append(port)
+        return inactive
 
     def _canonical_stack_up_ports(self, ports):
         return self.canonical_port_order([port for port in ports if port.is_stack_up()])
@@ -484,7 +500,7 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 ofmsgs.extend(self.pipeline.remove_filter(
                     match, priority_offset=priority_offset))
                 # Control learning from multicast/broadcast on non-root DPs.
-                if not self.is_stack_root() and eth_dst is not None:
+                if not self.is_stack_root() and eth_dst is not None and self._USES_REFLECTION:
                     # If ths is an edge DP, we don't have to learn from
                     # hosts that only broadcast.  If we're an intermediate
                     # DP, only learn from broadcasts further away from
@@ -608,17 +624,8 @@ class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
             else:
                 flood_prefix = self._set_ext_port_flag
 
-        if self.is_stack_root():
-            flood_actions = (
-                flood_prefix + away_flood_actions + local_flood_actions)
-        else:
-            # Default strategy is flood locally and then to the root.
-            flood_actions = (
-                flood_prefix + toward_flood_actions + local_flood_actions)
-
-            # If packet came from the root, flood it locally.
-            if in_port in self.all_towards_root_stack_ports:
-                flood_actions = (flood_prefix + local_flood_actions)
+        flood_actions = (
+                flood_prefix + toward_flood_actions + away_flood_actions + local_flood_actions)
 
         return flood_actions
 
@@ -683,6 +690,9 @@ class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
        4: 5(s)
        5: 1 2 3 4
     """
+
+    # Indicate to base class use of reflection required.
+    _USES_REFLECTION = True
 
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
