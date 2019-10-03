@@ -328,8 +328,8 @@ class FakeOFTable:
     def __str__(self):
         string = ''
         for table_id, table in enumerate(self.tables):
-            string += '----- Table %u -----\n' % (table_id)
-            string += '\n'.join([str(flowmod) for flowmod in table])
+            string += '\n----- Table %u -----\n' % (table_id)
+            string += '\n'.join(sorted([str(flowmod) for flowmod in table]))
         return string
 
     def sort_tables(self):
@@ -351,6 +351,7 @@ class FlowMod:
     def __init__(self, flowmod):
         """flowmod is a ryu flow modification message object"""
         self.priority = flowmod.priority
+        self.cookie = flowmod.cookie
         self.instructions = flowmod.instructions
         self.validate_instructions()
         self.match_values = {}
@@ -485,10 +486,10 @@ class FlowMod:
                 self.instructions == other.instructions)
 
     def __str__(self):
-        string = 'priority: {0}'.format(self.priority)
-        for key, val in self.match_values.items():
+        string = 'priority: {0} cookie: {1}'.format(self.priority, self.cookie)
+        for key in sorted(self.match_values.keys()):
             mask = self.match_masks[key]
-            string += ' {0}: {1}'.format(key, val)
+            string += ' {0}: {1}'.format(key, self.match_values[key])
             if mask.int != -1: # pytype: disable=attribute-error
                 string += '/{0}'.format(mask)
         string += ' Instructions: {0}'.format(str(self.instructions))

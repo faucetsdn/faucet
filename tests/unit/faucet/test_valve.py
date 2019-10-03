@@ -18,7 +18,6 @@
 # limitations under the License.
 
 
-import time
 import unittest
 from ryu.lib import mac
 from ryu.lib.packet import slow
@@ -261,12 +260,12 @@ vlans:
         self.learn_hosts()
         self.assertTrue(
             self.valve.flow_timeout(
-                time.time(),
+                self.mock_time(),
                 self.valve.dp.tables['eth_dst'].table_id,
                 {'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}))
         self.assertFalse(
             self.valve.flow_timeout(
-                time.time(),
+                self.mock_time(),
                 self.valve.dp.tables['eth_src'].table_id,
                 {'vlan_vid': self.V100, 'in_port': 1, 'eth_src': self.P1_V100_MAC}))
 
@@ -365,7 +364,7 @@ vlans:
             'actor_state_synchronization': 1})
         self.assertEqual(
             1, int(self.get_prom('port_lacp_status', labels=labels)))
-        future_now = time.time() + 10
+        future_now = self.mock_time(10)
         expire_ofmsgs = self.valve.state_expire(future_now, None)
         self.assertTrue(expire_ofmsgs)
         self.assertEqual(
@@ -499,7 +498,7 @@ vlans:
         self.assertEqual(
             0, int(self.get_prom('port_lacp_status', labels=labels)))
         # Ensure LACP packet sent.
-        ofmsgs = self.valve.fast_advertise(time.time(), None)[self.valve]
+        ofmsgs = self.valve.fast_advertise(self.mock_time(), None)[self.valve]
         self.assertTrue(self.packet_outs_from_flows(ofmsgs))
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
