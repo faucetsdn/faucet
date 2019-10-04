@@ -6888,6 +6888,14 @@ class FaucetStringOfDPTest(FaucetTest):
             self.fail('did not get expected dpid %x port %u port_stack_state %u' % (
                 int(dpid), port_no, status))
 
+    def one_stack_port_down(self, dpid, dp_name, port):
+        self.set_port_down(port, dpid, wait=False)
+        self.wait_for_stack_port_status(dpid, dp_name, port, 2)
+
+    def one_stack_port_up(self, dpid, dp_name, port):
+        self.set_port_up(port, dpid, wait=False)
+        self.wait_for_stack_port_status(dpid, dp_name, port, 3)
+
     def verify_stack_up(self, prop=1.0, timeout=25):
         for _ in range(timeout):
             links = 0
@@ -7616,7 +7624,6 @@ class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
 class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
-    NUM_HOSTS = 2
     SOFTWARE_ONLY = True
 
     def setUp(self): # pylint: disable=invalid-name
@@ -7625,67 +7632,30 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
             stack=True,
             n_dps=self.NUM_DPS,
             untagged_hosts={self.VID: self.NUM_HOSTS},
-            switch_to_switch_links=2,
-            stack_ring=True)
-        self.start_net()
-        self.first_host = self.hosts_name_ordered()[0]
-        self.second_host = self.hosts_name_ordered()[1]
-        self.fifth_host = self.hosts_name_ordered()[4]
-        self.last_host = self.hosts_name_ordered()[self.NUM_HOSTS * self.NUM_DPS - 1]
-
-    def one_stack_port_down(self):
-        port = self.non_host_links(self.dpid)[1].port
-        self.set_port_down(port, self.dpid)
-        self.wait_for_stack_port_status(self.dpid, self.DP_NAME, port, 2) # down
-
-    def test_untagged(self):
-        """Stack loop prevention works and hosts can ping each others."""
-        self.verify_stack_up()
-        self.verify_stack_has_no_loop()
-        self.retry_net_ping()
-        self.verify_traveling_dhcp_mac()
-
-    def test_stack_down(self):
-        """Verify if a link down is reflected on stack-topology."""
-        self.verify_stack_up()
-        # ping first pair
-        self.retry_net_ping([self.first_host, self.last_host])
-        self.one_stack_port_down()
-        # TODO: non-reflection based flood does not handle broken ring.
-        self.retry_net_ping([self.first_host, self.last_host], required_loss=100, retries=1)
-        # newly learned hosts should work
-        self.retry_net_ping([self.second_host, self.fifth_host])
-
-
-class FaucetStack4RingOfDPTest(FaucetStringOfDPTest):
-
-    NUM_DPS = 4
-    SOFTWARE_ONLY = True
-
-    def setUp(self):  # pylint: disable=invalid-name
-        super(FaucetStack4RingOfDPTest, self).setUp()
-        self.build_net(
-            stack=True,
-            n_dps=self.NUM_DPS,
-            untagged_hosts={self.VID: self.NUM_HOSTS},
             switch_to_switch_links=1,
             stack_ring=True)
         self.start_net()
 
-    def one_stack_port_down(self):
-        port = self.non_host_links(self.dpid)[1].port
-        self.set_port_down(port, self.dpid)
-        self.wait_for_stack_port_status(self.dpid, self.DP_NAME, port, 2)  # down
-
     def test_untagged(self):
-        """Stack loop prevention works and hosts can ping each others."""
+        """Stack loop prevention works and hosts can ping each other."""
         self.verify_stack_up()
         self.verify_stack_has_no_loop()
         self.retry_net_ping()
         self.verify_traveling_dhcp_mac()
-        # Reflection based flood can handle a broken ring.
-        self.one_stack_port_down()
-        self.retry_net_ping()
+        # Move through each DP breaking either side of the ring
+        for dpid_i in range(self.NUM_DPS):
+            dpid = self.dpids[dpid_i]
+            dp_name = 'faucet-%u' % (dpid_i + 1)
+            for link in self.non_host_links(dpid):
+                port = link.port
+                self.one_stack_port_down(dpid, dp_name, port)
+                self.retry_net_ping()
+                self.one_stack_port_up(dpid, dp_name, port)
+
+
+class FaucetStack4RingOfDPTest(FaucetStackRingOfDPTest):
+
+    NUM_DPS = 4
 
 
 class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
@@ -8038,10 +8008,6 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         )
         self.start_net()
 
-    def one_stack_port_down(self, stack_port):
-        self.set_port_down(stack_port, self.dpid)
-        self.wait_for_stack_port_status(self.dpid, self.DP_NAME, stack_port, 2)
-
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
         self.verify_stack_up()
@@ -8052,7 +8018,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
         """Test a tunnel path is rerouted when a stack is down."""
         self.verify_stack_up()
         first_stack_port = self.non_host_links(self.dpid)[0].port
-        self.one_stack_port_down(first_stack_port)
+        self.one_stack_port_down(self.dpid, self.DP_NAME, first_stack_port)
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
         self.set_port_up(first_stack_port, self.dpid)
