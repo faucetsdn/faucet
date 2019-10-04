@@ -489,6 +489,7 @@ class ValveTestBases:
             super(ValveTestBases.ValveTestSmall, self).__init__(*args, **kwargs)
 
         def mock_time(self, increment_sec=1):
+            """Manage a mock timer for better unit test control"""
             self.mock_now_sec += increment_sec
             return self.mock_now_sec
 
@@ -663,12 +664,14 @@ class ValveTestBases:
             self.set_port_up(port_no)
 
         def all_stack_up(self):
+            """Bring all the ports in a stack fully up"""
             for valve in self.valves_manager.valves.values():
                 valve.dp.dyn_running = True
                 for port in valve.dp.stack_ports:
                     port.stack_up()
 
         def up_stack_port(self, port, dp_id=None):
+            """Bring up a single stack port"""
             peer_dp = port.stack['dp']
             peer_port = port.stack['port']
             for state_func in [peer_port.stack_init, peer_port.stack_up]:
@@ -677,6 +680,7 @@ class ValveTestBases:
             self.assertTrue(port.is_stack_up())
 
         def down_stack_port(self, port):
+            """Bring down a single stack port"""
             self.up_stack_port(port)
             peer_port = port.stack['port']
             peer_port.stack_down()
@@ -686,7 +690,7 @@ class ValveTestBases:
                 'fast_state_expire')
             self.assertTrue(port.is_stack_down())
 
-        def update_port_map(self, port, add_else_remove):
+        def _update_port_map(self, port, add_else_remove):
             this_dp = port.dp_id
             this_num = port.number
             this_key = '%s:%s' % (this_dp, this_num)
@@ -700,6 +704,37 @@ class ValveTestBases:
                 self.up_ports[key] = port
             else:
                 del self.up_ports[key]
+
+        def activate_all_ports(self):
+            """Activate all stack ports through LLDP"""
+            for valve in self.valves_manager.valves.values():
+                valve.dp.dyn_running = True
+                for port in valve.dp.stack_ports:
+                    self.up_stack_port(port, dp_id=valve.dp.dp_id)
+                    self._update_port_map(port, True)
+            self.trigger_all_ports()
+
+        def trigger_all_ports(self):
+            """Do the needful to trigger any pending state changes"""
+            for _ in range(1, 10):
+                for port in self.up_ports.values():
+                    dp_id = port.dp_id
+                    this_dp = self.valves_manager.valves[dp_id].dp
+                    peer_dp = port.stack['dp']
+                    peer_port = port.stack['port']
+                    self.rcv_lldp(port, peer_dp, peer_port, dp_id)
+                    self.rcv_lldp(peer_port, this_dp, port, peer_dp.dp_id)
+                self.last_flows_to_dp[self.DP_ID] = []
+                now = self.mock_time(2)
+                self.valves_manager.valve_flow_services(
+                    now, 'fast_state_expire')
+                flows = self.last_flows_to_dp[self.DP_ID]
+                self.apply_ofmsgs(flows)
+
+        def deactivate_stack_port(self, port):
+            """Deactivate a given stack port"""
+            self._update_port_map(port, False)
+            self.trigger_all_ports()
 
         @staticmethod
         def packet_outs_from_flows(flows):
