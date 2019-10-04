@@ -449,8 +449,7 @@ vlans:
 class ValveTestBases:
     """Insulate test base classes from unittest so we can reuse base clases."""
 
-    # pytype: disable=module-attr, disable=too-many-instance-attributes
-    class ValveTestSmall(unittest.TestCase):
+    class ValveTestSmall(unittest.TestCase):  # pytype: disable=module-attr
         """Base class for all Valve unit tests."""
 
         DP = 's1'
