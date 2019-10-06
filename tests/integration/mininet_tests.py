@@ -2526,9 +2526,9 @@ vlans:
 """
 
     CONFIG = """
-        timeout: 15
-        arp_neighbor_timeout: 4
-        nd_neighbor_timeout: 4
+        timeout: 25
+        arp_neighbor_timeout: 12
+        nd_neighbor_timeout: 12
         ignore_learn_ins: 0
         learn_jitter: 0
         cache_update_guard_time: 1
