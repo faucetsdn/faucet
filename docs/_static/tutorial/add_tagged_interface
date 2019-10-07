@@ -8,4 +8,4 @@ add_tagged_interface () {
      [ -n "${IP}" ] && as_ns ${NAME} ip addr add dev veth0.${VLAN} ${IP}
      as_ns ${NAME} ip link set dev veth0.${VLAN} up
      as_ns ${NAME} ip addr flush dev veth0
- }
+}

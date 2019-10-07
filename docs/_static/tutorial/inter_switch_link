@@ -1,0 +1,18 @@
+# Add inter-switch link between two switches
+inter_switch_link () {
+    SW_A_NAME=$(echo $1 | cut -d ':' -f 1)
+    SW_A_PORT=$(echo $1 | cut -d ':' -f 2)
+    SW_B_NAME=$(echo $2 | cut -d ':' -f 1)
+    SW_B_PORT=$(echo $2 | cut -d ':' -f 2)
+    VETH_A=l-${SW_A_NAME}_${SW_A_PORT}-${SW_B_NAME}_${SW_B_PORT}
+    VETH_B=l-${SW_B_NAME}_${SW_B_PORT}-${SW_A_NAME}_${SW_A_PORT}
+    VETH_A=${VETH_A:0:15}
+    VETH_B=${VETH_B:0:15}
+    sudo ip link add dev ${VETH_A} type veth peer name ${VETH_B}
+    sudo ip link set dev ${VETH_A} up
+    sudo ip link set dev ${VETH_B} up
+    sudo ovs-vsctl add-port ${SW_A_NAME} ${VETH_A} \
+      -- set interface ${VETH_A} ofport_request=${SW_A_PORT}
+    sudo ovs-vsctl add-port ${SW_B_NAME} ${VETH_B} \
+      -- set interface ${VETH_B} ofport_request=${SW_B_PORT}
+}
