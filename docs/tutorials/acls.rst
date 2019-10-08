@@ -1,3 +1,5 @@
+.. _tutorial-acl:
+
 ACL tutorial
 ============
 

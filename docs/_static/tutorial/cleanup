@@ -19,6 +19,10 @@ cleanup () {
         sudo ip link delete veth-${NAME}
         sudo ip netns delete ${NETNS}
     done
+    for isl in $(ip -o link show | awk -F': ' '{print $2}' | grep -oE "^l-br[0-9](_[0-9]*)?-br[0-9](_[0-9]*)?"); do
+        # Delete inter-switch links
+        sudo ip link delete dev $isl 2>/dev/null || true
+    done
     for DNSMASQ in /run/dnsmasq-vlan*.pid; do
         [ -e "${DNSMASQ}" ] || continue
         # Stop dnsmasq
@@ -30,4 +34,5 @@ cleanup () {
     sudo ovs-vsctl --if-exists del-br br0
     sudo ovs-vsctl --if-exists del-br br1
     sudo ovs-vsctl --if-exists del-br br2
+    sudo ovs-vsctl --if-exists del-br br3
 }
