@@ -3426,6 +3426,54 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_timeout_too_big(self):
+        """Test config rejected when timeout is too big."""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        timeout: 65536
+        interfaces:
+            1:
+                native_vlan: vlan100
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_arp_timeout_too_big(self):
+        """Test config rejected when timeout is too big."""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        arp_neighbor_timeout: 65536
+        interfaces:
+            1:
+                native_vlan: vlan100
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_arp_timeout_too_big(self):
+        """Test config rejected when timeout is too big."""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        nd_neighbor_timeout: 65536
+        interfaces:
+            1:
+                native_vlan: vlan100
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main() # pytype: disable=module-attr
