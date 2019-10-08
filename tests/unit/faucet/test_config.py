@@ -3458,7 +3458,7 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_arp_timeout_too_big(self):
+    def test_nd_timeout_too_big(self):
         """Test config rejected when timeout is too big."""
         config = """
 vlans:
