@@ -452,7 +452,7 @@ OFP port number ranges (eg. 1-6).
     * - dot1x
       - boolean
       - False
-      - Enable 802.1X port authentication
+      - Enable 802.1X port authentication (NOTE: Requires ACL with dot1x_assigned attribute, for 802.1X Per User ACLs)
     * - dot1x_acl
       - boolean
       - False
@@ -461,10 +461,6 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - False
       - Enable 802.1X Mac Authentication Bypass on port (NOTE: Requires dot1x attribute)
-    * - enabled
-      - boolean
-      - True
-      - Enable 802.1X Per User ACLs on port (NOTE: Requires dot1x attribute and ACL with dot1x_assigned)
     * - enabled
       - boolean
       - True
