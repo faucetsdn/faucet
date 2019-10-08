@@ -52,6 +52,7 @@ The following elements can be configured for each db, at the level of
        'text' and flow_table.
 
 The following config elements then depend on the type.
+
 For text:
  * file (string): the filename of the file to write output to.
  * path (string): path where files should be written when writing to \

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # pylint: disable=invalid-name
+# pylint: disable=import-outside-toplevel
 #
 # faucet documentation build configuration file, created by
 # sphinx-quickstart on Thu Oct 26 13:48:25 2017.
@@ -17,12 +18,21 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+
+'''
+Faucet's Sphinx configuration
+'''
+
 import os
 import sys
 
 sys.path.insert(0, os.path.abspath('../'))
 
-autodoc_default_flags = ["members", "undoc-members", "show-inheritance"]
+autodoc_default_options = {
+    'members': True,
+    'show-inheritance': True,
+    'undoc-members': True,
+}
 
 # -- General configuration ------------------------------------------------
 
@@ -204,6 +214,7 @@ def generate_prometheus_metric_table(_):
       - Description
 """.format(module.title())
 
+        # pylint: disable=protected-access
         for metric in metrics[module]._reg.collect():
             if metric.type == "counter":
                 metric_name = "{}_total".format(metric.name)

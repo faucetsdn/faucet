@@ -93,7 +93,7 @@ must be reserved as tagged on the switch
 .. code-block:: none
 
 	// Increase the maximum number of allowed VLANs on the box and save the configuration.
-	// If the switch cannot reserve the full range, reserve only the maximum you need.
+        // If the switch cannot reserve the full range, reserve only the maximum you need.
 	switch (config)# max-vlans 2048
 	switch (config)# write mem
 
