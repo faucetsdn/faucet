@@ -22,7 +22,11 @@ import sys
 
 sys.path.insert(0, os.path.abspath('../'))
 
-autodoc_default_flags = ["members", "undoc-members", "show-inheritance"]
+autodoc_default_options = {
+    'members': True,
+    'show-inheritance': True,
+    'undoc-members': True,
+}
 
 # -- General configuration ------------------------------------------------
 
