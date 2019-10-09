@@ -357,12 +357,17 @@ configuration.
             'invalid MAC address %s' % self.faucet_dp_mac))
         test_config_condition(not (self.interfaces or self.interface_ranges), (
             'DP %s must have at least one interface' % self))
-        test_config_condition(self.timeout < 15, ('timeout must be > 15'))
+        test_config_condition(self.timeout < 15, 'timeout must be > 15')
+        test_config_condition(self.timeout > 65535, 'timeout cannot be > than 65335')
         # To prevent L2 learning from timing out before L3 can refresh
         test_config_condition(not (self.arp_neighbor_timeout < (self.timeout / 2)), (
             'L2 timeout must be > ARP timeout * 2'))
+        test_config_condition(
+            self.arp_neighbor_timeout > 65535, 'arp_neighbor_timeout cannot be > 65535')
         test_config_condition(not (self.nd_neighbor_timeout < (self.timeout / 2)), (
             'L2 timeout must be > ND timeout * 2'))
+        test_config_condition(
+            self.nd_neighbor_timeout > 65535, 'nd_neighbor_timeout cannot be > 65535')
         test_config_condition(self.combinatorial_port_flood and self.group_table, (
             'combinatorial_port_flood and group_table mutually exclusive'))
         if self.cache_update_guard_time == 0:
