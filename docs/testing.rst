@@ -219,7 +219,7 @@ the ``FaucetUntaggedTest`` will be run.
 Running only the integration tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Sometimes you will want to skip the pytype, linting and documentation tests
+Sometimes you will want to skip the pytype, linting, documentation and unit tests
 in order to complete a faucet test suite run against hardware quicker.
 
 .. code:: console

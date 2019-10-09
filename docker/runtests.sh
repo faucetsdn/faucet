@@ -63,7 +63,7 @@ ovs-vsctl --no-wait set Open_vSwitch . other_config:vlan-limit=2
 
 cd /faucet-src/tests
 
-./sysctls_for_tests.sh || true
+[ ! -e /.dockerenv ] && ( ./sysctls_for_tests.sh || true )
 
 # TODO: need to force UTF-8 as POSIX causes python3/pytype errors.
 locale-gen en_US.UTF-8
@@ -93,8 +93,12 @@ if [ "$DEPCHECK" == 1 ] ; then
     time ./pytype.sh $PY_FILES_CHANGED
 fi
 
-echo "========== Starting docker container =========="
-service docker start || true
+if [ -e /.dockerenv ] ; then
+    echo "========== Already in docker container =========="
+else
+    echo "========== Starting docker container =========="
+    service docker start || true
+fi
 
 echo "========== Running faucet system tests =========="
 test_failures=

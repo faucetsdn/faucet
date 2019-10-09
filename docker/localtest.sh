@@ -12,7 +12,7 @@ FAUCET_TESTS="-i -n"
 # Run a specific test, keeping results.
 #FAUCET_TESTS="-i -n -k FaucetUntaggedLLDPTest"
 
-CMD=bash
+: ${CMD:=bash}
 
 ROOT=$(realpath $(dirname $0)/..)
 cd $ROOT
@@ -22,11 +22,13 @@ sudo modprobe ebtables
 
 if which apparmor_status >&/dev/null ; then
     if sudo apparmor_status --enabled ; then
-        sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump || :
+        sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump || true
     fi
 fi
 
-sudo docker build --pull -t faucet/tests -f Dockerfile.tests  .
+sudo tests/sysctls_for_tests.sh || true
+
+[ -n "$SKIP_BUILD" ] || sudo docker build --pull -t faucet/tests -f Dockerfile.tests  .
 
 echo
 echo "environment set:"
