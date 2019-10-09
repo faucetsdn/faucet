@@ -161,7 +161,7 @@ fi
 
 if [ $INTEGRATIONTESTS -eq 0 -a $GEN_TOLERANCE -eq 0 ] ; then
   echo "========== Skipping integration tests =========="
-  echo Done with faucet system tests.
+  echo "========== Done with faucet tests ======="
   exit 0
 fi
 
@@ -179,7 +179,7 @@ ovs-vsctl --no-wait set Open_vSwitch . other_config:vlan-limit=2
 
 /faucet-src/tests/sysctls_for_tests.sh || true
 
-echo "========== Starting docker container =========="
+echo "========== Starting docker container ============"
 mkdir -p /var/local/run/
 if ! grep -q "unix:///var/local/run/docker.sock" /etc/default/docker; then
 cat << EOF >> /etc/default/docker
@@ -246,6 +246,8 @@ fi
 
 if [ "$INTEGRATIONTESTS" == 1 ]; then
   time ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
+
+  echo "========== Running clib integration tests ======="
   cd /faucet-src/clib
   time ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
 elif [ "$GEN_TOLERANCE" == 1 ] ; then
@@ -257,4 +259,4 @@ if [ -n "${test_failures}" ]; then
     exit 1
 fi
 
-echo Done with faucet system tests.
+echo "========== Done with faucet tests ========"
