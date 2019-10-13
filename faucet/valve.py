@@ -19,6 +19,7 @@
 
 import copy
 import logging
+import networkx
 
 from collections import defaultdict, deque
 
@@ -603,6 +604,7 @@ class Valve:
                         valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
         if stack_changes:
             self.logger.info('%u stack ports changed state' % stack_changes)
+            path_to_root = {}
             for valve in stacked_valves:
                 valve.update_tunnel_flowrules()
                 if not valve.dp.dyn_running:
@@ -612,6 +614,16 @@ class Valve:
                     ofmsgs_by_valve[valve].extend(valve.flood_manager.add_vlan(vlan))
                 for port in valve.dp.stack_ports:
                     ofmsgs_by_valve[valve].extend(valve.host_manager.del_port(port))
+                path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
+                path_to_root[valve.dp.name] = getattr(path_port, 'number', {})
+            for valve in stacked_valves:
+                if valve.flood_manager.graph:
+                    self._notify(
+                            {'STACK_TOPO_CHANGE': {
+                                'stack_root': valve.dp.stack_root_name,
+                                'graph': networkx.json_graph.node_link_data(valve.flood_manager.graph),
+                                'path_to_root': path_to_root}})
+                    break
         return ofmsgs_by_valve
 
     def update_tunnel_flowrules(self):
@@ -909,6 +921,10 @@ class Valve:
 
     def _reset_lacp_status(self, port):
         self._set_var('port_lacp_status', port.dyn_lacp_up, labels=self.dp.port_labels(port.number))
+        self._notify(
+                {'LAG_CHANGE': {
+                    'port_no': port.number,
+                    'status': port.dyn_lacp_up}})
 
     def lacp_down(self, port, cold_start=False):
         """Return OpenFlow messages when LACP is down on a port."""
