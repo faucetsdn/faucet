@@ -792,6 +792,7 @@ class ValveTestBases:
                     vid = 0
                 if port_number is None:
                     port_number = port.number
+                print('verify_flood_to_port', match, port_number, vid)
                 return self.table.is_output(match, port=port_number, vid=vid)
 
             for match in matches:
@@ -816,22 +817,26 @@ class ValveTestBases:
                     msg='hairpin flooding incorrect (expected %s got %s)' % (
                         in_port.hairpin, hairpin_output))
 
-                output = _verify_flood_to_port(match, port, valve_vlan)
-                if valve.floods_to_root():
-                    # Packet should only be flooded to root.
-                    for port in valve_vlan.get_ports():
+                for port in valve_vlan.get_ports():
+                    output = _verify_flood_to_port(match, port, valve_vlan)
+                    if self.valve.floods_to_root():
+                        # Packet should only be flooded to root.
                         self.assertEqual(False, output, 'unexpected non-root flood')
-                else:
-                    # Packet must be flooded to all ports on the VLAN.
-                    for port in valve_vlan.get_ports():
+                    else:
+                        # Packet must be flooded to all ports on the VLAN.
                         if port == in_port:
-                            self.assertEqual(port.hairpin, output, 'unexpected hairpin flood')
+                            if port.hairpin != output:
+                                print('hairpin check', match, port, in_port_number, in_port, output, port.hairpin)
+                                print(self.table)
+                            self.assertEqual(port.hairpin, output,
+                                             'unexpected hairpin flood %s %u' % (
+                                                 match, port.number))
                         else:
                             self.assertTrue(
                                 output,
                                 msg=('%s with unknown eth_dst not flooded'
-                                     ' on VLAN %u to port %u' % (
-                                         match, valve_vlan.vid, port.number)))
+                                     ' on VLAN %u to port %u\n%s' % (
+                                         match, valve_vlan.vid, port.number, self.table)))
 
                 # Packet must not be flooded to ports not on the VLAN.
                 for port in remaining_ports:

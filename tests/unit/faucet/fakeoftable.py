@@ -247,6 +247,11 @@ class FakeOFTable:
         return sum(map(len, self.tables))
 
     def is_output(self, match, port=None, vid=None):
+        result = self.is_output_raw(match, port=port, vid=vid)
+        print('is_output', result, match, port, vid)
+        return result
+
+    def is_output_raw(self, match, port=None, vid=None):
         """Return true if packets with match fields is output to port with
         correct vlan.
 
@@ -265,14 +270,17 @@ class FakeOFTable:
         def _output_result(action, vid_stack, port, vid):
             if port is None:
                 return True
+            in_port = match.get('in_port')
             if action.port == port:
-                if port == match.get('in_port'):
+                if port == in_port:
                     return None
                 if vid is None:
                     return True
                 if vid & ofp.OFPVID_PRESENT == 0:
                     return not vid_stack
                 return vid_stack and vid == vid_stack[-1]
+            if action.port == ofp.OFPP_IN_PORT and port == in_port:
+                return True
             return None
 
         def _process_vid_stack(action, vid_stack):
@@ -297,8 +305,10 @@ class FakeOFTable:
             if instruction.type != ofp.OFPIT_APPLY_ACTIONS:
                 continue
             for action in instruction.actions:
+                print(action)
                 vid_stack = _process_vid_stack(action, vid_stack)
                 if action.type == ofp.OFPAT_OUTPUT:
+                    print(action, action.type, action.port)
                     output_result = _output_result(action, vid_stack, port, vid)
                     if output_result is not None:
                         return output_result
