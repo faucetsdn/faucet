@@ -267,7 +267,7 @@ class ValvesManager:
             for valve, ofmsgs in ofmsgs_by_valve.items():
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
 
-    def _notify(self, event_dict, dp=dp):
+    def _notify(self, event_dict, dp=None):
         """Send an event notification."""
         if dp:
             self.notifier.notify(dp.dp_id, dp.name, event_dict)
