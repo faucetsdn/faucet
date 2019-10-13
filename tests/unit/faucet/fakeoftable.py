@@ -256,7 +256,7 @@ class FakeOFTable:
         If vid is none it will return true if output to specified port
         regardless of vlan tag.
 
-        To specify checking packet should without a vlan tag, set the
+        To specify checking that the packet should not have a vlan tag, set the
         OFPVID_PRESENT bit in vid to 0.
 
         Arguments:
