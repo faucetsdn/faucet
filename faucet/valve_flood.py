@@ -81,6 +81,10 @@ class ValveFloodManager(ValveManagerBase):
                 priority=self._mask_flood_priority(eth_dst_mask)))
         return ofmsgs
 
+    def floods_to_root(self, dp):
+        """Return True if the given dp floods (only) to root switch"""
+        return False
+
     def _mask_flood_priority(self, eth_dst_mask):
         return self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
 

@@ -283,6 +283,10 @@ class Valve:
     def dot1x_event(self, event_dict):
         self._notify({'DOT1X': event_dict})
 
+    def floods_to_root(self):
+        """Return True if our dp floods (only) to root switch"""
+        return self.flood_manager.floods_to_root(self.dp)
+
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = [valve_table.wildcard_table.flowdel()]
