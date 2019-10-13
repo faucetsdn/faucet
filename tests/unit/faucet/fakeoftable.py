@@ -242,6 +242,10 @@ class FakeOFTable:
                             | (instruction.metadata & mask)
         return (instructions, packet_dict)
 
+    def flow_count(self):
+        """Return number of flow tables rules"""
+        return sum(map(len, self.tables))
+
     def is_output(self, match, port=None, vid=None):
         """Return true if packets with match fields is output to port with
         correct vlan.
@@ -252,8 +256,8 @@ class FakeOFTable:
         If vid is none it will return true if output to specified port
         regardless of vlan tag.
 
-        To specify the packet should be output without a vlan tag set the
-        OFPVID_PRESENT bit in vid is 0.
+        To specify checking packet should without a vlan tag, set the
+        OFPVID_PRESENT bit in vid to 0.
 
         Arguments:
         Match: a dictionary keyed by header field names with values.
@@ -262,6 +266,8 @@ class FakeOFTable:
             if port is None:
                 return True
             if action.port == port:
+                if port == match.get('in_port'):
+                    return None
                 if vid is None:
                     return True
                 if vid & ofp.OFPVID_PRESENT == 0:

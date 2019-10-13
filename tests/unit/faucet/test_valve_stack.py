@@ -515,13 +515,14 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         self.validate_in_out(2, 3, True, 'not flooded to external host')
         self.validate_in_out(3, 1, broken, 'flooded out inactive port')
         self.validate_in_out(3, 2, True, 'not flooded to stack root')
-        self.validate_in_out(3, 3, True, 'flooded out hairpin')
+        self.validate_in_out(3, 3, False, 'flooded out hairpin')
 
     def test_update_stack_graph(self):
         """Test stack graph port UP and DOWN updates"""
 
         self.activate_all_ports()
         self.validate_flooding(False)
+        self.assertLessEqual(self.table.flow_count(), 33, 'table overflow')
         # Deactivate link between the two other switches, not the one under test.
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[2]
