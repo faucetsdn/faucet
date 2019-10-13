@@ -603,7 +603,7 @@ class Valve:
                         valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
         if stack_changes:
             self.logger.info('%u stack ports changed state' % stack_changes)
-            path_to_root = {}
+            dps_root_hop = {}
             for valve in stacked_valves:
                 valve.update_tunnel_flowrules()
                 if not valve.dp.dyn_running:
@@ -614,7 +614,7 @@ class Valve:
                 for port in valve.dp.stack_ports:
                     ofmsgs_by_valve[valve].extend(valve.host_manager.del_port(port))
                 path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
-                path_to_root[valve.dp.name] = getattr(path_port, 'number', {})
+                dps_root_hop[valve.dp.name] = path_port.number if path_port else None
 
             # Find the first valve with a valid stack and trigger notification.
             for valve in stacked_valves:
@@ -624,7 +624,7 @@ class Valve:
                         {'STACK_TOPO_CHANGE': {
                             'stack_root': valve.dp.stack_root_name,
                             'graph': graph,
-                            'path_to_root': path_to_root}})
+                            'dps_root_hop': path_to_root}})
                     break
 
         return ofmsgs_by_valve
