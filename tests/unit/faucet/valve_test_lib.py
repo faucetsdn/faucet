@@ -792,7 +792,6 @@ class ValveTestBases:
                     vid = 0
                 if port_number is None:
                     port_number = port.number
-                print('verify_flood_to_port', match, port_number, vid)
                 return self.table.is_output(match, port=port_number, vid=vid)
 
             for match in matches:
@@ -825,9 +824,6 @@ class ValveTestBases:
                     else:
                         # Packet must be flooded to all ports on the VLAN.
                         if port == in_port:
-                            if port.hairpin != output:
-                                print('hairpin check', match, port, in_port_number, in_port, output, port.hairpin)
-                                print(self.table)
                             self.assertEqual(port.hairpin, output,
                                              'unexpected hairpin flood %s %u' % (
                                                  match, port.number))
