@@ -19,7 +19,6 @@
 
 import copy
 import logging
-import networkx
 
 from collections import defaultdict, deque
 
@@ -616,14 +615,18 @@ class Valve:
                     ofmsgs_by_valve[valve].extend(valve.host_manager.del_port(port))
                 path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
                 path_to_root[valve.dp.name] = getattr(path_port, 'number', {})
+
+            # Find the first valve with a valid stack and trigger notification.
             for valve in stacked_valves:
-                if valve.flood_manager.graph:
+                graph = valve.dp.get_node_link_data()
+                if graph:
                     self._notify(
-                            {'STACK_TOPO_CHANGE': {
-                                'stack_root': valve.dp.stack_root_name,
-                                'graph': networkx.json_graph.node_link_data(valve.flood_manager.graph),
-                                'path_to_root': path_to_root}})
+                        {'STACK_TOPO_CHANGE': {
+                            'stack_root': valve.dp.stack_root_name,
+                            'graph': graph,
+                            'path_to_root': path_to_root}})
                     break
+
         return ofmsgs_by_valve
 
     def update_tunnel_flowrules(self):

@@ -863,6 +863,11 @@ configuration.
         if self.tunnel_acls:
             self.finalize_tunnel_acls(dps)
 
+    def get_node_link_data(self):
+        """Return network stacking graph as a node link representation"""
+        graph = self.stack.get('graph', None)
+        return networkx.json_graph.node_link_data(graph)
+
     def stack_longest_path_to_root_len(self):
         """Return length of the longest path to root in the stack."""
         if not self.stack or not self.stack_root_name:
