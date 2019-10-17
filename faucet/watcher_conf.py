@@ -53,8 +53,9 @@ The following elements can be configured for each db, at the level of
 
 The following config elements then depend on the type.
 For text:
-
  * file (string): the filename of the file to write output to.
+ * path (string): path where files should be written when writing to \
+       muiltiple files
  * compress (bool): compress (with gzip) flow_table output while writing it
 
 For influx:
@@ -80,6 +81,7 @@ For Prometheus:
     db_defaults = {
         'type': None,
         'file': None,
+        'path': None,
         'compress': False,
         # compress flow table file
         'influx_db': 'faucet',
@@ -104,6 +106,7 @@ For Prometheus:
     db_defaults_types = {
         'type': str,
         'file': str,
+        'path': str,
         'compress': bool,
         'influx_db': str,
         'influx_host': str,
@@ -150,6 +153,7 @@ For Prometheus:
         self.dps = None
         self.compress = None
         self.file = None
+        self.path = None
         self.influx_db = None
         self.influx_host = None
         self.influx_port = None
@@ -177,6 +181,9 @@ For Prometheus:
         test_config_condition(
             self.file is not None and not
             (os.path.dirname(self.file) and os.access(os.path.dirname(self.file), os.W_OK)),
+            '%s is not writable' % self.file)
+        test_config_condition(
+            self.path is not None and not os.access(self.path, os.W_OK),
             '%s is not writable' % self.file)
 
     def add_dp(self, dp): # pylint: disable=invalid-name
