@@ -898,6 +898,34 @@ dps:
         self.update_config(more_config, reload_expected=True, error_expected=0)
 
 
+class ValveTestConfigRevertBootstrap(ValveTestBases.ValveTestSmall):
+
+    BAD_CONFIG = """
+    *** busted ***
+"""
+    GOOD_CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+"""
+
+    CONFIG_AUTO_REVERT = True
+
+    def setUp(self):
+        self.setup_valve(self.BAD_CONFIG, error_expected=1)
+
+    def test_config_revert(self):
+        """Verify config is automatically reverted if bad."""
+        self.assertEqual(self.get_prom('faucet_config_load_error', bare=True), 1)
+        self.update_config(self.GOOD_CONFIG + '\n', reload_expected=False, error_expected=0)
+        self.assertEqual(self.get_prom('faucet_config_load_error', bare=True), 0)
+
+
 class ValveTestConfigApplied(ValveTestBases.ValveTestSmall):
     """Test cases for faucet_config_applied."""
 

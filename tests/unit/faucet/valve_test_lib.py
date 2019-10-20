@@ -493,7 +493,7 @@ class ValveTestBases:
             self.mock_now_sec += increment_sec
             return self.mock_now_sec
 
-        def setup_valve(self, config):
+        def setup_valve(self, config, error_expected=0):
             """Set up test DP with config."""
             self.tmpdir = tempfile.mkdtemp()
             self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
@@ -515,10 +515,11 @@ class ValveTestBases:
                 self.bgp, self.dot1x, self.CONFIG_AUTO_REVERT, self.send_flows_to_dp_by_id)
             self.last_flows_to_dp[self.DP_ID] = []
             self.notifier.start()
-            initial_ofmsgs = self.update_config(config, reload_expected=False)
+            initial_ofmsgs = self.update_config(config, reload_expected=False, error_expected=error_expected)
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self.sock.connect(self.faucet_event_sock)
-            self.connect_dp()
+            if not error_expected:
+                self.connect_dp()
             return initial_ofmsgs
 
         def teardown_valve(self):

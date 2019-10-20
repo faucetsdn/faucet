@@ -177,7 +177,7 @@ class ValvesManager:
 
     def revert_config(self):
         """Attempt to revert config to last known good version."""
-        for config_file_name, config_content in self.last_good_config.items():
+        for config_file_name, config_content in self.meta_dp_state.last_good_config.items():
             self.logger.info('attempting to revert to last good config: %s' % config_file_name)
             try:
                 with open(config_file_name, 'w') as config_file:
@@ -200,7 +200,7 @@ class ValvesManager:
             conf_hashes = [conf_hash for _, conf_hash in new_present_conf_hashes]
             self.config_watcher.update(new_config_file, new_conf_hashes)
             self.meta_dp_state.top_conf = top_conf
-            self.last_good_config = new_config_content
+            self.meta_dp_state.last_good_config = new_config_content
             self.metrics.faucet_config_hash.info(
                 dict(config_files=','.join(conf_files), hashes=','.join(conf_hashes)))
             self.metrics.faucet_config_load_error.set(0)
