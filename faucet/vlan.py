@@ -224,6 +224,10 @@ class VLAN(Conf):
             self.faucet_vips = frozenset([
                 self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface)
                 for ip_str in self.faucet_vips])
+            for faucet_vip in self.faucet_vips:
+                test_config_condition(
+                    faucet_vip.network.prefixlen == faucet_vip.max_prefixlen,
+                    'VIP cannot be a host address')
 
         if self.routes:
             test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
