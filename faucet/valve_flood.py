@@ -81,6 +81,10 @@ class ValveFloodManager(ValveManagerBase):
                 priority=self._mask_flood_priority(eth_dst_mask)))
         return ofmsgs
 
+    def floods_to_root(self, _dp_obj):
+        """Return True if the given dp floods (only) to root switch"""
+        return False
+
     def _mask_flood_priority(self, eth_dst_mask):
         return self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
 
@@ -546,14 +550,14 @@ class ValveFloodStackManagerBase(ValveFloodManager):
             return
 
         def _stack_topo_up_dp(_dp): # pylint: disable=invalid-name
-            for port in [port for port in _dp.stack_ports]:
+            for port in _dp.stack_ports:
                 if port.is_stack_up():
                     _stack_topo_up_port(_dp, port)
                 else:
                     _stack_topo_down_port(_dp, port)
 
         def _stack_topo_down_dp(_dp): # pylint: disable=invalid-name
-            for port in [port for port in _dp.stack_ports]:
+            for port in _dp.stack_ports:
                 _stack_topo_down_port(_dp, port)
 
         def _stack_topo_up_port(_dp, _port): # pylint: disable=invalid-name
@@ -625,7 +629,7 @@ class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
                 flood_prefix = self._set_ext_port_flag
 
         flood_actions = (
-                flood_prefix + toward_flood_actions + away_flood_actions + local_flood_actions)
+            flood_prefix + toward_flood_actions + away_flood_actions + local_flood_actions)
 
         return flood_actions
 
