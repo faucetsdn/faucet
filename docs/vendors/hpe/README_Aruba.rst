@@ -66,7 +66,7 @@ resources, then reserve just the VIDs you need.
 
 The reservation of a VID is accomplished by defining a tagged VLAN.
 Note even you are using that VLAN VID untagged on a port in FAUCET, it
-must be reserved as tagged on the switch.
+must be reserved as tagged on the switch
 
 
 * *Using OOBM control-plane (3810, 5400R)*
@@ -74,7 +74,7 @@ must be reserved as tagged on the switch.
 .. code-block:: none
 
 	// Increase the maximum number of allowed VLANs on the box and save the configuration.
-        // If the switch cannot reserve the full range, reserve only the maximum you need.
+	// If the switch cannot reserve the full range, reserve only the maximum you need.
 	switch (config)# max-vlans 4094
 	switch (config)# write mem
 
@@ -93,8 +93,7 @@ must be reserved as tagged on the switch.
 .. code-block:: none
 
 	// Increase the maximum number of allowed VLANs on the box and save the configuration.
-        // If the switch cannot reserve the full range, reserve only the maximum you
-need.
+	// If the switch cannot reserve the full range, reserve only the maximum you need.
 	switch (config)# max-vlans 2048
 	switch (config)# write mem
 
@@ -108,8 +107,9 @@ need.
 	// Create maximum number of VLANs and tag every dataplane port available to each vlan,
 	// except for the control-plane vlan (above). Note that the command below assumes it
 	// is run on a 52-port switch, with port 48 as the control-plane. Takes up to 20 minutes.
-        // If the switch cannot reserve the full range, reserve only the VLANs needed individually.
+	// If the switch cannot reserve the full range, reserve only the VLANs needed individually.
 	switch (config)# vlan 2-2047 tagged 1-47,49-52
+
 
 **OpenFlow configuration**
 
@@ -410,10 +410,10 @@ References
 ----------
 
 - `Aruba OpenFlow Administrator Guide (16.03) <http://h20565.www2.hpe.com/hpsc/doc/public/display?sp4ts.oid=1008605435&docLocale=en_US&docId=emr_na-c05365339>`_
--  `Aruba OS version as of Dec 2017 is 16.05 <https://h10145.www1.hpe.com/downloads/DownloadSoftware.aspx?SoftwareReleaseUId=23120&ProductNumber=JL261A&lang=&cc=&prodSeriesId=&SaidNumber=/>`_
+- `Aruba OS version as of Dec 2017 is 16.05 <https://h10145.www1.hpe.com/downloads/DownloadSoftware.aspx?SoftwareReleaseUId=23120&ProductNumber=JL261A&lang=&cc=&prodSeriesId=&SaidNumber=/>`_
 - `Aruba Switches <http://www.arubanetworks.com/products/networking/switches/>`_
 - `FAUCET <https://github.com/faucetsdn/faucet>`_
--  `Model 2390F Product Site <https://www.hpe.com/us/en/product-catalog/networking/networking-switches/pip.aruba-2930f-switch-series.1008995294.html/>`_
+- `Model 2390F Product Site <https://www.hpe.com/us/en/product-catalog/networking/networking-switches/pip.aruba-2930f-switch-series.1008995294.html/>`_
 -  `2930F top level documentation <https://support.hpe.com/hpesc/public/home/productSelector?sp4ts.oid=1008995294/>`_
 - `Password settings  <https://community.arubanetworks.com/t5/Campus-Switching-and-Routing/Aruba-2930F-Web-GUI/td-p/308371/>`_
 - `PKI Setup <http://h22208.www2.hpe.com/eginfolib/networking/docs/switches/WB/15-18/5998-8152_wb_2920_asg/content/ch17.html>`_
