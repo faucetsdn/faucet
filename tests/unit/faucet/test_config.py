@@ -1565,6 +1565,22 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_config_vips_not_host(self):
+        """Test that config is invalid when faucet_vips is a host address."""
+        config = """
+vlans:
+    office:
+        vid: 100
+        faucet_vips: [192.168.4.1]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                tagged_vlans: [office]
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
     def test_config_vips_not_strings(self):
         """Test that config is invalid when faucet_vips does not contain strings"""
         config = """
