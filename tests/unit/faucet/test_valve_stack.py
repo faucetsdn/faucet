@@ -19,6 +19,7 @@
 
 from functools import partial
 import unittest
+import yaml
 
 from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -506,14 +507,14 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         else:
             self.assertFalse(self.table.is_output(bcast_match, port=out_port), msg=msg)
 
-    def validate_flooding(self, broken):
+    def validate_flooding(self, rerouted=False, portup=True):
         self.validate_in_out(1, 1, False, 'flooded out input stack port')
-        self.validate_in_out(1, 2, True, 'not flooded to stack root')
-        self.validate_in_out(1, 3, True, 'not flooded to external host')
-        self.validate_in_out(2, 1, broken, 'flooded out other stack port')
+        self.validate_in_out(1, 2, portup, 'not flooded to stack root')
+        self.validate_in_out(1, 3, portup, 'not flooded to external host')
+        self.validate_in_out(2, 1, rerouted, 'flooded out other stack port')
         self.validate_in_out(2, 2, False, 'flooded out input stack port')
         self.validate_in_out(2, 3, True, 'not flooded to external host')
-        self.validate_in_out(3, 1, broken, 'flooded out inactive port')
+        self.validate_in_out(3, 1, rerouted, 'flooded out inactive port')
         self.validate_in_out(3, 2, True, 'not flooded to stack root')
         self.validate_in_out(3, 3, False, 'flooded out hairpin')
 
@@ -527,7 +528,44 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[2]
         self.deactivate_stack_port(other_port)
-        self.validate_flooding(True)
+        self.validate_flooding(rerouted=True)
+
+    def _increase_max_lldp_lost(self, new_value):
+        config = yaml.load(self.CONFIG)
+        for dp in config['dps'].values():
+            for interface in dp['interfaces'].values():
+                if 'stack' in interface:
+                    interface['max_lldp_lost'] = new_value
+        return yaml.dump(config)
+
+    def test_max_lldp_timeout(self):
+        """Check that timeout can be increased"""
+
+        port = self.valve.dp.ports[1]
+
+        self.activate_all_ports()
+        self.validate_flooding()
+
+        # Deactivating the port stops simulating LLDP beacons.
+        self.deactivate_stack_port(port)
+
+        # Validate expected normal behavior with the portup=False.
+        self.validate_flooding(portup=False)
+
+        # Restore everything and set max_lldp_lost to 100.
+        self.activate_stack_port(port)
+        self.validate_flooding()
+        new_config = self._increase_max_lldp_lost(100)
+        self.update_config(new_config, reload_expected=False)
+        self.activate_all_ports()
+        self.validate_flooding()
+
+        # Like above, deactivate the port (stops LLDP beacons).
+        self.deactivate_stack_port(port)
+
+        # Test only waits for ~3 intervals before checking status,
+        # so portup=True since max_lldp_lost is now 100.
+        self.validate_flooding(portup=True)
 
 
 class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):

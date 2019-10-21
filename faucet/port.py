@@ -232,7 +232,7 @@ class Port(Conf):
         test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
             not valve_of.ignore_port(self.number))), ('Port number invalid: %s' % self.number))
         non_vlan_options = {'stack', 'mirror', 'coprocessor', 'output_only'}
-        vlan_agnostic_options = {'enabled', 'number', 'name', 'description'}
+        vlan_agnostic_options = {'enabled', 'number', 'name', 'description', 'max_lldp_lost'}
         vlan_port = self.tagged_vlans or self.native_vlan
         non_vlan_port_options = {option for option in non_vlan_options if getattr(self, option)}
         test_config_condition(

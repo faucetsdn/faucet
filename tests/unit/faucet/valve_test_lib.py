@@ -737,6 +737,11 @@ class ValveTestBases:
             self._update_port_map(port, False)
             self.trigger_all_ports()
 
+        def activate_stack_port(self, port):
+            """Deactivate a given stack port"""
+            self._update_port_map(port, True)
+            self.trigger_all_ports()
+
         @staticmethod
         def packet_outs_from_flows(flows):
             """Return flows that are packetout actions."""
