@@ -945,7 +945,7 @@ class ValveTestBases:
         def setUp(self):
             self.setup_valve(CONFIG)
 
-        def x_test_notifier_socket_path(self):
+        def test_notifier_socket_path(self):
             """Test notifier socket path checker."""
             new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
             self.assertEqual(self.notifier.check_path(new_path), new_path)
@@ -954,13 +954,13 @@ class ValveTestBases:
                 stale_socket_file.write('')
             self.assertEqual(self.notifier.check_path(stale_socket), stale_socket)
 
-        def x_test_disconnect(self):
+        def test_disconnect(self):
             """Test disconnection of DP from controller."""
             self.assertEqual(1, int(self.get_prom('dp_status')))
             self.prom_inc(partial(self.valve.datapath_disconnect), 'of_dp_disconnections_total')
             self.assertEqual(0, int(self.get_prom('dp_status')))
 
-        def x_test_unexpected_port(self):
+        def test_unexpected_port(self):
             """Test packet in from unexpected port."""
             self.prom_inc(
                 partial(self.rcv_packet, 999, 0x100, {
@@ -971,7 +971,7 @@ class ValveTestBases:
                 'of_unexpected_packet_ins_total',
                 inc_expected=True)
 
-        def x_test_oferror(self):
+        def test_oferror(self):
             """Test OFError handler."""
             datapath = None
             msg = valve_of.parser.OFPFlowMod(datapath=datapath)
@@ -980,7 +980,7 @@ class ValveTestBases:
             test_error = valve_of.parser.OFPErrorMsg(datapath=datapath, msg=msg)
             self.valve.oferror(test_error)
 
-        def x_test_tfm(self):
+        def test_tfm(self):
             """Test TFM is sent."""
             self.assertTrue(
                 isinstance(self.valve, TfmValve),
@@ -994,7 +994,7 @@ class ValveTestBases:
             # TODO: verify TFM content.
             self.assertTrue(tfm_flows)
 
-        def x_test_pkt_meta(self):
+        def test_pkt_meta(self):
             """Test bad fields in OFPacketIn."""
             msg = parser.OFPPacketIn(datapath=None)
             self.assertEqual(None, self.valve.parse_pkt_meta(msg))
@@ -1007,7 +1007,7 @@ class ValveTestBases:
             msg.data = b'1234'
             self.assertEqual(None, self.valve.parse_pkt_meta(msg))
 
-        def x_test_loop_protect(self):
+        def test_loop_protect(self):
             """Learn loop protection."""
             for _ in range(2):
                 self.rcv_packet(1, 0x100, {
@@ -1022,7 +1022,7 @@ class ValveTestBases:
                     'ipv4_dst': '10.0.0.2',
                     'vid': 0x100})
 
-        def x_test_lldp(self):
+        def test_lldp(self):
             """Test LLDP reception."""
             self.assertFalse(self.rcv_packet(1, 0, {
                 'eth_src': self.P1_V100_MAC,
@@ -1030,7 +1030,7 @@ class ValveTestBases:
                 'chassis_id': self.P1_V100_MAC,
                 'port_id': 1}))
 
-        def x_test_bogon_arp_for_controller(self):
+        def test_bogon_arp_for_controller(self):
             """Bogon ARP request for controller VIP."""
             replies = self.rcv_packet(1, 0x100, {
                 'eth_src': self.P1_V100_MAC,
@@ -1041,7 +1041,7 @@ class ValveTestBases:
             # Must be no ARP reply to an ARP request not in our subnet.
             self.assertFalse(self.packet_outs_from_flows(replies))
 
-        def x_test_arp_for_controller(self):
+        def test_arp_for_controller(self):
             """ARP request for controller VIP."""
             for _retries in range(3):
                 for arp_mac in (mac.BROADCAST_STR, self.valve.dp.vlans[0x100].faucet_mac):
@@ -1054,7 +1054,7 @@ class ValveTestBases:
                     # TODO: check ARP reply is valid
                     self.assertTrue(self.packet_outs_from_flows(arp_replies), msg=arp_mac)
 
-        def x_test_arp_reply_from_host(self):
+        def test_arp_reply_from_host(self):
             """ARP reply for host."""
             arp_replies = self.rcv_packet(1, 0x100, {
                 'eth_src': self.P1_V100_MAC,
@@ -1066,7 +1066,7 @@ class ValveTestBases:
             self.assertTrue(arp_replies)
             self.assertFalse(self.packet_outs_from_flows(arp_replies))
 
-        def x_test_nd_for_controller(self):
+        def test_nd_for_controller(self):
             """IPv6 ND for controller VIP."""
             for dst_ip in (
                     ipaddress.IPv6Address('fe80::1:254'),
@@ -1085,7 +1085,7 @@ class ValveTestBases:
                     packet_outs = self.packet_outs_from_flows(nd_replies)
                     self.assertTrue(packet_outs)
 
-        def x_test_nd_from_host(self):
+        def test_nd_from_host(self):
             """IPv6 NA from host."""
             na_replies = self.rcv_packet(2, 0x200, {
                 'eth_src': self.P2_V200_MAC,
@@ -1098,7 +1098,7 @@ class ValveTestBases:
             self.assertTrue(na_replies)
             self.assertFalse(self.packet_outs_from_flows(na_replies))
 
-        def x_test_ra_for_controller(self):
+        def test_ra_for_controller(self):
             """IPv6 RA for controller."""
             router_solicit_ip = 'ff02::2'
             ra_replies = self.rcv_packet(2, 0x200, {
@@ -1111,7 +1111,7 @@ class ValveTestBases:
             # TODO: check RA is valid
             self.assertTrue(self.packet_outs_from_flows(ra_replies))
 
-        def x_test_icmp_ping_controller(self):
+        def test_icmp_ping_controller(self):
             """IPv4 ping controller VIP."""
             echo_replies = self.rcv_packet(1, 0x100, {
                 'eth_src': self.P1_V100_MAC,
@@ -1125,7 +1125,7 @@ class ValveTestBases:
             data = packet_outs[0].data
             self.assertTrue(data.endswith(self.ICMP_PAYLOAD), msg=data)
 
-        def x_test_unresolved_route(self):
+        def test_unresolved_route(self):
             """Test unresolved route tries to resolve."""
             ip_dst = ipaddress.IPv4Network('10.100.100.0/24')
             ip_gw = ipaddress.IPv4Address('10.0.0.1')
@@ -1140,7 +1140,7 @@ class ValveTestBases:
                 self.mock_time(99), None)
             self.assertTrue(resolve_replies)
 
-        def x_test_add_del_route(self):
+        def test_add_del_route(self):
             """IPv4 add/del of a route."""
             arp_replies = self.rcv_packet(1, 0x100, {
                 'eth_src': self.P1_V100_MAC,
@@ -1162,7 +1162,7 @@ class ValveTestBases:
             # TODO: check del flows.
             self.assertTrue(route_del_replies)
 
-        def x_test_host_ipv4_fib_route(self):
+        def test_host_ipv4_fib_route(self):
             """Test learning a FIB rule for an IPv4 host."""
             fib_route_replies = self.rcv_packet(1, 0x100, {
                 'eth_src': self.P1_V100_MAC,
@@ -1183,7 +1183,7 @@ class ValveTestBases:
             self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
             self.verify_expiry()
 
-        def x_test_host_ipv6_fib_route(self):
+        def test_host_ipv6_fib_route(self):
             """Test learning a FIB rule for an IPv6 host."""
             fib_route_replies = self.rcv_packet(2, 0x200, {
                 'eth_src': self.P2_V200_MAC,
@@ -1198,7 +1198,7 @@ class ValveTestBases:
             self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
             self.verify_expiry()
 
-        def x_test_ping_unknown_neighbor(self):
+        def test_ping_unknown_neighbor(self):
             """IPv4 ping unknown host on same subnet, causing proactive learning."""
             echo_replies = self.rcv_packet(1, 0x100, {
                 'eth_src': self.P1_V100_MAC,
@@ -1210,7 +1210,7 @@ class ValveTestBases:
             # TODO: check proactive neighbor resolution
             self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
-        def x_test_ping6_unknown_neighbor(self):
+        def test_ping6_unknown_neighbor(self):
             """IPv6 ping unknown host on same subnet, causing proactive learning."""
             echo_replies = self.rcv_packet(2, 0x200, {
                 'eth_src': self.P2_V200_MAC,
@@ -1222,7 +1222,7 @@ class ValveTestBases:
             # TODO: check proactive neighbor resolution
             self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
-        def x_test_icmpv6_ping_controller(self):
+        def test_icmpv6_ping_controller(self):
             """IPv6 ping controller VIP."""
             echo_replies = self.rcv_packet(2, 0x200, {
                 'eth_src': self.P2_V200_MAC,
@@ -1236,7 +1236,7 @@ class ValveTestBases:
             data = packet_outs[0].data
             self.assertTrue(data.endswith(self.ICMP_PAYLOAD), msg=data)
 
-        def x_test_invalid_vlan(self):
+        def test_invalid_vlan(self):
             """Test that packets with incorrect vlan tagging get dropped."""
 
             matches = [
@@ -1248,7 +1248,7 @@ class ValveTestBases:
                     self.table.is_output(match),
                     msg='Packets with incorrect vlan tags are output')
 
-        def x_test_unknown_eth_src(self):
+        def test_unknown_eth_src(self):
             """Test that packets from unknown macs are sent to controller.
 
             Untagged packets should have VLAN tags pushed before they are sent to
@@ -1287,7 +1287,7 @@ class ValveTestBases:
                     msg="Packet with unknown ethernet src not sent to controller: "
                     "{0}".format(match))
 
-        def x_test_unknown_eth_dst_rule(self):
+        def test_unknown_eth_dst_rule(self):
             """Test that packets with unkown eth dst addrs get flooded correctly.
 
             They must be output to each port on the associated vlan, with the
@@ -1318,7 +1318,7 @@ class ValveTestBases:
             ]
             self.verify_flooding(matches)
 
-        def x_test_known_eth_src_rule(self):
+        def test_known_eth_src_rule(self):
             """Test that packets with known eth src addrs are not sent to controller."""
             self.learn_hosts()
             matches = [
@@ -1345,7 +1345,7 @@ class ValveTestBases:
                     msg="Packet ({0}) output to controller when eth_src address"
                         " is known".format(match))
 
-        def x_test_known_eth_src_deletion(self):
+        def test_known_eth_src_deletion(self):
             """Verify that when a mac changes port the old rules get deleted.
 
             If a mac address is seen on one port, then seen on a different port on
@@ -1364,7 +1364,7 @@ class ValveTestBases:
                 self.table.is_output(match, port=ofp.OFPP_CONTROLLER),
                 msg='eth src rule not deleted when mac seen on another port')
 
-        def x_test_known_eth_dst_rule(self):
+        def test_known_eth_dst_rule(self):
             """Test that packets with known eth dst addrs are output correctly.
 
             Output to the correct port with the correct vlan tagging."""
@@ -1402,7 +1402,7 @@ class ValveTestBases:
                              'is known' % (match, port)))
             self.verify_expiry()
 
-        def x_test_mac_vlan_separation(self):
+        def test_mac_vlan_separation(self):
             """Test that when a mac is seen on a second vlan the original vlan
             rules are unaffected."""
             self.learn_hosts()
@@ -1432,7 +1432,7 @@ class ValveTestBases:
                     msg=('mac address being seen on a vlan affects eth_dst rule on '
                          'other vlan'))
 
-        def x_test_known_eth_dst_deletion(self):
+        def test_known_eth_dst_deletion(self):
             """Test that eth_dst rules are deleted when the mac is learned on
             another port.
 
@@ -1450,7 +1450,7 @@ class ValveTestBases:
                 self.table.is_output(match, port=1),
                 msg='Packet output on old port after mac is learnt on new port')
 
-        def x_test_port_delete_eth_dst(self):
+        def test_port_delete_eth_dst(self):
             """Test that when a port is disabled packets are correctly output. """
             match = {'in_port': 2, 'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}
 
@@ -1471,7 +1471,7 @@ class ValveTestBases:
                              'correctly on vlan %u to port %u' % (
                                  match, valve_vlan.vid, port.number)))
 
-        def x_test_port_down_eth_src_removal(self):
+        def test_port_down_eth_src_removal(self):
             """Test that when a port goes down and comes back up learnt mac
             addresses are deleted."""
 
@@ -1481,7 +1481,7 @@ class ValveTestBases:
                 self.table.is_output(match, port=ofp.OFPP_CONTROLLER),
                 msg='Packet not output to controller after port bounce')
 
-        def x_test_port_add_input(self):
+        def test_port_add_input(self):
             """Test that when a port is enabled packets are input correctly."""
 
             match = {'in_port': 1, 'vlan_vid': 0}
@@ -1497,7 +1497,7 @@ class ValveTestBases:
                 self.table.is_output(match, port=2, vid=self.V100),
                 msg='Packet not output after port add')
 
-        def x_test_dp_acl_deny(self):
+        def test_dp_acl_deny(self):
             """Test DP acl denies forwarding"""
             acl_config = """
 dps:
@@ -1562,7 +1562,7 @@ meters:
                 self.table.is_output(accept_match, port=3, vid=self.V200),
                 msg='packet not allowed by ACL')
 
-        def x_test_port_acl_deny(self):
+        def test_port_acl_deny(self):
             """Test that port ACL denies forwarding."""
             acl_config = """
 dps:
@@ -1629,22 +1629,22 @@ meters:
                 self.table.is_output(accept_match, port=3, vid=self.V200),
                 msg='packet not allowed by ACL')
 
-        def x_test_lldp_beacon(self):
+        def test_lldp_beacon(self):
             """Test LLDP beacon service."""
             # TODO: verify LLDP packet content.
             self.assertTrue(self.valve.fast_advertise(self.mock_time(10), None))
 
-        def x_test_unknown_port(self):
+        def test_unknown_port(self):
             """Test port status change for unknown port handled."""
             self.set_port_up(99)
 
-        def x_test_port_modify(self):
+        def test_port_modify(self):
             """Set port status modify."""
             for port_status in (0, 1):
                 self.apply_ofmsgs(self.valve.port_status_handler(
                     1, ofp.OFPPR_MODIFY, port_status, [])[self.valve])
 
-        def x_test_unknown_port_status(self):
+        def test_unknown_port_status(self):
             """Test unknown port status message."""
             known_messages = set([ofp.OFPPR_MODIFY, ofp.OFPPR_ADD, ofp.OFPPR_DELETE])
             unknown_messages = list(set(range(0, len(known_messages) + 1)) - known_messages)
@@ -1652,7 +1652,7 @@ meters:
             self.assertFalse(self.valve.port_status_handler(
                 1, unknown_messages[0], 1, []).get(self.valve, []))
 
-        def x_test_move_port(self):
+        def test_move_port(self):
             """Test host moves a port."""
             self.rcv_packet(2, 0x200, {
                 'eth_src': self.P1_V100_MAC,
@@ -1667,7 +1667,7 @@ meters:
                 'ipv4_src': '10.0.0.2',
                 'ipv4_dst': '10.0.0.3'})
 
-        def x_test_bgp_route_change(self):
+        def test_bgp_route_change(self):
             """Test BGP route change handler."""
             nexthop = '10.0.0.1'
             prefix = '192.168.1.1/32'
@@ -1689,7 +1689,7 @@ meters:
             self.bgp._bgp_up_handler(nexthop, 65001)  # pylint: disable=protected-access
             self.bgp._bgp_down_handler(nexthop, 65001)  # pylint: disable=protected-access
 
-        def x_test_packet_in_rate(self):
+        def test_packet_in_rate(self):
             """Test packet in rate limit triggers."""
             now = self.mock_time(10)
             for _ in range(self.valve.dp.ignore_learn_ins * 2 + 1):
@@ -1697,7 +1697,7 @@ meters:
                     return
             self.fail('packet in rate limit not triggered')
 
-        def x_test_ofdescstats_handler(self):
+        def test_ofdescstats_handler(self):
             """Test OFDescStatsReply handler."""
             body = parser.OFPDescStats(
                 mfr_desc=u'test_mfr_desc'.encode(),
@@ -1714,7 +1714,7 @@ meters:
                 dp_desc=b'test_dp_desc')
             self.valve.ofdescstats_handler(invalid_body)
 
-        def x_test_get_config_dict(self):
+        def test_get_config_dict(self):
             """Test API call for DP config."""
             # TODO: test actual config contents.
             self.assertTrue(self.valve.get_config_dict())
@@ -1864,7 +1864,7 @@ meters:
                     expected_port = valve.dp.shortest_path_port(host_valve.dp.name)
                     self.assertEqual(expected_port, nexthop.port)
 
-        def x_test_router_cache_learn_hosts(self):
+        def test_router_cache_learn_hosts(self):
             """Have all router caches contain proper host nexthops"""
             # Learn Vlan100 hosts
             for host in self.V100_HOSTS:
