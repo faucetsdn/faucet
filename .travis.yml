@@ -24,5 +24,62 @@ jobs:
   include:
     - stage: test
       language: python
+      python: 3.5
+      env: MATRIX_SHARD=unittest
+    - stage: test
+      language: python
+      python: 3.6
+      env:
+        - MATRIX_SHARD=unittest
+        - BUILD_DOCS=true
+        - CODECOV_UPLOAD=true
+    - stage: test
+      language: python
       python: 3.7
       env: MATRIX_SHARD=unittest
+    - stage: test
+      env: MATRIX_SHARD=sanity
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=0
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=1
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=2
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=3
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=4
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=5
+      language: bash
+      services:
+        - docker
+    - stage: deploy
+      language: python
+      python: 3.6
+      script: skip
+      deploy:
+        provider: pypi
+        on:
+          tags: true
+        user: faucet
+        password:
+          secure: FtdHfFJ/TXojISlzt0wJULGHEONWmfDmCNsQ6b8DDlOKUjSXCJ+Z6f4f3oeJCZ6V93ELYahmGrfz/GbKQlZT0xx8i+QcdJ7BkV2TvGq+oUvyfgGLvjeihy5k/22rWDrYFwJJaAPAbS8GmaJWhNYfI/POq4u4JxXM5uOfjoslIlM/Q3JLIPccmk9zeNBFK1z55yaCdHvW094uby+8Tu6lCJop0hyXoImOdVp/XaFXOOlPuxrXu7zCjd+kczB9spQmOgY0cZbY7kX4wX5bf540YCl4yXLpv9v/ZcACkZHY9Kb/FwTvBClfNhPJ+Ycwdkqxm4cj1dHpUvZQbF+IQTOklv83gjf7+e1owZuURm6TBTumecYPd4On1ATpIxIfqjaziVtyZRTjkYgX9yWoIHxbr6H0y+Duzr8gmYDafPAm9IKMsh1H1GIotkd+/1pJPTDnjmMD/Ab2Ad2qVosYVBFJcdCrCkAVsTA48JJQLpZULEf1JbSL4Vq23nebSMNmS4Gtsqqx9Z6iltILl5p/S/wgcOoXYvaDH7QIxPztkNZGdy3uHpLAyl6sYYP+2Mcpdxx8IcAPMNP7Iv1jw4cJm2ctWJdlg/LNoY1dh7HBbw1kFZ628NdnE8MID/b39g/vefYK9/JIVezQ6Ew4vLHXtnI28LRbx2wxwyZ4nUHZ3lTJM9E=

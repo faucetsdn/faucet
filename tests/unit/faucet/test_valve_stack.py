@@ -530,7 +530,7 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         self.deactivate_stack_port(other_port)
         self.validate_flooding(rerouted=True)
 
-    def _increase_max_lldp_lost(self, new_value):
+    def _set_max_lldp_lost(self, new_value):
         config = yaml.load(self.CONFIG)
         for dp in config['dps'].values():
             for interface in dp['interfaces'].values():
@@ -561,7 +561,7 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         # Restore everything and set max_lldp_lost to 100.
         self.activate_stack_port(port)
         self.validate_flooding()
-        new_config = self._increase_max_lldp_lost(100)
+        new_config = self._set_max_lldp_lost(100)
         self.update_config(new_config, reload_expected=False)
         self.activate_all_ports()
         self.validate_flooding(portup=True)
