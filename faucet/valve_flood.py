@@ -81,6 +81,7 @@ class ValveFloodManager(ValveManagerBase):
                 priority=self._mask_flood_priority(eth_dst_mask)))
         return ofmsgs
 
+    # pylint: disable=no-self-use
     def floods_to_root(self, _dp_obj):
         """Return True if the given dp floods (only) to root switch"""
         return False
@@ -222,6 +223,7 @@ class ValveFloodManager(ValveManagerBase):
             flood_acts, vlan_output_ports, vlan_non_output_acts = self._output_non_output_actions(
                 vlan_flood_acts)
             for port in self._vlan_all_ports(vlan, exclude_unicast):
+                # TODO: Cull set_pcp right before pop_vlan to enable optimization.
                 (flood_acts,
                  port_output_ports,
                  port_non_output_acts) = self._build_flood_acts_for_port(
@@ -229,22 +231,33 @@ class ValveFloodManager(ValveManagerBase):
                      exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
                 if not flood_acts:
                     continue
-                if (vlan_output_ports - set([port.number]) == port_output_ports
-                        and vlan_non_output_acts == port_non_output_acts):
+                if self._need_port_flood_rule(
+                        port, vlan_output_ports, port_output_ports,
+                        vlan_non_output_acts, port_non_output_acts):
+                    ofmsgs.append(self._build_flood_rule_for_port(
+                        vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts))
+                else:
                     # Delete a potentially existing port specific flow
                     # TODO: optimize, avoid generating delete for port if no existing flow.
                     flood_priority, match = self._build_flood_match_priority(
                         port, vlan, eth_type, eth_dst, eth_dst_mask, add_match=None)
                     ofmsgs.append(self.flood_table.flowdel(
                         match=match, priority=flood_priority))
-                else:
-                    ofmsgs.append(self._build_flood_rule_for_port(
-                        vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts))
         return ofmsgs
 
+    def _need_port_flood_rule(self, port, vlan_output_ports, port_output_ports,
+                              vlan_non_output_acts, port_non_output_acts):
+        vlan_output_actual = vlan_output_ports - set([port.number])
+        need_rule = (vlan_output_actual != port_output_ports or
+                     vlan_non_output_acts != port_non_output_acts)
+        print('port', port, 'need_rule', need_rule, port_output_ports, vlan_output_ports)
+        return need_rule
+
+    # pylint: disable=no-self-use
     def _build_multiout_flood_rules(self, vlan, command):
         """Build flooding rules for a VLAN without using groups."""
         ofmsgs = []
+        self.logger.info('TAP rebuilding flood rules for vlan %s' % vlan)
         for unicast_eth_dst, eth_type, eth_dst, eth_dst_mask in self.flood_dsts:
             if unicast_eth_dst and not vlan.unicast_flood:
                 continue
@@ -478,7 +491,6 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 away_up_port = remote_away_ports[0].stack['port']
             away_port = port in self.away_from_root_stack_ports
             towards_port = not away_port
-            flood_acts = []
 
             match = {'in_port': port.number, 'vlan': vlan}
             if eth_dst is not None:
@@ -516,6 +528,7 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                             priority_offset=self.classification_offset))
 
 
+            flood_acts = []
             if self.externals:
                 # If external flag is set, flood to external ports, otherwise exclude them.
                 for ext_port_flag, exclude_all_external in (
@@ -533,13 +546,32 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                         add_match={valve_of.EXTERNAL_FORWARDING_FIELD: ext_port_flag})
                     ofmsgs.append(port_flood_ofmsg)
             else:
+                _, vlan_flood_acts = self._build_flood_rule_for_vlan(
+                    vlan, eth_type, eth_dst, eth_dst_mask, exclude_unicast, command)
+                _, vlan_output_ports, vlan_non_output_acts = self._output_non_output_actions(
+                    vlan_flood_acts)
                 if not prune:
-                    flood_acts, _, _ = self._build_flood_acts_for_port(
-                        vlan, exclude_unicast, port,
-                        exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
-                port_flood_ofmsg = self._build_flood_rule_for_port(
-                    vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts)
-                ofmsgs.append(port_flood_ofmsg)
+                    (flood_acts,
+                     port_output_ports,
+                     port_non_output_acts) = self._build_flood_acts_for_port(
+                         vlan, exclude_unicast, port,
+                         exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
+                    need_rule = self._need_port_flood_rule(
+                        port, vlan_output_ports, port_output_ports,
+                        vlan_non_output_acts, port_non_output_acts)
+                else:
+                    need_rule = True
+                if need_rule:
+                    port_flood_ofmsg = self._build_flood_rule_for_port(
+                        vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts)
+                    ofmsgs.append(port_flood_ofmsg)
+                else:
+                    # Delete a potentially existing port specific flow
+                    # TODO: optimize, avoid generating delete for port if no existing flow.
+                    flood_priority, match = self._build_flood_match_priority(
+                        port, vlan, eth_type, eth_dst, eth_dst_mask, add_match=None)
+                    ofmsgs.append(self.flood_table.flowdel(
+                        match=match, priority=flood_priority))
 
         return ofmsgs
 

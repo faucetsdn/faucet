@@ -17,7 +17,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import cProfile
+import os
+import io
 import ipaddress
+import pstats
 import random
 
 from ryu.lib import mac
@@ -875,12 +879,34 @@ def _partition_ofmsgs(input_ofmsgs):
         by_kind.setdefault(_msg_kind(ofmsg), []).append(ofmsg)
     return by_kind
 
+def dedupe_ofmsgs_profile(input_ofmsgs, deduped_real):
+    """Convenience method to profile"""
+    if not os.path.isdir('/etc/faucet'):
+        return
+    prof = cProfile.Profile()
+    prof.enable()
+    deduped_input_ofmsgs = {str(ofmsg): ofmsg for ofmsg in input_ofmsgs}
+    prof.disable()
+    with open('/etc/faucet/profile_%d.txt' % len(input_ofmsgs), 'w') as stream:
+        prof_stats = pstats.Stats(prof, stream=stream).sort_stats('cumulative')
+        prof_stats.print_stats()
+    sorted_input_ofmsgs = [str(ofmsg) for ofmsg in input_ofmsgs]
+    sorted_input_ofmsgs.sort()
+    with open('/etc/faucet/ofmsgs_%d.txt' % len(input_ofmsgs), 'w') as stream:
+        stream.write('%d vs %d\n' % (len(input_ofmsgs), len(deduped_real)))
+        for ofmsgs in sorted_input_ofmsgs:
+            stream.write('%s\n' % ofmsgs)
+    #raise Exception('Wrote profile')
 
 def dedupe_ofmsgs(input_ofmsgs):
     """Return deduplicated ofmsg list."""
+
     # Built in comparison doesn't work until serialized() called
     # Can't use dict or json comparison as may be nested
     deduped_input_ofmsgs = {str(ofmsg): ofmsg for ofmsg in input_ofmsgs}
+    if len(input_ofmsgs) > 200 and len(input_ofmsgs) < 300:
+        dedupe_ofmsgs_profile(input_ofmsgs, deduped_input_ofmsgs)
+
     return list(deduped_input_ofmsgs.values())
 
 
@@ -896,7 +922,7 @@ _OFMSG_ORDER = (
 )
 
 
-def valve_flowreorder(input_ofmsgs, use_barriers=True):
+def valve_flowreorder(input_ofmsgs, use_barriers=True, logger=None):
     """Reorder flows for better OFA performance."""
     # Move all deletes to be first, and add one barrier,
     # while optionally randomizing order. Platforms that do
@@ -911,7 +937,10 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
         by_kind['delete'] = []
 
     for kind, random_order, suggest_barrier in _OFMSG_ORDER:
-        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []))
+        kind_ofmsgs = by_kind.get(kind, [])
+        ofmsgs = dedupe_ofmsgs(kind_ofmsgs)
+        if logger:
+            logger.info('dedupe_ofmsgs %s %d %d' % (kind, len(kind_ofmsgs), len(ofmsgs)))
         if ofmsgs:
             if random_order:
                 random.shuffle(ofmsgs)

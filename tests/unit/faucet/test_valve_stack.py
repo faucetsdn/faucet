@@ -522,7 +522,7 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
 
         self.activate_all_ports()
         self.validate_flooding(False)
-        self.assertLessEqual(self.table.flow_count(), 33, 'table overflow')
+        self.assertLessEqual(self.table.flow_count(), 23, 'table overflow')
         # Deactivate link between the two other switches, not the one under test.
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[2]

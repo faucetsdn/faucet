@@ -19,6 +19,8 @@
 
 import copy
 import logging
+import json
+import networkx
 
 from collections import defaultdict, deque
 
@@ -209,6 +211,7 @@ class Valve:
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
                 restricted_bcast_arpnd)
+        self.logger.info('Using flood manager %s' % self.flood_manager.__class__.__name__)
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
@@ -605,17 +608,34 @@ class Valve:
                     port_stack_up = port.is_stack_up()
                     for valve in stacked_valves:
                         valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+
         if stack_changes:
             self.logger.info('%u stack ports changed state' % stack_changes)
+            path_to_root = {}
             for valve in stacked_valves:
                 valve.update_tunnel_flowrules()
                 if not valve.dp.dyn_running:
                     continue
                 ofmsgs_by_valve[valve].extend(valve.get_tunnel_flowmods())
+                size1 = len(ofmsgs_by_valve[valve])
                 for vlan in valve.dp.vlans.values():
                     ofmsgs_by_valve[valve].extend(valve.flood_manager.add_vlan(vlan))
+                size2 = len(ofmsgs_by_valve[valve])
                 for port in valve.dp.stack_ports:
                     ofmsgs_by_valve[valve].extend(valve.host_manager.del_port(port))
+                size3 = len(ofmsgs_by_valve[valve])
+                self.logger.info('valve %s flowmods %d %d %d = %d' %
+                                 (valve, size1, size2-size1, size3-size2, size3))
+                path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
+                path_to_root[valve.dp.name] = getattr(path_port, 'number', {})
+            for valve in stacked_valves:
+                if valve.flood_manager.graph:
+                    self._notify(
+                            {'STACK_TOPO_CHANGE': {
+                                'stack_root': valve.dp.stack_root_name,
+                                'graph': networkx.json_graph.node_link_data(valve.flood_manager.graph),
+                                'path_to_root': path_to_root}})
+                    break
         return ofmsgs_by_valve
 
     def update_tunnel_flowrules(self):
@@ -1778,7 +1798,7 @@ class Valve:
         if flow_msgs is None:
             return flow_msgs
         reordered_flow_msgs = valve_of.valve_flowreorder(
-            flow_msgs, use_barriers=self.USE_BARRIERS)
+            flow_msgs, use_barriers=self.USE_BARRIERS, logger=self.logger)
         self.ofchannel_log(reordered_flow_msgs)
         self._inc_var('of_flowmsgs_sent', val=len(reordered_flow_msgs))
         self.recent_ofmsgs.extend(reordered_flow_msgs)
