@@ -69,7 +69,9 @@ class PromClient: # pylint: disable=too-few-public-methods
         if not self.server:
             app = make_wsgi_app(self._reg)
             if use_test_thread:
-                from wsgiref.simple_server import make_server, WSGIRequestHandler
+                # pylint: disable=import-outside-toplevel
+                from wsgiref.simple_server import (
+                    make_server, WSGIRequestHandler)
                 import threading
 
                 class NoLoggingWSGIRequestHandler(WSGIRequestHandler):

@@ -510,6 +510,33 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_default_bgp_connect(self):
+        """Test default setting for BGP connect mode."""
+        config = """
+vlans:
+    routing1:
+        vid: 100
+        faucet_vips: ["10.0.0.254/24"]
+routers:
+    router1:
+        bgp:
+            as: 100
+            neighbor_as: 100
+            routerid: "1.1.1.1"
+            server_addresses: ["127.0.0.1"]
+            neighbor_addresses: ["127.0.0.1"]
+            vlan: routing1
+            port: 9179
+        vlans: [routing1]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: routing1
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_multi_bgp(self):
         """Test multiple BGP VLANs can be configured."""
         config = """
@@ -1534,6 +1561,22 @@ dps:
         dp_id: 0x1
         interfaces:
             5:
+                tagged_vlans: [office]
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_config_vips_not_host(self):
+        """Test that config is invalid when faucet_vips is a host address."""
+        config = """
+vlans:
+    office:
+        vid: 100
+        faucet_vips: [192.168.4.1]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
                 tagged_vlans: [office]
 """
         self.check_config_failure(config, cp.dp_parser)
