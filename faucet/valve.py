@@ -639,7 +639,7 @@ class Valve:
             for port in self.dp.ports.values():
                 if port.dyn_lldp_beacon_recv_state:
                     age = now - port.dyn_lldp_beacon_recv_time
-                    if age > self.dp.lldp_beacon['send_interval'] * 3:
+                    if age > self.dp.lldp_beacon['send_interval'] * port.max_lldp_lost:
                         self.logger.info('LLDP for %s inactive after %us' % (port, age))
                         port.dyn_lldp_beacon_recv_state = None
         return self._update_stack_link_state(self.dp.stack_ports, now, other_valves)
