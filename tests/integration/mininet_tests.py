@@ -7497,14 +7497,14 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.verify_stack_hosts()
 
 
-class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
+class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
     NUM_HOSTS = 3
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetStackStringOfDPExtLoopProtUntaggedTest, self).setUp()
+        super(FaucetSingleStackStringOfDPExtLoopProtUntaggedTest, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
@@ -7553,7 +7553,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             # All internal hosts can reach other internal hosts.
             for other_int_host in int_hosts - {int_host}:
                 self.verify_broadcast(hosts=(int_host, other_int_host), broadcast_expected=True)
-                self.verify_unicast(hosts=(int_host, other_int_host), unicast_expected=True)
+                self.one_ipv4_ping(int_host, other_int_host.IP())
 
         for ext_host in ext_hosts:
             # All external hosts cannot flood to each other
