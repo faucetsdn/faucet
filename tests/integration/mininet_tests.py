@@ -7504,7 +7504,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     NUM_HOSTS = 3
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetStackStringOfDPExtLoopProtUntaggedTest, self).setUp()
+        super(FaucetSingleStackStringOfDPExtLoopProtUntaggedTest, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
