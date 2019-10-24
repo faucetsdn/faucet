@@ -176,6 +176,18 @@ class FakeOFTable:
     def _apply_tfm(self, ofmsg):
         self.tfm = {body.table_id: body for body in ofmsg.body}
 
+    def _apply_flowstats(self, ofmsg):
+        """Update state of flow tables to match an OFPFlowStatsReply message.
+
+        This assumes a tfm is not required."""
+        self.tables = []
+        self.requires_tfm = False
+        self.tfm = {}
+        for stat in ofmsg.body:
+            while len(self.tables) <= stat.table_id:
+                self.tables.append([])
+            self.tables[stat.table_id].append(FlowMod(stat))
+
     def apply_ofmsgs(self, ofmsgs):
         """Update state of test flow tables."""
         for ofmsg in ofmsgs:
@@ -200,6 +212,10 @@ class FakeOFTable:
                 continue
             if isinstance(ofmsg, parser.OFPFlowMod):
                 self._apply_flowmod(ofmsg)
+                self.sort_tables()
+                continue
+            if isinstance(ofmsg, parser.OFPFlowStatsReply):
+                self._apply_flowstats(ofmsg)
                 self.sort_tables()
                 continue
             raise FakeOFTableException('Unsupported flow %s' % str(ofmsg))
@@ -378,9 +394,13 @@ class FlowMod:
         self.match_values = {}
         self.match_masks = {}
         self.out_port = None
-        if (flowmod.command in (ofp.OFPFC_DELETE, ofp.OFPFC_DELETE_STRICT))\
-                and flowmod.out_port != ofp.OFPP_ANY:
-            self.out_port = flowmod.out_port
+        # flowmod can be an OFPFlowMod or an OFPStats
+        if isinstance(flowmod, parser.OFPFlowMod):
+            if flowmod.command in (
+                    ofp.OFPFC_DELETE,
+                    ofp.OFPFC_DELETE_STRICT
+                    ) and flowmod.out_port != ofp.OFPP_ANY:
+                self.out_port = flowmod.out_port
 
         for key, val in flowmod.match.items():
             if isinstance(val, tuple):
