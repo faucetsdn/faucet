@@ -530,7 +530,7 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         self.deactivate_stack_port(other_port)
         self.validate_flooding(rerouted=True)
 
-    def _increase_max_lldp_lost(self, new_value):
+    def _set_max_lldp_lost(self, new_value):
         config = yaml.load(self.CONFIG)
         for dp in config['dps'].values():
             for interface in dp['interfaces'].values():
@@ -544,10 +544,16 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         port = self.valve.dp.ports[1]
 
         self.activate_all_ports()
-        self.validate_flooding()
+        self.validate_flooding(portup=True)
 
         # Deactivating the port stops simulating LLDP beacons.
-        self.deactivate_stack_port(port)
+        self.deactivate_stack_port(port, packets=1)
+
+        # Should still work after only 1 interval (3 required by default)
+        self.validate_flooding(portup=True)
+
+        # Wait for 3 more cycles, so should fail now.
+        self.trigger_all_ports(packets=3)
 
         # Validate expected normal behavior with the portup=False.
         self.validate_flooding(portup=False)
@@ -555,17 +561,20 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         # Restore everything and set max_lldp_lost to 100.
         self.activate_stack_port(port)
         self.validate_flooding()
-        new_config = self._increase_max_lldp_lost(100)
+        new_config = self._set_max_lldp_lost(100)
         self.update_config(new_config, reload_expected=False)
         self.activate_all_ports()
-        self.validate_flooding()
+        self.validate_flooding(portup=True)
 
         # Like above, deactivate the port (stops LLDP beacons).
-        self.deactivate_stack_port(port)
+        self.deactivate_stack_port(port, packets=10)
 
-        # Test only waits for ~3 intervals before checking status,
-        # so portup=True since max_lldp_lost is now 100.
+        # After 10 packets (more than before), it should still work.
         self.validate_flooding(portup=True)
+
+        # But, after 100 more it should now fail b/c limit is set to 100.
+        self.trigger_all_ports(packets=100)
+        self.validate_flooding(portup=False)
 
 
 class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):
