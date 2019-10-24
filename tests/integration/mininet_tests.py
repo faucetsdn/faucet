@@ -7544,6 +7544,7 @@ class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
+        time.sleep(5)
 
     def verify_protected_connectivity(self):
         self.verify_stack_up()
