@@ -161,11 +161,7 @@ def build_pkt(pkt):
 
 FAUCET_MAC = '0e:00:00:00:00:01'
 
-
-# TODO: fix fake OF table implementation for in_port filtering
-# (ie. do not output to in_port)
-BASE_DP1_CONFIG = """
-        dp_id: 1
+BASE_DP_CONFIG = """
         hardware: 'GenericTFM'
         ignore_learn_ins: 100
         ofchannel_log: '/dev/null'
@@ -174,6 +170,10 @@ BASE_DP1_CONFIG = """
             send_interval: 1
             max_per_interval: 1
 """
+
+BASE_DP1_CONFIG = """
+        dp_id: 1
+""" + BASE_DP_CONFIG
 
 DP1_CONFIG = """
         combinatorial_port_flood: True
@@ -403,7 +403,7 @@ dps:
                 description: p3
                 native_vlan: 100
     s2:
-        hardware: 'GenericTFM'
+%s
         faucet_dp_mac: 0e:00:00:00:01:02
         dp_id: 0x2
         interfaces:
@@ -421,7 +421,7 @@ dps:
                 description: p3
                 native_vlan: 100
     s3:
-        hardware: 'GenericTFM'
+%s
         faucet_dp_mac: 0e:00:00:00:01:03
         dp_id: 0x3
         stack:
@@ -443,7 +443,7 @@ dps:
 vlans:
     v100:
         vid: 100
-""" % BASE_DP1_CONFIG
+""" % (BASE_DP1_CONFIG, BASE_DP_CONFIG, BASE_DP_CONFIG)
 
 
 class ValveTestBases:
@@ -706,18 +706,19 @@ class ValveTestBases:
             else:
                 del self.up_ports[key]
 
-        def activate_all_ports(self):
+        def activate_all_ports(self, packets=10):
             """Activate all stack ports through LLDP"""
             for valve in self.valves_manager.valves.values():
                 valve.dp.dyn_running = True
                 for port in valve.dp.stack_ports:
                     self.up_stack_port(port, dp_id=valve.dp.dp_id)
                     self._update_port_map(port, True)
-            self.trigger_all_ports()
+            self.trigger_all_ports(packets=packets)
 
-        def trigger_all_ports(self):
+        def trigger_all_ports(self, packets=10):
             """Do the needful to trigger any pending state changes"""
-            for _ in range(1, 10):
+            interval = self.valve.dp.lldp_beacon['send_interval']
+            for _ in range(0, packets):
                 for port in self.up_ports.values():
                     dp_id = port.dp_id
                     this_dp = self.valves_manager.valves[dp_id].dp
@@ -726,16 +727,21 @@ class ValveTestBases:
                     self.rcv_lldp(port, peer_dp, peer_port, dp_id)
                     self.rcv_lldp(peer_port, this_dp, port, peer_dp.dp_id)
                 self.last_flows_to_dp[self.DP_ID] = []
-                now = self.mock_time(2)
+                now = self.mock_time(interval)
                 self.valves_manager.valve_flow_services(
                     now, 'fast_state_expire')
                 flows = self.last_flows_to_dp[self.DP_ID]
                 self.apply_ofmsgs(flows)
 
-        def deactivate_stack_port(self, port):
+        def deactivate_stack_port(self, port, packets=10):
             """Deactivate a given stack port"""
             self._update_port_map(port, False)
-            self.trigger_all_ports()
+            self.trigger_all_ports(packets=packets)
+
+        def activate_stack_port(self, port, packets=10):
+            """Deactivate a given stack port"""
+            self._update_port_map(port, True)
+            self.trigger_all_ports(packets=packets)
 
         @staticmethod
         def packet_outs_from_flows(flows):
