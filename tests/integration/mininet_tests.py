@@ -7497,7 +7497,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.verify_stack_hosts()
 
 
-class FaucetStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
+class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
