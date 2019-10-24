@@ -7553,7 +7553,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             # All internal hosts can reach other internal hosts.
             for other_int_host in int_hosts - {int_host}:
                 self.verify_broadcast(hosts=(int_host, other_int_host), broadcast_expected=True)
-                self.verify_unicast(hosts=(int_host, other_int_host), unicast_expected=True)
+                self.one_ipv4_ping(int_host, other_int_host.IP())
 
         for ext_host in ext_hosts:
             # All external hosts cannot flood to each other
