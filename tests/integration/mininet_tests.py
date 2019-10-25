@@ -329,10 +329,10 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             mininet_test_util.timeout_cmd(
                 'nc -U %s > %s &' % (sock, self.event_log), 300))
 
-    def tearDown(self):
+    def tearDown(self, ignore_oferrors=False):
         for pid in self.nfv_pids:
             self.nfv_host.cmd('kill %u' % pid)
-        super(Faucet8021XBaseTest, self).tearDown()
+        super(Faucet8021XBaseTest, self).tearDown(ignore_oferrors=ignore_oferrors)
 
     def post_test_checks(self):
         self.assertGreater(os.path.getsize(self.event_log), 0)
@@ -352,14 +352,13 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         def insert_dynamic_values(dot1x_expected_events):
             for dot1x_event in dot1x_expected_events:
                 top_level_key = list(dot1x_event.keys())[0]
-                l = [('dp_id', int(self.dpid))]
-                for k, v in dot1x_event[top_level_key].items():
-                    if k == 'port':
-                        l.append((k, self.port_map[v]))
-                    if k == 'eth_src':
-                        l.append((k, replace_mac(v)))
-                for k, v in l:
-                    dot1x_event[top_level_key][k] = v
+                dot1x_params = {'dp_id': int(self.dpid)}
+                for key, val in dot1x_event[top_level_key].items():
+                    if key == 'port':
+                        dot1x_params[key] = self.port_map[val]
+                    elif key == 'eth_src':
+                        dot1x_params[key] = replace_mac(val)
+                dot1x_event[top_level_key].update(dot1x_params)
 
         if not self.DOT1X_EXPECTED_EVENTS:
             return
@@ -1446,7 +1445,6 @@ vlans:
         self.verify_no_bcast_to_self()
 
 
-
 class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
 
     CONFIG = """
@@ -2011,11 +2009,11 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         super(FaucetUntaggedInfluxTest, self).setUp()
         self.setup_influx()
 
-    def tearDown(self): # pylint: disable=invalid-name
+    def tearDown(self, ignore_oferrors=False):  # pylint: disable=invalid-name
         if self.server:
             self.server.shutdown()
             self.server.socket.close()
-        super(FaucetUntaggedInfluxTest, self).tearDown()
+        super(FaucetUntaggedInfluxTest, self).tearDown(ignore_oferrors=ignore_oferrors)
 
     def _wait_error_shipping(self, timeout=None):
         if timeout is None:
@@ -2546,7 +2544,8 @@ vlans:
     def verify_hosts_learned(self, first_host, second_host, mac_ips, hosts):
         mac_ipv4s = [mac_ipv4 for mac_ipv4, _ in mac_ips]
         fping_cmd = mininet_test_util.timeout_cmd(
-            'fping %s -c%u %s' % (self.FPING_ARGS_SHORT, self.TIMEOUT / 3, ' '.join(mac_ipv4s)),
+            'fping %s -c%u %s' % (
+                self.FPING_ARGS_SHORT, int(self.TIMEOUT / 3), ' '.join(mac_ipv4s)),
             self.TIMEOUT / 2)
         for _ in range(3):
             fping_out = first_host.cmd(fping_cmd)
@@ -2632,7 +2631,7 @@ class FaucetSingleHostsNoIdleTimeoutPrometheusTest(FaucetSingleHostsTimeoutProme
 class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
     # TODO: currently set to accommodate least hardware
-    def _max_hosts():
+    def _max_hosts():  # pylint: disable=no-method-argument,no-self-use
         return 512
 
     MAX_HOSTS = _max_hosts()
@@ -2681,7 +2680,7 @@ vlans:
 class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 
     # TODO: currently set to accommodate least hardware
-    def _max_hosts():
+    def _max_hosts():  # pylint: disable=no-method-argument,no-self-use
         return 1024
 
     MAX_HOSTS = _max_hosts()
@@ -3246,7 +3245,6 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
             mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
@@ -3309,7 +3307,6 @@ routers:
     exabgp_log = None
     exabgp_err = None
     config_ports = {'bgp_port': None}
-
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
@@ -3380,7 +3377,6 @@ routers:
     exabgp_log = None
     exabgp_err = None
     config_ports = {'bgp_port': None}
-
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
@@ -3453,7 +3449,6 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(mininet_test_util.LOCALHOST)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
@@ -3471,10 +3466,12 @@ routers:
             0)
         # exabgp should have received our BGP updates
         updates = self.exabgp_updates(self.exabgp_log)
-        self.assertTrue(re.search('10.0.0.0/24 next-hop 10.0.0.254', updates))
-        self.assertTrue(re.search('10.0.1.0/24 next-hop 10.0.0.1', updates))
-        self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
-        self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
+        for route_string in (
+                '10.0.0.0/24 next-hop 10.0.0.254',
+                '10.0.1.0/24 next-hop 10.0.0.1',
+                '10.0.2.0/24 next-hop 10.0.0.2',
+                '10.0.2.0/24 next-hop 10.0.0.2'):
+            self.assertTrue(re.search(route_string, updates), msg=updates)
         # test nexthop expired when port goes down
         first_host = self.hosts_name_ordered()[0]
         match, table = self.match_table(ipaddress.IPv4Network('10.0.0.1/32'))
@@ -4170,9 +4167,10 @@ vlans:
         packets = 1000
         count = 0
         abort = False
+
         def note(*args):
-            "Add a message to the log"
             error('%s:' % self._test_name(), *args + tuple('\n'))
+
         # Some of these tests have been slowing down and timing out,
         # So this code is intended to allow some debugging and analysis
         for fuzz_class in dir(scapy.all):
@@ -4319,6 +4317,7 @@ acls:
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
+
 
 class FaucetUntaggedEgressACLTest(FaucetUntaggedTest):
 
@@ -5082,10 +5081,10 @@ acls:
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
-    def _vids():
-        return [i for i in range(100, 148)]
+    def _vids():  # pylint: disable=no-method-argument,no-self-use
+        return range(100, 148)  # pylint: disable=range-builtin-not-iterating
 
-    def global_vid():
+    def global_vid():  # pylint: disable=no-method-argument,no-self-use
         return 2047
 
     IPV = 4
@@ -5111,7 +5110,7 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def macvlan_ping(self, host, ipa, macvlan_int):
         return self.one_ipv4_ping(host, ipa, intf=macvlan_int)
 
-    def ip(self, args):
+    def run_ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
 
     CONFIG_GLOBAL = """
@@ -5168,23 +5167,23 @@ vlans:
                 required_ipds.add(str(ipd.ip))
                 ipd_to_macvlan[str(ipd.ip)] = (macvlan_int, host)
                 setup_commands.extend([
-                    self.ip('link add link %s name %s type vlan id %u' % (
+                    self.run_ip('link add link %s name %s type vlan id %u' % (
                         host.intf_root_name, vlan_int, vid)),
-                    self.ip('link set dev %s up' % vlan_int),
-                    self.ip('link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int)),
-                    self.ip('link set dev %s up' % macvlan_int),
-                    self.ip('address add %s/%u dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
-                    self.ip('route add default via %s table %u' % (ipg.ip, vid)),
-                    self.ip('rule add from %s table %u priority 100' % (ipa, vid)),
+                    self.run_ip('link set dev %s up' % vlan_int),
+                    self.run_ip('link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int)),
+                    self.run_ip('link set dev %s up' % macvlan_int),
+                    self.run_ip('address add %s/%u dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
+                    self.run_ip('route add default via %s table %u' % (ipg.ip, vid)),
+                    self.run_ip('rule add from %s table %u priority 100' % (ipa, vid)),
                     # stimulate learning attempts for down host.
-                    self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int))])
+                    self.run_ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int))])
                 # next host routes via FAUCET for other host in same connected subnet
                 # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
                     if j != i:
                         other_ip = self.netbase(vid, j)
                         setup_commands.append(
-                            self.ip('route add %s via %s table %u' % (other_ip, ipg.ip, vid)))
+                            self.run_ip('route add %s via %s table %u' % (other_ip, ipg.ip, vid)))
                 for ipa in (ipg.ip, ipd.ip):
                     setup_commands.append(self.fping(macvlan_int, ipa))
 
@@ -5232,7 +5231,7 @@ vlans:
             self.macvlan_ping(first_host, second_host_ip.ip, macvlan_int)
             self.macvlan_ping(second_host, first_host_ip.ip, macvlan_int)
 
-    def verify_l3_hairpin(self, first_host, second_host):
+    def verify_l3_hairpin(self, first_host):
         macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
         macvlan2_int = 'macvlan%u' % self.NEW_VIDS[1]
         macvlan2_ip = self.netbase(self.NEW_VIDS[1], 1)
@@ -5241,14 +5240,14 @@ vlans:
         netns = self.hostns(first_host)
         setup_cmds = []
         setup_cmds.extend(
-            [self.ip('link set %s netns %s' % (macvlan2_int, netns))])
+            [self.run_ip('link set %s netns %s' % (macvlan2_int, netns))])
         for exec_cmd in (
-                (self.ip('address add %s/%u dev %s' % (macvlan2_ip.ip, self.NETPREFIX, macvlan2_int)),
-                 self.ip('link set %s up' % macvlan2_int),
-                 self.ip('route add default via %s' % macvlan2_gw.ip))):
+                (self.run_ip('address add %s/%u dev %s' % (macvlan2_ip.ip, self.NETPREFIX, macvlan2_int)),
+                 self.run_ip('link set %s up' % macvlan2_int),
+                 self.run_ip('route add default via %s' % macvlan2_gw.ip))):
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
         setup_cmds.append(
-            self.ip('route add %s via %s' % (macvlan2_ip, macvlan1_gw.ip)))
+            self.run_ip('route add %s via %s' % (macvlan2_ip, macvlan1_gw.ip)))
         self.quiet_commands(first_host, setup_cmds)
         self.macvlan_ping(first_host, macvlan2_ip.ip, macvlan1_int)
 
@@ -5258,7 +5257,7 @@ vlans:
         self.verify_drop_rules(required_ipds, ipd_to_macvlan)
         self.verify_routing_performance(first_host, second_host)
         self.verify_l3_mesh(first_host, second_host)
-        self.verify_l3_hairpin(first_host, second_host)
+        self.verify_l3_hairpin(first_host)
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
         self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
 
@@ -5269,10 +5268,10 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     NETPREFIX = 112
     ETH_TYPE = IPV6_ETH
 
-    def _vids():
-        return [i for i in range(100, 103)]
+    def _vids():  # pylint: disable=no-method-argument,no-self-use
+        return range(100, 103)  # pylint: disable=range-builtin-not-iterating
 
-    def global_vid():
+    def global_vid():  # pylint: disable=no-method-argument,no-self-use
         return 2047
 
     VIDS = _vids()
@@ -5293,7 +5292,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     def macvlan_ping(self, host, ipa, macvlan_int):
         return self.one_ipv6_ping(host, ipa, intf=macvlan_int)
 
-    def ip(self, args):
+    def run_ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
 
     CONFIG_GLOBAL = """
@@ -5333,8 +5332,8 @@ vlans:
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
 
-    def _vids():
-        return [i for i in range(100, 148)]
+    def _vids():  # pylint: disable=no-method-argument,no-self-use
+        return range(100, 148)  # pylint: disable=range-builtin-not-iterating
 
     VIDS = _vids()
     STR_VIDS = [str(i) for i in _vids()]
@@ -5359,7 +5358,6 @@ vlans:
        '%(port_2)d', ','.join(STR_VIDS),
        '%(port_3)d', ','.join(STR_VIDS),
        '%(port_4)d', ','.join(STR_VIDS))
-
 
     def test_tagged(self):
         self.ping_all_when_learned()
@@ -5889,7 +5887,6 @@ routers:
                 native_vlan: 200
 """
 
-
     exabgp_peer_conf = """
     static {
       route 10.99.99.0/24 next-hop 10.200.0.1 local-preference 100;
@@ -6337,7 +6334,6 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
@@ -6401,7 +6397,6 @@ routers:
     exabgp_log = None
     exabgp_err = None
     config_ports = {'bgp_port': None}
-
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
@@ -6507,7 +6502,6 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1')
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
@@ -6525,16 +6519,18 @@ routers:
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         updates = self.exabgp_updates(self.exabgp_log)
-        self.assertTrue(re.search('fc00::1:0/112 next-hop fc00::1:254', updates))
-        self.assertTrue(re.search('fc00::10:0/112 next-hop fc00::1:1', updates))
-        self.assertTrue(re.search('fc00::20:0/112 next-hop fc00::1:2', updates))
-        self.assertTrue(re.search('fc00::30:0/112 next-hop fc00::1:2', updates))
+        for route_string in (
+                'fc00::1:0/112 next-hop fc00::1:254',
+                'fc00::10:0/112 next-hop fc00::1:1',
+                'fc00::20:0/112 next-hop fc00::1:2',
+                'fc00::30:0/112 next-hop fc00::1:2'):
+            self.assertTrue(re.search(route_string, updates), msg=updates)
 
 
 class FaucetUntaggedRestBcastIPv6RouteTest(FaucetUntaggedIPv6RouteTest):
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
@@ -6610,10 +6606,12 @@ class FaucetStringOfDPTest(FaucetTest):
         """Don't generate standard config file header."""
         return ''
 
-    def acls(self):
+    @staticmethod
+    def acls():
         return {}
 
-    def acl_in_dp(self):
+    @staticmethod
+    def acl_in_dp():
         return {}
 
     def build_net(self, stack=False, n_dps=1,
@@ -6810,9 +6808,7 @@ class FaucetStringOfDPTest(FaucetTest):
                     dp_config[key] = value
             return dp_config
 
-
-        ### Create config
-
+        # Create config
         config = {'version': 2}
 
         if include:
@@ -6993,14 +6989,13 @@ class FaucetStringOfDPTest(FaucetTest):
             dpid = int(dp_conf['dp_id'])
             dp_int_hosts = set()
             dp_ext_hosts = set()
-            for p, p_conf in dp_conf['interfaces'].items():
-                if 'stack' in p_conf:
-                    continue
-                host = host_name_map[self.net.topo.dpid_port_host[dpid][p]]
-                if p_conf.get('loop_protect_external', False):
-                    dp_ext_hosts.add(host)
-                else:
-                    dp_int_hosts.add(host)
+            for port, p_conf in dp_conf['interfaces'].items():
+                if 'stack' not in p_conf:
+                    host = host_name_map[self.net.topo.dpid_port_host[dpid][port]]
+                    if p_conf.get('loop_protect_external', False):
+                        dp_ext_hosts.add(host)
+                    else:
+                        dp_int_hosts.add(host)
             dp_hosts[dp_name] = (dp_int_hosts, dp_ext_hosts)
             int_hosts.update(dp_int_hosts)
             ext_hosts.update(dp_ext_hosts)
@@ -7067,7 +7062,8 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         )
         self.start_net()
 
-    def get_faucet_mac(self, vindex):
+    @staticmethod
+    def get_faucet_mac(vindex):
         """Get the faucet MAC"""
         return '0e:00:00:00:00:0%u' % vindex
 
@@ -7083,9 +7079,9 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         """ping host"""
         self.one_ipv4_ping(src_host, dst_ip, require_host_learned=False, retries=5)
 
-    def set_host_ip(self, host, ip):
+    def set_host_ip(self, host, host_ip):
         """Set the host ip"""
-        host.setIP(str(ip.ip), prefixLen=self.NETPREFIX)
+        host.setIP(str(host_ip.ip), prefixLen=self.NETPREFIX)
 
     def verify_intervlan_routing(self):
         """Setup host routes and verify intervlan routing is possible"""
@@ -7133,21 +7129,21 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
                     continue
                 self.host_ping(src_host, dst_ip.ip)
 
-    def test_intervlan_routing_stack_of_2_dp(self):
+    def test_intervlan_routing_2stack(self):
         """Verify intervlan routing works with 2 DPs in a stack"""
         self.NUM_DPS = 2
         self.set_up()
         self.verify_stack_up()
         self.verify_intervlan_routing()
 
-    def test_intervlan_routing_stack_of_3_dp(self):
+    def test_intervlan_routing_3stack(self):
         """Verify intervlan routing works with 3 DPs in a stack"""
         self.NUM_DPS = 3
         self.set_up()
         self.verify_stack_up()
         self.verify_intervlan_routing()
 
-    def test_intervlan_routing_stack_of_4_dp(self):
+    def test_intervlan_routing_4stack(self):
         """Verify intervlan routing works with 4 DPs in a stack"""
         self.NUM_DPS = 4
         self.set_up()
@@ -7190,7 +7186,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         self.assertEqual(
             self._ip_neigh(v200_host, second_faucet_vip.ip, self.IPV), self.FAUCET_MAC2)
 
-    def test_dp_contains_only_one_vlan_from_router(self):
+    def test_dp_one_vlan_from_router(self):
         """Test when a DP has only one of the routed VLANs"""
         self.NUM_DPS = 2
         self.set_up()
@@ -7244,12 +7240,10 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4Ro
         }
 
     def host_ping(self, src_host, dst_ip):
-        """ """
         self.one_ipv6_ping(src_host, dst_ip, require_host_learned=False)
 
-    def set_host_ip(self, host, ip):
-        """ """
-        self.add_host_ipv6_address(host, ip)
+    def set_host_ip(self, host, host_ip):
+        self.add_host_ipv6_address(host, host_ip)
 
     def get_faucet_vip(self, vindex):
         """Get the IPV6 faucet vip"""
@@ -7653,7 +7647,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
                 self.one_stack_port_up(dpid, dp_name, port)
 
 
-class FaucetStack4RingOfDPTest(FaucetStackRingOfDPTest):
+class FaucetSingleStack4RingOfDPTest(FaucetStackRingOfDPTest):
 
     NUM_DPS = 4
 
@@ -7833,7 +7827,8 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
     # ACL rules which get put into an include-optional
     # file, then reloaded into FAUCET.
-    def acls_override(self):
+    @staticmethod
+    def acls_override():
         return {
             1: [
                 {'rule': {
@@ -7965,6 +7960,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     NUM_HOSTS = 2
     SWITCH_TO_SWITCH_LINKS = 2
     VID = 100
+
     def acls(self):
         dpid2 = self.dpids[1]
         port2_1 = self.port_maps[dpid2]['port_1']
@@ -8092,13 +8088,13 @@ acls:
 
 class FaucetDestRewriteTest(FaucetUntaggedTest):
 
-    def override_mac():
-        return "0e:00:00:00:00:02"
+    def override_mac():  # pylint: disable=no-method-argument,no-self-use
+        return '0e:00:00:00:00:02'
 
     OVERRIDE_MAC = override_mac()
 
-    def rewrite_mac():
-        return "0e:00:00:00:00:03"
+    def rewrite_mac():  # pylint: disable=no-method-argument,no-self-use
+        return '0e:00:00:00:00:03'
 
     REWRITE_MAC = rewrite_mac()
 
@@ -8310,7 +8306,7 @@ class FaucetBadFlowModTest(FaucetUntaggedTest):
     def bad_dpid(self):
         """Return a random, bad dpid parameter"""
         mask = int(16*'f', 16)
-        dpid = (int(self.dpid) + random.randint(0, 1<<63)) & mask
+        dpid = (int(self.dpid) + random.randint(0, 1 << 63)) & mask
         return {'dpid': dpid}
 
     @staticmethod
@@ -8425,7 +8421,7 @@ class FaucetUntaggedMorePortsBase(FaucetUntaggedTest):
         super().setUp()
 
 
-class FaucetUntagged32PortTest(FaucetUntaggedMorePortsBase):
+class FaucetSingleUntagged32PortTest(FaucetUntaggedMorePortsBase):
     """Untagged test with up to 32 ports"""
 
     # pylint: disable=invalid-name
@@ -8433,7 +8429,7 @@ class FaucetUntagged32PortTest(FaucetUntaggedMorePortsBase):
 
 
 @unittest.skip('slow and potentially unreliable on travis')
-class FaucetUntagged48PortTest(FaucetUntaggedMorePortsBase):
+class FaucetSingleUntagged48PortTest(FaucetUntaggedMorePortsBase):
     """Untagged test with up to 48 ports"""
 
     # pylint: disable=invalid-name
