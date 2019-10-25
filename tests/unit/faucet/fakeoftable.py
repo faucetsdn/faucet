@@ -389,6 +389,7 @@ class FlowMod:
         )
     IPV4_MATCH_FIELDS = ('ipv4_src', 'ipv4_dst', 'arp_spa', 'arp_tpa')
     IPV6_MATCH_FIELDS = ('ipv6_src', 'ipv6_dst', 'ipv6_nd_target')
+    HEX_FIELDS = ('eth_type')
 
     def __init__(self, flowmod):
         """flowmod is a ryu flow modification message object"""
@@ -523,6 +524,18 @@ class FlowMod:
             return _val_to_bits(addrconv.ipv6.text_to_bin, val, 128)
         return Bits(int=int(val), length=64)
 
+    def bits_to_str(self, key, val):
+        if key in self.MAC_MATCH_FIELDS:
+            return addrconv.mac.bin_to_text(val.tobytes())
+        elif key in self.IPV4_MATCH_FIELDS:
+            return addrconv.ipv4.bin_to_text(val.tobytes())
+        elif key in self.IPV6_MATCH_FIELDS:
+            return addrconv.ipv6.bin_to_text(val.tobytes())
+        elif key in self.HEX_FIELDS:
+            return str(val.hex.lstrip('0'))
+        else:
+            return str(val.int)
+
     def __lt__(self, other):
         return self.priority < other.priority
 
@@ -531,7 +544,90 @@ class FlowMod:
                 self.out_port == other.out_port and
                 self.instructions == other.instructions)
 
+    def _pretty_field_str(self, key, value, mask=None):
+        mask_str = ""
+        if key == 'vlan_vid':
+            value_int = value
+            mask_int = mask
+            if isinstance(value, Bits):
+                value_int = value.int
+            if isinstance(mask, Bits):
+                mask_int = mask.int
+            if value_int & ofp.OFPVID_PRESENT == 0:
+                result = 'vlan untagged'
+            elif key == 'vlan_vid' and mask_int == ofp.OFPVID_PRESENT:
+                result = 'vlan tagged'
+            else:
+                result = str(value_int ^ ofp.OFPVID_PRESENT)
+                if mask_int != -1:
+                    mask_str = str(mask_int ^ ofp.OFPVID_PRESENT)
+        elif isinstance(value, Bits):
+            result = self.bits_to_str(key, value)
+            if mask.int != -1:
+                mask_str = self.bits_to_str(key, mask)
+        elif isinstance(value, str):
+            result = value
+            if mask is not None:
+                mask_str = mask
+        elif isinstance(value, int):
+            if key in self.HEX_FIELDS:
+                result = hex(value)
+                if mask is not None and mask != -1:
+                    mask_str = hex(mask)
+            else:
+                result = str(value)
+                if mask is not None and mask != -1:
+                    mask_str = str(mask)
+        if mask_str:
+            result += "/{}".format(mask_str)
+        return result
+
+    def _pretty_action_str(self, action):
+        ACTIONS_NAMES_ATTRS = {
+            parser.OFPActionPushVlan.__name__: ('push_vlan', 'ethertype'),
+            parser.OFPActionPopVlan.__name__: ('push_vlan', None),
+            }
+        value = None
+        if isinstance(action, parser.OFPActionOutput):
+            name = 'output'
+            if action.port == 4294967293:
+                value = 'controller'
+            else:
+                value = str(action.port)
+        elif isinstance(action, parser.OFPActionSetField):
+            name = 'set_{}'.format(action.key)
+            value = self._pretty_field_str(action.key, action.value)
+        else:
+            name, attr = ACTIONS_NAMES_ATTRS[type(action).__name__]
+            if attr:
+                value = getattr(action, attr)
+        result = name
+        if value:
+            result += " {}".format(value)
+        return result
+
     def __str__(self):
+        result = 'Priority: {0} | Match: '.format(self.priority, self.cookie)
+
+        for key in sorted(self.match_values.keys()):
+            val = self.match_values[key]
+            mask = self.match_masks[key]
+            result += " {} {},".format(
+                key, self._pretty_field_str(key, val, mask))
+        result = result.rstrip(',')
+        result += " | Instructions :"
+        if not self.instructions:
+            result += ' drop'
+        for instruction in self.instructions:
+            if isinstance(instruction, parser.OFPInstructionGotoTable):
+                result += ' goto {}'.format(instruction.table_id)
+            elif isinstance(instruction, parser.OFPInstructionActions):
+                for action in instruction.actions:
+                    result += " {},".format(self._pretty_action_str(action))
+        result = result.rstrip(',')
+        return result
+
+    def __repr__(self):
         string = 'priority: {0} cookie: {1}'.format(self.priority, self.cookie)
         for key in sorted(self.match_values.keys()):
             mask = self.match_masks[key]
