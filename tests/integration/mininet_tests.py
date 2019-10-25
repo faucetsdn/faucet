@@ -1445,7 +1445,6 @@ vlans:
         self.verify_no_bcast_to_self()
 
 
-
 class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
 
     CONFIG = """
@@ -3246,7 +3245,6 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
             mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
@@ -3309,7 +3307,6 @@ routers:
     exabgp_log = None
     exabgp_err = None
     config_ports = {'bgp_port': None}
-
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
@@ -3381,7 +3378,6 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
             mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
@@ -3452,7 +3448,6 @@ routers:
     exabgp_log = None
     exabgp_err = None
     config_ports = {'bgp_port': None}
-
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(mininet_test_util.LOCALHOST)
@@ -4172,9 +4167,10 @@ vlans:
         packets = 1000
         count = 0
         abort = False
+
         def note(*args):
-            "Add a message to the log"
             error('%s:' % self._test_name(), *args + tuple('\n'))
+
         # Some of these tests have been slowing down and timing out,
         # So this code is intended to allow some debugging and analysis
         for fuzz_class in dir(scapy.all):
@@ -4321,6 +4317,7 @@ acls:
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
+
 
 class FaucetUntaggedEgressACLTest(FaucetUntaggedTest):
 
@@ -5085,7 +5082,7 @@ acls:
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
     def _vids():  # pylint: disable=no-method-argument,no-self-use
-        return range(100, 148)
+        return range(100, 148)  # pylint: disable=range-builtin-not-iterating
 
     def global_vid():  # pylint: disable=no-method-argument,no-self-use
         return 2047
@@ -5361,7 +5358,6 @@ vlans:
        '%(port_2)d', ','.join(STR_VIDS),
        '%(port_3)d', ','.join(STR_VIDS),
        '%(port_4)d', ','.join(STR_VIDS))
-
 
     def test_tagged(self):
         self.ping_all_when_learned()
@@ -5891,7 +5887,6 @@ routers:
                 native_vlan: 200
 """
 
-
     exabgp_peer_conf = """
     static {
       route 10.99.99.0/24 next-hop 10.200.0.1 local-preference 100;
@@ -6339,7 +6334,6 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
@@ -6403,7 +6397,6 @@ routers:
     exabgp_log = None
     exabgp_err = None
     config_ports = {'bgp_port': None}
-
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
@@ -6508,7 +6501,6 @@ routers:
     exabgp_log = None
     exabgp_err = None
     config_ports = {'bgp_port': None}
-
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1')
@@ -6816,9 +6808,7 @@ class FaucetStringOfDPTest(FaucetTest):
                     dp_config[key] = value
             return dp_config
 
-
-        ### Create config
-
+        # Create config
         config = {'version': 2}
 
         if include:
@@ -7970,6 +7960,7 @@ class FaucetTunnelTest(FaucetStringOfDPTest):
     NUM_HOSTS = 2
     SWITCH_TO_SWITCH_LINKS = 2
     VID = 100
+
     def acls(self):
         dpid2 = self.dpids[1]
         port2_1 = self.port_maps[dpid2]['port_1']
@@ -8315,7 +8306,7 @@ class FaucetBadFlowModTest(FaucetUntaggedTest):
     def bad_dpid(self):
         """Return a random, bad dpid parameter"""
         mask = int(16*'f', 16)
-        dpid = (int(self.dpid) + random.randint(0, 1<<63)) & mask
+        dpid = (int(self.dpid) + random.randint(0, 1 << 63)) & mask
         return {'dpid': dpid}
 
     @staticmethod
