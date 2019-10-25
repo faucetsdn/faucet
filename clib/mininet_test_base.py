@@ -1703,7 +1703,7 @@ dbs:
                 mininet_hosts = len(self.hosts_name_ordered())
                 target_hosts = learn_hosts + mininet_hosts
                 return self.wait_for_prometheus_var(
-                    'vlan_hosts_learned', target_hosts, labels={'vlan': '100'}, timeout=10)
+                    'vlan_hosts_learned', target_hosts, labels={'vlan': '100'}, timeout=30)
 
             if verify_connectivity(learn_hosts):
                 learn_time = time.time() - start_time
@@ -1714,7 +1714,7 @@ dbs:
                 learn_hosts = min(learn_hosts * 2, max_hosts)
             else:
                 break
-        self.assertTrue(successful_learn_hosts >= min_hosts)
+        self.assertTrue(successful_learn_hosts >= min_hosts, msg=str(successful_learn_hosts))
 
     def verify_vlan_flood_limited(self, vlan_first_host, vlan_second_host,
                                   other_vlan_host):
