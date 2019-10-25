@@ -2546,7 +2546,8 @@ vlans:
     def verify_hosts_learned(self, first_host, second_host, mac_ips, hosts):
         mac_ipv4s = [mac_ipv4 for mac_ipv4, _ in mac_ips]
         fping_cmd = mininet_test_util.timeout_cmd(
-            'fping %s -c%u %s' % (self.FPING_ARGS_SHORT, self.TIMEOUT / 3, ' '.join(mac_ipv4s)),
+            'fping %s -c%u %s' % (
+                self.FPING_ARGS_SHORT, int(self.TIMEOUT / 3), ' '.join(mac_ipv4s)),
             self.TIMEOUT / 2)
         for _ in range(3):
             fping_out = first_host.cmd(fping_cmd)
@@ -3471,10 +3472,12 @@ routers:
             0)
         # exabgp should have received our BGP updates
         updates = self.exabgp_updates(self.exabgp_log)
-        self.assertTrue(re.search('10.0.0.0/24 next-hop 10.0.0.254', updates))
-        self.assertTrue(re.search('10.0.1.0/24 next-hop 10.0.0.1', updates))
-        self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
-        self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
+        for route_string in (
+                '10.0.0.0/24 next-hop 10.0.0.254',
+                '10.0.1.0/24 next-hop 10.0.0.1',
+                '10.0.2.0/24 next-hop 10.0.0.2',
+                '10.0.2.0/24 next-hop 10.0.0.2'):
+            self.assertTrue(re.search(route_string), msg=updates)
         # test nexthop expired when port goes down
         first_host = self.hosts_name_ordered()[0]
         match, table = self.match_table(ipaddress.IPv4Network('10.0.0.1/32'))
@@ -5232,7 +5235,7 @@ vlans:
             self.macvlan_ping(first_host, second_host_ip.ip, macvlan_int)
             self.macvlan_ping(second_host, first_host_ip.ip, macvlan_int)
 
-    def verify_l3_hairpin(self, first_host, second_host):
+    def verify_l3_hairpin(self, first_host):
         macvlan1_int = 'macvlan%u' % self.NEW_VIDS[0]
         macvlan2_int = 'macvlan%u' % self.NEW_VIDS[1]
         macvlan2_ip = self.netbase(self.NEW_VIDS[1], 1)
@@ -5258,7 +5261,7 @@ vlans:
         self.verify_drop_rules(required_ipds, ipd_to_macvlan)
         self.verify_routing_performance(first_host, second_host)
         self.verify_l3_mesh(first_host, second_host)
-        self.verify_l3_hairpin(first_host, second_host)
+        self.verify_l3_hairpin(first_host)
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
         self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
 
@@ -5269,9 +5272,11 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     NETPREFIX = 112
     ETH_TYPE = IPV6_ETH
 
+    @staticmethod
     def _vids():
         return [i for i in range(100, 103)]
 
+    @staticmethod
     def global_vid():
         return 2047
 
