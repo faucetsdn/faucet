@@ -7139,21 +7139,21 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
                     continue
                 self.host_ping(src_host, dst_ip.ip)
 
-    def test_intervlan_routing_stack_of_2_dp(self):
+    def test_intervlan_routing_2stack(self):
         """Verify intervlan routing works with 2 DPs in a stack"""
         self.NUM_DPS = 2
         self.set_up()
         self.verify_stack_up()
         self.verify_intervlan_routing()
 
-    def test_intervlan_routing_stack_of_3_dp(self):
+    def test_intervlan_routing_3stack(self):
         """Verify intervlan routing works with 3 DPs in a stack"""
         self.NUM_DPS = 3
         self.set_up()
         self.verify_stack_up()
         self.verify_intervlan_routing()
 
-    def test_intervlan_routing_stack_of_4_dp(self):
+    def test_intervlan_routing_4stack(self):
         """Verify intervlan routing works with 4 DPs in a stack"""
         self.NUM_DPS = 4
         self.set_up()
@@ -7196,7 +7196,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         self.assertEqual(
             self._ip_neigh(v200_host, second_faucet_vip.ip, self.IPV), self.FAUCET_MAC2)
 
-    def test_dp_contains_only_one_vlan_from_router(self):
+    def test_dp_one_vlan_from_router(self):
         """Test when a DP has only one of the routed VLANs"""
         self.NUM_DPS = 2
         self.set_up()
