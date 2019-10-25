@@ -2010,7 +2010,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         super(FaucetUntaggedInfluxTest, self).setUp()
         self.setup_influx()
 
-    def tearDown(self, ignore_oferrors=False): # pylint: disable=invalid-name
+    def tearDown(self, ignore_oferrors=False):  # pylint: disable=invalid-name
         if self.server:
             self.server.shutdown()
             self.server.socket.close()
@@ -5272,7 +5272,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     ETH_TYPE = IPV6_ETH
 
     def _vids():  # pylint: disable=no-method-argument,no-self-use
-        return range(100, 103)
+        return range(100, 103)  # pylint: disable=range-builtin-not-iterating
 
     def global_vid():  # pylint: disable=no-method-argument,no-self-use
         return 2047
@@ -5336,7 +5336,7 @@ vlans:
 class FaucetTaggedScaleTest(FaucetTaggedTest):
 
     def _vids():  # pylint: disable=no-method-argument,no-self-use
-        return range(100, 148)
+        return range(100, 148)  # pylint: disable=range-builtin-not-iterating
 
     VIDS = _vids()
     STR_VIDS = [str(i) for i in _vids()]
