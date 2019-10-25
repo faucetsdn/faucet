@@ -352,14 +352,13 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         def insert_dynamic_values(dot1x_expected_events):
             for dot1x_event in dot1x_expected_events:
                 top_level_key = list(dot1x_event.keys())[0]
-                dot1x_params = [('dp_id', int(self.dpid))]
+                dot1x_params = {'dp_id': int(self.dpid)}
                 for key, val in dot1x_event[top_level_key].items():
                     if key == 'port':
-                        dot1x_params.append((key, self.port_map[val]))
+                        dot1x_params[key] = self.port_map[val]
                     elif key == 'eth_src':
-                        dot1x_params.append((key, replace_mac(val)))
-                dot1x_event[top_level_key].update(
-                    {k: v for k, v in dot1x_params})
+                        dot1x_params[key] = replace_mac(val)
+                dot1x_event[top_level_key].update(dot1x_params)
 
         if not self.DOT1X_EXPECTED_EVENTS:
             return
