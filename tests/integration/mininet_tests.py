@@ -8438,6 +8438,7 @@ class FaucetSingleUntagged32PortTest(FaucetUntaggedMorePortsBase):
     N_UNTAGGED = 32  # Maximum number of ports to test
 
 
+@unittest.skip('slow and potentially unreliable on travis')
 class FaucetSingleUntagged48PortTest(FaucetUntaggedMorePortsBase):
     """Untagged test with up to 48 ports"""
 
