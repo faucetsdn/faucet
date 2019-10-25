@@ -2633,6 +2633,7 @@ class FaucetSingleHostsNoIdleTimeoutPrometheusTest(FaucetSingleHostsTimeoutProme
 class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
     # TODO: currently set to accommodate least hardware
+    @staticmethod
     def _max_hosts():
         return 512
 
@@ -2682,6 +2683,7 @@ vlans:
 class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 
     # TODO: currently set to accommodate least hardware
+    @staticmethod
     def _max_hosts():
         return 1024
 
@@ -3477,7 +3479,7 @@ routers:
                 '10.0.1.0/24 next-hop 10.0.0.1',
                 '10.0.2.0/24 next-hop 10.0.0.2',
                 '10.0.2.0/24 next-hop 10.0.0.2'):
-            self.assertTrue(re.search(route_string), msg=updates)
+            self.assertTrue(re.search(route_string, updates), msg=updates)
         # test nexthop expired when port goes down
         first_host = self.hosts_name_ordered()[0]
         match, table = self.match_table(ipaddress.IPv4Network('10.0.0.1/32'))
@@ -5085,9 +5087,11 @@ acls:
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
+    @staticmethod
     def _vids():
         return [i for i in range(100, 148)]
 
+    @staticmethod
     def global_vid():
         return 2047
 
@@ -5338,6 +5342,7 @@ vlans:
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
 
+    @staticmethod
     def _vids():
         return [i for i in range(100, 148)]
 
@@ -6617,10 +6622,12 @@ class FaucetStringOfDPTest(FaucetTest):
         """Don't generate standard config file header."""
         return ''
 
-    def acls(self):
+    @staticmethod
+    def acls():
         return {}
 
-    def acl_in_dp(self):
+    @staticmethod
+    def acl_in_dp():
         return {}
 
     def build_net(self, stack=False, n_dps=1,
@@ -7074,7 +7081,8 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         )
         self.start_net()
 
-    def get_faucet_mac(self, vindex):
+    @staticmethod
+    def get_faucet_mac(vindex):
         """Get the faucet MAC"""
         return '0e:00:00:00:00:0%u' % vindex
 
@@ -7251,11 +7259,9 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4Ro
         }
 
     def host_ping(self, src_host, dst_ip):
-        """ """
         self.one_ipv6_ping(src_host, dst_ip, require_host_learned=False)
 
     def set_host_ip(self, host, ip):
-        """ """
         self.add_host_ipv6_address(host, ip)
 
     def get_faucet_vip(self, vindex):
@@ -7840,7 +7846,8 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
     # ACL rules which get put into an include-optional
     # file, then reloaded into FAUCET.
-    def acls_override(self):
+    @staticmethod
+    def acls_override():
         return {
             1: [
                 {'rule': {
@@ -8099,11 +8106,13 @@ acls:
 
 class FaucetDestRewriteTest(FaucetUntaggedTest):
 
+    @staticmethod
     def override_mac():
         return "0e:00:00:00:00:02"
 
     OVERRIDE_MAC = override_mac()
 
+    @staticmethod
     def rewrite_mac():
         return "0e:00:00:00:00:03"
 
