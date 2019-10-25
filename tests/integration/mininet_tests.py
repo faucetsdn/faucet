@@ -7653,7 +7653,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
                 self.one_stack_port_up(dpid, dp_name, port)
 
 
-class FaucetStack4RingOfDPTest(FaucetStackRingOfDPTest):
+class FaucetSingleStack4RingOfDPTest(FaucetStackRingOfDPTest):
 
     NUM_DPS = 4
 
