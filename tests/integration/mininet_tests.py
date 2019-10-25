@@ -352,14 +352,14 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         def insert_dynamic_values(dot1x_expected_events):
             for dot1x_event in dot1x_expected_events:
                 top_level_key = list(dot1x_event.keys())[0]
-                l = [('dp_id', int(self.dpid))]
-                for k, v in dot1x_event[top_level_key].items():
-                    if k == 'port':
-                        l.append((k, self.port_map[v]))
-                    if k == 'eth_src':
-                        l.append((k, replace_mac(v)))
-                for k, v in l:
-                    dot1x_event[top_level_key][k] = v
+                dot1x_params = [('dp_id', int(self.dpid))]
+                for key, val in dot1x_event[top_level_key].items():
+                    if key == 'port':
+                        dot1x_params.append((key, self.port_map[val]))
+                    elif key == 'eth_src':
+                        dot1x_params.append((key, replace_mac(val)))
+                dot1x_event[top_level_key].update(
+                    {k: v for k, v in dot1x_params})
 
         if not self.DOT1X_EXPECTED_EVENTS:
             return
@@ -5114,7 +5114,7 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     def macvlan_ping(self, host, ipa, macvlan_int):
         return self.one_ipv4_ping(host, ipa, intf=macvlan_int)
 
-    def ip(self, args):
+    def run_ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
 
     CONFIG_GLOBAL = """
@@ -5171,23 +5171,23 @@ vlans:
                 required_ipds.add(str(ipd.ip))
                 ipd_to_macvlan[str(ipd.ip)] = (macvlan_int, host)
                 setup_commands.extend([
-                    self.ip('link add link %s name %s type vlan id %u' % (
+                    self.run_ip('link add link %s name %s type vlan id %u' % (
                         host.intf_root_name, vlan_int, vid)),
-                    self.ip('link set dev %s up' % vlan_int),
-                    self.ip('link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int)),
-                    self.ip('link set dev %s up' % macvlan_int),
-                    self.ip('address add %s/%u dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
-                    self.ip('route add default via %s table %u' % (ipg.ip, vid)),
-                    self.ip('rule add from %s table %u priority 100' % (ipa, vid)),
+                    self.run_ip('link set dev %s up' % vlan_int),
+                    self.run_ip('link add %s link %s type macvlan mode vepa' % (macvlan_int, vlan_int)),
+                    self.run_ip('link set dev %s up' % macvlan_int),
+                    self.run_ip('address add %s/%u dev %s' % (ipa.ip, self.NETPREFIX, macvlan_int)),
+                    self.run_ip('route add default via %s table %u' % (ipg.ip, vid)),
+                    self.run_ip('rule add from %s table %u priority 100' % (ipa, vid)),
                     # stimulate learning attempts for down host.
-                    self.ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int))])
+                    self.run_ip('neigh add %s lladdr %s dev %s' % (ipd.ip, self.FAUCET_MAC, macvlan_int))])
                 # next host routes via FAUCET for other host in same connected subnet
                 # to cause routing to be exercised.
                 for j, _ in enumerate(hosts, start=1):
                     if j != i:
                         other_ip = self.netbase(vid, j)
                         setup_commands.append(
-                            self.ip('route add %s via %s table %u' % (other_ip, ipg.ip, vid)))
+                            self.run_ip('route add %s via %s table %u' % (other_ip, ipg.ip, vid)))
                 for ipa in (ipg.ip, ipd.ip):
                     setup_commands.append(self.fping(macvlan_int, ipa))
 
@@ -5244,14 +5244,14 @@ vlans:
         netns = self.hostns(first_host)
         setup_cmds = []
         setup_cmds.extend(
-            [self.ip('link set %s netns %s' % (macvlan2_int, netns))])
+            [self.run_ip('link set %s netns %s' % (macvlan2_int, netns))])
         for exec_cmd in (
-                (self.ip('address add %s/%u dev %s' % (macvlan2_ip.ip, self.NETPREFIX, macvlan2_int)),
-                 self.ip('link set %s up' % macvlan2_int),
-                 self.ip('route add default via %s' % macvlan2_gw.ip))):
+                (self.run_ip('address add %s/%u dev %s' % (macvlan2_ip.ip, self.NETPREFIX, macvlan2_int)),
+                 self.run_ip('link set %s up' % macvlan2_int),
+                 self.run_ip('route add default via %s' % macvlan2_gw.ip))):
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
         setup_cmds.append(
-            self.ip('route add %s via %s' % (macvlan2_ip, macvlan1_gw.ip)))
+            self.run_ip('route add %s via %s' % (macvlan2_ip, macvlan1_gw.ip)))
         self.quiet_commands(first_host, setup_cmds)
         self.macvlan_ping(first_host, macvlan2_ip.ip, macvlan1_int)
 
@@ -5296,7 +5296,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     def macvlan_ping(self, host, ipa, macvlan_int):
         return self.one_ipv6_ping(host, ipa, intf=macvlan_int)
 
-    def ip(self, args):
+    def run_ip(self, args):
         return 'ip -%u %s' % (self.IPV, args)
 
     CONFIG_GLOBAL = """
@@ -7090,9 +7090,9 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
         """ping host"""
         self.one_ipv4_ping(src_host, dst_ip, require_host_learned=False, retries=5)
 
-    def set_host_ip(self, host, ip):
+    def set_host_ip(self, host, host_ip):
         """Set the host ip"""
-        host.setIP(str(ip.ip), prefixLen=self.NETPREFIX)
+        host.setIP(str(host_ip.ip), prefixLen=self.NETPREFIX)
 
     def verify_intervlan_routing(self):
         """Setup host routes and verify intervlan routing is possible"""
@@ -7253,8 +7253,8 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4Ro
     def host_ping(self, src_host, dst_ip):
         self.one_ipv6_ping(src_host, dst_ip, require_host_learned=False)
 
-    def set_host_ip(self, host, ip):
-        self.add_host_ipv6_address(host, ip)
+    def set_host_ip(self, host, host_ip):
+        self.add_host_ipv6_address(host, host_ip)
 
     def get_faucet_vip(self, vindex):
         """Get the IPV6 faucet vip"""
