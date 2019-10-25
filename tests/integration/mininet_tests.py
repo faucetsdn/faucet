@@ -7000,14 +7000,13 @@ class FaucetStringOfDPTest(FaucetTest):
             dpid = int(dp_conf['dp_id'])
             dp_int_hosts = set()
             dp_ext_hosts = set()
-            for p, p_conf in dp_conf['interfaces'].items():
-                if 'stack' in p_conf:
-                    continue
-                host = host_name_map[self.net.topo.dpid_port_host[dpid][p]]
-                if p_conf.get('loop_protect_external', False):
-                    dp_ext_hosts.add(host)
-                else:
-                    dp_int_hosts.add(host)
+            for port, p_conf in dp_conf['interfaces'].items():
+                if 'stack' not in p_conf:
+                    host = host_name_map[self.net.topo.dpid_port_host[dpid][port]]
+                    if p_conf.get('loop_protect_external', False):
+                        dp_ext_hosts.add(host)
+                    else:
+                        dp_int_hosts.add(host)
             dp_hosts[dp_name] = (dp_int_hosts, dp_ext_hosts)
             int_hosts.update(dp_int_hosts)
             ext_hosts.update(dp_ext_hosts)
