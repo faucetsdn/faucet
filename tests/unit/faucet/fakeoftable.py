@@ -13,9 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+import argparse
+import json
+import ast
 from bitstring import Bits
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
+from ryu.ofproto import ofproto_parser as ofp_parser
 from ryu.lib import addrconv
 
 
@@ -535,3 +540,54 @@ class FlowMod:
                 string += '/{0}'.format(mask)
         string += ' Instructions: {0}'.format(str(self.instructions))
         return string
+
+class FakeRyuDp:
+    def __init__(self):
+        self.ofproto_parser = parser
+
+def parse_args(sys_args):
+    arg_parser = argparse.ArgumentParser(
+        prog='fakeoftable',
+        description='Performs lookups on openflow tables',
+        usage="""
+    Find the flow table entries in a given flow table that match a given packet
+    {self} -f FILE PACKET_STRING
+""".format(self=sys_args[0])
+        )
+    arg_parser.add_argument(
+        'packet',
+        metavar='PACKET_STRING',
+        help='''string representation of a packet dictionary eg. "{'in_port': 1, 'eth_dst': '01:80:c2:00:00:02', 'eth_type': 34825}"'''
+        )
+    arg_parser.add_argument(
+        '-f',
+        '--file',
+        help='file containing an OFPFlowStatsReply message in JSON format'
+        )
+    args = arg_parser.parse_args()
+    try:
+        message_file = args.file
+        packet = args.packet
+        packet = ast.literal_eval(args.packet)
+    except (KeyError, IndexError, ValueError):
+        arg_parser.print_usage()
+        sys.exit(-1)
+    return (message_file, packet)
+
+def main():
+    message_file, pkt = parse_args(sys.argv)
+    with open(message_file, 'r') as f:
+        msg = json.load(f)
+    dp = FakeRyuDp()
+    ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
+    table = FakeOFTable()
+    table.apply_ofmsgs([ofmsg])
+    instructions, out_pkt = table.lookup(pkt)
+    print(pkt)
+    for instruction in instructions:
+        print(instruction)
+    print(out_pkt)
+
+if __name__ == '__main__':
+    main()
+fake_dp = FakeRyuDp()
