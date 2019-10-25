@@ -8432,15 +8432,14 @@ class FaucetUntaggedMorePortsBase(FaucetUntaggedTest):
         super().setUp()
 
 
-class FaucetUntagged32PortTest(FaucetUntaggedMorePortsBase):
+class FaucetSingleUntagged32PortTest(FaucetUntaggedMorePortsBase):
     """Untagged test with up to 32 ports"""
 
     # pylint: disable=invalid-name
     N_UNTAGGED = 32  # Maximum number of ports to test
 
 
-@unittest.skip('slow and potentially unreliable on travis')
-class FaucetUntagged48PortTest(FaucetUntaggedMorePortsBase):
+class FaucetSingleUntagged48PortTest(FaucetUntaggedMorePortsBase):
     """Untagged test with up to 48 ports"""
 
     # pylint: disable=invalid-name
