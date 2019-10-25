@@ -2633,7 +2633,6 @@ class FaucetSingleHostsNoIdleTimeoutPrometheusTest(FaucetSingleHostsTimeoutProme
 class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
     # TODO: currently set to accommodate least hardware
-    @staticmethod
     def _max_hosts():
         return 512
 
@@ -2683,7 +2682,6 @@ vlans:
 class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 
     # TODO: currently set to accommodate least hardware
-    @staticmethod
     def _max_hosts():
         return 1024
 
@@ -5087,11 +5085,9 @@ acls:
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
-    @staticmethod
     def _vids():
         return [i for i in range(100, 148)]
 
-    @staticmethod
     def global_vid():
         return 2047
 
@@ -5276,11 +5272,9 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     NETPREFIX = 112
     ETH_TYPE = IPV6_ETH
 
-    @staticmethod
     def _vids():
         return [i for i in range(100, 103)]
 
-    @staticmethod
     def global_vid():
         return 2047
 
@@ -5342,7 +5336,6 @@ vlans:
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
 
-    @staticmethod
     def _vids():
         return [i for i in range(100, 148)]
 
@@ -8106,15 +8099,13 @@ acls:
 
 class FaucetDestRewriteTest(FaucetUntaggedTest):
 
-    @staticmethod
     def override_mac():
-        return "0e:00:00:00:00:02"
+        return '0e:00:00:00:00:02'
 
     OVERRIDE_MAC = override_mac()
 
-    @staticmethod
     def rewrite_mac():
-        return "0e:00:00:00:00:03"
+        return '0e:00:00:00:00:03'
 
     REWRITE_MAC = rewrite_mac()
 
