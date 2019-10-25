@@ -329,10 +329,10 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             mininet_test_util.timeout_cmd(
                 'nc -U %s > %s &' % (sock, self.event_log), 300))
 
-    def tearDown(self):
+    def tearDown(self, ignore_oferrors=False):
         for pid in self.nfv_pids:
             self.nfv_host.cmd('kill %u' % pid)
-        super(Faucet8021XBaseTest, self).tearDown()
+        super(Faucet8021XBaseTest, self).tearDown(ignore_oferrors=ignore_oferrors)
 
     def post_test_checks(self):
         self.assertGreater(os.path.getsize(self.event_log), 0)
@@ -2011,11 +2011,11 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         super(FaucetUntaggedInfluxTest, self).setUp()
         self.setup_influx()
 
-    def tearDown(self): # pylint: disable=invalid-name
+    def tearDown(self, ignore_oferrors=False): # pylint: disable=invalid-name
         if self.server:
             self.server.shutdown()
             self.server.socket.close()
-        super(FaucetUntaggedInfluxTest, self).tearDown()
+        super(FaucetUntaggedInfluxTest, self).tearDown(ignore_oferrors=ignore_oferrors)
 
     def _wait_error_shipping(self, timeout=None):
         if timeout is None:
