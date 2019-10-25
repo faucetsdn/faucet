@@ -6525,16 +6525,18 @@ routers:
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         updates = self.exabgp_updates(self.exabgp_log)
-        self.assertTrue(re.search('fc00::1:0/112 next-hop fc00::1:254', updates))
-        self.assertTrue(re.search('fc00::10:0/112 next-hop fc00::1:1', updates))
-        self.assertTrue(re.search('fc00::20:0/112 next-hop fc00::1:2', updates))
-        self.assertTrue(re.search('fc00::30:0/112 next-hop fc00::1:2', updates))
+        for route_string in (
+                'fc00::1:0/112 next-hop fc00::1:254',
+                'fc00::10:0/112 next-hop fc00::1:1',
+                'fc00::20:0/112 next-hop fc00::1:2',
+                'fc00::30:0/112 next-hop fc00::1:2'):
+            self.assertTrue(re.search(route_string, updates), msg=updates)
 
 
 class FaucetUntaggedRestBcastIPv6RouteTest(FaucetUntaggedIPv6RouteTest):
 
     CONFIG = """
-        arp_neighbor_timeout: 2
+        nd_neighbor_timeout: 2
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
