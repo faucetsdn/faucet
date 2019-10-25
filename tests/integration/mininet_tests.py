@@ -2632,7 +2632,7 @@ class FaucetSingleHostsNoIdleTimeoutPrometheusTest(FaucetSingleHostsTimeoutProme
 class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
     # TODO: currently set to accommodate least hardware
-    def _max_hosts():
+    def _max_hosts():  # pylint: disable=no-method-argument,no-self-use
         return 512
 
     MAX_HOSTS = _max_hosts()
@@ -2681,7 +2681,7 @@ vlans:
 class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 
     # TODO: currently set to accommodate least hardware
-    def _max_hosts():
+    def _max_hosts():  # pylint: disable=no-method-argument,no-self-use
         return 1024
 
     MAX_HOSTS = _max_hosts()
@@ -5084,10 +5084,10 @@ acls:
 
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
-    def _vids():
-        return [i for i in range(100, 148)]
+    def _vids():  # pylint: disable=no-method-argument,no-self-use
+        return range(100, 148)
 
-    def global_vid():
+    def global_vid():  # pylint: disable=no-method-argument,no-self-use
         return 2047
 
     IPV = 4
@@ -5271,10 +5271,10 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     NETPREFIX = 112
     ETH_TYPE = IPV6_ETH
 
-    def _vids():
-        return [i for i in range(100, 103)]
+    def _vids():  # pylint: disable=no-method-argument,no-self-use
+        return range(100, 103)
 
-    def global_vid():
+    def global_vid():  # pylint: disable=no-method-argument,no-self-use
         return 2047
 
     VIDS = _vids()
@@ -5335,8 +5335,8 @@ vlans:
 
 class FaucetTaggedScaleTest(FaucetTaggedTest):
 
-    def _vids():
-        return [i for i in range(100, 148)]
+    def _vids():  # pylint: disable=no-method-argument,no-self-use
+        return range(100, 148)
 
     VIDS = _vids()
     STR_VIDS = [str(i) for i in _vids()]
@@ -8097,12 +8097,12 @@ acls:
 
 class FaucetDestRewriteTest(FaucetUntaggedTest):
 
-    def override_mac():
+    def override_mac():  # pylint: disable=no-method-argument,no-self-use
         return '0e:00:00:00:00:02'
 
     OVERRIDE_MAC = override_mac()
 
-    def rewrite_mac():
+    def rewrite_mac():  # pylint: disable=no-method-argument,no-self-use
         return '0e:00:00:00:00:03'
 
     REWRITE_MAC = rewrite_mac()
