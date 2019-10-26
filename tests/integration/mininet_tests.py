@@ -5082,7 +5082,7 @@ acls:
 class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
 
     def _vids():  # pylint: disable=no-method-argument,no-self-use
-        return range(100, 148)  # pylint: disable=range-builtin-not-iterating
+        return list(range(100, 148))
 
     def global_vid():  # pylint: disable=no-method-argument,no-self-use
         return 2047
@@ -5269,7 +5269,7 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     ETH_TYPE = IPV6_ETH
 
     def _vids():  # pylint: disable=no-method-argument,no-self-use
-        return range(100, 103)  # pylint: disable=range-builtin-not-iterating
+        return list(range(100, 103))
 
     def global_vid():  # pylint: disable=no-method-argument,no-self-use
         return 2047
@@ -5333,7 +5333,7 @@ vlans:
 class FaucetTaggedScaleTest(FaucetTaggedTest):
 
     def _vids():  # pylint: disable=no-method-argument,no-self-use
-        return range(100, 148)  # pylint: disable=range-builtin-not-iterating
+        return list(range(100, 148))
 
     VIDS = _vids()
     STR_VIDS = [str(i) for i in _vids()]
