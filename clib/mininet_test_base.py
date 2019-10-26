@@ -1251,12 +1251,14 @@ dbs:
 
     def wait_for_prometheus_var(self, var, result_wanted, labels=None, any_labels=False, default=None,
                                 dpid=True, multiple=False, controller='faucet', retries=3,
-                                timeout=5):
+                                timeout=5, orgreater=False):
         for _ in range(timeout):
             result = self.scrape_prometheus_var(
                 var, labels=labels, any_labels=any_labels, default=default,
                 dpid=dpid, multiple=multiple, controller=controller, retries=retries)
             if result == result_wanted:
+                return True
+            if orgreater and result > result_wanted:
                 return True
             time.sleep(1)
         return False
@@ -1674,28 +1676,29 @@ dbs:
             def verify_connectivity(learn_hosts):
                 error('verifying connectivity')
                 all_unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
+                loss_re = re.compile(
+                    r'^(\S+) : xmt\/rcv\/\%loss = \d+\/\d+\/(\d+)\%.+')
                 while all_unverified_ips:
-                    unverified_ips = []
-                    for _ in range(learn_pps):
-                        if not all_unverified_ips:
-                            break
-                        unverified_ips.append(all_unverified_ips.pop())
+                    unverified_ips = set()
+                    for _ in range(min(learn_pps, len(all_unverified_ips))):
+                        unverified_ips.add(all_unverified_ips.pop())
                     error('.')
                     for _ in range(5):
-                        fping_lines = first_host.cmd(
-                            '%s %s' % (
-                                fping_prefix, ' '.join(unverified_ips).splitlines()))
-                        unverified_ips = []
+                        random_unverified_ips = list(unverified_ips)
+                        random.shuffle(random_unverified_ips)
+                        fping_cmd = '%s %s' % (fping_prefix, ' '.join(random_unverified_ips))
+                        fping_lines = first_host.cmd(fping_cmd).splitlines()
                         for fping_line in fping_lines:
-                            fping_out = fping_line.split()
-                            ipa = fping_out[0]
-                            loss = fping_out[4]
-                            verified = loss.endswith('/0%,')
-                            if not verified:
-                                unverified_ips.append(ipa)
-                        if not unverified_ips:
+                            loss_match = loss_re.match(fping_line)
+                            if loss_match:
+                                ipa = loss_match.group(1)
+                                loss = int(loss_match.group(2))
+                                if loss == 0:
+                                    unverified_ips.remove(ipa)
+                        if unverified_ips:
+                            time.sleep(0.1 * len(unverified_ips))
+                        else:
                             break
-                        time.sleep(0.1 * len(unverified_ips))
                     if unverified_ips:
                         error('could not verify connectivity for all hosts\n')
                         return False
@@ -1703,7 +1706,8 @@ dbs:
                 mininet_hosts = len(self.hosts_name_ordered())
                 target_hosts = learn_hosts + mininet_hosts
                 return self.wait_for_prometheus_var(
-                    'vlan_hosts_learned', target_hosts, labels={'vlan': '100'}, timeout=30)
+                    'vlan_hosts_learned', target_hosts, labels={'vlan': '100'},
+                    timeout=15, orgreater=True)
 
             if verify_connectivity(learn_hosts):
                 learn_time = time.time() - start_time
