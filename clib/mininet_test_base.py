@@ -1663,6 +1663,7 @@ dbs:
             error('will learn %u hosts\n' % learn_hosts)
             start_time = time.time()
             learn_host_list = mac_intf_ipv4s[successful_learn_hosts:learn_hosts]
+            random.shuffle(learn_host_list)
             # configure macvlan interfaces and stimulate learning
             for host, mac_intf, mac_ipv4 in learn_host_list:
                 fping_conf_start = time.time()
@@ -1676,6 +1677,7 @@ dbs:
             def verify_connectivity(learn_hosts):
                 error('verifying connectivity')
                 all_unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
+                random.shuffle(all_unverified_ips)
                 loss_re = re.compile(
                     r'^(\S+) : xmt\/rcv\/\%loss = \d+\/\d+\/(\d+)\%.+')
                 while all_unverified_ips:
@@ -1683,7 +1685,7 @@ dbs:
                     for _ in range(min(learn_pps, len(all_unverified_ips))):
                         unverified_ips.add(all_unverified_ips.pop())
                     error('.')
-                    for _ in range(5):
+                    for _ in range(10):
                         random_unverified_ips = list(unverified_ips)
                         random.shuffle(random_unverified_ips)
                         fping_cmd = '%s %s' % (fping_prefix, ' '.join(random_unverified_ips))
