@@ -33,7 +33,7 @@ class TcpdumpHelper:
         tcpdump_flags = vflags
         tcpdump_flags += ' -c %u' % packets if packets else ''
         tcpdump_flags += ' -w %s' % pcap_out if pcap_out else ''
-        tcpdump_cmd = 'tcpdump -i %s %s -e -n -U %s' % (
+        tcpdump_cmd = 'tcpdump -i %s %s --immediate-mode -e -n -U %s' % (
             self.intf_name, tcpdump_flags, tcpdump_filter)
         pipe_cmd = tcpdump_cmd
         if timeout:
