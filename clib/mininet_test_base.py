@@ -822,11 +822,11 @@ dbs:
         path: %s
 %s
 """ % (faucet_config_file,
-       self.get_gauge_watcher_config(),
-       monitor_stats_file,
-       monitor_state_file,
-       monitor_flow_table_dir,
-       self.GAUGE_CONFIG_DBS)
+            self.get_gauge_watcher_config(),
+            monitor_stats_file,
+            monitor_state_file,
+            monitor_flow_table_dir,
+            self.GAUGE_CONFIG_DBS)
 
     @staticmethod
     def get_exabgp_conf(peer, peer_config=''):
