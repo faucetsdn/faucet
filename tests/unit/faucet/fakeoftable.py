@@ -641,14 +641,14 @@ class FakeRyuDp:
     def __init__(self):
         self.ofproto_parser = parser
 
-def parse_args(sys_args):
+def parse_args():
     arg_parser = argparse.ArgumentParser(
         prog='fakeoftable',
         description='Performs lookups on openflow tables',
         usage="""
     Find the flow table entries in a given flow table that match a given packet
     {self} -f FILE PACKET_STRING
-""".format(self=sys_args[0])
+""".format(self=sys.argv[0])
         )
     arg_parser.add_argument(
         'packet',
@@ -671,7 +671,7 @@ def parse_args(sys_args):
     return (message_file, packet)
 
 def main():
-    message_file, pkt = parse_args(sys.argv)
+    message_file, pkt = parse_args()
     with open(message_file, 'r') as f:
         msg = json.load(f)
     dp = FakeRyuDp()
