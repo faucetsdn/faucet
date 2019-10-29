@@ -433,9 +433,6 @@ The two ACLs are then applied to the ports host1 and host2 are connected to.
                     stack:
                         dp: br2
                         port: 2
-                3:
-                    description: "dummy port (workaround for github issue #3272)"
-                    tagged_vlans: [host1, host2]
         br2:
             dp_id: 0x3
             hardware: "Open vSwitch"
@@ -737,9 +734,6 @@ network.
                     stack:
                         dp: br2
                         port: 3
-                3:
-                    description: "dummy port (workaround for github issue #3272)"
-                    native_vlan: hosts
         br2:
             dp_id: 0x3
             hardware: "Open vSwitch"
