@@ -1189,7 +1189,6 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
-
     def test_multiple_tunnel_acls_mirror_no_stack(self):
         """
         Test config success with same tunnel ACL multiply applied to mirror
@@ -1222,7 +1221,6 @@ dps:
                 output_only: true
 """
         self.check_config_success(config, cp.dp_parser)
-
 
     def test_tunnel_id_by_vlan_name(self):
         """Test config success by referencing tunnel id by a vlan name"""
