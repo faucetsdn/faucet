@@ -172,7 +172,7 @@ class Valve:
             fib_table = self.dp.tables[fib_table_name]
             proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
             route_manager = route_manager_class(
-                self.logger, self.dp.global_vlan, neighbor_timeout,
+                self.logger, self.notify, self.dp.global_vlan, neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle,
                 self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, proactive_learn,
