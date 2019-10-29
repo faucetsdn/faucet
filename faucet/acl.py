@@ -111,6 +111,7 @@ The output action contains a dictionary with the following elements:
         self.meter = False
         self.matches = {}
         self.set_fields = set()
+        self._ports_resolved = False
 
         #TODO: Would be possible to save the names instead of the DP and port objects
         # TUNNEL:
@@ -150,6 +151,10 @@ The output action contains a dictionary with the following elements:
                 'ACL rule is %s not %s (%s)' % (type(normalized_rule), dict, rules)))
             conf['rules'].append(normalized_rule)
         super(ACL, self).__init__(_id, dp_id, conf)
+
+    def finalize(self):
+        self._ports_resolved = True
+        super(ACL, self).finalize()
 
     def check_config(self):
         test_config_condition(
@@ -407,6 +412,8 @@ The output action contains a dictionary with the following elements:
         return result
 
     def resolve_ports(self, resolve_port_cb, resolve_tunnel_objects):
+        if self._ports_resolved:
+            return
         for rule_conf in self.rules:
             if 'actions' in rule_conf:
                 actions_conf = rule_conf['actions']
@@ -429,6 +436,7 @@ The output action contains a dictionary with the following elements:
                     else:
                         resolved_actions[action_name] = action_conf
                 rule_conf['actions'] = resolved_actions
+        self._ports_resolved = True
 
 
 # NOTE: 802.1x steals the port ACL table.
