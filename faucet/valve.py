@@ -348,11 +348,12 @@ class Valve:
 
     def _add_vlan(self, vlan):
         """Configure a VLAN."""
-        self.logger.info('Configuring %s' % vlan)
+        self.logger.info('Configuring vlan %s' % vlan.vid)
         ofmsgs = []
         for manager in self._get_managers():
             ofmsgs.extend(manager.add_vlan(vlan))
         vlan.reset_caches()
+        self.logger.info('Configuring vlan %s done %d' % (vlan.vid, len(ofmsgs)))
         return ofmsgs
 
     def _add_vlans(self, vlans):
