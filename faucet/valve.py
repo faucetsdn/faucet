@@ -242,7 +242,7 @@ class Valve:
             if manager is not None:
                 yield manager
 
-    def _notify(self, event_dict):
+    def notify(self, event_dict):
         """Send an event notification."""
         self.notifier.notify(self.dp.dp_id, self.dp.name, event_dict)
 
@@ -281,7 +281,7 @@ class Valve:
                 '%u/%s %s', i, log_prefix, ofmsg)
 
     def dot1x_event(self, event_dict):
-        self._notify({'DOT1X': event_dict})
+        self.notify({'DOT1X': event_dict})
 
     def floods_to_root(self):
         """Return True if our dp floods (only) to root switch"""
@@ -398,7 +398,7 @@ class Valve:
 
         for port_no, status in port_status.items():
             self._set_port_status(port_no, status)
-        self._notify({'PORTS_STATUS': port_status})
+        self.notify({'PORTS_STATUS': port_status})
 
         ofmsgs = []
         ofmsgs.extend(self.ports_add(
@@ -443,7 +443,7 @@ class Valve:
             return port_status_codes.get(reason, 'UNKNOWN')
 
         port_status = valve_of.port_status_from_state(state)
-        self._notify(
+        self.notify(
             {'PORT_CHANGE': {
                 'port_no': port_no,
                 'reason': _decode_port_status(reason),
@@ -660,7 +660,7 @@ class Valve:
             list: OpenFlow messages to send to datapath.
         """
         self.logger.info('Cold start configuring DP')
-        self._notify(
+        self.notify(
             {'DP_CHANGE': {
                 'reason': 'cold_start'}})
         ofmsgs = []
@@ -682,7 +682,7 @@ class Valve:
     def datapath_disconnect(self):
         """Handle Ryu datapath disconnection event."""
         self.logger.warning('datapath down')
-        self._notify(
+        self.notify(
             {'DP_CHANGE': {
                 'reason': 'disconnect'}})
         self.dp.dyn_running = False
@@ -1211,7 +1211,7 @@ class Valve:
                         if previous_port.stack:
                             learn_log += ' from %s' % previous_port.stack_descr()
                 self.logger.info(learn_log)
-                self._notify(
+                self.notify(
                     {'L2_LEARN': {
                         'port_no': learn_port.number,
                         'previous_port_no': previous_port_no,
@@ -1557,7 +1557,7 @@ class Valve:
                         ofmsgs_by_valve[self].extend(
                             self.host_manager.delete_host_from_vlan(entry.eth_src, vlan))
                 for entry in expired_hosts:
-                    self._notify(
+                    self.notify(
                         {'L2_EXPIRE': {
                             'port_no': entry.port.number,
                             'vid': vlan.vid,
@@ -1670,7 +1670,7 @@ class Valve:
         if restart_type is not None:
             self._inc_var('faucet_config_reload_%s' % restart_type)
             self.logger.info('%s starting' % restart_type)
-        self._notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
+        self.notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
         return ofmsgs
 
     def _del_native_vlan(self, port):
