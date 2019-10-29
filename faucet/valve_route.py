@@ -119,7 +119,6 @@ class ValveRouteManager(ValveManagerBase):
     CONTROL_ETH_TYPES = () # type: ignore
     IP_PKT = None
 
-
     def __init__(self, logger, notify, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl, multi_out,
