@@ -1189,6 +1189,39 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_multiple_tunnel_acls_mirror_no_stack(self):
+        """
+        Test config success with same tunnel ACL multiply applied to mirror
+        without stacking.
+        """
+        config = """
+acls:
+    tunnel-acl:
+        - rule:
+            actions:
+                mirror: 3
+                allow: 1
+                output:
+                    tunnel: {type: 'vlan', tunnel_id: 200, dp: sw1, port: 3}
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel-acl]
+            2:
+                native_vlan: vlan100
+                acls_in: [tunnel-acl]
+            3:
+                description: mirror
+                output_only: true
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_multiple_tunnel_acls(self):
         """Test config success with same tunnel ACL multiply applied."""
         config = """
