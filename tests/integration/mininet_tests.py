@@ -5759,7 +5759,7 @@ vlans:
                 self.port_map['port_4'], 'native_vlan', vid,
                 restart=True, cold_start=False)
         self.wait_until_matching_lines_from_file(
-            r'.+L3_LEARN.+10.0.0.[12].+', event.log)
+            r'.+L3_LEARN.+10.0.0.[12].+', event_log)
 
 
 class FaucetTaggedTargetedResolutionIPv4RouteTest(FaucetTaggedIPv4RouteTest):
