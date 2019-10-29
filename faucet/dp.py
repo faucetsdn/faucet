@@ -1156,14 +1156,12 @@ configuration.
         def resolve_acls():
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
-            resolved = []
             for vlan in self.vlans.values():
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
                         resolve_acl(acl, vid=vlan.vid)
                         acls.append(self.acls[acl])
-                        resolved.append(acl)
                     vlan.acls_in = acls
                     verify_acl_exact_match(acls)
                 if vlan.acls_out:
@@ -1171,7 +1169,6 @@ configuration.
                     for acl in vlan.acls_out:
                         resolve_acl(acl, vid=vlan.vid)
                         acls.append(self.acls[acl])
-                        resolved.append(acl)
                     vlan.acls_out = acls
                     verify_acl_exact_match(acls)
             for port in self.ports.values():
@@ -1182,7 +1179,6 @@ configuration.
                     for acl in port.acls_in:
                         resolve_acl(acl, port_num=port.number)
                         acls.append(self.acls[acl])
-                        resolved.append(acl)
                     port.acls_in = acls
                     verify_acl_exact_match(acls)
 
@@ -1192,7 +1188,6 @@ configuration.
 
                     for acl_name in acl_names:
                         resolve_acl(acl_name, port_num=port.number)
-                        resolved.append(acl_name)
 
                 if port.dot1x_acl:
                     acl_names = [self.dot1x.get('auth_acl'),
@@ -1201,19 +1196,16 @@ configuration.
                     for acl_name in acl_names:
                         if self.acls.get(acl_name, None):
                             resolve_acl(acl_name, port_num=port.number)
-                            resolved.append(acl_name)
 
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
                     resolve_acl(acl, dp=self)
                     acls.append(self.acls[acl])
-                    resolved.append(acl)
                 self.dp_acls = acls
             for acl in self.acls:
-                if acl not in resolved and self.acls[acl].get_tunnel_rule_indices():
+                if self.acls[acl].get_tunnel_rule_indices():
                     resolve_acl(acl, None)
-                    resolved.append(acl)
             if self.tunnel_acls:
                 for tunnel_acl in self.tunnel_acls.values():
                     tunnel_acl.verify_tunnel_rules(self)

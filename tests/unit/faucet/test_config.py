@@ -1222,6 +1222,49 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_multiple_tunnel_acls(self):
+        """Test config success with same tunnel ACL multiply applied."""
+        config = """
+acls:
+    tunnel-acl:
+        - rule:
+            actions:
+                output:
+                    tunnel: {type: 'vlan', tunnel_id: tunnelvlan, dp: sw2, port: 2}
+vlans:
+    vlan100:
+        vid: 100
+    tunnelvlan:
+        vid: 200
+        reserved_internal_vlan: True
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel-acl]
+            2:
+                native_vlan: vlan100
+                acls_in: [tunnel-acl]
+            3:
+                stack:
+                    dp: sw2
+                    port: 1
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 3
+            2:
+                native_vlan: vlan100
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_tunnel_id_by_vlan_name(self):
         """Test config success by referencing tunnel id by a vlan name"""
         config = """
