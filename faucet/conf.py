@@ -87,7 +87,8 @@ class Conf:
     def _check_conf_types(self, conf, conf_types):
         """Check that conf value is of the correct type."""
         test_config_condition(not isinstance(conf, dict), (
-            'Conf object must be type %s not %s' % (dict, type(conf))))
+            'Conf object %s contents %s must be type %s not %s' % (
+                self._id, conf, dict, type(conf))))
         for conf_key, conf_value in conf.items():
             test_config_condition(
                 conf_key not in conf_types, '%s field unknown in %s (known types %s)' % (
