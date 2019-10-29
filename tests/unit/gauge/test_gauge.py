@@ -858,7 +858,7 @@ class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
         rcv_time_str = logger._rcv_time(rcv_time)
         logger.update(rcv_time, msg)
         log_str = self.get_file_contents(
-            "{}-flowtable-{}.json".format(datapath.name, rcv_time_str)
+            "{}--flowtable--{}.json".format(datapath.name, rcv_time_str)
             )
 
         yaml_dict = yaml.safe_load(log_str)['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
