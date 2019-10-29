@@ -156,6 +156,13 @@ class GaugeFlowTableLogger(GaugeFlowTablePoller):
             path,
             "{}--flowtable--{}.json".format(self.dp.name, rcv_time_str)
             )
+        # Add an increment for dealing with parts of a multipart message
+        # arriving at the same time
+        inc = 1
+        while os.path.isfile(filename):
+            filename = os.path.join(path, "{}--flowtable--{}--{}.json".format(
+                self.dp.name, rcv_time_str, inc))
+
         if self.conf.compress:
             with gzip.open(filename, 'wt') as outfile:
                 outfile.write(json.dumps(msg.to_jsondict()))
