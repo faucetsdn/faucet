@@ -1275,7 +1275,8 @@ configuration.
         if self.stack_ports or self.stack:
             self._lldp_defaults()
 
-        test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
+        test_config_condition(
+            not self.vlans and not self.stack_ports, 'no VLANs referenced by interfaces in %s' % self.name)
         dp_by_name = {dp.name: dp for dp in dps}
         vlan_by_name = {vlan.name: vlan for vlan in self.vlans.values()}
         loop_protect_external_ports = {
