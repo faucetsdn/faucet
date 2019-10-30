@@ -697,6 +697,13 @@ configuration.
         """Return True if all LAGs have at least one port up."""
         return set(self.lags()) == set(self.lags_up())
 
+    def any_stack_port_up(self):
+        """Return True if any stack port is up."""
+        for port in self.stack_ports:
+            if port.is_stack_up():
+                return True
+        return False
+
     def add_acl(self, acl_ident, acl):
         """Add an ACL to this DP."""
         self.acls[acl_ident] = acl
