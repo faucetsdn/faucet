@@ -736,22 +736,26 @@ class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
     """Checks the loggers in watcher.py."""
 
     conf = None
-    temp_fd = None
     temp_path = None
+    tmp_filename = "tmp_filename"
 
     def setUp(self):
-        """Creates a temporary file and a mocked conf object"""
-        self.temp_fd, self.temp_path = tempfile.mkstemp()
-        self.conf = mock.Mock(file=self.temp_path, compress=False)
+        """Creates a temporary file and directory and a mocked conf object"""
+        self.temp_path = tempfile.mkdtemp()
+        self.conf = mock.Mock(
+            file=os.path.join(self.temp_path, self.tmp_filename),
+            path=self.temp_path,
+            compress=False
+            )
 
     def tearDown(self):
-        """Closes and deletes the temporary file"""
-        os.close(self.temp_fd)
-        os.remove(self.temp_path)
+        """Removes the temporary directory and its contents"""
+        shutil.rmtree(self.temp_path)
 
-    def get_file_contents(self):
+    def get_file_contents(self, filename=tmp_filename):
         """Return the contents of the temporary file and clear it"""
-        with open(self.temp_path, 'r+') as file_:
+        filename = os.path.join(self.temp_path, filename)
+        with open(filename, 'r+') as file_:
             contents = file_.read()
             file_.seek(0, 0)
             file_.truncate()
@@ -850,10 +854,14 @@ class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
         instructions = [parser.OFPInstructionGotoTable(1)]
 
         msg = flow_stats_msg(datapath, instructions)
-        logger.update(time.time(), msg)
-        log_str = self.get_file_contents()
+        rcv_time = time.time()
+        rcv_time_str = logger._rcv_time(rcv_time)
+        logger.update(rcv_time, msg)
+        log_str = self.get_file_contents(
+            "{}--flowtable--{}.json".format(datapath.name, rcv_time_str)
+            )
 
-        yaml_dict = yaml.safe_load(log_str)['msg']['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
+        yaml_dict = yaml.safe_load(log_str)['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
 
         compare_flow_msg(msg, yaml_dict, self)
 

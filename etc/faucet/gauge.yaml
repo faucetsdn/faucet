@@ -27,7 +27,7 @@ dbs:
     ft_file:
         type: 'text'
         compress: True
-        file: 'flow_table.yaml.gz'
+        path: 'flow_tables'
     influx:
         type: 'influx'
         influx_db: 'faucet'
