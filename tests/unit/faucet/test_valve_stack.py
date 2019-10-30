@@ -26,6 +26,7 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 
 from faucet import valves_manager
 from faucet import valve_of
+from faucet.port import STACK_STATE_DOWN, STACK_STATE_UP
 
 from valve_test_lib import (
     BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
@@ -272,11 +273,24 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
     def setUp(self):
         self.setup_valve(self.CONFIG)
 
+    def dp_by_name(self, dp_name):
+        for valve in self.valves_manager.valves.values():
+            if valve.dp.name == dp_name:
+                return valve.dp
+        return None
+
+    def set_stack_all_ports_status(self, dp_name, status):
+        dp = self.dp_by_name(dp_name)
+        for port in dp.stack_ports:
+            port.dyn_stack_current_state = status
+
     def test_redundancy(self):
         now = 1
         # All switches are down to start with.
         for dpid in self.valves_manager.valves:
-            self.valves_manager.valves[dpid].dp.dyn_running = False
+            dp = self.valves_manager.valves[dpid].dp
+            dp.dyn_running = False
+            self.set_stack_all_ports_status(dp.name, STACK_STATE_DOWN)
         for valve in self.valves_manager.valves.values():
             self.assertFalse(valve.dp.dyn_running)
             self.assertEqual('s1', valve.dp.stack_root_name)
@@ -290,9 +304,15 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
         self.assertFalse(self.valves_manager.maintain_stack_root(now))
         self.assertEqual('s1', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
-        # s2 has come up, but s1 is still down. We expect s2 to be the new root.
+        # s2 has come up, but has all stack ports down and but s1 is still down.
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
         now += (valves_manager.STACK_ROOT_STATE_UPDATE_TIME * 2)
+        # No change because s2 still isn't healthy.
+        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        # We expect s2 to be the new root because now it has stack links up.
+        self.set_stack_all_ports_status('s2', STACK_STATE_UP)
+        now += (valves_manager.STACK_ROOT_STATE_UPDATE_TIME * 2)
+        self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
         self.assertTrue(self.valves_manager.maintain_stack_root(now))
         self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
@@ -300,6 +320,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
         now += (valves_manager.STACK_ROOT_DOWN_TIME * 2)
         # s2 recently said something, s2 still the root.
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now - 1
+        self.set_stack_all_ports_status('s2', STACK_STATE_UP)
         self.assertFalse(self.valves_manager.maintain_stack_root(now))
         self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
