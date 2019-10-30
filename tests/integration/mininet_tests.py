@@ -138,7 +138,7 @@ vlans:
         self.start_net()
 
     def verify_events_log(self, event_log, timeout=10):
-        required_events = set(['CONFIG_CHANGE', 'PORT_CHANGE', 'L2_LEARN', 'PORTS_STATUS'])
+        required_events = {'CONFIG_CHANGE', 'PORT_CHANGE', 'L2_LEARN', 'PORTS_STATUS'}
         for _ in range(timeout):
             prom_event_id = self.scrape_prometheus_var('faucet_event_id', dpid=False)
             event_id = None
@@ -146,10 +146,7 @@ vlans:
                 for event_log_line in event_log_file.readlines():
                     event = json.loads(event_log_line.strip())
                     event_id = event['event_id']
-                    for required_event in list(required_events):
-                        if required_event in required_events:
-                            required_events.remove(required_event)
-                            break
+                    required_events -= set(event.keys())
             if prom_event_id == event_id:
                 return
             time.sleep(1)
@@ -5740,6 +5737,11 @@ vlans:
 """
 
     def test_tagged(self):
+        event_log = os.path.join(self.tmpdir, 'event.log')
+        controller = self._get_controller()
+        sock = self.env['faucet']['FAUCET_EVENT_SOCK']
+        controller.cmd(mininet_test_util.timeout_cmd(
+            'nc -U %s > %s &' % (sock, event_log), 120))
         host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddress.ip_interface('10.0.1.1/24')
@@ -5756,6 +5758,8 @@ vlans:
             self.change_port_config(
                 self.port_map['port_4'], 'native_vlan', vid,
                 restart=True, cold_start=False)
+        self.wait_until_matching_lines_from_file(
+            r'.+L3_LEARN.+10.0.0.[12].+', event_log)
 
 
 class FaucetTaggedTargetedResolutionIPv4RouteTest(FaucetTaggedIPv4RouteTest):

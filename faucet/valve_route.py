@@ -99,6 +99,7 @@ class ValveRouteManager(ValveManagerBase):
         'fib_table',
         'pipeline',
         'multi_out',
+        'notify',
         'global_vlan',
         'global_routing',
         'logger',
@@ -118,11 +119,11 @@ class ValveRouteManager(ValveManagerBase):
     CONTROL_ETH_TYPES = () # type: ignore
     IP_PKT = None
 
-
-    def __init__(self, logger, global_vlan, neighbor_timeout,
+    def __init__(self, logger, notify, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl, multi_out,
                  fib_table, vip_table, pipeline, routers):
+        self.notify = notify
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
         self.neighbor_timeout = neighbor_timeout
@@ -141,6 +142,13 @@ class ValveRouteManager(ValveManagerBase):
         self.global_routing = self._global_routing()
         if self.global_routing:
             self.logger.info('global routing enabled')
+
+    def notify_learn(self, pkt_meta):
+        self.notify({'L3_LEARN': {
+            'eth_src': pkt_meta.eth_src,
+            'l3_src_ip': str(pkt_meta.l3_src),
+            'port_no': pkt_meta.port.number,
+            'vid': pkt_meta.vlan.vid}})
 
     def nexthop_dead(self, nexthop_cache_entry):
         """Returns true if the nexthop_cache_entry is considered dead"""
@@ -846,6 +854,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
         elif opcode == arp.ARP_REPLY:
             if pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
                 ofmsgs.extend(self._gw_advert(pkt_meta, pkt_meta.l3_src, now))
+        self.notify_learn(pkt_meta)
         return ofmsgs
 
     def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt):
@@ -975,12 +984,14 @@ class ValveIPv6RouteManager(ValveRouteManager):
         ofmsgs = []
         solicited_ip = ipaddress.ip_address(icmpv6_pkt.data.dst)
         ofmsgs.extend(self._resolve_vip_response(pkt_meta, solicited_ip, now))
+        self.notify_learn(pkt_meta)
         return ofmsgs
 
     def _nd_advert_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt):
         ofmsgs = []
         target_ip = ipaddress.ip_address(icmpv6_pkt.data.dst)
         ofmsgs.extend(self._gw_advert(pkt_meta, target_ip, now))
+        self.notify_learn(pkt_meta)
         return ofmsgs
 
     def _router_solicit_handler(self, _now, pkt_meta, _ipv6_pkt, _icmpv6_pkt):
