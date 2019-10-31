@@ -21,7 +21,10 @@ Cisco IOS XE release notes list OpenFlow 1.3 multi-table support as a new softwa
 
 The IOS XE configuration guide section on OpenFlow also references FAUCET, and lists four platforms (9300, 9400, 9500 and 9500 high performance) as supported since 16.9.1:
 
-- `Programmability Configuration Guide, Cisco IOS XE Gibraltar 16.11.x <https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1611/b_1611_programmability_cg/OpenFlow.html>`_
+- `Programmability Configuration Guide, Cisco IOS XE Gibraltar 16.12.x <https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1612/b_1612_programmability_cg/openflow.html>`_
+
+Since OpenFlow support is being continually improved on Cisco platforms we recommend running the latest stable release if you can.
+Currently we would recommend running 16.12.1c or later.
 
 Until Cisco confirms non-beta support, it may still be neccessary to obtain beta images for some or all models.
 
