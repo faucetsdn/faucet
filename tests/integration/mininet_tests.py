@@ -6989,7 +6989,8 @@ class FaucetStringOfDPTest(FaucetTest):
                 # Double-check that the AssertionError was caused by an unexpected braodcast...
                 self.verify_broadcast(hosts=(from_host, to_host), broadcast_expected=True)
                 received_broadcasts.append(to_host)
-        self.assertEqual(len(received_broadcasts), 1, 'Did not receive expected one broadcast')
+        self.assertEqual(len(received_broadcasts), 1,
+                         'Not exactly one broadcast from %s: %s' % (from_host, received_broadcasts))
 
     def map_int_ext_hosts(self):
         conf = self._get_faucet_conf()
