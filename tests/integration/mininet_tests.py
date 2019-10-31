@@ -7521,7 +7521,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             use_external=True)
         self.start_net()
 
-    def test_untagged(self):
+    def x_test_untagged(self):
         """Host can reach each other, unless both marked loop_protect_external"""
         for host in self.hosts_name_ordered():
             self.require_host_learned(host)
@@ -7544,6 +7544,25 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
         # Part 3: Make sure things are the same after reload.
         self.verify_protected_connectivity()  # After reload
+
+    def test_missing_ext(self):
+        self.verify_protected_connectivity()
+
+        conf = self._get_faucet_conf()
+        dpid = self.dpids[1]
+        port_nums = self.topo.dpid_ports(dpid)
+        for interface, interface_conf in conf['dps']['faucet-2']['interfaces'].items():
+            if 'stack' in interface_conf:
+                continue
+            if not interface_conf.get('loop_protect_external', False):
+                loop_interface = interface
+                break
+        for port_num in port_nums:
+            port =
+            if port.loop_protect_external:
+                self.set_port_down(port.number, dpid)
+
+        self.verify_protected_connectivity()
 
     def _mark_external(self, loop_interface, protect_external):
         conf = self._get_faucet_conf()
