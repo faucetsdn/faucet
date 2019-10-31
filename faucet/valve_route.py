@@ -115,7 +115,8 @@ class ValveRouteManager(ValveManagerBase):
     IPV = 0
     ETH_TYPE = None
     ICMP_TYPE = None
-    ICMP_SIZE = valve_of.MAX_PACKET_IN_BYTES
+    ICMP_SIZE = None
+    MAX_PACKET_IN_SIZE = valve_of.MAX_PACKET_IN_BYTES
     CONTROL_ETH_TYPES = () # type: ignore
     IP_PKT = None
 
@@ -185,7 +186,7 @@ class ValveRouteManager(ValveManagerBase):
     def _controller_and_flood(self):
         """Return instructions to forward packet to l2-forwarding"""
         return self.pipeline.accept_to_l2_forwarding(
-            actions=[valve_of.output_controller(max_len=self.ICMP_SIZE)])
+            actions=[valve_of.output_controller(max_len=self.MAX_PACKET_IN_SIZE)])
 
     def _resolve_vip_response(self, pkt_meta, solicited_ip, now):
         """Learn host requesting for router, and return packet-out ofmsgs router response"""
@@ -360,7 +361,7 @@ class ValveRouteManager(ValveManagerBase):
                     eth_type=self.ETH_TYPE,
                     eth_dst=faucet_mac),
                 priority=priority,
-                max_len=self.ICMP_SIZE))
+                max_len=self.MAX_PACKET_IN_SIZE))
             # Learn + flood IP traffic not unicast to us.
             priority -= 1
             ofmsgs.append(self.vip_table.flowmod(
@@ -898,9 +899,9 @@ class ValveIPv6RouteManager(ValveRouteManager):
     IPV = 6
     ETH_TYPE = valve_of.ether.ETH_TYPE_IPV6
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
+    ICMP_SIZE = valve_packet.VLAN_ICMP6_ECHO_REQ_SIZE
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,) # type: ignore
     IP_PKT = ipv6.ipv6
-    ICMP6_ECHO_SIZE = 160
 
     @staticmethod
     def _gw_resolve_pkt():
@@ -941,7 +942,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 nw_proto=valve_of.inet.IPPROTO_ICMPV6,
                 icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
             priority=priority,
-            max_len=self.ICMP6_ECHO_SIZE))
+            max_len=self.ICMP_SIZE))
         # IPv6 NA unicast to FAUCET.
         ofmsgs.append(self.vip_table.flowcontroller(
             self.vip_table.match(
