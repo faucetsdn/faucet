@@ -6983,13 +6983,12 @@ class FaucetStringOfDPTest(FaucetTest):
         self.assertGreater(len(to_hosts), 1, 'Testing only one ext host is not useful')
         received_broadcasts = []
         for to_host in to_hosts:
-            try:
-                self.verify_broadcast(hosts=(from_host, to_host), broadcast_expected=False)
-            except AssertionError:
-                # Double-check that the AssertionError was caused by an unexpected braodcast...
-                self.verify_broadcast(hosts=(from_host, to_host), broadcast_expected=True)
+            if self.verify_broadcast(hosts=(from_host, to_host), broadcast_expected=None):
                 received_broadcasts.append(to_host)
-        self.assertEqual(len(received_broadcasts), 1, 'Did not receive expected one broadcast')
+        received_names = {host.name: host for host in received_broadcasts}
+        self.assertEqual(len(received_broadcasts), 1,
+                         'Received not exactly one broadcast from %s: %s' %
+                         (from_host.name, received_names))
 
     def map_int_ext_hosts(self):
         conf = self._get_faucet_conf()
