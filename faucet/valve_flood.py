@@ -668,17 +668,18 @@ class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
 
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
-        #if not in_port or in_port in self.stack_ports:
-        flood_prefix = []
-        #else:
-        #    if external_ports:
-        #        flood_prefix = self._set_nonext_port_flag
-        #    else:
-        #        flood_prefix = self._set_ext_port_flag
+        if not in_port or in_port in self.stack_ports:
+            flood_prefix = []
+        elif external_ports:
+            flood_prefix = self._set_nonext_port_flag
+        else:
+            flood_prefix = []
+            #else:
+            #flood_prefix = self._set_ext_port_flag
 
         # TAP
-        if in_port in self.away_from_root_stack_ports:
-            flood_prefix = self._set_nonext_port_flag
+        #if in_port in self.away_from_root_stack_ports:
+        #    flood_prefix = self._set_nonext_port_flag
 
         flood_actions = (
             flood_prefix + toward_flood_actions + away_flood_actions + local_flood_actions)
