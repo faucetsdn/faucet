@@ -6979,6 +6979,16 @@ class FaucetStringOfDPTest(FaucetTest):
             '%s: ICMP echo request' % other_host.IP(), tcpdump_text
         ), 'Tunnel was not established')
 
+    def verify_one_broadcast(self, from_host, to_hosts):
+        self.assertGreater(len(to_hosts), 1, 'Testing only one ext host is not useful')
+        received_broadcasts = []
+        for to_host in to_hosts:
+            try:
+                self.verify_broadcast(hosts=(from_host, to_host), broadcast_expected=False)
+            except Exception as e:
+                received_broadcasts.append(to_host)
+        self.assertEqual(len(received_broadcasts), 1, 'Did not receive expected one broadcast')
+
     def map_int_ext_hosts(self):
         conf = self._get_faucet_conf()
         host_name_map = {host.name: host for host in self.hosts_name_ordered()}
@@ -7539,15 +7549,6 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
-    def verify_one_broadcast(self, from_host, to_hosts):
-        broadcast_receiveds = []
-        for to_host in to_hosts:
-            try:
-                self.verify_broadcast(hosts=(from_host, to_host), broadcast_expected=False)
-            except Exception as e:
-                broadcast_receiveds.append(to_host)
-        self.assertEqual(1, len(broadcast_receiveds), 'Did not receive expected one broadcast')
-
     def verify_protected_connectivity(self):
         self.verify_stack_up()
         int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
@@ -7557,6 +7558,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             for other_int_host in int_hosts - {int_host}:
                 self.verify_broadcast(hosts=(int_host, other_int_host), broadcast_expected=True)
                 self.one_ipv4_ping(int_host, other_int_host.IP())
+
             # All internal hosts can reach exactly one external host.
             self.verify_one_broadcast(int_host, ext_hosts)
 
@@ -7604,6 +7606,9 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
                     hosts=(int_host, other_int_host), broadcast_expected=True)
                 self.verify_unicast(
                     hosts=(int_host, other_int_host), unicast_expected=True)
+
+            # All internal hosts should reach exactly one external host.
+            self.verify_one_broadcast(int_host, ext_hosts)
 
         for ext_host in ext_hosts:
             # All external hosts cannot flood to each other
