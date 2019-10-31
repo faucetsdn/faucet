@@ -661,28 +661,23 @@ class ValveFloodStackManagerBase(ValveFloodManager):
 class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
     """Stacks of size 2 - all switches directly connected to root.
 
-    Root switch simply floods to all other switches.
-
-    Non-root switches simply flood to the root.
+    Switches flood according to the calculated MST with stack root.
     """
 
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
-        if not in_port or in_port in self.stack_ports:
-            flood_prefix = []
-        elif external_ports:
-            flood_prefix = self._set_nonext_port_flag
-        else:
-            flood_prefix = []
-            #else:
-            #flood_prefix = self._set_ext_port_flag
+        towards_prefix = []
+        away_prefix = []
 
-        # TAP
-        #if in_port in self.away_from_root_stack_ports:
-        #    flood_prefix = self._set_nonext_port_flag
+        if external_ports:
+            towards_prefix = self._set_nonext_port_flag
+        elif in_port in self.stack_ports:
+            away_prefix = self._set_nonext_port_flag
+        elif not in_port or external_ports:
+            away_prefix = self._set_nonext_port_flag
 
         flood_actions = (
-            flood_prefix + toward_flood_actions + away_flood_actions + local_flood_actions)
+            towards_prefix + toward_flood_actions + away_prefix + away_flood_actions + local_flood_actions)
 
         return flood_actions
 
