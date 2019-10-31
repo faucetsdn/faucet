@@ -6985,7 +6985,7 @@ class FaucetStringOfDPTest(FaucetTest):
         for to_host in to_hosts:
             try:
                 self.verify_broadcast(hosts=(from_host, to_host), broadcast_expected=False)
-            except Exception:
+            except AssertionError:
                 self.verify_broadcast(hosts=(from_host, to_host), broadcast_expected=True)
                 received_broadcasts.append(to_host)
         self.assertEqual(len(received_broadcasts), 1, 'Did not receive expected one broadcast')
