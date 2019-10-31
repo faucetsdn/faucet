@@ -676,6 +676,10 @@ class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
         #    else:
         #        flood_prefix = self._set_ext_port_flag
 
+        # TAP
+        if in_port in self.away_from_root_stack_ports:
+            flood_prefix = self._set_nonext_port_flag
+
         flood_actions = (
             flood_prefix + toward_flood_actions + away_flood_actions + local_flood_actions)
 
