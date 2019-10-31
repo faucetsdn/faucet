@@ -4056,7 +4056,10 @@ vlans:
     def test_fping_controller(self):
         first_host = self.hosts_name_ordered()[0]
         self.one_ipv4_controller_ping(first_host)
+        # Try 64 byte icmp packets
         self.verify_controller_fping(first_host, self.FAUCET_VIPV4)
+        # Try 128 byte icmp packets
+        self.verify_controller_fping(first_host, self.FAUCET_VIPV4, size=128)
 
 
 class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
@@ -4217,7 +4220,10 @@ vlans:
         first_host = self.hosts_name_ordered()[0]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.one_ipv6_controller_ping(first_host)
+        # Try 64 byte icmp6 packets
         self.verify_controller_fping(first_host, self.FAUCET_VIPV6)
+        # Try 128 byte icmp6 packets
+        self.verify_controller_fping(first_host, self.FAUCET_VIPV6, size=128)
 
 
 class FaucetTaggedAndUntaggedDiffVlanTest(FaucetTest):

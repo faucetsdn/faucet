@@ -36,15 +36,17 @@ from faucet import valve_of
 FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
 
 ETH_HEADER_SIZE = 14
-ETH_VLAN_HEADER_SIZE = ETH_HEADER_SIZE + 4 # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
-IPV4_HEADER_SIZE = 20 # https://en.wikipedia.org/wiki/IPv4#Header
-ICMP_ECHO_REQ_SIZE = 8 + 64 # https://en.wikipedia.org/wiki/Ping_(networking_utility)#ICMP_packet
-IPV6_HEADER_SIZE = 40 # https://en.wikipedia.org/wiki/IPv6_packet#Fixed_header
+ETH_VLAN_HEADER_SIZE = ETH_HEADER_SIZE + 4  # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
+IPV4_HEADER_SIZE = 20  # https://en.wikipedia.org/wiki/IPv4#Header
+ICMP_ECHO_REQ_SIZE = 8 + 128  # https://en.wikipedia.org/wiki/Ping_(networking_utility)#ICMP_packet
+ICMP6_ECHO_REQ_SIZE = 8 + 128  # https://en.wikipedia.org/wiki/Ping_(networking_utility)#ICMP_packet
+IPV6_HEADER_SIZE = 40  # https://en.wikipedia.org/wiki/IPv6_packet#Fixed_header
 ARP_REQ_PKT_SIZE = 28
-ARP_PKT_SIZE = 46 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
+ARP_PKT_SIZE = 46  # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
 VLAN_ARP_REQ_PKT_SIZE = ETH_VLAN_HEADER_SIZE + ARP_REQ_PKT_SIZE
 VLAN_ARP_PKT_SIZE = ETH_VLAN_HEADER_SIZE + ARP_PKT_SIZE
 VLAN_ICMP_ECHO_REQ_SIZE = ETH_VLAN_HEADER_SIZE + IPV4_HEADER_SIZE + ICMP_ECHO_REQ_SIZE
+VLAN_ICMP6_ECHO_REQ_SIZE = ETH_VLAN_HEADER_SIZE + IPV6_HEADER_SIZE + ICMP6_ECHO_REQ_SIZE
 
 ETH_EAPOL = 0x888e
 EAPOL_ETH_DST = '01:80:c2:00:00:03'
