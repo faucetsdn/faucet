@@ -7512,8 +7512,8 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_port_down(self):
         """Basic port up/down functionality works"""
-        self.set_port_down(5, self.dpids[0])
-        self.set_port_down(5, self.dpids[1])
+        self.set_port_down(5, self.dpids[0], 'faucet-1')
+        self.set_port_down(5, self.dpids[1], 'faucet-2')
 
     def x_test_untagged(self):
         """Host can reach each other, unless both marked loop_protect_external"""
