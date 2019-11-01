@@ -1273,8 +1273,8 @@ dbs:
                 dpid = int(dpid)
         if dpname:
             dp_name = dpname
-        elif self.dpid_names:
-            dp_name = self.dpid_names[dpid]
+        elif dpid and self.dpid_names:
+            dp_name = self.dpid_names[str(dpid)]
         else:
             dp_name = self.DP_NAME
         label_values_re = r''
@@ -2058,7 +2058,6 @@ dbs:
             dpid, port_no, port_status, expected_status))
 
     def set_port_status(self, dpid, port_no, status, wait, dpname=None):
-        print('set_port_status', dpid, port_no, status, wait, dpname)
         if dpid is None:
             dpid = self.dpid
         expected_status = 1
