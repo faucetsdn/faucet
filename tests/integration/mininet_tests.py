@@ -6596,6 +6596,7 @@ class FaucetStringOfDPTest(FaucetTest):
     CONFIG = None
     GROUP_TABLE = False
     dpids = None
+    dpnames = None
     topo = None
 
     def non_host_links(self, dpid):
@@ -6826,6 +6827,7 @@ class FaucetStringOfDPTest(FaucetTest):
         for i, dpid in enumerate(dpids):
             dpid_names[dpid] = name = dp_name(i)
             dpname_to_dpkey[name] = dpid
+        self.set_dpid_names(dpid_names)
 
         for i, dpid in enumerate(dpids):
             name = dpid_names[dpid]
@@ -7545,6 +7547,8 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
 
     def test_missing_ext(self):
 
+        self.set_port_down(5, self.dpids[0], 'faucet-1')
+        self.set_port_down(5, self.dpids[1], 'faucet-2')
         self.set_port_down(5, self.dpids[0])
         self.set_port_down(5, self.dpids[1])
 
@@ -7554,7 +7558,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         dpid = dp_conf.get('dp_id')
         for port_num, port_conf in dp_conf['interfaces'].items():
             if port_conf.get('loop_protect_external'):
-                self.set_port_down(int(port_num), dpid)
+                self.set_port_down(port_num, dpid, 'faucet-2')
 
         self.verify_protected_connectivity()
 
@@ -7566,6 +7570,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             restart=True, cold_start=False, change_expected=True)
 
     def verify_protected_connectivity(self):
+        print('verify_protected_connectivity')
         self.verify_stack_up()
         int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
 
