@@ -2048,6 +2048,7 @@ dbs:
             dpid, port_no, port_status, expected_status))
 
     def set_port_status(self, dpid, port_no, status, wait):
+        print('set_port_status', dpid, port_no)
         if dpid is None:
             dpid = self.dpid
         expected_status = 1

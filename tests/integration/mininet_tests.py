@@ -7544,21 +7544,17 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         self.verify_protected_connectivity()  # After reload
 
     def test_missing_ext(self):
+
+        self.set_port_down(5, self.dpids[0])
+        self.set_port_down(5, self.dpids[1])
+
         self.verify_protected_connectivity()
 
-        conf = self._get_faucet_conf()
-        dpid = self.dpids[1]
-        port_nums = self.topo.dpid_ports(dpid)
-        for interface, interface_conf in conf['dps']['faucet-2']['interfaces'].items():
-            if 'stack' in interface_conf:
-                continue
-            if not interface_conf.get('loop_protect_external', False):
-                loop_interface = interface
-                break
-        for port_num in port_nums:
-            port =
-            if port.loop_protect_external:
-                self.set_port_down(port.number, dpid)
+        dp_conf = self._get_faucet_conf()['dps']['faucet-2']
+        dpid = dp_conf.get('dp_id')
+        for port_num, port_conf in dp_conf['interfaces'].items():
+            if port_conf.get('loop_protect_external'):
+                self.set_port_down(int(port_num), dpid)
 
         self.verify_protected_connectivity()
 
