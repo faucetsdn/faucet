@@ -107,8 +107,8 @@ class ValveFloodManager(ValveManagerBase):
         if exclude_restricted_bcast_arpnd:
             exclude_ports.update(set(vlan.restricted_bcast_arpnd_ports()))
         return valve_of.flood_port_outputs(
-            vlan.tagged_flood_ports(exclude_unicast),
-            vlan.untagged_flood_ports(exclude_unicast),
+            vlan.tagged_flood_ports_up(exclude_unicast),
+            vlan.untagged_flood_ports_up(exclude_unicast),
             in_port=in_port,
             exclude_ports=exclude_ports)
 
@@ -440,6 +440,9 @@ class ValveFloodStackManagerBase(ValveFloodManager):
             self.away_from_root_stack_ports, in_port, exclude_ports=exclude_ports)
         toward_flood_actions = valve_of.flood_tagged_port_outputs(
             self.towards_root_stack_ports, in_port)
+        self.logger.info('_build_flood_rule_actions %s %s %s %s %s' %
+                         (in_port, external_ports, away_flood_actions,
+                          toward_flood_actions, local_flood_actions))
         flood_acts = self._flood_actions(
             in_port, external_ports, away_flood_actions,
             toward_flood_actions, local_flood_actions)

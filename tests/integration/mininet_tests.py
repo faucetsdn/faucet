@@ -7528,7 +7528,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
-    def verify_protected_connectivity(self):
+    def verify_protected_connectivity(self, externals_down=None):
         self.verify_stack_up()
         int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
 
@@ -7546,14 +7546,18 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             for other_ext_host in ext_hosts - {ext_host}:
                 self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
 
-        for local_int_hosts, local_ext_hosts in dp_hosts.values():
-            local_int_host = list(local_int_hosts)[0]
-            remote_ext_hosts = ext_hosts - local_ext_hosts
-            # ext hosts on remote switch should not get traffic flooded from
-            # int host on local switch, because traffic already flooded to
-            # an ext host on local switch.
-            for remote_ext_host in remote_ext_hosts:
-                self.verify_broadcast(hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
+        for local_dp_name in dp_hosts:
+            for local_int_hosts, local_ext_hosts in dp_hosts[local_dp_name]:
+                local_int_host = list(local_int_hosts)[0]
+                remote_ext_hosts = ext_hosts - local_ext_hosts
+                # ext hosts on remote switch should not get traffic flooded from
+                # int host on local switch, because traffic already flooded to
+                # an ext host on local switch, unless all local externals are down.
+                broadcast_expected = externals_down and local_dp_name in externals_down
+                print(broadcast_expected, local_dp_name, externals_down)
+                for remote_ext_host in remote_ext_hosts:
+                    self.verify_broadcast(hosts=(local_int_host, remote_ext_host),
+                                          broadcast_expected=broadcast_expected)
 
     def x_test_untagged(self):
         """Host can reach each other, unless both marked loop_protect_external"""
@@ -7579,27 +7583,20 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         # Part 3: Make sure things are the same after reload.
         self.verify_protected_connectivity()  # After reload
 
+    def set_externals_state(self, dp_name, externals_up):
+        """Set the port up/down state of all external ports on a switch"""
+        dp_conf = self._get_faucet_conf()['dps'][dp_name]
+        for port_num, port_conf in dp_conf['interfaces'].items():
+            if port_conf.get('loop_protect_external'):
+                if externals_up:
+                    self.set_port_up(port_num, dp_conf.get('dp_id'))
+                else:
+                    self.set_port_down(port_num, dp_conf.get('dp_id'))
+
     def test_missing_ext(self):
-
-        dp_name = 'faucet-2'
-        dp_conf = self._get_faucet_conf()['dps'][dp_name]
-        for port_num, port_conf in dp_conf['interfaces'].items():
-            if port_conf.get('loop_protect_external'):
-                self.set_port_down(port_num, dp_conf.get('dp_id'))
-                break
-
-        #self.verify_protected_connectivity()
-
-    def test_complete_ext(self):
-
-        dp_name = 'faucet-2'
-        dp_conf = self._get_faucet_conf()['dps'][dp_name]
-        for port_num, port_conf in dp_conf['interfaces'].items():
-            if port_conf.get('loop_protect_external'):
-                self.set_port_up(port_num, dp_conf.get('dp_id'))
-
-        #self.verify_protected_connectivity()
-
+        """Test stacked dp with all external ports down on non-root switch"""
+        self.set_externals_state('faucet-2', False)
+        self.verify_protected_connectivity(externals_down=['faucet-2'])
 
 class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with untagged hosts."""

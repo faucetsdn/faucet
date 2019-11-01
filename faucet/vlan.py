@@ -523,8 +523,14 @@ class VLAN(Conf):
     def tagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.tagged, exclude_unicast)
 
+    def tagged_flood_ports_up(self, exclude_unicast):
+        return [port for port in self.tagged_flood_ports(exclude_unicast) if port.dyn_phys_up]
+
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged + self.dot1x_untagged, exclude_unicast)
+
+    def untagged_flood_ports_up(self, exclude_unicast):
+        return [port for port in self.untagged_flood_ports(exclude_unicast) if port.dyn_phys_up]
 
     def output_port(self, port, hairpin=False, output_table=None, external_forwarding_requested=None):
         actions = []
