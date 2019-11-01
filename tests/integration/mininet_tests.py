@@ -6596,6 +6596,7 @@ class FaucetStringOfDPTest(FaucetTest):
     CONFIG = None
     GROUP_TABLE = False
     dpids = None
+    dpnames = None
     topo = None
 
     def non_host_links(self, dpid):
@@ -6826,6 +6827,7 @@ class FaucetStringOfDPTest(FaucetTest):
         for i, dpid in enumerate(dpids):
             dpid_names[dpid] = name = dp_name(i)
             dpname_to_dpkey[name] = dpid
+        self.dpnames = copy.deepcopy(dpid_names)
 
         for i, dpid in enumerate(dpids):
             name = dpid_names[dpid]
