@@ -1265,15 +1265,13 @@ dbs:
         return False
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
-                              dpid=True, dpname=None, multiple=False, controller='faucet', retries=3):
+                              dpid=True, multiple=False, controller='faucet', retries=3):
         if dpid:
             if dpid is True:
                 dpid = int(self.dpid)
             else:
                 dpid = int(dpid)
-        if dpname:
-            dp_name = dpname
-        elif dpid and self.dpid_names:
+        if dpid and self.dpid_names:
             dp_name = self.dpid_names[str(dpid)]
         else:
             dp_name = self.DP_NAME
@@ -2046,10 +2044,10 @@ dbs:
     def set_dpid_names(self, dpid_names):
         self.dpid_names = copy.deepcopy(dpid_names)
 
-    def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10, dpname=None):
+    def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10):
         for _ in range(timeout):
             port_status = self.scrape_prometheus_var(
-                'port_status', self.port_labels(port_no), default=None, dpid=dpid, dpname=dpname)
+                'port_status', self.port_labels(port_no), default=None, dpid=dpid)
             if port_status is not None and port_status == expected_status:
                 return
             self._portmod(dpid, port_no, status, ofp.OFPPC_PORT_DOWN)
@@ -2057,7 +2055,7 @@ dbs:
         self.fail('dpid %x port %s status %s != expected %u' % (
             dpid, port_no, port_status, expected_status))
 
-    def set_port_status(self, dpid, port_no, status, wait, dpname=None):
+    def set_port_status(self, dpid, port_no, status, wait):
         if dpid is None:
             dpid = self.dpid
         expected_status = 1
@@ -2065,13 +2063,13 @@ dbs:
             expected_status = 0
         self._portmod(dpid, port_no, status, ofp.OFPPC_PORT_DOWN)
         if wait:
-            self.wait_port_status(int(dpid), port_no, status, expected_status, dpname=dpname)
+            self.wait_port_status(int(dpid), port_no, status, expected_status)
 
-    def set_port_down(self, port_no, dpid=None, dpname=None, wait=True):
-        self.set_port_status(dpid, port_no, ofp.OFPPC_PORT_DOWN, wait, dpname=dpname)
+    def set_port_down(self, port_no, dpid=None, wait=True):
+        self.set_port_status(dpid, port_no, ofp.OFPPC_PORT_DOWN, wait)
 
-    def set_port_up(self, port_no, dpid=None, dpname=None, wait=True):
-        self.set_port_status(dpid, port_no, 0, wait, dpname=dpname)
+    def set_port_up(self, port_no, dpid=None, wait=True):
+        self.set_port_status(dpid, port_no, 0, wait)
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=30):
         return self.wait_for_prometheus_var(
