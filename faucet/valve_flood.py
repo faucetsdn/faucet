@@ -662,7 +662,9 @@ class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
             away_prefix = self._set_nonext_port_flag
 
         flood_actions = (
-            towards_prefix + toward_flood_actions + away_prefix + away_flood_actions + local_flood_actions)
+            towards_prefix + toward_flood_actions +
+            away_prefix + away_flood_actions +
+            local_flood_actions)
 
         return flood_actions
 
