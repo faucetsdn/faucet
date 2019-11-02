@@ -7553,12 +7553,12 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             # ext hosts on remote switch should not get traffic flooded from
             # int host on local switch, because traffic already flooded to
             # an ext host on local switch, unless all local externals are down.
-            broadcast_expected = externals_down and local_dp_name in externals_down
+            broadcast_expected = bool(externals_down) and local_dp_name in externals_down
             for remote_ext_host in remote_ext_hosts:
                 self.verify_broadcast(hosts=(local_int_host, remote_ext_host),
                                       broadcast_expected=broadcast_expected)
 
-    def x_test_untagged(self):
+    def test_untagged(self):
         """Host can reach each other, unless both marked loop_protect_external"""
         for host in self.hosts_name_ordered():
             self.require_host_learned(host)
