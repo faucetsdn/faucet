@@ -7564,18 +7564,14 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
             self.verify_one_broadcast(int_host, ext_hosts)
 
         for ext_host in ext_hosts:
-            # All external hosts cannot flood to each other
+            # All external hosts cannot flood to each other.
             for other_ext_host in ext_hosts - {ext_host}:
                 self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
 
-        for local_int_hosts, local_ext_hosts in dp_hosts.values():
-            local_int_host = list(local_int_hosts)[0]
-            remote_ext_hosts = ext_hosts - local_ext_hosts
-            # ext hosts on remote switch should not get traffic flooded from
-            # int host on local switch, because traffic already flooded to
-            # an ext host on local switch.
-            for remote_ext_host in remote_ext_hosts:
-                self.verify_broadcast(hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
+            # All external hosts can reach internal hosts.
+            for int_host in int_hosts:
+                self.verify_broadcast(hosts=(ext_host, int_host), broadcast_expected=True)
+                self.one_ipv4_ping(ext_host, int_host.IP())
 
 
 class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
