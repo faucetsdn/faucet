@@ -7585,7 +7585,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetStringOfDPTest):
         # Setting up test to expect failure, as prep for proper code fix.
         try:
             self.verify_protected_connectivity(externals_down=['faucet-2'])
-            assertTrue(False, 'Expected failure did not hapen')
+            self.assertTrue(False, 'Expected failure did not hapen')
         except AssertionError:
             # TODO: Fix faucet code then remove try.
             pass
