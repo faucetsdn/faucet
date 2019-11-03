@@ -1474,6 +1474,7 @@ dbs:
             locations = new_locations
 
     def _verify_xcast(self, received_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b):
+        received_packets = False
         for _ in range(packets):
             tcpdump_txt = self.tcpdump_helper(
                 host_b, tcpdump_filter,
@@ -1482,15 +1483,18 @@ dbs:
             msg = '%s (%s) -> %s (%s): %s' % (
                 host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
             received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
-            received_packets = not received_no_packets
-            if received_expected:
-                if received_packets:
-                    return
-            else:
-                self.assertFalse(received_packets, msg=msg)
+            received_packets = received_packets or not received_no_packets
+            if received_packets:
+                if received_expected is not False:
+                    return True
+                self.assertTrue(received_expected, msg=msg)
             time.sleep(1)
-        self.assertEqual(
-            received_expected, received_packets, msg=msg)
+
+        if received_expected is None:
+            return received_packets
+        else:
+            self.assertEqual(received_expected, received_packets, msg=msg)
+        return None
 
     def verify_broadcast(self, hosts=None, broadcast_expected=True, packets=3):
         host_a = self.hosts_name_ordered()[0]
@@ -1502,7 +1506,7 @@ dbs:
             'ether src host %s' % host_a.MAC(),
             'udp'))
         scapy_cmd = self.scapy_bcast(host_a, count=packets)
-        self._verify_xcast(broadcast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
+        return self._verify_xcast(broadcast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
 
     def verify_unicast(self, hosts, unicast_expected=True, packets=3):
         host_a = self.hosts_name_ordered()[0]
@@ -1518,7 +1522,7 @@ dbs:
              'IP(src=\'%s\', dst=\'%s\') / UDP(dport=67,sport=68)') % (
                  host_a.MAC(), host_b.MAC(), IPV4_ETH,
                  host_a.IP(), host_b.IP()), host_a.defaultIntf(), count=packets)
-        self._verify_xcast(unicast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
+        return self._verify_xcast(unicast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
