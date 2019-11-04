@@ -18,6 +18,7 @@
 # limitations under the License.
 
 
+import copy
 import unittest
 from ryu.lib import mac
 from ryu.lib.packet import slow
@@ -82,6 +83,9 @@ dps:
             p2:
                 number: 2
                 native_vlan: 0x100
+            p3:
+                number: 3
+                native_vlan: 0x100
 """ % DP1_CONFIG
 
     def setUp(self):
@@ -89,10 +93,26 @@ dps:
 
     def test_output(self):
         copro_vid_out = 102 | ofp.OFPVID_PRESENT
-        match = {
+        direct_match = {
             'in_port': 1, 'vlan_vid': copro_vid_out, 'eth_type': ether.ETH_TYPE_IP,
             'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
-        self.assertTrue(self.table.is_output(match, port=2))
+        self.assertTrue(self.table.is_output(direct_match, port=2))
+        p2_host_match = {
+            'eth_src': self.P1_V100_MAC, 'eth_dst': self.P2_V200_MAC,
+            'ipv4_src': '10.0.0.2', 'ipv4_dst': '10.0.0.3',
+            'eth_type': ether.ETH_TYPE_IP}
+        p2_host_receive = copy.deepcopy(p2_host_match)
+        p2_host_receive.update({'in_port': 2})
+        # learn P2 host
+        self.rcv_packet(2, 0x100, p2_host_receive)
+        # copro can send to P2 via regular pipeline
+        p2_copro_host_receive = copy.deepcopy(p2_host_match)
+        p2_copro_host_receive.update(
+            {'in_port': 1, 'eth_src': p2_host_match['eth_dst'], 'eth_dst': p2_host_match['eth_src']})
+        p2_copro_host_receive['vlan_vid'] = 0x100 | ofp.OFPVID_PRESENT
+        self.assertTrue(self.table.is_output(p2_copro_host_receive, port=2, vid=0x100))
+        # copro send to P2 was not flooded
+        self.assertFalse(self.table.is_output(p2_copro_host_receive, port=3, vid=0x100))
 
 
 class ValveRestBcastTestCase(ValveTestBases.ValveTestSmall):
