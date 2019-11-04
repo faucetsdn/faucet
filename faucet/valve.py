@@ -625,7 +625,7 @@ class Valve:
             for valve in stacked_valves:
                 graph = valve.dp.get_node_link_data()
                 if graph:
-                    self._notify(
+                    self.notify(
                         {'STACK_TOPO_CHANGE': {
                             'stack_root': valve.dp.stack_root_name,
                             'graph': graph,
@@ -930,7 +930,7 @@ class Valve:
 
     def _reset_lacp_status(self, port):
         self._set_var('port_lacp_status', port.dyn_lacp_up, labels=self.dp.port_labels(port.number))
-        self._notify(
+        self.notify(
                 {'LAG_CHANGE': {
                     'port_no': port.number,
                     'status': port.dyn_lacp_up}})
