@@ -24,10 +24,13 @@ echo "environment set:"
 echo "  FAUCET_TESTS=\"$FAUCET_TESTS\""
 echo "try:"
 echo "  docker/runtests.sh"
-echo "or:"
-echo '  cd tests && ./run_integration_tests.sh $FAUCET_TESTS'
-echo '  cd clib && ./clib_mininet_test.py $FAUCET_TESTS'
 echo
 
-sudo docker run -ti -v $PWD:/faucet-src -e FAUCET_TESTS="$FAUCET_TESTS" \
-       --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged faucet/tests $CMD
+mkdir -p test_results
+
+sudo docker run -ti --privileged \
+     -v $PWD:/faucet-src \
+     -v $PWD/test_results:/var/tmp \
+     -e FAUCET_TESTS="$FAUCET_TESTS" \
+     --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+     faucet/tests $CMD
