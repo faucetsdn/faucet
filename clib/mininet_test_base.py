@@ -141,6 +141,7 @@ class FaucetTestBase(unittest.TestCase):
         self.max_test_load = max_test_load
         self.port_order = port_order
         self.start_time = None
+        self.dpid_names = None
 
     def hosts_name_ordered(self):
         """Return hosts in strict name only order."""
@@ -1271,6 +1272,10 @@ dbs:
                 dpid = int(self.dpid)
             else:
                 dpid = int(dpid)
+        if dpid and self.dpid_names:
+            dp_name = self.dpid_names[str(dpid)]
+        else:
+            dp_name = self.DP_NAME
         label_values_re = r''
         if any_labels:
             label_values_re = r'\{[^\}]+\}'
@@ -1278,7 +1283,7 @@ dbs:
             if labels is None:
                 labels = {}
             if dpid:
-                labels.update({'dp_id': '0x%x' % dpid, 'dp_name': self.DP_NAME})
+                labels.update({'dp_id': '0x%x' % dpid, 'dp_name': dp_name})
             if labels:
                 label_values = []
                 for label, value in sorted(labels.items()):
@@ -2035,6 +2040,9 @@ dbs:
     def port_labels(self, port_no):
         port_name = 'b%u' % port_no
         return {'port': port_name, 'port_description': port_name}
+
+    def set_dpid_names(self, dpid_names):
+        self.dpid_names = copy.deepcopy(dpid_names)
 
     def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10):
         for _ in range(timeout):
