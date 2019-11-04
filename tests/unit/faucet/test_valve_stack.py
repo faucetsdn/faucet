@@ -19,12 +19,14 @@
 
 from functools import partial
 import unittest
+import yaml
 
 from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 from faucet import valves_manager
 from faucet import valve_of
+from faucet.port import STACK_STATE_DOWN, STACK_STATE_UP
 
 from valve_test_lib import (
     BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
@@ -271,11 +273,24 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
     def setUp(self):
         self.setup_valve(self.CONFIG)
 
+    def dp_by_name(self, dp_name):
+        for valve in self.valves_manager.valves.values():
+            if valve.dp.name == dp_name:
+                return valve.dp
+        return None
+
+    def set_stack_all_ports_status(self, dp_name, status):
+        dp = self.dp_by_name(dp_name)
+        for port in dp.stack_ports:
+            port.dyn_stack_current_state = status
+
     def test_redundancy(self):
         now = 1
         # All switches are down to start with.
         for dpid in self.valves_manager.valves:
-            self.valves_manager.valves[dpid].dp.dyn_running = False
+            dp = self.valves_manager.valves[dpid].dp
+            dp.dyn_running = False
+            self.set_stack_all_ports_status(dp.name, STACK_STATE_DOWN)
         for valve in self.valves_manager.valves.values():
             self.assertFalse(valve.dp.dyn_running)
             self.assertEqual('s1', valve.dp.stack_root_name)
@@ -289,9 +304,15 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
         self.assertFalse(self.valves_manager.maintain_stack_root(now))
         self.assertEqual('s1', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
-        # s2 has come up, but s1 is still down. We expect s2 to be the new root.
+        # s2 has come up, but has all stack ports down and but s1 is still down.
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
         now += (valves_manager.STACK_ROOT_STATE_UPDATE_TIME * 2)
+        # No change because s2 still isn't healthy.
+        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        # We expect s2 to be the new root because now it has stack links up.
+        self.set_stack_all_ports_status('s2', STACK_STATE_UP)
+        now += (valves_manager.STACK_ROOT_STATE_UPDATE_TIME * 2)
+        self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
         self.assertTrue(self.valves_manager.maintain_stack_root(now))
         self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
@@ -299,6 +320,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
         now += (valves_manager.STACK_ROOT_DOWN_TIME * 2)
         # s2 recently said something, s2 still the root.
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now - 1
+        self.set_stack_all_ports_status('s2', STACK_STATE_UP)
         self.assertFalse(self.valves_manager.maintain_stack_root(now))
         self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
@@ -506,14 +528,14 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         else:
             self.assertFalse(self.table.is_output(bcast_match, port=out_port), msg=msg)
 
-    def validate_flooding(self, broken):
+    def validate_flooding(self, rerouted=False, portup=True):
         self.validate_in_out(1, 1, False, 'flooded out input stack port')
-        self.validate_in_out(1, 2, True, 'not flooded to stack root')
-        self.validate_in_out(1, 3, True, 'not flooded to external host')
-        self.validate_in_out(2, 1, broken, 'flooded out other stack port')
+        self.validate_in_out(1, 2, portup, 'not flooded to stack root')
+        self.validate_in_out(1, 3, portup, 'not flooded to external host')
+        self.validate_in_out(2, 1, rerouted, 'flooded out other stack port')
         self.validate_in_out(2, 2, False, 'flooded out input stack port')
         self.validate_in_out(2, 3, True, 'not flooded to external host')
-        self.validate_in_out(3, 1, broken, 'flooded out inactive port')
+        self.validate_in_out(3, 1, rerouted, 'flooded out inactive port')
         self.validate_in_out(3, 2, True, 'not flooded to stack root')
         self.validate_in_out(3, 3, False, 'flooded out hairpin')
 
@@ -527,7 +549,53 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[2]
         self.deactivate_stack_port(other_port)
-        self.validate_flooding(True)
+        self.validate_flooding(rerouted=True)
+
+    def _set_max_lldp_lost(self, new_value):
+        config = yaml.load(self.CONFIG)
+        for dp in config['dps'].values():
+            for interface in dp['interfaces'].values():
+                if 'stack' in interface:
+                    interface['max_lldp_lost'] = new_value
+        return yaml.dump(config)
+
+    def test_max_lldp_timeout(self):
+        """Check that timeout can be increased"""
+
+        port = self.valve.dp.ports[1]
+
+        self.activate_all_ports()
+        self.validate_flooding(portup=True)
+
+        # Deactivating the port stops simulating LLDP beacons.
+        self.deactivate_stack_port(port, packets=1)
+
+        # Should still work after only 1 interval (3 required by default)
+        self.validate_flooding(portup=True)
+
+        # Wait for 3 more cycles, so should fail now.
+        self.trigger_all_ports(packets=3)
+
+        # Validate expected normal behavior with the portup=False.
+        self.validate_flooding(portup=False)
+
+        # Restore everything and set max_lldp_lost to 100.
+        self.activate_stack_port(port)
+        self.validate_flooding()
+        new_config = self._set_max_lldp_lost(100)
+        self.update_config(new_config, reload_expected=False)
+        self.activate_all_ports()
+        self.validate_flooding(portup=True)
+
+        # Like above, deactivate the port (stops LLDP beacons).
+        self.deactivate_stack_port(port, packets=10)
+
+        # After 10 packets (more than before), it should still work.
+        self.validate_flooding(portup=True)
+
+        # But, after 100 more it should now fail b/c limit is set to 100.
+        self.trigger_all_ports(packets=100)
+        self.validate_flooding(portup=False)
 
 
 class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):

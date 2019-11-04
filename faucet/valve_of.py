@@ -38,7 +38,7 @@ VLAN_GROUP_OFFSET = MAX_VID + 1
 ROUTE_GROUP_OFFSET = VLAN_GROUP_OFFSET * 2
 OFP_VERSIONS = [ofp.OFP_VERSION]
 OFP_IN_PORT = ofp.OFPP_IN_PORT
-MAX_PACKET_IN_BYTES = 160 # largest packet is icmp6 echo.
+MAX_PACKET_IN_BYTES = 194  # largest packet is icmp6 echo req with 128 byte payload
 ECTP_ETH_TYPE = 0x9000
 
 # https://en.wikipedia.org/wiki/IEEE_P802.1p

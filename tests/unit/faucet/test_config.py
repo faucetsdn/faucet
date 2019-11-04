@@ -1189,6 +1189,82 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_multiple_tunnel_acls_mirror_no_stack(self):
+        """
+        Test config success with same tunnel ACL multiply applied to mirror
+        without stacking.
+        """
+        config = """
+acls:
+    tunnel-acl:
+        - rule:
+            actions:
+                mirror: 3
+                allow: 1
+                output:
+                    tunnel: {type: 'vlan', tunnel_id: 200, dp: sw1, port: 3}
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel-acl]
+            2:
+                native_vlan: vlan100
+                acls_in: [tunnel-acl]
+            3:
+                description: mirror
+                output_only: true
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_multiple_tunnel_acls(self):
+        """Test config success with same tunnel ACL multiply applied."""
+        config = """
+acls:
+    tunnel-acl:
+        - rule:
+            actions:
+                output:
+                    tunnel: {type: 'vlan', tunnel_id: tunnelvlan, dp: sw2, port: 2}
+vlans:
+    vlan100:
+        vid: 100
+    tunnelvlan:
+        vid: 200
+        reserved_internal_vlan: True
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel-acl]
+            2:
+                native_vlan: vlan100
+                acls_in: [tunnel-acl]
+            3:
+                stack:
+                    dp: sw2
+                    port: 1
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 3
+            2:
+                native_vlan: vlan100
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_tunnel_id_by_vlan_name(self):
         """Test config success by referencing tunnel id by a vlan name"""
         config = """
@@ -1652,6 +1728,50 @@ dps:
                 tagged_vlans: [office]
 """
         self.check_config_failure(config, cp.dp_parser)
+
+    def test_transit_vlans_on_stack(self):
+        """Test that can have transit stack switches."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                stack:
+                    dp: sw3
+                    port: 1
+    sw3:
+        dp_id: 0x3
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 2
+            2:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
 
     def test_config_vlans_on_stack(self):
         """Test that config is rejected vlans on a stack interface."""

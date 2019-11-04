@@ -111,11 +111,12 @@ class ValvesManager:
         # or was known to be running recently.
         # TODO: timeout should be configurable
         health_timeout = now - STACK_ROOT_DOWN_TIME
-        # TODO: consider a stack root that is up, but has all stack links down, unhealthy.
         # Too long since last contact.
         if self.meta_dp_state.dp_last_live_time.get(candidate_dp.name, 0) < health_timeout:
             return False
         if not candidate_dp.all_lags_up():
+            return False
+        if not candidate_dp.any_stack_port_up():
             return False
         return True
 

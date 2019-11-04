@@ -141,6 +141,7 @@ class FaucetTestBase(unittest.TestCase):
         self.max_test_load = max_test_load
         self.port_order = port_order
         self.start_time = None
+        self.dpid_names = None
 
     def hosts_name_ordered(self):
         """Return hosts in strict name only order."""
@@ -192,10 +193,11 @@ class FaucetTestBase(unittest.TestCase):
             self.tmpdir, 'gauge-ports.txt')
         self.monitor_state_file = os.path.join(
             self.tmpdir, 'gauge-state.txt')
-        self.monitor_flow_table_file = os.path.join(
-            self.tmpdir, 'gauge-flow.txt')
+        self.monitor_flow_table_dir = os.path.join(
+            self.tmpdir, 'gauge-flow')
         self.monitor_meter_stats_file = os.path.join(
             self.tmpdir, 'gauge-meter.txt')
+        os.mkdir(self.monitor_flow_table_dir)
         if self.config is not None:
             if 'hw_switch' in self.config:
                 self.hw_switch = self.config['hw_switch']
@@ -287,7 +289,7 @@ class FaucetTestBase(unittest.TestCase):
             self.faucet_config_path,
             self.monitor_stats_file,
             self.monitor_state_file,
-            self.monitor_flow_table_file)
+            self.monitor_flow_table_dir)
         if self.config_ports:
             gauge_config = gauge_config % self.config_ports
         self._write_yaml_conf(self.gauge_config_path, yaml.safe_load(gauge_config))
@@ -796,13 +798,13 @@ dps:
         dps: ['%s']
         type: 'flow_table'
         interval: 5
-        db: 'flow_file'
+        db: 'flow_dir'
 """ % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
     def get_gauge_config(self, faucet_config_file,
                          monitor_stats_file,
                          monitor_state_file,
-                         monitor_flow_table_file):
+                         monitor_flow_table_dir):
         """Build Gauge config."""
         return """
 faucet_configs:
@@ -816,16 +818,16 @@ dbs:
     state_file:
         type: 'text'
         file: %s
-    flow_file:
+    flow_dir:
         type: 'text'
-        file: %s
+        path: %s
 %s
 """ % (faucet_config_file,
-       self.get_gauge_watcher_config(),
-       monitor_stats_file,
-       monitor_state_file,
-       monitor_flow_table_file,
-       self.GAUGE_CONFIG_DBS)
+            self.get_gauge_watcher_config(),
+            monitor_stats_file,
+            monitor_state_file,
+            monitor_flow_table_dir,
+            self.GAUGE_CONFIG_DBS)
 
     @staticmethod
     def get_exabgp_conf(peer, peer_config=''):
@@ -1251,12 +1253,14 @@ dbs:
 
     def wait_for_prometheus_var(self, var, result_wanted, labels=None, any_labels=False, default=None,
                                 dpid=True, multiple=False, controller='faucet', retries=3,
-                                timeout=5):
+                                timeout=5, orgreater=False):
         for _ in range(timeout):
             result = self.scrape_prometheus_var(
                 var, labels=labels, any_labels=any_labels, default=default,
                 dpid=dpid, multiple=multiple, controller=controller, retries=retries)
             if result == result_wanted:
+                return True
+            if orgreater and result > result_wanted:
                 return True
             time.sleep(1)
         return False
@@ -1268,6 +1272,10 @@ dbs:
                 dpid = int(self.dpid)
             else:
                 dpid = int(dpid)
+        if dpid and self.dpid_names:
+            dp_name = self.dpid_names[str(dpid)]
+        else:
+            dp_name = self.DP_NAME
         label_values_re = r''
         if any_labels:
             label_values_re = r'\{[^\}]+\}'
@@ -1275,7 +1283,7 @@ dbs:
             if labels is None:
                 labels = {}
             if dpid:
-                labels.update({'dp_id': '0x%x' % dpid, 'dp_name': self.DP_NAME})
+                labels.update({'dp_id': '0x%x' % dpid, 'dp_name': dp_name})
             if labels:
                 label_values = []
                 for label, value in sorted(labels.items()):
@@ -1303,14 +1311,15 @@ dbs:
         watcher_files = set([
             self.monitor_stats_file,
             self.monitor_state_file,
-            self.monitor_flow_table_file])
+            ])
         found_watcher_files = set()
         for _ in range(60):
             for watcher_file in watcher_files:
                 if (os.path.exists(watcher_file)
                         and os.path.getsize(watcher_file)):
                     found_watcher_files.add(watcher_file)
-            if watcher_files == found_watcher_files:
+            if watcher_files == found_watcher_files \
+                    and bool(os.listdir(self.monitor_flow_table_dir)):
                 break
             self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
             time.sleep(1)
@@ -1470,6 +1479,7 @@ dbs:
             locations = new_locations
 
     def _verify_xcast(self, received_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b):
+        received_packets = False
         for _ in range(packets):
             tcpdump_txt = self.tcpdump_helper(
                 host_b, tcpdump_filter,
@@ -1478,15 +1488,18 @@ dbs:
             msg = '%s (%s) -> %s (%s): %s' % (
                 host_a, host_a.MAC(), host_b, host_b.MAC(), tcpdump_txt)
             received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
-            received_packets = not received_no_packets
-            if received_expected:
-                if received_packets:
-                    return
-            else:
-                self.assertFalse(received_packets, msg=msg)
+            received_packets = received_packets or not received_no_packets
+            if received_packets:
+                if received_expected is not False:
+                    return True
+                self.assertTrue(received_expected, msg=msg)
             time.sleep(1)
-        self.assertEqual(
-            received_expected, received_packets, msg=msg)
+
+        if received_expected is None:
+            return received_packets
+        else:
+            self.assertEqual(received_expected, received_packets, msg=msg)
+        return None
 
     def verify_broadcast(self, hosts=None, broadcast_expected=True, packets=3):
         host_a = self.hosts_name_ordered()[0]
@@ -1498,7 +1511,7 @@ dbs:
             'ether src host %s' % host_a.MAC(),
             'udp'))
         scapy_cmd = self.scapy_bcast(host_a, count=packets)
-        self._verify_xcast(broadcast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
+        return self._verify_xcast(broadcast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
 
     def verify_unicast(self, hosts, unicast_expected=True, packets=3):
         host_a = self.hosts_name_ordered()[0]
@@ -1514,7 +1527,7 @@ dbs:
              'IP(src=\'%s\', dst=\'%s\') / UDP(dport=67,sport=68)') % (
                  host_a.MAC(), host_b.MAC(), IPV4_ETH,
                  host_a.IP(), host_b.IP()), host_a.defaultIntf(), count=packets)
-        self._verify_xcast(unicast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
+        return self._verify_xcast(unicast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
@@ -1661,12 +1674,13 @@ dbs:
             error('will learn %u hosts\n' % learn_hosts)
             start_time = time.time()
             learn_host_list = mac_intf_ipv4s[successful_learn_hosts:learn_hosts]
+            random.shuffle(learn_host_list)
             # configure macvlan interfaces and stimulate learning
             for host, mac_intf, mac_ipv4 in learn_host_list:
                 fping_conf_start = time.time()
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
-                host.cmd('%s -I%s %s' % (fping_prefix, mac_intf, str(learn_ip)))
                 simplify_intf_conf(host, mac_intf)
+                host.cmd('%s -I%s %s' % (fping_prefix, mac_intf, str(learn_ip)))
                 fping_ms = (time.time() - fping_conf_start) * 1e3
                 if fping_ms < pps_ms:
                     time.sleep((pps_ms - fping_ms) / 1e3)
@@ -1674,36 +1688,37 @@ dbs:
             def verify_connectivity(learn_hosts):
                 error('verifying connectivity')
                 all_unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
+                random.shuffle(all_unverified_ips)
+                loss_re = re.compile(
+                    r'^(\S+) : xmt\/rcv\/\%loss = \d+\/\d+\/(\d+)\%.+')
                 while all_unverified_ips:
-                    unverified_ips = []
-                    for _ in range(learn_pps):
-                        if not all_unverified_ips:
-                            break
-                        unverified_ips.append(all_unverified_ips.pop())
-                    error('.')
-                    for _ in range(5):
-                        fping_lines = first_host.cmd(
-                            '%s %s' % (
-                                fping_prefix, ' '.join(unverified_ips).splitlines()))
-                        unverified_ips = []
+                    unverified_ips = set()
+                    for _ in range(min(learn_pps, len(all_unverified_ips))):
+                        unverified_ips.add(all_unverified_ips.pop())
+                    for _ in range(10):
+                        error('.')
+                        random_unverified_ips = list(unverified_ips)
+                        random.shuffle(random_unverified_ips)
+                        fping_cmd = '%s %s' % (fping_prefix, ' '.join(random_unverified_ips))
+                        fping_lines = first_host.cmd(fping_cmd).splitlines()
                         for fping_line in fping_lines:
-                            fping_out = fping_line.split()
-                            ipa = fping_out[0]
-                            loss = fping_out[4]
-                            verified = loss.endswith('/0%,')
-                            if not verified:
-                                unverified_ips.append(ipa)
-                        if not unverified_ips:
+                            loss_match = loss_re.match(fping_line)
+                            if loss_match:
+                                ipa = loss_match.group(1)
+                                loss = int(loss_match.group(2))
+                                if loss == 0:
+                                    unverified_ips.remove(ipa)
+                        if unverified_ips:
+                            time.sleep(0.1 * len(unverified_ips))
+                        else:
                             break
-                        time.sleep(0.1 * len(unverified_ips))
                     if unverified_ips:
-                        error('could not verify connectivity for all hosts\n')
+                        error('could not verify connectivity for all hosts: %s\n' % unverified_ips)
                         return False
 
-                mininet_hosts = len(self.hosts_name_ordered())
-                target_hosts = learn_hosts + mininet_hosts
                 return self.wait_for_prometheus_var(
-                    'vlan_hosts_learned', target_hosts, labels={'vlan': '100'}, timeout=10)
+                    'vlan_hosts_learned', learn_hosts, labels={'vlan': '100'},
+                    timeout=15, orgreater=True)
 
             if verify_connectivity(learn_hosts):
                 learn_time = time.time() - start_time
@@ -1714,7 +1729,7 @@ dbs:
                 learn_hosts = min(learn_hosts * 2, max_hosts)
             else:
                 break
-        self.assertTrue(successful_learn_hosts >= min_hosts)
+        self.assertGreaterEqual(successful_learn_hosts, min_hosts)
 
     def verify_vlan_flood_limited(self, vlan_first_host, vlan_second_host,
                                   other_vlan_host):
@@ -2025,6 +2040,9 @@ dbs:
     def port_labels(self, port_no):
         port_name = 'b%u' % port_no
         return {'port': port_name, 'port_description': port_name}
+
+    def set_dpid_names(self, dpid_names):
+        self.dpid_names = copy.deepcopy(dpid_names)
 
     def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10):
         for _ in range(timeout):

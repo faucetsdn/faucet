@@ -1,31 +1,18 @@
-Faucet on Cisco Switches (Beta)
-===============================
+Faucet on Cisco Switches
+========================
 
 Introduction
 ------------
-Cisco supports Openflow with FAUCET pipeline on the Catalyst 9000 Series switches.
 
-According to Cisco, the solution support is currently in beta on the following models:
+Cisco supports Openflow with faucet pipeline on the Catalyst 9000 Series switches.
 
-- `C9300-48P-A <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9300-series-switches/data_sheet-c78-738977.html>`_
-- `C9410R with SUP1 <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9400-series-switches/datasheet-c78-739053.html>`_
-- `C9500-48X-A <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9500-series-switches/datasheet-c78-738978.html>`_
+Cisco IOS XE first introduced faucet support in version 16.9.1, however since
+faucet support is being continually improved on Cisco platforms we recommend
+running the latest stable release. Currently we would recommend running 16.12.1c or later.
 
-Compatible IOS XE releases
---------------------------
+For official Cisco documentation on OpenFlow and faucet support see the following configuration guide:
 
-Cisco IOS XE release notes list OpenFlow 1.3 multi-table support as a new software feature available since version 16.9.1 and specifically mention this feature enabling FAUCET integration:
-
-- `Catalyst 9400 Series Switches, Cisco IOS XE Fuji 16.9.x <https://www.cisco.com/c/en/us/td/docs/switches/lan/catalyst9400/software/release/16-9/release_notes/ol-16-9-9400.html>`_
-- `Catalyst 9500 Series Switches, Cisco IOS XE Fuji 16.9.x <https://www.cisco.com/c/en/us/td/docs/switches/lan/catalyst9500/software/release/16-9/release_notes/ol-16-9-9500.html>`_
-
-The IOS XE configuration guide section on OpenFlow also references FAUCET, and lists four platforms (9300, 9400, 9500 and 9500 high performance) as supported since 16.9.1:
-
-- `Programmability Configuration Guide, Cisco IOS XE Gibraltar 16.11.x <https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1611/b_1611_programmability_cg/OpenFlow.html>`_
-
-Until Cisco confirms non-beta support, it may still be neccessary to obtain beta images for some or all models.
-
-For access to the beta image and for solution support, please send an email to `cat9k-openflow-triage(mailer list) <cat9k-openflow-triage@cisco.com>`_.
+- `Programmability Configuration Guide, Cisco IOS XE Gibraltar 16.12.x <https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1612/b_1612_programmability_cg/openflow.html>`_
 
 Setup
 -----

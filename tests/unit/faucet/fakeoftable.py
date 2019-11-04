@@ -25,7 +25,8 @@ class FakeOFTableException(Exception):
 
 
 class FakeOFTable:
-    """Fake OFTable is a virtual openflow pipeline used for testing openflow controllers.
+    """Fake OFTable is a virtual openflow pipeline used for testing openflow
+    controllers.
 
     The tables are populated using apply_ofmsgs and can be queried with
     is_output.
@@ -49,12 +50,14 @@ class FakeOFTable:
 
         def _add(ofmsg, group_id):
             if group_id in self.groups:
-                raise FakeOFTableException('group already in group table: %s' % ofmsg)
+                raise FakeOFTableException(
+                    'group already in group table: %s' % ofmsg)
             self.groups[group_id] = ofmsg
 
         def _modify(ofmsg, group_id):
             if group_id not in self.groups:
-                raise FakeOFTableException('group not in group table: %s' % ofmsg)
+                raise FakeOFTableException(
+                    'group not in group table: %s' % ofmsg)
             self.groups[group_id] = ofmsg
 
         _groupmod_handlers = {
@@ -75,11 +78,17 @@ class FakeOFTable:
 
             if table_id == ofp.OFPTT_ALL:
                 if ofmsg.match.items() and not self.tfm:
-                    raise FakeOFTableException('got %s with matches before TFM that defines tables' % ofmsg)
+                    raise FakeOFTableException(
+                        'got %s with matches before TFM that defines tables'
+                        % ofmsg)
                 return
 
             if tfm_body is None:
-                raise FakeOFTableException('got %s before TFM that defines table %u' % (ofmsg, table_id))
+                raise FakeOFTableException(
+                    'got %s before TFM that defines table %u' % (
+                        ofmsg, table_id
+                        )
+                    )
 
         def _add(table, flowmod):
             # From the 1.3 spec, section 6.4:
@@ -158,9 +167,10 @@ class FakeOFTable:
             for table in tables:
                 entries = len(table)
                 if entries > tfm_body.max_entries:
+                    tfm_table_details = 'table %u %s full (max %u)' % (
+                        table_id, tfm_body.name, tfm_body.max_entries)
                     flow_dump = '\n\n'.join(
-                        ('table %u %s full (max %u)' % (table_id, tfm_body.name, tfm_body.max_entries),
-                            str(ofmsg), str(tfm_body)))
+                        (tfm_table_details, str(ofmsg), str(tfm_body)))
                     raise FakeOFTableException(flow_dump)
 
     def _apply_tfm(self, ofmsg):
@@ -208,7 +218,7 @@ class FakeOFTable:
         Returns: a list of the flowmods that will be applied to the packet
                 represented by match
         """
-        packet_dict = match.copy() # Packet headers may be modified
+        packet_dict = match.copy()  # Packet headers may be modified
         instructions = []
         table_id = 0
         goto_table = True
@@ -302,7 +312,8 @@ class FakeOFTable:
             for action in instruction.actions:
                 vid_stack = _process_vid_stack(action, vid_stack)
                 if action.type == ofp.OFPAT_OUTPUT:
-                    output_result = _output_result(action, vid_stack, port, vid)
+                    output_result = _output_result(
+                        action, vid_stack, port, vid)
                     if output_result is not None:
                         return output_result
                 elif action.type == ofp.OFPAT_GROUP:
@@ -326,10 +337,11 @@ class FakeOFTable:
         """
         Send packet through the fake OF table pipeline
         Args:
-            match (dict): A dict keyed by header fields with values, represents a packet
+            match (dict): A dict keyed by header fields with values, represents
+                a packet
         Returns:
-            dict: Modified match dict, represents packet that has been through the pipeline \
-                with values possibly altered
+            dict: Modified match dict, represents packet that has been through
+                the pipeline with values possibly altered
         """
         _, packet_dict = self.lookup(match)
         return packet_dict
@@ -366,8 +378,8 @@ class FlowMod:
         self.match_values = {}
         self.match_masks = {}
         self.out_port = None
-        if ((flowmod.command == ofp.OFPFC_DELETE or flowmod.command == ofp.OFPFC_DELETE_STRICT) and
-                flowmod.out_port != ofp.OFPP_ANY):
+        if (flowmod.command in (ofp.OFPFC_DELETE, ofp.OFPFC_DELETE_STRICT))\
+                and flowmod.out_port != ofp.OFPP_ANY:
             self.out_port = flowmod.out_port
 
         for key, val in flowmod.match.items():
@@ -499,7 +511,7 @@ class FlowMod:
         for key in sorted(self.match_values.keys()):
             mask = self.match_masks[key]
             string += ' {0}: {1}'.format(key, self.match_values[key])
-            if mask.int != -1: # pytype: disable=attribute-error
+            if mask.int != -1:  # pytype: disable=attribute-error
                 string += '/{0}'.format(mask)
         string += ' Instructions: {0}'.format(str(self.instructions))
         return string

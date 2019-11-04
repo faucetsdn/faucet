@@ -18,8 +18,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import json
 import gzip
+import time
 
 from ryu.ofproto import ofproto_v1_3 as ofp
 
@@ -142,18 +144,28 @@ class GaugeFlowTableLogger(GaugeFlowTablePoller):
     config for this watcher
     """
 
+    def _rcv_time(self, rcv_time):
+        # Use ISO8601 times for filenames
+        return time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(rcv_time))
+
     def _update(self, rcv_time, msg):
-        # TODO: it might be good to aggregate all OFFlowStatsReplies somehow
         rcv_time_str = self._rcv_time(rcv_time)
-        jsondict = {
-            'time': rcv_time_str,
-            'ref': '-'.join((self.dp.name, 'flowtables')),
-            'msg': msg.to_jsondict()}
-        filename = self.conf.file
-        outstr = '---\n{}\n'.format(json.dumps(jsondict))
+        path = self.conf.path
+        # Double Hyphen to avoid confusion with ISO8601 times
+        filename = os.path.join(
+            path,
+            "{}--flowtable--{}.json".format(self.dp.name, rcv_time_str)
+            )
+        # Add an increment for dealing with parts of a multipart message
+        # arriving at the same time
+        inc = 1
+        while os.path.isfile(filename):
+            filename = os.path.join(path, "{}--flowtable--{}--{}.json".format(
+                self.dp.name, rcv_time_str, inc))
+
         if self.conf.compress:
-            with gzip.open(filename, 'at') as outfile:
-                outfile.write(outstr)
+            with gzip.open(filename, 'wt') as outfile:
+                outfile.write(json.dumps(msg.to_jsondict()))
         else:
-            with open(filename, 'a') as outfile:
-                outfile.write(outstr)
+            with open(filename, 'w') as outfile:
+                json.dump(msg.to_jsondict(), outfile, indent=2)
