@@ -972,7 +972,7 @@ class Valve:
         actor_state_activity = 0
         if port.lacp_active:
             actor_state_activity = 1
-        lacp_forwarding = self.dp.lacp_forwarding(port)
+        lacp_forwarding = self.dp.lacp_forwarding(port) or port.lacp_collect_and_distribute
         actor_state_collecting = lacp_forwarding
         actor_state_distributing = lacp_forwarding
         if lacp_pkt:
