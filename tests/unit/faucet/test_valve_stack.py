@@ -997,12 +997,12 @@ dps:
         """Test topology functions."""
         dp_ids = [0x1, 0x2, 0x3]
         port = 1
-        want = [1, 0, 1]
+        want_collect_and_distribute = [1, 0, 1]
 
         valves = [self.valves_manager.valves[dp_id] for dp_id in dp_ids]
         ports = [valve.dp.ports[port] for valve in valves]
         c_and_d = [valves[i].dp.lacp_collect_and_distribute(ports[i]) for i in range(0, len(dp_ids))]
-        self.assertEqual(c_and_d, want)
+        self.assertEqual(c_and_d, want_collect_and_distribute)
 
 
 class ValveTwoDpRootEdge(ValveTestBases.ValveTestSmall):
