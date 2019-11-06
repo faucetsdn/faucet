@@ -937,7 +937,7 @@ dps:
 
 
 class ValveStackCollectDistributeLACPTestCase(ValveTestBases.ValveTestSmall):
-    """Test simple stack topology from root."""
+    """Test stack topology with 3 electable roots and one LACP link each."""
 
     CONFIG = """
 dps:
