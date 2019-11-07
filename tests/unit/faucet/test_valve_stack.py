@@ -936,6 +936,75 @@ dps:
         self.assertFalse(dp.is_stack_edge())
 
 
+class ValveStackCollectDistributeLACPTestCase(ValveTestBases.ValveTestSmall):
+    """Test stack topology with 3 electable roots and one LACP link each."""
+
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                lacp: 1
+                native_vlan: 100
+                loop_protect_external: True
+            2:
+                stack:
+                    dp: s2
+                    port: 2
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        stack:
+            priority: 2
+        interfaces:
+            1:
+                lacp: 1
+                native_vlan: 100
+                loop_protect_external: True
+            2:
+                stack:
+                    dp: s1
+                    port: 2
+            3:
+                stack:
+                    dp: s3
+                    port: 2
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        stack:
+            priority: 3
+        interfaces:
+            1:
+                lacp: 1
+                native_vlan: 100
+                loop_protect_external: True
+                lacp_collect_and_distribute: True
+            2:
+                stack:
+                    dp: s2
+                    port: 3
+    """
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_topo(self):
+        """Test topology functions."""
+        dp_ids = [0x1, 0x2, 0x3]
+        port = 1
+        want_collect_and_distribute = [1, 0, 1]
+
+        valves = [self.valves_manager.valves[dp_id] for dp_id in dp_ids]
+        ports = [valve.dp.ports[port] for valve in valves]
+        c_and_d = [valves[i].dp.lacp_collect_and_distribute(ports[i]) for i in range(0, len(dp_ids))]
+        self.assertEqual(c_and_d, want_collect_and_distribute)
+
+
 class ValveTwoDpRootEdge(ValveTestBases.ValveTestSmall):
     """Test simple stack topology from edge."""
 

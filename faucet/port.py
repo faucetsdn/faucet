@@ -59,10 +59,12 @@ class Port(Conf):
         # if non 0 (LAG ID), experimental LACP support enabled on this port.
         'lacp_active': False,
         # experimental active LACP
+        'lacp_collect_and_distribute': False,
+        # if true, forces LACP port to collect and distribute when syncing with the peer.
         'lacp_passthrough': None,
         # If set, fail the lacp on this port if any of the peer ports are down.
         'lacp_resp_interval': 1,
-        # Min time since last LACP response. Used to control rate of responce for LACP
+        # Min time since last LACP response. Used to control rate of response for LACP
         'loop_protect': False,
         # if True, do simple (host/access port) loop protection on this port.
         'loop_protect_external': False,
@@ -111,6 +113,7 @@ class Port(Conf):
         'hairpin_unicast': bool,
         'lacp': int,
         'lacp_active': bool,
+        'lacp_collect_and_distribute': bool,
         'lacp_passthrough': list,
         'lacp_resp_interval': int,
         'loop_protect': bool,
@@ -166,6 +169,7 @@ class Port(Conf):
         self.hairpin_unicast = None
         self.lacp = None
         self.lacp_active = None
+        self.lacp_collect_and_distribute = None
         self.lacp_passthrough = None
         self.lacp_resp_interval = None
         self.loop_protect = None

@@ -972,9 +972,8 @@ class Valve:
         actor_state_activity = 0
         if port.lacp_active:
             actor_state_activity = 1
-        lacp_forwarding = self.dp.lacp_forwarding(port)
-        actor_state_collecting = lacp_forwarding
-        actor_state_distributing = lacp_forwarding
+        actor_state_collecting = self.dp.lacp_collect_and_distribute(port)
+        actor_state_distributing = actor_state_collecting
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,

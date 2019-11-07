@@ -735,6 +735,12 @@ configuration.
                 return 0
         return 1
 
+    def lacp_collect_and_distribute(self, port):
+        """Return 1 if LACP should advertise collect and distribute on this port."""
+        if port.lacp_collect_and_distribute:
+            return 1
+        return self.lacp_forwarding(port)
+
     def lldp_beacon_send_ports(self, now):
         """Return list of ports to send LLDP packets; stacked ports always send LLDP."""
         send_ports = []
