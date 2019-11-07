@@ -126,7 +126,6 @@ vlans:
     # pylint: disable=invalid-name
     CONFIG = CONFIG_BOILER_UNTAGGED
 
-    EVENT_LOGGER_TIMEOUT = 120  # Timeout for event logger process
 
     def setUp(self):  # pylint: disable=invalid-name
         super(FaucetUntaggedTest, self).setUp()
@@ -155,24 +154,14 @@ vlans:
 
     def test_untagged(self):
         """All hosts on the same untagged VLAN should have connectivity."""
-        event_log = os.path.join(self.tmpdir, 'event.log')
-        controller = self._get_controller()
-        sock = self.env['faucet']['FAUCET_EVENT_SOCK']
-        # Relying on a timeout seems a bit brittle;
-        # as an alternative we might possibly use something like
-        # `with popen(cmd...) as proc` to clean up on exceptions
-        controller.cmd(mininet_test_util.timeout_cmd(
-            'nc -U %s > %s &' % (sock, event_log), self.EVENT_LOGGER_TIMEOUT))
+        self._enable_event_log()
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.verify_traveling_dhcp_mac()
         self.gauge_smoke_test()
         self.prometheus_smoke_test()
-        self.assertGreater(os.path.getsize(event_log), 0)
-        controller.cmd(
-            mininet_test_util.timeout_cmd(
-                'nc -U %s' % sock, 10))
-        self.verify_events_log(event_log)
+        self.assertGreater(os.path.getsize(self.event_log), 0)
+        self.verify_events_log(self.event_log)
 
 
 class Faucet8021XBaseTest(FaucetTest):
@@ -263,8 +252,6 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
     nfv_intf = None
     nfv_portno = None
 
-    event_log = ''
-
     @staticmethod
     def _priv_mac(host_id):
         two_byte_port_num = '%04x' % host_id
@@ -318,13 +305,7 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         self.nfv_pids.append(int(self.nfv_host.lastPid))
         self.radius_log_path = self.start_freeradius()
         self.nfv_pids.append(int(self.nfv_host.lastPid))
-
-        self.event_log = os.path.join(self.tmpdir, 'event.log')
-        controller = self._get_controller()
-        sock = self.env['faucet']['FAUCET_EVENT_SOCK']
-        controller.cmd(
-            mininet_test_util.timeout_cmd(
-                'nc -U %s > %s &' % (sock, self.event_log), 300))
+        self._enable_event_log(300)
 
     def tearDown(self, ignore_oferrors=False):
         for pid in self.nfv_pids:
@@ -5743,11 +5724,7 @@ vlans:
 """
 
     def test_tagged(self):
-        event_log = os.path.join(self.tmpdir, 'event.log')
-        controller = self._get_controller()
-        sock = self.env['faucet']['FAUCET_EVENT_SOCK']
-        controller.cmd(mininet_test_util.timeout_cmd(
-            'nc -U %s > %s &' % (sock, event_log), 120))
+        self._enable_event_log()
         host_pair = self.hosts_name_ordered()[:2]
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddress.ip_interface('10.0.1.1/24')
@@ -5765,7 +5742,7 @@ vlans:
                 self.port_map['port_4'], 'native_vlan', vid,
                 restart=True, cold_start=False)
         self.wait_until_matching_lines_from_file(
-            r'.+L3_LEARN.+10.0.0.[12].+', event_log)
+            r'.+L3_LEARN.+10.0.0.[12].+', self.event_log)
 
 
 class FaucetTaggedTargetedResolutionIPv4RouteTest(FaucetTaggedIPv4RouteTest):
@@ -7486,10 +7463,12 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
+        self._enable_event_log()
         for _ in range(3):
             self.wait_for_all_lacp_up()
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
+        self.wait_until_matching_lines_from_file(r'.+LAG_CHANGE.+', self.event_log)
 
     def test_dyn_fail(self):
         """Test lacp fail on reload with dynamic lacp status."""
@@ -7688,6 +7667,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """Stack loop prevention works and hosts can ping each other."""
+        self._enable_event_log()
         self.verify_stack_up()
         self.verify_stack_has_no_loop()
         self.retry_net_ping()
@@ -7701,6 +7681,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
                 self.one_stack_port_down(dpid, dp_name, port)
                 self.retry_net_ping()
                 self.one_stack_port_up(dpid, dp_name, port)
+        self.wait_until_matching_lines_from_file(r'.+STACK_TOPO_CHANGE.+', self.event_log)
 
 
 class FaucetSingleStack4RingOfDPTest(FaucetStackRingOfDPTest):
