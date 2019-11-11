@@ -22,8 +22,9 @@ import netaddr
 
 STACK_STATE_ADMIN_DOWN = 0
 STACK_STATE_INIT = 1
-STACK_STATE_DOWN = 2
+STACK_STATE_BAD = 2
 STACK_STATE_UP = 3
+STACK_STATE_GONE = 4
 
 
 class Port(Conf):
@@ -197,7 +198,7 @@ class Port(Conf):
         self.dyn_lldp_beacon_recv_time = None
         self.dyn_learn_ban_count = 0
         self.dyn_phys_up = False
-        self.dyn_stack_current_state = STACK_STATE_DOWN
+        self.dyn_stack_current_state = STACK_STATE_INIT
         self.dyn_stack_probe_info = {}
 
         self.tagged_vlans = []
@@ -387,14 +388,6 @@ class Port(Conf):
             return [valve_of.output_port(mirror_port) for mirror_port in self.mirror]
         return []
 
-    def is_stack_up(self):
-        """Return True if port is in UP state."""
-        return self.dyn_stack_current_state == STACK_STATE_UP
-
-    def is_stack_down(self):
-        """Return True if port is in DOWN state."""
-        return self.dyn_stack_current_state == STACK_STATE_DOWN
-
     def is_stack_admin_down(self):
         """Return True if port is in ADMIN_DOWN state."""
         return self.dyn_stack_current_state == STACK_STATE_ADMIN_DOWN
@@ -403,13 +396,17 @@ class Port(Conf):
         """Return True if port is in INIT state."""
         return self.dyn_stack_current_state == STACK_STATE_INIT
 
-    def stack_up(self):
-        """Change the current stack state to UP."""
-        self.dyn_stack_current_state = STACK_STATE_UP
+    def is_stack_bad(self):
+        """Return True if port is in BAD state."""
+        return self.dyn_stack_current_state == STACK_STATE_BAD
 
-    def stack_down(self):
-        """Change the current stack state to DOWN."""
-        self.dyn_stack_current_state = STACK_STATE_DOWN
+    def is_stack_up(self):
+        """Return True if port is in UP state."""
+        return self.dyn_stack_current_state == STACK_STATE_UP
+
+    def is_stack_gone(self):
+        """Return True if port is in GONE state."""
+        return self.dyn_stack_current_state == STACK_STATE_GONE
 
     def stack_admin_down(self):
         """Change the current stack state to ADMIN_DOWN."""
@@ -418,3 +415,15 @@ class Port(Conf):
     def stack_init(self):
         """Change the current stack state to INIT_DOWN."""
         self.dyn_stack_current_state = STACK_STATE_INIT
+
+    def stack_bad(self):
+        """Change the current stack state to BAD."""
+        self.dyn_stack_current_state = STACK_STATE_BAD
+
+    def stack_up(self):
+        """Change the current stack state to UP."""
+        self.dyn_stack_current_state = STACK_STATE_UP
+
+    def stack_gone(self):
+        """Change the current stack state to GONE."""
+        self.dyn_stack_current_state = STACK_STATE_GONE

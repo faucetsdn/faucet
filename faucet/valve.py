@@ -546,7 +546,7 @@ class Valve:
 
         last_seen_lldp_time = port.dyn_stack_probe_info.get('last_seen_lldp_time', None)
         if last_seen_lldp_time is None:
-            if port.is_stack_down():
+            if port.is_stack_init():
                 next_state = port.stack_init
                 self.logger.info('Stack %s new, state INIT' % port)
             return next_state
@@ -567,24 +567,20 @@ class Valve:
             if num_lost_lldp < port.max_lldp_lost:
                 stack_timed_out = False
 
-        if not stack_correct:
-            if not port.is_stack_down():
-                next_state = port.stack_down
-                self.logger.error('Stack %s DOWN, incorrect cabling' % port)
-            return next_state
-
         if stack_timed_out:
-            if not port.is_stack_down():
-                # Stay in init state if we never got a packet.
-                if time_since_lldp_seen:
-                    next_state = port.stack_down
-                    self.logger.error(
-                        'Stack %s DOWN, too many (%u) packets lost, last received %us ago' % (
-                            port, num_lost_lldp, time_since_lldp_seen))
-        else:
-            if not port.is_stack_up():
-                next_state = port.stack_up
-                self.logger.info('Stack %s UP' % port)
+            if not port.is_stack_gone():
+                next_state = port.stack_gone
+                self.logger.error(
+                    'Stack %s GONE, too many (%u) packets lost, last received %us ago' % (
+                        port, num_lost_lldp, time_since_lldp_seen))
+        elif not stack_correct:
+            if not port.is_stack_bad():
+                next_state = port.stack_bad
+                self.logger.error('Stack %s BAD, incorrect cabling' % port)
+        elif not port.is_stack_up():
+            next_state = port.stack_up
+            self.logger.info('Stack %s UP' % port)
+
         return next_state
 
     def _update_stack_link_state(self, ports, now, other_valves):
@@ -600,11 +596,14 @@ class Valve:
                     'port_stack_state',
                     port.dyn_stack_current_state,
                     labels=self.dp.port_labels(port.number))
-                if port.is_stack_up() or port.is_stack_down() or port.is_stack_init():
-                    stack_changes += 1
-                    port_stack_up = port.is_stack_up()
-                    for valve in stacked_valves:
-                        valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+                self.notify({'STACK_STATE': {
+                    'port': port.number,
+                    'state': port.dyn_stack_current_state
+                    }})
+                stack_changes += 1
+                port_stack_up = port.is_stack_up()
+                for valve in stacked_valves:
+                    valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
         if stack_changes:
             self.logger.info('%u stack ports changed state' % stack_changes)
             for valve in stacked_valves:
