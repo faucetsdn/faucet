@@ -228,7 +228,7 @@ class FaucetTestBase(unittest.TestCase):
     def _enable_event_log(self, timeout=None):
         """Creates a file event.log in the test folder that tracks all events sent out by faucet to the event socket"""
         if not timeout:
-          timeout = self.EVENT_LOGGER_TIMEOUT
+            timeout = self.EVENT_LOGGER_TIMEOUT
         self.event_log = os.path.join(self.tmpdir, 'event.log')
         controller = self._get_controller()
         sock = self.env['faucet']['FAUCET_EVENT_SOCK']
