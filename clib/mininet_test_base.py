@@ -226,17 +226,17 @@ class FaucetTestBase(unittest.TestCase):
         self._set_var(name, 'FAUCET_LOG_LEVEL', str(self.LOG_LEVEL))
 
     def _enable_event_log(self, timeout=None):
-      """Creates a file event.log in the test folder that tracks all events sent out by faucet to the event socket"""
-      if not timeout:
-        timeout = self.EVENT_LOGGER_TIMEOUT
-      self.event_log = os.path.join(self.tmpdir, 'event.log')
-      controller = self._get_controller()
-      sock = self.env['faucet']['FAUCET_EVENT_SOCK']
-      # Relying on a timeout seems a bit brittle;
-      # as an alternative we might possibly use something like
-      # `with popen(cmd...) as proc`to clean up on exceptions
-      controller.cmd(mininet_test_util.timeout_cmd(
-          'nc -U %s > %s &' % (sock, self.event_log), timeout))
+        """Creates a file event.log in the test folder that tracks all events sent out by faucet to the event socket"""
+        if not timeout:
+          timeout = self.EVENT_LOGGER_TIMEOUT
+        self.event_log = os.path.join(self.tmpdir, 'event.log')
+        controller = self._get_controller()
+        sock = self.env['faucet']['FAUCET_EVENT_SOCK']
+        # Relying on a timeout seems a bit brittle;
+        # as an alternative we might possibly use something like
+        # `with popen(cmd...) as proc`to clean up on exceptions
+        controller.cmd(mininet_test_util.timeout_cmd(
+            'nc -U %s > %s &' % (sock, self.event_log), timeout))
 
     def _read_yaml(self, yaml_path):
         with open(yaml_path) as yaml_file:
