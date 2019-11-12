@@ -6897,7 +6897,7 @@ class FaucetStringOfDPTest(FaucetTest):
 
     def one_stack_port_down(self, dpid, dp_name, port):
         self.set_port_down(port, dpid, wait=False)
-        self.wait_for_stack_port_status(dpid, dp_name, port, 2)
+        self.wait_for_stack_port_status(dpid, dp_name, port, 4)
 
     def one_stack_port_up(self, dpid, dp_name, port):
         self.set_port_up(port, dpid, wait=False)

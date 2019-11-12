@@ -26,7 +26,7 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 
 from faucet import valves_manager
 from faucet import valve_of
-from faucet.port import STACK_STATE_DOWN, STACK_STATE_UP
+from faucet.port import STACK_STATE_INIT, STACK_STATE_UP
 
 from valve_test_lib import (
     BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
@@ -290,7 +290,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
         for dpid in self.valves_manager.valves:
             dp = self.valves_manager.valves[dpid].dp
             dp.dyn_running = False
-            self.set_stack_all_ports_status(dp.name, STACK_STATE_DOWN)
+            self.set_stack_all_ports_status(dp.name, STACK_STATE_INIT)
         for valve in self.valves_manager.valves.values():
             self.assertFalse(valve.dp.dyn_running)
             self.assertEqual('s1', valve.dp.stack_root_name)
@@ -453,9 +453,9 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
                 (wrong_dp, other_port),
                 (other_dp, wrong_port)]:
             self.rcv_lldp(stack_port, other_dp, other_port)
-            self.assertTrue(stack_port.is_stack_down() or stack_port.is_stack_up())
+            self.assertTrue(stack_port.is_stack_up())
             self.rcv_lldp(stack_port, remote_dp, remote_port)
-            self.assertTrue(stack_port.is_stack_down())
+            self.assertTrue(stack_port.is_stack_bad())
 
     def test_stack_lost_lldp(self):
         """Test stacking when LLDP packets get dropped"""
@@ -468,7 +468,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         self.assertTrue(stack_port.is_stack_up())
         # simulate packet loss
         self.valve.fast_state_expire(self.mock_time(300), other_valves)
-        self.assertTrue(stack_port.is_stack_down())
+        self.assertTrue(stack_port.is_stack_gone())
         self.valve.fast_state_expire(self.mock_time(300), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
@@ -846,7 +846,7 @@ dps:
     def down_stack_port(port):
         """Force stack port DOWN"""
         peer_port = port.stack['port']
-        peer_port.stack_down()
+        peer_port.stack_gone()
         port.dyn_finalized = False
         port.enabled = False
         port.dyn_phys_up = False

@@ -684,12 +684,12 @@ class ValveTestBases:
             """Bring down a single stack port"""
             self.up_stack_port(port)
             peer_port = port.stack['port']
-            peer_port.stack_down()
+            peer_port.stack_gone()
             now = self.mock_time(600)
             self.valves_manager.valve_flow_services(
                 now,
                 'fast_state_expire')
-            self.assertTrue(port.is_stack_down())
+            self.assertTrue(port.is_stack_gone())
 
         def _update_port_map(self, port, add_else_remove):
             this_dp = port.dp_id
