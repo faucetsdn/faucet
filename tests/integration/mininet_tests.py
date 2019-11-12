@@ -7462,12 +7462,13 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             self.wait_for_all_lacp_up()
 
     def test_untagged(self):
-        """All untagged hosts in stack topology can reach each other."""
+        """All untagged hosts in stack topology can reach each other, LAG_CHANGE event emitted."""
         self._enable_event_log()
         for _ in range(3):
             self.wait_for_all_lacp_up()
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
+        # Check for presence of LAG_CHANGE event in event socket log
         self.wait_until_matching_lines_from_file(r'.+LAG_CHANGE.+', self.event_log)
 
     def test_dyn_fail(self):
@@ -7666,7 +7667,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
         self.start_net()
 
     def test_untagged(self):
-        """Stack loop prevention works and hosts can ping each other."""
+        """Stack loop prevention works and hosts can ping each other, STACK_TOPO_CHANGE event emitted."""
         self._enable_event_log()
         self.verify_stack_up()
         self.verify_stack_has_no_loop()
@@ -7681,6 +7682,7 @@ class FaucetStackRingOfDPTest(FaucetStringOfDPTest):
                 self.one_stack_port_down(dpid, dp_name, port)
                 self.retry_net_ping()
                 self.one_stack_port_up(dpid, dp_name, port)
+        # Check for presence of STACK_TOPO_CHANGE event in event socket log
         self.wait_until_matching_lines_from_file(r'.+STACK_TOPO_CHANGE.+', self.event_log)
 
 
