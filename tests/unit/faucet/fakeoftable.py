@@ -641,49 +641,105 @@ class FakeRyuDp:
     def __init__(self):
         self.ofproto_parser = parser
 
-def parse_args():
+def parse_print_args():
     arg_parser = argparse.ArgumentParser(
         prog='fakeoftable',
-        description='Performs lookups on openflow tables',
+        description='Prints a JSON flow table in a human readable format',
         usage="""
-    Find the flow table entries in a given flow table that match a given packet
-    {self} -f FILE PACKET_STRING
+    Print a flow table in a human readable format
+    {self} print -f FILE
 """.format(self=sys.argv[0])
-        )
-    arg_parser.add_argument(
-        'packet',
-        metavar='PACKET_STRING',
-        help='''string representation of a packet dictionary eg. "{'in_port': 1, 'eth_dst': '01:80:c2:00:00:02', 'eth_type': 34825}"'''
         )
     arg_parser.add_argument(
         '-f',
         '--file',
         help='file containing an OFPFlowStatsReply message in JSON format'
         )
-    args = arg_parser.parse_args()
-    try:
-        message_file = args.file
-        packet = args.packet
-        packet = ast.literal_eval(args.packet)
-    except (KeyError, IndexError, ValueError):
-        arg_parser.print_usage()
-        sys.exit(-1)
-    return (message_file, packet)
+    args = arg_parser.parse_args(sys.argv[2:])
+    return {'filename': args.file}
 
-def main():
-    message_file, pkt = parse_args()
-    with open(message_file, 'r') as f:
+def parse_probe_args():
+    arg_parser = argparse.ArgumentParser(
+        prog='fakeoftable',
+        description='Performs a packet lookup on a JSON openflow table',
+        usage="""
+    Find the flow table entries in a given flow table that match a given packet
+    {self} probe -f FILE -p PACKET_STRING
+""".format(self=sys.argv[0])
+        )
+    arg_parser.add_argument(
+        '-p',
+        '--packet',
+        metavar='PACKET_STRING',
+        help='''string representation of a packet dictionary eg. "{'in_port': 1, 'eth_dst': '01:80:c2:00:00:02', 'eth_type': 34825}"'''
+        )
+    arg_parser.add_argument(
+        '-f',
+        '--file',
+        metavar='FILE',
+        help='file containing an OFPFlowStatsReply message in JSON format'
+        )
+    args = arg_parser.parse_args(sys.argv[2:])
+    packet = args.packet
+    packet = ast.literal_eval(args.packet)
+    # fix vlan vid
+    if 'vlan_vid' in packet:
+        packet['vlan_vid'] |= ofp.OFPVID_PRESENT
+    return {'packet': packet, 'filename': args.file}
+
+def parse_args():
+    arg_parser = argparse.ArgumentParser(
+        prog='fakeoftable',
+        description='Performs operations on JSON openflow tables',
+        usage="""
+    {self} <command> <args>
+
+""".format(self=sys.argv[0])
+        )
+    arg_parser.add_argument(
+        'command',
+        help='Subcommand, either "print" or "probe"'
+        )
+    args = arg_parser.parse_args(sys.argv[1:2])
+    try:
+        if args.command == 'probe':
+            command_args = parse_probe_args()
+        elif args.command == 'print':
+            command_args = parse_print_args()
+    except (KeyError, IndexError, ValueError, AttributeError) as err:
+        print(err)
+        arg_parser.print_help()
+        sys.exit(-1)
+    return (args.command, command_args)
+
+def _print(filename):
+    with open(filename, 'r') as f:
         msg = json.load(f)
     dp = FakeRyuDp()
     ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
     table = FakeOFTable()
     table.apply_ofmsgs([ofmsg])
-    instructions, out_pkt = table.lookup(pkt)
-    print(pkt)
+    print(table)
+
+def probe(filename, packet):
+    with open(filename, 'r') as f:
+        msg = json.load(f)
+    dp = FakeRyuDp()
+    ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
+    table = FakeOFTable()
+    table.apply_ofmsgs([ofmsg])
+    instructions, out_packet = table.lookup(packet)
+    print(packet)
     for instruction in instructions:
         print(instruction)
-    print(out_pkt)
+    print(out_packet)
+
+def main():
+    command, kwargs = parse_args()
+    if command == 'probe':
+        probe(**kwargs)
+    elif command == 'print':
+        _print(**kwargs)
 
 if __name__ == '__main__':
     main()
-fake_dp = FakeRyuDp()
