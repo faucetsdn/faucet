@@ -83,7 +83,7 @@ class FaucetEventNotifier:
                 self.logger.info('event client connected')
                 while True:
                     event = self.event_q.get()
-                    event_bytes = bytes('\n'.join((json.dumps(event), '')).encode('UTF-8'))
+                    event_bytes = bytes('\n'.join((json.dumps(event, default=str), '')).encode('UTF-8'))
                     try:
                         sock.sendall(event_bytes)
                     except (socket.error, IOError) as err:

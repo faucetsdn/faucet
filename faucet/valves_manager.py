@@ -247,6 +247,7 @@ class ValvesManager:
                 valve = self.new_valve(new_dp)
                 if valve is None:
                     continue
+                self._notify({'CONFIG_CHANGE': {'restart_type': 'new'}}, dp=new_dp)
             valve.update_config_metrics()
             self.valves[dp_id] = valve
         if delete_dp is not None:
@@ -267,16 +268,20 @@ class ValvesManager:
             for valve, ofmsgs in ofmsgs_by_valve.items():
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
 
-    def _notify(self, event_dict):
+    def _notify(self, event_dict, dp=None):
         """Send an event notification."""
-        self.notifier.notify(0, str(0), event_dict)
+        if dp:
+            self.notifier.notify(dp.dp_id, dp.name, event_dict)
+        else:
+            self.notifier.notify(0, str(0), event_dict)
 
     def request_reload_configs(self, now, new_config_file, delete_dp=None):
         """Process a request to load config changes."""
         if self.config_watcher.content_changed(new_config_file):
             self.logger.info('configuration %s changed, analyzing differences', new_config_file)
             result = self.load_configs(now, new_config_file, delete_dp=delete_dp)
-            self._notify({'CONFIG_CHANGE': {'success': result}})
+            self._notify({'CONFIG_CHANGE': {'success': result,
+                                            'dps_config': self.meta_dp_state.top_conf}})
         else:
             self.logger.info('configuration is unchanged, not reloading')
             self.metrics.faucet_config_load_error.set(0)

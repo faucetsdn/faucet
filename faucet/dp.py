@@ -115,7 +115,7 @@ configuration.
         'lldp_beacon': {},
         # Config for LLDP beacon service.
         'metrics_rate_limit_sec': 0,
-        # Rate limit metric updates - don't update metrics if last update was less than this many seconds ago.
+        # Rate limit metric updates if last update was less than this many seconds ago.
         'faucet_dp_mac': valve_packet.FAUCET_MAC,
         # MAC address of packets sent by FAUCET, not associated with any VLAN.
         'combinatorial_port_flood': False,
@@ -343,11 +343,13 @@ configuration.
         return self.name
 
     def clone_dyn_state(self, prev_dp):
+        """Clone dynamic state for this dp"""
         self.dyn_running = prev_dp.dyn_running
         self.dyn_up_port_nos = set(prev_dp.dyn_up_port_nos)
         self.dyn_last_coldstart_time = prev_dp.dyn_last_coldstart_time
 
     def check_config(self):
+        """Check configuration of this dp"""
         super(DP, self).check_config()
         test_config_condition(not isinstance(self.dp_id, int), (
             'dp_id must be %s not %s' % (int, type(self.dp_id))))
@@ -567,7 +569,8 @@ configuration.
                 scale_factor *= self.port_table_scale_factor
 
             # Always multiple of min_wildcard_table_size
-            size = (int(scale_factor / self.min_wildcard_table_size) + 1) * self.min_wildcard_table_size
+            table_size_multiple = int(scale_factor / self.min_wildcard_table_size) + 1
+            size = table_size_multiple * self.min_wildcard_table_size
 
             if not table_config.exact_match:
                 size = max(size, self.min_wildcard_table_size)
@@ -876,6 +879,11 @@ configuration.
         if self.tunnel_acls:
             self.finalize_tunnel_acls(dps)
 
+    def get_node_link_data(self):
+        """Return network stacking graph as a node link representation"""
+        graph = self.stack.get('graph', None)
+        return networkx.json_graph.node_link_data(graph)
+
     def stack_longest_path_to_root_len(self):
         """Return length of the longest path to root in the stack."""
         if not self.stack or not self.stack_root_name:
@@ -987,7 +995,8 @@ configuration.
         self.vlans = {}
         for vlan in vlans.values():
             vlan.reset_ports(self.ports.values())
-            if vlan.get_ports() or vlan.reserved_internal_vlan or vlan.dot1x_assigned or vlan._id in router_vlans:
+            if (vlan.get_ports() or vlan.reserved_internal_vlan or
+                    vlan.dot1x_assigned or vlan._id in router_vlans):
                 self.vlans[vlan.vid] = vlan
 
     def resolve_port(self, port_name):
