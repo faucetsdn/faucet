@@ -553,6 +553,8 @@ class FlowMod:
                 value_int = value.int
             if isinstance(mask, Bits):
                 mask_int = mask.int
+            elif mask is None:
+                mask_int = -1
             if value_int & ofp.OFPVID_PRESENT == 0:
                 result = 'vlan untagged'
             elif key == 'vlan_vid' and mask_int == ofp.OFPVID_PRESENT:
@@ -563,7 +565,7 @@ class FlowMod:
                     mask_str = str(mask_int ^ ofp.OFPVID_PRESENT)
         elif isinstance(value, Bits):
             result = self.bits_to_str(key, value)
-            if mask.int != -1:
+            if mask is not None and mask.int != -1:
                 mask_str = self.bits_to_str(key, mask)
         elif isinstance(value, str):
             result = value
