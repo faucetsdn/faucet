@@ -3882,7 +3882,7 @@ details partner lacp pdu:
             for lacp_port in lag_ports:
                 port_labels = self.port_labels(self.port_map['port_%u' % lacp_port])
                 lacp_state = self.scrape_prometheus_var('port_lacp_state', port_labels, default=0)
-                lacp_up_ports += 1 if lacp_state == 2 else 0
+                lacp_up_ports += 1 if lacp_state == 3 else 0
             return lacp_up_ports
 
         def require_lag_up_ports(expected_up_ports):
@@ -7415,10 +7415,10 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
         self.wait_for_lacp_state(port_no, 1, dpid, dp_name)
 
     def wait_for_lacp_port_up(self, port_no, dpid, dp_name):
-        self.wait_for_lacp_state(port_no, 2, dpid, dp_name)
+        self.wait_for_lacp_state(port_no, 3, dpid, dp_name)
 
     def wait_for_lacp_port_noact(self, port_no, dpid, dp_name):
-        self.wait_for_lacp_state(port_no, 3, dpid, dp_name)
+        self.wait_for_lacp_state(port_no, 5, dpid, dp_name)
 
     # We sort non_host_links by port because FAUCET sorts its ports
     # and only floods out of the first active LACP port in that list

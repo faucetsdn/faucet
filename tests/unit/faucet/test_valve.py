@@ -341,7 +341,7 @@ vlans:
             'eth_src': '0e:00:00:00:00:02',
             'actor_state_synchronization': 1})
         self.assertEqual(
-            2, int(self.get_prom('port_lacp_state', labels=labels)))
+            3, int(self.get_prom('port_lacp_state', labels=labels)))
         self.learn_hosts()
         self.verify_expiry()
 
@@ -358,7 +358,7 @@ vlans:
             'eth_src': '0e:00:00:00:00:02',
             'actor_state_synchronization': 1})
         self.assertEqual(
-            2, int(self.get_prom('port_lacp_state', labels=labels)))
+            3, int(self.get_prom('port_lacp_state', labels=labels)))
         self.learn_hosts()
         self.verify_expiry()
         self.rcv_packet(test_port, 0, {
@@ -368,7 +368,7 @@ vlans:
             'eth_src': '0e:00:00:00:00:02',
             'actor_state_synchronization': 0})
         self.assertEqual(
-            3, int(self.get_prom('port_lacp_state', labels=labels)))
+            5, int(self.get_prom('port_lacp_state', labels=labels)))
 
     def test_lacp_timeout(self):
         """Test LACP comes up and then times out."""
@@ -383,7 +383,7 @@ vlans:
             'eth_src': '0e:00:00:00:00:02',
             'actor_state_synchronization': 1})
         self.assertEqual(
-            2, int(self.get_prom('port_lacp_state', labels=labels)))
+            3, int(self.get_prom('port_lacp_state', labels=labels)))
         future_now = self.mock_time(10)
         expire_ofmsgs = self.valve.state_expire(future_now, None)
         self.assertTrue(expire_ofmsgs)
@@ -527,7 +527,7 @@ vlans:
             'eth_src': '0e:00:00:00:00:02',
             'actor_state_synchronization': 1})
         self.assertEqual(
-            2, int(self.get_prom('port_lacp_state', labels=labels)))
+            3, int(self.get_prom('port_lacp_state', labels=labels)))
         self.learn_hosts()
         self.verify_expiry()
 

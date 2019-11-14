@@ -28,8 +28,8 @@ STACK_STATE_GONE = 4
 
 LACP_STATE_NONE = 0
 LACP_STATE_INIT = 1
-LACP_STATE_UP = 2
-LACP_STATE_NOACT = 3
+LACP_STATE_UP = 3
+LACP_STATE_NOACT = 5
 
 class Port(Conf):
     """Stores state for ports, including the configuration."""
