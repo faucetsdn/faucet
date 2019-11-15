@@ -640,7 +640,8 @@ class FlowMod:
         string += ' Instructions: {0}'.format(str(self.instructions))
         return string
 
-class FakeRyuDp: # pylint: disable=too-few-public-methods
+
+class FakeRyuDp:  # pylint: disable=too-few-public-methods
     """Fake ryu Datapath object.
 
     Just needed to provide a parser to allow us to extract ryu objects from
@@ -648,6 +649,7 @@ class FakeRyuDp: # pylint: disable=too-few-public-methods
     """
     def __init__(self):
         self.ofproto_parser = parser
+
 
 def parse_print_args():
     """Parse arguments for the print command"""
@@ -666,6 +668,7 @@ def parse_print_args():
         )
     args = arg_parser.parse_args(sys.argv[2:])
     return {'filename': args.file}
+
 
 def parse_probe_args():
     """Parse arguments for the probe command"""
@@ -700,6 +703,7 @@ def parse_probe_args():
         packet['vlan_vid'] |= ofp.OFPVID_PRESENT
     return {'packet': packet, 'filename': args.file}
 
+
 def parse_args():
     """parse arguments"""
     arg_parser = argparse.ArgumentParser(
@@ -726,6 +730,7 @@ def parse_args():
         sys.exit(-1)
     return (args.command, command_args)
 
+
 def _print(filename):
     """Prints the JSON flow table from a file in a human readable format"""
     with open(filename, 'r') as f:
@@ -735,6 +740,7 @@ def _print(filename):
     table = FakeOFTable()
     table.apply_ofmsgs([ofmsg])
     print(table)
+
 
 def probe(filename, packet):
     """Prints the actions applied to packet by the table from the file"""
@@ -750,12 +756,14 @@ def probe(filename, packet):
         print(instruction)
     print(out_packet)
 
+
 def main():
     command, kwargs = parse_args()
     if command == 'probe':
         probe(**kwargs)
     elif command == 'print':
         _print(**kwargs)
+
 
 if __name__ == '__main__':
     main()
