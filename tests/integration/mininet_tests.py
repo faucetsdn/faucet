@@ -4693,7 +4693,7 @@ acls:
         tcpdump_filter = ('icmp')
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
-                lambda: first_host.cmd('%s %s' % (self.FPINGS_ARGS_ONEsecond_host.IP()))])
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         tcpdump_txt = self.tcpdump_helper(
@@ -5491,7 +5491,8 @@ acls:
                 tcpdump_host, tcpdump_filter, [
                     lambda: first_host.cmd(
                         'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                    lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))], root_intf=True)
+                    lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
+                root_intf=True)
             self.assertTrue(re.search(
                 '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
             self.assertTrue(re.search(
@@ -5544,7 +5545,8 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))], root_intf=True)
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
+            root_intf=True)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
