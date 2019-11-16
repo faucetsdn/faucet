@@ -475,6 +475,17 @@ def output_port(port_num, max_len=0):
     return parser.OFPActionOutput(port_num, max_len=max_len)
 
 
+def ports_from_output_port_acts(output_port_acts):
+    """Return unique port numbers from OFPActionOutput actions.
+
+    Args:
+        list of ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: output to port actions.
+    Returns:
+        set of port number ints.
+    """
+    return {output_port_act.port for output_port_act in output_port_acts}
+
+
 def dedupe_output_port_acts(output_port_acts):
     """Deduplicate parser.OFPActionOutputs (because Ryu doesn't define __eq__).
 
@@ -483,7 +494,7 @@ def dedupe_output_port_acts(output_port_acts):
     Returns:
         list of ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: output to port actions.
     """
-    output_ports = {output_port_act.port for output_port_act in output_port_acts}
+    output_ports = ports_from_output_port_acts(output_port_acts)
     return [output_port(port) for port in sorted(output_ports)]
 
 
@@ -931,6 +942,9 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
 def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
     """Return list of actions necessary to flood to list of tagged ports."""
     flood_acts = []
+    in_port_mirror_output_ports = {}
+    if in_port is not None:
+        in_port_mirror_output_ports = ports_from_output_port_acts(in_port.mirror_actions())
     if ports:
         for port in ports:
             if in_port is not None and port == in_port:
@@ -940,7 +954,11 @@ def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
             if exclude_ports and port in exclude_ports:
                 continue
             flood_acts.append(output_port(port.number))
-            flood_acts.extend(port.mirror_actions())
+            # Only mirror if different mirror actions to in_port (port already will be mirrored on input).
+            mirror_actions = port.mirror_actions()
+            mirror_output_ports = ports_from_output_port_acts(mirror_actions)
+            if in_port is None or in_port_mirror_output_ports != mirror_output_ports:
+                flood_acts.extend(mirror_actions)
     return dedupe_output_port_acts(flood_acts)
 
 
