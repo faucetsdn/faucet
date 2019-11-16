@@ -83,6 +83,7 @@ class FaucetTestBase(unittest.TestCase):
 
     FPING_ARGS = FPING_ARGS
     FPING_ARGS_SHORT = ' '.join((FPING_ARGS, '-i10 -p100 -t100'))
+    FPINGS_ARGS_ONE = ' '.join(('fping', FPING_ARGS, '-t100 -c 1'))
 
     RUN_GAUGE = True
     REQUIRES_METERS = False
@@ -1757,7 +1758,7 @@ dbs:
             tcpdump_txt = self.tcpdump_helper(
                 other_vlan_host, tcpdump_filter, [
                     partial(first_host.cmd, 'arp -d %s' % second_host.IP()),
-                    partial(first_host.cmd, 'ping -c1 %s' % second_host.IP())],
+                    partial(first_host.cmd, ' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
                 packets=1)
             self.verify_no_packets(tcpdump_txt)
 
@@ -1771,19 +1772,21 @@ dbs:
             '(ether src %s or ether src %s) and '
             '(icmp[icmptype] == 8 or icmp[icmptype] == 0)') % (
                 first_host.MAC(), second_host.MAC())
-        first_ping_second = 'ping -c1 %s' % second_host.IP()
+        first_ping_second = ' '.join((self.FPINGS_ARGS_ONE, second_host.IP()))
         packets = 2
         if both_mirrored:
             packets *= 2
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
-                partial(first_host.cmd, first_ping_second)], packets=packets)
+                partial(first_host.cmd, first_ping_second)], packets=(packets+1))
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
         self.assertTrue(re.search(
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
+        self.assertTrue(self.tcpdump_rx_packets(tcpdump_txt, packets=packets))
+
 
     def verify_bcast_ping_mirrored(self, first_host, second_host, mirror_host, tagged=False):
         """Verify that broadcast to a mirrored port, is mirrored."""
@@ -1848,9 +1851,9 @@ dbs:
         ping_commands = []
         for hosts in ping_pairs:
             ping_commands.append(
-                lambda hosts=hosts: hosts[0].cmd('ping -c1 %s' % hosts[1].IP()))
+                lambda hosts=hosts: hosts[0].cmd(' '.join((self.FPINGS_ARGS_ONE, hosts[1].IP()))))
         tcpdump_txt = self.tcpdump_helper(
-            mirror_host, tcpdump_filter, ping_commands, packets=expected_pings)
+            mirror_host, tcpdump_filter, ping_commands, packets=(expected_pings+1))
 
         # Validate all required pings were mirrored
         for hosts in ping_pairs:

@@ -4693,19 +4693,19 @@ acls:
         tcpdump_filter = ('icmp')
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+                lambda: first_host.cmd('%s %s' % (self.FPINGS_ARGS_ONEsecond_host.IP()))])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         tcpdump_txt = self.tcpdump_helper(
             third_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (third_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % third_host.IP())])
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, third_host.IP())))])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % third_host.IP(), tcpdump_txt))
         tcpdump_txt = self.tcpdump_helper(
             fourth_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping -c1 %s' % fourth_host.IP())])
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, fourth_host.IP())))])
         self.assertFalse(re.search(
             '%s: ICMP echo request' % fourth_host.IP(), tcpdump_txt))
 
@@ -4750,7 +4750,7 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
@@ -4797,7 +4797,7 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
@@ -4844,7 +4844,7 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
             packets=1)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt), msg=tcpdump_txt)
@@ -5491,7 +5491,7 @@ acls:
                 tcpdump_host, tcpdump_filter, [
                     lambda: first_host.cmd(
                         'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                    lambda: first_host.cmd('ping -c1 %s' % second_host.IP())], root_intf=True)
+                    lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))], root_intf=True)
             self.assertTrue(re.search(
                 '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
             self.assertTrue(re.search(
@@ -5544,7 +5544,7 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())], root_intf=True)
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))], root_intf=True)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
@@ -5592,7 +5592,8 @@ acls:
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
                 lambda: first_host.cmd(
-                    'ping -c1 %s' % second_host.IP())], packets=10, root_intf=True)
+                    ' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
+            packets=10, root_intf=True)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
 
@@ -6925,7 +6926,7 @@ class FaucetStringOfDPTest(FaucetTest):
         tcpdump_txt = self.tcpdump_helper(
             tcpdump_host, tcpdump_filter, [
                 lambda: ping_host.cmd('arp -d %s' % tcpdump_host.IP()),
-                lambda: ping_host.cmd('ping -c1 %s' % tcpdump_host.IP())],
+                lambda: ping_host.cmd(' '.join((self.FPINGS_ARGS_ONE, tcpdump_host.IP())))],
             packets=(num_arp_expected+1))
         num_arp_received = len(re.findall(
             'who-has %s tell %s' % (tcpdump_host.IP(), ping_host.IP()), tcpdump_txt))
@@ -8176,7 +8177,7 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), self.OVERRIDE_MAC)),
-                lambda: first_host.cmd('ping -c1 -t1 %s' % second_host.IP())],
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
             timeout=5, packets=1)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
@@ -8185,7 +8186,7 @@ acls:
         overridden_host.setMAC(self.OVERRIDE_MAC)
         rewrite_host.setMAC(self.REWRITE_MAC)
         rewrite_host.cmd('arp -s %s %s' % (overridden_host.IP(), overridden_host.MAC()))
-        rewrite_host.cmd('ping -c1 %s' % overridden_host.IP())
+        rewrite_host.cmd(' '.join((self.FPINGS_ARGS_ONE, overridden_host.IP())))
         self.wait_until_matching_flow(
             {'dl_dst': self.REWRITE_MAC},
             table_id=self._ETH_DST_TABLE,
