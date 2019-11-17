@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 
 import os
-import random
 import re
 import time
-import networkx
-import yaml # pytype: disable=pyi-error
 import ipaddress
-
 from functools import partial
+import yaml # pytype: disable=pyi-error
 
 from clib.mininet_test_util import timeout_cmd
 from clib.mininet_test_base import FaucetTestBase, IPV4_ETH
-from clib.mininet_test_watcher import TopologyWatcher
 from clib.mininet_test_topo_generator import FaucetTopoGenerator
 
 
@@ -23,13 +19,28 @@ class FaucetTopoTestBase(FaucetTestBase):
         generators and produce a set of switch-switch links and host-switch links
     """
 
-    LINKS_PER_HOST = 0
+    LINKS_PER_HOST = 1
     NETPREFIX = 24
     IPV = 4
     GROUP_TABLE = False
     NUM_HOSTS = 1
 
+    dpids = None
+    port_maps = None
+    n_vlans = 0
+    dp_links = None
+    host_links = None
+    host_vlans = None
+    stack_roots = None
+    routers = None
+    dp_options = None
+    host_options = None
+    vlan_options = None
+    host_information = None
+    faucet_vips = None
+
     def non_host_links(self, dpid):
+        """Return dpid peer links from topo"""
         return self.topo.dpid_peer_links(dpid)
 
     @staticmethod
@@ -39,34 +50,42 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     @staticmethod
     def acls():
+        """Dictionary of ACLs"""
         return {}
 
     @staticmethod
     def acl_in_dp():
+        """Dictionary of DP & port map to ACL"""
         return {}
 
     @staticmethod
     def dp_name(i):
+        """DP config name"""
         return 'faucet-%u' % (i + 1)
 
     def faucet_vip(self, i):
+        """Faucet VLAN VIP"""
         return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
 
     @staticmethod
     def faucet_mac(i):
+        """Faucet VLAN MAC"""
         return '00:00:00:00:00:%u%u' % (i+1, i+1)
 
-    def host_ip(self, host_index, vlan_index):
+    def host_ip_address(self, host_index, vlan_index):
+        """Create a string of the host IP address"""
         if isinstance(vlan_index, tuple):
             vlan_index = vlan_index[0]
         return '10.%u.0.%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
 
     @staticmethod
     def vlan_name(i):
+        """VLAN name"""
         return 'vlan-%i' % (i+1)
 
     @staticmethod
     def vlan_vid(i):
+        """VLAN VID value"""
         return (i+1) * 100
 
     def host_ping(self, src_host, dst_ip):
@@ -82,7 +101,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                   vlan_options=None, dp_options=None, host_options=None,
                   routers=None, stack_roots=None,
                   include=None, include_optional=None,
-                  hw_dpid=None, lacp=False, use_external=False):
+                  hw_dpid=None, lacp=False):
         """
         Use the TopologyGenerator to generate the YAML configuration and create the network
         Args:
@@ -96,21 +115,19 @@ class FaucetTopoTestBase(FaucetTestBase):
             host_options (dict): Host index to host option key, values
             routers (dict): router index to list of vlan index
             stack_roots (dict): dp index to priority value (leave none for tagged links)
-            include: 
-            include_optional: 
+            include:
+            include_optional:
             hw_dpid: DPID of hardware switch
             lacp: Use LACP trunk ports
-            use_external: Use external loop protect
         """
         if include is None:
             include = []
         if include_optional is None:
             include_optional = []
         self.NUM_DPS = n_dps
-        self.MAX_HOSTS = len(host_links.keys())
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpids[0] = self.dpid
-        vlan_vids = {v: self.vlan_vid(v) for v in range(n_vlans)}
+        vlan_vids = {vlan: self.vlan_vid(vlan) for vlan in range(n_vlans)}
         self.topo = FaucetTopoGenerator(
             self.OVS_TYPE,
             self.ports_sock,
@@ -132,7 +149,6 @@ class FaucetTopoTestBase(FaucetTestBase):
             hardware=self.hardware,
             ofchannel_log=self.debug_log_path,
             n_vlans=n_vlans,
-            dp_links=dp_links,
             host_links=host_links,
             host_vlans=host_vlans,
             stack_roots=stack_roots,
@@ -141,7 +157,6 @@ class FaucetTopoTestBase(FaucetTestBase):
             acls=self.acls(),
             acl_in_dp=self.acl_in_dp(),
             lacp=lacp,
-            use_external=use_external,
             vlan_options=vlan_options,
             dp_options=dp_options,
             routers=routers,
@@ -166,39 +181,40 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.host_information = {}
         for host_id, host_name in self.topo.hosts_by_id.items():
             host_obj = self.net.get(host_name)
-            v = self.host_vlans[host_id]
-            ip = ipaddress.ip_interface(self.host_ip(host_id, v))
-            self.set_host_ip(host_obj, ip)
+            vlan = self.host_vlans[host_id]
+            ip_interface = ipaddress.ip_interface(self.host_ip_address(host_id, vlan))
+            self.set_host_ip(host_obj, ip_interface)
             self.host_information[host_id] = {
                 'host': host_obj,
-                'ip': ip,
-                'vlan': v
+                'ip': ip_interface,
+                'vlan': vlan
             }
 
         self.faucet_vips = {}
-        for v in range(self.n_vlans):
-            self.faucet_vips[v] = ipaddress.ip_interface(self.faucet_vip(v))
+        for vlan in range(self.n_vlans):
+            self.faucet_vips[vlan] = ipaddress.ip_interface(self.faucet_vip(vlan))
 
         if self.routers:
-            for src in self.host_information.keys():
+            for src in self.host_information:
                 src_host = self.host_information[src]['host']
                 src_vlan = self.host_information[src]['vlan']
                 src_ip = self.host_information[src]['ip']
-                for dst in self.host_information.keys():
-                    dst_host = self.host_information[dst]['host']
-                    dst_vlan = self.host_information[dst]['vlan']
-                    dst_ip = self.host_information[dst]['ip']
-                    if src != dst and src_vlan != dst_vlan and self.is_routed_vlans(src_vlan, dst_vlan):
-                        src_faucet_vip = self.faucet_vips[src_vlan]
-                        dst_faucet_vip = self.faucet_vips[dst_vlan]
-                        self.add_host_route(src_host, dst_ip, src_faucet_vip.ip)
-                        self.add_host_route(dst_host, src_ip, dst_faucet_vip.ip)
+                for dst in self.host_information:
+                    if src != dst:
+                        dst_host = self.host_information[dst]['host']
+                        dst_vlan = self.host_information[dst]['vlan']
+                        dst_ip = self.host_information[dst]['ip']
+                        if src_vlan != dst_vlan and self.is_routed_vlans(src_vlan, dst_vlan):
+                            src_faucet_vip = self.faucet_vips[src_vlan]
+                            dst_faucet_vip = self.faucet_vips[dst_vlan]
+                            self.add_host_route(src_host, dst_ip, src_faucet_vip.ip)
+                            self.add_host_route(dst_host, src_ip, dst_faucet_vip.ip)
 
     def get_config(self, dpids=None, hw_dpid=None, hardware=None, ofchannel_log=None,
-                   n_vlans=1, dp_links=None, host_links=None, host_vlans=None, stack_roots=None,
+                   n_vlans=1, host_links=None, host_vlans=None, stack_roots=None,
                    include=None, include_optional=None, acls=None, acl_in_dp=None,
-                   lacp=False, use_external=False,
-                   vlan_options=None, dp_options=None, routers=None, host_options=None):
+                   lacp=False, vlan_options=None, dp_options=None,
+                   routers=None, host_options=None):
         """
         Args:
             dpids: List of DPIDs the dp indices in the configuration dictionaries refer to
@@ -206,15 +222,13 @@ class FaucetTopoTestBase(FaucetTestBase):
             hardware:
             ofchannel_log: Debug log path
             n_vlans: Number of VLANs
-            dp_links (dict): dp index to dp index
             host_links (dict): host index to dp index
             host_vlans (dict): host index to vlan index
             stack_roots (dict): dp index to priority value (leave none for tagged links)
-            include: 
-            include_optional: 
+            include:
+            include_optional:
             hw_dpid: DPID of hardware switch
             lacp: Use LACP trunk ports
-            use_external:Port loop protect external
             vlan_options (dict): vlan_index to key, value dp options
             dp_options (dict): dp index to key, value dp options
             routers (dict): router index to list of vlan index
@@ -233,29 +247,29 @@ class FaucetTopoTestBase(FaucetTestBase):
 
         def add_vlans(n_vlans, host_vlans, vlan_options):
             vlans_config = {}
-            for v in range(n_vlans):
+            for vlan in range(n_vlans):
                 n_tagged = 0
                 n_untagged = 0
-                for vlan in host_vlans.values():
-                    if isinstance(vlan, int) and vlan == v:
+                for host_vlans in host_vlans.values():
+                    if isinstance(host_vlans, int) and vlan == host_vlans:
                         n_untagged += 1
-                    elif isinstance(vlan, tuple) and v in vlan:
+                    elif isinstance(host_vlans, tuple) and vlan in host_vlans:
                         n_tagged += 1
-                vlans_config[self.vlan_name(v)] = {
+                vlans_config[self.vlan_name(vlan)] = {
                     'description': '%s tagged, %s untagged' % (n_tagged, n_untagged),
-                    'vid': self.vlan_vid(v)
+                    'vid': self.vlan_vid(vlan)
                 }
             if vlan_options:
-                for v, options in vlan_options.items():
+                for vlan, options in vlan_options.items():
                     for key, value in options.items():
-                        vlans_config[self.vlan_name(v)][key] = value
+                        vlans_config[self.vlan_name(vlan)][key] = value
             return vlans_config
 
         def add_routers(routers):
             router_config = {}
             for i, vlans in routers.items():
                 router_config['router-%s' % i] = {
-                    'vlans': [self.vlan_name(v) for v in vlans]
+                    'vlans': [self.vlan_name(vlan) for vlan in vlans]
                 }
             return router_config
 
@@ -270,13 +284,12 @@ class FaucetTopoTestBase(FaucetTestBase):
                 'hardware': hardware if dpid == hw_dpid else 'Open vSwitch',
                 'ofchannel_log': ofchannel_log + str(i) if ofchannel_log else None,
                 'interfaces': {},
-                'group_table': self.GROUP_TABLE,
+                'group_table': group_table,
             }
 
-            if dp_options:
-                if dp_options[i]:
-                    for key, value in dp_options[i].items():
-                        dp_config[key] = value
+            if dp_options and i in dp_options:
+                for key, value in dp_options[i].items():
+                    dp_config[key] = value
 
             if stack_roots and i in stack_roots:
                 dp_config['stack'] = {}
@@ -294,9 +307,9 @@ class FaucetTopoTestBase(FaucetTestBase):
                         value = self.vlan_name(vlan)
                     else:
                         key = 'tagged_vlans'
-                        value = [self.vlan_name(v) for v in vlan]
+                        value = [self.vlan_name(vlan) for vlan in vlan]
                     for _ in range(n_links):
-                        port = self.port_maps[dpid]['port_%d' % index]
+                        port = port_maps[dpid]['port_%d' % index]
                         interfaces_config[port] = {
                             key: value
                         }
@@ -317,7 +330,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                             'port': peer_port
                         }})
                 else:
-                    tagged_vlans = [self.vlan_name(v) for v in range(n_vlans)]
+                    tagged_vlans = [self.vlan_name(vlan) for vlan in range(n_vlans)]
                     interfaces_config[port].update({'tagged_vlans': tagged_vlans})
                     if lacp:
                         interfaces_config[port].update({
@@ -352,6 +365,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         return yaml.dump(config, default_flow_style=False)
 
     def verify_no_cable_errors(self):
+        """Check that prometheus does not detect any stack cabling errors on all DPs"""
         i = 0
         for dpid in self.dpids:
             i += 1
@@ -364,6 +378,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                     var='stack_probes_received_total', labels=labels), 0)
 
     def verify_stack_hosts(self, verify_bridge_local_rule=True, retries=3):
+        """Verify hosts with stack LLDP messages"""
         lldp_cap_files = []
         for host in self.hosts_name_ordered():
             lldp_cap_file = os.path.join(self.tmpdir, '%s-lldp.cap' % host)
@@ -384,6 +399,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.retry_net_ping(retries=retries)
 
     def stack_port_status(self, dpid, dp_name, port_no):
+        """Return the status of a stack port from prometheus"""
         labels = self.port_labels(port_no)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         return self.scrape_prometheus_var(
@@ -391,6 +407,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             default=None, dpid=False)
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
+        """Wait until prometheus detects a stack port has a certain specified"""
         labels = self.port_labels(port_no)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         if not self.wait_for_prometheus_var(
@@ -400,14 +417,17 @@ class FaucetTopoTestBase(FaucetTestBase):
                 int(dpid), port_no, status))
 
     def one_stack_port_down(self, dpid, dp_name, port):
+        """Set a stack port down and wait for prometheus to detect the change"""
         self.set_port_down(port, dpid, wait=False)
         self.wait_for_stack_port_status(dpid, dp_name, port, 2)
 
     def one_stack_port_up(self, dpid, dp_name, port):
+        """Set a stack port up and wait for prometheus to detect the change"""
         self.set_port_up(port, dpid, wait=False)
         self.wait_for_stack_port_status(dpid, dp_name, port, 3)
 
     def verify_stack_up(self, prop=1.0, timeout=25):
+        """Verify all stack ports are up"""
         for _ in range(timeout):
             links = 0
             links_up = 0
@@ -425,6 +445,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.fail('not enough links up: %f / %f' % (links_up, links))
 
     def verify_one_stack_down(self, stack_offset_port, coldstart=False):
+        """Test conditions when one stack port is down"""
         self.retry_net_ping()
         stack_port = self.non_host_links(self.dpid)[stack_offset_port].port
         remote_stack_port = self.non_host_links(self.dpid)[stack_offset_port].peer_port
@@ -443,10 +464,10 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.assertEqual(
             packet_in_before_broadcast,
             packet_in_after_broadcast)
-        # TODO: re-enable.
-        # self.verify_no_cable_errors()
+        self.verify_no_cable_errors()
 
     def verify_no_arp_storm(self, ping_host, tcpdump_host):
+        """Check that there is no excess ARP packets in the network"""
         num_arp_expected = self.topo.switch_to_switch_links * 2
         tcpdump_filter = 'arp and ether src %s' % ping_host.MAC()
         tcpdump_txt = self.tcpdump_helper(
@@ -460,12 +481,14 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.assertLessEqual(num_arp_received, num_arp_expected)
 
     def verify_stack_has_no_loop(self):
+        """Ping between first and last hosts (by name) then verify there is no broadcast storm"""
         for ping_host, tcpdump_host in (
                 (self.hosts_name_ordered()[0], self.hosts_name_ordered()[-1]),
                 (self.hosts_name_ordered()[-1], self.hosts_name_ordered()[0])):
             self.verify_no_arp_storm(ping_host, tcpdump_host)
 
     def verify_all_stack_hosts(self):
+        """Test conditions for stack hosts"""
         for _ in range(2):
             self.verify_stack_up()
             self.verify_no_cable_errors()
@@ -495,6 +518,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         ), 'Tunnel was not established')
 
     def verify_one_broadcast(self, from_host, to_hosts):
+        """Verify host connectivity via broadcast"""
         self.assertGreater(len(to_hosts), 1, 'Testing only one ext host is not useful')
         received_broadcasts = []
         for to_host in to_hosts:
@@ -584,10 +608,10 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def verify_intervlan_routing(self):
         """Verify intervlan routing is possible"""
-        for src in self.host_information.keys():
+        for src in self.host_information:
             src_host = self.host_information[src]['host']
             src_vlan = self.host_information[src]['vlan']
-            for dst in self.host_information.keys():
+            for dst in self.host_information:
                 if dst > src:
                     dst_host = self.host_information[dst]['host']
                     dst_vlan = self.host_information[dst]['vlan']
@@ -617,7 +641,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         return False
 
     def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re, retries):
-        # TODO: uses the faucet_vip for the first vlan, get vip based on host vlan
+        """Helper for checking broadcast destination has been blocked"""
         tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
             first_host.MAC(), "ff:ff:ff:ff:ff:ff")
         target_addr = str(self.faucet_vips[0].network.broadcast_address)

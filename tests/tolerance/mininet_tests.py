@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
 
-import os
 import random
-import re
-import time
 import networkx
-import yaml # pytype: disable=pyi-error
-import ipaddress
 
 from clib.mininet_test_topo_generator import FaucetTopoGenerator
 from clib.mininet_test_watcher import TopologyWatcher
@@ -15,17 +10,19 @@ from clib.mininet_test_base_topo import FaucetTopoTestBase
 
 class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
     """
-    Generate a topology of the given parameters (using build_net & TopoBaseTest) 
+    Generate a topology of the given parameters (using build_net & TopoBaseTest)
         and then call network function to test the network and then slowly tear out bits
         until the expected host connectivity does not match the real host connectivity.
     """
 
     # Watches the faults and host connectvitiy
     topo_watcher = None
-    # IP interface for each VLAN VIP 
-    faucet_vips = None
     # Instantly fail the test when a single ping fails
     INSTANT_FAIL = True
+    # List of fault events
+    fault_events = None
+    # Number of faults to occur before recalculating connectivity
+    num_faults = 1
 
     # Randomization variables
     seed = 0
@@ -35,6 +32,13 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         pass
 
     def set_up(self, n_dps, n_vlans, dp_links, stack_roots):
+        """
+        Args:
+            n_dps: Number of DPS to generate
+            n_vlans: Number of VLANs to generate
+            dp_links (dict): Topology to deploy
+            stack_roots (dict): Stack root values for respective stack root DPS
+        """
         super(FaucetFaultToleranceBaseTest, self).setUp()
         host_links, host_vlans = FaucetTopoGenerator.untagged_vlan_hosts(n_dps, n_vlans)
         vlan_options = {}
@@ -52,10 +56,10 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
                 'max_resolve_backoff_time': 2,
                 'proactive_learn_v4': True
             }
-        routers = {0: [v for v in range(n_vlans)]}
+        routers = {0: list(range(n_vlans))}
         self.build_net(
             n_dps=n_dps, n_vlans=n_vlans, dp_links=dp_links,
-            host_links=host_links, host_vlans=host_vlans, 
+            host_links=host_links, host_vlans=host_vlans,
             stack_roots=stack_roots, vlan_options=vlan_options,
             dp_options=dp_options, routers=routers)
         self.start_net()
@@ -98,8 +102,6 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         Args:
             index: The index to the controller to take down
         """
-        # TODO: Dump controller logs
-        # TODO: Support multiple controllers
         index = args[0]
         controller = self.net.controllers[index]
         controller.stop()
@@ -120,7 +122,6 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         Args:
             index: Index of the switch dpid to take out
         """
-        # TODO: Wait for Faucet to register switch fault
         index = args[0]
         dpid = self.dpids[index]
         switch_name = self.topo.dpid_names[dpid]
@@ -206,6 +207,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         self.verify_stack_up()
 
         self.fault_events = fault_events
+        self.num_faults = num_faults
         self.rng = random.Random(self.seed)
 
         self.topo_watcher = TopologyWatcher(
@@ -221,7 +223,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             # Do Specified list of faults (in order) until failure or fault list completed
             for i in range(len(self.fault_events)):
                 event_func, params = self.fault_events[i]
-                for _ in range(num_faults):
+                for _ in range(self.num_faults):
                     event_func(*params)
                 self.calculate_connectivity()
                 self.assertTrue(self.topo_watcher.is_connected(), (
@@ -230,23 +232,26 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             # Continue creating fault until none are available or expected connectivity does not
             #      match real connectivity
             while self.topo_watcher.continue_faults():
-                for _ in range(num_faults):
+                for _ in range(self.num_faults):
                     self.create_proportional_random_fault_event()
                 self.calculate_connectivity()
                 self.assertTrue(self.topo_watcher.is_connected(), (
                     'Host connectivity does not match predicted'))
 
     def tearDown(self, ignore_oferrors=False):
+        """Make sure to dump the watcher information too"""
         if self.topo_watcher:
             self.topo_watcher.dump_info(self.tmpdir)
-        super(FaucetFaultToleranceBaseTest, self).tearDown()
+        super(FaucetFaultToleranceBaseTest, self).tearDown(ignore_oferrors=ignore_oferrors)
 
 
 class FaucetFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
+    """Run a range of fault-tolerance tests for topologies on 2 DPs"""
 
     NUM_DPS = 2
 
     def test_2_line(self):
+        """Only topology worth testing on 2 DP is a path"""
         n_dps = 2
         n_vlans = 2
         stack_roots = {0: 1}
@@ -257,10 +262,12 @@ class FaucetFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
 
 
 class FaucetFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
+    """Run a range of fault-tolerance tests for topologies on 3 DPs"""
 
     NUM_DPS = 3
 
     def test_3_line(self):
+        """Test fault-tolerance of a path of length 3"""
         n_dps = 3
         n_vlans = 2
         stack_roots = {0: 1}
@@ -270,6 +277,7 @@ class FaucetFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
         self.network_function()
 
     def test_3_node_ring_links(self):
+        """Test fault-tolerance of a 3-cycle graph"""
         n_dps = 3
         n_vlans = 2
         stack_roots = {0: 1}
@@ -280,10 +288,12 @@ class FaucetFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
 
 
 class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
+    """Run a range of fault-tolerance tests for topologies on 4 DPs"""
 
     NUM_DPS = 4
 
     def test_4_node_ring_links(self):
+        """Test fault-tolerance of a 4-cycle graph"""
         n_dps = 4
         n_vlans = 2
         stack_roots = {0: 1}
@@ -292,16 +302,8 @@ class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
         self.set_up(n_dps, n_vlans, dp_links, stack_roots)
         self.network_function()
 
-    def test_fat_tree_2(self):
-        n_dps = 4
-        n_vlans = 2
-        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
-            networkx.cycle_graph(n_dps))
-        stack_roots = {i: 1 for i in range(n_dps//2)}
-        self.set_up(n_dps, n_vlans, dp_links, stack_roots)
-        self.network_function()
-
     def test_fat_tree_2_all_random_switch_failures(self):
+        """Test randomly tearing down only switches for a 4-cycle/2-fat tree pod"""
         n_dps = 4
         n_vlans = 2
         fault_events = [
@@ -317,6 +319,7 @@ class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
         self.network_function(fault_events)
 
     def test_fat_tree_2_single_switch_failure(self):
+        """Test tearing down the first switch (a root node) for a 4-cycle/2-fat tree pod"""
         n_dps = 4
         n_vlans = 2
         fault_events = [
@@ -330,10 +333,12 @@ class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
 
 
 class FaucetFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
+    """Run a range of fault-tolerance tests for topologies on 6 DPs"""
 
     NUM_DPS = 6
 
     def test_fat_tree_3(self):
+        """Test fault-tolerance of a 6-cycle/3-fat tree pod"""
         n_dps = 6
         n_vlans = 2
         stack_roots = {i: 1 for i in range(n_dps//2)}
@@ -343,6 +348,7 @@ class FaucetFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
         self.network_function()
 
     def test_3_ladder(self):
+        """Test fault-tolerance of a complete ladder graph n=3"""
         n_dps = 6
         n_vlans = 2
         stack_roots = {i: 1 for i in range(n_dps//2)}
@@ -352,6 +358,7 @@ class FaucetFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
         self.network_function()
 
     def test_k33(self):
+        """Test fault-tolerance of a complete bipartite graph K_{n,m} n=m=3"""
         n_dps = 6
         n_vlans = 2
         stack_roots = {i: 1 for i in range(n_dps//2)}

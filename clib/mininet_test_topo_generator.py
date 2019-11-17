@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import os
-import networkx
 
 from clib.mininet_test_util import get_serialno
 from clib.mininet_test_topo import FaucetSwitchTopo, SWITCH_START_PORT
@@ -35,7 +33,8 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
         return dp_links
 
     @staticmethod
-    def tagged_untagged_hosts(n_dps, n_tagged, n_untagged, n_host_links=1, dp_offset=0, host_offset=0):
+    def tagged_untagged_hosts(n_dps, n_tagged, n_untagged,
+                              n_host_links=1, dp_offset=0, host_offset=0):
         """
         Generate links & vlans for a number of tagged and untagged vlan hosts on each dp
         Args:
@@ -105,16 +104,16 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
         host_vlans = {}
         host_id = host_offset
         for i in range(n_dps):
-            for j in range(n_vlans):
+            for vlan in range(n_vlans):
                 host_links[host_id] = []
                 for _ in range(n_host_links):
                     host_links[host_id].append(i + dp_offset)
-                host_vlans[host_id] = j
+                host_vlans[host_id] = vlan
                 host_id += 1
         return host_links, host_vlans
 
     @staticmethod
-    def untagged_vlan_hosts_by_amount(n_dps, n_vlan_hosts, 
+    def untagged_vlan_hosts_by_amount(n_dps, n_vlan_hosts,
                                       n_host_links=1, dp_offset=0, host_offset=0):
         """
         Generate dictionaries for untagged hosts on each DP with specified number of hosts
@@ -131,12 +130,12 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
         host_vlans = {}
         host_id = host_offset
         for i in range(n_dps):
-            for v, n_hosts in n_vlan_hosts.items():
+            for vlan, n_hosts in n_vlan_hosts.items():
                 for _ in range(n_hosts):
                     host_links[host_id] = []
                     for _ in range(n_host_links):
                         host_links[host_id].append(i + dp_offset)
-                    host_vlans[host_id] = v
+                    host_vlans[host_id] = vlan
                     host_id += 1
         return host_links, host_vlans
 
@@ -146,7 +145,7 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
         links = [self.hw_remap_peer_link(dpid, link) for link in self.switch_peer_links[name]]
         return links
 
-    def _add_host_link(self, switch, dpid, host, curr_index):
+    def _add_host_to_switch_link(self, switch, dpid, host, curr_index):
         """
         Add a link from a switch to a host
         Args:
@@ -165,8 +164,8 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
         index += 1
         return index
 
-    def _add_links(self, src, dst, next_index):
-        """ 
+    def _add_switch_to_switch_link(self, src, dst, next_index):
+        """
         Args:
             src: Source switch
             dst: Dest switch
@@ -185,7 +184,7 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
         self.switch_peer_links[dst].append(self.peer_link(port2, dpid1, port1))
         # Update next indices on src and dest
         next_index[src] += 1
-        next_index[dst] += 1 
+        next_index[dst] += 1
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
               dp_links, host_links, host_vlans, vlan_vids,
@@ -197,7 +196,7 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
             dp_links (dict): dp id key to list of dp id value
             host_links (dict): host id key to list of dp id value
             host_vlans (dict): host id key to vlans id value
-            vlan_vids (dict): VLAN IDs for vlan index # TODO: Do this better
+            vlan_vids (dict): VLAN IDs for vlan index
         """
         self.hw_dpid = hw_dpid
         self.hw_ports = sorted(switch_map) if switch_map else []
@@ -206,7 +205,7 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
         self.switch_to_switch_links = 0
         for dplinks in dp_links.values():
             self.switch_to_switch_links += len(dplinks)
-        
+
         self.host_to_switch_links = 0
         for hostlinks in host_links.values():
             self.host_to_switch_links += len(hostlinks)
@@ -222,7 +221,8 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
             if isinstance(vlans, int):
                 self.hosts_by_id[host_id] = self._add_untagged_host(sid_prefix, host_id)
             elif isinstance(vlans, tuple):
-                self.hosts_by_id[host_id] = self._add_tagged_host(sid_prefix, [vlan_vids[v] for v in vlans], host_id)
+                self.hosts_by_id[host_id] = self._add_tagged_host(
+                    sid_prefix, [vlan_vids[v] for v in vlans], host_id)
 
         # Create switches & then host-switch links
         self.switch_peer_links = {}
@@ -238,11 +238,12 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
             for host_id, hostlinks in host_links.items():
                 if i in hostlinks:
                     host = self.hosts_by_id[host_id]
-                    next_index[switch] = self._add_host_link(switch, dpid, host, next_index[switch])
+                    next_index[switch] = self._add_host_to_switch_link(
+                        switch, dpid, host, next_index[switch])
 
         # Create switch-switch links
         for src_index, dplinks in dp_links.items():
             for dst_index in dplinks:
                 src = self.dpid_to_switch[dpids[src_index]]
                 dst = self.dpid_to_switch[dpids[dst_index]]
-                self._add_links(src, dst, next_index)
+                self._add_switch_to_switch_link(src, dst, next_index)

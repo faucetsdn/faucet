@@ -7,7 +7,7 @@ import networkx
 class TopologyWatcher():
     """
     Watches the topology (both predicted and actual) for differences via
-        the host connectivity. This ensures that Faucet can facilitate the 
+        the host connectivity. This ensures that Faucet can facilitate the
         connection of hosts (that can form a path) after faults occur.
     Can take faults that have occured as a part of the fault-tolerance testing.
     The predicted & actual graph use switch dpids & host names as the nodes.
@@ -30,7 +30,7 @@ class TopologyWatcher():
         """
         Args:
             dpids (list): Switch dpids to match the DPID indices used in dp_links & other structures
-            dp_links (dict): 
+            dp_links (dict):
             host_links (dict):
             n_vlans: Number of VLANs
             host_information (dict):
@@ -129,16 +129,16 @@ class TopologyWatcher():
 
     def get_connected_hosts(self):
         """
-        Hosts are connected if the shortest path they can form in the 
+        Hosts are connected if the shortest path they can form in the
             predicted graph that is longer than 3 (itself, shared DP, dst host)
         Returns dictionary of host index to list of connected host index
         """
         if self.connected_hosts:
             return self.connected_hosts
         connected_hosts = {i: [] for i in self.host_name_to_index.values()}
-        for src_host in self.host_name_to_index.keys():
+        for src_host in self.host_name_to_index:
             src_index = self.host_name_to_index[src_host]
-            for dst_host in self.host_name_to_index.keys():
+            for dst_host in self.host_name_to_index:
                 dst_index = self.host_name_to_index[dst_host]
                 if src_index != dst_index and self.is_shared_router(src_index, dst_index):
                     try:
@@ -189,7 +189,7 @@ class TopologyWatcher():
 
     def is_initial(self):
         """Return true for the initial run"""
-        return (len(self.fault_list) == 1)
+        return len(self.fault_list) == 1
 
     def dump_info(self, tmpdir):
         """Dump info to test directory"""

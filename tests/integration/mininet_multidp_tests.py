@@ -2,12 +2,14 @@
 
 import os
 import networkx
+
 from clib.mininet_test_base import IPV4_ETH, IPV6_ETH
 from clib.mininet_test_topo_generator import FaucetTopoGenerator
 from clib.mininet_test_base_topo import FaucetTopoTestBase
 
 
 class FaucetMultiDPTest(FaucetTopoTestBase):
+    """Replaces the FaucetStringOfDPTest for the old integration tests"""
 
     def setUp(self):
         pass
@@ -17,6 +19,7 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                switch_to_switch_links=1, hw_dpid=None, stack_ring=False,
                lacp=False, use_external=False,
                vlan_options=None, dp_options=None, routers=None):
+        """Set up a network with the given parameters"""
         super(FaucetMultiDPTest, self).setUp()
         n_vlans = 1
         dp_links = {}
@@ -40,15 +43,16 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                     values[link] = True
         self.build_net(
             n_dps=n_dps, n_vlans=n_vlans, dp_links=dp_links,
-            host_links=host_links, host_vlans=host_vlans, 
+            host_links=host_links, host_vlans=host_vlans,
             stack_roots=stack_roots, vlan_options=vlan_options,
             dp_options=dp_options, routers=routers, include=include,
             include_optional=include_optional, hw_dpid=hw_dpid,
-            lacp=lacp, use_external=use_external, host_options=host_options)
+            lacp=lacp, host_options=host_options)
         self.start_net()
 
 
 class FaucetStringOfDPUntaggedTest(FaucetMultiDPTest):
+    """Test untagged hosts"""
 
     NUM_DPS = 3
     NUM_HOSTS = 4
@@ -61,6 +65,7 @@ class FaucetStringOfDPUntaggedTest(FaucetMultiDPTest):
 
 
 class FaucetStringOfDPTaggedTest(FaucetMultiDPTest):
+    """Test tagged hosts"""
 
     NUM_DPS = 3
     NUM_HOSTS = 4
@@ -111,7 +116,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPLACPUntaggedTest, self).set_up(
-            stack=False, 
+            stack=False,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             switch_to_switch_links=2,
@@ -119,6 +124,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
             lacp=True)
 
     def lacp_ports(self):
+        """Return LACP ports"""
         first_link, second_link = sorted(self.non_host_links(self.dpid))
         first_lacp_port, second_lacp_port = first_link.port, second_link.port
         remote_first_lacp_port, remote_second_lacp_port = first_link.peer_port, second_link.peer_port
@@ -126,6 +132,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
                 remote_first_lacp_port, remote_second_lacp_port)
 
     def wait_for_lacp_status(self, port_no, wanted_status, dp_index, timeout=30):
+        """Wait for LACP port to have status"""
         dpid = self.dpids[dp_index]
         dp_name = self.dp_name(dp_index)
         labels = self.port_labels(port_no)
@@ -136,15 +143,18 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
             self.fail('wanted LACP status for %s to be %u' % (labels, wanted_status))
 
     def wait_for_lacp_port_down(self, port_no, dp_index):
+        """Wait for LACP port to have DOWN status"""
         self.wait_for_lacp_status(port_no, 0, dp_index)
 
     def wait_for_lacp_port_up(self, port_no, dp_index):
+        """Wait for LACP port to have UP status"""
         self.wait_for_lacp_status(port_no, 1, dp_index)
 
     # We sort non_host_links by port because FAUCET sorts its ports
     # and only floods out of the first active LACP port in that list
 
     def wait_for_all_lacp_up(self):
+        """Wait for all LACP ports to be UP"""
         (first_lacp_port, second_lacp_port, remote_first_lacp_port, _) = self.lacp_ports()
         self.wait_for_lacp_port_up(first_lacp_port, 0)
         self.wait_for_lacp_port_up(second_lacp_port, 0)
@@ -296,6 +306,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
         self.verify_protected_connectivity()  # After reload
 
     def _mark_external(self, loop_interface, protect_external):
+        """Change the loop interfaces loop_protect_external option"""
         conf = self._get_faucet_conf()
         conf['dps'][self.dp_name(1)]['interfaces'][loop_interface]['loop_protect_external'] = protect_external
         self.reload_conf(
@@ -315,8 +326,9 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTest):
     NUM_HOSTS = 3
 
     def test_untagged(self):
+        """Test the external loop protect with stacked DPs and untagged hosts"""
         self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-            switch_to_switch_links=2, hw_dpid=self.hw_dpid, use_external=True)
+                    switch_to_switch_links=2, hw_dpid=self.hw_dpid, use_external=True)
         self.verify_stack_up()
         int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
         _, root_ext_hosts = dp_hosts[self.DP_NAME]
@@ -354,6 +366,7 @@ class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
 
 
 class FaucetStackRingOfDPTest(FaucetMultiDPTest):
+    """Test Faucet with a 3-cycle topology"""
 
     NUM_DPS = 3
     SOFTWARE_ONLY = True
@@ -361,7 +374,7 @@ class FaucetStackRingOfDPTest(FaucetMultiDPTest):
     def test_untagged(self):
         """Stack loop prevention works and hosts can ping each other."""
         self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-            switch_to_switch_links=1, stack_ring=True)
+                    switch_to_switch_links=1, stack_ring=True)
         self.verify_stack_up()
         self.verify_stack_has_no_loop()
         self.retry_net_ping()
@@ -378,6 +391,7 @@ class FaucetStackRingOfDPTest(FaucetMultiDPTest):
 
 
 class FaucetSingleStack4RingOfDPTest(FaucetStackRingOfDPTest):
+    """Test Faucet with a 4-cycle topology"""
 
     NUM_DPS = 4
 
@@ -521,6 +535,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
 
 
 class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
+    """Test overriding ACL rules"""
 
     NUM_DPS = 1
     NUM_HOSTS = 2
@@ -596,7 +611,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
     def setUp(self): # pylint: disable=invalid-name
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
         missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
-        super(FaucetStringOfDPACLOverrideTest, self).set_up(            
+        super(FaucetStringOfDPACLOverrideTest, self).set_up(
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             include_optional=[self.acls_config, missing_config])
@@ -625,6 +640,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
 
 
 class FaucetTunnelSameDpTest(FaucetMultiDPTest):
+    """Test the tunnel ACL option with output to the same DP"""
 
     NUM_DPS = 2
     NUM_HOSTS = 2
@@ -663,13 +679,14 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
         self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS, hw_dpid=self.hw_dpid)
+                    switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS, hw_dpid=self.hw_dpid)
         self.verify_stack_up()
         src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
 
 class FaucetTunnelTest(FaucetMultiDPTest):
+    """Test the Faucet tunnel ACL option"""
 
     NUM_DPS = 2
     NUM_HOSTS = 2
@@ -761,7 +778,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
         routers = {0: [v for v in range(routed_vlans)]}
         self.build_net(
             n_dps=n_dps, n_vlans=n_vlans, dp_links=dp_links,
-            host_links=host_links, host_vlans=host_vlans, 
+            host_links=host_links, host_vlans=host_vlans,
             stack_roots=stack_roots, vlan_options=vlan_options,
             dp_options=dp_options, routers=routers)
         self.start_net()
@@ -836,10 +853,10 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4Ro
     def set_host_ip(self, host, host_ip):
         self.add_host_ipv6_address(host, host_ip)
 
-    def faucet_vip(self, vindex):
+    def faucet_vip(self, i):
         """Get the IPV6 faucet vip"""
-        return 'fc0%u::1:254/112' % (vindex+1)
+        return 'fc0%u::1:254/112' % (i+1)
 
-    def host_ip(self, host_n, vindex):
+    def host_ip_address(self, host_index, vlan_index):
         """Get the IPV6 host ip"""
-        return 'fc0%u::1:%u/%u' % (vindex+1, host_n+1, self.NETPREFIX)
+        return 'fc0%u::1:%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
