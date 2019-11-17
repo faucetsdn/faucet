@@ -26,6 +26,10 @@ STACK_STATE_BAD = 2
 STACK_STATE_UP = 3
 STACK_STATE_GONE = 4
 
+LACP_STATE_NONE = 0
+LACP_STATE_INIT = 1
+LACP_STATE_UP = 3
+LACP_STATE_NOACT = 5
 
 class Port(Conf):
     """Stores state for ports, including the configuration."""
@@ -385,6 +389,18 @@ class Port(Conf):
     def lldp_beacon_enabled(self):
         """Return True if LLDP beacon enabled on this port."""
         return self.lldp_beacon and self.lldp_beacon.get('enable', False)
+
+    def lacp_update(self, lacp_up, now=None, lacp_pkt=None):
+        self.dyn_lacp_up = 1 if lacp_up else 0
+        self.dyn_lacp_updated_time = now
+        self.dyn_last_lacp_pkt = lacp_pkt
+
+    def lacp_state(self):
+        if not self.lacp:
+            return LACP_STATE_NONE
+        if not self.dyn_last_lacp_pkt:
+            return LACP_STATE_INIT
+        return LACP_STATE_UP if self.dyn_lacp_up else LACP_STATE_NOACT
 
     def mirror_actions(self):
         """Return OF actions to mirror this port."""
