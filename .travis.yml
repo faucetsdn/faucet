@@ -72,6 +72,11 @@ jobs:
       language: bash
       services:
         - docker
+    - stage: test
+      env: MATRIX_SHARD=fault-tolerance
+      language: bash
+      services:
+        - docker
     - stage: deploy
       language: python
       python: 3.6

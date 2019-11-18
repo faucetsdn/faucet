@@ -90,7 +90,8 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def host_ping(self, src_host, dst_ip):
         """Default method to ping from one host to an IP address"""
-        self.one_ipv4_ping(src_host, dst_ip, require_host_learned=False, retries=5)
+        self.one_ipv4_ping(
+            src_host, dst_ip, require_host_learned=False, retries=5, timeout=1000*self.NUM_DPS)
 
     def set_host_ip(self, host, host_ip):
         """Default method for setting a hosts IP address"""
@@ -250,10 +251,10 @@ class FaucetTopoTestBase(FaucetTestBase):
             for vlan in range(n_vlans):
                 n_tagged = 0
                 n_untagged = 0
-                for host_vlans in host_vlans.values():
-                    if isinstance(host_vlans, int) and vlan == host_vlans:
+                for vlans in host_vlans.values():
+                    if isinstance(vlans, int) and vlan == vlans:
                         n_untagged += 1
-                    elif isinstance(host_vlans, tuple) and vlan in host_vlans:
+                    elif isinstance(vlans, tuple) and vlan in vlans:
                         n_tagged += 1
                 vlans_config[self.vlan_name(vlan)] = {
                     'description': '%s tagged, %s untagged' % (n_tagged, n_untagged),
@@ -404,22 +405,22 @@ class FaucetTopoTestBase(FaucetTestBase):
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         return self.scrape_prometheus_var(
             'port_stack_state', labels=labels,
-            default=None, dpid=False)
+            default=None, dpid=dpid)
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
-        """Wait until prometheus detects a stack port has a certain specified"""
+        """Wait until prometheus detects a stack port has a certain status"""
         labels = self.port_labels(port_no)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         if not self.wait_for_prometheus_var(
                 'port_stack_state', status, labels=labels,
-                default=None, dpid=dpid, timeout=timeout):
+                default=None, dpid=False, timeout=timeout):
             self.fail('did not get expected dpid %x port %u port_stack_state %u' % (
                 int(dpid), port_no, status))
 
     def one_stack_port_down(self, dpid, dp_name, port):
         """Set a stack port down and wait for prometheus to detect the change"""
         self.set_port_down(port, dpid, wait=False)
-        self.wait_for_stack_port_status(dpid, dp_name, port, 2)
+        self.wait_for_stack_port_status(dpid, dp_name, port, 4)
 
     def one_stack_port_up(self, dpid, dp_name, port):
         """Set a stack port up and wait for prometheus to detect the change"""
@@ -611,6 +612,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         for src in self.host_information:
             src_host = self.host_information[src]['host']
             src_vlan = self.host_information[src]['vlan']
+            src_ip = self.host_information[src]['ip']
             for dst in self.host_information:
                 if dst > src:
                     dst_host = self.host_information[dst]['host']
@@ -622,7 +624,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                         self.host_ping(src_host, src_faucet_vip.ip)
                         self.host_ping(dst_host, dst_faucet_vip.ip)
                         self.host_ping(src_host, dst_ip.ip)
-                        self.host_ping(dst_host, dst_ip.ip)
+                        self.host_ping(dst_host, src_ip.ip)
                         self.assertEqual(
                             self._ip_neigh(
                                 src_host, src_faucet_vip.ip, self.IPV), self.faucet_mac(src_vlan))

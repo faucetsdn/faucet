@@ -131,6 +131,9 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         self.topo_watcher.add_switch_fault(index, name)
         switch.stop()
         switch.cmd(self.VSCTL, 'del-controller', switch.name, '|| true')
+        self.assertTrue(
+            self.wait_for_prometheus_var(
+                'of_dp_disconnections_total', 1, dpid=dpid), 'DP %s not detected as DOWN' % dpid)
         self.net.switches.remove(switch)
 
     def random_switch_fault(self, *args):
@@ -245,7 +248,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         super(FaucetFaultToleranceBaseTest, self).tearDown(ignore_oferrors=ignore_oferrors)
 
 
-class FaucetFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
+class FaucetSingleFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 2 DPs"""
 
     NUM_DPS = 2
@@ -253,7 +256,7 @@ class FaucetFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
     def test_2_line(self):
         """Only topology worth testing on 2 DP is a path"""
         n_dps = 2
-        n_vlans = 2
+        n_vlans = 1
         stack_roots = {0: 1}
         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
             networkx.path_graph(n_dps))
@@ -261,7 +264,7 @@ class FaucetFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
         self.network_function()
 
 
-class FaucetFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
+class FaucetSingleFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 3 DPs"""
 
     NUM_DPS = 3
@@ -269,7 +272,7 @@ class FaucetFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
     def test_3_line(self):
         """Test fault-tolerance of a path of length 3"""
         n_dps = 3
-        n_vlans = 2
+        n_vlans = 1
         stack_roots = {0: 1}
         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
             networkx.path_graph(n_dps))
@@ -279,7 +282,7 @@ class FaucetFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
     def test_3_node_ring_links(self):
         """Test fault-tolerance of a 3-cycle graph"""
         n_dps = 3
-        n_vlans = 2
+        n_vlans = 1
         stack_roots = {0: 1}
         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
             networkx.cycle_graph(n_dps))
@@ -287,7 +290,7 @@ class FaucetFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
         self.network_function()
 
 
-class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
+class FaucetSingleFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 4 DPs"""
 
     NUM_DPS = 4
@@ -295,7 +298,7 @@ class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
     def test_4_node_ring_links(self):
         """Test fault-tolerance of a 4-cycle graph"""
         n_dps = 4
-        n_vlans = 2
+        n_vlans = 1
         stack_roots = {0: 1}
         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
             networkx.cycle_graph(n_dps))
@@ -305,7 +308,7 @@ class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
     def test_fat_tree_2_all_random_switch_failures(self):
         """Test randomly tearing down only switches for a 4-cycle/2-fat tree pod"""
         n_dps = 4
-        n_vlans = 2
+        n_vlans = 1
         fault_events = [
             (self.random_switch_fault, (None,)),
             (self.random_switch_fault, (None,)),
@@ -321,7 +324,7 @@ class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
     def test_fat_tree_2_single_switch_failure(self):
         """Test tearing down the first switch (a root node) for a 4-cycle/2-fat tree pod"""
         n_dps = 4
-        n_vlans = 2
+        n_vlans = 1
         fault_events = [
             (self.create_switch_fault, (0,))
         ]
@@ -332,7 +335,7 @@ class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
         self.network_function(fault_events)
 
 
-class FaucetFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
+class FaucetSingleFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 6 DPs"""
 
     NUM_DPS = 6
@@ -340,7 +343,7 @@ class FaucetFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     def test_fat_tree_3(self):
         """Test fault-tolerance of a 6-cycle/3-fat tree pod"""
         n_dps = 6
-        n_vlans = 2
+        n_vlans = 1
         stack_roots = {i: 1 for i in range(n_dps//2)}
         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
             networkx.cycle_graph(n_dps))
@@ -350,7 +353,7 @@ class FaucetFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     def test_3_ladder(self):
         """Test fault-tolerance of a complete ladder graph n=3"""
         n_dps = 6
-        n_vlans = 2
+        n_vlans = 1
         stack_roots = {i: 1 for i in range(n_dps//2)}
         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
             networkx.ladder_graph(n_dps//2))
@@ -360,7 +363,7 @@ class FaucetFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     def test_k33(self):
         """Test fault-tolerance of a complete bipartite graph K_{n,m} n=m=3"""
         n_dps = 6
-        n_vlans = 2
+        n_vlans = 1
         stack_roots = {i: 1 for i in range(n_dps//2)}
         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
             networkx.complete_bipartite_graph(n_dps//2, n_dps//2))

@@ -15,4 +15,4 @@ from clib.clib_mininet_test_main import test_main
 import mininet_tests
 
 if __name__ == '__main__':
-    test_main(mininet_tests.__name__)
+    test_main([mininet_tests.__name__])

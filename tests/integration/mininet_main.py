@@ -16,5 +16,4 @@ import mininet_tests
 import mininet_multidp_tests
 
 if __name__ == '__main__':
-    test_main(mininet_tests.__name__)
-    test_main(mininet_multidp_tests.__name__)
+    test_main([mininet_tests.__name__, mininet_multidp_tests.__name__])

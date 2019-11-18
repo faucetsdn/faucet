@@ -131,33 +131,30 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         return (first_lacp_port, second_lacp_port,
                 remote_first_lacp_port, remote_second_lacp_port)
 
-    def wait_for_lacp_status(self, port_no, wanted_status, dp_index, timeout=30):
-        """Wait for LACP port to have status"""
-        dpid = self.dpids[dp_index]
-        dp_name = self.dp_name(dp_index)
+    def wait_for_lacp_state(self, port_no, wanted_state, dpid, dp_name, timeout=30):
         labels = self.port_labels(port_no)
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         if not self.wait_for_prometheus_var(
-                'port_lacp_status', wanted_status,
+                'port_lacp_state', wanted_state,
                 labels=labels, dpid=False, timeout=timeout):
-            self.fail('wanted LACP status for %s to be %u' % (labels, wanted_status))
+            self.fail('wanted LACP state for %s to be %u' % (labels, wanted_state))
 
-    def wait_for_lacp_port_down(self, port_no, dp_index):
-        """Wait for LACP port to have DOWN status"""
-        self.wait_for_lacp_status(port_no, 0, dp_index)
+    def wait_for_lacp_port_init(self, port_no, dpid, dp_name):
+        self.wait_for_lacp_state(port_no, 1, dpid, dp_name)
 
-    def wait_for_lacp_port_up(self, port_no, dp_index):
-        """Wait for LACP port to have UP status"""
-        self.wait_for_lacp_status(port_no, 1, dp_index)
+    def wait_for_lacp_port_up(self, port_no, dpid, dp_name):
+        self.wait_for_lacp_state(port_no, 3, dpid, dp_name)
+
+    def wait_for_lacp_port_noact(self, port_no, dpid, dp_name):
+        self.wait_for_lacp_state(port_no, 5, dpid, dp_name)
 
     # We sort non_host_links by port because FAUCET sorts its ports
     # and only floods out of the first active LACP port in that list
 
     def wait_for_all_lacp_up(self):
-        """Wait for all LACP ports to be UP"""
         (first_lacp_port, second_lacp_port, remote_first_lacp_port, _) = self.lacp_ports()
-        self.wait_for_lacp_port_up(first_lacp_port, 0)
-        self.wait_for_lacp_port_up(second_lacp_port, 0)
+        self.wait_for_lacp_port_up(first_lacp_port, self.dpid, self.DP_NAME)
+        self.wait_for_lacp_port_up(second_lacp_port, self.dpid, self.DP_NAME)
         self.wait_until_matching_flow(
             self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % first_lacp_port])
         self.wait_until_matching_flow(
@@ -180,10 +177,10 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
             other_local_lacp_port = list(local_ports - {local_lacp_port})[0]
             other_remote_lacp_port = list(remote_ports - {remote_lacp_port})[0]
             self.set_port_down(local_lacp_port, wait=False)
-            self.wait_for_lacp_port_down(
-                local_lacp_port, 0)
-            self.wait_for_lacp_port_down(
-                remote_lacp_port, 1)
+            self.wait_for_lacp_port_init(
+                local_lacp_port, self.dpid, self.DP_NAME)
+            self.wait_for_lacp_port_init(
+                remote_lacp_port, self.dpids[1], 'faucet-2')
             self.wait_until_matching_flow(
                 self.match_bcast, self._FLOOD_TABLE, actions=[
                     self.action_str % other_local_lacp_port])
@@ -196,11 +193,14 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
             self.wait_for_all_lacp_up()
 
     def test_untagged(self):
-        """All untagged hosts in stack topology can reach each other."""
+        """All untagged hosts in stack topology can reach each other, LAG_CHANGE event emitted."""
+        self._enable_event_log()
         for _ in range(3):
             self.wait_for_all_lacp_up()
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
+        # Check for presence of LAG_CHANGE event in event socket log
+        self.wait_until_matching_lines_from_file(r'.+LAG_CHANGE.+', self.event_log)
 
     def test_dyn_fail(self):
         """Test lacp fail on reload with dynamic lacp status."""
@@ -208,17 +208,17 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         conf = self._get_faucet_conf()
         (src_port, dst_port, fail_port, _) = self.lacp_ports()
 
-        self.wait_for_lacp_port_up(src_port, 0)
-        self.wait_for_lacp_port_up(dst_port, 0)
+        self.wait_for_lacp_port_up(src_port, self.dpids[0], 'faucet-1')
+        self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
 
-        interfaces_conf = conf['dps'][self.dp_name(1)]['interfaces']
+        interfaces_conf = conf['dps']['faucet-2']['interfaces']
         interfaces_conf[fail_port]['lacp'] = 0
         interfaces_conf[fail_port]['lacp_active'] = False
         self.reload_conf(conf, self.faucet_config_path, restart=True,
                          cold_start=False, change_expected=False)
 
-        self.wait_for_lacp_port_down(src_port, 0)
-        self.wait_for_lacp_port_up(dst_port, 0)
+        self.wait_for_lacp_port_init(src_port, self.dpids[0], 'faucet-1')
+        self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
 
     def test_passthrough(self):
         """Test lacp passthrough on port fail."""
@@ -226,12 +226,12 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         conf = self._get_faucet_conf()
         (src_port, dst_port, fail_port, end_port) = self.lacp_ports()
 
-        interfaces_conf = conf['dps'][self.dp_name(0)]['interfaces']
+        interfaces_conf = conf['dps']['faucet-1']['interfaces']
         interfaces_conf[dst_port]['lacp_passthrough'] = [src_port]
         interfaces_conf[dst_port]['loop_protect_external'] = True
         interfaces_conf[dst_port]['lacp'] = 2
         interfaces_conf[src_port]['loop_protect_external'] = True
-        interfaces_conf = conf['dps'][self.dp_name(1)]['interfaces']
+        interfaces_conf = conf['dps']['faucet-2']['interfaces']
         interfaces_conf[fail_port]['loop_protect_external'] = True
         interfaces_conf[end_port]['loop_protect_external'] = True
         interfaces_conf[end_port]['lacp'] = 2
@@ -247,9 +247,9 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         self.reload_conf(conf, self.faucet_config_path, restart=True,
                          cold_start=False, change_expected=False)
 
-        self.wait_for_lacp_port_down(src_port, 0)
-        self.wait_for_lacp_port_up(dst_port, 0)
-        self.wait_for_lacp_port_down(end_port, 1)
+        self.wait_for_lacp_port_init(src_port, self.dpids[0], 'faucet-1')
+        self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
+        self.wait_for_lacp_port_init(end_port, self.dpids[1], 'faucet-2')
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTest):
