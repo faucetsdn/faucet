@@ -1120,6 +1120,10 @@ such as paths for configuration files and port numbers.
       - Socket path
       -
       - Location to a UNIX socket where faucet will write events to, or empty to disable events
+    * - FAUCET_EVENT_SOCK_HEARTBEAT
+      - seconds
+      - 0
+      - If set to a value greater than 0, it emits a dummy event every n seconds so that faucet knows if the event socket connection is broken and closes the connection on it's side.
     * - FAUCET_PROMETHEUS_PORT
       - Port
       - 9302
