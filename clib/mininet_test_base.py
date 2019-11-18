@@ -64,6 +64,7 @@ class FaucetTestBase(unittest.TestCase):
     CONTROLLER_CLASS = mininet_test_topo.FAUCET
     DP_NAME = 'faucet-1'
     STAT_RELOAD = ''
+    EVENT_SOCK_HEARTBEAT = ''
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -182,6 +183,7 @@ class FaucetTestBase(unittest.TestCase):
         self.event_sock = os.path.join(tempfile.mkdtemp(), 'event.sock')
         self._set_var('faucet', 'FAUCET_EVENT_SOCK', self.event_sock)
         self._set_var('faucet', 'FAUCET_CONFIG_STAT_RELOAD', self.STAT_RELOAD)
+        self._set_var('faucet', 'FAUCET_EVENT_SOCK_HEARTBEAT', self.EVENT_SOCK_HEARTBEAT)
         self._set_var_path('faucet', 'FAUCET_CONFIG', 'faucet.yaml')
         self._set_var_path('faucet', 'FAUCET_LOG', 'faucet.log')
         self._set_var_path('faucet', 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')

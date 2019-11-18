@@ -117,6 +117,7 @@ class FaucetUntaggedTest(FaucetTest):
     N_UNTAGGED = 4
     N_TAGGED = 0
     LINKS_PER_HOST = 1
+    EVENT_SOCK_HEARTBEAT = '5'
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -137,7 +138,7 @@ vlans:
         self.start_net()
 
     def verify_events_log(self, event_log, timeout=10):
-        required_events = {'CONFIG_CHANGE', 'PORT_CHANGE', 'L2_LEARN', 'PORTS_STATUS'}
+        required_events = {'CONFIG_CHANGE', 'PORT_CHANGE', 'L2_LEARN', 'PORTS_STATUS', 'EVENT_SOCK_HEARTBEAT'}
         for _ in range(timeout):
             prom_event_id = self.scrape_prometheus_var('faucet_event_id', dpid=False)
             event_id = None
