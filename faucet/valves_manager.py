@@ -176,6 +176,10 @@ class ValvesManager:
             self._apply_configs(dps, now, None)
         return stack_change
 
+    def event_socket_heartbeat(self, now):
+        """raises event for event sock heartbeat"""
+        self._notify({'EVENT_SOCK_HEARTBEAT': None})
+
     def revert_config(self):
         """Attempt to revert config to last known good version."""
         for config_file_name, config_content in self.meta_dp_state.last_good_config.items():
