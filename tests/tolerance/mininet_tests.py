@@ -113,7 +113,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         controllers = [c for c in self.net.controllers if c.name != 'gauge']
         i = random.randrange(len(controllers))
         c_name = controllers[i].name
-        controller = next((cont for cont in self.net.controllers if c.name == c_name), None)
+        controller = next((cont for cont in self.net.controllers if cont.name == c_name), None)
         self.create_controller_fault(self.net.controllers.index(controller))
 
     def create_switch_fault(self, *args):

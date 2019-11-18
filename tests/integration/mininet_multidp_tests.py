@@ -114,7 +114,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
     match_bcast = {'dl_vlan': FaucetMultiDPTest.vlan_vid(0), 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
     action_str = 'OUTPUT:%u'
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super(FaucetStringOfDPLACPUntaggedTest, self).set_up(
             stack=False,
             n_dps=self.NUM_DPS,
@@ -272,7 +272,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
     NUM_DPS = 2
     NUM_HOSTS = 3
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super(FaucetSingleStackStringOfDPExtLoopProtUntaggedTest, self).set_up(
             stack=True,
             n_dps=self.NUM_DPS,
@@ -506,7 +506,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
             },
         }
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super(FaucetSingleStackAclControlTest, self).set_up(
             stack=True,
             n_dps=self.NUM_DPS,
@@ -608,7 +608,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
             },
         }
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
         missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
         super(FaucetStringOfDPACLOverrideTest, self).set_up(
@@ -724,7 +724,7 @@ class FaucetTunnelTest(FaucetMultiDPTest):
             }
         }
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super(FaucetTunnelTest, self).set_up(
             stack=True,
             n_dps=self.NUM_DPS,

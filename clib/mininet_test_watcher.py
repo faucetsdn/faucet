@@ -174,8 +174,8 @@ class TopologyWatcher():
             for dst in dsts:
                 dst_host = self.host_information[dst]['host'].name
                 curr_graph = self.host_connectivity_graph
-                if (src_host in curr_graph.nodes() and dst_host in curr_graph.nodes()
-                        and dst_host not in curr_graph.neighbors(src_host)):
+                if (src_host in curr_graph.nodes() and dst_host in curr_graph.nodes() and (
+                        dst_host not in curr_graph.neighbors(src_host))):
                     return False
         return True
 

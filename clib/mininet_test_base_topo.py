@@ -5,7 +5,7 @@ import re
 import time
 import ipaddress
 from functools import partial
-import yaml # pytype: disable=pyi-error
+import yaml  # pytype: disable=pyi-error
 
 from clib.mininet_test_util import timeout_cmd
 from clib.mininet_test_base import FaucetTestBase, IPV4_ETH
