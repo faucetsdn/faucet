@@ -21,6 +21,11 @@ import pytricia
 from faucet.conf import Conf, test_config_condition
 
 
+class _PyTricia(pytricia.PyTricia):
+    def __repr__(self):
+        return str([(k, self[k]) for k in sorted(self.keys())])
+
+
 class Router(Conf):
     """Implement FAUCET configuration for a router."""
 
@@ -116,7 +121,7 @@ class Router(Conf):
             for faucet_vip in vlan.faucet_vips:
                 ipv = faucet_vip.version
                 if ipv not in self.vip_map_by_ipv:
-                    self.vip_map_by_ipv[ipv] = pytricia.PyTricia(
+                    self.vip_map_by_ipv[ipv] = _PyTricia(
                         faucet_vip.ip.max_prefixlen)
                 self.vip_map_by_ipv[ipv][faucet_vip.network] = (
                     vlan, faucet_vip)

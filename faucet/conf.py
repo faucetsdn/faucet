@@ -124,7 +124,7 @@ class Conf:
     def _conf_keys(conf, dyn=False, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
         conf_keys = []
-        for key, value in conf.__dict__.items():
+        for key, value in sorted(conf.__dict__.items()):
             if not dyn and key.startswith('dyn'):
                 continue
             if not subconf and isinstance(value, Conf):
