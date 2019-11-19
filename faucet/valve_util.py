@@ -77,6 +77,7 @@ DEFAULTS = {
     'FAUCET_LOG_LEVEL': 'INFO',
     'FAUCET_LOG': _PREFIX + '/var/log/faucet/faucet.log',
     'FAUCET_EVENT_SOCK': '',  # Special-case, see get_setting().
+    'FAUCET_EVENT_SOCK_HEARTBEAT': 0,  # Special-case, see get_setting().
     'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/faucet/faucet_exception.log',
     'FAUCET_PROMETHEUS_PORT': '9302',
     'FAUCET_PROMETHEUS_ADDR': '0.0.0.0',
@@ -128,6 +129,9 @@ def get_setting(name, path_eval=False):
             return ''
         if _cast_bool(result):
             return _PREFIX + '/var/run/faucet/faucet.sock'
+    if name == 'FAUCET_EVENT_SOCK_HEARTBEAT':
+        if result == '0':
+            return 0
     return result
 
 
