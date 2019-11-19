@@ -102,7 +102,7 @@ class Faucet(RyuAppBase):
     metrics = None
     notifier = None
     valves_manager = None
-    event_socket_heartbeat_time = 0 #seconds
+    event_socket_heartbeat_time = 0
 
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
