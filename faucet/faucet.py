@@ -73,6 +73,7 @@ class EventFaucetAdvertise(event.EventBase):  # pylint: disable=too-few-public-m
 class EventFaucetFastAdvertise(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger periodic fast network advertisements (eg LACP)."""
 
+
 class EventFaucetEventSockHeartbeat(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger periodic events on event sock, causing it to raise an exception if conn is broken."""
 
@@ -118,9 +119,9 @@ class Faucet(RyuAppBase):
             self.logname, self.logger, self.metrics, self.notifier, self.bgp,
             self.dot1x, self.get_setting('CONFIG_AUTO_REVERT'), self._send_flow_msgs)
         self.thread_managers = (self.bgp, self.dot1x, self.metrics, self.notifier)
-        self.event_socket_heartbeat_time = int(self.get_setting('EVENT_SOCK_HEARTBEAT') or 0)
-        if self.event_socket_heartbeat_time > 0:
-            self._VALVE_SERVICES[EventFaucetEventSockHeartbeat] = ('event_sock_heartbeat', self.event_socket_heartbeat_time)
+        self.event_sock_hrtbeat_time = int(self.get_setting('EVENT_SOCK_HEARTBEAT') or 0)
+        if self.event_sock_hrtbeat_time > 0:
+            self._VALVE_SERVICES[EventFaucetEventSockHeartbeat] = ('event_sock_heartbeat', self.event_sock_hrtbeat_time)
 
     @kill_on_exception(exc_logname)
     def _check_thread_exception(self):
