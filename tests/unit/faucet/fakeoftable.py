@@ -13,15 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+import argparse
+import json
+import ast
 from bitstring import Bits
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
+from ryu.ofproto import ofproto_parser as ofp_parser
 from ryu.lib import addrconv
 
 
 class FakeOFTableException(Exception):
-
-    pass
+    """Indicates an erroneous flow or group mod"""
 
 
 class FakeOFTable:
@@ -32,7 +36,7 @@ class FakeOFTable:
     is_output.
     """
 
-    def __init__(self, num_tables, requires_tfm=True):
+    def __init__(self, num_tables=1, requires_tfm=True):
         self.tables = [[] for _ in range(0, num_tables)]
         self.groups = {}
         self.requires_tfm = requires_tfm
@@ -113,7 +117,7 @@ class FakeOFTable:
                 if flowmod.fte_matches(fte, strict=True):
                     table.remove(fte)
                     break
-                elif flowmod.overlaps(fte):
+                if flowmod.overlaps(fte):
                     raise FakeOFTableException(
                         'Overlapping flowmods {} and {}'.format(
                             flowmod, fte))
@@ -176,6 +180,18 @@ class FakeOFTable:
     def _apply_tfm(self, ofmsg):
         self.tfm = {body.table_id: body for body in ofmsg.body}
 
+    def _apply_flowstats(self, ofmsg):
+        """Update state of flow tables to match an OFPFlowStatsReply message.
+
+        This assumes a tfm is not required."""
+        self.tables = []
+        self.requires_tfm = False
+        self.tfm = {}
+        for stat in ofmsg.body:
+            while len(self.tables) <= stat.table_id:
+                self.tables.append([])
+            self.tables[stat.table_id].append(FlowMod(stat))
+
     def apply_ofmsgs(self, ofmsgs):
         """Update state of test flow tables."""
         for ofmsg in ofmsgs:
@@ -200,6 +216,10 @@ class FakeOFTable:
                 continue
             if isinstance(ofmsg, parser.OFPFlowMod):
                 self._apply_flowmod(ofmsg)
+                self.sort_tables()
+                continue
+            if isinstance(ofmsg, parser.OFPFlowStatsReply):
+                self._apply_flowstats(ofmsg)
                 self.sort_tables()
                 continue
             raise FakeOFTableException('Unsupported flow %s' % str(ofmsg))
@@ -276,17 +296,19 @@ class FakeOFTable:
             if port is None:
                 return True
             in_port = match.get('in_port')
+            result = None
             if action.port == port:
                 if port == in_port:
-                    return None
-                if vid is None:
-                    return True
-                if vid & ofp.OFPVID_PRESENT == 0:
-                    return not vid_stack
-                return vid_stack and vid == vid_stack[-1]
-            if action.port == ofp.OFPP_IN_PORT and port == in_port:
-                return True
-            return None
+                    result = None
+                elif vid is None:
+                    result = True
+                elif vid & ofp.OFPVID_PRESENT == 0:
+                    result = not vid_stack
+                else:
+                    result = vid_stack and vid == vid_stack[-1]
+            elif action.port == ofp.OFPP_IN_PORT and port == in_port:
+                result = True
+            return result
 
         def _process_vid_stack(action, vid_stack):
             if action.type == ofp.OFPAT_PUSH_VLAN:
@@ -368,6 +390,7 @@ class FlowMod:
         )
     IPV4_MATCH_FIELDS = ('ipv4_src', 'ipv4_dst', 'arp_spa', 'arp_tpa')
     IPV6_MATCH_FIELDS = ('ipv6_src', 'ipv6_dst', 'ipv6_nd_target')
+    HEX_FIELDS = ('eth_type')
 
     def __init__(self, flowmod):
         """flowmod is a ryu flow modification message object"""
@@ -378,9 +401,11 @@ class FlowMod:
         self.match_values = {}
         self.match_masks = {}
         self.out_port = None
-        if (flowmod.command in (ofp.OFPFC_DELETE, ofp.OFPFC_DELETE_STRICT))\
-                and flowmod.out_port != ofp.OFPP_ANY:
-            self.out_port = flowmod.out_port
+        # flowmod can be an OFPFlowMod or an OFPStats
+        if isinstance(flowmod, parser.OFPFlowMod):
+            if flowmod.command in (ofp.OFPFC_DELETE, ofp.OFPFC_DELETE_STRICT)\
+                    and flowmod.out_port != ofp.OFPP_ANY:
+                self.out_port = flowmod.out_port
 
         for key, val in flowmod.match.items():
             if isinstance(val, tuple):
@@ -498,6 +523,19 @@ class FlowMod:
             return _val_to_bits(addrconv.ipv6.text_to_bin, val, 128)
         return Bits(int=int(val), length=64)
 
+    def bits_to_str(self, key, val):
+        if key in self.MAC_MATCH_FIELDS:
+            result = addrconv.mac.bin_to_text(val.tobytes())
+        elif key in self.IPV4_MATCH_FIELDS:
+            result = addrconv.ipv4.bin_to_text(val.tobytes())
+        elif key in self.IPV6_MATCH_FIELDS:
+            result = addrconv.ipv6.bin_to_text(val.tobytes())
+        elif key in self.HEX_FIELDS:
+            result = str(val.hex.lstrip('0'))
+        else:
+            result = str(val.int)
+        return result
+
     def __lt__(self, other):
         return self.priority < other.priority
 
@@ -506,7 +544,93 @@ class FlowMod:
                 self.out_port == other.out_port and
                 self.instructions == other.instructions)
 
+    def _pretty_field_str(self, key, value, mask=None):
+        mask_str = ""
+        if key == 'vlan_vid':
+            value_int = value
+            mask_int = mask
+            if isinstance(value, Bits):
+                value_int = value.int
+            if isinstance(mask, Bits):
+                mask_int = mask.int
+            elif mask is None:
+                mask_int = -1
+            if value_int & ofp.OFPVID_PRESENT == 0:
+                result = 'vlan untagged'
+            elif key == 'vlan_vid' and mask_int == ofp.OFPVID_PRESENT:
+                result = 'vlan tagged'
+            else:
+                result = str(value_int ^ ofp.OFPVID_PRESENT)
+                if mask_int != -1:
+                    mask_str = str(mask_int ^ ofp.OFPVID_PRESENT)
+        elif isinstance(value, Bits):
+            result = self.bits_to_str(key, value)
+            if mask is not None and mask.int != -1:
+                mask_str = self.bits_to_str(key, mask)
+        elif isinstance(value, str):
+            result = value
+            if mask is not None:
+                mask_str = mask
+        elif isinstance(value, int):
+            if key in self.HEX_FIELDS:
+                result = hex(value)
+                if mask is not None and mask != -1:
+                    mask_str = hex(mask)
+            else:
+                result = str(value)
+                if mask is not None and mask != -1:
+                    mask_str = str(mask)
+        if mask_str:
+            result += "/{}".format(mask_str)
+        return result
+
+    def _pretty_action_str(self, action):
+        actions_names_attrs = {
+            parser.OFPActionPushVlan.__name__: ('push_vlan', 'ethertype'),
+            parser.OFPActionPopVlan.__name__: ('pop_vlan', None),
+            parser.OFPActionGroup.__name__: ('group', 'group_id'),
+            }
+        value = None
+        if isinstance(action, parser.OFPActionOutput):
+            name = 'output'
+            if action.port == 4294967293:
+                value = 'controller'
+            else:
+                value = str(action.port)
+        elif isinstance(action, parser.OFPActionSetField):
+            name = 'set_{}'.format(action.key)
+            value = self._pretty_field_str(action.key, action.value)
+        else:
+            name, attr = actions_names_attrs[type(action).__name__]
+            if attr:
+                value = getattr(action, attr)
+        result = name
+        if value:
+            result += " {}".format(value)
+        return result
+
     def __str__(self):
+        result = 'Priority: {0} | Match: '.format(self.priority)
+
+        for key in sorted(self.match_values.keys()):
+            val = self.match_values[key]
+            mask = self.match_masks[key]
+            result += " {} {},".format(
+                key, self._pretty_field_str(key, val, mask))
+        result = result.rstrip(',')
+        result += " | Instructions :"
+        if not self.instructions:
+            result += ' drop'
+        for instruction in self.instructions:
+            if isinstance(instruction, parser.OFPInstructionGotoTable):
+                result += ' goto {}'.format(instruction.table_id)
+            elif isinstance(instruction, parser.OFPInstructionActions):
+                for action in instruction.actions:
+                    result += " {},".format(self._pretty_action_str(action))
+        result = result.rstrip(',')
+        return result
+
+    def __repr__(self):
         string = 'priority: {0} cookie: {1}'.format(self.priority, self.cookie)
         for key in sorted(self.match_values.keys()):
             mask = self.match_masks[key]
@@ -515,3 +639,131 @@ class FlowMod:
                 string += '/{0}'.format(mask)
         string += ' Instructions: {0}'.format(str(self.instructions))
         return string
+
+
+class FakeRyuDp:  # pylint: disable=too-few-public-methods
+    """Fake ryu Datapath object.
+
+    Just needed to provide a parser to allow us to extract ryu objects from
+    JSON
+    """
+    def __init__(self):
+        self.ofproto_parser = parser
+
+
+def parse_print_args():
+    """Parse arguments for the print command"""
+    arg_parser = argparse.ArgumentParser(
+        prog='fakeoftable',
+        description='Prints a JSON flow table in a human readable format',
+        usage="""
+    Print a flow table in a human readable format
+    {self} print -f FILE
+""".format(self=sys.argv[0])
+        )
+    arg_parser.add_argument(
+        '-f',
+        '--file',
+        help='file containing an OFPFlowStatsReply message in JSON format'
+        )
+    args = arg_parser.parse_args(sys.argv[2:])
+    return {'filename': args.file}
+
+
+def parse_probe_args():
+    """Parse arguments for the probe command"""
+    arg_parser = argparse.ArgumentParser(
+        prog='fakeoftable',
+        description='Performs a packet lookup on a JSON openflow table',
+        usage="""
+    Find the flow table entries in a given flow table that match a given packet
+    {self} probe -f FILE -p PACKET_STRING
+""".format(self=sys.argv[0])
+        )
+    arg_parser.add_argument(
+        '-p',
+        '--packet',
+        metavar='PACKET_STRING',
+        help=(
+            '''string representation of a packet dictionary eg. '''
+            '''"{'in_port': 1, 'eth_dst': '01:80:c2:00:00:02', 'eth_type': '''
+            '''34825}"''')
+        )
+    arg_parser.add_argument(
+        '-f',
+        '--file',
+        metavar='FILE',
+        help='file containing an OFPFlowStatsReply message in JSON format'
+        )
+    args = arg_parser.parse_args(sys.argv[2:])
+    packet = args.packet
+    packet = ast.literal_eval(args.packet)
+    # fix vlan vid
+    if 'vlan_vid' in packet:
+        packet['vlan_vid'] |= ofp.OFPVID_PRESENT
+    return {'packet': packet, 'filename': args.file}
+
+
+def parse_args():
+    """parse arguments"""
+    arg_parser = argparse.ArgumentParser(
+        prog='fakeoftable',
+        description='Performs operations on JSON openflow tables',
+        usage="""
+    {self} <command> <args>
+
+""".format(self=sys.argv[0])
+        )
+    arg_parser.add_argument(
+        'command',
+        help='Subcommand, either "print" or "probe"'
+        )
+    args = arg_parser.parse_args(sys.argv[1:2])
+    try:
+        if args.command == 'probe':
+            command_args = parse_probe_args()
+        elif args.command == 'print':
+            command_args = parse_print_args()
+    except (KeyError, IndexError, ValueError, AttributeError) as err:
+        print(err)
+        arg_parser.print_help()
+        sys.exit(-1)
+    return (args.command, command_args)
+
+
+def _print(filename):
+    """Prints the JSON flow table from a file in a human readable format"""
+    with open(filename, 'r') as f:
+        msg = json.load(f)
+    dp = FakeRyuDp()
+    ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
+    table = FakeOFTable()
+    table.apply_ofmsgs([ofmsg])
+    print(table)
+
+
+def probe(filename, packet):
+    """Prints the actions applied to packet by the table from the file"""
+    with open(filename, 'r') as f:
+        msg = json.load(f)
+    dp = FakeRyuDp()
+    ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
+    table = FakeOFTable()
+    table.apply_ofmsgs([ofmsg])
+    instructions, out_packet = table.lookup(packet)
+    print(packet)
+    for instruction in instructions:
+        print(instruction)
+    print(out_packet)
+
+
+def main():
+    command, kwargs = parse_args()
+    if command == 'probe':
+        probe(**kwargs)
+    elif command == 'print':
+        _print(**kwargs)
+
+
+if __name__ == '__main__':
+    main()
