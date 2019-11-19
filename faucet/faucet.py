@@ -118,7 +118,7 @@ class Faucet(RyuAppBase):
             self.logname, self.logger, self.metrics, self.notifier, self.bgp,
             self.dot1x, self.get_setting('CONFIG_AUTO_REVERT'), self._send_flow_msgs)
         self.thread_managers = (self.bgp, self.dot1x, self.metrics, self.notifier)
-        self.event_socket_heartbeat_time = int(self.get_setting('EVENT_SOCK_HEARTBEAT'))
+        self.event_socket_heartbeat_time = int(self.get_setting('EVENT_SOCK_HEARTBEAT') or 0)
         if self.event_socket_heartbeat_time > 0:
             self._VALVE_SERVICES[EventFaucetEventSockHeartbeat] = ('event_sock_heartbeat', self.event_socket_heartbeat_time)
 
