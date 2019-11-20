@@ -2,6 +2,7 @@
 
 import random
 import networkx
+import unittest
 
 from clib.mininet_test_topo_generator import FaucetTopoGenerator
 from clib.mininet_test_watcher import TopologyWatcher
@@ -335,6 +336,7 @@ class FaucetSingleFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
         self.network_function(fault_events)
 
 
+@unittest.skip('6 DP too much for travis')
 class FaucetSingleFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 6 DPs"""
 
