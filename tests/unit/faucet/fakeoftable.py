@@ -546,15 +546,15 @@ class FlowMod:
 
     def _pretty_field_str(self, key, value, mask=None):
         mask_str = ""
+        value_int = value
+        mask_int = mask
+        if isinstance(value, Bits):
+            value_int = value.int
+        if isinstance(mask, Bits):
+            mask_int = mask.int  # pytype: disable=attribute-error
+        elif mask is None:
+            mask_int = -1
         if key == 'vlan_vid':
-            value_int = value
-            mask_int = mask
-            if isinstance(value, Bits):
-                value_int = value.int
-            if isinstance(mask, Bits):
-                mask_int = mask.int
-            elif mask is None:
-                mask_int = -1
             if value_int & ofp.OFPVID_PRESENT == 0:
                 result = 'vlan untagged'
             elif key == 'vlan_vid' and mask_int == ofp.OFPVID_PRESENT:
@@ -565,7 +565,7 @@ class FlowMod:
                     mask_str = str(mask_int ^ ofp.OFPVID_PRESENT)
         elif isinstance(value, Bits):
             result = self.bits_to_str(key, value)
-            if mask is not None and mask.int != -1:
+            if mask is not None and mask_int != -1:
                 mask_str = self.bits_to_str(key, mask)
         elif isinstance(value, str):
             result = value
@@ -658,8 +658,8 @@ def parse_print_args():
         description='Prints a JSON flow table in a human readable format',
         usage="""
     Print a flow table in a human readable format
-    {self} print -f FILE
-""".format(self=sys.argv[0])
+    {argv0} print -f FILE
+""".format(argv0=sys.argv[0])
         )
     arg_parser.add_argument(
         '-f',
@@ -677,8 +677,8 @@ def parse_probe_args():
         description='Performs a packet lookup on a JSON openflow table',
         usage="""
     Find the flow table entries in a given flow table that match a given packet
-    {self} probe -f FILE -p PACKET_STRING
-""".format(self=sys.argv[0])
+    {argv0} probe -f FILE -p PACKET_STRING
+""".format(argv0=sys.argv[0])
         )
     arg_parser.add_argument(
         '-p',
@@ -710,9 +710,9 @@ def parse_args():
         prog='fakeoftable',
         description='Performs operations on JSON openflow tables',
         usage="""
-    {self} <command> <args>
+    {argv0} <command> <args>
 
-""".format(self=sys.argv[0])
+""".format(argv0=sys.argv[0])
         )
     arg_parser.add_argument(
         'command',

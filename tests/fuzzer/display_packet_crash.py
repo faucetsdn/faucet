@@ -33,7 +33,7 @@ def main():
     # create data from read file
     byte_data = None
     try:
-        byte_data = bytearray.fromhex(packet_data) # pytype: disable=missing-parameter, disable=wrong-arg-types
+        byte_data = bytearray.fromhex(packet_data)  # pytype: disable=missing-parameter,wrong-arg-types
     except (ValueError, TypeError):
         pass
 

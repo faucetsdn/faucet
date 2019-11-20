@@ -1,6 +1,7 @@
 # Source tutorial 'helper' functions into shell environment
+TOPDIR=$(dirname $BASH_SOURCE)
 
-. docs/_static/tutorial/as_ns
-. docs/_static/tutorial/create_ns
-. docs/_static/tutorial/add_tagged_interface
-. docs/_static/tutorial/cleanup
+. $TOPDIR/docs/_static/tutorial/as_ns
+. $TOPDIR/docs/_static/tutorial/create_ns
+. $TOPDIR/docs/_static/tutorial/add_tagged_interface
+. $TOPDIR/docs/_static/tutorial/cleanup

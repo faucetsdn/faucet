@@ -180,7 +180,7 @@ of a single switch with two ports.
        entire faucet configuration that would be loaded (including any default
        settings), for example:
 
-       .. code:: json
+       .. code:: yaml
 
            [{'advertise_interval': 30,
              'arp_neighbor_timeout': 30,

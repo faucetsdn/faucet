@@ -17,6 +17,15 @@ CMD=bash
 ROOT=$(realpath $(dirname $0)/..)
 cd $ROOT
 
+sudo modprobe openvswitch
+sudo modprobe ebtables
+
+if which apparmor_status >&/dev/null ; then
+    if sudo apparmor_status --enabled ; then
+        sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump || :
+    fi
+fi
+
 sudo docker build --pull -t faucet/tests -f Dockerfile.tests  .
 
 echo
@@ -27,10 +36,13 @@ echo "  docker/runtests.sh"
 echo
 
 mkdir -p test_results
+mkdir -p /tmp/faucet-pip-cache
 
-sudo docker run -ti --privileged \
+sudo docker run -ti \
+     --privileged \
+     --sysctl net.ipv6.conf.all.disable_ipv6=0 \
      -v $PWD:/faucet-src \
      -v $PWD/test_results:/var/tmp \
+     -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
      -e FAUCET_TESTS="$FAUCET_TESTS" \
-     --sysctl net.ipv6.conf.all.disable_ipv6=0 \
      faucet/tests $CMD
