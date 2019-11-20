@@ -195,8 +195,7 @@ class FaucetSwitchTopo(Topo):
     def _get_sid_prefix(ports_served):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
-        # pytype: disable=module-attr
-        id_chars = ''.join(sorted(string.ascii_letters + string.digits))
+        id_chars = ''.join(sorted(string.ascii_letters + string.digits))  # pytype: disable=module-attr
         id_a = int(ports_served / len(id_chars))
         id_b = ports_served - (id_a * len(id_chars))
         return '%s%s' % (
