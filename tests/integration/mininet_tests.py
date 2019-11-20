@@ -7222,7 +7222,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
             conf['dps']['faucet-2']['interfaces'][port_key]['native_vlan'] = self.V300
         self.reload_conf(
             conf, self.faucet_config_path,
-            restart=True, cold_start=True, change_expected=True)
+            restart=True, cold_start=False, change_expected=True)
         self.verify_stack_up()
         self.set_host_ip(v100_host, v100_host_ip)
         self.set_host_ip(v200_host, v200_host_ip)
@@ -7259,7 +7259,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetStringOfDPTest):
                 conf['dps']['faucet-2']['interfaces'][port_key]['native_vlan'] = self.V300
         self.reload_conf(
             conf, self.faucet_config_path,
-            restart=True, cold_start=True, change_expected=True)
+            restart=True, cold_start=False, change_expected=True)
         self.verify_stack_up()
         self.set_host_ip(v100_host, v100_host_ip)
         self.set_host_ip(v200_host, v200_host_ip)
