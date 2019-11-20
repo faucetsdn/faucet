@@ -2,7 +2,9 @@
 
 from unittest import TestCase, main
 
-from clib.mininet_test_topo import FaucetStringOfDPSwitchTopo
+import networkx
+
+from clib.mininet_test_topo_generator import FaucetTopoGenerator
 from clib.mininet_test_util import flat_test_name
 
 
@@ -12,6 +14,7 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
     serial = 0
     maxDiff = None
     dpids = ['1', '2', '3']
+    vlan_vids = [100]
 
     def get_serialno(self, *_args, **_kwargs):
         """"Return mock serial number"""
@@ -30,17 +33,24 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
         return defaults
 
     def test_string_of_dp_sanity(self):
-        """FaucetStringOfDPSwitchTopo sanity test"""
+        """FaucetTopoGenerator sanity test"""
 
         # Create a basic string topo
-        peer_link = FaucetStringOfDPSwitchTopo.peer_link
+        n_dps = len(self.dpids)
+        n_tagged = 2
+        n_untagged = 2
+        peer_link = FaucetTopoGenerator.peer_link
+        host_links, host_vlans = FaucetTopoGenerator.tagged_untagged_hosts(
+            n_dps, n_tagged, n_untagged)
+        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
+            networkx.path_graph(n_dps), n_dp_links=2)
         args = self.string_of_dp_args(
-            n_tagged=2,
-            untagged_hosts={None: 2},
-            links_per_host=1,
-            switch_to_switch_links=2,
+            dp_links=dp_links,
+            host_links=host_links,
+            host_vlans=host_vlans,
+            vlan_vids=self.vlan_vids,
             start_port=1)
-        topo = FaucetStringOfDPSwitchTopo(**args)
+        topo = FaucetTopoGenerator(**args)
 
         # Verify switch ports
         ports = {dpid: topo.dpid_ports(dpid) for dpid in self.dpids}
@@ -82,18 +92,24 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
     def test_hw_remap(self):
         """Test remapping of attachment bridge port numbers to hw port numbers"""
         # Create a basic string topo
-        peer_link = FaucetStringOfDPSwitchTopo.peer_link
+        peer_link = FaucetTopoGenerator.peer_link
         switch_map = {1:'p1', 2:'p2', 3:'p3', 4:'p4', 5:'p5', 6:'p6'}
+        n_dps = len(self.dpids)
+        n_tagged = 2
+        n_untagged = 2
+        host_links, host_vlans = FaucetTopoGenerator.tagged_untagged_hosts(
+            n_dps, n_tagged, n_untagged)
+        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
+            networkx.path_graph(n_dps), n_dp_links=2)
         args = self.string_of_dp_args(
-            n_tagged=2,
-            untagged_hosts={None: 2},
-            links_per_host=1,
-            switch_to_switch_links=2,
+            dp_links=dp_links,
+            host_links=host_links,
+            host_vlans=host_vlans,
+            vlan_vids=self.vlan_vids,
             start_port=5,
             hw_dpid='1',
-            switch_map=switch_map
-        )
-        topo = FaucetStringOfDPSwitchTopo(**args)
+            switch_map=switch_map)
+        topo = FaucetTopoGenerator(**args)
 
         # Verify switch ports
         switch_ports = {dpid: topo.dpid_ports(dpid) for dpid in self.dpids}
