@@ -551,7 +551,7 @@ class FlowMod:
         if isinstance(value, Bits):
             value_int = value.int
         if isinstance(mask, Bits):
-            mask_int = mask.int # pytype: disable=attribute-error
+            mask_int = mask.int  # pytype: disable=attribute-error
         elif mask is None:
             mask_int = -1
         if key == 'vlan_vid':
