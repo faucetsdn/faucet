@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # See https://docs.travis-ci.com/user/environment-variables/#convenience-variables
 echo TRAVIS_BRANCH: $TRAVIS_BRANCH
 echo TRAVIS_COMMIT: $TRAVIS_COMMIT
@@ -45,8 +44,10 @@ if [ "${MATRIX_SHARD}" == "unittest" ] ; then
   exit 0
 elif [ "${MATRIX_SHARD}" == "sanity" ] ; then
   FAUCET_TESTS="-u FaucetSanityTest"
+elif [ "${MATRIX_SHARD}" == "fault-tolerance"] ; then
+  FAUCET_TESTS="-t"
 else
-  ALLTESTFILES="tests/integration/mininet_tests.py clib/clib_mininet_tests.py"
+  ALLTESTFILES="tests/integration/mininet_tests.py tests/integration/mininet_multidp_tests.py clib/clib_mininet_tests.py"
   ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" ${ALLTESTFILES}|cut -f2 -d" "|sort`
   declare -A sharded
 
