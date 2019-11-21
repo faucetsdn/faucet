@@ -92,8 +92,11 @@ class TopologyWatcher():
             dsti: Destination dpid index of the switch link
             name: Fault event name
         """
-        self.predicted_network_graph.remove_edge(self.dpids[srci], self.dpids[dsti])
-        self.add_fault(name)
+        try:
+            self.predicted_network_graph.remove_edge(self.dpids[srci], self.dpids[dsti])
+            self.add_fault(name)
+        except networkx.exception.NetworkXError:
+            pass
 
     def add_switch_fault(self, i, name):
         """
@@ -102,8 +105,11 @@ class TopologyWatcher():
             i: dpid index of the switch
             name: Fault event name
         """
-        self.predicted_network_graph.remove_node(self.dpids[i])
-        self.add_fault(name)
+        try:
+            self.predicted_network_graph.remove_node(self.dpids[i])
+            self.add_fault(name)
+        except networkx.exception.NetworkXError:
+            pass
 
     def get_eligable_link_events(self):
         """Return list of available stack links to take down"""

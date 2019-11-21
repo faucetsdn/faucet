@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import random
-import networkx
 import unittest
+import networkx
 
 from clib.mininet_test_topo_generator import FaucetTopoGenerator
 from clib.mininet_test_watcher import TopologyWatcher
@@ -24,7 +24,8 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
     fault_events = None
     # Number of faults to occur before recalculating connectivity
     num_faults = 1
-
+    # Fault-tolerance tests will only work in software
+    SOFTWARE_ONLY = True
     # Randomization variables
     seed = 0
     rng = None
@@ -32,16 +33,21 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
     def setUp(self):
         pass
 
-    def set_up(self, n_dps, n_vlans, dp_links, stack_roots):
+    def set_up(self, n_dps, n_vlans, dp_links, stack_roots,
+               host_links=None, host_vlans=None, host_options=None):
         """
         Args:
             n_dps: Number of DPS to generate
             n_vlans: Number of VLANs to generate
             dp_links (dict): Topology to deploy
             stack_roots (dict): Stack root values for respective stack root DPS
+            host_links (dict): (optional)
+            host_vlans (dict): (optional)
+            host_options (dict): (optional)
         """
         super(FaucetFaultToleranceBaseTest, self).setUp()
-        host_links, host_vlans = FaucetTopoGenerator.untagged_vlan_hosts(n_dps, n_vlans)
+        if not host_links or not host_vlans:
+            host_links, host_vlans = FaucetTopoGenerator.untagged_vlan_hosts(n_dps, n_vlans)
         vlan_options = {}
         for i in range(n_vlans):
             vlan_options[i] = {
@@ -62,16 +68,16 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             n_dps=n_dps, n_vlans=n_vlans, dp_links=dp_links,
             host_links=host_links, host_vlans=host_vlans,
             stack_roots=stack_roots, vlan_options=vlan_options,
-            dp_options=dp_options, routers=routers)
+            dp_options=dp_options, routers=routers, host_options=host_options)
         self.start_net()
 
-    def _ip_ping(self, host, dst, retries=3, timeout=500,
-                 fping_bin='fping', intf=None, expected_result=True, count=5,
+    def _ip_ping(self, host, dst, retries=3, timeout=1000,
+                 fping_bin='fping', intf=None, expected_result=True, count=1,
                  require_host_learned=False):
         """Override: ping a destination from a host"""
         try:
             super(FaucetFaultToleranceBaseTest, self)._ip_ping(
-                host, dst, retries, timeout, fping_bin, intf,
+                host, dst, retries, timeout*self.NUM_DPS, fping_bin, intf,
                 expected_result, count, require_host_learned)
         except AssertionError as error:
             if self.INSTANT_FAIL:
@@ -253,6 +259,7 @@ class FaucetSingleFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 2 DPs"""
 
     NUM_DPS = 2
+    NUM_HOSTS = 2
 
     def test_2_line(self):
         """Only topology worth testing on 2 DP is a path"""
@@ -269,6 +276,7 @@ class FaucetSingleFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 3 DPs"""
 
     NUM_DPS = 3
+    NUM_HOSTS = 3
 
     def test_3_line(self):
         """Test fault-tolerance of a path of length 3"""
@@ -295,52 +303,97 @@ class FaucetSingleFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 4 DPs"""
 
     NUM_DPS = 4
+    NUM_HOSTS = 4
 
     def test_4_node_ring_links(self):
         """Test fault-tolerance of a 4-cycle graph"""
-        n_dps = 4
         n_vlans = 1
         stack_roots = {0: 1}
         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
-            networkx.cycle_graph(n_dps))
-        self.set_up(n_dps, n_vlans, dp_links, stack_roots)
+            networkx.cycle_graph(self.NUM_DPS))
+        self.set_up(self.NUM_DPS, n_vlans, dp_links, stack_roots)
         self.network_function()
 
-    def test_fat_tree_2_all_random_switch_failures(self):
-        """Test randomly tearing down only switches for a 4-cycle/2-fat tree pod"""
-        n_dps = 4
+    def test_ftp2_all_random_switch_failures(self):
+        """Test fat-tree-pod-2 randomly tearing down only switches"""
         n_vlans = 1
-        fault_events = [
-            (self.random_switch_fault, (None,)),
-            (self.random_switch_fault, (None,)),
-            (self.random_switch_fault, (None,)),
-            (self.random_switch_fault, (None,))
-        ]
-        stack_roots = {i: 1 for i in range(n_dps//2)}
+        fault_events = [(self.random_switch_fault, (None,)) for _ in range(self.NUM_DPS)]
+        stack_roots = {2*i: 1 for i in range(self.NUM_DPS//2)}
         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
-            networkx.cycle_graph(n_dps))
-        self.set_up(n_dps, n_vlans, dp_links, stack_roots)
-        self.network_function(fault_events)
+            networkx.cycle_graph(self.NUM_DPS))
+        self.set_up(self.NUM_DPS, n_vlans, dp_links, stack_roots)
+        self.network_function(fault_events=fault_events)
 
-    def test_fat_tree_2_single_switch_failure(self):
-        """Test tearing down the first switch (a root node) for a 4-cycle/2-fat tree pod"""
-        n_dps = 4
+    def test_ftp2_all_random_link_failures(self):
+        """Test fat-tree-pod-2 randomly tearing down only switch-switch links"""
         n_vlans = 1
-        fault_events = [
-            (self.create_switch_fault, (0,))
-        ]
-        stack_roots = {i: 1 for i in range(n_dps//2)}
         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
-            networkx.cycle_graph(n_dps))
-        self.set_up(n_dps, n_vlans, dp_links, stack_roots)
-        self.network_function(fault_events)
+            networkx.cycle_graph(self.NUM_DPS))
+        fault_events = [(self.random_dp_link_fault, (None,)) for _ in range(len(dp_links))]
+        stack_roots = {2*i: 1 for i in range(self.NUM_DPS//2)}
+        self.set_up(self.NUM_DPS, n_vlans, dp_links, stack_roots)
+        self.network_function(fault_events=fault_events)
+
+    def test_ftp2_edge_root_link_fault(self):
+        """Test fat-tree-pod-2 breaking a link between a edge switch to the root aggregation switch"""
+        n_vlans = 1
+        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
+            networkx.cycle_graph(self.NUM_DPS))
+        fault_events = [(self.dp_link_fault, (0, 3))]
+        stack_roots = {2*i: i+1 for i in range(self.NUM_DPS//2)}
+        self.set_up(self.NUM_DPS, n_vlans, dp_links, stack_roots)
+        self.network_function(fault_events=fault_events)
+
+    def test_ftp2_destroying_one_of_each_link(self):
+        """Test tearing down one of each link for a fat-tree-pod-2 with redundant edges"""
+        n_vlans = 1
+        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
+            networkx.cycle_graph(self.NUM_DPS), n_dp_links=2)
+        fault_events = []
+        for i in range(self.NUM_DPS):
+            j = i+1 if i+1 < self.NUM_DPS else 0
+            fault_events.append((self.dp_link_fault, (i, j)))
+        num_faults = len(fault_events)
+        stack_roots = {2*i: 1 for i in range(self.NUM_DPS//2)}
+        self.set_up(self.NUM_DPS, n_vlans, dp_links, stack_roots)
+        self.network_function(fault_events=fault_events, num_faults=num_faults)
+
+    def test_ftp2_external_host(self):
+        """Test fat-tree-pod-2 with an external host connected to both roots"""
+        n_vlans = 1
+        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
+            networkx.cycle_graph(self.NUM_DPS))
+        stack_roots = {2*i: 1 for i in range(self.NUM_DPS//2)}
+        host_links = {0: [0, 2], 1: [1], 2: [3]}
+        host_vlans = {0: 0, 1: 0, 2: 0}
+        host_options = {0: {'loop_protect_external': True}}
+        self.set_up(self.NUM_DPS, n_vlans, dp_links, stack_roots,
+                    host_links=host_links, host_vlans=host_vlans, host_options=host_options)
+        self.network_function()
 
 
-@unittest.skip('6 DP too much for travis')
+class FaucetFaultTolerance5DPTest(FaucetFaultToleranceBaseTest):
+    """Run a range of fault-tolerance tests for topologies on 6 DPs"""
+
+    NUM_DPS = 5
+    NUM_HOSTS = 5
+
+    def test_k23(self):
+        """Test fault-tolerance of a complete bipartite graph K_{2,3}"""
+        n_vlans = 1
+        stack_roots = {i: 1 for i in range(2)}
+        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
+            networkx.complete_bipartite_graph(2, 3))
+        self.set_up(self.NUM_DPS, n_vlans, dp_links, stack_roots)
+        self.network_function()
+
+
+@unittest.skip('6 DP expensive to run')
 class FaucetSingleFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 6 DPs"""
 
     NUM_DPS = 6
+    NUM_HOSTS = 6
 
     def test_fat_tree_3(self):
         """Test fault-tolerance of a 6-cycle/3-fat tree pod"""
@@ -363,7 +416,7 @@ class FaucetSingleFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
         self.network_function()
 
     def test_k33(self):
-        """Test fault-tolerance of a complete bipartite graph K_{n,m} n=m=3"""
+        """Test fault-tolerance of a complete bipartite graph K_{3,3}"""
         n_dps = 6
         n_vlans = 1
         stack_roots = {i: 1 for i in range(n_dps//2)}

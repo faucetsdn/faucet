@@ -81,7 +81,6 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTest):
     """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
-    NUM_HOSTS = 1
 
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
@@ -96,7 +95,6 @@ class FaucetSingleStackStringOfDPTagged1Test(FaucetMultiDPTest):
     """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
-    NUM_HOSTS = 1
 
     def test_tagged(self):
         self.set_up(
@@ -755,6 +753,8 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
     NETPREFIX = 24
     ETH_TYPE = IPV4_ETH
     NUM_DPS = 4
+    NUM_HOSTS = 8
+    SOFTWARE_ONLY = True
 
     def setUp(self):
         pass

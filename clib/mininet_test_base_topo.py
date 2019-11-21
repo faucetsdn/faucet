@@ -19,11 +19,13 @@ class FaucetTopoTestBase(FaucetTestBase):
         generators and produce a set of switch-switch links and host-switch links
     """
 
-    LINKS_PER_HOST = 1
     NETPREFIX = 24
     IPV = 4
     GROUP_TABLE = False
-    NUM_HOSTS = 1
+
+    NUM_DPS = 2
+    NUM_HOSTS = 4
+    LINKS_PER_HOST = 1
 
     dpids = None
     port_maps = None
