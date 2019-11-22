@@ -294,6 +294,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
         for valve in self.valves_manager.valves.values():
             self.assertFalse(valve.dp.dyn_running)
             self.assertEqual('s1', valve.dp.stack_root_name)
+            self.assertEqual(valve.dp.shortest_path_port('s1'),self.get_prom('dp_root_hop_port', bare=True))
         # From a cold start - we pick the s1 as root.
         self.assertEqual(None, self.valves_manager.meta_dp_state.stack_root_name)
         self.assertFalse(self.valves_manager.maintain_stack_root(now))
