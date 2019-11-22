@@ -432,6 +432,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
         other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
+        self.assertTrue(stack_port.is_stack_none())
         self.valve.fast_state_expire(self.mock_time(), other_valves)
         self.assertTrue(stack_port.is_stack_init())
         for change_func, check_func in [

@@ -25,6 +25,7 @@ STACK_STATE_INIT = 1
 STACK_STATE_BAD = 2
 STACK_STATE_UP = 3
 STACK_STATE_GONE = 4
+STACK_STATE_NONE = -1
 
 LACP_STATE_NONE = 0
 LACP_STATE_INIT = 1
@@ -206,7 +207,7 @@ class Port(Conf):
         self.dyn_lldp_beacon_recv_time = None
         self.dyn_learn_ban_count = 0
         self.dyn_phys_up = False
-        self.dyn_stack_current_state = STACK_STATE_INIT
+        self.dyn_stack_current_state = STACK_STATE_NONE
         self.dyn_stack_probe_info = {}
 
         self.tagged_vlans = []
@@ -411,6 +412,10 @@ class Port(Conf):
     def is_stack_admin_down(self):
         """Return True if port is in ADMIN_DOWN state."""
         return self.dyn_stack_current_state == STACK_STATE_ADMIN_DOWN
+
+    def is_stack_none(self):
+        """Return True if port is in NONE state."""
+        return self.dyn_stack_current_state == STACK_STATE_NONE
 
     def is_stack_init(self):
         """Return True if port is in INIT state."""
