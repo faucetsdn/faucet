@@ -546,7 +546,7 @@ class Valve:
 
         last_seen_lldp_time = port.dyn_stack_probe_info.get('last_seen_lldp_time', None)
         if last_seen_lldp_time is None:
-            if port.is_stack_init():
+            if port.is_stack_none():
                 next_state = port.stack_init
                 self.logger.info('Stack %s new, state INIT' % port)
             return next_state
