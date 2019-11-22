@@ -617,8 +617,9 @@ class Valve:
                 for port in valve.dp.stack_ports:
                     ofmsgs_by_valve[valve].extend(valve.host_manager.del_port(port))
                 path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
-                notify_dps.setdefault(valve.dp.name, {})['root_hop_port'] = (
-                    path_port.number if path_port else None)
+                path_port_number = path_port.number if path_port else 0.0
+                self._set_var('dp_root_hop_port', path_port_number)
+                notify_dps.setdefault(valve.dp.name, {})['root_hop_port'] = path_port_number
 
             # Find the first valve with a valid stack and trigger notification.
             for valve in stacked_valves:
