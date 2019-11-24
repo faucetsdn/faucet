@@ -151,6 +151,9 @@ class FaucetMetrics(PromClient):
         self.dp_status = self._dpid_gauge(
             'dp_status',
             'status of datapaths')
+        self.dp_root_hop_port = self._dpid_gauge(
+            'dp_root_hop_port',
+            'port that leads to stack root DP')
         self.of_dp_desc_stats = self._gauge(
             'of_dp_desc_stats',
             'DP description (OFPDescStatsReply)',
