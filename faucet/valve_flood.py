@@ -641,8 +641,8 @@ class ValveFloodStackManagerBase(ValveFloodManager):
         # No other DP has learned locally, but at least one has learned externally.
         if other_external_dp_entries:
             entry = pkt_meta.vlan.cached_host(pkt_meta.eth_src)
-            # This DP has not learned the host either or has learned it externally.
-            if entry is None or entry.port.loop_protect_external:
+            # This DP has not learned the host either, use other's external.
+            if entry is None:
                 return other_external_dp_entries[0]
         return None
 
