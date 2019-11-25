@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Topology components for FAUCET Mininet unit tests."""
 
 from collections import namedtuple
@@ -160,21 +159,18 @@ class VLANHost(FaucetHost):
 
     intf_root_name = None
 
-    def config(self, vlans=[100], **params):  # pylint: disable=arguments-differ
+    def config(self, vlan=100, **params):  # pylint: disable=arguments-differ
         """Configure VLANHost according to (optional) parameters:
-           vlans (list): List of VLAN IDs for default interface"""
+           vlan: VLAN ID for default interface"""
         super_config = super().config(**params)
         intf = self.defaultIntf()
-        vlan_intf_name = '%s.%s' % (intf, '.'.join(str(v) for v in vlans))
-        cmds = [
-            'ip -4 addr flush dev %s' % intf,
-            'ip -6 addr flush dev %s' % intf,
-            'ip link set dev %s up' % vlan_intf_name,
-            'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)
-        ]
-        for v in vlans:
-            cmds.append('vconfig add %s %d' % (intf, v))
-        for cmd in cmds:
+        vlan_intf_name = '%s.%d' % (intf, vlan)
+        for cmd in (
+                'ip -4 addr flush dev %s' % intf,
+                'ip -6 addr flush dev %s' % intf,
+                'vconfig add %s %d' % (intf, vlan),
+                'ip link set dev %s up' % vlan_intf_name,
+                'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)):
             self.cmd(cmd)
         self.intf_root_name = intf.name
         intf.name = vlan_intf_name
@@ -205,11 +201,11 @@ class FaucetSwitchTopo(Topo):
         return '%s%s' % (
             id_chars[id_a], id_chars[id_b])
 
-    def _add_tagged_host(self, sid_prefix, tagged_vids, host_n):
+    def _add_tagged_host(self, sid_prefix, tagged_vid, host_n):
         """Add a single tagged test host."""
         host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
         return self.addHost(
-            name=host_name, cls=VLANHost, vlans=tagged_vids, cpu=self.CPUF)
+            name=host_name, cls=VLANHost, vlan=tagged_vid, cpu=self.CPUF)
 
     def _add_untagged_host(self, sid_prefix, host_n, inNamespace=True): # pylint: disable=invalid-name
         """Add a single untagged test host."""
@@ -306,7 +302,7 @@ class FaucetSwitchTopo(Topo):
         for dpid in dpids:
             serialno = get_serialno(ports_sock, test_name)
             sid_prefix = self._get_sid_prefix(serialno)
-            tagged = [self._add_tagged_host(sid_prefix, [tagged_vid], host_n)
+            tagged = [self._add_tagged_host(sid_prefix, tagged_vid, host_n)
                       for host_n in range(n_tagged)]
             untagged = [self._add_untagged_host(
                 sid_prefix, host_n, host_namespace.get(host_n, True))
@@ -315,6 +311,98 @@ class FaucetSwitchTopo(Topo):
                         for host_n in range(n_extended)]
             switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
             self._add_links(switch, dpid, tagged + untagged + extended, links_per_host)
+
+
+class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
+    """String of datapaths each with hosts with a single FAUCET controller."""
+
+    switch_to_switch_links = 1
+
+    def dpid_peer_links(self, dpid):
+        """Return peer_link list for dpid, remapping if necessary"""
+        name = self.dpid_names[dpid]
+        links = [self.hw_remap_peer_link(dpid, link) for link in self.switch_peer_links[name]]
+        return links
+
+    # pylint: disable=too-many-locals,arguments-differ
+    def build(self, ovs_type, ports_sock, test_name, dpids,
+              n_tagged=0, tagged_vid=100, untagged_hosts=None,
+              links_per_host=0, switch_to_switch_links=1,
+              hw_dpid=None, switch_map=None,
+              stack_ring=False, start_port=SWITCH_START_PORT,
+              port_order=None, get_serialno=mininet_test_util.get_serialno):
+
+        """
+
+                               Hosts
+                               ||||
+                               ||||
+                 +----+       +----+       +----+
+              ---+1   |       |1234|       |   1+---
+        Hosts ---+2   |       |    |       |   2+--- Hosts
+              ---+3   |       |    |       |   3+---
+              ---+4  5+-------+5  6+-------+5  4+---
+                 +----+       +----+       +----+
+
+                 Faucet-1     Faucet-2     Faucet-3
+
+                   |            |            |
+                   |            |            |
+                   +-------- controller -----+
+
+        * s switches (above S = 3; for S > 3, switches are added to the chain)
+        * (n_tagged + n_untagged) hosts per switch
+        * (n_tagged + n_untagged + 1) links on switches 0 and s-1,
+          with final link being inter-switch
+        * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
+          with final two links being inter-switch
+        """
+        def addLinks(src, dst, next_index): # pylint: disable=invalid-name
+            """Add peer links from src switch to dst switch"""
+            self.switch_peer_links.setdefault(src, [])
+            self.switch_peer_links.setdefault(dst, [])
+            dpid1, dpid2 = self.switch_dpids[src], self.switch_dpids[dst]
+            for _ in range(self.switch_to_switch_links):
+                index1, index2 = next_index[src], next_index[dst]
+                port1, port2 = [self.start_port + self.port_order[i] for i in (index1, index2)]
+                self.addLink(src, dst, port1=port1, port2=port2)
+                # Update port and link lists
+                self.switch_ports[src].append(port1)
+                self.switch_ports[dst].append(port2)
+                self.switch_peer_links[src].append(self.peer_link(port1, dpid2, port2))
+                self.switch_peer_links[dst].append(self.peer_link(port2, dpid1, port1))
+                # Update next indices on src and dest
+                next_index[src] += 1
+                next_index[dst] += 1
+
+        n_untagged_hosts = sum(untagged_hosts.values()) if untagged_hosts else 0
+        self.hw_dpid = hw_dpid
+        self.hw_ports = sorted(switch_map) if switch_map else []
+        self.start_port = start_port
+        self.switch_to_switch_links = switch_to_switch_links
+        max_ports = (n_tagged + n_untagged_hosts) * links_per_host + 2*switch_to_switch_links
+        self.port_order = self.extend_port_order(port_order, max_ports)
+        self.switch_peer_links = {}
+
+        first_switch, last_switch, next_index = None, None, {}
+        for dpid in dpids:
+            serialno = get_serialno(ports_sock, test_name)
+            sid_prefix = self._get_sid_prefix(serialno)
+            tagged = [self._add_tagged_host(sid_prefix, tagged_vid, host_n)
+                      for host_n in range(n_tagged)]
+            untagged = [self._add_untagged_host(sid_prefix, host_n)
+                        for host_n in range(n_untagged_hosts)]
+            switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
+            next_index[switch] = self._add_links(switch, dpid, tagged + untagged, links_per_host)
+            if first_switch is None:
+                first_switch = switch
+            else:
+                # Add a switch-to-switch link with the previous switch,
+                # if this isn't the first switch in the topology.
+                addLinks(last_switch, switch, next_index)
+            last_switch = switch
+        if stack_ring:
+            addLinks(first_switch, last_switch, next_index)
 
 
 class BaseFAUCET(Controller):
