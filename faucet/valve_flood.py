@@ -375,6 +375,16 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 self.external_root_only = True
         self._reset_peer_distances()
 
+    def _build_flood_acts_for_port(self, vlan, exclude_unicast, port,  # pylint: disable=too-many-arguments
+                                   exclude_all_external=False,
+                                   exclude_restricted_bcast_arpnd=False):
+        if self.external_root_only:
+            exclude_all_external = True
+        return super(ValveFloodStackManagerBase, self)._build_flood_acts_for_port(
+            vlan, exclude_unicast, port,
+            exclude_all_external=exclude_all_external,
+            exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
+
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
         raise NotImplementedError
@@ -521,8 +531,6 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 for ext_port_flag, exclude_all_external in (
                         (valve_of.PCP_NONEXT_PORT_FLAG, True),
                         (valve_of.PCP_EXT_PORT_FLAG, False)):
-                    if self.external_root_only:
-                        exclude_all_external = True
                     if not prune:
                         flood_acts, _, _ = self._build_flood_acts_for_port(
                             vlan, exclude_unicast, port,
