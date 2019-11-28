@@ -7,32 +7,74 @@ MINCOVERAGE=85
 
 set -e  # quit on error
 
-# allow user to skip parts of docker test
-# this wrapper script only cares about -n, -u, -i, others passed to test suite.
-while getopts "cdijknrsuxozlp" o $FAUCET_TESTS; do
-  case "${o}" in
-        i)
+
+if [ -z "${FAUCET_TESTS}" ]; then
+  # If FAUCET_TESTS env var isn't set read arguments from argv
+  FAUCET_TESTS="$@"
+fi
+
+# Shorten long form arguments to make parsing easier
+FAUCET_TESTS_SHORTENED=""
+for opt in ${FAUCET_TESTS}; do
+  case "${opt}" in
+    --integration)
+      FAUCET_TESTS_SHORTENED+=" -i"
+      ;;
+    --nocheck)
+      FAUCET_TESTS_SHORTENED+=" -n"
+      ;;
+    *)
+      FAUCET_TESTS_SHORTENED+=" ${opt}"
+      ;;
+  esac
+done
+
+PARAMS=""
+
+# Parse options, some are used by this script, some are
+# passed onto mininet_main.py & clib_mininet_main.py
+for opt in ${FAUCET_TESTS_SHORTENED}; do
+  case "${opt}" in
+    --*)
+      PARAMS+=" ${opt}"
+      ;;
+    -*)
+      for (( i=1; i<${#opt}; i++ )); do
+        case "${opt:$i:1}" in
+          i)
             # run only integration tests
             UNITTESTS=0
             DEPCHECK=0
+            PARAMS+=" -${opt:$i:1}"
             ;;
-        n)
+          n)
             # skip code check
             DEPCHECK=0
+            PARAMS+=" -${opt:$i:1}"
             ;;
-        u)
+          u)
             # skip unit tests
             UNITTESTS=0
             ;;
-        z)
+          z)
             # Skip pip installer
             echo "Option set to assume environment is set up."
             SKIP_PIP=1
             ;;
-        *)
+          *)
+            PARAMS+=" -${opt:$i:1}"
             ;;
-    esac
+        esac
+      done
+      ;;
+    *)
+      PARAMS+=" ${opt}"
+      ;;
+  esac
 done
+
+# Remove leading space
+FAUCET_TESTS="${PARAMS#"${PARAMS%%[![:space:]]*}"}"
 
 cd /faucet-src
 
