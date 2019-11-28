@@ -3,6 +3,7 @@
 UNITTESTS=1
 DEPCHECK=1
 SKIP_PIP=0
+HELP=0
 MINCOVERAGE=85
 
 set -e  # quit on error
@@ -35,6 +36,9 @@ PARAMS=""
 # passed onto mininet_main.py & clib_mininet_main.py
 for opt in ${FAUCET_TESTS_SHORTENED}; do
   case "${opt}" in
+    --help)
+      HELP=1
+      ;;
     --*)
       PARAMS+=" ${opt}"
       ;;
@@ -114,6 +118,12 @@ export LANGUAGE=en_US.en
 export LC_ALL=en_US.UTF-8
 
 export PYTHONPATH=/faucet-src:/faucet-src/faucet:/faucet-src/clib
+
+if [ "$HELP" == 1 ] ; then
+  cd /faucet-src/tests/integration
+  ./mininet_main.py --help
+  exit 0
+fi
 
 if [ "$UNITTESTS" == 1 ] ; then
     echo "========== Running faucet unit tests =========="
