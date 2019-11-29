@@ -203,6 +203,13 @@ the test suite.
      Multiple flags can be added to FAUCET_TESTS, below are just some examples
      of  how individual flags work.
 
+To find the full list of options you can pass to the test suite, set
+``FAUCET_TESTS`` to ``--help``.
+
+.. code:: console
+
+      -e FAUCET_TESTS="--help"
+
 Running specific integration tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
