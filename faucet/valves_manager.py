@@ -37,6 +37,7 @@ class MetaDPState:
         self.dp_last_live_time = {}
         self.top_conf = None
         self.last_good_config = {}
+        self.config_hash_info = {}
 
 
 class ConfigWatcher:
@@ -206,8 +207,9 @@ class ValvesManager:
             self.config_watcher.update(new_config_file, new_conf_hashes)
             self.meta_dp_state.top_conf = top_conf
             self.meta_dp_state.last_good_config = new_config_content
-            self.metrics.faucet_config_hash.info(
-                dict(config_files=','.join(conf_files), hashes=','.join(conf_hashes)))
+            self.meta_dp_state.config_hash_info = dict(
+                config_files=','.join(conf_files), hashes=','.join(conf_hashes), error='')
+            self.metrics.faucet_config_hash.info(self.meta_dp_state.config_hash_info)
             self.metrics.faucet_config_load_error.set(0)
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
@@ -215,8 +217,9 @@ class ValvesManager:
             if self.config_auto_revert:
                 self.revert_config()
             self.config_watcher.update(new_config_file)
-            self.metrics.faucet_config_hash.info(
-                dict(config_files=new_config_file, hashes=''))
+            self.meta_dp_state.config_hash_info = dict(
+                config_files=new_config_file, hashes='', error=str(err))
+            self.metrics.faucet_config_hash.info(self.meta_dp_state.config_hash_info)
             self.metrics.faucet_config_load_error.set(1)
             new_dps = None
         return new_dps
@@ -284,8 +287,9 @@ class ValvesManager:
         if self.config_watcher.content_changed(new_config_file):
             self.logger.info('configuration %s changed, analyzing differences', new_config_file)
             result = self.load_configs(now, new_config_file, delete_dp=delete_dp)
-            self._notify({'CONFIG_CHANGE': {'success': result,
-                                            'dps_config': self.meta_dp_state.top_conf}})
+            self._notify({'CONFIG_CHANGE':
+                          {'success': result,
+                           'config_hash_info': self.meta_dp_state.config_hash_info}})
         else:
             self.logger.info('configuration is unchanged, not reloading')
             self.metrics.faucet_config_load_error.set(0)

@@ -3033,17 +3033,28 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             restart=True, cold_start=False, change_expected=False)
 
     def test_tabs_are_bad(self):
+        self._enable_event_log()
+
         self.ping_all_when_learned()
         self.assertEqual(0, self.scrape_prometheus_var('faucet_config_load_error', dpid=False))
+        event = self._wait_until_matching_event(lambda event: event['CONFIG_CHANGE']['success'])
+        good_config_hash_info = event['CONFIG_CHANGE']['config_hash_info']
+        self.assertNotEqual('', good_config_hash_info['hashes'])
+
         orig_conf = self._get_faucet_conf()
         self.force_faucet_reload(
             '\t'.join(('tabs', 'are', 'bad')))
         self.assertEqual(1, self.scrape_prometheus_var('faucet_config_load_error', dpid=False))
+        event = self._wait_until_matching_event(lambda event: not event['CONFIG_CHANGE']['success'])
+        self.assertEqual('', event['CONFIG_CHANGE']['config_hash_info']['hashes'])
+
         self.ping_all_when_learned()
         self.reload_conf(
             orig_conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=False)
         self.assertEqual(0, self.scrape_prometheus_var('faucet_config_load_error', dpid=False))
+        event = self._wait_until_matching_event(lambda event: event['CONFIG_CHANGE']['success'])
+        self.assertEqual(good_config_hash_info, event['CONFIG_CHANGE']['config_hash_info'])
 
     def test_port_change_vlan(self):
         first_host, second_host = self.hosts_name_ordered()[:2]
@@ -7475,8 +7486,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetStringOfDPTest):
             self.wait_for_all_lacp_up()
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
-        # Check for presence of LAG_CHANGE event in event socket log
-        self.wait_until_matching_lines_from_file(r'.+LAG_CHANGE.+', self.event_log)
+        # Check for presence of LAG_CHANGE event on event socket
+        self._wait_until_matching_event(lambda event: event['LAG_CHANGE']['state'] == 1)
 
     def test_dyn_fail(self):
         """Test lacp fail on reload with dynamic lacp status."""
