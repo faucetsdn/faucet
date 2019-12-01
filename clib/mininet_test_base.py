@@ -261,8 +261,8 @@ class FaucetTestBase(unittest.TestCase):
                     try:
                         if match_func(event):
                             return event
-                    except Exception:
-                        pass  # Silently ignore b/c this is just a filter.
+                    except KeyError:
+                        pass  # Allow for easy dict traversal.
                 time.sleep(1)
         self.fail('matching event not found in event stream')
 
