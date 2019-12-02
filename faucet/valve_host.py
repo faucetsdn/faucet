@@ -113,13 +113,12 @@ class ValveHostManager(ValveManagerBase):
             vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
 
-    def initialise_tables(self):
+    def add_vlan(self, vlan):
         ofmsgs = []
-        for vlan in self.vlans.values():
-            ofmsgs.append(self.eth_src_table.flowcontroller(
-                match=self.eth_src_table.match(vlan=vlan),
-                priority=self.low_priority,
-                inst=[self.eth_src_table.goto(self.output_table)]))
+        ofmsgs.append(self.eth_src_table.flowcontroller(
+            match=self.eth_src_table.match(vlan=vlan),
+            priority=self.low_priority,
+            inst=[self.eth_src_table.goto(self.output_table)]))
         return ofmsgs
 
     def _temp_ban_host_learning(self, match):
