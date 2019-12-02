@@ -351,7 +351,6 @@ class Valve:
         ofmsgs = []
         for manager in self._get_managers():
             ofmsgs.extend(manager.add_vlan(vlan))
-        vlan.reset_caches()
         return ofmsgs
 
     def add_vlans(self, vlans):
@@ -1650,6 +1649,8 @@ class Valve:
             changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
             # TODO: handle change versus add separately so can avoid delete first.
             ofmsgs.extend(self.del_vlans(changed_vlans))
+            for vlan in changed_vlans:
+                vlan.reset_caches()
             ofmsgs.extend(self.add_vlans(changed_vlans))
         if changed_ports:
             ofmsgs.extend(self.ports_add(all_up_port_nos))
