@@ -345,31 +345,30 @@ class Valve:
         ofmsgs.extend(self._add_default_drop_flows())
         return ofmsgs
 
-    def _add_vlan(self, vlan):
+    def add_vlan(self, vlan):
         """Configure a VLAN."""
         self.logger.info('Configuring %s' % vlan)
         ofmsgs = []
         for manager in self._get_managers():
             ofmsgs.extend(manager.add_vlan(vlan))
-        vlan.reset_caches()
         return ofmsgs
 
-    def _add_vlans(self, vlans):
+    def add_vlans(self, vlans):
         ofmsgs = []
         for vlan in vlans:
-            ofmsgs.extend(self._add_vlan(vlan))
+            ofmsgs.extend(self.add_vlan(vlan))
         return ofmsgs
 
-    def _del_vlan(self, vlan):
+    def del_vlan(self, vlan):
         """Delete a configured VLAN."""
         self.logger.info('Delete VLAN %s' % vlan)
         table = valve_table.wildcard_table
         return [table.flowdel(match=table.match(vlan=vlan))]
 
-    def _del_vlans(self, vlans):
+    def del_vlans(self, vlans):
         ofmsgs = []
         for vlan in vlans:
-            ofmsgs.extend(self._del_vlan(vlan))
+            ofmsgs.extend(self.del_vlan(vlan))
         return ofmsgs
 
     def _get_all_configured_port_nos(self):
@@ -403,7 +402,7 @@ class Valve:
         ofmsgs = []
         ofmsgs.extend(self.ports_add(
             all_up_port_nos, cold_start=True, log_msg='configured'))
-        ofmsgs.extend(self._add_vlans(self.dp.vlans.values()))
+        ofmsgs.extend(self.add_vlans(self.dp.vlans.values()))
         return ofmsgs
 
     def ofdescstats_handler(self, body):
@@ -612,8 +611,7 @@ class Valve:
                 if not valve.dp.dyn_running:
                     continue
                 ofmsgs_by_valve[valve].extend(valve.get_tunnel_flowmods())
-                for vlan in valve.dp.vlans.values():
-                    ofmsgs_by_valve[valve].extend(valve.flood_manager.add_vlan(vlan))
+                ofmsgs_by_valve[valve].extend(valve.add_vlans(valve.dp.vlans.values()))
                 for port in valve.dp.stack_ports:
                     ofmsgs_by_valve[valve].extend(valve.host_manager.del_port(port))
                 path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
@@ -871,8 +869,7 @@ class Valve:
 
         # Only update flooding rules if not cold starting.
         if not cold_start:
-            for vlan in vlans_with_ports_added:
-                ofmsgs.extend(self.flood_manager.add_vlan(vlan))
+            ofmsgs.extend(self.add_vlans(vlans_with_ports_added))
         return ofmsgs
 
     def port_add(self, port_num):
@@ -947,8 +944,7 @@ class Valve:
         port.lacp_update(False, lacp_pkt=lacp_pkt)
         if not cold_start:
             ofmsgs.extend(self.host_manager.del_port(port))
-            for vlan in port.vlans():
-                ofmsgs.extend(self.flood_manager.add_vlan(vlan))
+            ofmsgs.extend(self.add_vlans(port.vlans()))
         vlan_table = self.dp.tables['vlan']
         ofmsgs.append(vlan_table.flowdrop(
             match=vlan_table.match(in_port=port.number),
@@ -978,8 +974,7 @@ class Valve:
             ofmsgs.append(vlan_table.flowdel(
                 match=vlan_table.match(in_port=port.number),
                 priority=self.dp.high_priority, strict=True))
-            for vlan in port.vlans():
-                ofmsgs.extend(self.flood_manager.add_vlan(vlan))
+            ofmsgs.extend(self.add_vlans(port.vlans()))
         self._reset_lacp_status(port)
         return ofmsgs
 
@@ -1644,7 +1639,7 @@ class Valve:
             ofmsgs.extend(self.ports_delete(deleted_ports))
         if deleted_vids:
             deleted_vlans = [self.dp.vlans[vid] for vid in deleted_vids]
-            ofmsgs.extend(self._del_vlans(deleted_vlans))
+            ofmsgs.extend(self.del_vlans(deleted_vlans))
         if changed_ports:
             ofmsgs.extend(self.ports_delete(changed_ports))
 
@@ -1653,8 +1648,10 @@ class Valve:
         if changed_vids:
             changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
             # TODO: handle change versus add separately so can avoid delete first.
-            ofmsgs.extend(self._del_vlans(changed_vlans))
-            ofmsgs.extend(self._add_vlans(changed_vlans))
+            ofmsgs.extend(self.del_vlans(changed_vlans))
+            for vlan in changed_vlans:
+                vlan.reset_caches()
+            ofmsgs.extend(self.add_vlans(changed_vlans))
         if changed_ports:
             ofmsgs.extend(self.ports_add(all_up_port_nos))
         if self.acl_manager and changed_acl_ports:

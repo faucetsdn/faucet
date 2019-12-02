@@ -3063,6 +3063,9 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.change_port_config(
             self.port_map['port_1'], 'native_vlan', 200,
             restart=False, cold_start=False)
+        self.wait_until_matching_flow(
+            {'vlan_vid': 200}, table_id=self._ETH_SRC_TABLE,
+            actions=['OUTPUT:CONTROLLER', 'GOTO_TABLE:%u' % self._ETH_DST_TABLE])
         self.change_port_config(
             self.port_map['port_2'], 'native_vlan', 200,
             restart=True, cold_start=True)
@@ -3087,6 +3090,9 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             {'in_port': int(self.port_map['port_1']),
              'eth_type': IPV4_ETH, 'tcp_dst': 5001, 'ip_proto': 6},
             table_id=self._PORT_ACL_TABLE, cookie=self.ACL_COOKIE)
+        self.wait_until_matching_flow(
+            {'vlan_vid': 100}, table_id=self._ETH_SRC_TABLE,
+            actions=['OUTPUT:CONTROLLER', 'GOTO_TABLE:%u' % self._ETH_DST_TABLE])
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self.reload_conf(
@@ -7029,14 +7035,13 @@ class FaucetStringOfDPTest(FaucetTest):
             self.verify_one_broadcast(int_host, ext_hosts)
 
         for ext_host in ext_hosts:
-            # All external hosts cannot flood to each other.
-            for other_ext_host in ext_hosts - {ext_host}:
-                self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
-
             # All external hosts can reach internal hosts.
             for int_host in int_hosts:
                 self.verify_broadcast(hosts=(ext_host, int_host), broadcast_expected=True)
                 self.one_ipv4_ping(ext_host, int_host.IP())
+            # All external hosts cannot flood to each other.
+            for other_ext_host in ext_hosts - {ext_host}:
+                self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
 
     def set_externals_state(self, dp_name, externals_up):
         """Set the port up/down state of all external ports on a switch"""
