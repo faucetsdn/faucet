@@ -178,7 +178,7 @@ class ValveRouteManager(ValveManagerBase):
         if self.flood_manager:
             ports = []
             if self.flood_manager.is_stack_root():
-                ports = self.flood_manager.away_from_stack_ports()
+                ports = self.flood_manager.away_from_root_stack_ports()
             else:
                 ports = self.flood_manager.towards_root_stack_ports()
             ports = self.flood_manager._canonical_stack_up_ports(ports)
@@ -196,9 +196,9 @@ class ValveRouteManager(ValveManagerBase):
     def _resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         """Return flood packet-out actions for gw resolving"""
         ofmsgs = []
-        ofmsgs.append(self._flood_stack_links(self._gw_resolve_pkt(), vlan, self.multi_out,
+        ofmsgs.extend(self._flood_stack_links(self._gw_resolve_pkt(), vlan, self.multi_out,
                       vlan.faucet_mac, valve_of.mac.BROADCAST_STR, faucet_vip.ip, ip_gw))
-        ofmsgs.append(vlan.flood_pkt(
+        ofmsgs.extend(vlan.flood_pkt(
             self._gw_resolve_pkt(), self.multi_out,
             vlan.faucet_mac, valve_of.mac.BROADCAST_STR, faucet_vip.ip, ip_gw))
         return ofmsgs

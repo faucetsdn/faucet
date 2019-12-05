@@ -93,7 +93,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     def host_ping(self, src_host, dst_ip):
         """Default method to ping from one host to an IP address"""
         self.one_ipv4_ping(
-            src_host, dst_ip, require_host_learned=False, retries=5, timeout=1000*self.NUM_DPS)
+            src_host, dst_ip, require_host_learned=False, retries=5, timeout=1000)
 
     def set_host_ip(self, host, host_ip):
         """Default method for setting a hosts IP address"""
@@ -614,25 +614,16 @@ class FaucetTopoTestBase(FaucetTestBase):
         for src in self.host_information:
             src_host = self.host_information[src]['host']
             src_vlan = self.host_information[src]['vlan']
-            src_ip = self.host_information[src]['ip']
             for dst in self.host_information:
                 if dst > src:
-                    dst_host = self.host_information[dst]['host']
                     dst_vlan = self.host_information[dst]['vlan']
                     dst_ip = self.host_information[dst]['ip']
                     if self.is_routed_vlans(src_vlan, dst_vlan):
                         src_faucet_vip = self.faucet_vips[src_vlan]
-                        dst_faucet_vip = self.faucet_vips[dst_vlan]
-                        self.host_ping(src_host, src_faucet_vip.ip)
-                        self.host_ping(dst_host, dst_faucet_vip.ip)
                         self.host_ping(src_host, dst_ip.ip)
-                        self.host_ping(dst_host, src_ip.ip)
                         self.assertEqual(
                             self._ip_neigh(
                                 src_host, src_faucet_vip.ip, self.IPV), self.faucet_mac(src_vlan))
-                        self.assertEqual(
-                            self._ip_neigh(
-                                dst_host, dst_faucet_vip.ip, self.IPV), self.faucet_mac(dst_vlan))
                     elif src_vlan == dst_vlan:
                         self.host_ping(src_host, dst_ip.ip)
 
