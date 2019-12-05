@@ -178,9 +178,9 @@ class ValveRouteManager(ValveManagerBase):
         if self.flood_manager:
             ports = []
             if self.flood_manager.is_stack_root():
-                ports = self.flood_manager.away_from_root_stack_ports()
+                ports = self.flood_manager.away_from_root_stack_ports
             else:
-                ports = self.flood_manager.towards_root_stack_ports()
+                ports = self.flood_manager.towards_root_stack_ports
             ports = self.flood_manager._canonical_stack_up_ports(ports)
             running_port_nos = [port.number for port in ports if port.running()]
             pkt = pkt_builder(vlan.vid, *args)
