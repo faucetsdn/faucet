@@ -861,3 +861,61 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4Ro
         """Get the IPV6 host ip"""
         return 'fc0%u::1:%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
 
+
+class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
+    """Test InterVLAN routing can flood packets to stack ports"""
+
+    IPV = 4
+    NETPREFIX = 24
+    ETH_TYPE = IPV4_ETH
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+    NUM_VLANS = 2
+    SOFTWARE_ONLY = True
+
+    def setUp(self):
+        pass
+
+    def set_up(self):
+        super(FaucetSingleUntaggedVlanStackFloodTest, self).setUp()
+        stack_roots = {0: 1}
+        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
+        host_links = {0: [0], 1: [1]}
+        host_vlans = {0: 0, 1: 1}
+        vlan_options = {}
+        for v in range(self.NUM_VLANS):
+            vlan_options[v] = {
+                'faucet_mac': self.faucet_mac(v),
+                'faucet_vips': [self.faucet_vip(v)],
+                'targeted_gw_resolution': False
+            }
+        dp_options = {dp: self.get_dp_options() for dp in range(self.NUM_DPS)}
+        routers = {0: [v for v in range(self.NUM_VLANS)]}
+        self.build_net(
+            n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
+            host_links=host_links, host_vlans=host_vlans,
+            stack_roots=stack_roots, vlan_options=vlan_options,
+            dp_options=dp_options, routers=routers)
+        self.start_net()
+
+    @staticmethod
+    def get_dp_options():
+        return {
+            'drop_spoofed_faucet_mac': False,
+            'arp_neighbor_timeout': 2,
+            'max_resolve_backoff_time': 2,
+            'proactive_learn_v4': True
+        }
+
+    def test_intervlan_stack_flooding(self):
+        """
+        Test intervlan can flood to stack ports
+        h1 (dst_host) should not have talked on the network so Faucet does not know about
+            it. h2 (src_host) -> h1 ping will normally fail (without flooding to the stack)
+            because the ARP packet for resolving h1 does not make it across the stack. 
+        """
+        self.set_up()
+        self.verify_stack_up()
+        src_host = self.host_information[1]['host']
+        dst_ip = self.host_information[0]['ip']
+        self.host_ping(src_host, dst_ip.ip)
