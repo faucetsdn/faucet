@@ -171,6 +171,7 @@ def logger_to_ofp(port_stats):
             'bytes_in' : port_stats.rx_bytes,
             'dropped_out' : port_stats.tx_dropped,
             'dropped_in' : port_stats.rx_dropped,
+            'errors_out' : port_stats.tx_errors,
             'errors_in' : port_stats.rx_errors
            }
 
