@@ -110,6 +110,7 @@ class ValveRouteManager(ValveManagerBase):
         'route_priority',
         'routers',
         'vip_table',
+        'flood_manager',
     ]
 
     IPV = 0
@@ -123,7 +124,7 @@ class ValveRouteManager(ValveManagerBase):
     def __init__(self, logger, notify, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl, multi_out,
-                 fib_table, vip_table, pipeline, routers):
+                 fib_table, vip_table, pipeline, routers, flood_manager):
         self.notify = notify
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
@@ -141,6 +142,7 @@ class ValveRouteManager(ValveManagerBase):
         self.routers = routers
         self.active = False
         self.global_routing = self._global_routing()
+        self.flood_manager = flood_manager
         if self.global_routing:
             self.logger.info('global routing enabled')
 
@@ -170,12 +172,36 @@ class ValveRouteManager(ValveManagerBase):
     def _gw_respond_pkt():
         return None
 
+    def _flood_stack_links(self, pkt_builder, vlan, multi_out=True, *args):
+        """Return flood packet-out actions to stack ports for gw resolving"""
+        ofmsgs = []
+        if self.flood_manager:
+            ports = []
+            if self.flood_manager.is_stack_root():
+                ports = self.flood_manager.away_from_stack_ports()
+            else:
+                ports = self.flood_manager.towards_root_stack_ports()
+            ports = self.flood_manager._canonical_stack_up_ports(ports)
+            running_port_nos = [port.number for port in ports if port.running()]
+            pkt = pkt_builder(vlan.vid, *args)
+            if running_port_nos:
+                random.shuffle(running_port_nos)
+                if multi_out:
+                    ofmsgs.append(valve_of.packetouts(running_port_nos, pkt.data))
+                else:
+                    ofmsgs.extend(
+                        [valve_of.packetout(port_no, pkt.data) for port_no in running_port_nos])
+        return ofmsgs
+
     def _resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         """Return flood packet-out actions for gw resolving"""
-        # TODO: in multi DP routing, need to flood out stack ports as well
-        return vlan.flood_pkt(
+        ofmsgs = []
+        ofmsgs.append(self._flood_stack_links(self._gw_resolve_pkt(), vlan, self.multi_out,
+                      vlan.faucet_mac, valve_of.mac.BROADCAST_STR, faucet_vip.ip, ip_gw))
+        ofmsgs.append(vlan.flood_pkt(
             self._gw_resolve_pkt(), self.multi_out,
-            vlan.faucet_mac, valve_of.mac.BROADCAST_STR, faucet_vip.ip, ip_gw)
+            vlan.faucet_mac, valve_of.mac.BROADCAST_STR, faucet_vip.ip, ip_gw))
+        return ofmsgs
 
     def _resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw, eth_dst):
         """Return packet-out actions for outputting to a specific port"""
