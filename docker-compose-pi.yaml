@@ -2,7 +2,7 @@ version: '2'
 services:
     influxdb:
         restart: always
-        image: 'arm32v7/influxdb:1.6'
+        image: 'arm32v7/influxdb:1.7'
         ports:
             - '8086'
             - '8083'
