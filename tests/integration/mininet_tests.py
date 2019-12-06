@@ -2005,8 +2005,8 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self.assertTrue(os.path.exists(self.influx_log))
         expected_vars = {
             'dropped_in', 'dropped_out', 'bytes_out', 'flow_packet_count',
-            'errors_in', 'bytes_in', 'flow_byte_count', 'port_state_reason',
-            'packets_in', 'packets_out'}
+            'errors_in', 'errors_out', 'bytes_in', 'flow_byte_count',
+            'port_state_reason', 'packets_in', 'packets_out'}
 
         observed_vars = set()
         for _ in range(retries):
