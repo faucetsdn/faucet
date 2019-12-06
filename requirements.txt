@@ -1,5 +1,5 @@
 chewie==0.0.19
-eventlet==0.24.1
+eventlet==0.25.1
 influxdb
 msgpack
 msgpack-python
