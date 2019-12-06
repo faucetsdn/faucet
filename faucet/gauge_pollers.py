@@ -219,6 +219,7 @@ class GaugePortStatsPoller(GaugeThreadPoller):
             (('bytes', 'in'), stat.rx_bytes),
             (('dropped', 'out'), stat.tx_dropped),
             (('dropped', 'in'), stat.rx_dropped),
+            (('errors', 'out'), stat.tx_errors),
             (('errors', 'in'), stat.rx_errors))
         return self._format_stats(delim, stat_pairs)
 

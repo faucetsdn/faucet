@@ -167,11 +167,12 @@ def logger_to_ofp(port_stats):
 
     return {'packets_out': port_stats.tx_packets,
             'packets_in': port_stats.rx_packets,
-            'bytes_out' : port_stats.tx_bytes,
-            'bytes_in' : port_stats.rx_bytes,
-            'dropped_out' : port_stats.tx_dropped,
-            'dropped_in' : port_stats.rx_dropped,
-            'errors_in' : port_stats.rx_errors
+            'bytes_out': port_stats.tx_bytes,
+            'bytes_in': port_stats.rx_bytes,
+            'dropped_out': port_stats.tx_dropped,
+            'dropped_in': port_stats.rx_dropped,
+            'errors_out': port_stats.tx_errors,
+            'errors_in': port_stats.rx_errors
            }
 
 def get_matches(match_dict):

@@ -39,6 +39,7 @@ PROM_PORT_VARS = (
     'rx_bytes',
     'tx_dropped',
     'rx_dropped',
+    'tx_errors',
     'rx_errors')
 PROM_FLOW_VARS = (
     'flow_byte_count',
