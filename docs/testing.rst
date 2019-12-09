@@ -18,7 +18,8 @@ You can build and run the mininet tests with the following commands:
   sudo docker build --pull -t faucet/tests -f Dockerfile.tests .
   sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
   sudo modprobe openvswitch
-  sudo docker run --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged --rm \
+  sudo docker run --name=faucet-tests \
+                  --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged --rm \
                   -v /var/local/lib/docker:/var/lib/docker \
                   -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
                   -ti faucet/tests
@@ -185,7 +186,8 @@ Then you can build and run the test suite:
 .. code:: console
 
   sudo docker build --pull -t faucet/tests -f Dockerfile.tests .
-  sudo docker run --privileged --rm --net=host --cap-add=NET_ADMIN \
+  sudo docker run --name=faucet-tests \
+                  --privileged --rm --net=host --cap-add=NET_ADMIN \
                   -v /var/local/lib/docker:/var/lib/docker \
                   -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
                   -v /etc/faucet:/etc/faucet \
@@ -272,7 +274,6 @@ the test suite will keep these files.
 
       -e FAUCET_TESTS="-k"
 
-
 Repeatedly running tests until failure
 --------------------------------------
 
@@ -282,3 +283,45 @@ Tests will continue to run forever until at least one fails or the test is inter
 .. code:: console
 
       -e FAUCET_TESTS="-r"
+
+Test debugging
+--------------
+
+Often while debugging a failed integration test it can be useful to pause the
+test suite at the point of the failure. The test can then be inspected live to
+narrow down the exact issue. To do this, run your test with the ``--debug``
+flag (replace `TEST_NAME` with actual name of test).
+
+.. code:: console
+
+      -e FAUCET_TESTS="--debug TEST_NAME"
+
+The test suite will now run in a mode where it ignores successful tests and
+drops into a pdb shell when a failure occurs inside a test.
+There are a number of different
+`pdb commands <https://docs.python.org/3/library/pdb.html#debugger-commands>`_
+that can be run to check the actual test code.
+
+It is also possible to login to the virtual container environment to run
+interactive debug commands to inspect the state of the system.
+
+.. code:: console
+
+      sudo sudo docker exec -it faucet-tests /bin/bash
+
+One useful thing can be to find the running mininet containers and execute
+commands inside of them, e.g ping:
+
+.. code:: console
+
+      root@35b98943f736:/faucet-src# ps w | grep mininet:
+
+        995 pts/1    Ss+    0:00 bash --norc --noediting -is mininet:faucet-637
+        997 pts/2    Ss+    0:00 bash --norc --noediting -is mininet:u021
+       1001 pts/3    Ss+    0:00 bash --norc --noediting -is mininet:u022
+       1005 pts/4    Ss+    0:00 bash --norc --noediting -is mininet:u023
+       1009 pts/5    Ss+    0:00 bash --norc --noediting -is mininet:u024
+       1013 pts/6    Ss+    0:00 bash --norc --noediting -is mininet:s02
+       1077 pts/7    Ss+    0:00 bash --norc --noediting -is mininet:gauge-637
+
+      root@35b98943f736:/faucet-src# m u021 ping 127.0.0.1

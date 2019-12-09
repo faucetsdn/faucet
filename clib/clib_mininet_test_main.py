@@ -455,6 +455,13 @@ class FaucetCleanupResult(FaucetResult):
         super(FaucetCleanupResult, self).addSuccess(test)
 
 
+def debug_exception_handler(etype, value, trace):
+    import traceback
+    import pdb
+    traceback.print_exception(etype, value, trace)
+    print()
+    pdb.pm()
+
 def test_runner(root_tmpdir, resultclass, failfast=False):
     resultclass.root_tmpdir = root_tmpdir
     return unittest.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
@@ -472,13 +479,19 @@ def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests):
     return results
 
 
-def run_single_test_suites(root_tmpdir, resultclass, single_tests):
+def run_single_test_suites(debug, root_tmpdir, resultclass, single_tests):
     results = []
     # TODO: Tests that are serialized generally depend on hardcoded ports.
     # Make them use dynamic ports.
     if single_tests.countTestCases():
         single_runner = test_runner(root_tmpdir, resultclass)
-        results.append(single_runner.run(single_tests))
+        if debug:
+            oldexcepthook = sys.excepthook
+            sys.excepthook = debug_exception_handler
+            single_tests.debug()
+            sys.excepthook = oldexcepthook
+        else:
+            results.append(single_runner.run(single_tests))
     return results
 
 
@@ -496,7 +509,10 @@ def report_tests(test_status, test_list, result):
         test_duration_secs = result.test_duration_secs[test_class.id()]
         tests_json.update({
             test_class.id(): {
-                'status': test_status, 'output': test_text, 'test_duration_secs': test_duration_secs}})
+                'status': test_status,
+                'output': test_text,
+                'test_duration_secs': test_duration_secs
+                }})
     return tests_json
 
 
@@ -529,14 +545,14 @@ def report_results(results, hw_config, report_json_filename):
                 report_json_file.write(json.dumps(report_json))
 
 
-def run_test_suites(report_json_filename, hw_config, root_tmpdir,
+def run_test_suites(debug, report_json_filename, hw_config, root_tmpdir,
                     resultclass, single_tests, parallel_tests, sanity_result):
     print('running %u tests in parallel and %u tests serial' % (
         parallel_tests.countTestCases(), single_tests.countTestCases()))
     results = []
     results.append(sanity_result)
     results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
-    results.extend(run_single_test_suites(root_tmpdir, resultclass, single_tests))
+    results.extend(run_single_test_suites(debug, root_tmpdir, resultclass, single_tests))
     report_results(results, hw_config, report_json_filename)
     successful_results = [result for result in results if result.wasSuccessful()]
     return len(results) == len(successful_results)
@@ -612,7 +628,7 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
                         dump_failed_test(test_name, test_dir)
 
 
-def run_tests(module, hw_config, requested_test_classes, dumpfail,
+def run_tests(module, hw_config, requested_test_classes, dumpfail, debug,
               keep_logs, serial, repeat, excluded_test_classes, report_json_filename,
               port_order):
     """Actually run the test suites, potentially in parallel."""
@@ -643,10 +659,11 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
         sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
         if sanity_result.wasSuccessful():
             while True:
-                all_successful = run_test_suites(
-                    report_json_filename, hw_config, root_tmpdir,
-                    resultclass, copy.deepcopy(single_tests),
-                    copy.deepcopy(parallel_tests), sanity_result)
+                all_successful = run_test_suites(debug, report_json_filename,
+                                                 hw_config, root_tmpdir, resultclass,
+                                                 copy.deepcopy(single_tests),
+                                                 copy.deepcopy(parallel_tests),
+                                                 sanity_result)
                 if not repeat:
                     break
                 if not all_successful:
@@ -679,6 +696,8 @@ def parse_args():
         '-c', '--clean', action='store_true', help='run mininet cleanup')
     parser.add_argument(
         '-d', '--dumpfail', action='store_true', help='dump logs for failed tests')
+    parser.add_argument(
+        '--debug', action='store_true', help='enter debug breakpoint on assertion failure')
     parser.add_argument(
         '-k', '--keep_logs', action='store_true', help='keep logs even for OK tests')
     loglevels = ('debug', 'error', 'warning', 'info', 'output')
@@ -728,7 +747,7 @@ def parse_args():
 
 
     return (
-        requested_test_classes, args.clean, args.dumpfail,
+        requested_test_classes, args.clean, args.dumpfail, args.debug,
         args.keep_logs, args.nocheck, args.serial, args.repeat,
         excluded_test_classes, report_json_filename, port_order,
         args.loglevel, args.profile)
@@ -739,7 +758,7 @@ def test_main(module):
 
     print('testing module %s' % module)
 
-    (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
+    (requested_test_classes, clean, dumpfail, debug, keep_logs, nocheck,
      serial, repeat, excluded_test_classes, report_json_filename, port_order,
      loglevel, profile) = parse_args()
 
@@ -769,7 +788,7 @@ def test_main(module):
         pr.enable()
 
     run_tests(
-        module, hw_config, requested_test_classes, dumpfail,
+        module, hw_config, requested_test_classes, dumpfail, debug,
         keep_logs, serial, repeat, excluded_test_classes, report_json_filename, port_order)
 
     if profile:
