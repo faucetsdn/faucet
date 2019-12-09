@@ -509,7 +509,10 @@ def report_tests(test_status, test_list, result):
         test_duration_secs = result.test_duration_secs[test_class.id()]
         tests_json.update({
             test_class.id(): {
-                'status': test_status, 'output': test_text, 'test_duration_secs': test_duration_secs}})
+                'status': test_status,
+                'output': test_text,
+                'test_duration_secs': test_duration_secs
+                }})
     return tests_json
 
 
