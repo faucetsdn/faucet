@@ -716,8 +716,6 @@ network.
                     stack:
                         dp: br3
                         port: 3
-                3:
-                    native_vlan: hosts
         br1:
             dp_id: 0x2
             hardware: "Open vSwitch"
