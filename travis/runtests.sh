@@ -65,6 +65,8 @@ else
   FAUCET_TESTS="-din ${sharded[${MATRIX_SHARD}]}"
 fi
 
+ovs-vsctl -V
+
 if [[ "$FILES_CHANGED" != "" ]] ; then
   if [[ "$PY_FILES_CHANGED" == "" && "$RQ_FILES_CHANGED" == "" ]] ; then
     echo Not running docker tests because only non-python/requirements changes: $FILES_CHANGED
@@ -87,8 +89,6 @@ echo Shard $MATRIX_SHARD: $FAUCETTESTS: $SHARDARGS
 ulimit -c unlimited && sudo echo '/var/tmp/core.%h.%e.%t' > /proc/sys/kernel/core_pattern
 sudo modprobe openvswitch
 sudo modprobe ebtables
-
-ovs-vsctl -V
 
 if [ "${MATRIX_SHARD}" == "sanity" ] ; then
   # Simulate hardware test switch
