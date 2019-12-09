@@ -88,6 +88,8 @@ ulimit -c unlimited && sudo echo '/var/tmp/core.%h.%e.%t' > /proc/sys/kernel/cor
 sudo modprobe openvswitch
 sudo modprobe ebtables
 
+ovs-vsctl -V
+
 if [ "${MATRIX_SHARD}" == "sanity" ] ; then
   # Simulate hardware test switch
   # TODO: run a standalone DP and also a stacked DP test to test hardware linkages.
