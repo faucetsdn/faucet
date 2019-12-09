@@ -598,6 +598,12 @@ let's define a faucet.yaml that matches our ring topology.
                         dp: br1
                         port: 3
 
+Reload faucet to enable the ring topology.
+
+.. code:: console
+
+    sudo systemctl reload faucet
+
 We will define three hosts, one on each switch.
 
 .. code:: console
