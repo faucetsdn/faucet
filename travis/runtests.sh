@@ -5,6 +5,8 @@
 echo TRAVIS_BRANCH: $TRAVIS_BRANCH
 echo TRAVIS_COMMIT: $TRAVIS_COMMIT
 
+ovs-vsctl -V
+
 # If PY_FILES_CHANGED is empty, run all codecheck tests (otherwise only on changed files).
 FILES_CHANGED=""
 PY_FILES_CHANGED=""
@@ -64,8 +66,6 @@ else
   shard "$ALLTESTS" ${MATRIX_SHARDS}
   FAUCET_TESTS="-din ${sharded[${MATRIX_SHARD}]}"
 fi
-
-ovs-vsctl -V
 
 if [[ "$FILES_CHANGED" != "" ]] ; then
   if [[ "$PY_FILES_CHANGED" == "" && "$RQ_FILES_CHANGED" == "" ]] ; then
