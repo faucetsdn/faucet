@@ -77,21 +77,25 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             dp_options=dp_options, routers=routers, host_options=host_options)
         self.start_net()
 
-    def _ip_ping(self, host, dst, retries=3, timeout=10,
-                 fping_bin='fping', intf=None, expected_result=True, count=1,
-                 require_host_learned=False):
-        """Override: ping a destination from a host"""
-        try:
-            super(FaucetFaultToleranceBaseTest, self)._ip_ping(
-                host, dst, retries, timeout*self.NUM_DPS, fping_bin, intf,
-                expected_result, count, require_host_learned)
-        except AssertionError as error:
-            print('%s -/-> %s' % (host, dst))
-            if self.INSTANT_FAIL:
-                raise error
-            return False
-        print('%s --> %s' % (host, dst))
-        return True
+    def ping_until_success(self, host, dst):
+        success = False
+        num_attempts = 0
+        print('Attempting %s -> %s' % (host, dst))
+        while not success:
+            try:
+                self._ip_ping(self, host, dst, 5, timeout=500,
+                              count=5, require_host_learned=False)
+                success = True
+                print('Ping successful')
+                return success
+            except AssertionError as error:
+                print('Failed Attempt #%s' % num_attempts)
+                if num_attempts > 5:
+                    print('Reloading Faucet')
+                    self.reload_conf(self.CONFIG, self.faucet_config_path,
+                                     restart=True, cold_start=True)
+            num_attempts += 1
+        return False
 
     def calculate_connectivity(self):
         """Ping between each set of host pairs to calculate host connectivity"""
@@ -102,7 +106,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             for dst in dsts:
                 dst_host = self.host_information[dst]['host']
                 dst_ip = self.host_information[dst]['ip']
-                result = self._ip_ping(src_host, dst_ip.ip)
+                result = self.ping_until_success(src_host, dst_ip.ip)
                 self.topo_watcher.add_network_info(src_host.name, dst_host.name, result)
 
     def create_controller_fault(self, *args):
