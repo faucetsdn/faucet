@@ -411,11 +411,16 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 port for port, port_peer_distance in port_peer_distances.items()
                 if port_peer_distance == shortest_peer_distance}
             if self.all_towards_root_stack_ports:
-                first_peer_port = self.canonical_port_order(self.all_towards_root_stack_ports)[0]
-                first_peer_dp = first_peer_port.stack['dp']
+                # Choose the port that is the chosen shortest path towards the root
+                shortest_path = self.dp_shortest_path_to_root()
+                if shortest_path and len(shortest_path) > 1:
+                    first_peer_dp = self.dp_shortest_path_to_root()[1]
+                else:
+                    first_peer_port = self.canonical_port_order(self.all_towards_root_stack_ports)[0]
+                    first_peer_dp = first_peer_port.stack['dp'].name
                 self.towards_root_stack_ports = {
                     port for port in self.all_towards_root_stack_ports
-                    if port.stack['dp'] == first_peer_dp}
+                    if port.stack['dp'].name == first_peer_dp}
             self.away_from_root_stack_ports = all_peer_ports - self.all_towards_root_stack_ports
             if self.towards_root_stack_ports:
                 self.logger.info(

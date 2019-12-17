@@ -7714,6 +7714,50 @@ class FaucetSingleStack4RingOfDPTest(FaucetStackRingOfDPTest):
     NUM_DPS = 4
 
 
+class FaucetSingleStack3RingOfDPReversePortOrderTest(FaucetStringOfDPTest):
+    """Make sure even if the ports are in reverse order, the stack can properly form"""
+
+    NUM_DPS = 3
+    NUM_HOSTS = 1
+    SOFTWARE_ONLY = True
+    port_order = [3, 2, 1, 0]
+
+    def setUp(self):
+        super(FaucetSingleStack3RingOfDPReversePortOrderTest, self).setUp()
+        self.build_net(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            untagged_hosts={self.VID: self.NUM_HOSTS},
+            switch_to_switch_links=1,
+            stack_ring=True
+        )
+        self.start_net()
+
+    def test_sequential_connection(self):
+        """Ping in sequence respective to hosts names"""
+        self.verify_stack_up()
+        hosts = self.hosts_name_ordered()
+        for src in hosts:
+            for dst in hosts:
+                if src != dst:
+                    self.one_ipv4_ping(src, dst.IP())
+
+    def test_reverse_sequential_connection(self):
+        """Ping in reverse sequence respective to hosts names"""
+        self.verify_stack_up()
+        hosts = self.hosts_name_ordered()
+        hosts.reverse()
+        for src in hosts:
+            for dst in hosts:
+                if src != dst:
+                    self.one_ipv4_ping(src, dst.IP())
+
+
+class FaucetSingleStack4RingOfDPReversePortOrderTest(FaucetStringOfDPTest):
+
+    NUM_DPS = 4
+
+
 class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     """Test ACL control of stacked datapaths with untagged hosts."""
 
