@@ -923,21 +923,23 @@ class ValveTestBases:
             rcv_packet_ofmsgs = self.last_flows_to_dp[dp_id]
             return rcv_packet_ofmsgs
 
-        def set_stack_port_status(self, port_no, status):
+        def set_stack_port_status(self, port_no, status, valve=None):
             """Set stack port up recalculating topology as necessary."""
-            port = self.valve.dp.ports[port_no]
+            if not valve:
+                valve = self.valve
+            port = valve.dp.ports[port_no]
             port.dyn_stack_current_state = status
-            self.valve.flood_manager.update_stack_topo(True, self.valve.dp, port)
-            for valve_vlan in self.valve.dp.vlans.values():
-                self.apply_ofmsgs(self.valve.flood_manager.add_vlan(valve_vlan))
+            valve.flood_manager.update_stack_topo(True, valve.dp, port)
+            for valve_vlan in valve.dp.vlans.values():
+                self.apply_ofmsgs(valve.flood_manager.add_vlan(valve_vlan))
 
-        def set_stack_port_up(self, port_no):
+        def set_stack_port_up(self, port_no, valve=None):
             """Set stack port up recalculating topology as necessary."""
-            self.set_stack_port_status(port_no, 3)
+            self.set_stack_port_status(port_no, 3, valve)
 
-        def set_stack_port_down(self, port_no):
+        def set_stack_port_down(self, port_no, valve=None):
             """Set stack port up recalculating topology as necessary."""
-            self.set_stack_port_status(port_no, 2)
+            self.set_stack_port_status(port_no, 2, valve)
 
     class ValveTestBig(ValveTestSmall):
         """Test basic switching/L2/L3 functions."""
