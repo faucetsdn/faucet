@@ -1231,6 +1231,11 @@ class Valve:
                         if previous_port.stack:
                             learn_log += ' from %s' % previous_port.stack_descr()
                 self.logger.info(learn_log)
+                learn_labels = dict(self.dp.base_prom_labels(), vid=pkt_meta.vlan.vid,
+                                    eth_src=pkt_meta.eth_src,
+                                    l3_src_ip=str(pkt_meta.l3_src))
+                self.logger.info('learn_labels: %s' % learn_labels)
+                self._set_var('l2_learn', learn_port.number, labels=learn_labels)
                 self.notify(
                     {'L2_LEARN': {
                         'port_no': learn_port.number,
