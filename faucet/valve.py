@@ -1234,7 +1234,6 @@ class Valve:
                 learn_labels = dict(self.dp.base_prom_labels(), vid=pkt_meta.vlan.vid,
                                     eth_src=pkt_meta.eth_src,
                                     l3_src_ip=str(pkt_meta.l3_src))
-                self.logger.info('learn_labels: %s' % learn_labels)
                 self._set_var('learned_l2_port', learn_port.number, labels=learn_labels)
                 self.notify(
                     {'L2_LEARN': {
