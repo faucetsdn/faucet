@@ -1,7 +1,9 @@
 #!/bin/bash
 
+INTEGRATIONTESTS=1
 UNITTESTS=1
 DEPCHECK=1
+TOLTESTS=0
 SKIP_PIP=0
 HELP=0
 MINCOVERAGE=85
@@ -23,6 +25,9 @@ for opt in ${FAUCET_TESTS}; do
       ;;
     --nocheck)
       FAUCET_TESTS_SHORTENED+=" -n"
+      ;;
+    --tolerance)
+      FAUCET_TESTS_SHORTENED+=" -t"
       ;;
     *)
       FAUCET_TESTS_SHORTENED+=" ${opt}"
@@ -64,6 +69,14 @@ for opt in ${FAUCET_TESTS_SHORTENED}; do
             # Skip pip installer
             echo "Option set to assume environment is set up."
             SKIP_PIP=1
+            ;;
+          t)
+            # run only tolerance tests
+            UNITTESTS=0
+            DEPCHECK=0
+            INTEGRATIONTESTS=0
+            TOLTESTS=1
+            PARAMS=" -${opt:$i:1}"
             ;;
           *)
             PARAMS+=" -${opt:$i:1}"
@@ -153,9 +166,15 @@ test_failures=
 export FAUCET_DIR=/faucet-src/faucet
 export http_proxy=
 
-cd /faucet-src/tests/integration
-./mininet_main.py -c
-
+if [ "$INTEGRATIONTESTS" == 1 ] ; then
+  echo "========== Running Faucet integration tests =========="
+  cd /faucet-src/tests/integration
+  ./mininet_main.py -c
+elif [ "$TOLTESTS" == 1 ] ; then
+  echo "========== Running Faucet fault-tolerance tests =========="
+  cd /faucet-src/tests/tolerance
+  ./mininet_main.py -c
+fi
 
 if [ "$HWTESTS" == 1 ] ; then
   echo "========== Simulating hardware test switch =========="
