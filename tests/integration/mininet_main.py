@@ -13,6 +13,7 @@ all dependencies correctly installed. See ../docs/.
 from clib.clib_mininet_test_main import test_main
 
 import mininet_tests
+import mininet_multidp_tests
 
 if __name__ == '__main__':
-    test_main(mininet_tests.__name__)
+    test_main([mininet_tests.__name__, mininet_multidp_tests.__name__])

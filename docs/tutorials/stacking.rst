@@ -598,6 +598,12 @@ let's define a faucet.yaml that matches our ring topology.
                         dp: br1
                         port: 3
 
+Reload faucet to enable the ring topology.
+
+.. code:: console
+
+    sudo systemctl reload faucet
+
 We will define three hosts, one on each switch.
 
 .. code:: console
@@ -717,6 +723,7 @@ network.
                         dp: br3
                         port: 3
                 3:
+                    description: "dummy port (workaround for github issue #3383)"
                     native_vlan: hosts
         br1:
             dp_id: 0x2
@@ -734,6 +741,9 @@ network.
                     stack:
                         dp: br2
                         port: 3
+                3:
+                    description: "dummy port (workaround for github issue #3383)"
+                    native_vlan: hosts
         br2:
             dp_id: 0x3
             hardware: "Open vSwitch"

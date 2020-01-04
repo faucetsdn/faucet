@@ -628,7 +628,7 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
                         dump_failed_test(test_name, test_dir)
 
 
-def run_tests(module, hw_config, requested_test_classes, dumpfail, debug,
+def run_tests(modules, hw_config, requested_test_classes, dumpfail, debug,
               keep_logs, serial, repeat, excluded_test_classes, report_json_filename,
               port_order):
     """Actually run the test suites, potentially in parallel."""
@@ -650,38 +650,42 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail, debug,
     if keep_logs:
         resultclass = FaucetResult
     all_successful = False
+    no_tests = True
 
-    sanity_tests, single_tests, parallel_tests = expand_tests(
-        module, requested_test_classes, excluded_test_classes,
-        hw_config, root_tmpdir, ports_sock, serial, port_order)
+    for module in modules:
+        sanity_tests, single_tests, parallel_tests = expand_tests(
+            module, requested_test_classes, excluded_test_classes,
+            hw_config, root_tmpdir, ports_sock, serial, port_order)
 
-    if (sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases()):
-        sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
-        if sanity_result.wasSuccessful():
-            while True:
-                all_successful = run_test_suites(debug, report_json_filename,
-                                                 hw_config, root_tmpdir, resultclass,
-                                                 copy.deepcopy(single_tests),
-                                                 copy.deepcopy(parallel_tests),
-                                                 sanity_result)
-                if not repeat:
-                    break
-                if not all_successful:
-                    break
-                print('repeating run')
-        else:
-            report_results([sanity_result], hw_config, report_json_filename)
+        if (sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases()):
+            no_tests = False
+            sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
+            if sanity_result.wasSuccessful():
+                while True:
+                    all_successful = run_test_suites(debug, report_json_filename,
+                                                     hw_config, root_tmpdir, resultclass,
+                                                     copy.deepcopy(single_tests),
+                                                     copy.deepcopy(parallel_tests),
+                                                     sanity_result)
+                    if not repeat:
+                        break
+                    if not all_successful:
+                        break
+                    print('repeating run')
+            else:
+                report_results([sanity_result], hw_config, report_json_filename)
 
+    if no_tests:
+        print('no tests selected')
+        shutil.rmtree(root_tmpdir)
+        sys.exit(0)
+    else:
         decoded_pcap_logs = glob.glob(os.path.join(
             os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
         pipeline_superset_report(decoded_pcap_logs)
         clean_test_dirs(
             root_tmpdir, all_successful,
             sanity_result.wasSuccessful(), keep_logs, dumpfail)
-    else:
-        print('no tests selected')
-        shutil.rmtree(root_tmpdir)
-        sys.exit(0)
 
     if not all_successful:
         sys.exit(-1)
@@ -722,6 +726,8 @@ def parse_args():
         '-x', help='list of test classes to exclude')
     parser.add_argument(
         '-r', '--repeat', action='store_true', help='repeat tests until failure')
+    parser.add_argument(
+        '-t', '--tolerance', default=False, action='store_false', help='run fault-tolerance tests')
 
     excluded_test_classes = []
     report_json_filename = None
@@ -753,10 +759,10 @@ def parse_args():
         args.loglevel, args.profile)
 
 
-def test_main(module):
+def test_main(modules):
     """Test main."""
 
-    print('testing module %s' % module)
+    print('testing module %s' % modules)
 
     (requested_test_classes, clean, dumpfail, debug, keep_logs, nocheck,
      serial, repeat, excluded_test_classes, report_json_filename, port_order,
@@ -788,7 +794,7 @@ def test_main(module):
         pr.enable()
 
     run_tests(
-        module, hw_config, requested_test_classes, dumpfail, debug,
+        modules, hw_config, requested_test_classes, dumpfail, debug,
         keep_logs, serial, repeat, excluded_test_classes, report_json_filename, port_order)
 
     if profile:

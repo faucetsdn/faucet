@@ -114,8 +114,7 @@ class ValveStackRedundantLink(ValveTestBases.ValveTestSmall):
 
     def test_loop_protect(self):
         """Basic loop protection check"""
-        self.set_stack_port_up(1)
-        self.set_stack_port_up(2)
+        self.activate_all_ports()
         mcast_match = {
             'in_port': 3,
             'eth_dst': mac.BROADCAST_STR,
@@ -129,7 +128,7 @@ class ValveStackRedundantLink(ValveTestBases.ValveTestSmall):
         self.assertFalse(
             self.table.is_output(mcast_match, port=1),
             msg='mcast packet flooded root of stack via not shortest path')
-        self.set_stack_port_down(2)
+        self.deactivate_stack_port(self.valve.dp.ports[2])
         self.assertFalse(
             self.table.is_output(mcast_match, port=2),
             msg='mcast packet flooded to root of stack via redundant path')
