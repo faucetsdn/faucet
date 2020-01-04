@@ -532,6 +532,27 @@ vlans:
         self.verify_expiry()
 
 
+class ValveL2LearnTestCase(ValveTestBases.ValveTestSmall):
+    """Test L2 Learning"""
+
+    def setUp(self):
+        self.setup_valve(CONFIG)
+
+    def test_expiry(self):
+        learn_labels = {
+            'vid': str(0x200),
+            'eth_src': self.P2_V200_MAC
+        }
+        self.assertEqual(
+            0, self.get_prom('learned_l2_port', labels=learn_labels))
+        self.learn_hosts()
+        self.assertEqual(
+            2.0, self.get_prom('learned_l2_port', labels=learn_labels))
+        self.verify_expiry()
+        self.assertEqual(
+            0, self.get_prom('learned_l2_port', labels=learn_labels))
+
+
 class ValveMirrorTestCase(ValveTestBases.ValveTestBig):
     """Test ACL and interface mirroring."""
     # TODO: check mirror packets are present/correct
