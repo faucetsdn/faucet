@@ -555,7 +555,7 @@ class ValveStackGraphBreakTestCase(ValveTestBases.ValveTestSmall):
         self.validate_flooding(rerouted=True)
 
     def _set_max_lldp_lost(self, new_value):
-        config = yaml.load(self.CONFIG)
+        config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
         for dp in config['dps'].values():
             for interface in dp['interfaces'].values():
                 if 'stack' in interface:
