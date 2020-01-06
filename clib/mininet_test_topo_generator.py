@@ -237,9 +237,11 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
             # Create host-switch links
             for host_id, hostlinks in host_links.items():
                 if i in hostlinks:
-                    host = self.hosts_by_id[host_id]
-                    next_index[switch] = self._add_host_to_switch_link(
-                        switch, dpid, host, next_index[switch])
+                    n_links = hostlinks.count(i)
+                    for _ in range(n_links):
+                        host = self.hosts_by_id[host_id]
+                        next_index[switch] = self._add_host_to_switch_link(
+                            switch, dpid, host, next_index[switch])
 
         # Create switch-switch links
         for src_index, dplinks in dp_links.items():

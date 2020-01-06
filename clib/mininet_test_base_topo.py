@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import random
 import re
 import time
 import ipaddress
@@ -26,6 +27,8 @@ class FaucetTopoTestBase(FaucetTestBase):
     NUM_DPS = 2
     NUM_HOSTS = 4
     LINKS_PER_HOST = 1
+
+    LACP_TIMEOUT = 10
 
     dpids = None
     port_maps = None
@@ -90,10 +93,10 @@ class FaucetTopoTestBase(FaucetTestBase):
         """VLAN VID value"""
         return (i+1) * 100
 
-    def host_ping(self, src_host, dst_ip):
+    def host_ping(self, src_host, dst_ip, intf=None):
         """Default method to ping from one host to an IP address"""
         self.one_ipv4_ping(
-            src_host, dst_ip, require_host_learned=False, retries=5, timeout=1000)
+            src_host, dst_ip, require_host_learned=False, retries=5, timeout=1000, intf=intf)
 
     def set_host_ip(self, host, host_ip):
         """Default method for setting a hosts IP address"""
@@ -104,7 +107,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                   vlan_options=None, dp_options=None, host_options=None,
                   routers=None, stack_roots=None,
                   include=None, include_optional=None,
-                  hw_dpid=None, lacp=False):
+                  hw_dpid=None, lacp_trunk=False):
         """
         Use the TopologyGenerator to generate the YAML configuration and create the network
         Args:
@@ -121,7 +124,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             include:
             include_optional:
             hw_dpid: DPID of hardware switch
-            lacp: Use LACP trunk ports
+            lacp_trunk: Use LACP trunk ports
         """
         if include is None:
             include = []
@@ -159,7 +162,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             include_optional=include_optional,
             acls=self.acls(),
             acl_in_dp=self.acl_in_dp(),
-            lacp=lacp,
+            lacp_trunk=lacp_trunk,
             vlan_options=vlan_options,
             dp_options=dp_options,
             routers=routers,
@@ -181,6 +184,9 @@ class FaucetTopoTestBase(FaucetTestBase):
             host routes for routed hosts
         """
         super(FaucetTopoTestBase, self).start_net()
+        # Create a dictionary of host information that might be used in a test later on.
+        # This makes it easier to retrieve certain information and consolidates it into one
+        #   location.
         self.host_information = {}
         for host_id, host_name in self.topo.hosts_by_id.items():
             host_obj = self.net.get(host_name)
@@ -190,13 +196,73 @@ class FaucetTopoTestBase(FaucetTestBase):
             self.host_information[host_id] = {
                 'host': host_obj,
                 'ip': ip_interface,
-                'vlan': vlan
+                'mac': host_obj.MAC(),
+                'vlan': vlan,
+                'bond': None,
+                'ports': {}
             }
-
+        # Add information of hosts chosen dpid, port map values
+        # TODO: This redoes logic from get_config()
+        for i, dpid in enumerate(self.dpids):
+            index = 1
+            for host_id, links in self.host_links.items():
+                if i in links:
+                    n_links = links.count(i)
+                    for _ in range(n_links):
+                        port = self.port_maps[dpid]['port_%d' % index]
+                        self.host_information[host_id]['ports'].setdefault(dpid, [])
+                        self.host_information[host_id]['ports'][dpid].append(port)
+                        index += 1
+        # Store faucet vip interfaces
         self.faucet_vips = {}
         for vlan in range(self.n_vlans):
             self.faucet_vips[vlan] = ipaddress.ip_interface(self.faucet_vip(vlan))
+        # Setup the linux bonds for LACP connected hosts
+        self.setup_lacp_bonds()
+        # Add host routes to hosts for inter vlan routing
+        self.setup_intervlan_host_routes()
 
+    def setup_lacp_bonds(self):
+        """Search through host options for lacp hosts and configure accordingly"""
+        if not self.host_options:
+            return
+        bond_index = 1
+        for host_id, options in self.host_options.items():
+            if 'lacp' in options:
+                host = self.host_information[host_id]['host']
+                # LACP must be configured with host ports down
+                for dpid, ports in self.host_information[host_id]['ports'].items():
+                    for port in ports:
+                        self.set_port_down(port, dpid)
+                orig_ip = host.IP()
+                lacp_switches = [self.net.switches[i] for i in self.host_links[host_id]]
+                bond_members = [
+                    pair[0].name for switch in lacp_switches for pair in host.connectionsTo(switch)]
+                bond_name = 'bond%u' % (bond_index)
+                self.host_information[host_id]['bond'] = bond_name
+                for bond_member in bond_members:
+                    # Deconfigure bond members
+                    self.quiet_commands(host, (
+                        'ip link set %s down' % bond_member,
+                        'ip address flush dev %s' % bond_member))
+                # Configure bond interface
+                self.quiet_commands(host, (
+                    ('ip link add %s address 0e:00:00:00:00:99 '
+                        'type bond mode 802.3ad lacp_rate fast miimon 100') % (bond_name),
+                    'ip add add %s/%s dev %s' % (orig_ip, self.NETPREFIX, bond_name),
+                    'ip link set %s up' % bond_name))
+                # Add bond members
+                for bond_member in bond_members:
+                    self.quiet_commands(host, (
+                        'ip link set dev %s master %s' % (bond_member, bond_name),))
+                bond_index += 1
+                # Return the ports to UP
+                for dpid, ports in self.host_information[host_id]['ports'].items():
+                    for port in ports:
+                        self.set_port_up(port, dpid)
+
+    def setup_intervlan_host_routes(self):
+        """Configure host routes between hosts that belong on routed VLANs"""
         if self.routers:
             for src in self.host_information:
                 src_host = self.host_information[src]['host']
@@ -216,7 +282,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     def get_config(self, dpids=None, hw_dpid=None, hardware=None, ofchannel_log=None,
                    n_vlans=1, host_links=None, host_vlans=None, stack_roots=None,
                    include=None, include_optional=None, acls=None, acl_in_dp=None,
-                   lacp=False, vlan_options=None, dp_options=None,
+                   lacp_trunk=False, vlan_options=None, dp_options=None,
                    routers=None, host_options=None):
         """
         Args:
@@ -231,7 +297,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             include:
             include_optional:
             hw_dpid: DPID of hardware switch
-            lacp: Use LACP trunk ports
+            lacp_trunk: Use LACP trunk ports
             vlan_options (dict): vlan_index to key, value dp options
             dp_options (dict): dp index to key, value dp options
             routers (dict): router index to list of vlan index
@@ -317,8 +383,8 @@ class FaucetTopoTestBase(FaucetTestBase):
                             key: value
                         }
                         if host_options and host_id in host_options:
-                            for key, value in host_options[host_id].items():
-                                interfaces_config[port][key] = value
+                            for option_key, option_value in host_options[host_id].items():
+                                interfaces_config[port][option_key] = option_value
                         index += 1
                         add_acl_to_port(i, port, interfaces_config)
 
@@ -335,7 +401,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                 else:
                     tagged_vlans = [self.vlan_name(vlan) for vlan in range(n_vlans)]
                     interfaces_config[port].update({'tagged_vlans': tagged_vlans})
-                    if lacp:
+                    if lacp_trunk:
                         interfaces_config[port].update({
                             'lacp': 1,
                             'lacp_active': True
@@ -610,26 +676,25 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.assertTrue(asserted, 'Did not fail as expected for %s' % dp_name)
 
     def verify_intervlan_routing(self):
-        """Verify intervlan routing is possible"""
+        """Verify intervlan routing but for LAG host use bond interface"""
         for src in self.host_information:
-            src_host = self.host_information[src]['host']
-            src_vlan = self.host_information[src]['vlan']
             for dst in self.host_information:
                 if dst > src:
-                    dst_host = self.host_information[dst]['host']
-                    dst_vlan = self.host_information[dst]['vlan']
-                    dst_ip = self.host_information[dst]['ip']
-                    if self.is_routed_vlans(src_vlan, dst_vlan):
-                        src_faucet_vip = self.faucet_vips[src_vlan]
-                        dst_faucet_vip = self.faucet_vips[dst_vlan]
-                        self.host_ping(src_host, src_faucet_vip.ip)
-                        self.host_ping(dst_host, dst_faucet_vip.ip)
-                        self.host_ping(src_host, dst_ip.ip)
-                        self.assertEqual(
-                            self._ip_neigh(
-                                src_host, src_faucet_vip.ip, self.IPV), self.faucet_mac(src_vlan))
-                    elif src_vlan == dst_vlan:
-                        self.host_ping(src_host, dst_ip.ip)
+                    self.check_host_connectivity_by_id(src, dst)
+
+    def check_host_connectivity_by_id(self, src_id, dst_id):
+        """Ping from src to dst with host_id parameters if they should be able to"""
+        src_host, src_ip, _, src_vlan, src_bond, _ = self.host_information[src_id].values()
+        dst_host, dst_ip, _, dst_vlan, dst_bond, _ = self.host_information[dst_id].values()
+        connectivity = src_vlan == dst_vlan or self.is_routed_vlans(src_vlan, dst_vlan)
+        if self.is_routed_vlans(src_vlan, dst_vlan):
+            src_vip = self.faucet_vips[src_vlan]
+            dst_vip = self.faucet_vips[dst_vlan]
+            self.host_ping(src_host, src_vip.ip, src_bond)
+            self.host_ping(dst_host, dst_vip.ip, dst_bond)
+        if connectivity:
+            self.host_ping(src_host, dst_ip.ip, src_bond)
+            self.host_ping(dst_host, src_ip.ip, dst_bond)
 
     def is_routed_vlans(self, vlan_a, vlan_b):
         """Return true if the two vlans share a router"""
@@ -655,3 +720,136 @@ class FaucetTopoTestBase(FaucetTestBase):
                 return True
             time.sleep(1)
         return False
+
+    def get_expected_synced_states(self, host_id):
+        """Return the list of regex string for the expected sync state of a LACP LAG connection"""
+        synced_state_list = []
+        oper_key = self.host_options[host_id]['lacp']
+        lacp_ports = [
+            port for ports in self.host_information[host_id]['ports'].values() for port in ports]
+        for port in lacp_ports:
+            synced_state_txt = r"""
+Slave Interface: \S+
+MII Status: up
+Speed: \d+ Mbps
+Duplex: full
+Link Failure Count: \d+
+Permanent HW addr: \S+
+Slave queue ID: 0
+Aggregator ID: \d+
+Actor Churn State: monitoring
+Partner Churn State: monitoring
+Actor Churned Count: 0
+Partner Churned Count: 0
+details actor lacp pdu:
+    system priority: 65535
+    system mac address: 0e:00:00:00:00:99
+    port key: \d+
+    port priority: 255
+    port number: \d+
+    port state: 63
+details partner lacp pdu:
+    system priority: 65535
+    system mac address: 0e:00:00:00:00:01
+    oper key: %d
+    port priority: 255
+    port number: %d
+    port state: 62
+""".strip() % (oper_key, port)
+            synced_state_list.append(synced_state_txt)
+        return synced_state_list
+
+    def prom_lacp_up_ports(self, dpid):
+        """Get the number of up LAG ports according to Prometheus for a dpid"""
+        lacp_up_ports = 0
+        for host_id, options in self.host_options.items():
+            # Find LACP hosts
+            for key in options.keys():
+                if key == 'lacp':
+                    # Is LACP host
+                    host_information = self.host_information[host_id]
+                    if dpid in host_information['ports']:
+                        # LACP host has links to dpid
+                        lacp_ports = host_information['ports'][dpid]
+                        for port in lacp_ports:
+                            # Obtain up LACP ports for that dpid
+                            port_labels = self.port_labels(port)
+                            lacp_state = self.scrape_prometheus_var(
+                                'port_lacp_state', port_labels, default=0, dpid=dpid)
+                            lacp_up_ports += 1 if lacp_state == 3 else 0
+        return lacp_up_ports
+
+    def verify_num_lag_up_ports(self, expected_up_ports, dpid):
+        """Checks to see if Prometheus has the expected number of up LAG ports on the specified DP"""
+        for _ in range(self.LACP_TIMEOUT*10):
+            if self.prom_lacp_up_ports(dpid) == expected_up_ports:
+                return
+            time.sleep(1)
+        self.assertEqual(self.prom_lacp_up_ports(dpid), expected_up_ports)
+
+    def require_linux_bond_up(self, host_id):
+        """Checks to see if the host has properly formed into a bonded state"""
+        synced_state_list = self.get_expected_synced_states(host_id)
+        host = self.host_information[host_id]['host']
+        bond_name = self.host_information[host_id]['bond']
+        for _ in range(self.LACP_TIMEOUT*2):
+            result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond_name)
+            result = '\n'.join([line.rstrip() for line in result.splitlines()])
+            with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
+                state_file.write(result)
+            matched_all = True
+            for state_txt in synced_state_list:
+                if not re.search(state_txt, result):
+                    matched_all = False
+                    break
+            if matched_all:
+                return
+            time.sleep(1)
+        synced_state_txt = r""""""
+        for state_txt in synced_state_list:
+            synced_state_txt += state_txt + "\n\n"
+        synced_state_txt.strip()
+        self.assertFalse(
+            re.search(synced_state_txt, result),
+            msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (result, synced_state_txt))
+
+    def verify_lag_connectivity(self, host_id):
+        """Verify LAG connectivity"""
+        lacp_ports = self.host_information[host_id]['ports']
+        # All ports down
+        for dpid, ports in lacp_ports.items():
+            for port in ports:
+                self.set_port_down(port, dpid)
+            self.verify_num_lag_up_ports(0, dpid)
+        # Pick a port to set up
+        up_dpid = random.choice(list(lacp_ports.keys()))
+        up_port = random.choice(lacp_ports[up_dpid])
+        self.set_port_up(up_port, up_dpid)
+        self.verify_num_lag_up_ports(1, up_dpid)
+        # Ensure connectivity with one port
+        self.verify_lag_host_connectivity()
+        # Set the other ports to UP
+        for dpid, ports in lacp_ports.items():
+            for port in ports:
+                self.set_port_up(port, dpid)
+            self.verify_num_lag_up_ports(len(ports), dpid)
+        # Ensure connectivity with all ports
+        self.require_linux_bond_up(host_id)
+        self.verify_lag_host_connectivity()
+        # Tear down first port
+        self.set_port_down(up_port, up_dpid)
+        self.verify_num_lag_up_ports(len(lacp_ports[up_dpid])-1, up_dpid)
+        # Ensure connectivity with new ports only
+        self.verify_lag_host_connectivity()
+
+    def verify_lag_host_connectivity(self):
+        """Verify LAG hosts can connect to any other host using the interface"""
+        # Find all LACP hosts
+        for lacp_id, host_options in self.host_options.items():
+            if 'lacp' in host_options:
+                # Found LACP host
+                for dst_id in self.host_information:
+                    if lacp_id == dst_id:
+                        continue
+                    # Test connectivity to any other host (might be another LAG host)
+                    self.check_host_connectivity_by_id(lacp_id, dst_id)
