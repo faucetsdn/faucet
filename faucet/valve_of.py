@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import ipaddress
 import random
 
@@ -437,6 +438,7 @@ def devid_present(vid):
     return vid ^ ofp.OFPVID_PRESENT
 
 
+@functools.lru_cache(maxsize=1024)
 def push_vlan_act(table, vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
     """Return OpenFlow action list to push Ethernet 802.1Q header with VLAN VID.
 
@@ -460,6 +462,7 @@ def dec_ip_ttl():
     return parser.OFPActionDecNwTtl()
 
 
+@functools.lru_cache(maxsize=1024)
 def pop_vlan():
     """Return OpenFlow action to pop outermost Ethernet 802.1Q VLAN header.
 
@@ -469,6 +472,7 @@ def pop_vlan():
     return parser.OFPActionPopVlan()
 
 
+@functools.lru_cache(maxsize=1024)
 def output_port(port_num, max_len=0):
     """Return OpenFlow action to output to a port.
 
@@ -896,7 +900,7 @@ def dedupe_ofmsgs(input_ofmsgs, random_order):
     # Can't use dict or json comparison as may be nested
     deduped_input_ofmsgs = {str(ofmsg): ofmsg for ofmsg in input_ofmsgs}
     if random_order:
-        ofmsgs = deduped_input_ofmsgs.values()
+        ofmsgs = list(deduped_input_ofmsgs.values())
         random.shuffle(ofmsgs)
         return ofmsgs
     # If priority present, send highest priority first.

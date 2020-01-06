@@ -26,6 +26,7 @@ from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from faucet import valve_of
+from faucet import valve_packet
 from valve_test_lib import (
     CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
     ValveTestBases)
@@ -53,20 +54,23 @@ dps:
 
     def test_fuzz_vlan(self):
         """Test unknown VIDs/ports."""
-        for i in range(0, 64):
-            self.rcv_packet(1, i, {
-                'eth_src': self.P1_V100_MAC,
-                'eth_dst': self.P2_V200_MAC,
-                'ipv4_src': '10.0.0.2',
-                'ipv4_dst': '10.0.0.3',
-                'vid': i})
-        for i in range(0, 64):
-            self.rcv_packet(i, 0x100, {
-                'eth_src': self.P1_V100_MAC,
-                'eth_dst': self.P2_V200_MAC,
-                'ipv4_src': '10.0.0.2',
-                'ipv4_dst': '10.0.0.3',
-                'vid': 0x100})
+        for _ in range(0, 3):
+            for i in range(0, 64):
+                self.rcv_packet(1, i, {
+                    'eth_src': self.P1_V100_MAC,
+                    'eth_dst': self.P2_V200_MAC,
+                    'ipv4_src': '10.0.0.2',
+                    'ipv4_dst': '10.0.0.3',
+                    'vid': i})
+            for i in range(0, 64):
+                self.rcv_packet(i, 0x100, {
+                    'eth_src': self.P1_V100_MAC,
+                    'eth_dst': self.P2_V200_MAC,
+                    'ipv4_src': '10.0.0.2',
+                    'ipv4_dst': '10.0.0.3',
+                    'vid': 0x100})
+        cache_info = valve_packet.parse_packet_in_pkt.cache_info()
+        self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
 
 
 class ValveCoprocessorTestCase(ValveTestBases.ValveTestSmall):

@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 from collections import defaultdict
 
 from faucet import valve_of
@@ -118,7 +119,7 @@ class ValveFloodManager(ValveManagerBase):
             actions.append(self.flood_table.set_external_forwarding_requested())
         actions.extend(self._build_flood_local_rule_actions(
             vlan, exclude_unicast, in_port, exclude_all_external, exclude_restricted_bcast_arpnd))
-        return actions
+        return tuple(actions)
 
     def _build_flood_rule(self, match, command, flood_acts, flood_priority):
         return self.flood_table.flowmod(
@@ -146,6 +147,7 @@ class ValveFloodManager(ValveManagerBase):
         return (self._build_flood_rule(match, command, flood_acts, flood_priority), flood_acts)
 
     @staticmethod
+    @functools.lru_cache(maxsize=1024)
     def _output_non_output_actions(flood_acts):
         output_ports = set()
         all_nonoutput_actions = set()
@@ -169,7 +171,7 @@ class ValveFloodManager(ValveManagerBase):
     def _build_flood_acts_for_port(self, vlan, exclude_unicast, port,  # pylint: disable=too-many-arguments
                                    exclude_all_external=False,
                                    exclude_restricted_bcast_arpnd=False):
-        flood_acts = []
+        flood_acts = ()
         port_output_ports = []
         port_non_output_acts = []
         if port.dyn_phys_up:
@@ -182,8 +184,8 @@ class ValveFloodManager(ValveManagerBase):
             flood_acts, port_output_ports, port_non_output_acts = self._output_non_output_actions(
                 flood_acts)
             if not port_output_ports:
-                flood_acts = []
-                port_non_output_acts = []
+                flood_acts = ()
+                port_non_output_acts = ()
         return (flood_acts, port_output_ports, port_non_output_acts)
 
     def _build_flood_match_priority(self, port, vlan, eth_type,  # pylint: disable=too-many-arguments
