@@ -158,8 +158,9 @@ class ValveFloodManager(ValveManagerBase):
             else:
                 flood_acts = self._build_flood_rule_actions(
                     vlan, exclude_unicast, port, exclude_all_external, False)
-            flood_acts, port_output_ports, port_non_output_acts = valve_of.output_non_output_actions(
-                flood_acts)
+            (flood_acts,
+             port_output_ports,
+             port_non_output_acts) = valve_of.output_non_output_actions(flood_acts)
             if not port_output_ports:
                 flood_acts = ()
                 port_non_output_acts = ()
@@ -198,8 +199,9 @@ class ValveFloodManager(ValveManagerBase):
                 vlan, eth_type, eth_dst, eth_dst_mask, exclude_unicast, command)
             if not self.use_group_table:
                 ofmsgs.append(vlan_flood_ofmsg)
-            flood_acts, vlan_output_ports, vlan_non_output_acts = valve_of.output_non_output_actions(
-                vlan_flood_acts)
+            (flood_acts,
+             vlan_output_ports,
+             vlan_non_output_acts) = valve_of.output_non_output_actions(vlan_flood_acts)
             for port in self._vlan_all_ports(vlan, exclude_unicast):
                 (flood_acts,
                  port_output_ports,
@@ -395,7 +397,8 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 if shortest_path and len(shortest_path) > 1:
                     first_peer_dp = self.dp_shortest_path_to_root()[1]
                 else:
-                    first_peer_port = self.canonical_port_order(self.all_towards_root_stack_ports)[0]
+                    first_peer_port = self.canonical_port_order(
+                        self.all_towards_root_stack_ports)[0]
                     first_peer_dp = first_peer_port.stack['dp'].name
                 self.towards_root_stack_ports = {
                     port for port in self.all_towards_root_stack_ports
@@ -793,9 +796,8 @@ class ValveFloodStackManagerReflection(ValveFloodStackManagerBase):
         peer_dp = pkt_meta.port.stack['dp']
         if peer_dp.dyn_running:
             return self._non_stack_learned(other_valves, pkt_meta)
-        else:
-            # Fall back to peer knows if edge or root if we are not the peer's controller.
-            if peer_dp.is_stack_edge() or peer_dp.is_stack_root():
-                return peer_dp
+        # Fall back to peer knows if edge or root if we are not the peer's controller.
+        if peer_dp.is_stack_edge() or peer_dp.is_stack_root():
+            return peer_dp
         # No DP has learned this host, yet. Take no action to allow remote learning to occur.
         return None
