@@ -17,7 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import functools
 from collections import defaultdict
 
 from faucet import valve_of
@@ -146,28 +145,6 @@ class ValveFloodManager(ValveManagerBase):
             exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
         return (self._build_flood_rule(match, command, flood_acts, flood_priority), flood_acts)
 
-    @staticmethod
-    @functools.lru_cache(maxsize=1024)
-    def _output_non_output_actions(flood_acts):
-        output_ports = set()
-        all_nonoutput_actions = set()
-        deduped_acts = []
-        # avoid dedupe_ofmsgs() here, as it's expensive - most of the time we are comparing
-        # port numbers as integers which is much cheaper.
-        for act in flood_acts:
-            if valve_of.is_output(act):
-                if act.port in output_ports:
-                    continue
-                output_ports.add(act.port)
-            else:
-                str_act = str(act)
-                if str_act in all_nonoutput_actions:
-                    continue
-                all_nonoutput_actions.add(str_act)
-            deduped_acts.append(act)
-        nonoutput_actions = all_nonoutput_actions - set([str(valve_of.pop_vlan())])
-        return (deduped_acts, output_ports, nonoutput_actions)
-
     def _build_flood_acts_for_port(self, vlan, exclude_unicast, port,  # pylint: disable=too-many-arguments
                                    exclude_all_external=False,
                                    exclude_restricted_bcast_arpnd=False):
@@ -181,7 +158,7 @@ class ValveFloodManager(ValveManagerBase):
             else:
                 flood_acts = self._build_flood_rule_actions(
                     vlan, exclude_unicast, port, exclude_all_external, False)
-            flood_acts, port_output_ports, port_non_output_acts = self._output_non_output_actions(
+            flood_acts, port_output_ports, port_non_output_acts = valve_of.output_non_output_actions(
                 flood_acts)
             if not port_output_ports:
                 flood_acts = ()
@@ -221,7 +198,7 @@ class ValveFloodManager(ValveManagerBase):
                 vlan, eth_type, eth_dst, eth_dst_mask, exclude_unicast, command)
             if not self.use_group_table:
                 ofmsgs.append(vlan_flood_ofmsg)
-            flood_acts, vlan_output_ports, vlan_non_output_acts = self._output_non_output_actions(
+            flood_acts, vlan_output_ports, vlan_non_output_acts = valve_of.output_non_output_actions(
                 vlan_flood_acts)
             for port in self._vlan_all_ports(vlan, exclude_unicast):
                 (flood_acts,

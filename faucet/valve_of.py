@@ -508,6 +508,35 @@ def dedupe_output_port_acts(output_port_acts):
     return [output_port(port) for port in sorted(output_ports)]
 
 
+@functools.lru_cache(maxsize=1024)
+def output_non_output_actions(flood_acts):
+    """Split output actions into deduped actions, output ports, and non-output port actions.
+
+    Args:
+        list of ryu.ofproto.ofproto_v1_3_parser.OFPActions: flood actions.
+    Returns:
+        set of deduped actions, output ports, and non-output actions.
+    """
+    output_ports = set()
+    all_nonoutput_actions = set()
+    deduped_acts = []
+    # avoid dedupe_ofmsgs() here, as it's expensive - most of the time we are comparing
+    # port numbers as integers which is much cheaper.
+    for act in flood_acts:
+        if is_output(act):
+            if act.port in output_ports:
+                continue
+            output_ports.add(act.port)
+        else:
+            str_act = str(act)
+            if str_act in all_nonoutput_actions:
+                continue
+            all_nonoutput_actions.add(str_act)
+        deduped_acts.append(act)
+    nonoutput_actions = all_nonoutput_actions - set([str(pop_vlan())])
+    return (deduped_acts, output_ports, nonoutput_actions)
+
+
 def output_in_port():
     """Return OpenFlow action to output out input port.
 
@@ -705,6 +734,7 @@ def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
     return match_dict
 
 
+@functools.lru_cache(maxsize=1024)
 def flowmod(cookie, command, table_id, priority, out_port, out_group,
             match_fields, inst, hard_timeout, idle_timeout, flags=0):
     return parser.OFPFlowMod(
