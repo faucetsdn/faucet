@@ -734,7 +734,6 @@ def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
     return match_dict
 
 
-@functools.lru_cache(maxsize=1024)
 def flowmod(cookie, command, table_id, priority, out_port, out_group,
             match_fields, inst, hard_timeout, idle_timeout, flags=0):
     return parser.OFPFlowMod(
