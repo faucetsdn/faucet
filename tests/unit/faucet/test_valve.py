@@ -70,6 +70,7 @@ dps:
                     'ipv4_dst': '10.0.0.3',
                     'vid': 0x100})
         # pylint: disable=no-member
+        # pylint: disable=no-value-for-parameter
         cache_info = valve_packet.parse_packet_in_pkt.cache_info()
         self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
 
