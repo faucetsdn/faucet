@@ -629,13 +629,9 @@ MATCH_FIELDS = {
 
 
 def match_from_dict(match_dict):
-    for old_match, new_match in OLD_MATCH_FIELDS.items():
-        if old_match in match_dict:
-            match_dict[new_match] = match_dict[old_match]
-            del match_dict[old_match]
-
     kwargs = {}
     for of_match, field in match_dict.items():
+        of_match = OLD_MATCH_FIELDS.get(of_match, of_match)
         test_config_condition(of_match not in MATCH_FIELDS, 'Unknown match field: %s' % of_match)
         try:
             encoded_field = MATCH_FIELDS[of_match](field)
@@ -894,12 +890,19 @@ def _partition_ofmsgs(input_ofmsgs):
     return by_kind
 
 
-def dedupe_ofmsgs(input_ofmsgs):
+def dedupe_ofmsgs(input_ofmsgs, random_order):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
     # Can't use dict or json comparison as may be nested
     deduped_input_ofmsgs = {str(ofmsg): ofmsg for ofmsg in input_ofmsgs}
-    return list(deduped_input_ofmsgs.values())
+    if random_order:
+        ofmsgs = deduped_input_ofmsgs.values()
+        random.shuffle(ofmsgs)
+        return ofmsgs
+    # If priority present, send highest priority first.
+    return sorted(
+        deduped_input_ofmsgs.values(),
+        key=lambda ofmsg: getattr(ofmsg, 'priority', 2**16+1), reverse=True)
 
 
 # kind, random_order, suggest_barrier
@@ -929,17 +932,8 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
         by_kind['delete'] = []
 
     for kind, random_order, suggest_barrier in _OFMSG_ORDER:
-        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []))
+        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []), random_order)
         if ofmsgs:
-            if random_order:
-                random.shuffle(ofmsgs)
-            else:
-                with_priorities = [ofmsg for ofmsg in ofmsgs if hasattr(ofmsg, 'priority')]
-                # If priority present, send highest priority first.
-                if with_priorities:
-                    with_priorities.sort(key=lambda ofmsg: ofmsg.priority, reverse=True)
-                    without_priorities = [ofmsg for ofmsg in ofmsgs if not hasattr(ofmsg, 'priority')]
-                    ofmsgs = without_priorities + with_priorities
             output_ofmsgs.extend(ofmsgs)
             if use_barriers and suggest_barrier:
                 output_ofmsgs.append(barrier())
