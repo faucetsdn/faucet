@@ -252,6 +252,7 @@ def is_packetout(ofmsg):
     """
     return isinstance(ofmsg, parser.OFPPacketOut)
 
+
 def is_output(ofmsg):
     """Return True if flow message is an action output message.
 
@@ -261,6 +262,7 @@ def is_output(ofmsg):
         bool: True if is a OFPActionOutput.
     """
     return isinstance(ofmsg, parser.OFPActionOutput)
+
 
 def is_flowdel(ofmsg):
     """Return True if flow message is a FlowMod and a delete.
@@ -276,6 +278,7 @@ def is_flowdel(ofmsg):
         return True
     return False
 
+
 def is_groupdel(ofmsg):
     """Return True if OF message is a GroupMod and command is delete.
 
@@ -288,6 +291,7 @@ def is_groupdel(ofmsg):
             (ofmsg.command == ofp.OFPGC_DELETE)):
         return True
     return False
+
 
 def is_meterdel(ofmsg):
     """Return True if OF message is a MeterMod and command is delete.
@@ -384,6 +388,7 @@ def goto_table(table):
     """
     return parser.OFPInstructionGotoTable(table.table_id)
 
+
 def metadata_goto_table(metadata, mask, table):
     """Return instructions to write metadata and goto table.
 
@@ -397,6 +402,7 @@ def metadata_goto_table(metadata, mask, table):
         parser.OFPInstructionWriteMetadata(metadata, mask),
         parser.OFPInstructionGotoTable(table.table_id)
         ]
+
 
 def set_field(**kwds):
     """Return action to set any field.
@@ -517,8 +523,9 @@ def output_controller(max_len=MAX_PACKET_IN_BYTES):
     """
     return output_port(ofp.OFPP_CONTROLLER, max_len)
 
+
 def packetouts(port_nums, data):
-    """Return OpenFlow action to mulltiply packet out to dataplane from controller.
+    """Return OpenFlow action to multiply packet out to dataplane from controller.
 
     Args:
         port_num (list): ints, ports to output to.
