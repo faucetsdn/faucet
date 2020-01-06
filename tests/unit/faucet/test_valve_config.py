@@ -775,8 +775,8 @@ dps:
         pstats_out, pstats_text = self.profile(
             partial(self.update_config, self.CONFIG, reload_type='cold'))
         total_tt_prop = pstats_out.total_tt / self.baseline_total_tt  # pytype: disable=attribute-error
-        # must not be 25x slower, to ingest config for 100 interfaces than 1.
-        self.assertLessEqual(total_tt_prop, 25, msg=pstats_text)
+        # must not be 30x slower, to ingest config for 100 interfaces than 1.
+        self.assertLessEqual(total_tt_prop, 30, msg=pstats_text)
         cache_info = valve_of.output_non_output_actions.cache_info()
         self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
 
