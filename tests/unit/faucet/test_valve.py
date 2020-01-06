@@ -69,6 +69,7 @@ dps:
                     'ipv4_src': '10.0.0.2',
                     'ipv4_dst': '10.0.0.3',
                     'vid': 0x100})
+        # pylint: disable=no-member
         cache_info = valve_packet.parse_packet_in_pkt.cache_info()
         self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
 
@@ -112,7 +113,9 @@ dps:
         # copro can send to P2 via regular pipeline
         p2_copro_host_receive = copy.deepcopy(p2_host_match)
         p2_copro_host_receive.update(
-            {'in_port': 1, 'eth_src': p2_host_match['eth_dst'], 'eth_dst': p2_host_match['eth_src']})
+            {'in_port': 1,
+             'eth_src': p2_host_match['eth_dst'],
+             'eth_dst': p2_host_match['eth_src']})
         p2_copro_host_receive['vlan_vid'] = 0x100 | ofp.OFPVID_PRESENT
         self.assertTrue(self.table.is_output(p2_copro_host_receive, port=2, vid=0x100))
         # copro send to P2 was not flooded
