@@ -3606,6 +3606,9 @@ class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
                     (second_host, self.port_map['port_2'])):
                 self.require_host_learned(host, in_port=in_port)
             self.swap_host_macs(first_host, second_host)
+        for port in (self.port_map['port_1'], self.port_map['port_2']):
+            self.wait_until_matching_lines_from_file(
+                r'.+L2_LEARN.+"previous_port_no": %u.+' % port, self.event_log)
 
 
 class FaucetUntaggedHostPermanentLearnTest(FaucetUntaggedTest):
