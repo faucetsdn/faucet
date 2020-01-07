@@ -19,6 +19,7 @@
 
 import copy
 import logging
+import time
 
 from collections import defaultdict, deque
 
@@ -434,6 +435,7 @@ class Valve:
             return
         port_labels = self.dp.port_labels(port.number)
         self._set_var('port_status', port_status, labels=port_labels)
+        port.dyn_update_time = time.time()
 
     def port_status_handler(self, port_no, reason, state, _other_valves):
         """Return OpenFlow messages responding to port operational status change."""

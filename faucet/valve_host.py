@@ -319,8 +319,10 @@ class ValveHostManager(ValveManagerBase):
                 # locally learned hosts on a stack.
                 if same_lag or local_stack_learn:
                     guard_time = 2
-                # recent cache update, don't do anything.
-                if cache_age < guard_time:
+                # port didn't change status, and recent cache update, don't do anything.
+                if (cache_age < guard_time and
+                        port.dyn_update_time is not None and
+                        int(port.dyn_update_time) <= int(entry.cache_time)):
                     return (ofmsgs, cache_port, False)
                 # skip delete if host didn't change ports or on same LAG.
                 if cache_port == port or same_lag:

@@ -207,6 +207,7 @@ class Port(Conf):
         self.dyn_lldp_beacon_recv_time = None
         self.dyn_learn_ban_count = 0
         self.dyn_phys_up = False
+        self.dyn_update_time = None
         self.dyn_stack_current_state = STACK_STATE_NONE
         self.dyn_stack_probe_info = {}
 
