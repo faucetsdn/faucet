@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import ipaddress
 import random
 
@@ -252,6 +253,7 @@ def is_packetout(ofmsg):
     """
     return isinstance(ofmsg, parser.OFPPacketOut)
 
+
 def is_output(ofmsg):
     """Return True if flow message is an action output message.
 
@@ -261,6 +263,7 @@ def is_output(ofmsg):
         bool: True if is a OFPActionOutput.
     """
     return isinstance(ofmsg, parser.OFPActionOutput)
+
 
 def is_flowdel(ofmsg):
     """Return True if flow message is a FlowMod and a delete.
@@ -276,6 +279,7 @@ def is_flowdel(ofmsg):
         return True
     return False
 
+
 def is_groupdel(ofmsg):
     """Return True if OF message is a GroupMod and command is delete.
 
@@ -288,6 +292,7 @@ def is_groupdel(ofmsg):
             (ofmsg.command == ofp.OFPGC_DELETE)):
         return True
     return False
+
 
 def is_meterdel(ofmsg):
     """Return True if OF message is a MeterMod and command is delete.
@@ -384,6 +389,7 @@ def goto_table(table):
     """
     return parser.OFPInstructionGotoTable(table.table_id)
 
+
 def metadata_goto_table(metadata, mask, table):
     """Return instructions to write metadata and goto table.
 
@@ -397,6 +403,7 @@ def metadata_goto_table(metadata, mask, table):
         parser.OFPInstructionWriteMetadata(metadata, mask),
         parser.OFPInstructionGotoTable(table.table_id)
         ]
+
 
 def set_field(**kwds):
     """Return action to set any field.
@@ -431,6 +438,7 @@ def devid_present(vid):
     return vid ^ ofp.OFPVID_PRESENT
 
 
+@functools.lru_cache(maxsize=1024)
 def push_vlan_act(table, vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
     """Return OpenFlow action list to push Ethernet 802.1Q header with VLAN VID.
 
@@ -454,6 +462,7 @@ def dec_ip_ttl():
     return parser.OFPActionDecNwTtl()
 
 
+@functools.lru_cache(maxsize=1024)
 def pop_vlan():
     """Return OpenFlow action to pop outermost Ethernet 802.1Q VLAN header.
 
@@ -463,6 +472,7 @@ def pop_vlan():
     return parser.OFPActionPopVlan()
 
 
+@functools.lru_cache(maxsize=1024)
 def output_port(port_num, max_len=0):
     """Return OpenFlow action to output to a port.
 
@@ -498,6 +508,35 @@ def dedupe_output_port_acts(output_port_acts):
     return [output_port(port) for port in sorted(output_ports)]
 
 
+@functools.lru_cache(maxsize=1024)
+def output_non_output_actions(flood_acts):
+    """Split output actions into deduped actions, output ports, and non-output port actions.
+
+    Args:
+        list of ryu.ofproto.ofproto_v1_3_parser.OFPActions: flood actions.
+    Returns:
+        set of deduped actions, output ports, and non-output actions.
+    """
+    output_ports = set()
+    all_nonoutput_actions = set()
+    deduped_acts = []
+    # avoid dedupe_ofmsgs() here, as it's expensive - most of the time we are comparing
+    # port numbers as integers which is much cheaper.
+    for act in flood_acts:
+        if is_output(act):
+            if act.port in output_ports:
+                continue
+            output_ports.add(act.port)
+        else:
+            str_act = str(act)
+            if str_act in all_nonoutput_actions:
+                continue
+            all_nonoutput_actions.add(str_act)
+        deduped_acts.append(act)
+    nonoutput_actions = all_nonoutput_actions - set([str(pop_vlan())])
+    return (deduped_acts, output_ports, nonoutput_actions)
+
+
 def output_in_port():
     """Return OpenFlow action to output out input port.
 
@@ -517,8 +556,9 @@ def output_controller(max_len=MAX_PACKET_IN_BYTES):
     """
     return output_port(ofp.OFPP_CONTROLLER, max_len)
 
+
 def packetouts(port_nums, data):
-    """Return OpenFlow action to mulltiply packet out to dataplane from controller.
+    """Return OpenFlow action to multiply packet out to dataplane from controller.
 
     Args:
         port_num (list): ints, ports to output to.
@@ -622,13 +662,9 @@ MATCH_FIELDS = {
 
 
 def match_from_dict(match_dict):
-    for old_match, new_match in OLD_MATCH_FIELDS.items():
-        if old_match in match_dict:
-            match_dict[new_match] = match_dict[old_match]
-            del match_dict[old_match]
-
     kwargs = {}
     for of_match, field in match_dict.items():
+        of_match = OLD_MATCH_FIELDS.get(of_match, of_match)
         test_config_condition(of_match not in MATCH_FIELDS, 'Unknown match field: %s' % of_match)
         try:
             encoded_field = MATCH_FIELDS[of_match](field)
@@ -887,12 +923,19 @@ def _partition_ofmsgs(input_ofmsgs):
     return by_kind
 
 
-def dedupe_ofmsgs(input_ofmsgs):
+def dedupe_ofmsgs(input_ofmsgs, random_order):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
     # Can't use dict or json comparison as may be nested
     deduped_input_ofmsgs = {str(ofmsg): ofmsg for ofmsg in input_ofmsgs}
-    return list(deduped_input_ofmsgs.values())
+    if random_order:
+        ofmsgs = list(deduped_input_ofmsgs.values())
+        random.shuffle(ofmsgs)
+        return ofmsgs
+    # If priority present, send highest priority first.
+    return sorted(
+        deduped_input_ofmsgs.values(),
+        key=lambda ofmsg: getattr(ofmsg, 'priority', 2**16+1), reverse=True)
 
 
 # kind, random_order, suggest_barrier
@@ -922,17 +965,8 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
         by_kind['delete'] = []
 
     for kind, random_order, suggest_barrier in _OFMSG_ORDER:
-        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []))
+        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []), random_order)
         if ofmsgs:
-            if random_order:
-                random.shuffle(ofmsgs)
-            else:
-                with_priorities = [ofmsg for ofmsg in ofmsgs if hasattr(ofmsg, 'priority')]
-                # If priority present, send highest priority first.
-                if with_priorities:
-                    with_priorities.sort(key=lambda ofmsg: ofmsg.priority, reverse=True)
-                    without_priorities = [ofmsg for ofmsg in ofmsgs if not hasattr(ofmsg, 'priority')]
-                    ofmsgs = without_priorities + with_priorities
             output_ofmsgs.extend(ofmsgs)
             if use_barriers and suggest_barrier:
                 output_ofmsgs.append(barrier())

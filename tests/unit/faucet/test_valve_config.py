@@ -22,6 +22,7 @@ import hashlib
 import unittest
 from ryu.ofproto import ofproto_v1_3 as ofp
 from faucet import config_parser_util
+from faucet import valve_of
 from valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
 
@@ -774,8 +775,11 @@ dps:
         pstats_out, pstats_text = self.profile(
             partial(self.update_config, self.CONFIG, reload_type='cold'))
         total_tt_prop = pstats_out.total_tt / self.baseline_total_tt  # pytype: disable=attribute-error
-        # must not be 50x slower, to ingest config for 100 interfaces than 1.
-        self.assertLessEqual(total_tt_prop, 50, msg=pstats_text)
+        # must not be 30x slower, to ingest config for 100 interfaces than 1.
+        self.assertLessEqual(total_tt_prop, 30, msg=pstats_text)
+        cache_info = valve_of.output_non_output_actions.cache_info()
+        self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
+
 
 
 class ValveTestConfigHash(ValveTestBases.ValveTestSmall):

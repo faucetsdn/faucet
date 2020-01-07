@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import ipaddress
 import socket
 import struct
@@ -151,6 +152,7 @@ def parse_lldp(pkt):
     return pkt.get_protocol(lldp.lldp)
 
 
+@functools.lru_cache(maxsize=1024)
 def parse_packet_in_pkt(data, max_len, eth_pkt=None, vlan_pkt=None):
     """Parse a packet received via packet in from the dataplane.
 

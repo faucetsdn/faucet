@@ -1304,7 +1304,7 @@ class Valve:
         if not msg.data:
             return None
         # Truncate packet in data (OVS > 2.5 does not honor max_len)
-        data = msg.data[:valve_of.MAX_PACKET_IN_BYTES]
+        data = bytes(msg.data[:valve_of.MAX_PACKET_IN_BYTES])
 
         # eth/VLAN header only
         pkt, eth_pkt, eth_type, vlan_pkt, vlan_vid = valve_packet.parse_packet_in_pkt(
