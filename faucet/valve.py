@@ -468,18 +468,26 @@ class Valve:
             return {}
 
         ofmsgs_by_valve = {self: []}
-        self.logger.info('%s up status %s reason %s state %s' % (
-            port, port_status, _decode_port_status(reason), state))
         new_port_status = (
             reason == valve_of.ofp.OFPPR_ADD or
             (reason == valve_of.ofp.OFPPR_MODIFY and port_status))
-        if new_port_status:
-            if port.dyn_phys_up:
-                self.logger.info('%s already up, assuming flap as missing down event' % port)
+        blocked_down_state = ((state & valve_of.ofp.OFPPS_BLOCKED) or (state & valve_of.ofp.OFPPS_LINK_DOWN))
+        if new_port_status != port.dyn_phys_up:
+            self.logger.info('%s up status changed to %s reason %s state %s' % (
+                port, port_status, _decode_port_status(reason), state))
+            if new_port_status:
+                ofmsgs_by_valve[self].extend(self.port_add(port_no))
+            else:
                 ofmsgs_by_valve[self].extend(self.port_delete(port_no, keep_cache=True))
-            ofmsgs_by_valve[self].extend(self.port_add(port_no))
         else:
-            ofmsgs_by_valve[self].extend(self.port_delete(port_no, keep_cache=True))
+            self.logger.info('%s up status did not change from %s reason %s state %s' % (
+                port, port_status, _decode_port_status(reason), state))
+            if new_port_status:
+                if blocked_down_state:
+                    self.logger.info('%s state down or blocked despite status up, setting to status down' % port)
+                    ofmsgs_by_valve[self].extend(self.port_delete(port_no, keep_cache=True))
+                if not state & valve_of.ofp.OFPPS_LIVE:
+                    self.logger.info('%s state OFPPS_LIVE reset, ignoring in expectation of port down' % port)
         return ofmsgs_by_valve
 
     def advertise(self, now, _other_values):
@@ -937,9 +945,7 @@ class Valve:
         lacp_state = port.lacp_state()
         self._set_var('port_lacp_state', lacp_state, labels=self.dp.port_labels(port.number))
         self.notify(
-                {'LAG_CHANGE': {
-                    'port_no': port.number,
-                    'state': lacp_state}})
+            {'LAG_CHANGE': {'port_no': port.number, 'state': lacp_state}})
 
     def lacp_down(self, port, cold_start=False, lacp_pkt=None):
         """Return OpenFlow messages when LACP is down on a port."""
