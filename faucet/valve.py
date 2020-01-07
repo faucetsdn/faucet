@@ -495,7 +495,8 @@ class Valve:
                 if not live_state:
                     self.logger.info(
                         '%s state OFPPS_LIVE reset, ignoring in expectation of port down' % port)
-        return ofmsgs_by_valve[self].extend(ofmsgs)
+        ofmsgs_by_valve[self].extend(ofmsgs)
+        return ofmsgs_by_valve
 
     def advertise(self, now, _other_values):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
