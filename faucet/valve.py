@@ -476,10 +476,10 @@ class Valve:
         if new_port_status:
             if port.dyn_phys_up:
                 self.logger.info('%s already up, assuming flap as missing down event' % port)
-                ofmsgs_by_valve[self].extend(self.port_delete(port_no))
+                ofmsgs_by_valve[self].extend(self.port_delete(port_no, keep_cache=True))
             ofmsgs_by_valve[self].extend(self.port_add(port_no))
         else:
-            ofmsgs_by_valve[self].extend(self.port_delete(port_no))
+            ofmsgs_by_valve[self].extend(self.port_delete(port_no, keep_cache=True))
         return ofmsgs_by_valve
 
     def advertise(self, now, _other_values):
@@ -757,13 +757,14 @@ class Valve:
             ofmsgs.extend(manager.del_port(port))
         return ofmsgs
 
-    def _port_delete_flows_state(self, port):
+    def _port_delete_flows_state(self, port, keep_cache=False):
         """Delete flows/state for a port."""
         ofmsgs = []
         for route_manager in self._route_manager_by_ipv.values():
             ofmsgs.extend(route_manager.expire_port_nexthops(port))
         ofmsgs.extend(self._delete_all_port_match_flows(port))
-        ofmsgs.extend(self._port_delete_manager_state(port))
+        if not keep_cache:
+            ofmsgs.extend(self._port_delete_manager_state(port))
         return ofmsgs
 
     def _coprocessor_flows(self, port):
@@ -889,7 +890,7 @@ class Valve:
         """
         return self.ports_add([port_num])
 
-    def ports_delete(self, port_nums, log_msg='down'):
+    def ports_delete(self, port_nums, log_msg='down', keep_cache=False):
         """Handle the deletion of ports.
 
         Args:
@@ -921,16 +922,16 @@ class Valve:
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
             else:
-                ofmsgs.extend(self._port_delete_flows_state(port))
+                ofmsgs.extend(self._port_delete_flows_state(port, keep_cache=keep_cache))
 
         for vlan in vlans_with_deleted_ports:
             ofmsgs.extend(self.flood_manager.update_vlan(vlan))
 
         return ofmsgs
 
-    def port_delete(self, port_num):
+    def port_delete(self, port_num, keep_cache=False):
         """Return flow messages that delete port from pipeline."""
-        return self.ports_delete([port_num])
+        return self.ports_delete([port_num], keep_cache=keep_cache)
 
     def _reset_lacp_status(self, port):
         lacp_state = port.lacp_state()
