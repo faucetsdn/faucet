@@ -393,7 +393,7 @@ class Valve:
         all_up_port_nos = {port_no for port_no, status in port_status.items() if status}
         return (port_status, all_up_port_nos)
 
-    def _add_ports_and_vlans(self, discovered_up_port_nos):
+    def _add_ports_and_vlans(self, now, discovered_up_port_nos):
         """Add all configured and discovered ports and VLANs."""
         always_up_port_nos = {
             port.number for port in self.dp.ports.values() if not port.opstatus_reconf}
@@ -404,7 +404,7 @@ class Valve:
             discovered_up_port_nos, all_configured_port_nos)
 
         for port_no, status in port_status.items():
-            self._set_port_status(port_no, status)
+            self._set_port_status(port_no, status, now)
         self.notify({'PORTS_STATUS': port_status})
 
         ofmsgs = []
@@ -424,7 +424,7 @@ class Valve:
             dp_desc=valve_util.utf8_decode(body.dp_desc))
         self._set_var('of_dp_desc_stats', self.dp.dp_id, labels=labels)
 
-    def _set_port_status(self, port_no, port_status):
+    def _set_port_status(self, port_no, port_status, now):
         """Set port operational status."""
         if port_status:
             self.dp.dyn_up_port_nos.add(port_no)
@@ -435,9 +435,9 @@ class Valve:
             return
         port_labels = self.dp.port_labels(port.number)
         self._set_var('port_status', port_status, labels=port_labels)
-        port.dyn_update_time = time.time()
+        port.dyn_update_time = now
 
-    def port_status_handler(self, port_no, reason, state, _other_valves):
+    def port_status_handler(self, port_no, reason, state, _other_valves, now):
         """Return OpenFlow messages responding to port operational status change."""
 
         port_status_codes = {
@@ -457,7 +457,7 @@ class Valve:
                 'reason': _decode_port_status(reason),
                 'state': state,
                 'status': port_status}})
-        self._set_port_status(port_no, port_status)
+        self._set_port_status(port_no, port_status, now)
 
         if not self.dp.port_no_valid(port_no):
             return {}
@@ -473,24 +473,30 @@ class Valve:
         new_port_status = (
             reason == valve_of.ofp.OFPPR_ADD or
             (reason == valve_of.ofp.OFPPR_MODIFY and port_status))
-        blocked_down_state = ((state & valve_of.ofp.OFPPS_BLOCKED) or (state & valve_of.ofp.OFPPS_LINK_DOWN))
+        blocked_down_state = (
+            (state & valve_of.ofp.OFPPS_BLOCKED) or (state & valve_of.ofp.OFPPS_LINK_DOWN))
+        live_state = state & valve_of.ofp.OFPPS_LIVE
+        decoded_reason = _decode_port_status(reason)
+        state_description = '%s up status %s reason %s state %s' % (
+            port, port_status, decoded_reason, state)
+        ofmsgs = []
         if new_port_status != port.dyn_phys_up:
-            self.logger.info('%s up status changed to %s reason %s state %s' % (
-                port, port_status, _decode_port_status(reason), state))
+            self.logger.info('status change: %s' % state_description)
             if new_port_status:
-                ofmsgs_by_valve[self].extend(self.port_add(port_no))
+                ofmsgs = self.port_add(port_no)
             else:
-                ofmsgs_by_valve[self].extend(self.port_delete(port_no, keep_cache=True))
+                ofmsgs = self.port_delete(port_no, keep_cache=True)
         else:
-            self.logger.info('%s up status did not change from %s reason %s state %s' % (
-                port, port_status, _decode_port_status(reason), state))
+            self.logger.info('status did not change: %s' % state_description)
             if new_port_status:
                 if blocked_down_state:
-                    self.logger.info('%s state down or blocked despite status up, setting to status down' % port)
-                    ofmsgs_by_valve[self].extend(self.port_delete(port_no, keep_cache=True))
-                if not state & valve_of.ofp.OFPPS_LIVE:
-                    self.logger.info('%s state OFPPS_LIVE reset, ignoring in expectation of port down' % port)
-        return ofmsgs_by_valve
+                    self.logger.info(
+                        '%s state down or blocked despite status up, setting to status down' % port)
+                    ofmsgs = self.port_delete(port_no, keep_cache=True)
+                if not live_state:
+                    self.logger.info(
+                        '%s state OFPPS_LIVE reset, ignoring in expectation of port down' % port)
+        return ofmsgs_by_valve[self].extend(ofmsgs)
 
     def advertise(self, now, _other_values):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
@@ -633,7 +639,8 @@ class Valve:
                     ofmsgs_by_valve[valve].extend(valve.host_manager.del_port(port))
                 path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
                 path_port_number = path_port.number if path_port else 0.0
-                self._set_var('dp_root_hop_port', path_port_number, labels=valve.dp.base_prom_labels())
+                self._set_var(
+                    'dp_root_hop_port', path_port_number, labels=valve.dp.base_prom_labels())
                 notify_dps.setdefault(valve.dp.name, {})['root_hop_port'] = path_port_number
 
             # Find the first valve with a valid stack and trigger notification.
@@ -699,7 +706,7 @@ class Valve:
         ofmsgs.extend(self._add_default_flows())
         for manager in self._get_managers():
             ofmsgs.extend(manager.initialise_tables())
-        ofmsgs.extend(self._add_ports_and_vlans(discovered_up_ports))
+        ofmsgs.extend(self._add_ports_and_vlans(now, discovered_up_ports))
         ofmsgs.append(
             valve_of.faucet_async(
                 packet_in=True,
