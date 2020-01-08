@@ -326,7 +326,7 @@ class Faucet(RyuAppBase):
         valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
-        self.valves_manager.port_status_handler(valve, msg)
+        self.valves_manager.port_status_handler(valve, msg, time.time())
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

@@ -322,10 +322,10 @@ class ValvesManager:
         return [other_valve for other_valve in self.valves.values()
                 if valve != other_valve and other_valve.dp.dyn_running]
 
-    def port_status_handler(self, valve, msg):
+    def port_status_handler(self, valve, msg, now):
         """Handle a port status change message."""
         ofmsgs_by_valve = valve.port_status_handler(
-            msg.desc.port_no, msg.reason, msg.desc.state, self._other_running_valves(valve))
+            msg.desc.port_no, msg.reason, msg.desc.state, self._other_running_valves(valve), now)
         self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 
     def valve_packet_in(self, now, valve, msg):
