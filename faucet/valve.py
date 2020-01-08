@@ -623,7 +623,12 @@ class Valve:
                     'state': port.dyn_stack_current_state
                     }})
                 stack_changes += 1
-                port_stack_up = port.is_stack_up()
+                port_stack_up = False
+                if port.is_stack_up():
+                    port_stack_up = True
+                else:
+                    if port.is_stack_init() and port.stack['port'].is_stack_up():
+                        port_stack_up = True
                 for valve in stacked_valves:
                     valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
         if stack_changes:
