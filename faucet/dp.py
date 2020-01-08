@@ -348,6 +348,12 @@ configuration.
         self.dyn_up_port_nos = set(prev_dp.dyn_up_port_nos)
         self.dyn_last_coldstart_time = prev_dp.dyn_last_coldstart_time
 
+    def cold_start(self, now):
+        self.dyn_last_coldstart_time = now
+        self.dyn_running = True
+        for vlan in self.vlans.values():
+            vlan.reset_caches()
+
     def check_config(self):
         """Check configuration of this dp"""
         super(DP, self).check_config()

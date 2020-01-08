@@ -688,8 +688,7 @@ class Valve:
                 packet_in=True,
                 port_status=True,
                 notify_flow_removed=self.dp.use_idle_timeout))
-        self.dp.dyn_last_coldstart_time = now
-        self.dp.dyn_running = True
+        self.dp.cold_start(now)
         self._inc_var('of_dp_connections')
         self._reset_dp_status()
         return ofmsgs
