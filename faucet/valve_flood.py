@@ -651,6 +651,59 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 return other_external_dp_entries[0]
         return None
 
+    def _stack_flood_ports(self):
+        """Return output ports of a DP that have been pruned and follow reflection rules"""
+        # TODO: Consolidate stack port selection logic,
+        #           this reuses logic from _build_mask_flood_rules()
+        away_flood_ports = []
+        towards_flood_ports = []
+        # Obtain away ports
+        away_up_ports_by_dp = defaultdict(list)
+        for port in self._canonical_stack_up_ports(self.away_from_root_stack_ports):
+            away_up_ports_by_dp[port.stack['dp']].append(port)
+        # Obtain the towards root path port (this is the designated root port)
+        towards_up_port = None
+        towards_up_ports = self._canonical_stack_up_ports(self.towards_root_stack_ports)
+        if towards_up_ports:
+            towards_up_port = towards_up_ports[0]
+        # Figure out what stack ports will need to be flooded
+        for port in self.stack_ports:
+            remote_dp = port.stack['dp']
+            away_up_port = None
+            away_up_ports = away_up_ports_by_dp.get(remote_dp, None)
+            if away_up_ports:
+                # Pick the lowest port number on the remote DP.
+                remote_away_ports = self.canonical_port_order(
+                    [away_port.stack['port'] for away_port in away_up_ports])
+                away_up_port = remote_away_ports[0].stack['port']
+            # Is the port to an away DP, (away from the stack root)
+            away_port = port in self.away_from_root_stack_ports
+            # Otherwise it is towards the stack root
+            towards_port = not away_port
+
+            # Prune == True for ports that do not need to be flooded
+            if towards_port:
+                # If towards the stack root, then if the port is not the chosen
+                #   root path port, then we do not need to flood to it
+                prune = port != towards_up_port
+                if not prune and not self.is_stack_root():
+                    # Port is chosen towards port and not the root so flood
+                    #   towards the root
+                    towards_flood_ports.append(port)
+            else:
+                # If away from stack root, then if the port is not the chosen
+                #   away port for that DP, we do not need to flood to it
+                prune = port != away_up_port
+                if not prune and self.is_stack_root():
+                    # Port is chosen away port and the root switch
+                    #   so flood away from the root
+                    away_flood_ports.append(port)
+
+        # Also need to turn off inactive away ports (for DPs that have a better way to get to root)
+        exclude_ports = self._inactive_away_stack_ports()
+        away_flood_ports = [port for port in away_flood_ports if port not in exclude_ports]
+        return towards_flood_ports + away_flood_ports
+
 
 class ValveFloodStackManagerNoReflection(ValveFloodStackManagerBase):
     """Stacks of size 2 - all switches directly connected to root.
