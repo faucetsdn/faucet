@@ -349,6 +349,7 @@ configuration.
         self.dyn_last_coldstart_time = prev_dp.dyn_last_coldstart_time
 
     def cold_start(self, now):
+        """Update to reflect a cold start"""
         self.dyn_last_coldstart_time = now
         self.dyn_running = True
         for vlan in self.vlans.values():
