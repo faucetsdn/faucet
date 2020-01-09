@@ -24,6 +24,9 @@ from ryu.ofproto import ofproto_parser as ofp_parser
 from ryu.lib import addrconv
 
 
+CONTROLLER_PORT = 4294967293
+
+
 class FakeOFTableException(Exception):
     """Indicates an erroneous flow or group mod"""
 
@@ -224,7 +227,7 @@ class FakeOFTable:
                 continue
             raise FakeOFTableException('Unsupported flow %s' % str(ofmsg))
 
-    def lookup(self, match):
+    def lookup(self, match, trace=False):
         """Return the entries from flowmods that matches match.
 
         Searches each table in the pipeline for the entries that will be
@@ -253,6 +256,8 @@ class FakeOFTable:
                     break
             # if a flowmod is found, make modifications to the match values and
             # determine if another lookup is necessary
+            if trace:
+                print(table_id, matching_fte)
             if matching_fte:
                 for instruction in matching_fte.instructions:
                     instructions.append(instruction)
@@ -276,7 +281,7 @@ class FakeOFTable:
         """Return number of flow tables rules"""
         return sum(map(len, self.tables))
 
-    def is_output(self, match, port=None, vid=None):
+    def is_output(self, match, port=None, vid=None, trace=False):
         """Return true if packets with match fields is output to port with
         correct vlan.
 
@@ -326,7 +331,7 @@ class FakeOFTable:
         vid_stack = []
         if match_vid & ofp.OFPVID_PRESENT != 0:
             vid_stack.append(match_vid)
-        instructions, _ = self.lookup(match)
+        instructions, _ = self.lookup(match, trace=trace)
 
         for instruction in instructions:
             if instruction.type != ofp.OFPIT_APPLY_ACTIONS:
@@ -593,7 +598,7 @@ class FlowMod:
         value = None
         if isinstance(action, parser.OFPActionOutput):
             name = 'output'
-            if action.port == 4294967293:
+            if action.port == CONTROLLER_PORT:
                 value = 'controller'
             else:
                 value = str(action.port)

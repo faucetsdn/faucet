@@ -30,6 +30,8 @@ from valve_test_lib import (
     CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
     ValveTestBases)
 
+from fakeoftable import CONTROLLER_PORT
+
 
 class ValveTestCase(ValveTestBases.ValveTestBig):
     """Run complete set of basic tests."""
@@ -288,6 +290,29 @@ vlans:
                 self.mock_time(),
                 self.valve.dp.tables['eth_src'].table_id,
                 {'vlan_vid': self.V100, 'in_port': 1, 'eth_src': self.P1_V100_MAC}))
+
+    def test_host_learn_coldstart(self):
+        """Test flow learning, including cold-start cache invalidation"""
+        match = {
+            'in_port': 3, 'vlan_vid': self.V100, 'eth_type': ether.ETH_TYPE_IP,
+            'eth_src': self.P3_V100_MAC, 'eth_dst': self.P1_V100_MAC}
+        self.assertTrue(self.table.is_output(match, port=1))
+        self.assertTrue(self.table.is_output(match, port=2))
+        self.assertTrue(self.table.is_output(match, port=CONTROLLER_PORT))
+        self.learn_hosts()
+        print(self.table)
+        self.assertTrue(self.table.is_output(match, port=1))
+        self.assertFalse(self.table.is_output(match, port=2))
+        self.assertFalse(self.table.is_output(match, port=CONTROLLER_PORT))
+        self.cold_start()
+        self.assertTrue(self.table.is_output(match, port=1))
+        self.assertTrue(self.table.is_output(match, port=2))
+        self.assertTrue(self.table.is_output(match, port=CONTROLLER_PORT))
+        self.mock_time(self.valve.dp.timeout // 4 * 3)
+        self.learn_hosts()
+        self.assertTrue(self.table.is_output(match, port=1))
+        self.assertFalse(self.table.is_output(match, port=2))
+        self.assertFalse(self.table.is_output(match, port=CONTROLLER_PORT))
 
 
 class ValveLACPTestCase(ValveTestBases.ValveTestSmall):

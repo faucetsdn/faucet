@@ -457,6 +457,9 @@ class ValveTestBases:
         NUM_PORTS = 5
         NUM_TABLES = 10
         P1_V100_MAC = '00:00:00:01:00:01'
+        P2_V100_MAC = '00:00:00:01:00:02'
+        P3_V100_MAC = '00:00:00:01:00:03'
+        P1_V200_MAC = '00:00:00:02:00:01'
         P2_V200_MAC = '00:00:00:02:00:02'
         P3_V200_MAC = '00:00:00:02:00:03'
         P1_V300_MAC = '00:00:00:03:00:01'
@@ -631,6 +634,11 @@ class ValveTestBases:
             self.assertTrue(self.valve.dp.to_conf())
             return connect_msgs
 
+        def cold_start(self):
+            """Cold-start dataplane"""
+            self.valve.datapath_disconnect()
+            return self.connect_dp()
+
         def port_labels(self, port_no):
             """Get port labels"""
             port = self.valve.dp.ports[port_no]
@@ -768,6 +776,12 @@ class ValveTestBases:
                     'eth_dst': self.P1_V100_MAC,
                     'ipv4_src': '10.0.0.2',
                     'ipv4_dst': '10.0.0.1'})
+                self.rcv_packet(3, 0x100, {
+                    'eth_src': self.P3_V100_MAC,
+                    'eth_dst': self.P2_V100_MAC,
+                    'ipv4_src': '10.0.0.3',
+                    'ipv4_dst': '10.0.0.2',
+                    'vid': 0x100})
                 self.rcv_packet(2, 0x200, {
                     'eth_src': self.P2_V200_MAC,
                     'eth_dst': self.P3_V200_MAC,
@@ -778,7 +792,7 @@ class ValveTestBases:
                     'eth_src': self.P3_V200_MAC,
                     'eth_dst': self.P2_V200_MAC,
                     'ipv4_src': '10.0.0.3',
-                    'ipv4_dst': '10.0.0.4',
+                    'ipv4_dst': '10.0.0.2',
                     'vid': 0x200})
 
         def verify_expiry(self):
