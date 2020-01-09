@@ -325,6 +325,9 @@ class FakeOFTable:
                     vid_stack[-1] = action.value
             return vid_stack
 
+        if trace:
+            print(self)
+
         # vid_stack represents the packet's vlan stack, innermost label listed
         # first
         match_vid = match.get('vlan_vid', 0)

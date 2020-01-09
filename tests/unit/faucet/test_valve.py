@@ -308,7 +308,6 @@ vlans:
         self.assertTrue(self.table.is_output(match, port=2))
         self.assertTrue(self.table.is_output(match, port=CONTROLLER_PORT))
         self.learn_hosts()
-        print(self.table)
         self.assertTrue(self.table.is_output(match, port=1))
         self.assertFalse(self.table.is_output(match, port=2))
         self.assertFalse(self.table.is_output(match, port=CONTROLLER_PORT))
