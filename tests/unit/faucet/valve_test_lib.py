@@ -28,6 +28,7 @@ import pstats
 import shutil
 import socket
 import tempfile
+import time
 import unittest
 
 from ryu.lib import mac
@@ -658,13 +659,13 @@ class ValveTestBases:
         def set_port_down(self, port_no):
             """Set port status of port to down."""
             self.apply_ofmsgs(self.valve.port_status_handler(
-                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN, []).get(self.valve, []))
+                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN, [], time.time()).get(self.valve, []))
             self.port_expected_status(port_no, 0)
 
         def set_port_up(self, port_no):
             """Set port status of port to up."""
             self.apply_ofmsgs(self.valve.port_status_handler(
-                port_no, ofp.OFPPR_ADD, 0, []).get(self.valve, []))
+                port_no, ofp.OFPPR_ADD, 0, [], time.time()).get(self.valve, []))
             self.port_expected_status(port_no, 1)
 
         def flap_port(self, port_no):
@@ -1658,7 +1659,7 @@ meters:
             """Set port status modify."""
             for port_status in (0, 1):
                 self.apply_ofmsgs(self.valve.port_status_handler(
-                    1, ofp.OFPPR_MODIFY, port_status, [])[self.valve])
+                    1, ofp.OFPPR_MODIFY, port_status, [], time.time())[self.valve])
 
         def test_unknown_port_status(self):
             """Test unknown port status message."""
@@ -1666,7 +1667,7 @@ meters:
             unknown_messages = list(set(range(0, len(known_messages) + 1)) - known_messages)
             self.assertTrue(unknown_messages)
             self.assertFalse(self.valve.port_status_handler(
-                1, unknown_messages[0], 1, []).get(self.valve, []))
+                1, unknown_messages[0], 1, [], time.time()).get(self.valve, []))
 
         def test_move_port(self):
             """Test host moves a port."""

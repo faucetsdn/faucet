@@ -82,7 +82,7 @@ class TopologyWatcher():
         Add a general/controller fault
         Logs the fault name and resets the actual graph
         """
-        error('FAULT: %s' % name)
+        error('FAULT: %s\n' % name)
         self.fault_list.append(name)
         self.host_connectivity_graph = networkx.MultiDiGraph()
         self.eligable_links = []

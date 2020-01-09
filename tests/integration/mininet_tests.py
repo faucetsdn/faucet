@@ -3596,15 +3596,19 @@ vlans:
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
 
     def test_untagged(self):
+        self._enable_event_log()
         first_host, second_host = self.hosts_name_ordered()[0:2]
-        self.retry_net_ping(hosts=(first_host, second_host))
-        self.swap_host_macs(first_host, second_host)
-        self.ping((first_host, second_host))
-        for host, in_port in (
-                (first_host, self.port_map['port_1']),
-                (second_host, self.port_map['port_2'])):
-            self.require_host_learned(host, in_port=in_port)
-        self.retry_net_ping(hosts=(first_host, second_host))
+        for _ in range(2):
+            self.retry_net_ping(hosts=(first_host, second_host))
+            self.ping((first_host, second_host))
+            for host, in_port in (
+                    (first_host, self.port_map['port_1']),
+                    (second_host, self.port_map['port_2'])):
+                self.require_host_learned(host, in_port=in_port)
+            self.swap_host_macs(first_host, second_host)
+        for port in (self.port_map['port_1'], self.port_map['port_2']):
+            self.wait_until_matching_lines_from_file(
+                r'.+L2_LEARN.+"previous_port_no": %u.+' % port, self.event_log)
 
 
 class FaucetUntaggedHostPermanentLearnTest(FaucetUntaggedTest):
