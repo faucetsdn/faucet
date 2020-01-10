@@ -257,7 +257,7 @@ class FakeOFTable:
             # if a flowmod is found, make modifications to the match values and
             # determine if another lookup is necessary
             if trace:
-                print(table_id, matching_fte)
+                sys.stderr.write('%d: %s\n' % (table_id, matching_fte))
             if matching_fte:
                 for instruction in matching_fte.instructions:
                     instructions.append(instruction)
@@ -326,7 +326,7 @@ class FakeOFTable:
             return vid_stack
 
         if trace:
-            print(self)
+            sys.stderr.write(str(self) + '\n')
 
         # vid_stack represents the packet's vlan stack, innermost label listed
         # first
