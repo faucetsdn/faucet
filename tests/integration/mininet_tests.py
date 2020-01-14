@@ -6755,6 +6755,76 @@ acls:
             source_host, overridden_host, rewrite_host, overridden_host)
 
 
+class FaucetDscpMatchTest(FaucetUntaggedTest):
+    # Match all packets with this IP_DSP and eth_type, based on the ryu API def
+    # e.g {"ip_dscp": 3, "eth_type": 2048}
+    # Note: the ip_dscp field is translated to nw_tos in OpenFlow 1.0:
+    # see https://tools.ietf.org/html/rfc2474#section-3
+    IP_DSCP_MATCH = 46
+    ETH_TYPE = 2048
+
+    SRC_MAC = '0e:00:00:00:00:ff'
+    DST_MAC = '0e:00:00:00:00:02'
+
+    REWRITE_MAC = '0f:00:12:23:48:03'
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+
+acls:
+    1:
+        - rule:
+            ip_dscp: %d
+            dl_type: 0x800
+            actions:
+                allow: 1
+                output:
+                    set_fields:
+                        - eth_dst: "%s"
+        - rule:
+            actions:
+                allow: 1
+""" % (IP_DSCP_MATCH, REWRITE_MAC)
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+    """
+
+    def test_untagged(self):
+        # Tests that a packet with an ip_dscp field will be appropriately
+        # matched and proceeds through the faucet pipeline. This test verifies
+        # that packets with the dscp field can have their eth_dst field modified
+        source_host, dest_host = self.hosts_name_ordered()[0:2]
+        dest_host.setMAC(self.REWRITE_MAC)
+        self.wait_until_matching_flow(
+            {'ip_dscp': self.IP_DSCP_MATCH,
+             'eth_type': self.ETH_TYPE},
+            table_id=self._PORT_ACL_TABLE)
+
+        # scapy command to create and send a packet with the specified fields
+        scapy_pkt = self.scapy_dscp(self.SRC_MAC, self.DST_MAC, 184,
+                                    source_host.defaultIntf())
+
+        tcpdump_filter = "ether dst %s" % self.REWRITE_MAC
+        tcpdump_txt = self.tcpdump_helper(
+            dest_host, tcpdump_filter, [lambda: source_host.cmd(scapy_pkt)],
+            root_intf=True, packets=1)
+        # verify that the packet we've received on the dest_host is from the
+        # source MAC address
+        self.assertTrue(re.search("%s > %s" % (self.SRC_MAC, self.REWRITE_MAC),
+                                  tcpdump_txt))
+
+
 @unittest.skip('use_idle_timeout unreliable')
 class FaucetWithUseIdleTimeoutTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """

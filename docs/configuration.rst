@@ -897,8 +897,9 @@ Each acl contains a list of rules: a packet will have the first matching rule
 applied to it.
 
 Each rule is a dictionary containing the single key 'rule' with matches
-and actions. Matches are key/values based on the ryu RESTFul API. Actions
-is a dictionary of actions to apply upon match.
+and actions. Matches are key/values based on the `ryu RESTFul API.
+<https://ryu.readthedocs.io/en/latest/app/ofctl_rest.html#reference-description-of-match-and-actions>`_
+Actions is a dictionary of actions to apply upon match.
 
 .. list-table:: : acls: <acl name>: - rule: actions: {}
     :widths: 30 15 15 40

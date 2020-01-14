@@ -812,6 +812,15 @@ class FaucetTestBase(unittest.TestCase):
                  dst, mac, IPV4_ETH),
             iface, count)
 
+    def scapy_dscp(self, src_mac, dst_mac, dscp_value, iface, count=1):
+        # creates a packet with L2-L4 headers using scapy
+        return self.scapy_template(
+            ('Ether(dst=\'%s\', src=\'%s\', type=%u) / '
+             'IP(src=\'0.0.0.0\', dst=\'255.255.255.255\', tos=%s) / UDP(dport=67,sport=68) / '
+             'BOOTP(op=1)') % (
+                 dst_mac, src_mac, IPV4_ETH, dscp_value),
+            iface, count)
+
     def scapy_bcast(self, host, count=1):
         return self.scapy_dhcp(host.MAC(), host.defaultIntf(), count)
 
