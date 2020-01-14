@@ -1483,7 +1483,8 @@ configuration.
                 deleted_meters (set): deleted Meter IDs.
                 changed_meters (set): changed/added Meter IDs.
         """
-        all_meters_changed, deleted_meters, added_meters, changed_meters, _ = self._get_conf_changes(logger, 'METERS', self.meters, new_dp.meters)
+        all_meters_changed, deleted_meters, added_meters,
+         changed_meters, _ = self._get_conf_changes(logger, 'METERS', self.meters, new_dp.meters)
         return (all_meters_changed, deleted_meters, added_meters, changed_meters)
 
     def get_config_changes(self, logger, new_dp):
@@ -1530,7 +1531,7 @@ configuration.
                     all_meters_changed, deleted_meters,
                     added_meters, changed_meters)
         # default cold start
-        return (set(), set(), set(), set(), set(), True, True, set(), set(), set(),set())
+        return (set(), set(), set(), set(), set(), True, True, set(), set(), set(), set())
 
     def get_tables(self):
         """Return tables as dict for API call."""

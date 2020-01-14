@@ -812,26 +812,6 @@ class Valve:
                 match=match, priority=self.dp.high_priority, inst=inst))
         return ofmsgs
 
-    def meters_add(self, meter_entries, log_msg='installed'):
-        """Handle the addition of ports.
-
-        Args:
-            meter_entries (list): list of meter_ids.
-        Returns:
-            list: OpenFlow messages, if any.
-        """
-        ofmsgs = []
-
-        for meter_entry in meter_entries:
-            # if not self.dp.meter_no_valid(): 1 to 4294967294
-            self.logger.info(
-                    'Ignoring meter:%u not present in configuration file' % meter_entry)
-            continue
-            meter = self.dp.meters[meter_entry]
-            self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
-
-        return ofmsgs
-
     def ports_add(self, port_nums, cold_start=False, log_msg='up'):
         """Handle the addition of ports.
 
@@ -1711,12 +1691,13 @@ class Valve:
         if changed_meters:
             for changed_meter in changed_meters:
                 for dp_meter_key in self.dp.meters.keys():
-                    if (changed_meter == dp_meter_key) and (new_dp.meters.get(
-                        changed_meter).meter_id != self.dp.meters.get(changed_meter).meter_id):
+                    if (changed_meter == dp_meter_key) and (
+                        new_dp.meters.get(changed_meter).meter_id != self.dp.meters.get(
+                            changed_meter).meter_id):
                         ofmsgs.append(valve_of.meterdel(
                             meter_id=self.dp.meters.get(changed_meter).meter_id))
                         ofmsgs.append(valve_of.meteradd(
-                            new_dp.meters.get(changed_meter).entry, command=0))
+                                new_dp.meters.get(changed_meter).entry, command=0))
                     else:
                         ofmsgs.append(valve_of.meteradd(
                             new_dp.meters.get(changed_meter).entry, command=1))
