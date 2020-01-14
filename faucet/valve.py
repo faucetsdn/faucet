@@ -289,7 +289,7 @@ class Valve:
 
     def dot1x_event(self, event_dict):
         self.notify({'DOT1X': {
-            'event_dict' : event_dict}})
+            'event_dict': event_dict}})
 
     def floods_to_root(self):
         """Return True if our dp floods (only) to root switch"""
@@ -406,7 +406,7 @@ class Valve:
         for port_no, status in port_status.items():
             self._set_port_status(port_no, status, now)
         self.notify({'PORTS_STATUS': {
-            'ports_status': ports_status}})
+            'ports_status': port_status}})
 
         ofmsgs = []
         ofmsgs.extend(self.ports_add(
