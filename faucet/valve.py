@@ -812,6 +812,26 @@ class Valve:
                 match=match, priority=self.dp.high_priority, inst=inst))
         return ofmsgs
 
+    def meters_add(self, meter_entries, log_msg='installed'):
+        """Handle the addition of ports.
+
+        Args:
+            meter_entries (list): list of meter_ids.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
+        ofmsgs = []
+
+        for meter_entry in meter_entries:
+            # if not self.dp.meter_no_valid(): 1 to 4294967294
+            self.logger.info(
+                    'Ignoring meter:%u not present in configuration file' % meter_entry)
+            continue
+            meter = self.dp.meters[meter_entry]
+            self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
+
+        return ofmsgs
+
     def ports_add(self, port_nums, cold_start=False, log_msg='up'):
         """Handle the addition of ports.
 
@@ -1644,13 +1664,19 @@ class Valve:
                 deleted_vids (set): deleted VLAN IDs.
                 changed_vids (set): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
+                all_meters_changed (bool): True if all meters changed.
+                deleted_meters: (set): deleted meter numbers.
+                changed_meters: (set): changed meter numbers.
+                added_meters: (set): added meter numbers.
         Returns:
             tuple:
                 cold_start (bool): whether cold starting.
                 ofmsgs (list): OpenFlow messages.
         """
         (deleted_ports, changed_ports, changed_acl_ports,
-         deleted_vids, changed_vids, all_ports_changed) = changes
+         deleted_vids, changed_vids, all_ports_changed,
+         all_meters_changed, deleted_meters, added_meters,
+         changed_meters) = changes
 
         if self._pipeline_change():
             self.logger.info('pipeline change')
@@ -1668,13 +1694,37 @@ class Valve:
 
         ofmsgs = []
 
+        # TODO: optimize for all meters being erased
         if deleted_ports:
             ofmsgs.extend(self.ports_delete(deleted_ports))
         if deleted_vids:
             deleted_vlans = [self.dp.vlans[vid] for vid in deleted_vids]
             ofmsgs.extend(self.del_vlans(deleted_vlans))
+        if deleted_meters:
+            for meter_key in self.dp.meters.keys():
+                if meter_key in deleted_meters:
+                    ofmsgs.append(valve_of.meterdel(
+                        meter_id=self.dp.meters.get(meter_key).meter_id))
+
         if changed_ports:
             ofmsgs.extend(self.ports_delete(changed_ports))
+        if changed_meters:
+            for changed_meter in changed_meters:
+                for dp_meter_key in self.dp.meters.keys():
+                    if (changed_meter == dp_meter_key) and (new_dp.meters.get(
+                        changed_meter).meter_id != self.dp.meters.get(changed_meter).meter_id):
+                        ofmsgs.append(valve_of.meterdel(
+                            meter_id=self.dp.meters.get(changed_meter).meter_id))
+                        ofmsgs.append(valve_of.meteradd(
+                            new_dp.meters.get(changed_meter).entry, command=0))
+                    else:
+                        ofmsgs.append(valve_of.meteradd(
+                            new_dp.meters.get(changed_meter).entry, command=1))
+
+        if added_meters:
+            for added_meter in added_meters:
+                ofmsgs.append(valve_of.meteradd(
+                    new_dp.meters.get(added_meter).entry, command=0))
 
         self.dp_init(new_dp)
 

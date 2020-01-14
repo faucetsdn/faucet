@@ -826,7 +826,7 @@ def meterdel(datapath=None, meter_id=ofp.OFPM_ALL):
         meter_id)
 
 
-def meteradd(meter_conf):
+def meteradd(meter_conf, command=ofp.OFPMC_ADD):
     """Add a meter based on YAML configuration."""
 
     class NoopDP:
@@ -847,11 +847,10 @@ def meteradd(meter_conf):
             msg.xid = 0
 
     noop_dp = NoopDP()
-    ofctl.mod_meter_entry(noop_dp, meter_conf, ofp.OFPMC_ADD)
+    ofctl.mod_meter_entry(noop_dp, meter_conf, command)
     noop_dp.msg.xid = None
     noop_dp.msg.datapath = None
     return noop_dp.msg
-
 
 def controller_pps_meteradd(datapath=None, pps=0):
     """Add a PPS meter towards controller."""
