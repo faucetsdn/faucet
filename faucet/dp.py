@@ -1469,9 +1469,23 @@ configuration.
             if changed_acl_ports:
                 same_ports -= changed_acl_ports
                 logger.info('ports where ACL only changed: %s' % changed_acl_ports)
-
         return (all_ports_changed, deleted_ports,
                 added_ports.union(changed_ports), changed_acl_ports)
+
+    def _get_meter_config_changes(self, logger, new_dp):
+        """Detect any config changes to meters.
+        Args:
+            logger (ValveLogger): logger instance.
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changes (tuple) of:
+                deleted_meters (set): deleted Meter IDs.
+                changed_meters (set): changed/added Meter IDs.
+        """
+        all_meters_changed, deleted_meters, added_meters, changed_meters, _ = self._get_conf_changes(
+            logger, 'METERS', self.meters, new_dp.meters)
+
+        return (all_meters_changed, deleted_meters, added_meters, changed_meters)
 
     def get_config_changes(self, logger, new_dp):
         """Detect any config changes.
@@ -1488,6 +1502,8 @@ configuration.
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
+                deleted_meters (set): deleted meter numbers
+                changed_meters (set): changed/added meter numbers
         """
         def _table_configs(dp):
             return frozenset([
@@ -1504,13 +1520,17 @@ configuration.
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
             deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)
-            (all_ports_changed, deleted_ports,
-             changed_ports, changed_acl_ports) = self._get_port_config_changes(
+            (all_ports_changed, deleted_ports, changed_ports,
+             changed_acl_ports) = self._get_port_config_changes(
                  logger, new_dp, changed_vlans, changed_acls)
+            (all_meters_changed, deleted_meters,
+             added_meters, changed_meters) = self._get_meter_config_changes(logger, new_dp)
             return (deleted_ports, changed_ports, changed_acl_ports,
-                    deleted_vlans, changed_vlans, all_ports_changed)
+                    deleted_vlans, changed_vlans, all_ports_changed,
+                    all_meters_changed, deleted_meters,
+                    added_meters, changed_meters)
         # default cold start
-        return (set(), set(), set(), set(), set(), True)
+        return (set(), set(), set(), set(), set(), True, True, set(), set(), set())
 
     def get_tables(self):
         """Return tables as dict for API call."""
