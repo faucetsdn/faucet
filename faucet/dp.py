@@ -305,6 +305,7 @@ configuration.
         self.multi_out = None
         self.idle_dst = None
         self.stack_root_name = None
+        self.stack_root_healthy = False
         self.stack_roots_names = None
         self.stack_route_learning = None
         self.stack_root_flood_reflection = None
@@ -852,6 +853,7 @@ configuration.
         if meta_dp_state:
             if meta_dp_state.stack_root_name in self.stack_roots_names:
                 self.stack_root_name = meta_dp_state.stack_root_name
+                self.stack_root_healthy = meta_dp_state.stack_root_healthy
 
         self.stack_route_learning = False
         for dp in stack_port_dps:

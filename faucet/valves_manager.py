@@ -143,12 +143,15 @@ class ValvesManager:
 
         if healthy_stack_roots_names:
             new_stack_root_name = self.meta_dp_state.stack_root_name
+            new_stack_root_healthy = self.meta_dp_state.stack_root_healthy
             # Only pick a new root if the current one is unhealthy.
             if self.meta_dp_state.stack_root_name not in healthy_stack_roots_names:
                 new_stack_root_name = healthy_stack_roots_names[0]
+                new_stack_root_healthy = True
         else:
             # Pick the first candidate if no roots are healthy
             new_stack_root_name = candidate_stack_roots_names[0]
+            new_stack_root_healthy = False
 
         stack_change = False
         if self.meta_dp_state.stack_root_name != new_stack_root_name:
@@ -157,6 +160,7 @@ class ValvesManager:
             if self.meta_dp_state.stack_root_name:
                 stack_change = True
             self.meta_dp_state.stack_root_name = new_stack_root_name
+            self.meta_dp_state.stack_root_healthy = new_stack_root_healthy
             dpids = [dp.dp_id for dp in stacked_dps if dp.name == new_stack_root_name]
             self.metrics.faucet_stack_root_dpid.set(dpids[0])
         else:
