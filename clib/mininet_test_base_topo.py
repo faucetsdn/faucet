@@ -317,8 +317,8 @@ class FaucetTopoTestBase(FaucetTestBase):
                             key: value
                         }
                         if host_options and host_id in host_options:
-                            for key, value in host_options[host_id].items():
-                                interfaces_config[port][key] = value
+                            for option_key, option_value in host_options[host_id].items():
+                                interfaces_config[port][option_key] = option_value
                         index += 1
                         add_acl_to_port(i, port, interfaces_config)
 
