@@ -802,6 +802,15 @@ class FaucetTestBase(unittest.TestCase):
         return ('python3 -c \"from scapy.all import * ; sendp(%s, iface=\'%s\', count=%u)"' % (
             packet, iface, count))
 
+    def scapy_base_udp(self, mac, iface, src_ip, dst_ip, dport, sport, count=1, dst=None):
+        if dst is None:
+            dst = 'ff:ff:ff:ff:ff:ff'
+        return self.scapy_template(
+            ('Ether(dst=\'%s\', src=\'%s\', type=%u) / '
+             'IP(src=\'%s\', dst=\'%s\') / UDP(dport=%s,sport=%s) ' % (
+                dst, mac, IPV4_ETH, src_ip, dst_ip, dport, sport)),
+            iface, count)
+
     def scapy_dhcp(self, mac, iface, count=1, dst=None):
         if dst is None:
             dst = 'ff:ff:ff:ff:ff:ff'
@@ -810,6 +819,15 @@ class FaucetTestBase(unittest.TestCase):
              'IP(src=\'0.0.0.0\', dst=\'255.255.255.255\') / UDP(dport=67,sport=68) / '
              'BOOTP(op=1) / DHCP(options=[(\'message-type\', \'discover\'), (\'end\')])') % (
                  dst, mac, IPV4_ETH),
+            iface, count)
+
+    def scapy_icmp(self, mac, iface, src_ip, dst_ip, count=1, dst=None):
+        if dst is None:
+            dst = 'ff:ff:ff:ff:ff:ff'
+        return self.scapy_template(
+            ('Ether(dst=\'%s\', src=\'%s\', type=%u) / '
+             'IP(src=\'%s\', dst=\'%s\') / ICMP()') % (
+                dst, mac, IPV4_ETH, src_ip, dst_ip),
             iface, count)
 
     def scapy_dscp(self, src_mac, dst_mac, dscp_value, iface, count=1):
