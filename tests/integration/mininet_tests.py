@@ -6755,6 +6755,109 @@ acls:
             source_host, overridden_host, rewrite_host, overridden_host)
 
 
+class FaucetSetFieldsTest(FaucetUntaggedTest):
+    # A generic test to verify that a flow will set fields specified for
+    # matching packets
+    OUTPUT_MAC = '0f:00:12:23:48:03'
+    SRC_MAC = '0f:12:00:00:00:ff'
+
+    IP_DSCP_VAL = 46
+    # this is the converted DSCP value that is displayed
+    NW_TOS_VAL = 184
+    IPV4_SRC_VAL = "192.0.2.0"
+    IPV4_DST_VAL = "198.51.100.0"
+    # ICMP echo request
+    ICMPV4_TYPE_VAL = 8
+    UDP_SRC_PORT = 68
+    UDP_DST_PORT = 67
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+
+acls:
+    1:
+        - rule:
+            eth_type: 0x0800
+            actions:
+                allow: 1
+                output:
+                    set_fields:
+                        - ipv4_src: '%s'
+                        - ipv4_dst: '%s'
+                        - ip_dscp: %d
+        - rule:
+            eth_type: 0x0800
+            ip_proto: 1
+            actions:
+                allow: 1
+                output:
+                    set_fields:
+                        - icmpv4_type: %d
+""" % (IPV4_SRC_VAL, IPV4_DST_VAL, IP_DSCP_VAL, ICMPV4_TYPE_VAL)
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+    """
+
+    def test_set_fields_generic_udp(self):
+        # Send a basic UDP packet through the faucet pipeline and verify that
+        # the expected fields were updated via tcpdump output
+        source_host, dest_host = self.hosts_name_ordered()[0:2]
+        dest_host.setMAC(self.OUTPUT_MAC)
+
+        # scapy command to create and send a UDP packet
+        scapy_pkt = self.scapy_base_udp(
+            self.SRC_MAC, source_host.defaultIntf(), source_host.IP(),
+            dest_host.IP(), self.UDP_DST_PORT, self.UDP_SRC_PORT,
+            dst=self.OUTPUT_MAC)
+
+        tcpdump_filter = "ether dst %s" % self.OUTPUT_MAC
+        tcpdump_txt = self.tcpdump_helper(
+            dest_host, tcpdump_filter, [lambda: source_host.cmd(scapy_pkt)],
+            root_intf=True, packets=1)
+
+        # verify that the packet we've received on the dest_host has the
+        # overwritten values
+        self.assertTrue(
+            re.search("%s.%s > %s.%s" % (self.IPV4_SRC_VAL, self.UDP_SRC_PORT,
+                                         self.IPV4_DST_VAL, self.UDP_DST_PORT),
+                      tcpdump_txt))
+        # check the packet's converted dscp value
+        self.assertTrue(re.search("tos %s" % hex(self.NW_TOS_VAL), tcpdump_txt))
+
+    def test_set_fields_icmp(self):
+        # Send a basic ICMP packet through the faucet pipeline and verify that
+        # the expected fields were updated via tcpdump output
+        source_host, dest_host = self.hosts_name_ordered()[0:2]
+        dest_host.setMAC(self.OUTPUT_MAC)
+
+        # scapy command to create and send an ICMP packet
+        scapy_pkt = self.scapy_icmp(
+            self.SRC_MAC, source_host.defaultIntf(), source_host.IP(),
+            dest_host.IP(), dst=self.OUTPUT_MAC)
+
+        tcpdump_filter = "ether dst %s" % self.OUTPUT_MAC
+        tcpdump_txt = self.tcpdump_helper(
+            dest_host, tcpdump_filter, [lambda: source_host.cmd(scapy_pkt)],
+            root_intf=True, packets=1)
+
+        # verify that the packet we've received on the dest_host has been
+        # overwritten to be an ICMP echo request
+        self.assertTrue(re.search("ICMP echo request", tcpdump_txt))
+
+    def test_untagged(self):
+        pass
+
 class FaucetDscpMatchTest(FaucetUntaggedTest):
     # Match all packets with this IP_DSP and eth_type, based on the ryu API def
     # e.g {"ip_dscp": 3, "eth_type": 2048}
