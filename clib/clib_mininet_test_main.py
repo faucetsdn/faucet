@@ -462,6 +462,7 @@ def debug_exception_handler(etype, value, trace):
     print()
     pdb.pm()
 
+
 def test_runner(root_tmpdir, resultclass, failfast=False):
     resultclass.root_tmpdir = root_tmpdir
     return unittest.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
@@ -727,7 +728,7 @@ def parse_args():
     parser.add_argument(
         '-r', '--repeat', action='store_true', help='repeat tests until failure')
     parser.add_argument(
-        '-t', '--tolerance', default=False, action='store_false', help='run fault-tolerance tests')
+        '-t', '--tolerance', default=False, action='store_true', help='run fault-tolerance tests')
 
     excluded_test_classes = []
     report_json_filename = None

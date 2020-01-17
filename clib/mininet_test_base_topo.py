@@ -4,6 +4,7 @@ import os
 import re
 import time
 import ipaddress
+import pprint
 from functools import partial
 import yaml  # pytype: disable=pyi-error
 
@@ -366,6 +367,14 @@ class FaucetTopoTestBase(FaucetTestBase):
                 stack_roots, host_links, self.topo.dpid_peer_links(dpid), self.port_maps)
 
         return yaml.dump(config, default_flow_style=False)
+
+    def debug(self):
+        """Print host information when debugging"""
+        try:
+            super(FaucetTopoTestBase, self).debug()
+        except:
+            pprint.pprint(self.host_information)
+            raise
 
     def verify_no_cable_errors(self):
         """Check that prometheus does not detect any stack cabling errors on all DPs"""
