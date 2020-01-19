@@ -112,9 +112,11 @@ class ValveStackLoopTest(ValveTestBases.ValveTestSmall):
     CONFIG = STACK_LOOP_CONFIG
 
     def setUp(self):
+        """Setup basic loop config"""
         self.setup_valve(self.CONFIG)
 
     def validate_flooding(self, rerouted=False, portup=True):
+        """Validate the flooding state of the stack"""
         vid = self.V100
         self.validate_flood(1, vid, 1, False, 'flooded out input stack port')
         self.validate_flood(1, vid, 2, portup, 'not flooded to stack root')
@@ -137,6 +139,7 @@ class ValveStackLoopTest(ValveTestBases.ValveTestSmall):
 
 
 class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
+    """Edge learning test cases"""
 
     def _unicast_to(self, out_port):
         ucast_match = {
@@ -157,6 +160,8 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
         return self.table.is_output(ucast_match, port=CONTROLLER_PORT)
 
     def validate_edge_learn_ports(self):
+        """Validate the switch behavior before learning, and then learn hosts"""
+
         self.activate_all_ports()
 
         # Before learning, unicast should flood to stack root and packet-in.
@@ -167,6 +172,7 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
         self.learn_stack_hosts()
 
     def test_edge_learn_edge_port(self):
+        """Check the bhavior of the basic edge_learn_port algorithm"""
         self.validate_edge_learn_ports()
 
         # After learning, unicast should go direct to edge switch.
