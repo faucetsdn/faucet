@@ -453,3 +453,13 @@ class Port(Conf):
     def stack_gone(self):
         """Change the current stack state to GONE."""
         self.dyn_stack_current_state = STACK_STATE_GONE
+
+    def non_stack_forwarding(self):
+        """Returns True if port is not-stacking and, and able to forward packets."""
+        if self.stack:
+            return False
+        if not self.dyn_phys_up:
+            return False
+        if self.lacp and not self.dyn_lacp_up:
+            return False
+        return True

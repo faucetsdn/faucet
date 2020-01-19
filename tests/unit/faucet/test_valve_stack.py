@@ -199,16 +199,21 @@ class ValveStackRedundantLink(ValveStackLoopTest):
         self.assertTrue(
             self.table.is_output(mcast_match, port=2),
             msg='mcast packet not flooded to root of stack')
+        self.assertFalse(self.valve.dp.ports[2].non_stack_forwarding())
         self.assertFalse(
             self.table.is_output(mcast_match, port=1),
             msg='mcast packet flooded root of stack via not shortest path')
         self.deactivate_stack_port(self.valve.dp.ports[2])
+        self.assertFalse(self.valve.dp.ports[2].non_stack_forwarding())
         self.assertFalse(
             self.table.is_output(mcast_match, port=2),
             msg='mcast packet flooded to root of stack via redundant path')
+        self.assertFalse(self.valve.dp.ports[2].non_stack_forwarding())
         self.assertTrue(
             self.table.is_output(mcast_match, port=1),
             msg='mcast packet not flooded root of stack')
+        self.assertFalse(self.valve.dp.ports[2].non_stack_forwarding())
+        self.assertTrue(self.valve.dp.ports[3].non_stack_forwarding())
 
 
 class ValveStackNonRootExtLoopProtectTestCase(ValveTestBases.ValveTestSmall):
@@ -890,9 +895,9 @@ dps:
                 port.enabled = True
                 port.dyn_phys_up = True
                 port.dyn_finalized = True
+                self.assertFalse(port.non_stack_forwarding())
 
-    @staticmethod
-    def down_stack_port(port):
+    def down_stack_port(self, port):
         """Force stack port DOWN"""
         peer_port = port.stack['port']
         peer_port.stack_gone()
@@ -900,6 +905,7 @@ dps:
         port.enabled = False
         port.dyn_phys_up = False
         port.dyn_finalized = True
+        self.assertFalse(port.non_stack_forwarding())
 
     def update_all_flowrules(self):
         """Update all valve tunnel flowrules"""
