@@ -1853,8 +1853,6 @@ class Valve:
                 ryu_dp.send_msg(flow_msg)
 
         if flow_msgs is None:
-            # Attempt flow table cleanup on disconnect (but no way to guarantee result).
-            ryu_send_flows(self._delete_all_valve_flows())
             self.datapath_disconnect()
             ryu_dp.close()
         else:
