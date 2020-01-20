@@ -1932,7 +1932,7 @@ dbs:
         self.assertLessEqual(received_pings, max_expected_pings)
 
     def match_tcpdump_rx_packets(self, tcpdump_txt):
-        match_re = re.compile(r'.*(\d+) packets* received by filter.*')
+        match_re = re.compile(r'.*(\d+) packets* captured.*')
         match = match_re.match(tcpdump_txt)
         self.assertTrue(match, msg=tcpdump_txt)
         packets = int(match.group(1))
