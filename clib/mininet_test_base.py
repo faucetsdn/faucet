@@ -1835,20 +1835,22 @@ dbs:
             '(icmp[icmptype] == 8 or icmp[icmptype] == 0)') % (
                 first_host.MAC(), second_host.MAC())
         first_ping_second = ' '.join((self.FPINGS_ARGS_ONE, second_host.IP()))
-        packets = 2
+        expected_pings = 2
+        max_expected_pings = 2
         if both_mirrored:
-            packets *= 2
+            max_expected_pings *= 2
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
-                partial(first_host.cmd, first_ping_second)], packets=(packets+1))
+                partial(first_host.cmd, first_ping_second)], packets=(max_expected_pings+1))
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
         self.assertTrue(re.search(
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
-        self.assertTrue(self.tcpdump_rx_packets(tcpdump_txt, packets=packets))
-
+        received_pings = self.match_tcpdump_rx_packets(tcpdump_txt)
+        self.assertGreaterEqual(received_pings, expected_pings)
+        self.assertLessEqual(received_pings, max_expected_pings)
 
     def verify_bcast_ping_mirrored(self, first_host, second_host, mirror_host, tagged=False):
         """Verify that broadcast to a mirrored port, is mirrored."""
@@ -1886,8 +1888,7 @@ dbs:
         """
         # Verify individual ping works
         for hosts in ping_pairs:
-            self.verify_ping_mirrored(
-                hosts[0], hosts[1], mirror_host, both_mirrored=both_mirrored)
+            self.verify_ping_mirrored(hosts[0], hosts[1], mirror_host, both_mirrored=both_mirrored)
 
         # Prepare our ping pairs
         for hosts in ping_pairs:
@@ -1906,8 +1907,9 @@ dbs:
         # Calculate the execpted number of pings we need
         # to capture to validate port mirroring
         expected_pings = len(ping_pairs) * 2
+        max_expected_pings = expected_pings
         if both_mirrored:
-            expected_pings *= 2
+            max_expected_pings *= 2
 
         # Generate and run the mirror test pings
         ping_commands = []
@@ -1915,9 +1917,8 @@ dbs:
             ping_commands.append(
                 lambda hosts=hosts: hosts[0].cmd(' '.join((self.FPINGS_ARGS_ONE, hosts[1].IP()))))
         tcpdump_txt = self.tcpdump_helper(
-            mirror_host, tcpdump_filter, ping_commands, packets=(expected_pings+1))
+            mirror_host, tcpdump_filter, ping_commands, packets=(max_expected_pings+1))
 
-        # Validate all required pings were mirrored
         for hosts in ping_pairs:
             self.assertTrue(re.search(
                 '%s > %s: ICMP echo request' % (hosts[0].IP(), hosts[1].IP()), tcpdump_txt),
@@ -1926,13 +1927,19 @@ dbs:
                 '%s > %s: ICMP echo reply' % (hosts[1].IP(), hosts[0].IP()), tcpdump_txt),
                             msg=tcpdump_txt)
 
-        # Validate we have received the eaxct number of packets
-        self.assertTrue(re.search(
-            '%d packets received by filter' % expected_pings, tcpdump_txt),
-                        msg=tcpdump_txt)
+        received_pings = self.match_tcpdump_rx_packets(tcpdump_txt)
+        self.assertGreaterEqual(received_pings, expected_pings)
+        self.assertLessEqual(received_pings, max_expected_pings)
+
+    def match_tcpdump_rx_packets(self, tcpdump_txt):
+        match_re = re.compile(r'.*(\d+) packets* received by filter.*')
+        match = match_re.match(tcpdump_txt)
+        self.assertTrue(match, msg=tcpdump_txt)
+        packets = int(match.group(1))
+        return packets
 
     def tcpdump_rx_packets(self, tcpdump_txt, packets=0):
-        return re.search(r'%u packets captured' % packets, tcpdump_txt)
+        return self.match_tcpdump_rx_packets(tcpdump_txt) == packets
 
     def verify_no_packets(self, tcpdump_txt):
         self.assertTrue(self.tcpdump_rx_packets(tcpdump_txt, packets=0), msg=tcpdump_txt)

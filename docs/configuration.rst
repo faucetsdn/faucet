@@ -498,6 +498,11 @@ OFP port number ranges (eg. 1-6).
         of hosts on the mirrored port (for example, a packet with a VLAN
         tag, transmitted to a host on a mirrored and untagged port,
         will be mirrored without its original VLAN tag).
+        NOTE: If packets are exchanged between two ports that are both mirrored,
+        depending on the OpenFlow switch, only one copy of the mirrored
+        traffic may be sent (when a port sends a packet, not when the other
+        receives it). This is because some implementations cannot send
+        a packet more than once to the same port.
     * - name
       - string
       - The configuration key.
