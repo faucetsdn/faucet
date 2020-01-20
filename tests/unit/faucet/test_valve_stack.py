@@ -173,9 +173,11 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
 
     def test_edge_learn_edge_port(self):
         """Check the bhavior of the basic edge_learn_port algorithm"""
-        self.validate_edge_learn_ports()
-
         # After learning, unicast should go direct to edge switch.
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                port.dyn_phys_up = True
+        self.validate_edge_learn_ports()
         self.assertTrue(self._unicast_to(1), 'unicast direct to edge')
         self.assertFalse(self._unicast_to(2), 'unicast to stack root')
 
