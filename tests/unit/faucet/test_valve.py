@@ -366,6 +366,8 @@ vlans:
         labels = self.port_labels(test_port)
         self.assertEqual(
             1, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertFalse(
+            self.valve.dp.ports[1].non_stack_forwarding())
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
@@ -374,6 +376,8 @@ vlans:
             'actor_state_synchronization': 1})
         self.assertEqual(
             3, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertTrue(
+            self.valve.dp.ports[1].non_stack_forwarding())
         self.learn_hosts()
         self.verify_expiry()
 
@@ -383,6 +387,8 @@ vlans:
         labels = self.port_labels(test_port)
         self.assertEqual(
             1, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertFalse(
+            self.valve.dp.ports[1].non_stack_forwarding())
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
@@ -391,6 +397,8 @@ vlans:
             'actor_state_synchronization': 1})
         self.assertEqual(
             3, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertTrue(
+            self.valve.dp.ports[1].non_stack_forwarding())
         self.learn_hosts()
         self.verify_expiry()
         self.rcv_packet(test_port, 0, {
@@ -401,6 +409,8 @@ vlans:
             'actor_state_synchronization': 0})
         self.assertEqual(
             5, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertFalse(
+            self.valve.dp.ports[1].non_stack_forwarding())
 
     def test_lacp_timeout(self):
         """Test LACP comes up and then times out."""
@@ -408,6 +418,8 @@ vlans:
         labels = self.port_labels(test_port)
         self.assertEqual(
             1, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertFalse(
+            self.valve.dp.ports[1].non_stack_forwarding())
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
@@ -416,11 +428,15 @@ vlans:
             'actor_state_synchronization': 1})
         self.assertEqual(
             3, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertTrue(
+            self.valve.dp.ports[1].non_stack_forwarding())
         future_now = self.mock_time(10)
         expire_ofmsgs = self.valve.state_expire(future_now, None)
         self.assertTrue(expire_ofmsgs)
         self.assertEqual(
             1, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertFalse(
+            self.valve.dp.ports[1].non_stack_forwarding())
 
 
 class ValveTFMSizeOverride(ValveTestBases.ValveTestSmall):

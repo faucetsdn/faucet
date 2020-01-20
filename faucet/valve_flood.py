@@ -601,7 +601,7 @@ class ValveFloodStackManagerBase(ValveFloodManager):
                 entry = other_dp_vlan.cached_host(pkt_meta.eth_src)
                 if not entry:
                     continue
-                if entry.port.stack:
+                if not entry.port.non_stack_forwarding():
                     continue
                 if entry.port.loop_protect_external:
                     other_external_dp_entries.append(other_valve.dp)

@@ -1846,13 +1846,19 @@ class Valve:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
             flow_msgs (list): OpenFlow messages to send.
         """
+
+        def ryu_send_flows(local_flow_msgs):
+            for flow_msg in self.prepare_send_flows(local_flow_msgs):
+                flow_msg.datapath = ryu_dp
+                ryu_dp.send_msg(flow_msg)
+
         if flow_msgs is None:
+            # Attempt flow table cleanup on disconnect (but no way to guarantee result).
+            ryu_send_flows(self._delete_all_valve_flows())
             self.datapath_disconnect()
             ryu_dp.close()
         else:
-            for flow_msg in self.prepare_send_flows(flow_msgs):
-                flow_msg.datapath = ryu_dp
-                ryu_dp.send_msg(flow_msg)
+            ryu_send_flows(flow_msgs)
 
     def flow_timeout(self, now, table_id, match):
         """Call flow timeout message handler:
