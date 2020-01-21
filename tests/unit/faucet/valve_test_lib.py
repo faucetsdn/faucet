@@ -382,7 +382,7 @@ dps:
                     port: 3
 vlans:
     v100:
-        vid: 100
+        vid: 0x100
     """ % DP1_CONFIG
 
 STACK_LOOP_CONFIG = """
@@ -465,6 +465,7 @@ class ValveTestBases:
         P3_V200_MAC = '00:00:00:02:00:03'
         P1_V300_MAC = '00:00:00:03:00:01'
         UNKNOWN_MAC = '00:00:00:04:00:04'
+        BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
         V100 = 0x100 | ofp.OFPVID_PRESENT
         V200 = 0x200 | ofp.OFPVID_PRESENT
         V300 = 0x300 | ofp.OFPVID_PRESENT
@@ -486,6 +487,22 @@ class ValveTestBases:
             'eth_dst': P1_V100_MAC,
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.1',
+            'vid': V100
+        }
+
+        PKT_P2_P3 = {
+            'eth_src': P2_V100_MAC,
+            'eth_dst': P3_V100_MAC,
+            'ipv4_src': '10.0.0.2',
+            'ipv4_dst': '10.0.0.3',
+            'vid': V100
+        }
+
+        PKT_P3_P2 = {
+            'eth_src': P3_V100_MAC,
+            'eth_dst': P2_V100_MAC,
+            'ipv4_src': '10.0.0.3',
+            'ipv4_dst': '10.0.0.2',
             'vid': V100
         }
 
@@ -734,6 +751,8 @@ class ValveTestBases:
             """Activate all stack ports through LLDP"""
             for valve in self.valves_manager.valves.values():
                 valve.dp.dyn_running = True
+                for port in valve.dp.ports.values():
+                    port.dyn_phys_up = True
                 for port in valve.dp.stack_ports:
                     self.up_stack_port(port, dp_id=valve.dp.dp_id)
                     self._update_port_map(port, True)
