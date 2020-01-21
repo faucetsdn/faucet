@@ -326,6 +326,7 @@ class FakeOFTable:
             return vid_stack
 
         if trace:
+            sys.stderr.write('tracing packet flow %s\n' % match)
             sys.stderr.write(str(self) + '\n')
 
         # vid_stack represents the packet's vlan stack, innermost label listed
