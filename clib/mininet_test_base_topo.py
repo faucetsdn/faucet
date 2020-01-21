@@ -372,7 +372,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         """Print host information when debugging"""
         try:
             super(FaucetTopoTestBase, self).debug()
-        except:
+        except Exception:
             pprint.pprint(self.host_information)
             raise
 
