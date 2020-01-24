@@ -470,9 +470,10 @@ class VLAN(Conf):
         """Return ports that have LACP on this VLAN."""
         return tuple([port for port in self.get_ports() if port.lacp])
 
-    def lacp_up_ports(self):
-        """Return ports that have LACP up on this VLAN."""
-        return tuple([port for port in self.lacp_ports() if port.dyn_lacp_up])
+    def lacp_up_selected_ports(self):
+        """Return LACP ports that have been SELECTED and are UP"""
+        return tuple([
+            port for port in self.lacp_ports() if port.is_port_selected() and port.is_actor_up()])
 
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
@@ -481,30 +482,29 @@ class VLAN(Conf):
             lags[port.lacp].append(port)
         return lags
 
-    def lags_up(self):
-        """Return dict of LAGs mapped to member ports that have LACP up."""
+    def selected_up_lags(self):
+        """Return dict of LAGs mapped to member ports that have been selected"""
         lags = collections.defaultdict(list)
-        for port in self.lacp_up_ports():
+        for port in self.lacp_up_selected_ports():
             lags[port.lacp].append(port)
         return lags
 
-    def exclude_same_lag_member_ports(self, in_port=None):
-        """Ensure output on only one member of a LAG."""
+    def excluded_lag_ports(self, in_port=None):
+        """Ensure output to SELECTED LAG ports & only one LAG member"""
         exclude_ports = set()
         lags = self.lags()
         if lags:
-            lags_up = self.lags_up()
+            # Need lags that have actor UP & are SELECTED
+            selected_ports = self.selected_up_lags()
             if in_port is not None and in_port.lacp:
-                # Don't flood from one LACP bundle member, to another.
+                # Don't flood to same LAG
                 exclude_ports.update(lags[in_port.lacp])
-            # Pick one up bundle member to flood to.
+            # Pick a bundle member to flood to
             for lag, ports in lags.items():
-                ports_up = lags_up[lag]
-                if ports_up:
-                    ports.remove(ports_up[0])
-                    exclude_ports.update(ports)
-                else:
-                    exclude_ports.update(ports)
+                selected_lag = selected_ports[lag]
+                if selected_lag:
+                    ports.remove(selected_lag[0])
+                exclude_ports.update(ports)
         return exclude_ports
 
     def exclude_native_if_dot1x(self):
@@ -565,7 +565,7 @@ class VLAN(Conf):
                 (None, self.untagged_flood_ports(False))):
             if ports:
                 pkt = packet_builder(vid, *args)
-                exclude_ports = self.exclude_same_lag_member_ports()
+                exclude_ports = self.excluded_lag_ports()
                 running_port_nos = [
                     port.number for port in ports if port.running() and port not in exclude_ports]
                 if running_port_nos:

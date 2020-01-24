@@ -3,6 +3,8 @@
 import os
 import networkx
 
+from mininet.log import error
+
 from clib.mininet_test_base import IPV4_ETH, IPV6_ETH
 from clib.mininet_test_topo_generator import FaucetTopoGenerator
 from clib.mininet_test_base_topo import FaucetTopoTestBase
@@ -1097,12 +1099,14 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         """Test LACP LAG, where LAG bundle is connected to the same DP"""
         lacp_host_links = [0, 0]
         self.set_up(lacp_host_links)
+        self.verify_stack_up()
         self.verify_lag_connectivity(self.LACP_HOST)
 
     def test_mclag_vip_connectivity(self):
         """Test LACP MCLAG, where LAG bundle is connected to different DPs"""
         lacp_host_links = [0, 1]
         self.set_up(lacp_host_links)
+        self.verify_stack_up()
         self.verify_lag_connectivity(self.LACP_HOST)
 
 
@@ -1147,3 +1151,139 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
     def set_up(self):
         super(FaucetSingleMCLAGComplexTest, self).setUp()
         stack_roots = {0: 1}
+        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
+        # LACP host doubly connected to sw0 & sw1
+        host_links = {0: [0], 1: [1], 2: [2], 3: [0, 0, 2, 2]}
+        host_vlans = {host_id: 0 for host_id in range(self.NUM_HOSTS)}
+        dp_options = {dp: self.get_dp_options() for dp in range(self.NUM_DPS)}
+        host_options = {self.LACP_HOST: {'lacp': 1}}
+        self.build_net(
+            n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
+            host_links=host_links, host_vlans=host_vlans, stack_roots=stack_roots,
+            dp_options=dp_options, host_options=host_options)
+        self.start_net()
+
+    def test_lag_connectivity(self):
+        """Test whether the LAG host can connect to any other host"""
+        self.set_up()
+        self.verify_stack_up()
+        self.require_linux_bond_up(self.LACP_HOST)
+        self.verify_lag_host_connectivity()
+
+    def test_all_lacp_links(self):
+        """
+        All of the LAG links should work, test by using the xmit_hash_policy
+            with different IP addresses to change the link used by the packet
+        """
+        self.set_up()
+        self.verify_stack_up()
+        self.require_linux_bond_up(self.LACP_HOST)
+        lacp_host = self.host_information[self.LACP_HOST]['host']
+        lacp_switches = {self.net.switches[i] for i in self.host_links[self.LACP_HOST]}
+        lacp_intfs = sorted({
+            pair[0].name for switch in lacp_switches for pair in lacp_host.connectionsTo(switch)})
+        dst_host_id = 1
+        dst_host = self.host_information[dst_host_id]['host']
+        tcpdump_filter = (
+            'ip and ether src 0e:00:00:00:00:99 '
+            'and src net %s and dst net %s' % (lacp_host.IP(), dst_host.IP()))
+        # Loop until all links have been used to prove that they can be used
+        link_used = [False for _ in range(len(lacp_intfs))]
+        max_iter = len(lacp_intfs) * 2
+        iterations = 0
+        while link_used.count(False) > 2 and iterations <= max_iter:
+            no_packets = True
+            for i, intf in enumerate(lacp_intfs):
+                funcs = []
+                funcs.append(lambda: lacp_host.cmd('ping -c5 %s' % dst_host.IP()))
+                tcpdump_txt = self.tcpdump_helper(
+                    lacp_host, tcpdump_filter, intf_name=intf, funcs=funcs)
+                no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
+                if not no_packets:
+                    # Packets detected on link so can stop testing and
+                    #   goto a new IP value for the remaining links
+                    link_used[i] = True
+                    error('%s via %s\n' % (dst_host.IP(), intf))
+                    break
+            # If no packets have been detected on any port then something
+            #   has gone terribly wrong
+            self.assertFalse(
+                no_packets, 'Ping packets to host IP %s could not be found' % dst_host.IP())
+            # Increment the host IP address to change the LACP hash value,
+            #   potentially changing the link used
+            self.increment_host_ip(dst_host_id)
+            tcpdump_filter = (
+                'ip and ether src 0e:00:00:00:00:99 '
+                'and src net %s and dst net %s' % (lacp_host.IP(), dst_host.IP()))
+            iterations += 1
+        not_used = [list(lacp_intfs)[i] for i, value in enumerate(link_used) if not value]
+        expected_links = [True, True, False, False]
+        self.assertEqual(link_used, expected_links, 'Links %s not used' % not_used)
+
+    def increment_host_ip(self, host_id):
+        """Increases the host ip address"""
+        host = self.host_information[host_id]['host']
+        self.host_information[host_id]['ip'] += 3
+        self.set_host_ip(host, self.host_information[host_id]['ip'])
+
+    def test_lacp_port_change(self):
+        """
+        Test that communication to a host on a LAG is possible
+            after the original selected link goes DOWN
+        """
+        self.set_up()
+        self.verify_stack_up()
+        self.require_linux_bond_up(self.LACP_HOST)
+        self.verify_lag_host_connectivity()
+        root_dpid = self.dpids[0]
+        lacp_ports = self.host_information[self.LACP_HOST]['ports']
+        for port in lacp_ports[root_dpid]:
+            self.set_port_down(port, root_dpid)
+        self.verify_num_lag_up_ports(0, root_dpid)
+        self.verify_lag_host_connectivity()
+
+    def test_broadcast_loop(self):
+        """
+        LACP packets should be hashed using xmit_hash_policy layer2+3
+        This means that IP & MAC & Packet type is used for hashing/choosing
+            the LAG link
+        When LAG host sends broadcast, the packet should only be visible on
+            one link (the sending link), if the broadcast packet is detected
+            on the other links, then the packet was returned to it (via the
+            Faucet network)
+        """
+        self.set_up()
+        self.verify_stack_up()
+        self.require_linux_bond_up(self.LACP_HOST)
+        lacp_host = self.host_information[self.LACP_HOST]['host']
+        lacp_switches = {self.net.switches[i] for i in self.host_links[self.LACP_HOST]}
+        lacp_intfs = {
+            pair[0].name for switch in lacp_switches for pair in lacp_host.connectionsTo(switch)}
+        dst_host = self.host_information[1]['host']
+        # Detect initial broadcast ARP
+        tcpdump_filter = ('arp and ether src 0e:00:00:00:00:99 '
+                          'and ether dst ff:ff:ff:ff:ff:ff')
+        # Count the number of links that contained the broadcast ARP packet
+        except_count = 0
+        for intf in lacp_intfs:
+            funcs = []
+            # Delete all ARP records of the lacp host
+            for host_id in self.host_information:
+                host = self.host_information[host_id]['host']
+                funcs.append(lambda: host.cmd('arp -d %s' % lacp_host.IP()))
+                funcs.append(lambda: host.cmd('arp -d %s' % dst_host.IP()))
+                funcs.append(lambda: lacp_host.cmd('arp -d %s' % host.IP()))
+            # Ping to cause broadcast ARP request
+            funcs.append(lambda: lacp_host.cmd('ping -c5 %s' % dst_host.IP()))
+            # Start tcpdump looking for broadcast ARP packets
+            tcpdump_txt = self.tcpdump_helper(
+                lacp_host, tcpdump_filter, intf_name=intf, funcs=funcs)
+            try:
+                self.verify_no_packets(tcpdump_txt)
+            except AssertionError:
+                error('Broadcast detected on %s\n' % intf)
+                except_count += 1
+        # Only the source LACP link should detect the packet
+        self.assertEqual(
+            except_count, 1,
+            'Number of links detecting the broadcast ARP %s (!= 1)' % except_count)

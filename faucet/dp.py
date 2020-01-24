@@ -687,7 +687,7 @@ configuration.
 
     def lacp_up_ports(self):
         """Return ports that have LACP up."""
-        return tuple([port for port in self.lacp_ports() if port.dyn_lacp_up])
+        return tuple([port for port in self.lacp_ports() if port.is_actor_up()])
 
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
@@ -736,20 +736,6 @@ configuration.
             self.hairpin_ports.append(port)
         if port.lacp and port.lacp_active:
             self.lacp_active_ports.append(port)
-
-    def lacp_forwarding(self, port):
-        """Return 1 if should signal forwarding on a LACP bundle on this DP."""
-        # TODO: just handle stacks with multiple roots - add further useful combinations.
-        if port.loop_protect_external:
-            if self.stack_root_name and not self.is_stack_root():
-                return 0
-        return 1
-
-    def lacp_collect_and_distribute(self, port):
-        """Return 1 if LACP should advertise collect and distribute on this port."""
-        if port.lacp_collect_and_distribute:
-            return 1
-        return self.lacp_forwarding(port)
 
     def lldp_beacon_send_ports(self, now):
         """Return list of ports to send LLDP packets; stacked ports always send LLDP."""

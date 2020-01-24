@@ -249,7 +249,8 @@ class FaucetTopoTestBase(FaucetTestBase):
                 # Configure bond interface
                 self.quiet_commands(host, (
                     ('ip link add %s address 0e:00:00:00:00:99 '
-                        'type bond mode 802.3ad lacp_rate fast miimon 100') % (bond_name),
+                        'type bond mode 802.3ad lacp_rate fast miimon 100 '
+                        'xmit_hash_policy layer2+3') % (bond_name),
                     'ip add add %s/%s dev %s' % (orig_ip, self.NETPREFIX, bond_name),
                     'ip link set %s up' % bond_name))
                 # Add bond members
@@ -363,7 +364,7 @@ class FaucetTopoTestBase(FaucetTestBase):
 
             if stack_roots and i in stack_roots:
                 dp_config['stack'] = {}
-                dp_config['stack']['priority'] = stack_roots[i]
+                dp_config['stack']['priority'] = stack_roots[i]  # pytype: disable=unsupported-operands
 
             interfaces_config = {}
             # Generate host links
@@ -699,11 +700,11 @@ class FaucetTopoTestBase(FaucetTestBase):
         if self.is_routed_vlans(src_vlan, dst_vlan):
             src_vip = self.faucet_vips[src_vlan]
             dst_vip = self.faucet_vips[dst_vlan]
-            self.host_ping(src_host, src_vip.ip, src_bond)
-            self.host_ping(dst_host, dst_vip.ip, dst_bond)
+            self.host_ping(src_host, src_vip.ip, src_bond)  # pytype: disable=attribute-error
+            self.host_ping(dst_host, dst_vip.ip, dst_bond)  # pytype: disable=attribute-error
         if connectivity:
-            self.host_ping(src_host, dst_ip.ip, src_bond)
-            self.host_ping(dst_host, src_ip.ip, dst_bond)
+            self.host_ping(src_host, dst_ip.ip, src_bond)  # pytype: disable=attribute-error
+            self.host_ping(dst_host, src_ip.ip, dst_bond)  # pytype: disable=attribute-error
 
     def is_routed_vlans(self, vlan_a, vlan_b):
         """Return true if the two vlans share a router"""

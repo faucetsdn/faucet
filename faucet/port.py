@@ -27,10 +27,34 @@ STACK_STATE_UP = 3
 STACK_STATE_GONE = 4
 STACK_STATE_NONE = -1
 
-LACP_STATE_NONE = 0
-LACP_STATE_INIT = 1
-LACP_STATE_UP = 3
-LACP_STATE_NOACT = 5
+# LACP not configured
+LACP_STATE_NONE = -1
+
+# Initial state, no packets received yet
+LACP_ACTOR_INIT = 1
+# LACP connection is up and receiving packets
+LACP_ACTOR_UP = 3
+# LACP is down
+LACP_ACTOR_NOACT = 5
+LACP_ACTOR_DISPLAY_DICT = {
+    LACP_STATE_NONE: 'NONE',
+    LACP_ACTOR_INIT: 'INITIALIZING',
+    LACP_ACTOR_UP: 'UP',
+    LACP_ACTOR_NOACT: 'NO_ACTOR'
+}
+
+# Port is not a LACP port on the nominated DP
+LACP_PORT_UNSELECTED = 1
+# Port is a LACP port on the nominated DP, will send/receive
+LACP_PORT_SELECTED = 2
+# Other cases: receive-only, etc.
+LACP_PORT_STANDBY = 3
+LACP_PORT_DISPLAY_DICT = {
+    LACP_STATE_NONE: 'NONE',
+    LACP_PORT_UNSELECTED: 'UNSELECTED',
+    LACP_PORT_SELECTED: 'SELECTED',
+    LACP_PORT_STANDBY: 'STANDBY'
+}
 
 class Port(Conf):
     """Stores state for ports, including the configuration."""
@@ -209,6 +233,8 @@ class Port(Conf):
         self.dyn_phys_up = False
         self.dyn_update_time = None
         self.dyn_stack_current_state = STACK_STATE_NONE
+        self.dyn_lacp_port_selected = LACP_STATE_NONE
+        self.dyn_lacp_actor_state = LACP_STATE_NONE
         self.dyn_stack_probe_info = {}
 
         self.tagged_vlans = []
@@ -392,24 +418,128 @@ class Port(Conf):
         """Return True if LLDP beacon enabled on this port."""
         return self.lldp_beacon and self.lldp_beacon.get('enable', False)
 
-    def lacp_update(self, lacp_up, now=None, lacp_pkt=None):
-        self.dyn_lacp_up = 1 if lacp_up else 0
-        self.dyn_lacp_updated_time = now
-        self.dyn_last_lacp_pkt = lacp_pkt
-
-    def lacp_state(self):
-        if not self.lacp:
-            return LACP_STATE_NONE
-        if not self.dyn_last_lacp_pkt:
-            return LACP_STATE_INIT
-        return LACP_STATE_UP if self.dyn_lacp_up else LACP_STATE_NOACT
-
     def mirror_actions(self):
         """Return OF actions to mirror this port."""
         if self.mirror is not None:
             return [valve_of.output_port(mirror_port) for mirror_port in self.mirror]
         return []
 
+    def non_stack_forwarding(self):
+        """Returns True if port is not-stacking and, and able to forward packets."""
+        if self.stack:
+            return False
+        if not self.dyn_phys_up:
+            return False
+        if self.lacp and not self.dyn_lacp_up:
+            return False
+        return True
+
+    def lacp_update(self, lacp_up, now=None, lacp_pkt=None):
+        """
+        Update the LACP state
+        Args:
+            lacp_up (bool): The intended LACP/port state
+            now: Current time
+            lacp_pkt: Received LACP packet
+        Returns:
+            dyn_lacp_actor_state, dyn_lacp_current_state
+        """
+        self.dyn_lacp_up = 1 if lacp_up else 0
+        self.dyn_lacp_updated_time = now
+        self.dyn_last_lacp_pkt = lacp_pkt
+        if not lacp_pkt:
+            # Intialize states
+            self.actor_init()
+        else:
+            # Packets received from actor
+            if lacp_up:
+                # Receiving packets & LACP is UP
+                self.actor_up()
+            else:
+                # Receiving packets but LACP is DOWN
+                self.actor_noact()
+        return self.actor_state()
+
+    def get_lacp_flags(self):
+        """
+        Get the LACP flags for the state the port is in
+        Return sync, collecting, distributing flag values
+        """
+        if self.lacp_collect_and_distribute:
+            return 1, 1, 1
+        if self.is_port_standby():
+            return 1, 0, 0
+        if self.is_port_selected():
+            return 1, 1, 1
+        return 0, 0, 0
+
+    # LACP ACTOR STATES:
+    def is_actor_up(self):
+        """Return true if the LACP actor state is UP"""
+        return self.dyn_lacp_actor_state == LACP_ACTOR_UP
+
+    def is_actor_noact(self):
+        """Return true if the LACP actor state is NOACT"""
+        return self.dyn_lacp_actor_state == LACP_ACTOR_NOACT
+
+    def is_actor_init(self):
+        """Return true if the LACP actor state is INIT"""
+        return self.dyn_lacp_actor_state == LACP_ACTOR_INIT
+
+    def actor_state(self):
+        """Return the current LACP actor state"""
+        return self.dyn_lacp_actor_state
+
+    def actor_init(self):
+        """Set the LACP actor state to INIT"""
+        self.dyn_lacp_actor_state = LACP_ACTOR_INIT
+
+    def actor_up(self):
+        """Set the LACP actor state to UP"""
+        self.dyn_lacp_actor_state = LACP_ACTOR_UP
+
+    def actor_noact(self):
+        """Set the LACP actor state to NOACT"""
+        self.dyn_lacp_actor_state = LACP_ACTOR_NOACT
+
+    def actor_state_name(self, state):
+        """Return the string of the actor state"""
+        return LACP_ACTOR_DISPLAY_DICT[state]
+
+    # LACP PORT ROLES:
+    def is_port_selected(self):
+        """Return true if the lacp is a SELECTED port"""
+        return self.dyn_lacp_port_selected == LACP_PORT_SELECTED
+
+    def is_port_unselected(self):
+        """Return true if the lacp is an UNSELECTED port"""
+        return self.dyn_lacp_port_selected == LACP_PORT_UNSELECTED
+
+    def is_port_standby(self):
+        """Return true if the lacp is a STANDBY port"""
+        return self.dyn_lacp_port_selected == LACP_PORT_STANDBY
+
+    def lacp_port_state(self):
+        """Return the current LACP port state"""
+        return self.dyn_lacp_port_selected
+
+    def select_port(self):
+        """SELECT the current LACP port"""
+        self.dyn_lacp_port_selected = LACP_PORT_SELECTED
+
+    def deselect_port(self):
+        """UNSELECT the current LACP port"""
+        self.dyn_lacp_port_selected = LACP_PORT_UNSELECTED
+
+    def standby_port(self):
+        """Set the LACP port to STANDBY"""
+        self.dyn_lacp_port_selected = LACP_PORT_STANDBY
+
+    def port_role_name(self, state):
+        """Return the LACP port role state name"""
+        return LACP_PORT_DISPLAY_DICT[state]
+
+    # STACK PORT ROLES:
     def is_stack_admin_down(self):
         """Return True if port is in ADMIN_DOWN state."""
         return self.dyn_stack_current_state == STACK_STATE_ADMIN_DOWN
@@ -453,13 +583,3 @@ class Port(Conf):
     def stack_gone(self):
         """Change the current stack state to GONE."""
         self.dyn_stack_current_state = STACK_STATE_GONE
-
-    def non_stack_forwarding(self):
-        """Returns True if port is not-stacking and, and able to forward packets."""
-        if self.stack:
-            return False
-        if not self.dyn_phys_up:
-            return False
-        if self.lacp and not self.dyn_lacp_up:
-            return False
-        return True
