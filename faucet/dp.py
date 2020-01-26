@@ -943,9 +943,9 @@ configuration.
                     pass
         return []
 
-    def shortest_path_to_root(self):
+    def shortest_path_to_root(self, src_dp=None):
         """Return shortest path to root DP, as list of DPs."""
-        return self.shortest_path(self.stack_root_name)
+        return self.shortest_path(self.stack_root_name, src_dp=src_dp)
 
     def is_stack_root(self):
         """Return True if this DP is the root of the stack."""
