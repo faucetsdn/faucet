@@ -18,8 +18,6 @@ env:
     - MATRIX_SHARDS=6
 script:
   - ./travis/runtests.sh
-matrix:
-  include:
 jobs:
   include:
     - stage: test
