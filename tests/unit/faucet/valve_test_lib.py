@@ -30,6 +30,7 @@ import socket
 import tempfile
 import time
 import unittest
+import yaml
 
 from ryu.lib import mac
 from ryu.lib.packet import (
@@ -473,38 +474,6 @@ class ValveTestBases:
         ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8')  # must support 64b payload.
         REQUIRE_TFM = True
         CONFIG_AUTO_REVERT = False
-
-        PKT_P1_P2 = {
-            'eth_src': P1_V100_MAC,
-            'eth_dst': P2_V100_MAC,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.2',
-            'vid': V100
-        }
-
-        PKT_P2_P1 = {
-            'eth_src': P2_V100_MAC,
-            'eth_dst': P1_V100_MAC,
-            'ipv4_src': '10.0.0.2',
-            'ipv4_dst': '10.0.0.1',
-            'vid': V100
-        }
-
-        PKT_P2_P3 = {
-            'eth_src': P2_V100_MAC,
-            'eth_dst': P3_V100_MAC,
-            'ipv4_src': '10.0.0.2',
-            'ipv4_dst': '10.0.0.3',
-            'vid': V100
-        }
-
-        PKT_P3_P2 = {
-            'eth_src': P3_V100_MAC,
-            'eth_dst': P2_V100_MAC,
-            'ipv4_src': '10.0.0.3',
-            'ipv4_dst': '10.0.0.2',
-            'vid': V100
-        }
 
         def __init__(self, *args, **kwargs):
             self.dot1x = None
@@ -979,6 +948,21 @@ class ValveTestBases:
                 self.assertTrue(self.table.is_output(bcast_match, port=out_port), msg=msg)
             else:
                 self.assertFalse(self.table.is_output(bcast_match, port=out_port), msg=msg)
+
+        def pkt_match(self, src, dst):
+            """Make a unicast packet match dict for the given src & dst"""
+            return {
+                'eth_src': '00:00:00:01:00:%02x' % src,
+                'eth_dst': '00:00:00:01:00:%02x' % dst,
+                'ipv4_src': '10.0.0.%d' % src,
+                'ipv4_dst': '10.0.0.%d' % dst,
+                'vid': self.V100
+            }
+
+        def _config_edge_learn_stack_root(self, new_value):
+            config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+            config['vlans']['v100']['edge_learn_stack_root'] = new_value
+            return yaml.dump(config)
 
 
     class ValveTestBig(ValveTestSmall):

@@ -551,6 +551,36 @@ class ValveFloodStackManagerBase(ValveFloodManager):
 
         self._reset_peer_distances()
 
+    def shortest_path_root(self, edge_dp_name):
+        """Return the port along the shortest path to/from root for edge learning"""
+        path_to_root = self.dp_shortest_path_to_root()
+        if not path_to_root:
+            return self.shortest_path_port(edge_dp_name)
+
+        this_dp = path_to_root[0]
+        path_from_edge = self.dp_shortest_path_to_root(edge_dp_name)
+
+        # If this is the edge switch, then learn using default algorithm.
+        if not path_from_edge or this_dp == path_from_edge[0]:
+            return self.shortest_path_port(edge_dp_name)
+
+        # If this switch is along the path towards the edge, then head away.
+        if this_dp in path_from_edge:
+            away_dp = path_from_edge[path_from_edge.index(this_dp) - 1]
+            all_away_up_ports = self._canonical_stack_up_ports(self.away_from_root_stack_ports)
+            away_up_ports = [port for port in all_away_up_ports if port.stack['dp'].name == away_dp]
+            return away_up_ports[0] if away_up_ports else None
+
+        # If not, then head towards the root.
+        towards_up_ports = self._canonical_stack_up_ports(self.towards_root_stack_ports)
+        return towards_up_ports[0] if towards_up_ports else None
+
+    def _edge_learn_port_towards(self, pkt_meta, edge_dp):
+        if pkt_meta.vlan.edge_learn_stack_root:
+            return self.shortest_path_root(edge_dp.name)
+        else:
+            return self.shortest_path_port(edge_dp.name)
+
     def edge_learn_port(self, other_valves, pkt_meta):
         """
         Find a port towards the edge DP where the packet originated from
@@ -565,7 +595,7 @@ class ValveFloodStackManagerBase(ValveFloodManager):
         if pkt_meta.port.stack:
             edge_dp = self._edge_dp_for_host(other_valves, pkt_meta)
             if edge_dp:
-                return self.shortest_path_port(edge_dp.name)
+                return self._edge_learn_port_towards(pkt_meta, edge_dp)
             # Assuming no DP has learned this host.
             return None
 
@@ -575,7 +605,7 @@ class ValveFloodStackManagerBase(ValveFloodManager):
         if pkt_meta.port.loop_protect_external:
             edge_dp = self._non_stack_learned(other_valves, pkt_meta)
             if edge_dp:
-                return self.shortest_path_port(edge_dp.name)
+                return self._edge_learn_port_towards(pkt_meta, edge_dp)
         # Locally learn.
         return super(ValveFloodStackManagerBase, self).edge_learn_port(
             other_valves, pkt_meta)
