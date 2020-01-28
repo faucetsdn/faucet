@@ -6,6 +6,9 @@ FAUCETHOME=`dirname $0`/..
 FAUCETHOME=`readlink -f $FAUCETHOME`
 PIPARGS="install -q --upgrade $*"
 
+# Install pip pre-dependencies.
+$FAUCETHOME/docker/retrycmd.sh "pip3 $PIPARGS wheel cython setuptools"
+
 for r in test-requirements.txt fuzz-requirements.txt docs/requirements.txt adapters/vendors/rabbitmq/requirements.txt ; do
   $FAUCETHOME/docker/retrycmd.sh "pip3 $PIPARGS -r $FAUCETHOME/$r"
 done
