@@ -178,6 +178,8 @@ class FaucetTopoGenerator(FaucetSwitchTopo):
         port1, port2 = [self.start_port + self.port_order[i] for i in (index1, index2)]
         self.addLink(src, dst, port1=port1, port2=port2)
         # Update port and link lists
+        self.switch_ports.setdefault(src, [])
+        self.switch_ports.setdefault(dst, [])
         self.switch_ports[src].append(port1)
         self.switch_ports[dst].append(port2)
         self.switch_peer_links[src].append(self.peer_link(port1, dpid2, port2))
