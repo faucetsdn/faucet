@@ -992,6 +992,18 @@ configuration.
         path = self.shortest_path(dst_dp.name, src_dp.name)
         return self.name in path
 
+    def is_transit_stack_switch(self):
+        """
+        Return true if this is a stack switch
+            in reset_refs self.stack might not be configured yet
+        """
+        if self.stack:
+            return True
+        for port in self.ports.values():
+            if port.stack:
+                return True
+        return False
+
     def reset_refs(self, vlans=None):
         """Resets VLAN references."""
         if vlans is None:
@@ -1003,7 +1015,8 @@ configuration.
         for vlan in vlans.values():
             vlan.reset_ports(self.ports.values())
             if (vlan.get_ports() or vlan.reserved_internal_vlan or
-                    vlan.dot1x_assigned or vlan._id in router_vlans):
+                    vlan.dot1x_assigned or vlan._id in router_vlans or
+                    self.is_transit_stack_switch()):
                 self.vlans[vlan.vid] = vlan
 
     def resolve_port(self, port_name):

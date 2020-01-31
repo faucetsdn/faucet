@@ -1565,7 +1565,6 @@ class Valve:
         #        pkt_meta.eth_src,
         #        pkt_meta.port.number,
         #        pkt_meta.vlan))
-
         if pkt_meta.vlan is None:
             return self._non_vlan_rcv_packet(now, other_valves, pkt_meta)
         return self._vlan_rcv_packet(now, other_valves, pkt_meta)
