@@ -1009,6 +1009,5 @@ class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
 
     def test_hosts_connect_over_stack_transit(self):
         """Test to ensure that hosts can be connected over stack transit switches"""
-        self.set_up()
         self.verify_stack_up()
         self.verify_intervlan_routing()
