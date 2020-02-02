@@ -458,6 +458,7 @@ def lacp_reqreply(eth_src,
     return pkt
 
 
+@functools.lru_cache(maxsize=1024)
 def arp_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return an ARP request packet.
 
@@ -480,6 +481,7 @@ def arp_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     return pkt
 
 
+@functools.lru_cache(maxsize=1024)
 def arp_reply(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return an ARP reply packet.
 
@@ -558,6 +560,7 @@ def ipv6_solicited_node_from_ucast(ucast):
     return link_mcast
 
 
+@functools.lru_cache(maxsize=1024)
 def nd_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return IPv6 neighbor discovery request packet.
 
@@ -590,6 +593,7 @@ def nd_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     return pkt
 
 
+@functools.lru_cache(maxsize=1024)
 def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return IPv6 neighbor avertisement packet.
 
