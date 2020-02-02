@@ -537,6 +537,7 @@ def output_non_output_actions(flood_acts):
     return (deduped_acts, output_ports, nonoutput_actions)
 
 
+@functools.lru_cache()
 def output_in_port():
     """Return OpenFlow action to output out input port.
 
@@ -546,6 +547,7 @@ def output_in_port():
     return output_port(OFP_IN_PORT)
 
 
+@functools.lru_cache()
 def output_controller(max_len=MAX_PACKET_IN_BYTES):
     """Return OpenFlow action to packet in to the controller.
 
@@ -587,6 +589,7 @@ def packetout(port_num, data):
     return packetouts([port_num], data)
 
 
+@functools.lru_cache()
 def barrier():
     """Return OpenFlow barrier request.
 
@@ -612,6 +615,7 @@ def match(match_fields):
     return parser.OFPMatch(**match_fields)
 
 
+@functools.lru_cache()
 def valve_match_vid(value):
     return to_match_vid(value, ofp.OFPVID_PRESENT)
 
@@ -681,6 +685,7 @@ def _match_ip_masked(ipa):
     return (str(ipa.ip), str(ipa.netmask))
 
 
+@functools.lru_cache(maxsize=1024)
 def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
                      eth_dst=None, eth_dst_mask=None, icmpv6_type=None,
                      nw_proto=None, nw_dst=None, metadata=None,

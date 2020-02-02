@@ -72,6 +72,7 @@ EUI_BITS = len(EUI(0).packed*8)
 MAC_MASK_BITMAP = {(2**EUI_BITS - 2**i): (EUI_BITS - i) for i in range(0, EUI_BITS + 1)}
 
 
+@functools.lru_cache(maxsize=1024)
 def mac_mask_bits(mac_mask):
     """Return number of bits in MAC mask or 0."""
     if mac_mask is not None:
@@ -79,17 +80,20 @@ def mac_mask_bits(mac_mask):
     return 0
 
 
+@functools.lru_cache(maxsize=1024)
 def int_from_mac(mac):
     int_hi, int_lo = [int(i, 16) for i in mac.split(':')[-2:]]
     return (int_hi << 8) + int_lo
 
 
+@functools.lru_cache(maxsize=1024)
 def int_in_mac(mac, to_int):
     int_mac = mac.split(':')[:4] + [
         '%x' % (to_int >> 8), '%x' % (to_int & 0xff)]
     return ':'.join(int_mac)
 
 
+@functools.lru_cache(maxsize=1024)
 def ipv4_parseable(ip_header_data):
     """Return True if an IPv4 packet we could parse."""
     # TODO: python library parsers are fragile
@@ -193,6 +197,7 @@ def parse_packet_in_pkt(data, max_len, eth_pkt=None, vlan_pkt=None):
     return (pkt, eth_pkt, eth_type, vlan_pkt, vlan_vid)
 
 
+@functools.lru_cache(maxsize=1024)
 def mac_addr_all_zeros(mac_addr):
     """Returns True if mac_addr is all zeros.
 
@@ -205,6 +210,7 @@ def mac_addr_all_zeros(mac_addr):
     return mac_bin == DONTCARE
 
 
+@functools.lru_cache(maxsize=1024)
 def mac_addr_is_unicast(mac_addr):
     """Returns True if mac_addr is a unicast Ethernet address.
 
@@ -372,6 +378,7 @@ def lacp_actor_up(lacp_pkt):
     return 0
 
 
+@functools.lru_cache(maxsize=1024)
 def lacp_reqreply(eth_src,
                   actor_system, actor_key, actor_port,
                   actor_state_synchronization=0,
@@ -453,6 +460,7 @@ def lacp_reqreply(eth_src,
     return pkt
 
 
+@functools.lru_cache(maxsize=1024)
 def arp_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return an ARP request packet.
 
@@ -475,6 +483,7 @@ def arp_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     return pkt
 
 
+@functools.lru_cache(maxsize=1024)
 def arp_reply(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return an ARP reply packet.
 
@@ -520,6 +529,7 @@ def echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, data):
     return pkt
 
 
+@functools.lru_cache(maxsize=1024)
 def ipv6_link_eth_mcast(dst_ip):
     """Return an Ethernet multicast address from an IPv6 address.
 
@@ -535,6 +545,7 @@ def ipv6_link_eth_mcast(dst_ip):
     return mcast_mac
 
 
+@functools.lru_cache(maxsize=1024)
 def ipv6_solicited_node_from_ucast(ucast):
     """Return IPv6 solicited node multicast address from IPv6 unicast address.
 
@@ -551,6 +562,7 @@ def ipv6_solicited_node_from_ucast(ucast):
     return link_mcast
 
 
+@functools.lru_cache(maxsize=1024)
 def nd_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return IPv6 neighbor discovery request packet.
 
@@ -583,6 +595,7 @@ def nd_request(vid, eth_src, eth_dst, src_ip, dst_ip):
     return pkt
 
 
+@functools.lru_cache(maxsize=1024)
 def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return IPv6 neighbor avertisement packet.
 
