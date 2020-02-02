@@ -72,6 +72,7 @@ EUI_BITS = len(EUI(0).packed*8)
 MAC_MASK_BITMAP = {(2**EUI_BITS - 2**i): (EUI_BITS - i) for i in range(0, EUI_BITS + 1)}
 
 
+@functools.lru_cache(maxsize=1024)
 def mac_mask_bits(mac_mask):
     """Return number of bits in MAC mask or 0."""
     if mac_mask is not None:
@@ -377,6 +378,7 @@ def lacp_actor_up(lacp_pkt):
     return 0
 
 
+@functools.lru_cache(maxsize=1024)
 def lacp_reqreply(eth_src,
                   actor_system, actor_key, actor_port,
                   actor_state_synchronization=0,

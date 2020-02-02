@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 from collections import defaultdict
 
 from faucet import valve_of
@@ -85,6 +86,7 @@ class ValveFloodManager(ValveManagerBase):
         """Return True if the given dp floods (only) to root switch"""
         return False
 
+    @functools.lru_cache(maxsize=1024)
     def _mask_flood_priority(self, eth_dst_mask):
         return self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
 
@@ -127,6 +129,7 @@ class ValveFloodManager(ValveManagerBase):
             inst=[valve_of.apply_actions(flood_acts)],
             priority=flood_priority)
 
+    @functools.lru_cache(maxsize=1024)
     def _vlan_flood_priority(self, eth_type, eth_dst_mask):
         priority = self._mask_flood_priority(eth_dst_mask)
         if eth_type:
