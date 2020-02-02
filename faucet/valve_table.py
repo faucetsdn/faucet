@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import hashlib
 import struct
 
@@ -92,6 +93,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
 
     # TODO: verify actions
     @staticmethod
+    @functools.lru_cache(maxsize=1024)
     def match(in_port=None, vlan=None, # pylint: disable=too-many-arguments,too-many-locals
               eth_type=None, eth_src=None, eth_dst=None, eth_dst_mask=None,
               icmpv6_type=None, nw_proto=None, nw_dst=None, metadata=None,
