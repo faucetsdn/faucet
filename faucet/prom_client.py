@@ -60,7 +60,7 @@ class PromClient: # pylint: disable=too-few-public-methods
             'Faucet PBR version',
             ['version'],
             registry=self._reg)
-        self.faucet_version.labels(version=self.version).set(1) # pylint: disable=no-member
+        self.faucet_version.labels(version=self.version).set(1)  # pylint: disable=no-member
         self.server = None
         self.thread = None
 
