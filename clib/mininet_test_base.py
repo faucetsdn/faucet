@@ -460,18 +460,20 @@ class FaucetTestBase(unittest.TestCase):
                         switch_ovs_log_name = os.path.join(self.tmpdir, os.path.basename(ovs_log))
                         with open(switch_ovs_log_name, 'w') as switch_ovs_log:
                             switch_ovs_log.write('\n'.join(lines))
-        # Must not be any controller exception.
-        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
-        # Check for OFErrors
-        oferrors = '\n\n'.join(
-            self.matching_lines_from_file(
-                r'^.+(OFError.+)$', self.env['faucet']['FAUCET_LOG']))
-        if not ignore_oferrors:
-            self.assertFalse(
-                oferrors,
-                msg='log has OFPErrorMsgs: %s' % oferrors)
         with open(os.path.join(self.tmpdir, 'test_duration_secs'), 'w') as duration_file:
             duration_file.write(str(int(time.time() - self.start_time)))
+        # Must not be any controller exception.
+        for exceptionlog in (
+                self.env['faucet']['FAUCET_EXCEPTION_LOG'], self.env['gauge']['GAUGE_EXCEPTION_LOG']):
+            self.verify_no_exception(exceptionlog)
+        oferrors = ''
+        for logfile in (self.env['faucet']['FAUCET_LOG'], self.env['gauge']['GAUGE_LOG']):
+            # Verify version is logged.
+            self.assertTrue(self.matching_lines_from_file(r'^.+version\s+(\S+)$', logfile))
+            # Verify no OFErrors.
+            oferrors += '\n\n'.join(self.matching_lines_from_file(r'^.+(OFError.+)$', logfile))
+            if not ignore_oferrors:
+                self.assertFalse(oferrors, msg=oferrors)
         return oferrors
 
     def _block_non_faucet_packets(self):

@@ -66,6 +66,7 @@ class RyuAppBase(app_manager.RyuApp):
             self.exc_logname, exc_logfile, logging.DEBUG, 1)
         self.threads = []
         self.thread_managers = []
+        self.prom_client = None
 
     def _get_threads(self):
         """Return started threads."""
@@ -138,6 +139,8 @@ class RyuAppBase(app_manager.RyuApp):
     def start(self):
         """Start controller."""
         super(RyuAppBase, self).start()
+        if self.prom_client:
+            self.logger.info('version %s' % self.prom_client.version)
         if self.stat_reload:
             self.logger.info('will automatically reload new config on changes')
         self.reload_config(None)
