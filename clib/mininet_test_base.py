@@ -468,8 +468,13 @@ class FaucetTestBase(unittest.TestCase):
             self.verify_no_exception(exceptionlog)
         oferrors = ''
         for logfile in (self.env['faucet']['FAUCET_LOG'], self.env['gauge']['GAUGE_LOG']):
+            oldlogfile = '.'.join((logfile, 'old'))
+            if os.path.exists(oldlogfile):
+                logfile = oldlogfile
             # Verify version is logged.
-            self.assertTrue(self.matching_lines_from_file(r'^.+version\s+(\S+)$', logfile))
+            self.assertTrue(
+                self.matching_lines_from_file(r'^.+version\s+(\S+)$', logfile),
+                msg='no version logged in %s' % logfile)
             # Verify no OFErrors.
             oferrors += '\n\n'.join(self.matching_lines_from_file(r'^.+(OFError.+)$', logfile))
             if not ignore_oferrors:
