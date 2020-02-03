@@ -939,6 +939,12 @@ dbs:
             int_dpid, 'stats/portdesc/%s/%s' % (int_dpid, port), timeout)
         return self._port_stat(port_stats, port)
 
+    def get_all_meters_from_dpid(self, dpid):
+        """Return all meters from DPID"""
+        int_dpid = mininet_test_util.str_int_dpid(dpid)
+        return self._ofctl_get(
+            int_dpid, 'stats/meterconfig/%s' % int_dpid, timeout=10)
+
     def wait_matching_in_group_table(self, action, group_id, timeout=10):
         groupdump = os.path.join(self.tmpdir, 'groupdump-%s.txt' % self.dpid)
         for _ in range(timeout):
@@ -952,6 +958,14 @@ dbs:
                             return True
             time.sleep(1)
         return False
+
+    # TODO: Should this have meter_confs as well or can we just match meter_ids
+    def get_matching_meters_on_dpid(self, dpid):
+        meterdump = os.path.join(self.tmpdir, 'meterdump-%s.log' % dpid)
+        meter_dump = self.get_all_meters_from_dpid(dpid)
+        with open(meterdump, 'w') as meterdump_file:
+            meterdump_file.write(str(meter_dump))
+        return meterdump
 
     def get_matching_flows_on_dpid(self, dpid, match, table_id, timeout=10,
                                    actions=None, hard_timeout=0, cookie=None,
@@ -2481,6 +2495,17 @@ dbs:
                     return lines
             time.sleep(1)
         self.fail('%s not found in %s (%d/%d)' % (exp, log_name, len(lines), count))
+    
+    def wait_until_no_matching_lines_from_file(self, exp, log_name, timeout=30, count=1):
+        """Require (count) matching lines to be non-existent in file."""
+        assert timeout >= 1
+        for _ in range(timeout):
+            if os.path.exists(log_name):
+                lines = self.matching_lines_from_file(exp, log_name)
+                if len(lines) >= count:
+                    return self.fail('%s found in %s (%d/%d)' % (exp, log_name, len(lines), count))
+            time.sleep(1)
+        return lines
 
     def exabgp_updates(self, exabgp_log, timeout=60):
         """Verify that exabgp process has received BGP updates."""
