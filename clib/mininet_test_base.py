@@ -2522,7 +2522,7 @@ dbs:
                     return lines
             time.sleep(1)
         self.fail('%s not found in %s (%d/%d)' % (exp, log_name, len(lines), count))
-    
+
     def wait_until_no_matching_lines_from_file(self, exp, log_name, timeout=30, count=1):
         """Require (count) matching lines to be non-existent in file."""
         assert timeout >= 1
