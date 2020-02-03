@@ -1685,6 +1685,62 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
         self.assertTrue(byte_band_count)
 
 
+class FaucetUntaggedMeterAddTest(FaucetUntaggedMeterParseTest):
+
+    def test_untagged(self):
+        super(FaucetUntaggedMeterAddTest, self).test_untagged()
+        conf = self._get_faucet_conf()
+        del conf['acls']
+        conf['meters']['lossymeter2'] = {
+            'meter_id': 2,
+            'entry': {
+                'flags': ['PKTPS'],
+                'bands': [{'rate': '1000', 'type': 'DROP'}]
+            },
+        }
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=True, hup=True)
+        self.wait_until_matching_lines_from_file(
+            r'.+\'meter_id\'\: 2+',
+            self.get_matching_meters_on_dpid(self.dpid))
+
+
+class FaucetUntaggedMeterDeleteTest(FaucetUntaggedMeterParseTest):
+
+    def test_untagged(self):
+        super(FaucetUntaggedMeterDeleteTest, self).test_untagged()
+        conf = self._get_faucet_conf()
+        del conf['meters']['lossymeter']
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=True)
+        self.wait_until_no_matching_lines_from_file(
+            r'.+meter_id+',
+            self.get_matching_meters_on_dpid(self.dpid))
+
+
+class FaucetUntaggedMeterModTest(FaucetUntaggedMeterParseTest):
+
+    def test_untagged(self):
+        super(FaucetUntaggedMeterModTest, self).test_untagged()
+        conf = self._get_faucet_conf()
+        del conf['acls']
+        conf['meters']['lossymeter'] = {
+            'meter_id': 1,
+            'entry': {
+                'flags': ['PKTPS'],
+                'bands': [{'rate': '1000', 'type': 'DROP'}]
+            },
+        }
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=True, hup=True)
+        self.wait_until_matching_lines_from_file(
+            r'.+PKTPS+',
+            self.get_matching_meters_on_dpid(self.dpid))
+
+
 class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
 
     NETNS = True
