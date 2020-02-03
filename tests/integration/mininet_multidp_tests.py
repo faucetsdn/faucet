@@ -109,6 +109,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
 
     NUM_DPS = 2
     NUM_HOSTS = 2
+    SOFTWARE_ONLY = True
     match_bcast = {'dl_vlan': FaucetMultiDPTest.vlan_vid(0), 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
     action_str = 'OUTPUT:%u'
 
@@ -256,6 +257,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTest):
 
     NUM_DPS = 2
     NUM_HOSTS = 2
+    SOFTWARE_ONLY = True
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
@@ -575,6 +577,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
 
     NUM_DPS = 1
     NUM_HOSTS = 2
+    SOFTWARE_ONLY = True
 
     # ACL rules which will get overridden.
     def acls(self):
@@ -680,6 +683,7 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
 
     NUM_DPS = 2
     NUM_HOSTS = 2
+    SOFTWARE_ONLY = True
     SWITCH_TO_SWITCH_LINKS = 2
 
     def acls(self):
@@ -726,6 +730,7 @@ class FaucetTunnelTest(FaucetMultiDPTest):
 
     NUM_DPS = 2
     NUM_HOSTS = 2
+    SOFTWARE_ONLY = True
     SWITCH_TO_SWITCH_LINKS = 2
 
     def acls(self):
