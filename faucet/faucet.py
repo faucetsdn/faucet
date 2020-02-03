@@ -100,7 +100,6 @@ class Faucet(RyuAppBase):
     logname = 'faucet'
     exc_logname = logname + '.exception'
     bgp = None
-    metrics = None
     notifier = None
     valves_manager = None
     event_socket_heartbeat_time = 0
@@ -108,17 +107,17 @@ class Faucet(RyuAppBase):
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
         self.api = kwargs['faucet_experimental_api']
-        self.metrics = faucet_metrics.FaucetMetrics(reg=self._reg)
+        self.prom_client = faucet_metrics.FaucetMetrics(reg=self._reg)
         self.bgp = faucet_bgp.FaucetBgp(
-            self.logger, self.exc_logname, self.metrics, self._send_flow_msgs)
+            self.logger, self.exc_logname, self.prom_client, self._send_flow_msgs)
         self.dot1x = faucet_dot1x.FaucetDot1x(
-            self.logger, self.exc_logname, self.metrics, self._send_flow_msgs)
+            self.logger, self.exc_logname, self.prom_client, self._send_flow_msgs)
         self.notifier = faucet_event.FaucetEventNotifier(
-            self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
+            self.get_setting('EVENT_SOCK'), self.prom_client, self.logger)
         self.valves_manager = valves_manager.ValvesManager(
-            self.logname, self.logger, self.metrics, self.notifier, self.bgp,
+            self.logname, self.logger, self.prom_client, self.notifier, self.bgp,
             self.dot1x, self.get_setting('CONFIG_AUTO_REVERT'), self._send_flow_msgs)
-        self.thread_managers = (self.bgp, self.dot1x, self.metrics, self.notifier)
+        self.thread_managers = (self.bgp, self.dot1x, self.prom_client, self.notifier)
         self.event_sock_hrtbeat_time = int(self.get_setting('EVENT_SOCK_HEARTBEAT') or 0)
         if self.event_sock_hrtbeat_time > 0:
             self._VALVE_SERVICES[EventFaucetEventSockHeartbeat] = ('event_sock_heartbeat', self.event_sock_hrtbeat_time)
@@ -134,7 +133,7 @@ class Faucet(RyuAppBase):
         # Start Prometheus
         prom_port = int(self.get_setting('PROMETHEUS_PORT'))
         prom_addr = self.get_setting('PROMETHEUS_ADDR')
-        self.metrics.start(prom_port, prom_addr)
+        self.prom_client.start(prom_port, prom_addr)
 
         # Start event notifier
         notifier_thread = self.notifier.start()

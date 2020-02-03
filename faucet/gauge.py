@@ -44,7 +44,6 @@ class Gauge(RyuAppBase):
     """
     logname = 'gauge'
     exc_logname = logname + '.exception'
-    prom_client = None
 
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
