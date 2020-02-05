@@ -370,53 +370,54 @@ def max_loadavg():
     return int(multiprocessing.cpu_count() * 1.5)
 
 
-def expand_tests(module, requested_test_classes, excluded_test_classes,
+def expand_tests(modules, requested_test_classes, excluded_test_classes,
                  hw_config, root_tmpdir, ports_sock, serial, port_order):
     sanity_test_suites = []
     single_test_suites = []
     parallel_test_suites = []
 
-    for full_name, test_obj in inspect.getmembers(sys.modules[module]):
-        test_name = full_name.split('.')[-1]
-        if not inspect.isclass(test_obj):
-            continue
-        if requested_test_classes and test_name not in requested_test_classes:
-            continue
-        if excluded_test_classes and test_name in excluded_test_classes:
-            continue
-        if test_name.endswith('Test') and test_name.startswith('Faucet'):
-            if not filter_test_hardware(test_obj, hw_config):
+    for module in modules:
+        for full_name, test_obj in inspect.getmembers(sys.modules[module]):
+            test_name = full_name.split('.')[-1]
+            if not inspect.isclass(test_obj):
                 continue
-            print('adding test %s' % test_name)
-            test_suite = make_suite(
-                test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg(), port_order)
-            if test_name.startswith('FaucetSanity'):
-                sanity_test_suites.append(test_suite)
-            else:
-                if serial or test_name.startswith('FaucetSingle') or test_obj.NETNS:
-                    single_test_suites.append(test_suite)
+            if requested_test_classes and test_name not in requested_test_classes:
+                continue
+            if excluded_test_classes and test_name in excluded_test_classes:
+                continue
+            if test_name.endswith('Test') and test_name.startswith('Faucet'):
+                if not filter_test_hardware(test_obj, hw_config):
+                    continue
+                print('adding test %s' % test_name)
+                test_suite = make_suite(
+                    test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg(), port_order)
+                if test_name.startswith('FaucetSanity'):
+                    sanity_test_suites.append(test_suite)
                 else:
-                    parallel_test_suites.append(test_suite)
+                    if serial or test_name.startswith('FaucetSingle') or test_obj.NETNS:
+                        single_test_suites.append(test_suite)
+                    else:
+                        parallel_test_suites.append(test_suite)
 
-    sanity_tests = unittest.TestSuite()
-    single_tests = unittest.TestSuite()
-    parallel_tests = unittest.TestSuite()
+        sanity_tests = unittest.TestSuite()
+        single_tests = unittest.TestSuite()
+        parallel_tests = unittest.TestSuite()
 
-    if len(parallel_test_suites) == 1:
-        single_test_suites.extend(parallel_test_suites)
-        parallel_test_suites = []
-    if parallel_test_suites:
-        seed = time.time()
-        print('seeding parallel test shuffle with %f' % seed)
-        random.seed(seed)
-        random.shuffle(parallel_test_suites)
-        for test_suite in parallel_test_suites:
-            parallel_tests.addTest(test_suite)
+        if len(parallel_test_suites) == 1:
+            single_test_suites.extend(parallel_test_suites)
+            parallel_test_suites = []
+        if parallel_test_suites:
+            seed = time.time()
+            print('seeding parallel test shuffle with %f' % seed)
+            random.seed(seed)
+            random.shuffle(parallel_test_suites)
+            for test_suite in parallel_test_suites:
+                parallel_tests.addTest(test_suite)
 
-    for test_suite in sanity_test_suites:
-        sanity_tests.addTest(test_suite)
-    for test_suite in single_test_suites:
-        single_tests.addTest(test_suite)
+        for test_suite in sanity_test_suites:
+            sanity_tests.addTest(test_suite)
+        for test_suite in single_test_suites:
+            single_tests.addTest(test_suite)
     return (sanity_tests, single_tests, parallel_tests)
 
 
@@ -653,28 +654,28 @@ def run_tests(modules, hw_config, requested_test_classes, dumpfail, debug,
     all_successful = False
     no_tests = True
 
-    for module in modules:
-        sanity_tests, single_tests, parallel_tests = expand_tests(
-            module, requested_test_classes, excluded_test_classes,
-            hw_config, root_tmpdir, ports_sock, serial, port_order)
+    sanity_tests, single_tests, parallel_tests = expand_tests(
+        modules, requested_test_classes, excluded_test_classes,
+        hw_config, root_tmpdir, ports_sock, serial, port_order)
 
-        if (sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases()):
-            no_tests = False
-            sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
-            if sanity_result.wasSuccessful():
-                while True:
-                    all_successful = run_test_suites(debug, report_json_filename,
-                                                     hw_config, root_tmpdir, resultclass,
-                                                     copy.deepcopy(single_tests),
-                                                     copy.deepcopy(parallel_tests),
-                                                     sanity_result)
-                    if not repeat:
-                        break
-                    if not all_successful:
-                        break
-                    print('repeating run')
-            else:
-                report_results([sanity_result], hw_config, report_json_filename)
+    if sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases():
+        no_tests = False
+        sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
+        if sanity_result.wasSuccessful():
+            while True:
+                all_successful = run_test_suites(
+                    debug, report_json_filename,
+                    hw_config, root_tmpdir, resultclass,
+                    copy.deepcopy(single_tests),
+                    copy.deepcopy(parallel_tests),
+                    sanity_result)
+                if not repeat:
+                    break
+                if not all_successful:
+                    break
+                print('repeating run')
+        else:
+            report_results([sanity_result], hw_config, report_json_filename)
 
     if no_tests:
         print('no tests selected')
