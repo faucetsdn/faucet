@@ -268,6 +268,7 @@ of a single switch with two ports.
              'nd_neighbor_timeout': 30,
              'ofchannel_log': None,
              'packetin_pps': None,
+             'slowpath_pps': None,
              'priority_offset': 0,
              'proactive_learn_v4': True,
              'proactive_learn_v6': True,

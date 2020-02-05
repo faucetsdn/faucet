@@ -168,6 +168,7 @@ BASE_DP_CONFIG = """
         ignore_learn_ins: 100
         ofchannel_log: '/dev/null'
         packetin_pps: 99
+        slowpath_pps: 99
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
