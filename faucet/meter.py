@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from faucet.conf import Conf
+from faucet.conf import Conf, test_config_condition
 from faucet.valve_of import meteradd
 
 
@@ -44,3 +44,11 @@ class Meter(Conf):
         assert conf['entry']['bands']
         conf['entry']['meter_id'] = self.meter_id
         self.entry_msg = meteradd(self.entry)
+
+    def check_config(self):
+        super(Meter, self).check_config()
+        test_config_condition(
+            self.meter_id < 0, 'meter_id is than 0')
+        test_config_condition(
+            self.meter_id > 4294901760,
+            'DP meter_id cannot exceed 4294901760 per OF13 specification')
