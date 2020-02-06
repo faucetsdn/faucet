@@ -297,7 +297,7 @@ class Valve:
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = [valve_table.wildcard_table.flowdel()]
-        if self.dp.meters:
+        if self.dp.meters or self.dp.packetin_pps or self.dp.slowpath_pps:
             ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
             ofmsgs.append(self.dp.groups.delete_all())
@@ -334,11 +334,17 @@ class Valve:
         return ofmsgs
 
     def _add_packetin_meter(self):
-        """Add rate limiting of packet in pps (not supported by many DPs)."""
+        """Add rate limiting of packetin in pps (not supported by many DPs)."""
         if self.dp.packetin_pps:
             return [
-                valve_of.controller_pps_meterdel(),
                 valve_of.controller_pps_meteradd(pps=self.dp.packetin_pps)]
+        return []
+
+    def _add_slowpath_meter(self):
+        """Add rate limiting of slowpath in pps (not supported by many DPs)."""
+        if self.dp.slowpath_pps:
+            return [
+                valve_of.slowpath_pps_meteradd(pps=self.dp.slowpath_pps)]
         return []
 
     def _add_default_flows(self):
@@ -346,6 +352,7 @@ class Valve:
         ofmsgs = []
         ofmsgs.extend(self._delete_all_valve_flows())
         ofmsgs.extend(self._add_packetin_meter())
+        ofmsgs.extend(self._add_slowpath_meter())
         if self.dp.meters:
             for meter in self.dp.meters.values():
                 ofmsgs.append(meter.entry_msg)

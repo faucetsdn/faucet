@@ -97,7 +97,9 @@ configuration.
         'max_resolve_backoff_time': 64,
         # Max number of seconds to back off to when resolving nexthops.
         'packetin_pps': None,
-        # Ask switch to rate limit packet pps. TODO: Not supported by OVS in 2.7.0
+        # Ask switch to rate limit packetin pps. TODO: Not supported by OVS in 2.7.0
+        'slowpath_pps': None,
+        # Ask switch to rate limit slowpath pps. TODO: Not supported by OVS in 2.7.0
         'learn_jitter': 0,
         # Jitter learn timeouts by up to this many seconds
         'learn_ban_timeout': 0,
@@ -176,6 +178,7 @@ configuration.
         'max_host_fib_retry_count': int,
         'max_resolve_backoff_time': int,
         'packetin_pps': int,
+        'slowpath_pps': int,
         'learn_jitter': int,
         'learn_ban_timeout': int,
         'advertise_interval': int,
@@ -284,6 +287,7 @@ configuration.
         self.ofchannel_log = None
         self.output_only_ports = None
         self.packetin_pps = None
+        self.slowpath_pps = None
         self.ports = None
         self.priority_offset = None
         self.proactive_learn_v4 = None

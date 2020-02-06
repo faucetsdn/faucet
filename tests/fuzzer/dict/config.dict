@@ -26,6 +26,7 @@
 "name: test"
 "ofchannel_log: logname"
 "packetin_pps: 56"
+"slowpath_pps: 56"
 "port_acl_table: "
 "priority_offset: 8"
 "stack: "

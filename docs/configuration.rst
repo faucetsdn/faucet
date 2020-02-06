@@ -220,7 +220,11 @@ string names given to the datapath, or the OFP datapath id.
     * - packetin_pps
       - integer
       - None
-      - Ask switch to rate limit packet pps.
+      - Ask switch to rate limit packetin in pps.
+    * - slowpath_pps
+      - integer
+      - None
+      - Ask switch to rate limit slowpath in pps.
     * - priority_offset
       - integer
       - 0
