@@ -34,7 +34,7 @@ from faucet import valve_util
 from faucet import valve_pipeline
 
 from faucet.vlan import NullVLAN, OFVLAN
-from faucet.port import LACP_STATE_INIT, LACP_STATE_UP, LACP_STATE_NOACT
+
 
 class ValveLogger:
     """Logger for a Valve that adds DP ID."""
@@ -491,14 +491,14 @@ class Valve:
             if new_port_status:
                 ofmsgs = self.port_add(port_no)
             else:
-                ofmsgs = self.port_delete(port_no, keep_cache=True)
+                ofmsgs = self.port_delete(port_no, keep_cache=True, other_valves=_other_valves)
         else:
             self.logger.info('status did not change: %s' % state_description)
             if new_port_status:
                 if blocked_down_state:
                     self.logger.info(
                         '%s state down or blocked despite status up, setting to status down' % port)
-                    ofmsgs = self.port_delete(port_no, keep_cache=True)
+                    ofmsgs = self.port_delete(port_no, keep_cache=True, other_valves=_other_valves)
                 if not live_state:
                     self.logger.info(
                         '%s state OFPPS_LIVE reset, ignoring in expectation of port down' % port)
@@ -558,7 +558,7 @@ class Valve:
         ofmsgs = []
         for port in self.dp.lacp_active_ports:
             if port.running():
-                ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
+                ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port, _other_valves))
 
         ports = self.dp.lldp_beacon_send_ports(now)
         ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
@@ -877,7 +877,7 @@ class Valve:
                     max_len=128))
 
             if port.lacp:
-                ofmsgs.extend(self.lacp_down(port, cold_start=cold_start))
+                ofmsgs.extend(self.lacp_update(port, False, cold_start=cold_start))
                 if port.lacp_active:
                     ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
 
@@ -918,7 +918,7 @@ class Valve:
         """
         return self.ports_add([port_num])
 
-    def ports_delete(self, port_nums, log_msg='down', keep_cache=False):
+    def ports_delete(self, port_nums, log_msg='down', keep_cache=False, other_valves=None):
         """Handle the deletion of ports.
 
         Args:
@@ -948,7 +948,7 @@ class Valve:
                     self.dp.ports[self.dp.dot1x['nfv_sw_port']]
                     ))
             if port.lacp:
-                ofmsgs.extend(self.lacp_down(port))
+                ofmsgs.extend(self.lacp_update(port, False, other_valves=other_valves))
             else:
                 ofmsgs.extend(self._port_delete_flows_state(port, keep_cache=keep_cache))
 
@@ -957,25 +957,146 @@ class Valve:
 
         return ofmsgs
 
-    def port_delete(self, port_num, keep_cache=False):
+    def port_delete(self, port_num, keep_cache=False, other_valves=None):
         """Return flow messages that delete port from pipeline."""
-        return self.ports_delete([port_num], keep_cache=keep_cache)
+        return self.ports_delete([port_num], keep_cache=keep_cache, other_valves=other_valves)
 
     def _reset_lacp_status(self, port):
-        lacp_state = port.lacp_state()
+        lacp_state = port.actor_state()
         self._set_var('port_lacp_state', lacp_state, labels=self.dp.port_labels(port.number))
         self.notify(
             {'LAG_CHANGE': {'port_no': port.number, 'state': lacp_state}})
 
-    def lacp_down(self, port, cold_start=False, lacp_pkt=None):
-        """Return OpenFlow messages when LACP is down on a port."""
+    def get_lacp_dpid_nomination(self, lacp_id, other_valves):
+        """
+        Chooses the DP for a given LAG
+        The DP will be nominated by the following conditions in order:
+            1) Number of LAG ports
+            2) Root DP
+            3) Lowest DPID
+        Args:
+            lacp_id: The LACP LAG ID
+            other_valves (list): list of other valves
+        Returns nominated_dpid, reason
+        """
+        if not other_valves:
+            return None, ''
+        stacked_other_valves = self._stacked_valves(other_valves)
+        all_stacked_valves = {self}.union(stacked_other_valves)
+        ports = {}
+        root_dpid = None
+        for valve in all_stacked_valves:
+            all_lags = valve.dp.lags_up()
+            if lacp_id in all_lags:
+                ports[valve.dp.dp_id] = len(all_lags[lacp_id])
+            if valve.dp.is_stack_root():
+                root_dpid = valve.dp.dp_id
+        # Order by number of ports
+        port_order = sorted(ports, key=ports.get, reverse=True)
+        if not port_order:
+            return None, ''
+        most_ports_dpid = port_order[0]
+        most_ports_dpids = [dpid for dpid, num in ports.items() if num == ports[most_ports_dpid]]
+        if len(most_ports_dpids) > 1:
+            # There are several dpids that have the same number of lags
+            if root_dpid in most_ports_dpids:
+                # root_dpid is the chosen DPID
+                return root_dpid, 'root dp'
+            # Order by lowest DPID
+            return sorted(most_ports_dpids), 'lowest dpid'
+        # Most_ports_dpid is the chosen DPID
+        return most_ports_dpid, 'most LAG ports'
+
+    def lacp_update_port_selection_state(self, port, other_valves=None):
+        """
+        Update the LACP port selection state
+        Args:
+            port (Port): LACP port
+            other_valves (list): List of other valves
+        Returns:
+            bool: True if port state changed
+        """
+        nominated_dpid = self.dp.dp_id
+        if self.dp.stack:
+            nominated_dpid, _ = self.get_lacp_dpid_nomination(port.lacp, other_valves)
+        prev_state = port.lacp_port_state()
+        port.select_port() if self.dp.dp_id == nominated_dpid else port.deselect_port()
+        new_state = port.lacp_port_state()
+        if new_state != prev_state:
+            self.logger.info('LAG %u %s %s (previous state %s)' % (
+                port.lacp, port, port.port_role_name(new_state),
+                port.port_role_name(prev_state)))
+        return new_state != prev_state
+
+    def lacp_update_actor_state(self, port, lacp_up, now=None, lacp_pkt=None):
+        """
+        Updates a LAG actor state
+        Args:
+            port: LACP port
+            lacp_up (bool): Whether LACP is going UP or DOWN
+            now (float): Current epoch time
+            lacp_pkt (PacketMeta): LACP packet
+        Returns:
+            bool: True if LACP state changed
+        """
+        prev_actor_state = port.actor_state()
+        new_actor_state = port.lacp_update(lacp_up, now=now, lacp_pkt=lacp_pkt)
+        if prev_actor_state != new_actor_state:
+            self.logger.info('LAG %u %s actor state %s (previous state %s)' % (
+                port.lacp, port, port.actor_state_name(new_actor_state),
+                port.actor_state_name(prev_actor_state)))
+        return prev_actor_state != new_actor_state
+
+    def lacp_update(self, port, lacp_up, now=None,
+                    lacp_pkt=None, other_valves=None, cold_start=False):
+        """
+        Update the port's LACP states and enables/disables packets
+            from the link to be processed further through the pipeline
+            based on the state changes
+        Args:
+            port: The port the packet is being received on
+            lacp_up (bool): Whether the lacp actor is up
+            now (float): The current time
+            lacp_pkt (PacketMeta): The received LACP packet
+            other_valves (list): List of other valves (in the stack)
+            cold_state (bool): Whether Faucet is being cold started or not
+        Returns:
+            ofmsgs
+        """
         ofmsgs = []
-        prev_state = port.lacp_state()
-        new_state = LACP_STATE_NOACT if lacp_pkt else LACP_STATE_INIT
-        if prev_state != new_state:
-            self.logger.info('LAG %u %s state %d (previous state %d)' % (
-                port.lacp, port, new_state, prev_state))
-        port.lacp_update(False, lacp_pkt=lacp_pkt)
+        updated = self.lacp_update_actor_state(port, lacp_up, now, lacp_pkt)
+        select_updated = self.lacp_update_port_selection_state(port, other_valves)
+        if updated or select_updated:
+            if updated:
+                self._reset_lacp_status(port)
+            if port.is_port_selected() and port.is_actor_up():
+                ofmsgs = self.lacp_enable_forwarding(port)
+            else:
+                ofmsgs = self.lacp_disable_forwarding(port)
+        return ofmsgs
+
+    def lacp_enable_forwarding(self, port):
+        """
+        Enables packets from the LAG link to progress through the pipeline
+            also recomputes the flooding & host rules
+        Should only be called when a LACP port is both ACTOR_UP & SELECTED
+        Return OpenFlow messages when LACP is UP and SELECTED on a port
+        """
+        vlan_table = self.dp.tables['vlan']
+        ofmsgs = []
+        ofmsgs.append(vlan_table.flowdel(
+            match=vlan_table.match(in_port=port.number),
+            priority=self.dp.high_priority, strict=True))
+        ofmsgs.extend(self.add_vlans(port.vlans()))
+        return ofmsgs
+
+    def lacp_disable_forwarding(self, port, cold_start=False):
+        """
+        Return OpenFlow messages for initial LACP states and
+            when packets from the link should not be sent through
+            the pipeline
+        """
+        ofmsgs = []
         if not cold_start:
             ofmsgs.extend(self.host_manager.del_port(port))
             ofmsgs.extend(self.add_vlans(port.vlans()))
@@ -990,29 +1111,17 @@ class Valve:
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
             priority=self.dp.highest_priority,
             max_len=valve_packet.LACP_SIZE))
-        self._reset_lacp_status(port)
         return ofmsgs
 
-    def lacp_up(self, port, now, lacp_pkt):
-        """Return OpenFlow messages when LACP is up on a port."""
-        vlan_table = self.dp.tables['vlan']
-        ofmsgs = []
-        prev_state = port.lacp_state()
-        if prev_state != LACP_STATE_UP:
-            self.logger.info('LAG %u %s up (previous state %s)' % (
-                port.lacp, port, prev_state))
-        port.lacp_update(True, now=now, lacp_pkt=lacp_pkt)
-        # Only enable learning if this bundle is selected for forwarding.
-        # E.g. non stack or root of stack.
-        if self.dp.lacp_forwarding(port):
-            ofmsgs.append(vlan_table.flowdel(
-                match=vlan_table.match(in_port=port.number),
-                priority=self.dp.high_priority, strict=True))
-            ofmsgs.extend(self.add_vlans(port.vlans()))
-        self._reset_lacp_status(port)
-        return ofmsgs
-
-    def _lacp_actions(self, lacp_pkt, port):
+    def _lacp_actions(self, lacp_pkt, port, other_valves=None):
+        """
+        Constructs a LACP req-reply packet
+        Args:
+            lacp_pkt (PacketMeta): LACP packet received
+            port: LACP port
+            other_valves (list): List of other valves
+        Return list packetout OpenFlow msgs
+        """
         if port.lacp_passthrough:
             for peer_num in port.lacp_passthrough:
                 lacp_peer = self.dp.ports.get(peer_num, None)
@@ -1023,13 +1132,12 @@ class Valve:
         actor_state_activity = 0
         if port.lacp_active:
             actor_state_activity = 1
-        actor_state_collecting = self.dp.lacp_collect_and_distribute(port)
-        actor_state_distributing = actor_state_collecting
+        actor_state_sync, actor_state_col, actor_state_dist = port.get_lacp_flags()
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.number, 1, actor_state_activity,
-                actor_state_collecting, actor_state_distributing,
+                port.lacp, port.number, actor_state_sync, actor_state_activity,
+                actor_state_col, actor_state_dist,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
                 lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
                 lacp_pkt.actor_state_defaulted,
@@ -1044,57 +1152,49 @@ class Valve:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
                 port.lacp, port.number,
+                actor_state_synchronization=actor_state_sync,
                 actor_state_activity=actor_state_activity,
-                actor_state_collecting=actor_state_collecting,
-                actor_state_distributing=actor_state_distributing)
+                actor_state_collecting=actor_state_col,
+                actor_state_distributing=actor_state_dist)
         self.logger.debug('Sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
         return [valve_of.packetout(port.number, pkt.data)]
 
-    def lacp_handler(self, now, pkt_meta):
-        """Handle a LACP packet.
-
-        We are a currently a passive, non-aggregateable LACP partner.
-
-        Args:
-            now (float): current epoch time.
-            pkt_meta (PacketMeta): packet for control plane.
-        Returns:
-            dict: OpenFlow messages, if any by Valve.
+    def lacp_handler(self, now, pkt_meta, other_valves):
         """
-        # TODO: ensure config consistent between LAG ports.
+        Handle receiving an LACP packet
+        Args:
+            now (float): current epoch time
+            pkt_meta (PacketMeta): packet for control plane
+        Returns
+            dict: OpenFlow messages, if any by Valve
+        """
         ofmsgs_by_valve = defaultdict(list)
         if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
                 pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW and
                 pkt_meta.port.lacp):
+            # LACP packet so reparse
             pkt_meta.data = pkt_meta.data[:valve_packet.LACP_SIZE]
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
             if lacp_pkt:
                 self.logger.debug('receive LACP %s on %s' % (lacp_pkt, pkt_meta.port))
+                # Respond to new LACP packet or if we haven't sent anything in a while
                 age = None
                 if pkt_meta.port.dyn_lacp_last_resp_time:
                     age = now - pkt_meta.port.dyn_lacp_last_resp_time
-                actor_up = valve_packet.lacp_actor_up(lacp_pkt)
-                prev_state = pkt_meta.port.lacp_state()
-                new_state = LACP_STATE_UP if actor_up else LACP_STATE_NOACT
                 lacp_pkt_change = (
                     pkt_meta.port.dyn_last_lacp_pkt is None or
                     str(lacp_pkt) != str(pkt_meta.port.dyn_last_lacp_pkt))
                 lacp_resp_interval = pkt_meta.port.lacp_resp_interval
                 if lacp_pkt_change or (age is not None and age > lacp_resp_interval):
-                    ofmsgs_by_valve[self].extend(self._lacp_actions(lacp_pkt, pkt_meta.port))
+                    ofmsgs_by_valve[self].extend(
+                        self._lacp_actions(lacp_pkt, pkt_meta.port, other_valves))
                     pkt_meta.port.dyn_lacp_last_resp_time = now
-                if prev_state != new_state:
-                    self.logger.info(
-                        'remote LACP state change from %s to %s from %s LAG %u (%s)' % (
-                            prev_state, new_state, lacp_pkt.actor_system, pkt_meta.port.lacp,
-                            pkt_meta.log()))
-                    if actor_up:
-                        ofmsgs_by_valve[self].extend(self.lacp_up(pkt_meta.port, now, lacp_pkt))
-                    else:
-                        ofmsgs_by_valve[self].extend(self.lacp_down(pkt_meta.port, lacp_pkt=lacp_pkt))
-                else:
-                    pkt_meta.port.lacp_update(actor_up, now=now, lacp_pkt=lacp_pkt)
+                # Update the LACP information
+                actor_up = lacp_pkt.actor_state_synchronization
+                ofmsgs_by_valve[self].extend(self.lacp_update(
+                    pkt_meta.port, actor_up, now=now, lacp_pkt=lacp_pkt, other_valves=other_valves))
+                # Determine if LACP ports with the same ID have met different actor systems
                 other_lag_ports = [
                     port for port in self.dp.ports.values()
                     if port.lacp == pkt_meta.port.lacp and port.dyn_last_lacp_pkt]
@@ -1106,10 +1206,6 @@ class Valve:
                             'LACP actor system mismatch %s: %s, %s %s' % (
                                 pkt_meta.port, actor_system,
                                 other_lag_port, other_actor_system))
-                updated_state = pkt_meta.port.lacp_state()
-                assert updated_state is new_state, (
-                    'Updated state %d not as expected new state %d' % (updated_state, new_state))
-
         return ofmsgs_by_valve
 
     def _verify_stack_lldp(self, port, now, other_valves,
@@ -1450,7 +1546,7 @@ class Valve:
     def _non_vlan_rcv_packet(self, now, other_valves, pkt_meta):
         self._inc_var('of_non_vlan_packet_ins')
         if pkt_meta.port.lacp:
-            lacp_ofmsgs_by_valve = self.lacp_handler(now, pkt_meta)
+            lacp_ofmsgs_by_valve = self.lacp_handler(now, pkt_meta, other_valves)
             if lacp_ofmsgs_by_valve:
                 return lacp_ofmsgs_by_valve
         # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
@@ -1591,7 +1687,8 @@ class Valve:
                 lacp_age = now - port.dyn_lacp_updated_time
                 if lacp_age > self.dp.lacp_timeout:
                     self.logger.info('LAG %s %s expired (age %u)' % (lag, port, lacp_age))
-                    ofmsgs_by_valve[self].extend(self.lacp_down(port))
+                    ofmsgs_by_valve[self].extend(self.lacp_update(
+                        port, False, now=now, other_valves=_other_valves))
         return ofmsgs_by_valve
 
     def state_expire(self, now, other_valves):

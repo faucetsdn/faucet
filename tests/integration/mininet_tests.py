@@ -4018,19 +4018,19 @@ details partner lacp pdu:
             require_lag_up_ports(1)
             # We have connectivity with only one port.
             self.one_ipv4_ping(
-                first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+                first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond, retries=5)
             for port in lag_ports:
                 self.set_port_up(self.port_map['port_%u' % port])
             # We have connectivity with two ports.
             require_lag_up_ports(2)
             require_linux_bond_up()
             self.one_ipv4_ping(
-                first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+                first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond, retries=5)
             # We have connectivity if that random port goes down.
             self.set_port_down(self.port_map['port_%u' % up_port])
             require_lag_up_ports(1)
             self.one_ipv4_ping(
-                first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond)
+                first_host, self.FAUCET_VIPV4.ip, require_host_learned=False, intf=bond, retries=5)
             for port in lag_ports:
                 self.set_port_up(self.port_map['port_%u' % port])
 
