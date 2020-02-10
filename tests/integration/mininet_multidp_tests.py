@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import time
 import networkx
 
 from mininet.log import error
@@ -1108,6 +1109,62 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.set_up(lacp_host_links)
         self.verify_stack_up()
         self.verify_lag_connectivity(self.LACP_HOST)
+
+    def restart_on_down_lag_port(self, port_dp_index, cold_start_dp_index):
+        """Down a port on port_dpid_index, cold-start on cold_start_dp, UP previous port"""
+        # Bring a LACP port DOWN
+        chosen_dpid = self.dpids[port_dp_index]
+        port_no = self.host_information[self.LACP_HOST]['ports'][chosen_dpid][0]
+        self.set_port_down(port_no, chosen_dpid)
+        self.verify_num_lag_up_ports(1, chosen_dpid)
+        # Cold start switch, cold-start twice to get back to initial condition
+        cold_start_dpid = self.dpids[cold_start_dp_index]
+        conf = self._get_faucet_conf()
+        interfaces_conf = conf['dps'][self.dp_name(cold_start_dp_index)]['interfaces']
+        for port, port_conf in interfaces_conf.items():
+            if 'lacp' not in port_conf and 'stack' not in port_conf:
+                # Change host VLAN to enable cold-starting on faucet-2
+                curr_vlan = port_conf['native_vlan']
+                port_conf['native_vlan'] = (
+                    self.vlan_name(1) if curr_vlan == self.vlan_name(0) else self.vlan_name(0))
+                # VLAN changed so just delete the host information instead of recomputing
+                #   routes etc..
+                for _id in self.host_information:
+                    if cold_start_dpid in self.host_information[_id]['ports']:
+                        ports = self.host_information[_id]['ports'][cold_start_dpid]
+                        if port in ports:
+                            del self.host_information[_id]
+                            break
+                break
+        self.reload_conf(conf, self.faucet_config_path, restart=True,
+                         cold_start=True, change_expected=False)
+        time.sleep(5)
+        # Bring LACP port UP
+        self.set_port_up(port_no, chosen_dpid)
+        self.verify_num_lag_up_ports(2, chosen_dpid)
+        # Take down all of the other ports
+        for dpid, ports in self.host_information[self.LACP_HOST]['ports'].items():
+            for port in ports:
+                if dpid != chosen_dpid and port != port_no:
+                    self.set_port_down(port, dpid)
+
+    def test_mclag_coldstart(self):
+        """Test LACP MCLAG after a cold start"""
+        lacp_host_links = [0, 0, 1, 1]
+        self.set_up(lacp_host_links)
+        self.verify_stack_up()
+        self.verify_lag_host_connectivity()
+        self.restart_on_down_lag_port(1, 1)
+        self.verify_lag_host_connectivity()
+
+    def test_mclag_warmstart(self):
+        """Test LACP MCLAG after a warm start"""
+        lacp_host_links = [0, 0, 1, 1]
+        self.set_up(lacp_host_links)
+        self.verify_stack_up()
+        self.verify_lag_host_connectivity()
+        self.restart_on_down_lag_port(0, 1)
+        self.verify_lag_host_connectivity()
 
 
 class FaucetSingleLAGOnUniqueVLANTest(FaucetSingleLAGTest):
