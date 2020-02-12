@@ -215,8 +215,9 @@ class Valve:
             for vlan in self.dp.vlans.values():
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
                     route_manager.active = True
+                    vips_str = list(str(vip) for vip in vlan.faucet_vips_by_ipv(route_manager.IPV))
                     self.logger.info('IPv%u routing is active on %s with VIPs %s' % (
-                        route_manager.IPV, vlan, vlan.faucet_vips_by_ipv(route_manager.IPV)))
+                                     route_manager.IPV, vlan, vips_str))
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
@@ -1069,7 +1070,7 @@ class Valve:
         ofmsgs = []
         updated = self.lacp_update_actor_state(port, lacp_up, now, lacp_pkt)
         select_updated = self.lacp_update_port_selection_state(port, other_valves)
-        if updated or select_updated:
+        if updated or select_updated or cold_start:
             if updated:
                 self._reset_lacp_status(port)
             if port.is_port_selected() and port.is_actor_up():
