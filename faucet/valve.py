@@ -170,29 +170,6 @@ class Valve:
             self._port_highwater[vlan_vid] = {}
             for port_number in self.dp.ports.keys():
                 self._port_highwater[vlan_vid][port_number] = 0
-        for ipv, route_manager_class, neighbor_timeout in (
-                (4, valve_route.ValveIPv4RouteManager, self.dp.arp_neighbor_timeout),
-                (6, valve_route.ValveIPv6RouteManager, self.dp.nd_neighbor_timeout)):
-            fib_table_name = 'ipv%u_fib' % ipv
-            if not fib_table_name in self.dp.tables:
-                continue
-            fib_table = self.dp.tables[fib_table_name]
-            proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
-            route_manager = route_manager_class(
-                self.logger, self.notify, self.dp.global_vlan, neighbor_timeout,
-                self.dp.max_hosts_per_resolve_cycle,
-                self.dp.max_host_fib_retry_count,
-                self.dp.max_resolve_backoff_time, proactive_learn,
-                self.DEC_TTL, self.dp.multi_out, fib_table,
-                self.dp.tables['vip'], self.pipeline, self.dp.routers)
-            self._route_manager_by_ipv[route_manager.IPV] = route_manager
-            for vlan in self.dp.vlans.values():
-                if vlan.faucet_vips_by_ipv(route_manager.IPV):
-                    route_manager.active = True
-                    self.logger.info('IPv%u routing is active on %s with VIPs %s' % (
-                        route_manager.IPV, vlan, vlan.faucet_vips_by_ipv(route_manager.IPV)))
-            for eth_type in route_manager.CONTROL_ETH_TYPES:
-                self._route_manager_by_eth_type[eth_type] = route_manager
         restricted_bcast_arpnd = bool(self.dp.restricted_bcast_arpnd_ports())
         if self.dp.stack:
             flood_class = valve_flood.ValveFloodStackManagerNoReflection
@@ -216,6 +193,32 @@ class Valve:
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
                 restricted_bcast_arpnd)
+        for ipv, route_manager_class, neighbor_timeout in (
+                (4, valve_route.ValveIPv4RouteManager, self.dp.arp_neighbor_timeout),
+                (6, valve_route.ValveIPv6RouteManager, self.dp.nd_neighbor_timeout)):
+            fib_table_name = 'ipv%u_fib' % ipv
+            if fib_table_name not in self.dp.tables:
+                continue
+            fib_table = self.dp.tables[fib_table_name]
+            proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
+            valve_flood_manager = None
+            if self.dp.stack:
+                valve_flood_manager = self.flood_manager
+            route_manager = route_manager_class(
+                self.logger, self.notify, self.dp.global_vlan, neighbor_timeout,
+                self.dp.max_hosts_per_resolve_cycle,
+                self.dp.max_host_fib_retry_count,
+                self.dp.max_resolve_backoff_time, proactive_learn,
+                self.DEC_TTL, self.dp.multi_out, fib_table,
+                self.dp.tables['vip'], self.pipeline, self.dp.routers, valve_flood_manager)
+            self._route_manager_by_ipv[route_manager.IPV] = route_manager
+            for vlan in self.dp.vlans.values():
+                if vlan.faucet_vips_by_ipv(route_manager.IPV):
+                    route_manager.active = True
+                    self.logger.info('IPv%u routing is active on %s with VIPs %s' % (
+                        route_manager.IPV, vlan, vlan.faucet_vips_by_ipv(route_manager.IPV)))
+            for eth_type in route_manager.CONTROL_ETH_TYPES:
+                self._route_manager_by_eth_type[eth_type] = route_manager
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
         host_manager_cl = valve_host.ValveHostManager
         if self.dp.use_idle_timeout:
