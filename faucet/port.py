@@ -434,6 +434,7 @@ class Port(Conf):
             return False
         return True
 
+    # LACP functions
     def lacp_update(self, lacp_up, now=None, lacp_pkt=None):
         """
         Update the LACP state
@@ -447,7 +448,10 @@ class Port(Conf):
         self.dyn_lacp_up = 1 if lacp_up else 0
         self.dyn_lacp_updated_time = now
         self.dyn_last_lacp_pkt = lacp_pkt
-        if not lacp_pkt:
+        if not self.dyn_phys_up:
+            # Phys not up so we do not initialize actor states
+            self.actor_none()
+        elif not lacp_pkt:
             # Intialize states
             self.actor_init()
         else:
@@ -486,9 +490,17 @@ class Port(Conf):
         """Return true if the LACP actor state is INIT"""
         return self.dyn_lacp_actor_state == LACP_ACTOR_INIT
 
+    def is_actor_none(self):
+        """Return true if the LACP actor state is NONE"""
+        return self.dyn_lacp_actor_state == LACP_STATE_NONE
+
     def actor_state(self):
         """Return the current LACP actor state"""
         return self.dyn_lacp_actor_state
+
+    def actor_none(self):
+        """Set the LACP actor state to NONE"""
+        self.dyn_lacp_actor_state = LACP_STATE_NONE
 
     def actor_init(self):
         """Set the LACP actor state to INIT"""

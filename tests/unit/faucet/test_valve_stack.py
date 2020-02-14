@@ -233,6 +233,82 @@ dps:
             4, 0, None, True, 'Packet incoming through SELECTED port was not accepted')
 
 
+class ValveStackMCLAGRestartTestCase(ValveTestBases.ValveTestSmall):
+    """Test stacked MCLAG"""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s2
+                    port: 1
+            2:
+                description: p2
+                native_vlan: 100
+            3:
+                description: p3
+                native_vlan: 100
+                lacp: 1
+            4:
+                description: p4
+                native_vlan: 100
+                lacp: 1
+    s2:
+        hardware: 'GenericTFM'
+        dp_id: 0x2
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                description: p2
+                native_vlan: 100
+            3:
+                description: p3
+                native_vlan: 100
+                lacp: 1
+            4:
+                description: p4
+                native_vlan: 100
+                lacp: 1
+""" % BASE_DP1_CONFIG
+
+    def setUp(self):
+        """Setup basic loop config"""
+        self.setup_valve(self.CONFIG)
+
+    def get_other_valves(self, valve):
+        """Return other running valves"""
+        return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+
+    def test_MCLAG_cold_start(self):
+        """Test cold-starting a switch with a downed port resets LACP states"""
+        self.activate_all_ports()
+        valve = self.valves_manager.valves[0x1]
+        other_valves = self.get_other_valves(valve)
+        port = valve.dp.ports[3]
+        # Make sure LACP state has been updated
+        self.assertTrue(valve.lacp_update(port, True, 1, 1, other_valves), 'No OFMSGS returned')
+        self.assertTrue(port.is_actor_up(), 'Actor not UP')
+        # Set port DOWN
+        valve.port_delete(3, other_valves=other_valves)
+        self.assertTrue(port.is_actor_none(), 'Actor not NONE')
+        # Restart switch & LACP port
+        self.cold_start()
+        self.assertTrue(valve.port_add(3), 'No OFMSGS returned')
+        # Successfully restart LACP from downed
+        self.assertTrue(valve.lacp_update(port, True, 1, 1, other_valves), 'No OFMSGS returned')
+        self.assertTrue(port.is_actor_up(), 'Actor not UP')
+
+
 class ValveStackRootExtLoopProtectTestCase(ValveTestBases.ValveTestSmall):
     """External loop protect test cases"""
 

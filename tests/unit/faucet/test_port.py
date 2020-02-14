@@ -43,6 +43,7 @@ class FaucetLACPPortFunctions(unittest.TestCase):  # pytype: disable=module-attr
     def test_lacp_update(self):
         """Test updating port LACP information causes correct actor state changes"""
         port = Port(1, 1, {})
+        port.dyn_phys_up = True
         # Initial state: Not configured
         self.assertEqual(port.dyn_lacp_port_selected, LACP_STATE_NONE)
         self.assertEqual(port.dyn_lacp_actor_state, LACP_STATE_NONE)
