@@ -217,7 +217,7 @@ class Valve:
                     route_manager.active = True
                     vips_str = list(str(vip) for vip in vlan.faucet_vips_by_ipv(route_manager.IPV))
                     self.logger.info('IPv%u routing is active on %s with VIPs %s' % (
-                                     route_manager.IPV, vlan, vips_str))
+                        route_manager.IPV, vlan, vips_str))
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
@@ -562,7 +562,7 @@ class Valve:
         ofmsgs = []
         for port in self.dp.lacp_active_ports:
             if port.running():
-                ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port, _other_valves))
+                ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
 
         ports = self.dp.lldp_beacon_send_ports(now)
         ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
@@ -1029,7 +1029,10 @@ class Valve:
         if self.dp.stack:
             nominated_dpid, _ = self.get_lacp_dpid_nomination(port.lacp, other_valves)
         prev_state = port.lacp_port_state()
-        port.select_port() if self.dp.dp_id == nominated_dpid else port.deselect_port()
+        if self.dp.dp_id == nominated_dpid:
+            port.select_port()
+        else:
+            port.deselect_port()
         new_state = port.lacp_port_state()
         if new_state != prev_state:
             self.logger.info('LAG %u %s %s (previous state %s)' % (
@@ -1122,14 +1125,17 @@ class Valve:
             max_len=valve_packet.LACP_SIZE))
         return ofmsgs
 
-    def _lacp_actions(self, lacp_pkt, port, other_valves=None):
+    def _lacp_actions(self, lacp_pkt, port):
         """
-        Constructs a LACP req-reply packet
+        Constructs a LACP req-reply packet.
+
         Args:
             lacp_pkt (PacketMeta): LACP packet received
             port: LACP port
             other_valves (list): List of other valves
-        Return list packetout OpenFlow msgs
+
+        Returns:
+            list packetout OpenFlow msgs.
         """
         if port.lacp_passthrough:
             for peer_num in port.lacp_passthrough:
@@ -1197,7 +1203,7 @@ class Valve:
                 lacp_resp_interval = pkt_meta.port.lacp_resp_interval
                 if lacp_pkt_change or (age is not None and age > lacp_resp_interval):
                     ofmsgs_by_valve[self].extend(
-                        self._lacp_actions(lacp_pkt, pkt_meta.port, other_valves))
+                        self._lacp_actions(lacp_pkt, pkt_meta.port))
                     pkt_meta.port.dyn_lacp_last_resp_time = now
                 # Update the LACP information
                 actor_up = lacp_pkt.actor_state_synchronization
@@ -1767,8 +1773,7 @@ class Valve:
         """
         (deleted_ports, changed_ports, changed_acl_ports,
          deleted_vids, changed_vids, all_ports_changed,
-         all_meters_changed, deleted_meters, added_meters,
-         changed_meters) = changes
+         _, deleted_meters, added_meters, changed_meters) = changes
 
         if self._pipeline_change():
             self.logger.info('pipeline change')
@@ -1804,12 +1809,12 @@ class Valve:
             for changed_meter in changed_meters:
                 for dp_meter_key in self.dp.meters.keys():
                     if (changed_meter == dp_meter_key) and (
-                        new_dp.meters.get(changed_meter).meter_id != self.dp.meters.get(
-                            changed_meter).meter_id):
+                            new_dp.meters.get(changed_meter).meter_id != self.dp.meters.get(
+                                changed_meter).meter_id):
                         ofmsgs.append(valve_of.meterdel(
                             meter_id=self.dp.meters.get(changed_meter).meter_id))
                         ofmsgs.append(valve_of.meteradd(
-                                new_dp.meters.get(changed_meter).entry, command=0))
+                            new_dp.meters.get(changed_meter).entry, command=0))
                     else:
                         ofmsgs.append(valve_of.meteradd(
                             new_dp.meters.get(changed_meter).entry, command=1))
