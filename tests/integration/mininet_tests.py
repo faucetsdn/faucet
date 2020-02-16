@@ -57,12 +57,16 @@ CONFIG_TAGGED_BOILER = """
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
+                count_untag_vlan_miss: true
             %(port_2)d:
                 tagged_vlans: [100]
+                count_untag_vlan_miss: true
             %(port_3)d:
                 tagged_vlans: [100]
+                count_untag_vlan_miss: true
             %(port_4)d:
                 tagged_vlans: [100]
+                count_untag_vlan_miss: true
 """
 
 
