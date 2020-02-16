@@ -5053,6 +5053,12 @@ vlans:
         self.start_net()
 
     def test_tagged(self):
+        # Untagged traffic specifically dropped.
+        for host in self.hosts_name_ordered():
+            host.cmd(self.scapy_dhcp(host.MAC(), host.intf_root_name, count=3))
+        for port in self.port_map.values():
+            self.wait_nonzero_packet_count_flow(
+                {'in_port': port, 'vlan_tci': '0x0000/0x1fff'}, table_id=self._VLAN_TABLE)
         self.ping_all_when_learned()
 
 
