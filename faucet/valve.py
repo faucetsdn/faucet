@@ -743,8 +743,7 @@ class Valve:
         self._inc_var('of_dp_disconnections')
         self._reset_dp_status()
 
-    def _port_add_vlan_rules(self, port, vlan, mirror_act, push_vlan=True):
-        vlan_table = self.dp.tables['vlan']
+    def _port_add_vlan_rules(self, vlan_table, port, vlan, mirror_act, push_vlan=True):
         actions = copy.copy(mirror_act)
         match_vlan = vlan
         if push_vlan:
@@ -771,17 +770,23 @@ class Valve:
         return self.dp.classification_table()
 
     def _port_add_vlans(self, port, mirror_act):
-        ofmsgs = []
+        vlan_table = self.dp.tables['vlan']
+        tagged_ofmsgs = []
         for vlan in port.tagged_vlans:
-            ofmsgs.append(self._port_add_vlan_rules(
-                port, vlan, mirror_act, push_vlan=False))
-        if port.dyn_dot1x_native_vlan is not None:
-            ofmsgs.append(self._port_add_vlan_rules(
-                port, port.dyn_dot1x_native_vlan, mirror_act))
-        elif port.native_vlan is not None:
-            ofmsgs.append(self._port_add_vlan_rules(
-                port, port.native_vlan, mirror_act))
-        return ofmsgs
+            tagged_ofmsgs.append(self._port_add_vlan_rules(
+                vlan_table, port, vlan, mirror_act, push_vlan=False))
+        untagged_ofmsgs = []
+        for native_vlan in (port.dyn_dot1x_native_vlan, port.native_vlan):
+            if native_vlan is not None:
+                untagged_ofmsgs.append(self._port_add_vlan_rules(
+                    vlan_table, port, port.dyn_dot1x_native_vlan, mirror_act))
+                break
+        # If no untagged VLANs, add explicit drop rule for untagged packets.
+        if not untagged_ofmsgs:
+            untagged_ofmsgs.append(vlan_table.flowmod(
+                vlan_table.match(in_port=port.number, vlan=NullVLAN()),
+                priority=self.dp.low_priority))
+        return tagged_ofmsgs + untagged_ofmsgs
 
     def _port_delete_manager_state(self, port):
         ofmsgs = []
