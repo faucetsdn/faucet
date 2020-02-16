@@ -782,7 +782,7 @@ class Valve:
                     vlan_table, port, port.dyn_dot1x_native_vlan, mirror_act))
                 break
         # If no untagged VLANs, add explicit drop rule for untagged packets.
-        if not untagged_ofmsgs:
+        if port.count_untag_vlan_miss and not untagged_ofmsgs:
             untagged_ofmsgs.append(vlan_table.flowmod(
                 vlan_table.match(in_port=port.number, vlan=NullVLAN()),
                 priority=self.dp.low_priority))
