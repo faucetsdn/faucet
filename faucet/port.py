@@ -222,6 +222,7 @@ class Port(Conf):
         self.unicast_flood = None
         self.restricted_bcast_arpnd = None
         self.coprocessor = {}
+        self.count_untag_vlan_miss = None
 
         self.dyn_dot1x_native_vlan = None
         self.dyn_lacp_up = None

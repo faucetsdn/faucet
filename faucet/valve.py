@@ -779,7 +779,7 @@ class Valve:
         for native_vlan in (port.dyn_dot1x_native_vlan, port.native_vlan):
             if native_vlan is not None:
                 untagged_ofmsgs.append(self._port_add_vlan_rules(
-                    vlan_table, port, port.dyn_dot1x_native_vlan, mirror_act))
+                    vlan_table, port, native_vlan, mirror_act))
                 break
         # If no untagged VLANs, add explicit drop rule for untagged packets.
         if port.count_untag_vlan_miss and not untagged_ofmsgs:
