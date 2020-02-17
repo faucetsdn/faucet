@@ -1059,8 +1059,8 @@ class Valve:
                 port.actor_state_name(prev_actor_state)))
         return prev_actor_state != new_actor_state
 
-    def lacp_update(self, port, lacp_up, now=None,
-                    lacp_pkt=None, other_valves=None, cold_start=False):
+    def lacp_update(self, port, lacp_up, now=None, lacp_pkt=None,
+                    other_valves=None, cold_start=False):
         """
         Update the port's LACP states and enables/disables packets
             from the link to be processed further through the pipeline

@@ -141,6 +141,10 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
                 labels=labels, dpid=False, timeout=timeout):
             self.fail('wanted LACP state for %s to be %u' % (labels, wanted_state))
 
+    def wait_for_lacp_port_none(self, port_no, dpid, dp_name):
+        """Wait for LACP state NONE"""
+        self.wait_for_lacp_state(port_no, -1, dpid, dp_name)
+
     def wait_for_lacp_port_init(self, port_no, dpid, dp_name):
         """Wait for LACP state INIT"""
         self.wait_for_lacp_state(port_no, 1, dpid, dp_name)
@@ -183,9 +187,9 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
             other_local_lacp_port = list(local_ports - {local_lacp_port})[0]
             other_remote_lacp_port = list(remote_ports - {remote_lacp_port})[0]
             self.set_port_down(local_lacp_port, wait=False)
-            self.wait_for_lacp_port_init(
+            self.wait_for_lacp_port_none(
                 local_lacp_port, self.dpid, self.DP_NAME)
-            self.wait_for_lacp_port_init(
+            self.wait_for_lacp_port_none(
                 remote_lacp_port, self.dpids[1], 'faucet-2')
             self.wait_until_matching_flow(
                 self.match_bcast, self._FLOOD_TABLE, actions=[
@@ -1164,6 +1168,22 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
         self.restart_on_down_lag_port(0, 1)
+        self.verify_lag_host_connectivity()
+
+    def test_mclag_portrestart(self):
+        """Test LACP MCLAG after a port gets restarted"""
+        lacp_host_links = [0, 0, 1, 1]
+        self.set_up(lacp_host_links)
+        self.verify_stack_up()
+        self.verify_lag_host_connectivity()
+        chosen_dpid = self.dpids[0]
+        port_no = self.host_information[self.LACP_HOST]['ports'][chosen_dpid][0]
+        self.set_port_down(port_no, chosen_dpid)
+        self.set_port_up(port_no, chosen_dpid)
+        for dpid, ports in self.host_information[self.LACP_HOST]['ports'].items():
+            for port in ports:
+                if dpid != chosen_dpid and port != port_no:
+                    self.set_port_down(port, dpid)
         self.verify_lag_host_connectivity()
 
 
