@@ -123,6 +123,8 @@ class Port(Conf):
         # If true, this port cannot send non-ARP/IPv6 ND broadcasts to other restricted_bcast_arpnd ports.
         'coprocessor': {},
         # If defined, this port is attached to a packet coprocessor.
+        'count_untag_vlan_miss': {},
+        # If defined, this port will explicitly count unconfigured native VLAN packets.
     }
 
     defaults_types = {
@@ -160,6 +162,7 @@ class Port(Conf):
         'max_lldp_lost': int,
         'restricted_bcast_arpnd': bool,
         'coprocessor': dict,
+        'count_untag_vlan_miss': bool,
     }
 
     stack_defaults_types = {
@@ -219,6 +222,7 @@ class Port(Conf):
         self.unicast_flood = None
         self.restricted_bcast_arpnd = None
         self.coprocessor = {}
+        self.count_untag_vlan_miss = None
 
         self.dyn_dot1x_native_vlan = None
         self.dyn_lacp_up = None
