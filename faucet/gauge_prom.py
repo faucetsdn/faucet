@@ -108,7 +108,7 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
             for prom_var in PROM_PORT_VARS)
         return self._format_stats(delim, stat_pairs)
 
-    def update(self, rcv_time, msg):
+    def _update(self, rcv_time, msg):
         for stat in msg.body:
             port_labels = self.dp.port_labels(stat.port_no)
             for stat_name, stat_val in self._format_stat_pairs(
@@ -136,7 +136,7 @@ class GaugeMeterStatsPrometheusPoller(GaugePortStatsPoller):
         )
         return self._format_stats(delim, stat_pairs)
 
-    def update(self, rcv_time, msg):
+    def _update(self, rcv_time, msg):
         for stat in msg.body:
             meter_labels = self.dp.base_prom_labels()
             meter_labels.update({'meter_id': stat.meter_id})
@@ -149,7 +149,7 @@ class GaugeMeterStatsPrometheusPoller(GaugePortStatsPoller):
 class GaugePortStatePrometheusPoller(GaugePortStatePoller):
     """Export port state changes to Prometheus."""
 
-    def update(self, rcv_time, msg):
+    def _update(self, rcv_time, msg):
         port_no = msg.desc.port_no
         port = self.dp.ports.get(port_no, None)
         if port is None:
@@ -164,7 +164,7 @@ class GaugePortStatePrometheusPoller(GaugePortStatePoller):
 class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
     """Export flow table entries to Prometheus."""
 
-    def update(self, rcv_time, msg):
+    def _update(self, rcv_time, msg):
         jsondict = msg.to_jsondict()
         for stats_reply in jsondict['OFPFlowStatsReply']['body']:
             stats = stats_reply['OFPFlowStats']

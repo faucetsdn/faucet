@@ -285,6 +285,7 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
                         )
 
         prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', self.prom_client)
+        prom_poller._running = True
         msg = port_stats_msg(datapath)
         prom_poller.update(time.time(), msg)
 
@@ -316,6 +317,7 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
                         )
 
         prom_poller = gauge_prom.GaugePortStatePrometheusPoller(conf, '__name__', self.prom_client)
+        prom_poller._running = True
         reasons = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
         for i in range(1, len(conf.dp.ports) + 1):
 
