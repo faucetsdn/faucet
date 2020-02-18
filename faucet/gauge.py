@@ -137,12 +137,12 @@ class Gauge(RyuAppBase):
             for i, watcher in enumerate(watchers_by_name):
                 is_active = i == 0
                 watcher.report_dp_status(1)
+                watcher.start(ryu_dp, is_active)
                 if isinstance(watcher, GaugePortStatePoller):
                     for port in ryu_dp.ports.values():
                         msg = parser.OFPPortStatus(
                             ryu_dp, desc=port, reason=ofp.OFPPR_ADD)
                         watcher.update(timestamp, msg)
-                watcher.start(ryu_dp, is_active)
 
     @kill_on_exception(exc_logname)
     def _datapath_connect(self, ryu_event):

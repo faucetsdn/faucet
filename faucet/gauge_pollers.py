@@ -76,7 +76,12 @@ class GaugePoller:
 
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
-        self.logger.info('no response to %s' % self.req)
+
+        dpid_str = ''
+        if self.req and 'datapath' in self.req:
+            dpid_str = 'DPID %s (%s)' % (self.req.datapath.id, hex(self.req.datapath.id))
+
+        self.logger.info('%s no response to %s', dpid_str, self.req)
 
     def update(self, rcv_time, msg):
         """Handle the responses to requests.
