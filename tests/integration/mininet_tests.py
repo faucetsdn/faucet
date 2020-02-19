@@ -5068,7 +5068,6 @@ vlans:
 
 class FaucetTaggedDTPTest(FaucetTaggedTest):
 
-
     def test_tagged(self):
         for host in self.hosts_name_ordered():
             scapy_txt = host.cmd(
