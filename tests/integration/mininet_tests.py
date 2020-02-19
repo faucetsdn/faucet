@@ -5066,6 +5066,18 @@ vlans:
         self.ping_all_when_learned()
 
 
+class FaucetTaggedDTPTest(FaucetTaggedTest):
+
+
+    def test_tagged(self):
+        for host in self.hosts_name_ordered():
+            scapy_txt = host.cmd(
+                ('python3 -c \"import sys ; from scapy.contrib.dtp import * ;'
+                 'negotiate_trunk(iface=\'%s\')\"' % host.intf_root_name))
+            self.assertTrue(re.search('Sent 1 packets', scapy_txt), msg=scapy_txt)
+        super(FaucetTaggedDTPTest, self).test_tagged()
+
+
 class FaucetTaggedMirrorTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """
