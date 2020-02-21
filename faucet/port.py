@@ -28,29 +28,33 @@ STACK_STATE_GONE = 4
 STACK_STATE_NONE = -1
 
 # LACP not configured
-LACP_STATE_NONE = -1
-
-# Initial state, no packets received yet
+LACP_ACTOR_NOTCONFIGURED = -1
+# Not receiving packets from the actor & port is down
+LACP_ACTOR_NONE = 0
+# Not receiving packets from the actor & port is up
 LACP_ACTOR_INIT = 1
-# LACP connection is up and receiving packets
+# Receiving LACP packets with sync bit set
 LACP_ACTOR_UP = 3
-# LACP is down
-LACP_ACTOR_NOACT = 5
+# LACP actor is not sending LACP with sync bit set
+LACP_ACTOR_NOSYNC = 5
 LACP_ACTOR_DISPLAY_DICT = {
-    LACP_STATE_NONE: 'NONE',
+    LACP_ACTOR_NOTCONFIGURED: 'NOT_CONFIGURED',
+    LACP_ACTOR_NONE: 'NONE',
     LACP_ACTOR_INIT: 'INITIALIZING',
     LACP_ACTOR_UP: 'UP',
-    LACP_ACTOR_NOACT: 'NO_ACTOR'
+    LACP_ACTOR_NOSYNC: 'NO_SYNC'
 }
 
+# LACP is not configured
+LACP_PORT_NOTCONFIGURED = -1
 # Port is not a LACP port on the nominated DP
 LACP_PORT_UNSELECTED = 1
 # Port is a LACP port on the nominated DP, will send/receive
 LACP_PORT_SELECTED = 2
-# Other cases: receive-only, etc.
+# Port is a LACP port that is in standby
 LACP_PORT_STANDBY = 3
 LACP_PORT_DISPLAY_DICT = {
-    LACP_STATE_NONE: 'NONE',
+    LACP_PORT_NOTCONFIGURED: 'NOT_CONFIGURED',
     LACP_PORT_UNSELECTED: 'UNSELECTED',
     LACP_PORT_SELECTED: 'SELECTED',
     LACP_PORT_STANDBY: 'STANDBY'
@@ -91,6 +95,12 @@ class Port(Conf):
         # experimental active LACP
         'lacp_collect_and_distribute': False,
         # if true, forces LACP port to collect and distribute when syncing with the peer.
+        'lacp_unselected': False,
+        # if true, forces LACP port to be in unselected state
+        'lacp_selected': False,
+        # if true, forces LACP port to be in the selected state
+        'lacp_standby': False,
+        # if true, forces LACP port to be in the standby state
         'lacp_passthrough': None,
         # If set, fail the lacp on this port if any of the peer ports are down.
         'lacp_resp_interval': 1,
@@ -146,6 +156,9 @@ class Port(Conf):
         'lacp': int,
         'lacp_active': bool,
         'lacp_collect_and_distribute': bool,
+        'lacp_unselected': bool,
+        'lacp_selected': bool,
+        'lacp_standby': bool,
         'lacp_passthrough': list,
         'lacp_resp_interval': int,
         'loop_protect': bool,
@@ -203,6 +216,9 @@ class Port(Conf):
         self.lacp = None
         self.lacp_active = None
         self.lacp_collect_and_distribute = None
+        self.lacp_unselected = None
+        self.lacp_selected = None
+        self.lacp_standby = None
         self.lacp_passthrough = None
         self.lacp_resp_interval = None
         self.loop_protect = None
@@ -237,8 +253,8 @@ class Port(Conf):
         self.dyn_phys_up = False
         self.dyn_update_time = None
         self.dyn_stack_current_state = STACK_STATE_NONE
-        self.dyn_lacp_port_selected = LACP_STATE_NONE
-        self.dyn_lacp_actor_state = LACP_STATE_NONE
+        self.dyn_lacp_port_selected = LACP_PORT_NOTCONFIGURED
+        self.dyn_lacp_actor_state = LACP_ACTOR_NOTCONFIGURED
         self.dyn_stack_probe_info = {}
 
         self.tagged_vlans = []
@@ -299,9 +315,9 @@ class Port(Conf):
                 if key.startswith('acl') and self.stack:
                     continue
                 val = getattr(self, key)
-                if val != default_val and val:
-                    raise InvalidConfigError(
-                        'Cannot have VLAN option %s: %s on non-VLAN port %s' % (key, val, self))
+                test_config_condition(
+                    val != default_val and val,
+                    'Cannot have VLAN option %s: %s on non-VLAN port %s' % (key, val, self))
         test_config_condition(
             self.hairpin and self.hairpin_unicast,
             'Cannot have both hairpin and hairpin_unicast enabled')
@@ -369,8 +385,9 @@ class Port(Conf):
                             '%6.6x' % org_tlv['oui']) # pytype: disable=missing-parameter
                     org_tlvs.append(org_tlv)
                 self.lldp_beacon['org_tlvs'] = org_tlvs
-        if self.acl_in and self.acls_in:
-            raise InvalidConfigError('found both acl_in and acls_in, use only acls_in')
+        test_config_condition(
+            self.acl_in and self.acls_in,
+            'Found both acl_in and acls_in, use only acls_in')
         if self.acl_in and not isinstance(self.acl_in, list):
             self.acls_in = [self.acl_in,]
             self.acl_in = None
@@ -378,6 +395,10 @@ class Port(Conf):
             for acl in self.acls_in:
                 test_config_condition(not isinstance(acl, (int, str)),
                                       'ACL names must be int or str')
+        lacp_options = [self.lacp_selected, self.lacp_unselected, self.lacp_standby]
+        test_config_condition(
+            lacp_options.count(True) > 1,
+            'Cannot force multiple LACP port selection states')
 
     def finalize(self):
         if self.native_vlan:
@@ -439,20 +460,24 @@ class Port(Conf):
         return True
 
     # LACP functions
-    def lacp_update(self, lacp_up, now=None, lacp_pkt=None):
+    def lacp_actor_update(self, lacp_up, now=None, lacp_pkt=None, cold_start=False):
         """
-        Update the LACP state
+        Update the LACP actor state
         Args:
             lacp_up (bool): The intended LACP/port state
-            now: Current time
-            lacp_pkt: Received LACP packet
+            now (float): Current time
+            lacp_pkt (PacketMeta): Received LACP packet
+            cold_start (bool): Whether the port is being cold started
         Returns:
-            dyn_lacp_actor_state, dyn_lacp_current_state
+            current LACP actor state
         """
         self.dyn_lacp_up = 1 if lacp_up else 0
         self.dyn_lacp_updated_time = now
         self.dyn_last_lacp_pkt = lacp_pkt
-        if not self.dyn_phys_up:
+        if cold_start:
+            # Cold starting, so revert to unconfigured LACP state
+            self.actor_notconfigured()
+        elif not self.running():
             # Phys not up so we do not initialize actor states
             self.actor_none()
         elif not lacp_pkt:
@@ -464,9 +489,39 @@ class Port(Conf):
                 # Receiving packets & LACP is UP
                 self.actor_up()
             else:
-                # Receiving packets but LACP is DOWN
-                self.actor_noact()
+                # Receiving packets but LACP sync bit is not set
+                self.actor_nosync()
         return self.actor_state()
+
+    def lacp_port_update(self, selected, cold_start=False):
+        """
+        Updates the LACP port selection state
+        Args:
+            selected (bool): Whether the port's DPID is the selected one
+            cold_start (bool): Whether the port is being cold started
+        Returns
+            current lacp port state
+        """
+        if cold_start:
+            # Cold starting, so revert to unconfigured state
+            self.deconfigure_port()
+        elif self.lacp_selected:
+            # Can configure LACP port to be forced SELECTED
+            self.select_port()
+        elif self.lacp_standby:
+            # Can configure LACP port to be forced STANDBY
+            self.standby_port()
+        elif self.lacp_unselected:
+            # Can configure LACP port to be force UNSELECTED
+            self.deselect_port()
+        else:
+            if selected:
+                # Belongs on chosen DP for LAG, so SELECT port
+                self.select_port()
+            else:
+                # Doesn't belong on chosen DP for LAG, DESELECT port
+                self.deselect_port()
+        return self.lacp_port_state()
 
     def get_lacp_flags(self):
         """
@@ -486,9 +541,9 @@ class Port(Conf):
         """Return true if the LACP actor state is UP"""
         return self.dyn_lacp_actor_state == LACP_ACTOR_UP
 
-    def is_actor_noact(self):
-        """Return true if the LACP actor state is NOACT"""
-        return self.dyn_lacp_actor_state == LACP_ACTOR_NOACT
+    def is_actor_nosync(self):
+        """Return true if the LACP actor state is NOSYNC"""
+        return self.dyn_lacp_actor_state == LACP_ACTOR_NOSYNC
 
     def is_actor_init(self):
         """Return true if the LACP actor state is INIT"""
@@ -496,15 +551,19 @@ class Port(Conf):
 
     def is_actor_none(self):
         """Return true if the LACP actor state is NONE"""
-        return self.dyn_lacp_actor_state == LACP_STATE_NONE
+        return self.dyn_lacp_actor_state == LACP_ACTOR_NONE
 
     def actor_state(self):
         """Return the current LACP actor state"""
         return self.dyn_lacp_actor_state
 
+    def actor_notconfigured(self):
+        """Set the LACP actor state to NOTCONFIGURED"""
+        self.dyn_lacp_actor_state = LACP_ACTOR_NOTCONFIGURED
+
     def actor_none(self):
         """Set the LACP actor state to NONE"""
-        self.dyn_lacp_actor_state = LACP_STATE_NONE
+        self.dyn_lacp_actor_state = LACP_ACTOR_NONE
 
     def actor_init(self):
         """Set the LACP actor state to INIT"""
@@ -514,9 +573,9 @@ class Port(Conf):
         """Set the LACP actor state to UP"""
         self.dyn_lacp_actor_state = LACP_ACTOR_UP
 
-    def actor_noact(self):
-        """Set the LACP actor state to NOACT"""
-        self.dyn_lacp_actor_state = LACP_ACTOR_NOACT
+    def actor_nosync(self):
+        """Set the LACP actor state to NOSYNC"""
+        self.dyn_lacp_actor_state = LACP_ACTOR_NOSYNC
 
     def actor_state_name(self, state):
         """Return the string of the actor state"""
@@ -532,7 +591,7 @@ class Port(Conf):
         return self.dyn_lacp_port_selected == LACP_PORT_UNSELECTED
 
     def is_port_standby(self):
-        """Return true if the lacp is a STANDBY port"""
+        """Return true if the lacp is a port in STANDBY"""
         return self.dyn_lacp_port_selected == LACP_PORT_STANDBY
 
     def lacp_port_state(self):
@@ -548,8 +607,12 @@ class Port(Conf):
         self.dyn_lacp_port_selected = LACP_PORT_UNSELECTED
 
     def standby_port(self):
-        """Set the LACP port to STANDBY"""
+        """Set LACP port state to STANDBY"""
         self.dyn_lacp_port_selected = LACP_PORT_STANDBY
+
+    def deconfigure_port(self):
+        """Set LACP port state to NOTCONFIGURED"""
+        self.dyn_lacp_port_selected = LACP_PORT_NOTCONFIGURED
 
     def port_role_name(self, state):
         """Return the LACP port role state name"""

@@ -886,6 +886,9 @@ class Valve:
                     max_len=128))
 
             if port.lacp:
+                if cold_start:
+                    self.lacp_update_actor_state(port, False, cold_start=cold_start)
+                    self.lacp_update_port_selection_state(port, cold_start=cold_start)
                 ofmsgs.extend(self.lacp_update(port, False, cold_start=cold_start))
                 if port.lacp_active:
                     ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
@@ -1016,12 +1019,13 @@ class Valve:
         # Most_ports_dpid is the chosen DPID
         return most_ports_dpid, 'most LAG ports'
 
-    def lacp_update_port_selection_state(self, port, other_valves=None):
+    def lacp_update_port_selection_state(self, port, other_valves=None, cold_start=False):
         """
         Update the LACP port selection state
         Args:
             port (Port): LACP port
             other_valves (list): List of other valves
+            cold_start (bool): Whether the port is being cold started
         Returns:
             bool: True if port state changed
         """
@@ -1029,18 +1033,14 @@ class Valve:
         if self.dp.stack:
             nominated_dpid, _ = self.get_lacp_dpid_nomination(port.lacp, other_valves)
         prev_state = port.lacp_port_state()
-        if self.dp.dp_id == nominated_dpid:
-            port.select_port()
-        else:
-            port.deselect_port()
-        new_state = port.lacp_port_state()
+        new_state = port.lacp_port_update(self.dp.dp_id == nominated_dpid, cold_start=cold_start)
         if new_state != prev_state:
             self.logger.info('LAG %u %s %s (previous state %s)' % (
                 port.lacp, port, port.port_role_name(new_state),
                 port.port_role_name(prev_state)))
         return new_state != prev_state
 
-    def lacp_update_actor_state(self, port, lacp_up, now=None, lacp_pkt=None):
+    def lacp_update_actor_state(self, port, lacp_up, now=None, lacp_pkt=None, cold_start=False):
         """
         Updates a LAG actor state
         Args:
@@ -1048,11 +1048,14 @@ class Valve:
             lacp_up (bool): Whether LACP is going UP or DOWN
             now (float): Current epoch time
             lacp_pkt (PacketMeta): LACP packet
+            cold_start (bool): Whether the port is being cold started
         Returns:
             bool: True if LACP state changed
         """
         prev_actor_state = port.actor_state()
-        new_actor_state = port.lacp_update(lacp_up, now=now, lacp_pkt=lacp_pkt)
+        new_actor_state = port.lacp_actor_update(
+            lacp_up, now=now, lacp_pkt=lacp_pkt,
+            cold_start=cold_start)
         if prev_actor_state != new_actor_state:
             self.logger.info('LAG %u %s actor state %s (previous state %s)' % (
                 port.lacp, port, port.actor_state_name(new_actor_state),
@@ -1071,14 +1074,14 @@ class Valve:
             now (float): The current time
             lacp_pkt (PacketMeta): The received LACP packet
             other_valves (list): List of other valves (in the stack)
-            cold_state (bool): Whether Faucet is being cold started or not
+            cold_start (bool): Whether the port is being cold started
         Returns:
             ofmsgs
         """
         ofmsgs = []
         updated = self.lacp_update_actor_state(port, lacp_up, now, lacp_pkt)
         select_updated = self.lacp_update_port_selection_state(port, other_valves)
-        if updated or select_updated or cold_start:
+        if updated or select_updated:
             if updated:
                 self._reset_lacp_status(port)
             if port.is_port_selected() and port.is_actor_up():
