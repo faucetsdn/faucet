@@ -1473,10 +1473,60 @@ dps:
             self.assertNotEqual(initial_output_port, final_output_port, (
                 'Tunnel output port did not update'))
 
+    def test_lacp_port_options(self):
+        """Test LACP port selection options pass config checking"""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                lacp: 1
+                lacp_standby: True
+            2:
+                native_vlan: vlan100
+                lacp: 2
+                lacp_selected: True
+            3:
+                native_vlan: vlan100
+                lacp: 3
+                lacp_unselected: True
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dps = self._get_dps_as_dict(config)
+        dp = list(dps.values())[0]
+        standby, selected, unselected = dp.ports.values()
+        self.assertTrue(standby.lacp_standby)
+        self.assertTrue(selected.lacp_selected)
+        self.assertTrue(unselected.lacp_unselected)
 
     ###########################################
     # Tests of Configuration Failure Handling #
     ###########################################
+
+    def test_lacp_port_options_exclusivity(self):
+        """Ensure config fails if more than one LACP port option has been specified"""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                lacp: 1
+                lacp_port_selected: True
+                lacp_selected = True
+                lacp_unselected = True
+                lacp_standby = True
+"""
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_dupe_vid(self):
         """Test that VLANs cannot have same VID."""

@@ -359,6 +359,7 @@ vlans:
 
     def setUp(self):
         self.setup_valve(self.CONFIG)
+        self.activate_all_ports()
 
     def test_lacp(self):
         """Test LACP comes up."""
@@ -558,6 +559,7 @@ vlans:
 
     def setUp(self):
         self.setup_valve(self.CONFIG)
+        self.activate_all_ports()
 
     def test_lacp(self):
         """Test LACP comes up."""

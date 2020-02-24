@@ -143,7 +143,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
 
     def wait_for_lacp_port_none(self, port_no, dpid, dp_name):
         """Wait for LACP state NONE"""
-        self.wait_for_lacp_state(port_no, -1, dpid, dp_name)
+        self.wait_for_lacp_state(port_no, 0, dpid, dp_name)
 
     def wait_for_lacp_port_init(self, port_no, dpid, dp_name):
         """Wait for LACP state INIT"""
@@ -153,8 +153,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         """Wait for LACP state UP"""
         self.wait_for_lacp_state(port_no, 3, dpid, dp_name)
 
-    def wait_for_lacp_port_noact(self, port_no, dpid, dp_name):
-        """Wait for LACP state NOACT"""
+    def wait_for_lacp_port_nosync(self, port_no, dpid, dp_name):
+        """Wait for LACP state NOSYNC"""
         self.wait_for_lacp_state(port_no, 5, dpid, dp_name)
 
     # We sort non_host_links by port because FAUCET sorts its ports

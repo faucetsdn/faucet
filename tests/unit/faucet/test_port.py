@@ -4,7 +4,8 @@ import unittest
 
 from faucet.port import Port
 from faucet.port import (
-    LACP_STATE_NONE, LACP_ACTOR_INIT, LACP_ACTOR_UP, LACP_ACTOR_NOACT,
+    LACP_ACTOR_NOTCONFIGURED, LACP_PORT_NOTCONFIGURED,
+    LACP_ACTOR_INIT, LACP_ACTOR_UP, LACP_ACTOR_NOSYNC, LACP_ACTOR_NONE,
     LACP_PORT_UNSELECTED, LACP_PORT_SELECTED, LACP_PORT_STANDBY)
 
 
@@ -40,22 +41,36 @@ class FaucetPortMethodTest(unittest.TestCase):  # pytype: disable=module-attr
 class FaucetLACPPortFunctions(unittest.TestCase):  # pytype: disable=module-attr
     """Test port LACP state functions work as expected"""
 
-    def test_lacp_update(self):
+    def test_lacp_actor_update(self):
         """Test updating port LACP information causes correct actor state changes"""
         port = Port(1, 1, {})
+        port.enabled = True
         port.dyn_phys_up = True
-        # Initial state: Not configured
-        self.assertEqual(port.dyn_lacp_port_selected, LACP_STATE_NONE)
-        self.assertEqual(port.dyn_lacp_actor_state, LACP_STATE_NONE)
-        # Initializing
-        port.lacp_update(True, None, None)
+        # Before configuring the LACP state machine, default is notconfigured
+        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_NOTCONFIGURED)
+        self.assertEqual(port.dyn_lacp_actor_state, LACP_ACTOR_NOTCONFIGURED)
+        # Move to initial configuration state when no packets have been received yet
+        port.lacp_actor_update(False, None, None)
         self.assertEqual(port.dyn_lacp_actor_state, LACP_ACTOR_INIT)
-        # Receiving first packets but no sync
-        port.lacp_update(False, 1, 1)
-        self.assertEqual(port.dyn_lacp_actor_state, LACP_ACTOR_NOACT)
+        # Receiving first packets but no SYNC bit set
+        port.lacp_actor_update(False, 1, 1)
+        self.assertEqual(port.dyn_lacp_actor_state, LACP_ACTOR_NOSYNC)
         # Receiving sync packets
-        port.lacp_update(True, 1, 1)
+        port.lacp_actor_update(True, 1, 1)
         self.assertEqual(port.dyn_lacp_actor_state, LACP_ACTOR_UP)
+        # Port phys down, move to ACTOR_NONE state
+        port.dyn_phys_up = False
+        port.lacp_actor_update(True, 1, 1)
+        self.assertEqual(port.dyn_lacp_actor_state, LACP_ACTOR_NONE)
+        port.lacp_actor_update(False, None, None)
+        self.assertEqual(port.dyn_lacp_actor_state, LACP_ACTOR_NONE)
+        # Go back to init once port restarted
+        port.dyn_phys_up = True
+        port.lacp_actor_update(False, None, None)
+        self.assertEqual(port.dyn_lacp_actor_state, LACP_ACTOR_INIT)
+        # Cold starting will force the port to revert to notconfigured state
+        port.lacp_actor_update(False, None, None, True)
+        self.assertEqual(port.dyn_lacp_actor_state, LACP_ACTOR_NOTCONFIGURED)
 
     def test_lacp_flags(self):
         """Test port LACP flags returns correct flags for current port states"""
@@ -73,8 +88,43 @@ class FaucetLACPPortFunctions(unittest.TestCase):  # pytype: disable=module-attr
         # Port not in standby, or selected
         port.dyn_lacp_port_selected = LACP_PORT_UNSELECTED
         self.assertEqual(port.get_lacp_flags(), (0, 0, 0))
-        port.dyn_lacp_port_selected = LACP_STATE_NONE
+        port.dyn_lacp_port_selected = LACP_PORT_NOTCONFIGURED
         self.assertEqual(port.get_lacp_flags(), (0, 0, 0))
+
+    def test_lacp_port_update(self):
+        """Test LACP port options"""
+        port = Port(1, 1, {})
+        port.enabled = True
+        port.dyn_phys_up = True
+        # Port defaults to NOTCONFIGURED
+        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_NOTCONFIGURED)
+        # Now call update to configure port and get initial state
+        #   depending on the chosen DP
+        port.lacp_port_update(False)
+        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_UNSELECTED)
+        # Now select our the port's current DP
+        port.lacp_port_update(True)
+        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_SELECTED)
+        # Test option to force standby mode
+        port.lacp_standby = True
+        port.lacp_port_update(True)
+        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_STANDBY)
+        port.lacp_port_update(False)
+        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_STANDBY)
+        # Test forcing selected port
+        port.lacp_standby = False
+        port.lacp_selected = True
+        port.lacp_port_update(False)
+        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_SELECTED)
+        # Test forcing unselected port
+        port.lacp_selected = False
+        port.lacp_unselected = True
+        port.lacp_port_update(True)
+        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_UNSELECTED)
+        # Test reverting to unconfigured on port cold start
+        port.lacp_unselected = False
+        port.lacp_port_update(False, True)
+        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_NOTCONFIGURED)
 
 
 if __name__ == "__main__":

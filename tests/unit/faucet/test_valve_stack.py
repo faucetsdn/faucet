@@ -111,7 +111,7 @@ dps:
             nominated_dpid, 0x1,
             'Expected nominated DPID %s but found %s' % (0x1, nominated_dpid))
         # Choose DP with most UP LAG ports
-        lacp_ports[0x1][0].actor_noact()
+        lacp_ports[0x1][0].actor_nosync()
         nominated_dpid = valve.get_lacp_dpid_nomination(1, other_valves)[0]
         self.assertEqual(
             nominated_dpid, 0x2,
@@ -167,15 +167,15 @@ dps:
         self.activate_all_ports()
         main_valve = self.valves_manager.valves[0x1]
         main_other_valves = self.get_other_valves(main_valve)
-        # Start with all LAG links NOACT & UNSELECTED
-        self.validate_flood(2, 0, 3, False, 'Flooded out UNSELECTED & NOACT LAG port')
-        self.validate_flood(2, 0, 4, False, 'Flooded out UNSELECTED & NOACT LAG port')
+        # Start with all LAG links INIT & UNSELECTED
+        self.validate_flood(2, 0, 3, False, 'Flooded out UNSELECTED & INIT LAG port')
+        self.validate_flood(2, 0, 4, False, 'Flooded out UNSELECTED & INIT LAG port')
         # Set UP & SELECTED one s1 LAG link
         port3 = main_valve.dp.ports[3]
         port4 = main_valve.dp.ports[4]
         self.apply_ofmsgs(main_valve.lacp_update(port4, True, 1, 1, main_other_valves))
         self.apply_ofmsgs(main_valve.lacp_update(port3, False, 1, 1, main_other_valves))
-        self.validate_flood(2, 0, 3, False, 'Flooded out NOACT LAG port')
+        self.validate_flood(2, 0, 3, False, 'Flooded out NOSYNC LAG port')
         self.validate_flood(2, 0, 4, True, 'Did not flood out SELECTED LAG port')
         # Set UP & SELECTED s2 LAG links
         valve = self.valves_manager.valves[0x2]
@@ -185,7 +185,7 @@ dps:
                 valve.lacp_update(port, True, 1, 1, other_valves)
         self.apply_ofmsgs(main_valve.lacp_update(port4, True, 1, 1, main_other_valves))
         self.apply_ofmsgs(main_valve.lacp_update(port3, False, 1, 1, main_other_valves))
-        self.validate_flood(2, 0, 3, False, 'Flooded out UNSELECTED & NOACT LAG port')
+        self.validate_flood(2, 0, 3, False, 'Flooded out UNSELECTED & NOSYNC LAG port')
         self.validate_flood(2, 0, 4, False, 'Flooded out UNSELECTED LAG port')
         # Set UP & SELECTED both s1 LAG links
         self.apply_ofmsgs(main_valve.lacp_update(port3, True, 1, 1, main_other_valves))
@@ -200,16 +200,16 @@ dps:
         main_other_valves = self.get_other_valves(main_valve)
         # Packet initially rejected
         self.validate_flood(
-            3, 0, None, False, 'Packet incoming through UNSELECTED & NOACT port was accepted')
+            3, 0, None, False, 'Packet incoming through UNSELECTED & INIT port was accepted')
         self.validate_flood(
-            4, 0, None, False, 'Packet incoming through UNSELECTED & NOACT port was accepted')
+            4, 0, None, False, 'Packet incoming through UNSELECTED & INIT port was accepted')
         # Set one s1 LAG port 4 to SELECTED & UP
         port3 = main_valve.dp.ports[3]
         port4 = main_valve.dp.ports[4]
         self.apply_ofmsgs(main_valve.lacp_update(port4, True, 1, 1, main_other_valves))
         self.apply_ofmsgs(main_valve.lacp_update(port3, False, 1, 1, main_other_valves))
         self.validate_flood(
-            3, 0, None, False, 'Packet incoming through NOACT port was accepted')
+            3, 0, None, False, 'Packet incoming through NOSYNC port was accepted')
         self.validate_flood(
             4, 0, None, True, 'Packet incoming through SELECTED port was not accepted')
         # Set UP & SELECTED s2 LAG links, set one s1 port down
@@ -221,7 +221,7 @@ dps:
         self.apply_ofmsgs(main_valve.lacp_update(port4, True, 1, 1, main_other_valves))
         self.apply_ofmsgs(main_valve.lacp_update(port3, False, 1, 1, main_other_valves))
         self.validate_flood(
-            3, 0, None, False, 'Packet incoming through UNSELECTED & NOACT port was accepted')
+            3, 0, None, False, 'Packet incoming through UNSELECTED & NOSYNC port was accepted')
         self.validate_flood(
             4, 0, None, False, 'Packet incoming through UNSELECTED port was accepted')
         # Set UP & SELECTED both s1 LAG links
