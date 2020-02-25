@@ -1341,20 +1341,292 @@ vlans:
         self.assertTrue(self.packet_outs_from_flows(ofmsgs))
 
 
-class ValveTestTunnel(ValveTestBases.ValveTestSmall):
-    """Test valve tunnel methods"""
+class ValveTestTunnel2DP(ValveTestBases.ValveTestSmall):
+    """Test Tunnel ACL implementation"""
 
-    TUNNEL_ID = 200
+    SRC_ID = 5
+    DST_ID = 2
+    SAME_ID = 4
+    NONE_ID = 3
+
+    CONFIG = """
+acls:
+    src_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    tunnel: {dp: s2, port: 1}
+    dst_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    tunnel: {dp: s1, port: 1}
+    same_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    tunnel: {dp: s1, port: 1}
+    none_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    tunnel: {dp: s2, port: 1}
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                name: src_tunnel_host
+                native_vlan: vlan100
+                acls_in: [src_acl]
+            2:
+                name: same_tunnel_host
+                native_vlan: vlan100
+                acls_in: [same_acl]
+            3:
+                stack: {dp: s2, port: 3}
+            4:
+                stack: {dp: s2, port: 4}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                name: dst_tunnel_host
+                native_vlan: vlan100
+                acls_in: [dst_acl]
+            2:
+                name: transit_tunnel_host
+                native_vlan: vlan100
+                acls_in: [none_acl]
+            3:
+                stack: {dp: s1, port: 3}
+            4:
+                stack: {dp: s1, port: 4}
+"""
+
+    def setUp(self):
+        """Create a stacking config file."""
+        self.setup_valve(self.CONFIG)
+        self.activate_all_ports()
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
+
+    def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+        bcast_match = {
+            'in_port': in_port,
+            'eth_dst': mac.BROADCAST_STR,
+            'vlan_vid': in_vid,
+            'eth_type': 0x0800,
+            'ip_proto': 1
+        }
+        if out_vid:
+            out_vid = out_vid | ofp.OFPVID_PRESENT
+        if expected:
+            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+        else:
+            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+
+    def test_update_src_tunnel(self):
+        """Test tunnel rules when encapsulating and forwarding to the destination switch"""
+        valve = self.valves_manager.valves[0x1]
+        port = valve.dp.ports[3]
+        # Apply tunnel to ofmsgs on valve
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        # Should encapsulate and output packet towards tunnel destination s3
+        self.validate_tunnel(
+            1, 0, 3, self.SRC_ID, True,
+            'Did not encapsulate and forward')
+        # Set the chosen port down to force a recalculation on the tunnel path
+        self.set_port_down(port.number)
+        ofmsgs = valve.get_tunnel_flowmods()
+        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.apply_ofmsgs(ofmsgs)
+        # Should encapsulate and output packet using the new path
+        self.validate_tunnel(
+            1, 0, 4, self.SRC_ID, True,
+            'Did not encapsulate and forward out re-calculated port')
+
+    def test_update_same_tunnel(self):
+        """Test tunnel rules when outputting to host on the same switch as the source"""
+        valve = self.valves_manager.valves[0x1]
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.validate_tunnel(2, 0, 1, 0, True, 'Did not forward to host on same DP')
+
+    def test_update_dst_tunnel(self):
+        """Test a tunnel outputting to the correct tunnel destination"""
+        valve = self.valves_manager.valves[0x1]
+        port = valve.dp.ports[3]
+        # Apply tunnel to ofmsgs on valve
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        # Should accept encapsulated packet and output to the destination host
+        self.validate_tunnel(3, self.DST_ID, 1, 0, True, 'Did not output to host')
+        # Set the chosen port down to force a recalculation on the tunnel path
+        self.set_port_down(port.number)
+        ofmsgs = valve.get_tunnel_flowmods()
+        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.apply_ofmsgs(ofmsgs)
+        # Should ccept encapsulated packet and output using the new path
+        self.validate_tunnel(4, self.DST_ID, 1, 0, True, 'Did not output to host')
+
+    def test_update_none_tunnel(self):
+        """Test tunnel on a switch not using a tunnel ACL"""
+        valve = self.valves_manager.valves[0x1]
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        # Should drop any packets received from the tunnel
+        self.validate_tunnel(
+            5, self.NONE_ID, None, None, False,
+            'Should not output a packet')
+        self.validate_tunnel(
+            6, self.NONE_ID, None, None, False,
+            'Should not output a packet')
+
+
+class ValveTestTransitTunnel(ValveTestBases.ValveTestSmall):
+    """Test tunnel ACL implementation"""
+
+    TRANSIT_ID = 2
+
+    CONFIG = """
+acls:
+    transit_acl:
+         - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    tunnel: {dp: s3, port: 1}
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            3:
+                stack: {dp: s2, port: 3}
+            4:
+                stack: {dp: s2, port: 4}
+            5:
+                stack: {dp: s3, port: 5}
+            6:
+                stack: {dp: s3, port: 6}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                name: source_host
+                native_vlan: vlan100
+                acls_in: [transit_acl]
+            3:
+                stack: {dp: s1, port: 3}
+            4:
+                stack: {dp: s1, port: 4}
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                name: destination_host
+                native_vlan: vlan100
+            5:
+                stack: {dp: s1, port: 5}
+            6:
+                stack: {dp: s1, port: 6}
+"""
+
+    def setUp(self):
+        """Create a stacking config file."""
+        self.setup_valve(self.CONFIG)
+        self.activate_all_ports()
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
+
+    def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+        bcast_match = {
+            'in_port': in_port,
+            'eth_dst': mac.BROADCAST_STR,
+            'vlan_vid': in_vid,
+            'eth_type': 0x0800,
+        }
+        if out_vid:
+            out_vid = out_vid | ofp.OFPVID_PRESENT
+        if expected:
+            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+        else:
+            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+
+    def test_update_transit_tunnel(self):
+        """Test a tunnel through a transit switch (forwards to the correct switch)"""
+        valve = self.valves_manager.valves[0x1]
+        port1 = valve.dp.ports[3]
+        port2 = valve.dp.ports[5]
+        # Apply tunnel to ofmsgs on valve
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        # Should accept packet from stack and output to the next switch
+        self.validate_tunnel(
+            3, self.TRANSIT_ID, 5, self.TRANSIT_ID, True,
+            'Did not output to next switch')
+        # Set the chosen port down to force a recalculation on the tunnel path
+        self.set_port_down(port1.number)
+        # Should accept encapsulated packet and output using the new path
+        self.validate_tunnel(
+            4, self.TRANSIT_ID, 5, self.TRANSIT_ID, True,
+            'Did not output to next switch')
+        # Set the chosen port to the next switch down to force a path recalculation
+        self.set_port_down(port2.number)
+        ofmsgs = valve.get_tunnel_flowmods()
+        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.apply_ofmsgs(ofmsgs)
+        # Should accept encapsulated packet and output using the new path
+        self.validate_tunnel(
+            4, self.TRANSIT_ID, 6, self.TRANSIT_ID, True,
+            'Did not output to next switch')
+
+
+class ValveTestMultipleTunnel(ValveTestBases.ValveTestSmall):
+    """Test tunnel ACL implementation with multiple hosts containing tunnel ACL"""
+
+    TUNNEL_ID = 2
+
     CONFIG = """
 acls:
     tunnel_acl:
         - rule:
+            dl_type: 0x0800
+            ip_proto: 1
             actions:
                 output:
-                    tunnel: {type: 'vlan', tunnel_id: %u, dp: s3, port: 1}
+                    tunnel: {dp: s2, port: 1}
 vlans:
     vlan100:
-        vid: 100
+        vid: 1
 dps:
     s1:
         dp_id: 0x1
@@ -1364,119 +1636,445 @@ dps:
         interfaces:
             1:
                 native_vlan: vlan100
+                acls_in: [tunnel_acl]
             2:
-                stack:
-                    dp: s2
-                    port: 2
+                native_vlan: vlan100
+                acls_in: [tunnel_acl]
             3:
-                stack:
-                    dp: s2
-                    port: 3
+                stack: {dp: s2, port: 3}
             4:
-                stack:
-                    dp: s3
-                    port: 2
-            5:
-                stack:
-                    dp: s3
-                    port: 3
+                stack: {dp: s2, port: 4}
     s2:
         dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            3:
+                stack: {dp: s1, port: 3}
+            4:
+                stack: {dp: s1, port: 4}
+"""
+
+    def setUp(self):
+        """Create a stacking config file."""
+        self.setup_valve(self.CONFIG)
+        self.activate_all_ports()
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
+
+    def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+        bcast_match = {
+            'in_port': in_port,
+            'eth_dst': mac.BROADCAST_STR,
+            'vlan_vid': in_vid,
+            'eth_type': 0x0800,
+            'ip_proto': 1
+        }
+        if out_vid:
+            out_vid = out_vid | ofp.OFPVID_PRESENT
+        if expected:
+            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+        else:
+            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+
+    def test_tunnel_update_multiple_tunnels(self):
+        """Test having multiple hosts with the same tunnel"""
+        valve = self.valves_manager.valves[0x1]
+        port = valve.dp.ports[3]
+        # Apply tunnel to ofmsgs on valve
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        # Should encapsulate and output packet towards tunnel destination s3
+        self.validate_tunnel(
+            1, 0, 3, self.TUNNEL_ID, True,
+            'Did not encapsulate and forward')
+        self.validate_tunnel(
+            2, 0, 3, self.TUNNEL_ID, True,
+            'Did not encapsulate and forward')
+        # Set the chosen port down to force a recalculation on the tunnel path
+        self.set_port_down(port.number)
+        ofmsgs = valve.get_tunnel_flowmods()
+        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.apply_ofmsgs(ofmsgs)
+        # Should encapsulate and output packet using the new path
+        self.validate_tunnel(
+            1, 0, 4, self.TUNNEL_ID, True,
+            'Did not encapsulate and forward out re-calculated port')
+        self.validate_tunnel(
+            1, 0, 4, self.TUNNEL_ID, True,
+            'Did not encapsulate and forward out re-calculated port')
+
+
+class ValveTestOrderedTunnel2DP(ValveTestBases.ValveTestSmall):
+    """Test Tunnel ACL implementation"""
+
+    SRC_ID = 5
+    DST_ID = 2
+    SAME_ID = 4
+    NONE_ID = 3
+
+    CONFIG = """
+acls:
+    src_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {dp: s2, port: 1}
+    dst_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {dp: s1, port: 1}
+    same_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {dp: s1, port: 1}
+    none_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {dp: s2, port: 1}
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                name: src_tunnel_host
+                native_vlan: vlan100
+                acls_in: [src_acl]
+            2:
+                name: same_tunnel_host
+                native_vlan: vlan100
+                acls_in: [same_acl]
+            3:
+                stack: {dp: s2, port: 3}
+            4:
+                stack: {dp: s2, port: 4}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                name: dst_tunnel_host
+                native_vlan: vlan100
+                acls_in: [dst_acl]
+            2:
+                name: transit_tunnel_host
+                native_vlan: vlan100
+                acls_in: [none_acl]
+            3:
+                stack: {dp: s1, port: 3}
+            4:
+                stack: {dp: s1, port: 4}
+"""
+
+    def setUp(self):
+        """Create a stacking config file."""
+        self.setup_valve(self.CONFIG)
+        self.activate_all_ports()
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
+
+    def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+        bcast_match = {
+            'in_port': in_port,
+            'eth_dst': mac.BROADCAST_STR,
+            'vlan_vid': in_vid,
+            'eth_type': 0x0800,
+            'ip_proto': 1
+        }
+        if out_vid:
+            out_vid = out_vid | ofp.OFPVID_PRESENT
+        if expected:
+            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+        else:
+            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+
+    def test_update_src_tunnel(self):
+        """Test tunnel rules when encapsulating and forwarding to the destination switch"""
+        valve = self.valves_manager.valves[0x1]
+        port = valve.dp.ports[3]
+        # Apply tunnel to ofmsgs on valve
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        # Should encapsulate and output packet towards tunnel destination s3
+        self.validate_tunnel(
+            1, 0, 3, self.SRC_ID, True,
+            'Did not encapsulate and forward')
+        # Set the chosen port down to force a recalculation on the tunnel path
+        self.set_port_down(port.number)
+        ofmsgs = valve.get_tunnel_flowmods()
+        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.apply_ofmsgs(ofmsgs)
+        # Should encapsulate and output packet using the new path
+        self.validate_tunnel(
+            1, 0, 4, self.SRC_ID, True,
+            'Did not encapsulate and forward out re-calculated port')
+
+    def test_update_same_tunnel(self):
+        """Test tunnel rules when outputting to host on the same switch as the source"""
+        valve = self.valves_manager.valves[0x1]
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.validate_tunnel(2, 0, 1, 0, True, 'Did not forward to host on same DP')
+
+    def test_update_dst_tunnel(self):
+        """Test a tunnel outputting to the correct tunnel destination"""
+        valve = self.valves_manager.valves[0x1]
+        port = valve.dp.ports[3]
+        # Apply tunnel to ofmsgs on valve
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        # Should accept encapsulated packet and output to the destination host
+        self.validate_tunnel(3, self.DST_ID, 1, 0, True, 'Did not output to host')
+        # Set the chosen port down to force a recalculation on the tunnel path
+        self.set_port_down(port.number)
+        ofmsgs = valve.get_tunnel_flowmods()
+        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.apply_ofmsgs(ofmsgs)
+        # Should ccept encapsulated packet and output using the new path
+        self.validate_tunnel(4, self.DST_ID, 1, 0, True, 'Did not output to host')
+
+    def test_update_none_tunnel(self):
+        """Test tunnel on a switch not using a tunnel ACL"""
+        valve = self.valves_manager.valves[0x1]
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        # Should drop any packets received from the tunnel
+        self.validate_tunnel(
+            5, self.NONE_ID, None, None, False,
+            'Should not output a packet')
+        self.validate_tunnel(
+            6, self.NONE_ID, None, None, False,
+            'Should not output a packet')
+
+
+class ValveTestTransitOrderedTunnel(ValveTestBases.ValveTestSmall):
+    """Test tunnel ACL implementation"""
+
+    TRANSIT_ID = 2
+
+    CONFIG = """
+acls:
+    transit_acl:
+         - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {dp: s3, port: 1}
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            3:
+                stack: {dp: s2, port: 3}
+            4:
+                stack: {dp: s2, port: 4}
+            5:
+                stack: {dp: s3, port: 5}
+            6:
+                stack: {dp: s3, port: 6}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                name: source_host
+                native_vlan: vlan100
+                acls_in: [transit_acl]
+            3:
+                stack: {dp: s1, port: 3}
+            4:
+                stack: {dp: s1, port: 4}
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                name: destination_host
+                native_vlan: vlan100
+            5:
+                stack: {dp: s1, port: 5}
+            6:
+                stack: {dp: s1, port: 6}
+"""
+
+    def setUp(self):
+        """Create a stacking config file."""
+        self.setup_valve(self.CONFIG)
+        self.activate_all_ports()
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
+
+    def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+        bcast_match = {
+            'in_port': in_port,
+            'eth_dst': mac.BROADCAST_STR,
+            'vlan_vid': in_vid,
+            'eth_type': 0x0800,
+        }
+        if out_vid:
+            out_vid = out_vid | ofp.OFPVID_PRESENT
+        if expected:
+            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+        else:
+            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+
+    def test_update_transit_tunnel(self):
+        """Test a tunnel through a transit switch (forwards to the correct switch)"""
+        valve = self.valves_manager.valves[0x1]
+        port1 = valve.dp.ports[3]
+        port2 = valve.dp.ports[5]
+        # Apply tunnel to ofmsgs on valve
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        # Should accept packet from stack and output to the next switch
+        self.validate_tunnel(
+            3, self.TRANSIT_ID, 5, self.TRANSIT_ID, True,
+            'Did not output to next switch')
+        # Set the chosen port down to force a recalculation on the tunnel path
+        self.set_port_down(port1.number)
+        # Should accept encapsulated packet and output using the new path
+        self.validate_tunnel(
+            4, self.TRANSIT_ID, 5, self.TRANSIT_ID, True,
+            'Did not output to next switch')
+        # Set the chosen port to the next switch down to force a path recalculation
+        self.set_port_down(port2.number)
+        ofmsgs = valve.get_tunnel_flowmods()
+        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.apply_ofmsgs(ofmsgs)
+        # Should accept encapsulated packet and output using the new path
+        self.validate_tunnel(
+            4, self.TRANSIT_ID, 6, self.TRANSIT_ID, True,
+            'Did not output to next switch')
+
+
+class ValveTestMultipleOrderedTunnel(ValveTestBases.ValveTestSmall):
+    """Test tunnel ACL implementation with multiple hosts containing tunnel ACL"""
+
+    TUNNEL_ID = 2
+
+    CONFIG = """
+acls:
+    tunnel_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {dp: s2, port: 1}
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
         interfaces:
             1:
                 native_vlan: vlan100
                 acls_in: [tunnel_acl]
             2:
-                stack:
-                    dp: s1
-                    port: 2
+                native_vlan: vlan100
+                acls_in: [tunnel_acl]
             3:
-                stack:
-                    dp: s1
-                    port: 3
-    s3:
-        dp_id: 0x3
+                stack: {dp: s2, port: 3}
+            4:
+                stack: {dp: s2, port: 4}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
         interfaces:
             1:
                 native_vlan: vlan100
-            2:
-                stack:
-                    dp: s1
-                    port: 4
             3:
-                stack:
-                    dp: s1
-                    port: 5
-""" % TUNNEL_ID
+                stack: {dp: s1, port: 3}
+            4:
+                stack: {dp: s1, port: 4}
+"""
 
     def setUp(self):
+        """Create a stacking config file."""
         self.setup_valve(self.CONFIG)
-
-    def all_stack_up(self):
-        """Force stack ports UP and enabled"""
+        self.activate_all_ports()
         for valve in self.valves_manager.valves.values():
-            valve.dp.dyn_running = True
-            for port in valve.dp.stack_ports:
-                port.stack_up()
-                port.dyn_finalized = False
-                port.enabled = True
-                port.dyn_phys_up = True
-                port.dyn_finalized = True
-                self.assertFalse(port.non_stack_forwarding())
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
 
-    def down_stack_port(self, port):
-        """Force stack port DOWN"""
-        peer_port = port.stack['port']
-        peer_port.stack_gone()
-        port.dyn_finalized = False
-        port.enabled = False
-        port.dyn_phys_up = False
-        port.dyn_finalized = True
-        self.assertFalse(port.non_stack_forwarding())
+    def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+        bcast_match = {
+            'in_port': in_port,
+            'eth_dst': mac.BROADCAST_STR,
+            'vlan_vid': in_vid,
+            'eth_type': 0x0800,
+            'ip_proto': 1
+        }
+        if out_vid:
+            out_vid = out_vid | ofp.OFPVID_PRESENT
+        if expected:
+            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+        else:
+            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
 
-    def update_all_flowrules(self):
-        """Update all valve tunnel flowrules"""
-        for valve in self.valves_manager.valves.values():
-            valve.update_tunnel_flowrules()
-
-    def update_all_tunnels(self, state):
-        """Force DP tunnel updated flag state"""
-        for valve in self.valves_manager.valves.values():
-            valve.dp.tunnel_updated_flags[self.TUNNEL_ID] = state
-
-    def get_valve(self, dp_id):
-        """Get valve with dp_id"""
-        return self.valves_manager.valves[dp_id]
-
-    def test_update_on_stack_link_up(self):
-        """Test updating acl tunnel rules on stack link status UP"""
-        self.all_stack_up()
-        self.update_all_flowrules()
-        for valve in self.valves_manager.valves.values():
-            self.assertTrue(valve.dp.tunnel_updated_flags[self.TUNNEL_ID])
-
-    def test_update_on_stack_link_down(self):
-        """Test updating acl tunnel rules on stack link status DOWN"""
-        self.all_stack_up()
-        self.update_all_flowrules()
-        self.update_all_tunnels(False)
-        self.down_stack_port(self.get_valve(0x1).dp.ports[2])
-        self.down_stack_port(self.get_valve(0x1).dp.ports[4])
-        self.down_stack_port(self.get_valve(0x2).dp.ports[2])
-        self.down_stack_port(self.get_valve(0x3).dp.ports[2])
-        self.update_all_flowrules()
-        self.assertTrue(self.get_valve(0x1).dp.tunnel_updated_flags[self.TUNNEL_ID])
-        self.assertTrue(self.get_valve(0x2).dp.tunnel_updated_flags[self.TUNNEL_ID])
-
-    def test_tunnel_flowmod_count(self):
-        """Test the correct number of tunnel flowmods are created"""
-        for valve in self.valves_manager.valves.values():
-            self.assertEqual(len(valve.get_tunnel_flowmods()), 0)
-        self.all_stack_up()
-        self.update_all_flowrules()
-        self.assertEqual(len(self.get_valve(0x1).get_tunnel_flowmods()), 2)
-        self.assertEqual(len(self.get_valve(0x2).get_tunnel_flowmods()), 1)
-        self.assertEqual(len(self.get_valve(0x3).get_tunnel_flowmods()), 2)
+    def test_tunnel_update_multiple_tunnels(self):
+        """Test having multiple hosts with the same tunnel"""
+        valve = self.valves_manager.valves[0x1]
+        port = valve.dp.ports[3]
+        # Apply tunnel to ofmsgs on valve
+        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        # Should encapsulate and output packet towards tunnel destination s3
+        self.validate_tunnel(
+            1, 0, 3, self.TUNNEL_ID, True,
+            'Did not encapsulate and forward')
+        self.validate_tunnel(
+            2, 0, 3, self.TUNNEL_ID, True,
+            'Did not encapsulate and forward')
+        # Set the chosen port down to force a recalculation on the tunnel path
+        self.set_port_down(port.number)
+        ofmsgs = valve.get_tunnel_flowmods()
+        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.apply_ofmsgs(ofmsgs)
+        # Should encapsulate and output packet using the new path
+        self.validate_tunnel(
+            1, 0, 4, self.TUNNEL_ID, True,
+            'Did not encapsulate and forward out re-calculated port')
+        self.validate_tunnel(
+            1, 0, 4, self.TUNNEL_ID, True,
+            'Did not encapsulate and forward out re-calculated port')
 
 
 class ValveTwoDpRoot(ValveTestBases.ValveTestSmall):

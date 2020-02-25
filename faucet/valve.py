@@ -646,13 +646,12 @@ class Valve:
             self.logger.info('%u stack ports changed state' % stack_changes)
             notify_dps = {}
             for valve in stacked_valves:
-                valve.update_tunnel_flowrules()
                 if not valve.dp.dyn_running:
                     continue
-                ofmsgs_by_valve[valve].extend(valve.get_tunnel_flowmods())
                 ofmsgs_by_valve[valve].extend(valve.add_vlans(valve.dp.vlans.values()))
                 for port in valve.dp.stack_ports:
                     ofmsgs_by_valve[valve].extend(valve.host_manager.del_port(port))
+                ofmsgs_by_valve[valve].extend(valve.get_tunnel_flowmods())
                 path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
                 path_port_number = path_port.number if path_port else 0.0
                 self._set_var(
@@ -670,23 +669,53 @@ class Valve:
                             'dps': notify_dps
                             }})
                     break
-
         return ofmsgs_by_valve
 
-    def update_tunnel_flowrules(self):
-        """Update tunnel ACL rules because the stack topology has changed"""
-        if self.dp.tunnel_acls:
-            for tunnel_id, tunnel_acl in self.dp.tunnel_acls.items():
-                updated = tunnel_acl.update_tunnel_acl_conf(self.dp)
-                if updated:
-                    self.dp.tunnel_updated_flags[tunnel_id] = True
-                    self.logger.info('updated tunnel %s' % tunnel_id)
+    def acl_update_tunnel(self, acl):
+        """Return ofmsgs for a ACL with a tunnel rule"""
+        ofmsgs = []
+        source_vids = {}
+        for _id, info in acl.tunnel_info.items():
+            # Update the tunnel rules for each tunnel action specified
+            updated_sources = []
+            for i, source in enumerate(acl.tunnel_sources):
+                # Update each tunnel rule for each tunnel source
+                src_dp = source['dp']
+                dst_dp, dst_port = info['dst_dp'], info['dst_port']
+                out_port = None
+                shortest_path = self.dp.shortest_path(dst_dp, src_dp=src_dp)
+                if self.dp.name in shortest_path:
+                    # We are in the path, so we need to update
+                    if self.dp.name == dst_dp:
+                        out_port = dst_port
+                    if not out_port:
+                        out_port = self.dp.shortest_path_port(dst_dp).number
+                    updated = acl.update_source_tunnel_rules(
+                        self.dp.name, i, _id, out_port)
+                    if updated:
+                        if self.dp.name == src_dp:
+                            source_vids.setdefault(i, [])
+                            source_vids[i].append(_id)
+                        else:
+                            updated_sources.append(i)
+            if updated_sources:
+                for source_id in updated_sources:
+                    ofmsgs.extend(self.acl_manager.build_tunnel_rules_ofmsgs(
+                        source_id, _id, acl))
+        if source_vids:
+            for source_id, vids in source_vids.items():
+                for vid in vids:
+                    ofmsgs.extend(self.acl_manager.build_tunnel_acl_rule_ofmsgs(
+                        source_id, vid, acl))
+        return ofmsgs
 
     def get_tunnel_flowmods(self):
-        """Returns flowmods for the tunnels"""
-        if self.acl_manager:
-            return self.acl_manager.create_acl_tunnel(self.dp)
-        return []
+        """Return ofmsgs for all tunnel ACLs in the DP"""
+        ofmsgs = []
+        if self.dp.tunnel_acls:
+            for acl in self.dp.tunnel_acls:
+                ofmsgs.extend(self.acl_update_tunnel(acl))
+        return ofmsgs
 
     def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""

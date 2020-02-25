@@ -2305,6 +2305,81 @@ acls:
             second_host, first_host.IP(), require_host_learned=False)
 
 
+class FaucetNailedForwardingOrderedTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    1:
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+                output:
+                    - port: %(port_2)d
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.2"
+            actions:
+                output:
+                    - port: %(port_2)d
+        - rule:
+            actions:
+                allow: 0
+    2:
+        - rule:
+            dl_dst: "0e:00:00:00:01:01"
+            actions:
+                output:
+                    - port: %(port_1)d
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.1"
+            actions:
+                output:
+                    - port: %(port_1)d
+        - rule:
+            actions:
+                allow: 0
+    3:
+        - rule:
+            actions:
+                allow: 0
+    4:
+        - rule:
+            actions:
+                allow: 0
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+                acl_in: 2
+            %(port_3)d:
+                native_vlan: 100
+                acl_in: 3
+            %(port_4)d:
+                native_vlan: 100
+                acl_in: 4
+"""
+
+    def test_untagged(self):
+        first_host, second_host = self.hosts_name_ordered()[0:2]
+        first_host.setMAC('0e:00:00:00:01:01')
+        second_host.setMAC('0e:00:00:00:02:02')
+        self.one_ipv4_ping(
+            first_host, second_host.IP(), require_host_learned=False)
+        self.one_ipv4_ping(
+            second_host, first_host.IP(), require_host_learned=False)
+
+
 class FaucetNailedFailoverForwardingTest(FaucetNailedForwardingTest):
 
     CONFIG_GLOBAL = """
@@ -2361,6 +2436,88 @@ acls:
             actions:
                 output:
                     port: %(port_1)d
+        - rule:
+            actions:
+                allow: 0
+    4:
+        - rule:
+            actions:
+                allow: 0
+"""
+
+    def test_untagged(self):
+        first_host, second_host, third_host = self.hosts_name_ordered()[0:3]
+        first_host.setMAC('0e:00:00:00:01:01')
+        second_host.setMAC('0e:00:00:00:02:02')
+        third_host.setMAC('0e:00:00:00:02:02')
+        third_host.setIP(second_host.IP())
+        self.one_ipv4_ping(
+            first_host, second_host.IP(), require_host_learned=False)
+        self.one_ipv4_ping(
+            second_host, first_host.IP(), require_host_learned=False)
+        self.set_port_down(self.port_map['port_2'])
+        self.one_ipv4_ping(
+            first_host, third_host.IP(), require_host_learned=False)
+        self.one_ipv4_ping(
+            third_host, first_host.IP(), require_host_learned=False)
+
+
+class FaucetNailedFailoverForwardingOrderedTest(FaucetNailedForwardingTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    1:
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+                output:
+                    - failover:
+                        group_id: 1001
+                        ports: [%(port_2)d, %(port_3)d]
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.2"
+            actions:
+                output:
+                    - failover:
+                        group_id: 1002
+                        ports: [%(port_2)d, %(port_3)d]
+        - rule:
+            actions:
+                allow: 0
+    2:
+        - rule:
+            dl_dst: "0e:00:00:00:01:01"
+            actions:
+                output:
+                    - port: %(port_1)d
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.1"
+            actions:
+                output:
+                    - port: %(port_1)d
+        - rule:
+            actions:
+                allow: 0
+    3:
+        - rule:
+            dl_dst: "0e:00:00:00:01:01"
+            actions:
+                output:
+                    - port: %(port_1)d
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.1"
+            actions:
+                output:
+                    - port: %(port_1)d
         - rule:
             actions:
                 allow: 0
@@ -4714,6 +4871,41 @@ acls:
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
 
 
+class FaucetUntaggedOrderedACLOutputMirrorTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            actions:
+                allow: 1
+                output:
+                    - ports: [%(port_3)d]
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    def test_untagged(self):
+        first_host, second_host, mirror_host = self.hosts_name_ordered()[0:3]
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
+
+
 class FaucetUntaggedACLMirrorDefaultAllowTest(FaucetUntaggedACLMirrorTest):
 
     CONFIG_GLOBAL = """
@@ -4755,6 +4947,55 @@ acls:
             actions:
                 output:
                     ports: [%(port_2)d, %(port_3)d]
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: multi_out
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 200
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    def test_untagged(self):
+        first_host, second_host, third_host, fourth_host = self.hosts_name_ordered()[0:4]
+        tcpdump_filter = ('icmp')
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        tcpdump_txt = self.tcpdump_helper(
+            third_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (third_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, third_host.IP())))])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % third_host.IP(), tcpdump_txt))
+        tcpdump_txt = self.tcpdump_helper(
+            fourth_host, tcpdump_filter, [
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, fourth_host.IP())))])
+        self.assertFalse(re.search(
+            '%s: ICMP echo request' % fourth_host.IP(), tcpdump_txt))
+
+
+class FaucetMultiOrderedOutputTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+    200:
+acls:
+    multi_out:
+        - rule:
+            actions:
+                output:
+                    - ports: [%(port_2)d, %(port_3)d]
 """
 
     CONFIG = """
@@ -4839,6 +5080,53 @@ acls:
             'vlan 123', tcpdump_txt))
 
 
+class FaucetUntaggedOrderedOutputTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            dl_dst: "01:02:03:04:05:06"
+            actions:
+                output:
+                    - vlan_vid: 123
+                    - set_fields:
+                        - eth_dst: "06:06:06:06:06:06"
+                    - port: %(port_2)d
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    def test_untagged(self):
+        first_host, second_host = self.hosts_name_ordered()[0:2]
+        # we expected to see the rewritten address and VLAN
+        tcpdump_filter = ('icmp and ether dst 06:06:06:06:06:06')
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            'vlan 123', tcpdump_txt))
+
+
 class FaucetUntaggedMultiVlansOutputTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -4886,6 +5174,53 @@ acls:
             'vlan 456.+vlan 123', tcpdump_txt))
 
 
+class FaucetUntaggedMultiVlansOrderedOutputTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            dl_dst: "01:02:03:04:05:06"
+            actions:
+                output:
+                    - set_fields:
+                        - eth_dst: "06:06:06:06:06:06"
+                    - vlan_vids: [123, 456]
+                    - port: %(port_2)d
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    def test_untagged(self):
+        first_host, second_host = self.hosts_name_ordered()[0:2]
+        # we expected to see the rewritten address and VLAN
+        tcpdump_filter = 'vlan'
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            'vlan 456.+vlan 123', tcpdump_txt))
+
+
 class FaucetUntaggedMultiConfVlansOutputTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -4903,6 +5238,54 @@ acls:
                         - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [{vid: 123, eth_type: 0x88a8}, 456]
                     port: %(port_2)d
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    def test_untagged(self):
+        first_host, second_host = self.hosts_name_ordered()[0:2]
+        # we expected to see the rewritten address and VLAN
+        tcpdump_filter = 'ether proto 0x88a8'
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
+            packets=1)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt), msg=tcpdump_txt)
+        self.assertTrue(re.search(
+            'vlan 456.+ethertype 802.1Q-QinQ, vlan 123', tcpdump_txt), msg=tcpdump_txt)
+
+
+class FaucetUntaggedMultiConfVlansOrderedOutputTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            dl_dst: "01:02:03:04:05:06"
+            actions:
+                output:
+                    - set_fields:
+                        - eth_dst: "06:06:06:06:06:06"
+                    - vlan_vids: [{vid: 123, eth_type: 0x88a8}, 456]
+                    - port: %(port_2)d
 """
 
     CONFIG = """
@@ -5126,6 +5509,56 @@ acls:
             actions:
                 output:
                     set_fields:
+                        - vlan_pcp: 2
+                allow: 1
+        - rule:
+            actions:
+                allow: 1
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                acl_in: 1
+            %(port_2)d:
+                tagged_vlans: [100]
+            %(port_3)d:
+                tagged_vlans: [100]
+            %(port_4)d:
+                tagged_vlans: [100]
+"""
+
+    def test_tagged(self):
+        first_host, second_host = self.hosts_name_ordered()[:2]
+        self.quiet_commands(
+            first_host,
+            ['ip link set %s type vlan egress %u:1' % (
+                first_host.defaultIntf(), i) for i in range(0, 8)])
+        self.one_ipv4_ping(first_host, second_host.IP())
+        self.wait_nonzero_packet_count_flow(
+            {'vlan_vid': 100, 'vlan_pcp': 1}, table_id=self._PORT_ACL_TABLE)
+        tcpdump_filter = 'ether dst %s' % second_host.MAC()
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'ping -c3 %s' % second_host.IP())], root_intf=True, packets=1)
+        self.assertTrue(re.search('vlan 100, p 2,', tcpdump_txt))
+
+
+class FaucetTaggedVLANPCPOrderedTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+acls:
+    1:
+        - rule:
+            vlan_vid: 100
+            vlan_pcp: 1
+            actions:
+                output:
+                    - set_fields:
                         - vlan_pcp: 2
                 allow: 1
         - rule:
@@ -5603,6 +6036,60 @@ acls:
         test_acl(third_host, 'vlan 100')
 
 
+class FaucetTaggedOrderedSwapVidMirrorTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+    101:
+        description: "tagged"
+acls:
+    1:
+        - rule:
+            vlan_vid: 100
+            actions:
+                mirror: %(port_3)d
+                force_port_vlan: 1
+                output:
+                    - swap_vid: 101
+                allow: 1
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                acl_in: 1
+            %(port_2)d:
+                tagged_vlans: [101]
+            %(port_3)d:
+                tagged_vlans: [100]
+            %(port_4)d:
+                tagged_vlans: [100]
+    """
+
+    def test_tagged(self):
+        first_host, second_host, third_host = self.hosts_name_ordered()[:3]
+
+        def test_acl(tcpdump_host, tcpdump_filter):
+            tcpdump_txt = self.tcpdump_helper(
+                tcpdump_host, tcpdump_filter, [
+                    lambda: first_host.cmd(
+                        'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                    lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
+                root_intf=True)
+            self.assertTrue(re.search(
+                '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+            self.assertTrue(re.search(
+                tcpdump_filter, tcpdump_txt))
+
+        # Saw swapped VID on second host
+        test_acl(second_host, 'vlan 101')
+        # Saw original VID on mirror host
+        test_acl(third_host, 'vlan 100')
+
+
 class FaucetTaggedSwapVidOutputTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """
@@ -5652,6 +6139,55 @@ acls:
             'vlan 101', tcpdump_txt))
 
 
+class FaucetTaggedSwapVidOrderedOutputTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+        unicast_flood: False
+    101:
+        description: "tagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            vlan_vid: 100
+            actions:
+                output:
+                    - swap_vid: 101
+                    - port: %(port_2)d
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                acl_in: 1
+            %(port_2)d:
+                tagged_vlans: [101]
+            %(port_3)d:
+                tagged_vlans: [100]
+            %(port_4)d:
+                tagged_vlans: [100]
+"""
+
+    def test_tagged(self):
+        first_host, second_host = self.hosts_name_ordered()[0:2]
+        # we expected to see the swapped VLAN VID
+        tcpdump_filter = 'vlan 101'
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
+            root_intf=True)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            'vlan 101', tcpdump_txt))
+
+
 class FaucetTaggedPopVlansOutputTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """
@@ -5670,6 +6206,53 @@ acls:
                         - eth_dst: "06:06:06:06:06:06"
                     pop_vlans: 1
                     port: %(port_2)d
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                acl_in: 1
+            %(port_2)d:
+                tagged_vlans: [100]
+            %(port_3)d:
+                tagged_vlans: [100]
+            %(port_4)d:
+                tagged_vlans: [100]
+"""
+
+    def test_tagged(self):
+        first_host, second_host = self.hosts_name_ordered()[0:2]
+        tcpdump_filter = 'not vlan and icmp and ether dst 06:06:06:06:06:06'
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd(
+                    ' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
+            packets=10, root_intf=True)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+
+
+class FaucetTaggedPopVlansOrderedOutputTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            vlan_vid: 100
+            dl_dst: "01:02:03:04:05:06"
+            actions:
+                output:
+                    - set_fields:
+                        - eth_dst: "06:06:06:06:06:06"
+                    - pop_vlans: 1
+                    - port: %(port_2)d
 """
 
     CONFIG = """
@@ -5755,6 +6338,53 @@ acls:
             actions:
                 output:
                     port: %s
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    100:
+        description: "tagged"
+        faucet_vips: ["fc00::1:254/112"]
+""" % (IPV6_ETH, '%(port_2)d')
+
+    CONFIG = """
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                acl_in: 1
+            %(port_2)d:
+                tagged_vlans: [100]
+            %(port_3)d:
+                tagged_vlans: [100]
+            %(port_4)d:
+                tagged_vlans: [100]
+"""
+
+    def test_icmpv6_acl_match(self):
+        first_host, second_host = self.hosts_name_ordered()[0:2]
+        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
+        self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
+        self.one_ipv6_ping(first_host, 'fc00::1:2')
+        self.wait_nonzero_packet_count_flow(
+            {'dl_type': IPV6_ETH, 'ip_proto': 58, 'icmpv6_type': 135,
+             'ipv6_nd_target': 'fc00::1:2'}, table_id=self._PORT_ACL_TABLE)
+
+
+class FaucetTaggedICMPv6OrderedACLTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+acls:
+    1:
+        - rule:
+            dl_type: %u
+            vlan_vid: 100
+            ip_proto: 58
+            icmpv6_type: 135
+            ipv6_nd_target: "fc00::1:2"
+            actions:
+                output:
+                    - port: %s
         - rule:
             actions:
                 allow: 1
@@ -6326,6 +6956,102 @@ routers:
         self.one_ipv4_ping(first_host, remote_ip2.ip)
 
 
+class FaucetUntaggedIPv4PolicyRouteOrdereredTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "100"
+        faucet_vips: ["10.0.0.254/24"]
+        acl_in: pbr
+    200:
+        description: "200"
+        faucet_vips: ["10.20.0.254/24"]
+        routes:
+            - route:
+                ip_dst: "10.99.0.0/24"
+                ip_gw: "10.20.0.2"
+    300:
+        description: "300"
+        faucet_vips: ["10.30.0.254/24"]
+        routes:
+            - route:
+                ip_dst: "10.99.0.0/24"
+                ip_gw: "10.30.0.3"
+acls:
+    pbr:
+        - rule:
+            vlan_vid: 100
+            dl_type: 0x800
+            nw_dst: "10.99.0.2"
+            actions:
+                allow: 1
+                output:
+                    - swap_vid: 300
+        - rule:
+            vlan_vid: 100
+            dl_type: 0x800
+            nw_dst: "10.99.0.0/24"
+            actions:
+                allow: 1
+                output:
+                    - swap_vid: 200
+        - rule:
+            actions:
+                allow: 1
+routers:
+    router-100-200:
+        vlans: [100, 200]
+    router-100-300:
+        vlans: [100, 300]
+"""
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+            %(port_2)d:
+                native_vlan: 200
+            %(port_3)d:
+                native_vlan: 300
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    def test_untagged(self):
+        # 10.99.0.1 is on b2, and 10.99.0.2 is on b3
+        # we want to route 10.99.0.0/24 to b2, but we want
+        # want to PBR 10.99.0.2/32 to b3.
+        first_host_ip = ipaddress.ip_interface('10.0.0.1/24')
+        first_faucet_vip = ipaddress.ip_interface('10.0.0.254/24')
+        second_host_ip = ipaddress.ip_interface('10.20.0.2/24')
+        second_faucet_vip = ipaddress.ip_interface('10.20.0.254/24')
+        third_host_ip = ipaddress.ip_interface('10.30.0.3/24')
+        third_faucet_vip = ipaddress.ip_interface('10.30.0.254/24')
+        first_host, second_host, third_host = self.hosts_name_ordered()[:3]
+        remote_ip = ipaddress.ip_interface('10.99.0.1/24')
+        remote_ip2 = ipaddress.ip_interface('10.99.0.2/24')
+        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
+        third_host.setIP(str(third_host_ip.ip), prefixLen=24)
+        self.host_ipv4_alias(second_host, remote_ip)
+        self.host_ipv4_alias(third_host, remote_ip2)
+        self.add_host_route(first_host, remote_ip, first_faucet_vip.ip)
+        self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
+        self.add_host_route(third_host, first_host_ip, third_faucet_vip.ip)
+        # ensure all nexthops resolved.
+        self.one_ipv4_ping(first_host, first_faucet_vip.ip)
+        self.one_ipv4_ping(second_host, second_faucet_vip.ip)
+        self.one_ipv4_ping(third_host, third_faucet_vip.ip)
+        self.wait_for_route_as_flow(
+            second_host.MAC(), ipaddress.IPv4Network('10.99.0.0/24'), vlan_vid=200)
+        self.wait_for_route_as_flow(
+            third_host.MAC(), ipaddress.IPv4Network('10.99.0.0/24'), vlan_vid=300)
+        # verify b1 can reach 10.99.0.1 and .2 on b2 and b3 respectively.
+        self.one_ipv4_ping(first_host, remote_ip.ip)
+        self.one_ipv4_ping(first_host, remote_ip2.ip)
+
+
 class FaucetUntaggedMixedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -6832,6 +7558,96 @@ acls:
             source_host, overridden_host, rewrite_host, overridden_host)
 
 
+class FaucetDestRewriteOrderedTest(FaucetUntaggedTest):
+
+    def override_mac():  # pylint: disable=no-method-argument,no-self-use
+        return '0e:00:00:00:00:02'
+
+    OVERRIDE_MAC = override_mac()
+
+    def rewrite_mac():  # pylint: disable=no-method-argument,no-self-use
+        return '0e:00:00:00:00:03'
+
+    REWRITE_MAC = rewrite_mac()
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+
+acls:
+    1:
+        - rule:
+            dl_dst: "%s"
+            actions:
+                allow: 1
+                output:
+                    - set_fields:
+                        - eth_dst: "%s"
+        - rule:
+            actions:
+                allow: 1
+""" % (override_mac(), rewrite_mac())
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    def test_untagged(self):
+        first_host, second_host = self.hosts_name_ordered()[0:2]
+        # we expect to see the rewritten mac address.
+        tcpdump_filter = ('icmp and ether dst %s' % self.REWRITE_MAC)
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), self.OVERRIDE_MAC)),
+                lambda: first_host.cmd(' '.join((self.FPINGS_ARGS_ONE, second_host.IP())))],
+            timeout=5, packets=1)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+
+    def verify_dest_rewrite(self, source_host, overridden_host, rewrite_host, tcpdump_host):
+        overridden_host.setMAC(self.OVERRIDE_MAC)
+        rewrite_host.setMAC(self.REWRITE_MAC)
+        rewrite_host.cmd('arp -s %s %s' % (overridden_host.IP(), overridden_host.MAC()))
+        rewrite_host.cmd(' '.join((self.FPINGS_ARGS_ONE, overridden_host.IP())))
+        self.wait_until_matching_flow(
+            {'dl_dst': self.REWRITE_MAC},
+            table_id=self._ETH_DST_TABLE,
+            actions=['OUTPUT:%u' % self.port_map['port_3']])
+        tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
+            source_host.MAC(), rewrite_host.MAC()))
+        tcpdump_txt = self.tcpdump_helper(
+            tcpdump_host, tcpdump_filter, [
+                lambda: source_host.cmd(
+                    'arp -s %s %s' % (rewrite_host.IP(), overridden_host.MAC())),
+                # this will fail if no reply
+                lambda: self.one_ipv4_ping(
+                    source_host, rewrite_host.IP(), require_host_learned=False)],
+            timeout=3, packets=1)
+        # ping from h1 to h2.mac should appear in third host, and not second host, as
+        # the acl should rewrite the dst mac.
+        self.assertFalse(re.search(
+            '%s: ICMP echo request' % rewrite_host.IP(), tcpdump_txt))
+
+    def test_switching(self):
+        """Tests that a acl can rewrite the destination mac address,
+           and the packet will only go out the port of the new mac.
+           (Continues through faucet pipeline)
+        """
+        source_host, overridden_host, rewrite_host = self.hosts_name_ordered()[0:3]
+        self.verify_dest_rewrite(
+            source_host, overridden_host, rewrite_host, overridden_host)
+
+
 class FaucetSetFieldsTest(FaucetUntaggedTest):
     # A generic test to verify that a flow will set fields specified for
     # matching packets
@@ -6935,6 +7751,110 @@ acls:
     def test_untagged(self):
         pass
 
+
+class FaucetOrderedSetFieldsTest(FaucetUntaggedTest):
+    # A generic test to verify that a flow will set fields specified for
+    # matching packets
+    OUTPUT_MAC = '0f:00:12:23:48:03'
+    SRC_MAC = '0f:12:00:00:00:ff'
+
+    IP_DSCP_VAL = 46
+    # this is the converted DSCP value that is displayed
+    NW_TOS_VAL = 184
+    IPV4_SRC_VAL = "192.0.2.0"
+    IPV4_DST_VAL = "198.51.100.0"
+    # ICMP echo request
+    ICMPV4_TYPE_VAL = 8
+    UDP_SRC_PORT = 68
+    UDP_DST_PORT = 67
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+
+acls:
+    1:
+        - rule:
+            eth_type: 0x0800
+            actions:
+                allow: 1
+                output:
+                    - set_fields:
+                        - ipv4_src: '%s'
+                        - ipv4_dst: '%s'
+                        - ip_dscp: %d
+        - rule:
+            eth_type: 0x0800
+            ip_proto: 1
+            actions:
+                allow: 1
+                output:
+                    - set_fields:
+                        - icmpv4_type: %d
+""" % (IPV4_SRC_VAL, IPV4_DST_VAL, IP_DSCP_VAL, ICMPV4_TYPE_VAL)
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+    """
+
+    def test_set_fields_generic_udp(self):
+        # Send a basic UDP packet through the faucet pipeline and verify that
+        # the expected fields were updated via tcpdump output
+        source_host, dest_host = self.hosts_name_ordered()[0:2]
+        dest_host.setMAC(self.OUTPUT_MAC)
+
+        # scapy command to create and send a UDP packet
+        scapy_pkt = self.scapy_base_udp(
+            self.SRC_MAC, source_host.defaultIntf(), source_host.IP(),
+            dest_host.IP(), self.UDP_DST_PORT, self.UDP_SRC_PORT,
+            dst=self.OUTPUT_MAC)
+
+        tcpdump_filter = "ether dst %s" % self.OUTPUT_MAC
+        tcpdump_txt = self.tcpdump_helper(
+            dest_host, tcpdump_filter, [lambda: source_host.cmd(scapy_pkt)],
+            root_intf=True, packets=1)
+
+        # verify that the packet we've received on the dest_host has the
+        # overwritten values
+        self.assertTrue(
+            re.search("%s.%s > %s.%s" % (self.IPV4_SRC_VAL, self.UDP_SRC_PORT,
+                                         self.IPV4_DST_VAL, self.UDP_DST_PORT),
+                      tcpdump_txt))
+        # check the packet's converted dscp value
+        self.assertTrue(re.search("tos %s" % hex(self.NW_TOS_VAL), tcpdump_txt))
+
+    def test_set_fields_icmp(self):
+        # Send a basic ICMP packet through the faucet pipeline and verify that
+        # the expected fields were updated via tcpdump output
+        source_host, dest_host = self.hosts_name_ordered()[0:2]
+        dest_host.setMAC(self.OUTPUT_MAC)
+
+        # scapy command to create and send an ICMP packet
+        scapy_pkt = self.scapy_icmp(
+            self.SRC_MAC, source_host.defaultIntf(), source_host.IP(),
+            dest_host.IP(), dst=self.OUTPUT_MAC)
+
+        tcpdump_filter = "ether dst %s" % self.OUTPUT_MAC
+        tcpdump_txt = self.tcpdump_helper(
+            dest_host, tcpdump_filter, [lambda: source_host.cmd(scapy_pkt)],
+            root_intf=True, packets=1)
+
+        # verify that the packet we've received on the dest_host has been
+        # overwritten to be an ICMP echo request
+        self.assertTrue(re.search("ICMP echo request", tcpdump_txt))
+
+    def test_untagged(self):
+        pass
+
 class FaucetDscpMatchTest(FaucetUntaggedTest):
     # Match all packets with this IP_DSP and eth_type, based on the ryu API def
     # e.g {"ip_dscp": 3, "eth_type": 2048}
@@ -6962,6 +7882,76 @@ acls:
                 allow: 1
                 output:
                     set_fields:
+                        - eth_dst: "%s"
+        - rule:
+            actions:
+                allow: 1
+""" % (IP_DSCP_MATCH, REWRITE_MAC)
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+    """
+
+    def test_untagged(self):
+        # Tests that a packet with an ip_dscp field will be appropriately
+        # matched and proceeds through the faucet pipeline. This test verifies
+        # that packets with the dscp field can have their eth_dst field modified
+        source_host, dest_host = self.hosts_name_ordered()[0:2]
+        dest_host.setMAC(self.REWRITE_MAC)
+        self.wait_until_matching_flow(
+            {'ip_dscp': self.IP_DSCP_MATCH,
+             'eth_type': self.ETH_TYPE},
+            table_id=self._PORT_ACL_TABLE)
+
+        # scapy command to create and send a packet with the specified fields
+        scapy_pkt = self.scapy_dscp(self.SRC_MAC, self.DST_MAC, 184,
+                                    source_host.defaultIntf())
+
+        tcpdump_filter = "ether dst %s" % self.REWRITE_MAC
+        tcpdump_txt = self.tcpdump_helper(
+            dest_host, tcpdump_filter, [lambda: source_host.cmd(scapy_pkt)],
+            root_intf=True, packets=1)
+        # verify that the packet we've received on the dest_host is from the
+        # source MAC address
+        self.assertTrue(re.search("%s > %s" % (self.SRC_MAC, self.REWRITE_MAC),
+                                  tcpdump_txt))
+
+
+class FaucetOrderedDscpMatchTest(FaucetUntaggedTest):
+    # Match all packets with this IP_DSP and eth_type, based on the ryu API def
+    # e.g {"ip_dscp": 3, "eth_type": 2048}
+    # Note: the ip_dscp field is translated to nw_tos in OpenFlow 1.0:
+    # see https://tools.ietf.org/html/rfc2474#section-3
+    IP_DSCP_MATCH = 46
+    ETH_TYPE = 2048
+
+    SRC_MAC = '0e:00:00:00:00:ff'
+    DST_MAC = '0e:00:00:00:00:02'
+
+    REWRITE_MAC = '0f:00:12:23:48:03'
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+
+acls:
+    1:
+        - rule:
+            ip_dscp: %d
+            dl_type: 0x800
+            actions:
+                allow: 1
+                output:
+                    - set_fields:
                         - eth_dst: "%s"
         - rule:
             actions:
