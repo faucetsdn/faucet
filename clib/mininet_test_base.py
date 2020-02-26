@@ -513,6 +513,8 @@ class FaucetTestBase(unittest.TestCase):
            as a patch panel that transparently connects the
            hardware interfaces to the host/switch veth links."""
         switch = self.first_switch()
+        if not switch:
+            return
         # hw_names are the names of the server hardware interfaces
         # that are cabled to the device under test, sorted by OF port number
         hw_names = [self.switch_map[port] for port in sorted(self.switch_map)]
