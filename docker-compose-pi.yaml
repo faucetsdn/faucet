@@ -2,7 +2,7 @@ version: '2'
 services:
     influxdb:
         restart: always
-        image: 'arm32v7/influxdb:1.7'
+        image: 'influxdb:1.7'
         ports:
             - '8086'
             - '8083'
@@ -15,10 +15,7 @@ services:
 
     prometheus:
         restart: always
-        build:
-            context: https://github.com/faucetsdn/docker-prometheus.git
-            dockerfile: Dockerfile.pi
-        image: 'faucet/prometheus-pi:2.16.0'
+        image: 'prom/prometheus:v2.17.1'
         user: 'root'
         ports:
             - '9090:9090'
@@ -32,7 +29,7 @@ services:
 
     grafana:
         restart: always
-        image: 'grafana/grafana-arm32v7-linux:6.6.1'
+        image: 'grafana/grafana:6.7.2'
         user: 'root'
         ports:
             - '3000:3000'
