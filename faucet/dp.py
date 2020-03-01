@@ -491,7 +491,7 @@ configuration.
         included_tables = copy.deepcopy(faucet_pipeline.MINIMUM_FAUCET_PIPELINE_TABLES)
         acl_tables = self._generate_acl_tables()
         if acl_tables:
-            included_tables.update({k for k in acl_tables})
+            included_tables.update(set(acl_tables.keys()))
             self.has_acls = True
         # Only configure IP routing tables if enabled.
         for vlan in self.vlans.values():
@@ -674,7 +674,7 @@ configuration.
         """Ports that don't have VLANs on them."""
         ports = set()
         for non_vlan in (self.output_only_ports, self.stack_ports, self.coprocessor_ports()):
-            ports.update({port for port in non_vlan})
+            ports.update(set(non_vlan))
         return ports
 
     def coprocessor_ports(self):
@@ -1300,7 +1300,8 @@ configuration.
             self._lldp_defaults()
 
         test_config_condition(
-            not self.vlans and not self.stack_ports, 'no VLANs referenced by interfaces in %s' % self.name)
+            not self.vlans and not self.stack_ports,
+            'no VLANs referenced by interfaces in %s' % self.name)
         dp_by_name = {dp.name: dp for dp in dps}
         vlan_by_name = {vlan.name: vlan for vlan in self.vlans.values()}
         loop_protect_external_ports = {
@@ -1346,27 +1347,33 @@ configuration.
     def _get_conf_changes(logger, conf_name, subconf, new_subconf, diff=False, ignore_keys=None):
         """Generic detection of config changes between DPs, with merge of unchanged instances."""
         if not ignore_keys:
-            ignore_keys = frozenset()
+            ignore_keys = []
+        ignore_keys = frozenset(ignore_keys)
         curr_confs = frozenset(subconf.keys())
         new_confs = frozenset(new_subconf.keys())
         deleted_confs = curr_confs - new_confs
         added_confs = set()
         changed_confs = set()
         same_confs = set()
+        description_only_confs = set()
 
         for conf_id, new_conf in new_subconf.items():
             old_conf = subconf.get(conf_id, None)
             if old_conf:
-                if old_conf != new_conf and not old_conf.ignore_subconf(
-                        new_conf, ignore_keys=ignore_keys):
+                if old_conf.ignore_subconf(new_conf, ignore_keys=ignore_keys):
+                    same_confs.add(conf_id)
+                elif old_conf.ignore_subconf(new_conf, ignore_keys=(ignore_keys.union(['description']))):
+                    same_confs.add(conf_id)
+                    description_only_confs.add(conf_id)
+                    logger.info('%s %s description only changed' % (
+                        conf_name, conf_id))
+                else:
                     changed_confs.add(conf_id)
                     if diff:
                         logger.info('%s %s changed: %s' % (
                             conf_name, conf_id, old_conf.conf_diff(new_conf)))
                     else:
                         logger.info('%s %s changed' % (conf_name, conf_id))
-                else:
-                    same_confs.add(conf_id)
             else:
                 added_confs.add(conf_id)
                 logger.info('%s %s added' % (conf_name, conf_id))
@@ -1386,7 +1393,7 @@ configuration.
         else:
             logger.info('no %s changes' % conf_name)
 
-        return (changes, deleted_confs, added_confs, changed_confs, same_confs)
+        return (changes, deleted_confs, added_confs, changed_confs, same_confs, description_only_confs)
 
     def _get_acl_config_changes(self, logger, new_dp):
         """Detect any config changes to ACLs.
@@ -1397,7 +1404,7 @@ configuration.
         Returns:
             changed_acls (set): changed/added ACLs.
         """
-        _, _, added_acls, changed_acls, _ = self._get_conf_changes(
+        _, _, added_acls, changed_acls, _, _ = self._get_conf_changes(
             logger, 'ACL', self.acls, new_dp.acls, diff=True)
         return added_acls.union(changed_acls)
 
@@ -1412,7 +1419,7 @@ configuration.
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed/added VLAN IDs.
         """
-        _, deleted_vlans, added_vlans, changed_vlans, _ = self._get_conf_changes(
+        _, deleted_vlans, added_vlans, changed_vlans, _, _ = self._get_conf_changes(
             logger, 'VLAN', self.vlans, new_dp.vlans)
         return (deleted_vlans, added_vlans.union(changed_vlans))
 
@@ -1431,7 +1438,7 @@ configuration.
                 changed_ports (set): changed/added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
         """
-        _, deleted_ports, added_ports, changed_ports, same_ports = self._get_conf_changes(
+        _, deleted_ports, added_ports, changed_ports, same_ports, _ = self._get_conf_changes(
             logger, 'port', self.ports, new_dp.ports,
             diff=True, ignore_keys=frozenset(['acls_in']))
 
@@ -1485,7 +1492,7 @@ configuration.
                 deleted_meters (set): deleted Meter IDs.
                 changed_meters (set): changed/added Meter IDs.
         """
-        all_meters_changed, deleted_meters, added_meters, changed_meters, _ = self._get_conf_changes(
+        all_meters_changed, deleted_meters, added_meters, changed_meters, _, _ = self._get_conf_changes(
             logger, 'METERS', self.meters, new_dp.meters)
 
         return (all_meters_changed, deleted_meters, added_meters, changed_meters)
