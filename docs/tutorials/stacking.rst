@@ -222,8 +222,6 @@ First run the cleanup.
 
 We can accomplish inter-VLAN routing between different switches by using the stacking feature.
 To do this we will be combining the methods from the :ref:`tutorial-stacking` and the :ref:`tutorial-ivr` tutorials.
-However, we need to set ``drop_spoofed_faucet_mac`` to false on each DP.
-Doing this will prevent a packet that has been routed and come from a stack port from being dropped.
 
 Here is a full faucet.yaml you can copy and paste that sets up our stack
 topology and enables all the features we need.
@@ -250,7 +248,6 @@ topology and enables all the features we need.
             hardware: "Open vSwitch"
             stack:
                 priority: 1
-            drop_spoofed_faucet_mac: False
             interfaces:
                 1:
                     description: "host1 network namespace"
@@ -267,7 +264,6 @@ topology and enables all the features we need.
         br1:
             dp_id: 0x2
             hardware: "Open vSwitch"
-            drop_spoofed_faucet_mac: False
             interfaces:
                 1:
                     description: "host2 network namespace"
