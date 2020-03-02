@@ -850,7 +850,6 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
     def get_dp_options():
         """Return DP config options"""
         return {
-            'drop_spoofed_faucet_mac': False,
             'arp_neighbor_timeout': 2,
             'max_resolve_backoff_time': 2,
             'proactive_learn_v4': True
@@ -906,7 +905,6 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4Ro
     def get_dp_options(self):
         """Return DP config options"""
         return {
-            'drop_spoofed_faucet_mac': False,
             'nd_neighbor_timeout': 2,
             'max_resolve_backoff_time': 1,
             'proactive_learn_v6': True
@@ -971,7 +969,6 @@ class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
     def get_dp_options():
         """Return DP config options"""
         return {
-            'drop_spoofed_faucet_mac': False,
             'arp_neighbor_timeout': 2,
             'max_resolve_backoff_time': 2,
             'proactive_learn_v4': True
@@ -1059,7 +1056,6 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
     def get_dp_options():
         """Return DP config options"""
         return {
-            'drop_spoofed_faucet_mac': False,
             'arp_neighbor_timeout': 2,
             'max_resolve_backoff_time': 2,
             'proactive_learn_v4': True,
@@ -1215,7 +1211,6 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
     @staticmethod
     def get_dp_options():
         return {
-            'drop_spoofed_faucet_mac': False,
             'arp_neighbor_timeout': 2,
             'max_resolve_backoff_time': 2,
             'proactive_learn_v4': True,

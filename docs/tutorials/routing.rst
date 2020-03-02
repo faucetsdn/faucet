@@ -70,9 +70,8 @@ options that we haven't seen before:
       - The IP address for Faucet's routing interface on this VLAN. Multiple IP
         addresses (IPv4 & IPv6) can be used.
     * - faucet_mac
-      - The MAC address of Faucet's routing interface on this VLAN. If we do not
-        set faucet_mac for each VLAN, routed packets will be dropped unless
-        'drop_spoofed_faucet_mac' is set to false.
+      - The MAC address of Faucet's routing interface on this VLAN.
+
 
 Let's add the following faucet configuration which makes use of these options.
 

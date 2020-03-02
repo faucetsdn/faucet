@@ -45,7 +45,8 @@ class ValvePipeline(ValveManagerBase):
         self.filter_priority = self._FILTER_PRIORITY
         self.select_priority = self._HIGH_PRIORITY
 
-    def _accept_to_table(self, table, actions):
+    @staticmethod
+    def _accept_to_table(table, actions):
         inst = [table.goto_this()]
         if actions is not None:
             inst.append(valve_of.apply_actions(actions))
@@ -139,9 +140,17 @@ class ValvePipeline(ValveManagerBase):
         # antispoof for FAUCET's MAC address
         # TODO: antispoof for controller IPs on this VLAN, too.
         if self.dp.drop_spoofed_faucet_mac:
-            for vlan in list(self.dp.vlans.values()):
-                ofmsgs.extend(self.filter_packets(
-                    {'eth_src': vlan.faucet_mac}))
+            if self.dp.stack_ports:
+                vlan_macs = {vlan.faucet_mac for vlan in self.dp.vlans.values()}
+                for port in self.dp.ports.values():
+                    if not port.stack:
+                        for mac in vlan_macs:
+                            ofmsgs.extend(self.filter_packets(
+                                {'eth_src': mac, 'in_port': port.number}))
+            else:
+                for vlan in list(self.dp.vlans.values()):
+                    ofmsgs.extend(self.filter_packets(
+                        {'eth_src': vlan.faucet_mac}))
 
         return ofmsgs
 
