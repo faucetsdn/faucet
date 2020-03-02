@@ -390,9 +390,9 @@ class Valve:
         return ofmsgs
 
     def _get_all_configured_port_nos(self):
-        ports = {port for port in self.dp.non_vlan_ports()}
+        ports = set(self.dp.non_vlan_ports())
         for vlan in self.dp.vlans.values():
-            ports.update({port for port in vlan.get_ports()})
+            ports.update(set(vlan.get_ports()))
         ports = {port.number for port in ports}
         return ports
 
@@ -889,7 +889,7 @@ class Valve:
                 if cold_start:
                     self.lacp_update_actor_state(port, False, cold_start=cold_start)
                     self.lacp_update_port_selection_state(port, cold_start=cold_start)
-                ofmsgs.extend(self.lacp_update(port, False, cold_start=cold_start))
+                ofmsgs.extend(self.lacp_update(port, False))
                 if port.lacp_active:
                     ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
 
@@ -913,7 +913,7 @@ class Valve:
                 # Add port/to VLAN rules.
                 ofmsgs.extend(self._port_add_vlans(port, mirror_act))
 
-            vlans_with_ports_added.update({vlan for vlan in port_vlans})
+            vlans_with_ports_added.update(set(port_vlans))
 
         # Only update flooding rules if not cold starting.
         if not cold_start:
@@ -951,7 +951,7 @@ class Valve:
             if port.output_only:
                 continue
 
-            vlans_with_deleted_ports.update({vlan for vlan in port.vlans()})
+            vlans_with_deleted_ports.update(set(port.vlans()))
 
             if port.dot1x:
                 ofmsgs.extend(self.dot1x.port_down(
@@ -1062,8 +1062,7 @@ class Valve:
                 port.actor_state_name(prev_actor_state)))
         return prev_actor_state != new_actor_state
 
-    def lacp_update(self, port, lacp_up, now=None, lacp_pkt=None,
-                    other_valves=None, cold_start=False):
+    def lacp_update(self, port, lacp_up, now=None, lacp_pkt=None, other_valves=None):
         """
         Update the port's LACP states and enables/disables packets
             from the link to be processed further through the pipeline
@@ -1074,7 +1073,6 @@ class Valve:
             now (float): The current time
             lacp_pkt (PacketMeta): The received LACP packet
             other_valves (list): List of other valves (in the stack)
-            cold_start (bool): Whether the port is being cold started
         Returns:
             ofmsgs
         """

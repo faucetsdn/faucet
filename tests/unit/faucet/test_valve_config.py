@@ -940,6 +940,18 @@ dps:
         hardware: 'GenericTFM'
         interfaces:
             p1:
+                description: "one thing"
+                number: 1
+                native_vlan: 0x100
+"""
+    NEW_DESCR_CONFIG = """
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        interfaces:
+            p1:
+                description: "another thing"
                 number: 1
                 native_vlan: 0x100
 """
@@ -969,6 +981,9 @@ dps:
         # Should be 100% now
         self.assertEqual(self.get_prom('faucet_config_applied', bare=True), 1.0)
 
+    def test_description_only(self):
+        self.update_config(self.NEW_DESCR_CONFIG, reload_expected=False)
+
 
 class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):
     """Repeats the tests after a config reload."""
@@ -977,6 +992,7 @@ class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):
         super(ValveReloadConfigTestCase, self).setUp()
         self.flap_port(1)
         self.update_config(CONFIG, reload_type='warm', reload_expected=False)
+
 
 
 if __name__ == "__main__":
