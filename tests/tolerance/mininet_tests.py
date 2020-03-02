@@ -81,7 +81,6 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         if n_vlans >= 2:
             for i in range(n_dps):
                 dp_options[i] = {
-                    'drop_spoofed_faucet_mac': False,
                     'arp_neighbor_timeout': 2,
                     'max_resolve_backoff_time': 2,
                     'proactive_learn_v4': True
