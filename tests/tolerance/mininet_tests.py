@@ -194,6 +194,8 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             if peer_dpid == dst_dpid and status == 3:
                 self.set_port_down(port, src_dpid)
                 self.set_port_down(peer_port, dst_dpid)
+                self.wait_for_stack_port_status(src_dpid, self.dp_name(src_i), port, 4)
+                self.wait_for_stack_port_status(dst_dpid, self.dp_name(dst_i), peer_port, 4)
                 name = 'Link %s[%s]:%s-%s[%s]:%s DOWN' % (
                     s1, src_dpid, port, s2, dst_dpid, peer_port)
                 self.topo_watcher.add_link_fault(src_i, dst_i, name)
