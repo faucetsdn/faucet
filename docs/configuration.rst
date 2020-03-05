@@ -109,13 +109,6 @@ string names given to the datapath, or the OFP datapath id.
       - integer
       - The configuration key
       - The OFP datapath-id of this datapath
-    * - drop_bpdu
-      - boolean
-      - True
-      - If True, Faucet will drop all STP BPDUs arriving at the datapath. NB:
-        Faucet does not handle BPDUs itself, if you disable this then you
-        either need to configure an ACL to catch BDPUs or Faucet will forward
-        them as though they were normal traffic.
     * - drop_broadcast_source_address
       - boolean
       - True
