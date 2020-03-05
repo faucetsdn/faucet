@@ -2,7 +2,6 @@
 "cookie: 1524372927"
 "description: words"
 "dp_id: 0x5"
-"drop_bpdu: False"
 "drop_broadcast_source_address: False"
 "drop_spoofed_faucet_mac: False"
 "eth_dst_table: "
