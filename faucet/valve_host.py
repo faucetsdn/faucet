@@ -26,7 +26,7 @@ class ValveHostManager(ValveManagerBase):
 
     def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
                  eth_dst_hairpin_table, pipeline, learn_timeout, learn_jitter,
-                 learn_ban_timeout, cache_update_guard_time, idle_dst, stack,
+                 learn_ban_timeout, cache_update_guard_time, idle_dst, stack_graph,
                  has_externals, stack_root_flood_reflection):
         self.logger = logger
         self.ports = ports
@@ -44,7 +44,7 @@ class ValveHostManager(ValveManagerBase):
         self.cache_update_guard_time = cache_update_guard_time
         self.output_table = self.eth_dst_table
         self.idle_dst = idle_dst
-        self.stack = stack
+        self.stack_graph = stack_graph
         self.has_externals = has_externals
         self.stack_root_flood_reflection = stack_root_flood_reflection
         if self.eth_dst_hairpin_table:
@@ -242,7 +242,7 @@ class ValveHostManager(ValveManagerBase):
         if self.has_externals:
             match_dict.update({
                 valve_of.EXTERNAL_FORWARDING_FIELD: valve_of.PCP_EXT_PORT_FLAG})
-            if port.tagged_vlans and port.loop_protect_external and self.stack:
+            if port.tagged_vlans and port.loop_protect_external and self.stack_graph:
                 external_forwarding_requested = False
             elif not port.stack:
                 external_forwarding_requested = True

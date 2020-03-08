@@ -329,6 +329,7 @@ configuration.
         self.table_sizes = {}
         self.dyn_up_port_nos = set()
         self.has_externals = None
+        self.stack_graph = None
 
         #tunnel_id: int
         #   ID of the tunnel, for now this will be the VLAN ID
@@ -390,8 +391,6 @@ configuration.
         if self.learn_ban_timeout == 0:
             self.learn_ban_timeout = self.learn_jitter
         if self.stack:
-            if 'graph' in self.stack:
-                del self.stack['graph']
             self._check_conf_types(self.stack, self.stack_defaults_types)
         if self.lldp_beacon:
             self._lldp_defaults()
@@ -864,7 +863,7 @@ configuration.
         if graph.size() and self.name in graph:
             if self.stack is None:
                 self.stack = {}
-            self.stack.update({'graph': graph})
+            self.stack_graph = graph
             for dp in graph.nodes():
                 path_to_root_len = len(self.shortest_path(self.stack_root_name, src_dp=dp))
                 test_config_condition(
@@ -878,19 +877,15 @@ configuration.
 
     def get_node_link_data(self):
         """Return network stacking graph as a node link representation"""
-        graph = self.stack.get('graph', None)
-        return networkx.json_graph.node_link_data(graph)
+        return networkx.json_graph.node_link_data(self.stack_graph)
 
     def stack_longest_path_to_root_len(self):
         """Return length of the longest path to root in the stack."""
-        if not self.stack or not self.stack_root_name:
-            return None
-        graph = self.stack.get('graph', None)
-        if not graph:
+        if not self.stack_graph or not self.stack_root_name:
             return None
         len_paths_to_root = [
             len(self.shortest_path(self.stack_root_name, src_dp=dp))
-            for dp in graph.nodes()]
+            for dp in self.stack_graph.nodes()]
         if len_paths_to_root:
             return max(len_paths_to_root)
         return None
@@ -924,13 +919,11 @@ configuration.
         """Return shortest path to a DP, as a list of DPs."""
         if src_dp is None:
             src_dp = self.name
-        if self.stack:
-            graph = self.stack.get('graph', None)
-            if graph:
-                try:
-                    return sorted(networkx.all_shortest_paths(graph, src_dp, dest_dp))[0]
-                except (networkx.exception.NetworkXNoPath, networkx.exception.NodeNotFound):
-                    pass
+        if self.stack_graph:
+            try:
+                return sorted(networkx.all_shortest_paths(self.stack_graph, src_dp, dest_dp))[0]
+            except (networkx.exception.NetworkXNoPath, networkx.exception.NodeNotFound):
+                pass
         return []
 
     def shortest_path_to_root(self, src_dp=None):
@@ -1360,9 +1353,11 @@ configuration.
         for conf_id, new_conf in new_subconf.items():
             old_conf = subconf.get(conf_id, None)
             if old_conf:
-                if old_conf.ignore_subconf(new_conf, ignore_keys=ignore_keys):
+                if old_conf.ignore_subconf(
+                        new_conf, ignore_keys=ignore_keys):
                     same_confs.add(conf_id)
-                elif old_conf.ignore_subconf(new_conf, ignore_keys=(ignore_keys.union(['description']))):
+                elif old_conf.ignore_subconf(
+                        new_conf, ignore_keys=(ignore_keys.union(['description']))):
                     same_confs.add(conf_id)
                     description_only_confs.add(conf_id)
                     logger.info('%s %s description only changed' % (
@@ -1393,7 +1388,8 @@ configuration.
         else:
             logger.info('no %s changes' % conf_name)
 
-        return (changes, deleted_confs, added_confs, changed_confs, same_confs, description_only_confs)
+        return (
+            changes, deleted_confs, added_confs, changed_confs, same_confs, description_only_confs)
 
     def _get_acl_config_changes(self, logger, new_dp):
         """Detect any config changes to ACLs.
@@ -1435,8 +1431,10 @@ configuration.
             changes (tuple) of:
                 all_ports_changed (bool): True if all ports changed.
                 deleted_ports (set): deleted port numbers.
-                changed_ports (set): changed/added port numbers.
+                changed_ports (set): changed port numbers.
+                added_ports (set): added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
+                changed_vlans (set): changed/added VLAN IDs.
         """
         _, deleted_ports, added_ports, changed_ports, same_ports, _ = self._get_conf_changes(
             logger, 'port', self.ports, new_dp.ports,
@@ -1445,8 +1443,10 @@ configuration.
         changed_acl_ports = set()
         all_ports_changed = False
 
+        if not same_ports:
+            all_ports_changed = True
         # TODO: optimize case where only VLAN ACL changed.
-        if changed_vlans:
+        elif changed_vlans:
             all_ports = frozenset(new_dp.ports.keys())
             for vid in changed_vlans:
                 changed_port_nums = {port.number for port in new_dp.vlans[vid].get_ports()}
@@ -1456,6 +1456,21 @@ configuration.
         # TODO: optimize for only mirror options changed on a port
         # Optimize for case where only the ACL changed on a port.
         if not all_ports_changed:
+            for port_no in changed_ports:
+                old_port = self.ports[port_no]
+                new_port = new_dp.ports[port_no]
+                if old_port.native_vlan != new_port.native_vlan:
+                    changed_vlans.add(old_port.native_vlan.vid)
+                    changed_vlans.add(new_port.native_vlan.vid)
+                if new_port.tagged_vlans != new_port.tagged_vlans:
+                    changed_vlans.update({vlan.vid for vlan in old_port.tagged_vlans})
+                    changed_vlans.update({vlan.vid for vlan in new_port.tagged_vlans})
+            for port_no in deleted_ports:
+                deleted_port = self.ports[port_no]
+                if deleted_port.native_vlan:
+                    changed_vlans.add(deleted_port.native_vlan.vid)
+                if deleted_port.tagged_vlans:
+                    changed_vlans.update({vlan.vid for vlan in deleted_port.tagged_vlans})
             for port_no in same_ports:
                 old_port = self.ports[port_no]
                 new_port = new_dp.ports[port_no]
@@ -1480,7 +1495,7 @@ configuration.
                 same_ports -= changed_acl_ports
                 logger.info('ports where ACL only changed: %s' % changed_acl_ports)
         return (all_ports_changed, deleted_ports,
-                added_ports.union(changed_ports), changed_acl_ports)
+                changed_ports, added_ports, changed_acl_ports, changed_vlans)
 
     def _get_meter_config_changes(self, logger, new_dp):
         """Detect any config changes to meters.
@@ -1507,7 +1522,8 @@ configuration.
             (tuple): changes tuple containing:
 
                 deleted_ports (set): deleted port numbers.
-                changed_ports (set): changed/added port numbers.
+                changed_ports (set): changed port numbers.
+                added_ports (set): added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed/added VLAN IDs.
@@ -1519,28 +1535,29 @@ configuration.
             return frozenset([
                 table.table_config for table in dp.tables.values()])
 
-        if self.ignore_subconf(new_dp):
-            logger.info('DP base level config changed - requires cold start')
-        elif _table_configs(self) != _table_configs(new_dp):
+        if _table_configs(self) != _table_configs(new_dp):
             logger.info('pipeline table config change - requires cold start')
-        elif new_dp.routers != self.routers:
-            logger.info('DP routers config changed - requires cold start')
         elif new_dp.stack_root_name != self.stack_root_name:
             logger.info('Stack root change - requires cold start')
+        elif new_dp.routers != self.routers:
+            logger.info('DP routers config changed - requires cold start')
+        elif not self.ignore_subconf(new_dp, ignore_keys=['interfaces', 'interfaces_range', 'routers']):
+            logger.info('DP config changed - requires cold start: %s' % self.conf_diff(new_dp))
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
             deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)
-            (all_ports_changed, deleted_ports, changed_ports,
-             changed_acl_ports) = self._get_port_config_changes(
+            (all_ports_changed, deleted_ports, changed_ports, added_ports,
+             changed_acl_ports, changed_vlans) = self._get_port_config_changes(
                  logger, new_dp, changed_vlans, changed_acls)
+            changed_vlans -= deleted_vlans
             (all_meters_changed, deleted_meters,
              added_meters, changed_meters) = self._get_meter_config_changes(logger, new_dp)
-            return (deleted_ports, changed_ports, changed_acl_ports,
+            return (deleted_ports, changed_ports, added_ports, changed_acl_ports,
                     deleted_vlans, changed_vlans, all_ports_changed,
                     all_meters_changed, deleted_meters,
                     added_meters, changed_meters)
         # default cold start
-        return (set(), set(), set(), set(), set(), True, True, set(), set(), set())
+        return (set(), set(), set(), set(), set(), set(), True, True, set(), set(), set())
 
     def get_tables(self):
         """Return tables as dict for API call."""

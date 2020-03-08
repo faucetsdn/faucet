@@ -180,7 +180,7 @@ dps:
 
     def test_port_delete(self):
         """Test port can be deleted."""
-        self.update_config(self.LESS_CONFIG, reload_type='cold')
+        self.update_config(self.LESS_CONFIG, reload_type='warm')
 
 
 class ValveAddPortTestCase(ValveTestBases.ValveTestSmall):
@@ -226,7 +226,7 @@ dps:
 
     def test_port_add(self):
         """Test port can be added."""
-        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='cold')
+        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='warm')
         self.assertTrue(self._inport_flows(3, reload_ofmsgs))
 
 
@@ -330,6 +330,45 @@ dps:
     def test_delete_vlan(self):
         """Test VLAN can be deleted."""
         self.update_config(self.LESS_CONFIG, reload_type='cold')
+
+
+class ValveChangeDPTestCase(ValveTestBases.ValveTestSmall):
+    """Test changing DP."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        priority_offset: 4321
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    NEW_CONFIG = """
+dps:
+    s1:
+%s
+        priority_offset: 1234
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x100
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def test_change_dp(self):
+        """Test DP changed."""
+        self.update_config(self.NEW_CONFIG, reload_type='cold')
 
 
 class ValveAddVLANTestCase(ValveTestBases.ValveTestSmall):
@@ -493,6 +532,9 @@ dps:
             p2:
                 number: 2
                 output_only: True
+            p3:
+                number: 3
+                native_vlan: 0x200
 """ % DP1_CONFIG
 
     MIRROR_CONFIG = """
@@ -506,6 +548,9 @@ dps:
             p2:
                 number: 2
                 mirror: p1
+            p3:
+                number: 3
+                native_vlan: 0x200
 """ % DP1_CONFIG
 
     def setUp(self):
@@ -899,7 +944,7 @@ dps:
                 number: 2
                 native_vlan: 0x100
         """
-        self.update_config(more_config, reload_expected=True, error_expected=0)
+        self.update_config(more_config, reload_expected=True, reload_type='warm', error_expected=0)
 
 
 class ValveTestConfigRevertBootstrap(ValveTestBases.ValveTestSmall):
