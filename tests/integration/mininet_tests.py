@@ -6122,6 +6122,7 @@ routers:
             restart=True, cold_start=True)
         third_host.setIP(str(second_host_ip.ip), prefixLen=24)
         self.add_host_route(third_host, first_host_ip, second_faucet_vip.ip)
+        self.one_ipv4_ping(first_host, first_faucet_vip.ip)
         self.one_ipv4_ping(first_host, second_host_ip.ip)
         self.one_ipv4_ping(third_host, first_host_ip.ip)
         self.assertEqual(

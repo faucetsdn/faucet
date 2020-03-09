@@ -1419,13 +1419,14 @@ configuration.
             logger, 'VLAN', self.vlans, new_dp.vlans)
         return (deleted_vlans, added_vlans.union(changed_vlans))
 
-    def _get_port_config_changes(self, logger, new_dp, changed_vlans, changed_acls):
+    def _get_port_config_changes(self, logger, new_dp, changed_vlans, deleted_vlans, changed_acls):
         """Detect any config changes to ports.
 
         Args:
             logger (ValveLogger): logger instance.
             new_dp (DP): new dataplane configuration.
             changed_vlans (set): changed/added VLAN IDs.
+            deleted_vlans (set): deleted VLAN IDs.
             changed_acls (set): changed/added ACL IDs.
         Returns:
             changes (tuple) of:
@@ -1448,8 +1449,10 @@ configuration.
         # TODO: optimize case where only VLAN ACL changed.
         elif changed_vlans:
             all_ports = frozenset(new_dp.ports.keys())
-            for vid in changed_vlans:
-                changed_port_nums = {port.number for port in new_dp.vlans[vid].get_ports()}
+            new_changed_vlans = {
+                vlan for vlan in new_dp.vlans.values() if vlan.vid in changed_vlans}
+            for vlan in new_changed_vlans:
+                changed_port_nums = {port.number for port in vlan.get_ports()}
                 changed_ports.update(changed_port_nums)
             all_ports_changed = changed_ports == all_ports
 
@@ -1466,11 +1469,17 @@ configuration.
                     changed_vlans.update({vlan.vid for vlan in old_port.tagged_vlans})
                     changed_vlans.update({vlan.vid for vlan in new_port.tagged_vlans})
             for port_no in deleted_ports:
-                deleted_port = self.ports[port_no]
-                if deleted_port.native_vlan:
-                    changed_vlans.add(deleted_port.native_vlan.vid)
-                if deleted_port.tagged_vlans:
-                    changed_vlans.update({vlan.vid for vlan in deleted_port.tagged_vlans})
+                port = self.ports[port_no]
+                if port.native_vlan:
+                    changed_vlans.add(port.native_vlan.vid)
+                if port.tagged_vlans:
+                    changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
+            for port_no in added_ports:
+                port = new_dp.ports[port_no]
+                if port.native_vlan:
+                    changed_vlans.add(port.native_vlan.vid)
+                if port.tagged_vlans:
+                    changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
             for port_no in same_ports:
                 old_port = self.ports[port_no]
                 new_port = new_dp.ports[port_no]
@@ -1494,6 +1503,15 @@ configuration.
             if changed_acl_ports:
                 same_ports -= changed_acl_ports
                 logger.info('ports where ACL only changed: %s' % changed_acl_ports)
+
+        changed_vlans -= deleted_vlans
+        for vid in changed_vlans:
+            vlan = new_dp.vlans[vid]
+            if vlan.faucet_vips:
+                logger.info('forcing cold start to clear caches because %s has routing' % vlan)
+                all_ports_changed = True
+                break
+
         return (all_ports_changed, deleted_ports,
                 changed_ports, added_ports, changed_acl_ports, changed_vlans)
 
@@ -1511,6 +1529,9 @@ configuration.
             logger, 'METERS', self.meters, new_dp.meters)
 
         return (all_meters_changed, deleted_meters, added_meters, changed_meters)
+
+    def _table_configs(self):
+        return frozenset([table.table_config for table in self.tables.values()])
 
     def get_config_changes(self, logger, new_dp):
         """Detect any config changes.
@@ -1531,11 +1552,7 @@ configuration.
                 deleted_meters (set): deleted meter numbers
                 changed_meters (set): changed/added meter numbers
         """
-        def _table_configs(dp):
-            return frozenset([
-                table.table_config for table in dp.tables.values()])
-
-        if _table_configs(self) != _table_configs(new_dp):
+        if new_dp._table_configs() != self._table_configs():
             logger.info('pipeline table config change - requires cold start')
         elif new_dp.stack_root_name != self.stack_root_name:
             logger.info('Stack root change - requires cold start')
@@ -1546,12 +1563,11 @@ configuration.
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
             deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)
-            (all_ports_changed, deleted_ports, changed_ports, added_ports,
-             changed_acl_ports, changed_vlans) = self._get_port_config_changes(
-                 logger, new_dp, changed_vlans, changed_acls)
-            changed_vlans -= deleted_vlans
             (all_meters_changed, deleted_meters,
              added_meters, changed_meters) = self._get_meter_config_changes(logger, new_dp)
+            (all_ports_changed, deleted_ports, changed_ports, added_ports,
+             changed_acl_ports, changed_vlans) = self._get_port_config_changes(
+                 logger, new_dp, changed_vlans, deleted_vlans, changed_acls)
             return (deleted_ports, changed_ports, added_ports, changed_acl_ports,
                     deleted_vlans, changed_vlans, all_ports_changed,
                     all_meters_changed, deleted_meters,
