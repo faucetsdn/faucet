@@ -2080,6 +2080,7 @@ dbs:
             self.assertEqual(
                 old_count, new_count,
                 msg='%s incremented: %u' % (var, new_count))
+        self.wait_for_prometheus_var('faucet_config_applied', 1, dpid=None, timeout=30)
         self.wait_dp_status(1)
 
     def force_faucet_reload(self, new_config):
