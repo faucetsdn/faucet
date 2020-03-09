@@ -181,7 +181,7 @@ dps:
             self.assertEqual(
                 dp.stack_roots_names, ('t1-1', 't1-2'), 'root_dps configured incorrectly')
             self.assertEqual(
-                len(dp.stack['graph'].nodes),
+                len(dp.stack_graph.nodes),
                 3,
                 'stack graph has incorrect nodes'
                 )

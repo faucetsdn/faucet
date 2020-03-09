@@ -171,7 +171,7 @@ class Valve:
             for port_number in self.dp.ports.keys():
                 self._port_highwater[vlan_vid][port_number] = 0
         restricted_bcast_arpnd = bool(self.dp.restricted_bcast_arpnd_ports())
-        if self.dp.stack:
+        if self.dp.stack_graph:
             flood_class = valve_flood.ValveFloodStackManagerNoReflection
             if self.dp.stack_root_flood_reflection:
                 flood_class = valve_flood.ValveFloodStackManagerReflection
@@ -186,7 +186,7 @@ class Valve:
                 self.dp.stack_ports, self.dp.has_externals,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port,
                 self.dp.is_stack_root, self.dp.is_stack_root_candidate,
-                self.dp.is_stack_edge, self.dp.stack.get('graph', None))
+                self.dp.is_stack_edge, self.dp.stack_graph)
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
                 self.logger, self.dp.tables['flood'], self.pipeline,
@@ -202,7 +202,7 @@ class Valve:
             fib_table = self.dp.tables[fib_table_name]
             proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
             valve_flood_manager = None
-            if self.dp.stack:
+            if self.dp.stack_graph:
                 valve_flood_manager = self.flood_manager
             route_manager = route_manager_class(
                 self.logger, self.notify, self.dp.global_vlan, neighbor_timeout,
@@ -229,7 +229,7 @@ class Valve:
             self.dp.vlans, self.dp.tables['eth_src'],
             self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack,
+            self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack_graph,
             self.dp.has_externals, self.dp.stack_root_flood_reflection)
         self.acl_manager = None
         if self.dp.has_acls:
@@ -660,12 +660,11 @@ class Valve:
 
             # Find the first valve with a valid stack and trigger notification.
             for valve in stacked_valves:
-                graph = valve.dp.get_node_link_data()
-                if graph:
+                if valve.dp.stack_graph:
                     self.notify(
                         {'STACK_TOPO_CHANGE': {
                             'stack_root': valve.dp.stack_root_name,
-                            'graph': graph,
+                            'graph': valve.dp.stack_graph,
                             'dps': notify_dps
                             }})
                     break
@@ -1059,7 +1058,7 @@ class Valve:
             bool: True if port state changed
         """
         nominated_dpid = self.dp.dp_id
-        if self.dp.stack:
+        if self.dp.stack_graph:
             nominated_dpid, _ = self.get_lacp_dpid_nomination(port.lacp, other_valves)
         prev_state = port.lacp_port_state()
         new_state = port.lacp_port_update(self.dp.dp_id == nominated_dpid, cold_start=cold_start)
@@ -1499,7 +1498,7 @@ class Valve:
                 'packet with all zeros eth_src %s port %u' % (
                     pkt_meta.eth_src, in_port))
             return None
-        if self.dp.stack is not None:
+        if self.dp.stack_graph:
             if (not pkt_meta.port.stack and
                     pkt_meta.vlan and
                     pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
@@ -1787,7 +1786,8 @@ class Valve:
             new_dp: (DP): new dataplane configuration.
             changes (tuple) of:
                 deleted_ports (set): deleted port numbers.
-                changed_ports (set): changed/added port numbers.
+                changed_ports (set): changed port numbers.
+                added_ports (set): added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
                 deleted_vids (set): deleted VLAN IDs.
                 changed_vids (set): changed/added VLAN IDs.
@@ -1801,7 +1801,7 @@ class Valve:
                 cold_start (bool): whether cold starting.
                 ofmsgs (list): OpenFlow messages.
         """
-        (deleted_ports, changed_ports, changed_acl_ports,
+        (deleted_ports, changed_ports, added_ports, changed_acl_ports,
          deleted_vids, changed_vids, all_ports_changed,
          _, deleted_meters, added_meters, changed_meters) = changes
 
@@ -1865,6 +1865,8 @@ class Valve:
             ofmsgs.extend(self.add_vlans(changed_vlans))
         if changed_ports:
             ofmsgs.extend(self.ports_add(all_up_port_nos))
+        if added_ports:
+            ofmsgs.extend(self.ports_add(added_ports))
         if self.acl_manager and changed_acl_ports:
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]

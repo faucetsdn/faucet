@@ -3285,7 +3285,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             actions=['OUTPUT:CONTROLLER', 'GOTO_TABLE:%u' % self._ETH_DST_TABLE])
         self.change_port_config(
             self.port_map['port_2'], 'native_vlan', 200,
-            restart=True, cold_start=True)
+            restart=True, cold_start=False)
         for port_name in ('port_1', 'port_2'):
             self.wait_until_matching_flow(
                 {'in_port': int(self.port_map[port_name])},

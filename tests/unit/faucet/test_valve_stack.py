@@ -950,7 +950,7 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestSmall):
                 valve = self.valves_manager.valves[dpid]
                 if not valve.dp.stack:
                     continue
-                graph = valve.dp.stack['graph']
+                graph = valve.dp.stack_graph
                 self.assertEqual(num_edges, len(graph.edges()))
                 if test_func and edge:
                     test_func(edge in graph.edges(keys=True))

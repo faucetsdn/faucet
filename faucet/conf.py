@@ -24,7 +24,6 @@ from collections import OrderedDict
 
 class InvalidConfigError(Exception):
     """This error is thrown when the config file is not valid."""
-    pass
 
 
 def test_config_condition(cond, msg):
@@ -37,8 +36,8 @@ class Conf:
     """Base class for FAUCET configuration."""
 
     mutable_attrs = frozenset() # type: frozenset
-    defaults = None # type: dict
-    defaults_types = None # type: dict
+    defaults = {}  # type: dict
+    defaults_types = {}  # type: dict
     dyn_finalized = False
     dyn_hash = None
 
@@ -55,6 +54,7 @@ class Conf:
             self.update(conf)
             self.set_defaults()
         self.check_config()
+        self.orig_conf = {k: self.__dict__[k] for k in self.defaults}
 
     def __setattr__(self, name, value):
         if not self.dyn_finalized or name.startswith('dyn') or name in self.mutable_attrs:
@@ -116,21 +116,22 @@ class Conf:
         self._check_unknown_conf(conf)
         self._check_conf_types(conf, self.defaults_types)
 
-    def check_config(self):
-        """Check config at instantiation time for errors, typically via assert."""
-        pass
-
     @staticmethod
-    def _conf_keys(conf, dyn=False, subconf=True, ignore_keys=None):
+    def check_config():
+        """Check config at instantiation time for errors, typically via assert."""
+        return
+
+    def _conf_keys(self, conf, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
         conf_keys = []
-        for key, value in sorted(conf.__dict__.items()):
-            if not dyn and key.startswith('dyn'):
-                continue
-            if not subconf and isinstance(value, Conf):
-                continue
+        for key, value in sorted(((key, value) for key, value in conf.orig_conf.items() if key in self.defaults)):
             if ignore_keys and key in ignore_keys:
                 continue
+            if not subconf and value:
+                if isinstance(value, Conf):
+                    continue
+                if isinstance(value, (tuple, list, set)) and isinstance(value[0], Conf):
+                    continue
             conf_keys.append((key, value))
         return conf_keys
 
@@ -162,7 +163,7 @@ class Conf:
     def to_conf(self):
         """Return configuration as a dict."""
         conf = {
-            k: self.__dict__[str(k)] for k in self.defaults.keys() if k != 'name'}
+            k: self.orig_conf[str(k)] for k in self.defaults if k != 'name'}
         return json.dumps(self._str_conf(conf), sort_keys=True, indent=4, separators=(',', ': '))
 
     def conf_diff(self, other):
@@ -171,15 +172,15 @@ class Conf:
         return '\n'.join(differ.compare(
             self.to_conf().splitlines(), other.to_conf().splitlines()))
 
-    def conf_hash(self, dyn=False, subconf=True, ignore_keys=None):
+    def conf_hash(self, subconf=True, ignore_keys=None):
         """Return hash of keys configurably filtering attributes."""
         return hash(frozenset(list(map(
-            str, self._conf_keys(self, dyn=dyn, subconf=subconf, ignore_keys=ignore_keys)))))
+            str, self._conf_keys(self, subconf=subconf, ignore_keys=ignore_keys)))))
 
     def __hash__(self):
         if self.dyn_hash is not None:
             return self.dyn_hash
-        dyn_hash = self.conf_hash(dyn=False, subconf=True)
+        dyn_hash = self.conf_hash(subconf=True)
         if self.dyn_finalized:
             self.dyn_hash = dyn_hash
         return dyn_hash
@@ -205,8 +206,9 @@ class Conf:
 
     def ignore_subconf(self, other, ignore_keys=None):
         """Return True if this config same as other, ignoring sub config."""
-        return (self.conf_hash(dyn=False, subconf=False, ignore_keys=ignore_keys)
-                == other.conf_hash(dyn=False, subconf=False, ignore_keys=ignore_keys))
+        return (self.conf_hash(
+            subconf=False, ignore_keys=ignore_keys) == other.conf_hash(
+                subconf=False, ignore_keys=ignore_keys))
 
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
@@ -220,8 +222,7 @@ class Conf:
             # bool type is deprecated by the library ipaddress
             if not isinstance(ip_str, bool):
                 return ip_method(ip_str)
-            else:
-                raise InvalidConfigError('Invalid IP address %s: IP address of type bool' % (ip_str))
+            raise InvalidConfigError('Invalid IP address %s: IP address of type bool' % (ip_str))
         except (ValueError, AttributeError, TypeError) as err:
             raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
 
