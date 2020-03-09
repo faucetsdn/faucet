@@ -576,6 +576,12 @@ dps:
             1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
         self.assertEqual(
             1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+        # Now unmirror again.
+        self.update_config(self.CONFIG, reload_type='warm')
+        self.assertEqual(
+            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
+        self.assertEqual(
+            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
 
 
 class ValveACLTestCase(ValveTestBases.ValveTestSmall):
