@@ -1456,33 +1456,46 @@ configuration.
                 changed_ports.update(changed_port_nums)
             all_ports_changed = changed_ports == all_ports
 
-        # TODO: optimize for only mirror options changed on a port
-        # Optimize for case where only the ACL changed on a port.
+        # Detect changes to VLANs and ACLs based on port changes.
         if not all_ports_changed:
+            def _add_changed_vlan_port(port):
+                if port.native_vlan:
+                    changed_vlans.add(port.native_vlan.vid)
+                if port.tagged_vlans:
+                    changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
+
             for port_no in changed_ports:
                 old_port = self.ports[port_no]
                 new_port = new_dp.ports[port_no]
+                # native_vlan changed.
                 if old_port.native_vlan != new_port.native_vlan:
-                    changed_vlans.add(old_port.native_vlan.vid)
-                    changed_vlans.add(new_port.native_vlan.vid)
-                if new_port.tagged_vlans != new_port.tagged_vlans:
-                    changed_vlans.update({vlan.vid for vlan in old_port.tagged_vlans})
-                    changed_vlans.update({vlan.vid for vlan in new_port.tagged_vlans})
+                    for port in (old_port, new_port):
+                        if port.native_vlan:
+                            changed_vlans.add(port.native_vlan.vid)
+                # tagged vlans changed.
+                if old_port.tagged_vlans != new_port.tagged_vlans:
+                    for port in (old_port, new_port):
+                        if port.tagged_vlans:
+                            changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
+
+            # ports deleted or added.
             for port_no in deleted_ports:
                 port = self.ports[port_no]
-                if port.native_vlan:
-                    changed_vlans.add(port.native_vlan.vid)
-                if port.tagged_vlans:
-                    changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
+                _add_changed_vlan_port(port)
             for port_no in added_ports:
                 port = new_dp.ports[port_no]
-                if port.native_vlan:
-                    changed_vlans.add(port.native_vlan.vid)
-                if port.tagged_vlans:
-                    changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
+                _add_changed_vlan_port(port)
             for port_no in same_ports:
                 old_port = self.ports[port_no]
                 new_port = new_dp.ports[port_no]
+                # mirror options changed.
+                if old_port.mirror != new_port.mirror:
+                    logger.info('port %s mirror options changed: %s' % (
+                        port_no, new_port.mirror))
+                    for mirrored_port in (old_port, new_port):
+                        if mirrored_port.mirror:
+                            _add_changed_vlan_port(mirrored_port)
+                # ACL changes
                 new_acl_ids = new_port.acls_in
                 port_acls_changed = set()
                 if new_acl_ids:
@@ -1505,12 +1518,15 @@ configuration.
                 logger.info('ports where ACL only changed: %s' % changed_acl_ports)
 
         changed_vlans -= deleted_vlans
+        # TODO: limit scope to only routers that have affected VLANs.
+        changed_vlans_with_vips = []
         for vid in changed_vlans:
             vlan = new_dp.vlans[vid]
             if vlan.faucet_vips:
-                logger.info('forcing cold start to clear caches because %s has routing' % vlan)
-                all_ports_changed = True
-                break
+                changed_vlans_with_vips.append(vlan)
+        if changed_vlans_with_vips:
+            logger.info('forcing cold start because %s has routing' % changed_vlans_with_vips)
+            all_ports_changed = True
 
         return (all_ports_changed, deleted_ports,
                 changed_ports, added_ports, changed_acl_ports, changed_vlans)
