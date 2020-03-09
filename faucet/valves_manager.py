@@ -248,7 +248,7 @@ class ValvesManager:
                 valve = self.valves[dp_id]
                 ofmsgs = valve.reload_config(now, new_dp)
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
-                sent[dp_id] = True
+                sent[dp_id] = valve.dp.dyn_running
             else:
                 self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
                 valve = self.new_valve(new_dp)
@@ -362,4 +362,5 @@ class ValvesManager:
     def datapath_connect(self, now, valve, discovered_up_ports):
         """Handle connection from DP."""
         self.meta_dp_state.dp_last_live_time[valve.dp.name] = now
+        self.update_config_applied({valve.dp.dp_id: True})
         return valve.datapath_connect(now, discovered_up_ports)
