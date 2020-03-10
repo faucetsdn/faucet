@@ -4949,19 +4949,31 @@ vlans:
             %(port_2)d:
                 native_vlan: 100
             %(port_3)d:
-                # port 3 will mirror port 1
-                mirror: %(port_1)d
+                output_only: True
             %(port_4)d:
                 native_vlan: 100
 """
 
     def test_untagged(self):
         first_host, second_host, mirror_host = self.hosts_name_ordered()[0:3]
-        self.flap_all_switch_ports()
-        self.verify_ping_mirrored(first_host, second_host, mirror_host)
-        self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
         first_host_ip = ipaddress.ip_address(first_host.IP())
         second_host_ip = ipaddress.ip_address(second_host.IP())
+        self.flap_all_switch_ports()
+        # Add mirror, test performance.
+        self.change_port_config(
+            self.port_map['port_3'], 'mirror', self.port_map['port_1'],
+            restart=True, cold_start=False)
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
+        self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
+        self.verify_iperf_min(
+            ((first_host, self.port_map['port_1']),
+             (second_host, self.port_map['port_2'])),
+            MIN_MBPS, first_host_ip, second_host_ip,
+            sync_counters_func=lambda: self.one_ipv4_ping(first_host, second_host_ip))
+        # Remove mirror, test performance.
+        self.change_port_config(
+            self.port_map['port_3'], 'mirror', [],
+            restart=True, cold_start=False)
         self.verify_iperf_min(
             ((first_host, self.port_map['port_1']),
              (second_host, self.port_map['port_2'])),
@@ -6121,6 +6133,7 @@ routers:
             self.port_map['port_3'], {'native_vlan': 'vlanb'},
             restart=True, cold_start=True)
         third_host.setIP(str(second_host_ip.ip), prefixLen=24)
+        self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
         self.add_host_route(third_host, first_host_ip, second_faucet_vip.ip)
         self.one_ipv4_ping(first_host, second_host_ip.ip)
         self.one_ipv4_ping(third_host, first_host_ip.ip)
