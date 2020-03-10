@@ -1561,9 +1561,9 @@ configuration.
                 deleted_meters (set): deleted Meter IDs.
                 changed_meters (set): changed/added Meter IDs.
         """
-        (all_meters_changed, deleted_meters, 
+        (all_meters_changed, deleted_meters,
          added_meters, changed_meters, _, _) = self._get_conf_changes(
-            logger, 'METERS', self.meters, new_dp.meters)
+             logger, 'METERS', self.meters, new_dp.meters)
 
         return (all_meters_changed, deleted_meters, added_meters, changed_meters)
 
