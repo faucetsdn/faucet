@@ -1479,8 +1479,8 @@ configuration.
                     for port in (old_port, new_port):
                         if port.tagged_vlans:
                             changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
-                # stack change
-                if old_port.stack != new_port.stack:
+                # stacking dis/enabled on a port.
+                if bool(old_port.stack) != bool(new_port.stack):
                     changed_vlans.update({vlan.vid for vlan in new_dp.vlans.values()})
 
             # ports deleted or added.
@@ -1534,9 +1534,6 @@ configuration.
         if changed_vlans_with_vips:
             logger.info('forcing cold start because %s has routing' % changed_vlans_with_vips)
             all_ports_changed = True
-
-        if not all_ports_changed:
-            all_ports_changed = not same_ports
 
         return (all_ports_changed, deleted_ports,
                 changed_ports, added_ports, changed_acl_ports, changed_vlans)
