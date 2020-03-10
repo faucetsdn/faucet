@@ -1725,28 +1725,28 @@ acls:
             ip_proto: 1
             actions:
                 output:
-                    - tunnel: {dp: s2, port: 1}
+                    - tunnel: {dp: s2, port: 1, tunnel_id: 5}
     dst_acl:
         - rule:
             dl_type: 0x0800
             ip_proto: 1
             actions:
                 output:
-                    - tunnel: {dp: s1, port: 1}
+                    - tunnel: {dp: s1, port: 1, tunnel_id: 2}
     same_acl:
         - rule:
             dl_type: 0x0800
             ip_proto: 1
             actions:
                 output:
-                    - tunnel: {dp: s1, port: 1}
+                    - tunnel: {dp: s1, port: 1, tunnel_id: 4}
     none_acl:
         - rule:
             dl_type: 0x0800
             ip_proto: 1
             actions:
                 output:
-                    - tunnel: {dp: s2, port: 1}
+                    - tunnel: {dp: s2, port: 1, tunnel_id: 3}
 vlans:
     vlan100:
         vid: 1
