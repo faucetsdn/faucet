@@ -5332,19 +5332,31 @@ vlans:
             %(port_2)d:
                 native_vlan: 100
             %(port_3)d:
-                # port 3 will mirror port 1
-                mirror: %(port_1)d
+                output_only: True
             %(port_4)d:
                 native_vlan: 100
 """
 
     def test_untagged(self):
         first_host, second_host, mirror_host = self.hosts_name_ordered()[0:3]
-        self.flap_all_switch_ports()
-        self.verify_ping_mirrored(first_host, second_host, mirror_host)
-        self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
         first_host_ip = ipaddress.ip_address(first_host.IP())
         second_host_ip = ipaddress.ip_address(second_host.IP())
+        self.flap_all_switch_ports()
+        # Add mirror, test performance.
+        self.change_port_config(
+            self.port_map['port_3'], 'mirror', self.port_map['port_1'],
+            restart=True, cold_start=False)
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
+        self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
+        self.verify_iperf_min(
+            ((first_host, self.port_map['port_1']),
+             (second_host, self.port_map['port_2'])),
+            MIN_MBPS, first_host_ip, second_host_ip,
+            sync_counters_func=lambda: self.one_ipv4_ping(first_host, second_host_ip))
+        # Remove mirror, test performance.
+        self.change_port_config(
+            self.port_map['port_3'], 'mirror', [],
+            restart=True, cold_start=False)
         self.verify_iperf_min(
             ((first_host, self.port_map['port_1']),
              (second_host, self.port_map['port_2'])),
@@ -6732,30 +6744,30 @@ routers:
         second_host_ip = ipaddress.ip_interface('10.200.0.1/24')
         second_faucet_vip = ipaddress.ip_interface('10.200.0.254/24')
         first_host, second_host, third_host = self.hosts_name_ordered()[:3]
-        first_host.setIP(str(first_host_ip.ip), prefixLen=24)
-        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
-        self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
-        self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
-        self.one_ipv4_ping(first_host, second_host_ip.ip)
-        self.one_ipv4_ping(second_host, first_host_ip.ip)
-        self.assertEqual(
-            self._ip_neigh(first_host, first_faucet_vip.ip, 4), self.FAUCET_MAC)
-        self.assertEqual(
-            self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
-        # Delete port 2
+
+        def test_connectivity(host_a, host_b):
+            host_a.setIP(str(first_host_ip.ip), prefixLen=24)
+            host_b.setIP(str(second_host_ip.ip), prefixLen=24)
+            self.add_host_route(host_a, second_host_ip, first_faucet_vip.ip)
+            self.add_host_route(host_b, first_host_ip, second_faucet_vip.ip)
+            self.one_ipv4_ping(host_a, second_host_ip.ip)
+            self.one_ipv4_ping(host_b, first_host_ip.ip)
+            self.assertEqual(
+                self._ip_neigh(host_a, first_faucet_vip.ip, 4), self.FAUCET_MAC)
+            self.assertEqual(
+                self._ip_neigh(host_b, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
+
+        test_connectivity(first_host, second_host)
+
+        # Delete port 1, add port 3
         self.change_port_config(
-            self.port_map['port_2'], None, None,
+            self.port_map['port_1'], None, None,
             restart=False, cold_start=False)
-        # Add port 3
         self.add_port_config(
-            self.port_map['port_3'], {'native_vlan': 'vlanb'},
+            self.port_map['port_3'], {'native_vlan': 'vlana'},
             restart=True, cold_start=True)
-        third_host.setIP(str(second_host_ip.ip), prefixLen=24)
-        self.add_host_route(third_host, first_host_ip, second_faucet_vip.ip)
-        self.one_ipv4_ping(first_host, second_host_ip.ip)
-        self.one_ipv4_ping(third_host, first_host_ip.ip)
-        self.assertEqual(
-            self._ip_neigh(third_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
+
+        test_connectivity(third_host, second_host)
 
 
 class FaucetUntaggedExpireIPv4InterVLANRouteTest(FaucetUntaggedTest):

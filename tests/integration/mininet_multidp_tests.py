@@ -1570,17 +1570,18 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
                             del self.host_information[_id]
                             break
                 break
-        self.reload_conf(conf, self.faucet_config_path, restart=True,
-                         cold_start=True, change_expected=False)
-        time.sleep(5)
+        self.reload_conf(
+            conf, self.faucet_config_path, restart=True,
+            cold_start=True, change_expected=False)
         # Bring LACP port UP
         self.set_port_up(port_no, chosen_dpid)
         self.verify_num_lag_up_ports(2, chosen_dpid)
         # Take down all of the other ports
         for dpid, ports in self.host_information[self.LACP_HOST]['ports'].items():
-            for port in ports:
-                if dpid != chosen_dpid and port != port_no:
-                    self.set_port_down(port, dpid)
+            if dpid != chosen_dpid:
+                for port in ports:
+                    if port != port_no:
+                        self.set_port_down(port, dpid)
 
     def test_mclag_coldstart(self):
         """Test LACP MCLAG after a cold start"""

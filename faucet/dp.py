@@ -1478,11 +1478,13 @@ configuration.
 
         # Detect changes to VLANs and ACLs based on port changes.
         if not all_ports_changed:
-            def _add_changed_vlan_port(port):
+            def _add_changed_vlan_port(port, port_dp):
                 if port.native_vlan:
                     changed_vlans.add(port.native_vlan.vid)
                 if port.tagged_vlans:
                     changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
+                if port.stack:
+                    changed_vlans.update({vlan.vid for vlan in port_dp.vlans.values()})
 
             for port_no in changed_ports:
                 old_port = self.ports[port_no]
@@ -1497,14 +1499,17 @@ configuration.
                     for port in (old_port, new_port):
                         if port.tagged_vlans:
                             changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
+                # stacking dis/enabled on a port.
+                if bool(old_port.stack) != bool(new_port.stack):
+                    changed_vlans.update({vlan.vid for vlan in new_dp.vlans.values()})
 
             # ports deleted or added.
             for port_no in deleted_ports:
                 port = self.ports[port_no]
-                _add_changed_vlan_port(port)
+                _add_changed_vlan_port(port, self)
             for port_no in added_ports:
                 port = new_dp.ports[port_no]
-                _add_changed_vlan_port(port)
+                _add_changed_vlan_port(port, new_dp)
             for port_no in same_ports:
                 old_port = self.ports[port_no]
                 new_port = new_dp.ports[port_no]
@@ -1512,9 +1517,10 @@ configuration.
                 if old_port.mirror != new_port.mirror:
                     logger.info('port %s mirror options changed: %s' % (
                         port_no, new_port.mirror))
-                    for mirrored_port in (old_port, new_port):
+                    changed_ports.add(port_no)
+                    for mirrored_port, port_dp in ((old_port, self), (new_port, new_dp)):
                         if mirrored_port.mirror:
-                            _add_changed_vlan_port(mirrored_port)
+                            _add_changed_vlan_port(mirrored_port, port_dp)
                 # ACL changes
                 new_acl_ids = new_port.acls_in
                 port_acls_changed = set()
@@ -1537,6 +1543,7 @@ configuration.
                 same_ports -= changed_acl_ports
                 logger.info('ports where ACL only changed: %s' % changed_acl_ports)
 
+        same_ports -= changed_ports
         changed_vlans -= deleted_vlans
         # TODO: limit scope to only routers that have affected VLANs.
         changed_vlans_with_vips = []
@@ -1596,7 +1603,7 @@ configuration.
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
         elif not self.ignore_subconf(
-                new_dp, ignore_keys=['interfaces', 'interfaces_range', 'routers']):
+                new_dp, ignore_keys=['interfaces', 'interface_ranges', 'routers']):
             logger.info('DP config changed - requires cold start: %s' % self.conf_diff(new_dp))
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
