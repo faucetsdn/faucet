@@ -1561,7 +1561,8 @@ configuration.
                 deleted_meters (set): deleted Meter IDs.
                 changed_meters (set): changed/added Meter IDs.
         """
-        all_meters_changed, deleted_meters, added_meters, changed_meters, _, _ = self._get_conf_changes(
+        (all_meters_changed, deleted_meters, 
+         added_meters, changed_meters, _, _) = self._get_conf_changes(
             logger, 'METERS', self.meters, new_dp.meters)
 
         return (all_meters_changed, deleted_meters, added_meters, changed_meters)
@@ -1594,7 +1595,8 @@ configuration.
             logger.info('Stack root change - requires cold start')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
-        elif not self.ignore_subconf(new_dp, ignore_keys=['interfaces', 'interfaces_range', 'routers']):
+        elif not self.ignore_subconf(
+                new_dp, ignore_keys=['interfaces', 'interfaces_range', 'routers']):
             logger.info('DP config changed - requires cold start: %s' % self.conf_diff(new_dp))
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
