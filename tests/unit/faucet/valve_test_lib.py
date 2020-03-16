@@ -1589,6 +1589,71 @@ meters:
                 self.table.is_output(accept_match, port=3, vid=self.V200),
                 msg='packet not allowed by ACL')
 
+        def test_dp_acl_deny_ordered(self):
+            """Test DP acl denies forwarding"""
+            acl_config = """
+dps:
+    s1:
+        dp_acls: [drop_non_ospf_ipv4]
+%s
+        interfaces:
+            p2:
+                number: 2
+                native_vlan: v200
+            p3:
+                number: 3
+                tagged_vlans: [v200]
+vlans:
+    v200:
+        vid: 0x200
+acls:
+    drop_non_ospf_ipv4:
+        - rule:
+            nw_dst: '224.0.0.5'
+            dl_type: 0x800
+            actions:
+                meter: testmeter
+                allow: 1
+        - rule:
+            dl_type: 0x800
+            actions:
+                output:
+                    - set_fields:
+                        - eth_dst: 00:00:00:00:00:01
+                allow: 0
+meters:
+    testmeter:
+        meter_id: 99
+        entry:
+            flags: "KBPS"
+            bands:
+                [
+                    {
+                        type: "DROP",
+                        rate: 1
+                    }
+                ]
+""" % DP1_CONFIG
+
+            drop_match = {
+                'in_port': 2,
+                'vlan_vid': 0,
+                'eth_type': 0x800,
+                'ipv4_dst': '192.0.2.1'}
+            accept_match = {
+                'in_port': 2,
+                'vlan_vid': 0,
+                'eth_type': 0x800,
+                'ipv4_dst': '224.0.0.5'}
+            self.update_config(acl_config)
+            self.flap_port(2)
+            self.assertFalse(
+                self.table.is_output(drop_match),
+                msg='packet not blocked by ACL')
+            self.assertTrue(
+                self.table.is_output(accept_match, port=3, vid=self.V200),
+                msg='packet not allowed by ACL')
+
         def test_port_acl_deny(self):
             """Test that port ACL denies forwarding."""
             acl_config = """

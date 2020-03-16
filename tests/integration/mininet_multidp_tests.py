@@ -582,6 +582,144 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
         self.verify_no_cable_errors()
 
 
+class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
+    """Test ACL control of stacked datapaths with untagged hosts."""
+
+    NUM_DPS = 3
+    NUM_HOSTS = 3
+
+    def acls(self):
+        map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'nw_dst': '10.1.0.2',
+                    'actions': {
+                        'output': [
+                            {'port': map1['port_2']}
+                        ]
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
+                    'actions': {
+                        'output': [
+                            {'ports': [
+                                map1['port_2'],
+                                map1['port_4']]}
+                        ]
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'actions': {
+                        'output': [
+                            {'port': map1['port_4']}
+                        ]
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+            2: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'actions': {
+                        'output': [
+                            {'port': map2['port_5']}
+                        ]
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+            3: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'nw_dst': '10.1.0.7',
+                    'actions': {
+                        'output': {
+                            'port': map3['port_1']
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
+                    'actions': {
+                        'output': [
+                            {'ports': [map3['port_1']]}
+                        ]
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'actions': {
+                        'allow': 0,
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ],
+        }
+
+    # DP-to-acl_in port mapping.
+    def acl_in_dp(self):
+        map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
+        return {
+            0: {
+                # Port 1, acl_in = 1
+                map1['port_1']: 1,
+            },
+            1: {
+                # Port 4, acl_in = 2
+                map2['port_4']: 2,
+            },
+            2: {
+                # Port 4, acl_in = 3
+                map3['port_4']: 3,
+            },
+        }
+
+    def setUp(self):  # pylint: disable=invalid-name
+        super(FaucetSingleStackOrderedAclControlTest, self).set_up(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+        )
+
+    def test_unicast(self):
+        """Hosts in stack topology can appropriately reach each other over unicast."""
+        hosts = self.hosts_name_ordered()
+        self.verify_stack_up()
+        self.verify_tp_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
+        self.verify_tp_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
+        self.verify_tp_dst_notblocked(5000, hosts[0], hosts[6], table_id=None)
+        self.verify_tp_dst_blocked(5000, hosts[0], hosts[7], table_id=None)
+        self.verify_no_cable_errors()
+
+    def test_broadcast(self):
+        """Hosts in stack topology can appropriately reach each other over broadcast."""
+        hosts = self.hosts_name_ordered()
+        self.verify_stack_up()
+        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1])
+        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3])
+        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[6])
+        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[7])
+        self.verify_no_cable_errors()
+
+
 class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
     """Test overriding ACL rules"""
 
@@ -736,7 +874,7 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
 
-class FaucetTunnelTest(FaucetMultiDPTest):
+class FaucetSingleTunnelTest(FaucetMultiDPTest):
     """Test the Faucet tunnel ACL option"""
 
     NUM_DPS = 2
@@ -779,7 +917,7 @@ class FaucetTunnelTest(FaucetMultiDPTest):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Start the network"""
-        super(FaucetTunnelTest, self).set_up(
+        super(FaucetSingleTunnelTest, self).set_up(
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
@@ -793,13 +931,309 @@ class FaucetTunnelTest(FaucetMultiDPTest):
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
     def test_tunnel_path_rerouted(self):
-        """Test a tunnel path is rerouted when a stack is down."""
+        """Test a tunnel path is rerouted when a link is down."""
         self.verify_stack_up()
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
         first_stack_port = self.non_host_links(self.dpid)[0].port
         self.one_stack_port_down(self.dpid, self.DP_NAME, first_stack_port)
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
-        self.set_port_up(first_stack_port, self.dpid)
+
+
+class FaucetTunnelLoopTest(FaucetSingleTunnelTest):
+    """Test tunnel on a loop topology"""
+
+    NUM_DPS = 3
+    SWITCH_TO_SWITCH_LINKS = 1
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start a loop topology network"""
+        super(FaucetSingleTunnelTest, self).set_up(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+            hw_dpid=self.hw_dpid,
+            stack_ring=True)
+
+
+class FaucetTunnelAllowTest(FaucetTopoTestBase):
+    """Test Tunnels with ACLs containing allow=True"""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 4
+    NUM_VLANS = 2
+    SOFTWARE_ONLY = True
+
+    def acls(self):
+        """Return config ACL options"""
+        dpid2 = self.dpids[1]
+        port2_1 = self.port_maps[dpid2]['port_1']
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 1,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 300,
+                                'dp': 'faucet-2',
+                                'port': port2_1}
+                        }
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ]
+        }
+
+    def acl_in_dp(self):
+        """DP-to-acl port mapping"""
+        port_1 = self.port_map['port_1']
+        return {
+            0: {
+                # First port 1, acl_in = 1
+                port_1: 1,
+            }
+        }
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        super(FaucetTunnelAllowTest, self).setUp()
+        stack_roots = {0: 1}
+        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
+        # LACP host doubly connected to sw0 & sw1
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
+        host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
+        self.build_net(
+            n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
+            host_links=host_links, host_vlans=host_vlans, stack_roots=stack_roots)
+        self.start_net()
+
+    def test_tunnel_continue_through_pipeline_interaction(self):
+        """Test packets that enter a tunnel with allow, also continue through the pipeline"""
+        # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
+        #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
+        self.verify_stack_up()
+        # Ensure connection to the host on the other end of the tunnel can exist
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+        # Ensure a connection to a host not in the tunnel can exist
+        #   this implies that the packet is also sent through the pipeline
+        self.check_host_connectivity_by_id(0, 1)
+        self.check_host_connectivity_by_id(0, 3)
+
+
+class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
+    """Test the tunnel ACL option with output to the same DP"""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+    SOFTWARE_ONLY = True
+    SWITCH_TO_SWITCH_LINKS = 2
+
+    def acls(self):
+        """Return ACL config"""
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 0,
+                        'output': [
+                            {'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': 'faucet-1',
+                                'port': 'b%(port_2)d'}}
+                        ]
+                    }
+                }}
+            ]
+        }
+
+    def acl_in_dp(self):
+        """DP to acl port mapping"""
+        port_1 = self.port_map['port_1']
+        return {
+            0: {
+                # First port 1, acl_in = 1
+                port_1: 1,
+            }
+        }
+
+    def test_tunnel_established(self):
+        """Test a tunnel path can be created."""
+        self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
+                    switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS, hw_dpid=self.hw_dpid)
+        self.verify_stack_up()
+        src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+
+
+class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
+    """Test the Faucet tunnel ACL option"""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+    SOFTWARE_ONLY = True
+    SWITCH_TO_SWITCH_LINKS = 2
+
+    def acls(self):
+        """Return config ACL options"""
+        dpid2 = self.dpids[1]
+        port2_1 = self.port_maps[dpid2]['port_1']
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 0,
+                        'output': [
+                            {'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': 'faucet-2',
+                                'port': port2_1}}
+                        ]
+                    }
+                }}
+            ]
+        }
+
+    def acl_in_dp(self):
+        """DP-to-acl port mapping"""
+        port_1 = self.port_map['port_1']
+        return {
+            0: {
+                # First port 1, acl_in = 1
+                port_1: 1,
+            }
+        }
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        super(FaucetSingleTunnelOrderedTest, self).set_up(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+            hw_dpid=self.hw_dpid)
+
+    def test_tunnel_established(self):
+        """Test a tunnel path can be created."""
+        self.verify_stack_up()
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+
+    def test_tunnel_path_rerouted(self):
+        """Test a tunnel path is rerouted when a link is down."""
+        self.verify_stack_up()
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
+        first_stack_port = self.non_host_links(self.dpid)[0].port
+        self.one_stack_port_down(self.dpid, self.DP_NAME, first_stack_port)
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
+
+
+class FaucetTunnelLoopOrderedTest(FaucetSingleTunnelOrderedTest):
+    """Test tunnel on a loop topology"""
+
+    NUM_DPS = 3
+    SWITCH_TO_SWITCH_LINKS = 1
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start a loop topology network"""
+        super(FaucetSingleTunnelOrderedTest, self).set_up(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+            hw_dpid=self.hw_dpid,
+            stack_ring=True)
+
+
+class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
+    """Test Tunnels with ACLs containing allow=True"""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 4
+    NUM_VLANS = 2
+    SOFTWARE_ONLY = True
+
+    def acls(self):
+        """Return config ACL options"""
+        dpid2 = self.dpids[1]
+        port2_1 = self.port_maps[dpid2]['port_1']
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 1,
+                        'output': [
+                            {'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 300,
+                                'dp': 'faucet-2',
+                                'port': port2_1}}
+                        ]
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ]
+        }
+
+    def acl_in_dp(self):
+        """DP-to-acl port mapping"""
+        port_1 = self.port_map['port_1']
+        return {
+            0: {
+                # First port 1, acl_in = 1
+                port_1: 1,
+            }
+        }
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        super(FaucetTunnelAllowOrderedTest, self).setUp()
+        stack_roots = {0: 1}
+        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
+        # LACP host doubly connected to sw0 & sw1
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
+        host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
+        self.build_net(
+            n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
+            host_links=host_links, host_vlans=host_vlans, stack_roots=stack_roots)
+        self.start_net()
+
+    def test_tunnel_continue_through_pipeline_interaction(self):
+        """Test packets that enter a tunnel with allow, also continue through the pipeline"""
+        # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
+        #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
+        self.verify_stack_up()
+        # Ensure connection to the host on the other end of the tunnel can exist
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+        # Ensure a connection to a host not in the tunnel can exist
+        #   this implies that the packet is also sent through the pipeline
+        self.check_host_connectivity_by_id(0, 1)
+        self.check_host_connectivity_by_id(0, 3)
 
 
 class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):

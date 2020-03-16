@@ -903,6 +903,9 @@ and actions. Matches are key/values based on the `ryu RESTFul API.
 <https://ryu.readthedocs.io/en/latest/app/ofctl_rest.html#reference-description-of-match-and-actions>`_
 Actions is a dictionary of actions to apply upon match.
 
+.. note:: When setting allow to true, the packet will be submitted to the
+    next table AFTER having the output actions applied to it.
+
 .. list-table:: : acls: <acl name>: - rule: actions: {}
     :widths: 30 15 15 40
     :header-rows: 1
@@ -933,11 +936,20 @@ Actions is a dictionary of actions to apply upon match.
       - None
       - Copy the packet, before any modifications, to the specified port (NOTE: ACL mirroring is done in input direction only)
     * - output
-      - dictionary
+      - dictionary or list
       - None
-      - Used to output a packet directly. Details below.
+      - Used to apply more specific output actions for an ACL
 
 The output action contains a dictionary with the following elements:
+
+.. note:: When using the dictionary format, Faucet will
+    build the actions in the following order: pop_vlans, vlan_vids, swap_vid,
+    vlan_vids, set_fields, port, ports and then failover.
+  The ACL dictionary format also restricts using port & ports, vlan_vid & vlan_vids
+    at the same time.
+
+.. note:: When using the list format, the output actions will be applied in the
+    user defined order.
 
 .. list-table:: : acls: <acl name>: - rule: actions: output: {}
     :widths: 30 15 15 40
@@ -979,6 +991,10 @@ The output action contains a dictionary with the following elements:
       - dictionary
       - None
       - Output with a failover port (see below).
+    * - Tunnel
+      - dictionary
+      - None
+      - Generic port output to any port in the stack
 
 Failover is an experimental option, but can be configured as follows:
 
@@ -998,6 +1014,35 @@ Failover is an experimental option, but can be configured as follows:
       - list
       - None
       - The list of ports the packet can be output through.
+
+A tunnel ACL will encapsulate a packet before sending it through the stack topology
+
+.. note:: Currently tunnel ACLs only support VLAN encapsulation.
+
+.. list-table:: : acls: <acl name>: - rule: actions: output: tunnel: {}
+    :widths: 30 15 15 40
+    :header-rows: 1
+
+    * - Attribute
+      - Type
+      - Default
+      - Description
+    * - type
+      - str
+      - 'vlan'
+      - The encapsulation type for the packet. Default is to encapsulate using QinQ.
+    * - tunnel_id
+      - int/str
+      - VID that is greater than the largest configured VID
+      - The ID for the encapsulation type
+    * - dp
+      - int/str
+      - None
+      - The name or dp_id of the dp where the output port belongs
+    * - port
+      - int/str
+      - None
+      - The name or port number of the interface on the remote DP to output the packet
 
 .. _gauge-configuration:
 

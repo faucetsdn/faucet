@@ -266,14 +266,14 @@ There is also the 'output' action which can be used to achieve the same thing.
             actions:
                 allow: False
                 output:
-                    port: 4
+                    - port: 4
         - rule:
             dl_type: 0x86dd
             ip_proto: 58
             actions:
                 allow: False
                 output:
-                    port: 4
+                    - port: 4
 
 
 The output action also allows us to change the packet by setting fields
@@ -302,7 +302,7 @@ Let's create a new ACL for host2's port that will change the MAC source address.
                 actions:
                     allow: True
                     output:
-                        set_fields:
+                        - set_fields:
                             - eth_src: "00:00:00:00:00:02"
     ...
 
@@ -356,16 +356,16 @@ To do this we will use both the 'port' & 'vlan_vid' output fields.
             actions:
                 allow: False
                 output:
-                    vlan_vid: 3
-                    port: 4
+                    - vlan_vid: 3
+                    - port: 4
         - rule:
             dl_type: 0x86dd
             ip_proto: 58
             actions:
                 allow: False
                 output:
-                    vlan_vid: 3
-                    port: 4
+                    - vlan_vid: 3
+                    - port: 4
 
 
 Again reload Faucet, start a tcpdump on host4, and ping from host1 to host3.
