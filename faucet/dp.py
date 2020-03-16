@@ -1135,11 +1135,11 @@ configuration.
                                if not vlan.reserved_internal_vlan]
                     vlan_offset = sorted(non_res)[-1]
                     # Also need to account for the potential number of tunnels
-                    ordered_acls = sorted(self.acls.values(), key=lambda x: x._id)
-                    acl_tunnels = [acl.get_num_tunnels() for acl in ordered_acls]
-                    index = ordered_acls.index(self.acls[acl_in])
+                    ordered_acls = sorted(self.acls)
+                    index = ordered_acls.index(acl_in) + 1
+                    acl_tunnels = [self.acls[name].get_num_tunnels() for name in ordered_acls]
                     tunnel_offset = sum(acl_tunnels[:index])
-                    start_pos = vlan_offset + tunnel_offset + 1
+                    start_pos = vlan_offset + tunnel_offset
                     tunnel_vid = first_unused_vlan_id(start_pos)
                     tunnel_vlan = create_vlan(tunnel_vid)
                     tunnel_vlan.reserved_internal_vlan = True
