@@ -53,7 +53,6 @@ class PromClient: # pylint: disable=too-few-public-methods
     def __init__(self, reg=None):
         if reg is not None:
             self._reg = reg
-        # TODO: investigate faster alternative (https://bugs.launchpad.net/pbr/+bug/1688405)
         self.version = VersionInfo('faucet').semantic_version().release_string()
         self.faucet_version = PromGauge( # pylint: disable=unexpected-keyword-arg
             'faucet_pbr_version',

@@ -1,10 +1,5 @@
 """FAUCET event notification."""
 
-# TODO: events are currently schema-less. This is to facilitate rapid prototyping, and will change.
-# TODO: not all cases where a notified client fails or could block, have been tested.
-# only one client is supported (multiple clients should be implemented with a client that
-# copies/pushes to a message bus)
-
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.

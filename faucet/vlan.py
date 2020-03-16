@@ -40,9 +40,8 @@ class NullVLAN:
     vid = valve_of.ofp.OFPVID_NONE
 
 
-# TODO: not well supported by any hardware, so not used.
 class AnyVLAN:
-    """Placeholder any tagged VLAN."""
+    """Placeholder any tagged VLAN. NOTE: Not used, not well supported by hardware"""
 
     name = 'Any VLAN'
     vid = valve_of.ofp.OFPVID_PRESENT
