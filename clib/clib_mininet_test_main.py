@@ -211,13 +211,16 @@ def check_dependencies():
     return True
 
 
-def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load, port_order):
+def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load,
+               port_order, start_port):
     """Compose test suite based on test class names."""
     testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
     suite = unittest.TestSuite()
     for name in testnames:
-        suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock, max_test_load, port_order))
+        suite.addTest(tc_class(
+            name, hw_config, root_tmpdir, ports_sock, max_test_load,
+            port_order, start_port))
     return suite
 
 
@@ -371,7 +374,8 @@ def max_loadavg():
 
 
 def expand_tests(modules, requested_test_classes, excluded_test_classes,
-                 hw_config, root_tmpdir, ports_sock, serial, port_order):
+                 hw_config, root_tmpdir, ports_sock, serial,
+                 port_order, start_port):
     sanity_test_suites = []
     single_test_suites = []
     parallel_test_suites = []
@@ -390,7 +394,8 @@ def expand_tests(modules, requested_test_classes, excluded_test_classes,
                     continue
                 print('adding test %s' % test_name)
                 test_suite = make_suite(
-                    test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg(), port_order)
+                    test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg(),
+                    port_order, start_port)
                 if test_name.startswith('FaucetSanity'):
                     sanity_test_suites.append(test_suite)
                 else:
@@ -632,7 +637,7 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
 
 def run_tests(modules, hw_config, requested_test_classes, dumpfail, debug,
               keep_logs, serial, repeat, excluded_test_classes, report_json_filename,
-              port_order):
+              port_order, start_port):
     """Actually run the test suites, potentially in parallel."""
     if repeat:
         print('Will repeat tests until failure')
@@ -656,7 +661,7 @@ def run_tests(modules, hw_config, requested_test_classes, dumpfail, debug,
 
     sanity_tests, single_tests, parallel_tests = expand_tests(
         modules, requested_test_classes, excluded_test_classes,
-        hw_config, root_tmpdir, ports_sock, serial, port_order)
+        hw_config, root_tmpdir, ports_sock, serial, port_order, start_port)
 
     if sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases():
         no_tests = False
@@ -705,6 +710,10 @@ def parse_args():
     parser.add_argument(
         '--debug', action='store_true', help='enter debug breakpoint on assertion failure')
     parser.add_argument(
+        '-i', '--integration', default=True, action='store_true', help='run integration tests')
+    parser.add_argument(
+        '-j', '--jsonreport', help='write a json file with test results')
+    parser.add_argument(
         '-k', '--keep_logs', action='store_true', help='keep logs even for OK tests')
     loglevels = ('debug', 'error', 'warning', 'info', 'output')
     parser.add_argument(
@@ -719,17 +728,16 @@ def parse_args():
         '-p', '--profile', action='store_true',
         help='use Cprofile to report elapsed wall clock time per function')
     parser.add_argument(
-        '-i', '--integration', default=True, action='store_true', help='run integration tests')
-    parser.add_argument(
-        '-s', '--serial', action='store_true', help='run tests serially')
-    parser.add_argument(
-        '-j', '--jsonreport', help='write a json file with test results')
-    parser.add_argument(
-        '-x', help='list of test classes to exclude')
+        '--port', default='random',
+        help='starting port number (integer) | random (default: random)')
     parser.add_argument(
         '-r', '--repeat', action='store_true', help='repeat tests until failure')
     parser.add_argument(
+        '-s', '--serial', action='store_true', help='run tests serially')
+    parser.add_argument(
         '-t', '--tolerance', default=False, action='store_true', help='run fault-tolerance tests')
+    parser.add_argument(
+        '-x', help='list of test classes to exclude')
 
     excluded_test_classes = []
     report_json_filename = None
@@ -744,6 +752,10 @@ def parse_args():
         if sorted(port_order) != sorted(range(len(port_order))):
             print('Port order should be a permutation of 0,1,2,3')
             raise ValueError
+        if args.port == 'random':
+            start_port = random.randint(1, 10)
+        else:
+            start_port = int(args.port)
     except(KeyError, IndexError, ValueError):
         parser.print_usage()
         sys.exit(-1)
@@ -753,11 +765,10 @@ def parse_args():
     if args.x:
         excluded_test_classes = args.x.split(',')
 
-
     return (
         requested_test_classes, args.clean, args.dumpfail, args.debug,
         args.keep_logs, args.nocheck, args.serial, args.repeat,
-        excluded_test_classes, report_json_filename, port_order,
+        excluded_test_classes, report_json_filename, port_order, start_port,
         args.loglevel, args.profile)
 
 
@@ -768,7 +779,7 @@ def test_main(modules):
 
     (requested_test_classes, clean, dumpfail, debug, keep_logs, nocheck,
      serial, repeat, excluded_test_classes, report_json_filename, port_order,
-     loglevel, profile) = parse_args()
+     start_port, loglevel, profile) = parse_args()
 
     setLogLevel(loglevel)
 
@@ -786,8 +797,8 @@ def test_main(modules):
                   'list in header of this script')
             sys.exit(-1)
 
-    print("port order: -o", ','.join(str(i) for i in port_order))
-
+    print('port order: -o', ','.join(str(i) for i in port_order))
+    print('start port: --port %s' % start_port)
 
     hw_config = import_hw_config()
 
@@ -797,7 +808,8 @@ def test_main(modules):
 
     run_tests(
         modules, hw_config, requested_test_classes, dumpfail, debug,
-        keep_logs, serial, repeat, excluded_test_classes, report_json_filename, port_order)
+        keep_logs, serial, repeat, excluded_test_classes, report_json_filename,
+        port_order, start_port)
 
     if profile:
         pr.disable()

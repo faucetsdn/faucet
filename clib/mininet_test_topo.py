@@ -23,7 +23,6 @@ from mininet.link import TCIntf, Link
 from clib import mininet_test_util
 
 
-# TODO: this should be configurable (e.g for randomization)
 SWITCH_START_PORT = 5
 
 
