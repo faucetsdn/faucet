@@ -944,9 +944,8 @@ The output action contains a dictionary with the following elements:
 
 .. note:: When using the dictionary format, Faucet will
     build the actions in the following order: pop_vlans, vlan_vids, swap_vid,
-    vlan_vids, set_fields, port, ports and then failover.
-  The ACL dictionary format also restricts using port & ports, vlan_vid & vlan_vids
-    at the same time.
+    vlan_vids, set_fields, port, ports and then failover. The ACL dictionary
+    format also restricts using port & ports, vlan_vid & vlan_vids at the same time.
 
 .. note:: When using the list format, the output actions will be applied in the
     user defined order.
@@ -991,7 +990,7 @@ The output action contains a dictionary with the following elements:
       - dictionary
       - None
       - Output with a failover port (see below).
-    * - Tunnel
+    * - tunnel
       - dictionary
       - None
       - Generic port output to any port in the stack
