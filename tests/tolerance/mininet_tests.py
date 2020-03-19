@@ -134,6 +134,8 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         i = random.randrange(len(controllers))
         c_name = controllers[i].name
         controller = next((cont for cont in self.net.controllers if cont.name == c_name), None)
+        if controller is None:
+            return
         self.create_controller_fault(self.net.controllers.index(controller))
 
     def create_switch_fault(self, *args):
@@ -146,6 +148,8 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         dpid = self.dpids[index]
         switch_name = self.topo.dpid_names[dpid]
         switch = next((switch for switch in self.net.switches if switch.name == switch_name), None)
+        if switch is None:
+            return
         self.dump_switch_flows(switch)
         name = '%s:%s DOWN' % (self.dp_name(index), self.dpids[index])
         self.topo_watcher.add_switch_fault(index, name)
