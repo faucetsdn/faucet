@@ -106,9 +106,10 @@ class FaucetLACPPortFunctions(unittest.TestCase):  # pytype: disable=module-attr
         port.lacp_port_update(True)
         self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_SELECTED)
         # Test option to force standby mode
+        # Option forces the statemachine to revert to STANDBY mode when not selected
         port.lacp_standby = True
         port.lacp_port_update(True)
-        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_STANDBY)
+        self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_SELECTED)
         port.lacp_port_update(False)
         self.assertEqual(port.dyn_lacp_port_selected, LACP_PORT_STANDBY)
         # Test forcing selected port

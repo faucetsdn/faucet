@@ -518,18 +518,18 @@ class Port(Conf):
             # Cold starting, so revert to unconfigured state
             self.deconfigure_port()
         elif self.lacp_selected:
-            # Can configure LACP port to be forced SELECTED
+            # Configured LACP port option to be forced into SELECTED state
             self.select_port()
-        elif self.lacp_standby:
-            # Can configure LACP port to be forced STANDBY
-            self.standby_port()
         elif self.lacp_unselected:
-            # Can configure LACP port to be force UNSELECTED
+            # Configured LACP port option to be forced into UNSELECTED state
             self.deselect_port()
         else:
             if selected:
-                # Belongs on chosen DP for LAG, so SELECT port
+                # Port SELECTED so change state to SELECTED
                 self.select_port()
+            elif self.lacp_standby:
+                # Send port to STANDBY if not SELECTED
+                self.standby_port()
             else:
                 # Doesn't belong on chosen DP for LAG, DESELECT port
                 self.deselect_port()
