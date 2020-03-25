@@ -530,10 +530,10 @@ class Port(Conf):
         """
         if self.lacp_collect_and_distribute:
             return 1, 1, 1
-        if self.is_port_standby():
-            return 1, 0, 0
         if self.is_port_selected():
             return 1, 1, 1
+        if self.is_port_standby():
+            return 1, 0, 0
         return 0, 0, 0
 
     # LACP ACTOR STATES:
