@@ -147,6 +147,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             hw_dpid=self.hw_dpid,
             switch_map=self.switch_map,
             port_order=self.port_order,
+            start_port=self.start_port
         )
         self.port_maps = {dpid: self.create_port_map(dpid) for dpid in self.dpids}
         self.port_map = self.port_maps[self.dpid]

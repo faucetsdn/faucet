@@ -138,13 +138,15 @@ class FaucetTestBase(unittest.TestCase):
     faucet_config_path = None
     event_log = None
 
-    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load, port_order=None):
+    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load,
+                 port_order=None, start_port=None):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
         self.port_order = port_order
+        self.start_port = start_port
         self.start_time = None
         self.dpid_names = None
         self.event_log = None
@@ -404,7 +406,7 @@ class FaucetTestBase(unittest.TestCase):
         self._set_static_vars()
         self.topo_class = partial(
             mininet_test_topo.FaucetSwitchTopo, port_order=self.port_order,
-            switch_map=self.switch_map)
+            switch_map=self.switch_map, start_port=self.start_port)
         if self.hw_switch:
             self.hw_dpid = mininet_test_util.str_int_dpid(self.dpid)
             self.dpid = self.hw_dpid
