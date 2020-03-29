@@ -309,6 +309,83 @@ dps:
         self.assertTrue(port.is_actor_up(), 'Actor not UP')
 
 
+class ValveStackMCLAGStandbyTestCase(ValveTestBases.ValveTestSmall):
+    """Test MCLAG with standby port option overrules unselected states"""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s2
+                    port: 1
+            2:
+                description: p3
+                native_vlan: 100
+                lacp_standby: True
+                lacp: 1
+            3:
+                description: p4
+                native_vlan: 100
+                lacp_standby: True
+                lacp: 1
+    s2:
+        hardware: 'GenericTFM'
+        dp_id: 0x2
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                description: p3
+                native_vlan: 100
+                lacp_standby: True
+                lacp: 1
+            3:
+                description: p4
+                native_vlan: 100
+                lacp_standby: True
+                lacp: 1
+""" % BASE_DP1_CONFIG
+
+    def setUp(self):
+        """Setup basic loop config"""
+        self.setup_valve(self.CONFIG)
+
+    def get_other_valves(self, valve):
+        """Return other running valves"""
+        return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+
+    def test_MCLAG_standby_option(self):
+        """Test MCLAG standby option forces standby state instead of unselected"""
+        self.activate_all_ports()
+        valve = self.valves_manager.valves[0x1]
+        other_valve = self.valves_manager.valves[0x2]
+        for port in valve.dp.ports.values():
+            if port.lacp:
+                valve.lacp_update(port, True, 1, 1, self.get_other_valves(valve))
+                self.assertTrue(port.is_port_selected())
+        for port in other_valve.dp.ports.values():
+            if port.lacp:
+                other_valve.lacp_update(port, True, 1, 1, self.get_other_valves(other_valve))
+                self.assertTrue(port.is_port_standby())
+        for port in valve.dp.ports.values():
+            if port.lacp:
+                valve.lacp_update(port, False, 1, 1, self.get_other_valves(valve))
+                self.assertTrue(port.is_port_standby())
+        for port in other_valve.dp.ports.values():
+            if port.lacp:
+                other_valve.lacp_update(port, True, 1, 1, self.get_other_valves(other_valve))
+                self.assertTrue(port.is_port_selected())
+
+
 class ValveStackRootExtLoopProtectTestCase(ValveTestBases.ValveTestSmall):
     """External loop protect test cases"""
 
