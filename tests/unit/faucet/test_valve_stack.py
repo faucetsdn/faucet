@@ -2232,5 +2232,75 @@ dps:
         self.assertTrue(dp_obj.is_stack_edge())
 
 
+class GroupDeleteACLTestCase(ValveTestBases.ValveTestSmall):
+    """Test that a group ACL creates a groupdel for the group_id"""
+
+    CONFIG = """
+acls:
+    group-acl:
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+                output:
+                    failover:
+                        group_id: 1001
+                        ports: [2, 3]
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [group-acl]
+            2:
+                native_vlan: vlan100
+            3:
+                native_vlan: vlan100
+"""
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def check_groupmods_exist(self, ofmsgs, groupdel_exists=True):
+        """Test that the ACL groupmods exist when expected"""
+        groupdel = None
+        groupmod = None
+        for ofmsg in ofmsgs:
+            if valve_of.is_groupdel(ofmsg) and not valve_of.is_global_groupdel(ofmsg):
+                groupdel = ofmsg
+            elif valve_of.is_groupmod(ofmsg):
+                groupmod = ofmsg
+        self.assertIsNotNone(groupmod)
+        if groupdel_exists:
+            self.assertIsNotNone(groupdel)
+            self.assertTrue(groupdel.group_id, 1001)
+        else:
+            self.assertIsNone(groupdel)
+
+    def test_groupdel_exists(self):
+        """Test valve_flowreorder doesn't remove groupmods unless expected"""
+        valve = self.valves_manager.valves[0x1]
+        port = valve.dp.ports[1]
+        ofmsgs = valve.acl_manager.add_port(port)
+        self.check_groupmods_exist(valve_of.valve_flowreorder(ofmsgs))
+        global_flowmod = valve_of.flowmod(
+            0, ofp.OFPFC_DELETE, ofp.OFPTT_ALL,
+            0, ofp.OFPP_CONTROLLER, ofp.OFPP_CONTROLLER,
+            valve_of.match_from_dict({}), [], 0, 0, 0)
+        self.check_groupmods_exist(
+            valve_of.valve_flowreorder(ofmsgs + [global_flowmod]))
+        global_metermod = valve_of.meterdel()
+        self.check_groupmods_exist(
+            valve_of.valve_flowreorder(ofmsgs + [global_flowmod, global_metermod]))
+        global_groupmod = valve_of.groupdel()
+        self.check_groupmods_exist(
+            valve_of.valve_flowreorder(
+                ofmsgs + [global_flowmod, global_metermod, global_groupmod]), False)
+
+
 if __name__ == "__main__":
     unittest.main()  # pytype: disable=module-attr
