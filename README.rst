@@ -27,17 +27,6 @@ Hardware and software switch support
 
 Detailed guides for some switches are available on `readthedocs <http://docs.faucet.nz/en/latest/vendors/index.html>`_.
 
-FAUCET has been tested against the following switches (see also SUPPORTED_HARDWARE in `faucet/valve.py <faucet/valve.py>`_):
-
-- `Open vSwitch v2.1+ <http://www.openvswitch.org>`_
-- `Lagopus Openflow Switch <https://lagopus.github.io>`_
-- Allied Telesis `x510 <https://www.alliedtelesis.com/products/x510-series>`_ and `x930 <https://www.alliedtelesis.com/products/x930-series>`_ series
-- `NoviFlow 1248 <http://noviflow.com/products/noviswitch>`_
-- Northbound Networks - `Zodiac FX <http://northboundnetworks.com/collections/zodiac-fx>`_ and `Zodiac GX <http://northboundnetworks.com/products/zodiac-gx>`_
-- Hewlett Packard Enterprise - `Aruba 5400R, 3810 and 2930F <http://www.arubanetworks.com/products/networking/switches/>`_
-- Netronome produces PCIe adaptors, via OVS - `Agilio CX 2x10GbE card <https://www.netronome.com/products/agilio-cx/>`_
-- Cisco Systems - `Catalyst 9000 Family Switches <http://www.cisco.com/c/en/us/products/switches/catalyst-9000.html>`_
-
 Faucet's design principle is to be as hardware agnostic as possible and not require Table Type Patterns. This means that Faucet expects the hardware Open Flow Agent (OFA) to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet expects the OFA to leverage the right hardware transparently.
 
 If you are a hardware vendor wanting to support FAUCET, you need to support all the matches in `faucet/faucet_pipeline.py <faucet/faucet_pipeline.py>`_ and pass all tests.
