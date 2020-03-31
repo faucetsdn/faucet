@@ -27,7 +27,7 @@ Hardware and software switch support
 
 Detailed guides for some switches are available on `readthedocs <http://docs.faucet.nz/en/latest/vendors/index.html>`_.
 
-FAUCET has been tested against the following switches (see also SUPPORTED_HARDWARE in `faucet/valve.py <faucet/valve.py>`_):
+FAUCET has been tested against the following switches (see also SUPPORTED_HARDWARE in `faucet/valve.py <faucet/valve.py#L2129>`_):
 
 - `Open vSwitch v2.1+ <http://www.openvswitch.org>`_
 - `Lagopus Openflow Switch <https://lagopus.github.io>`_
