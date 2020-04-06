@@ -1066,6 +1066,7 @@ class Valve:
             self.logger.info('LAG %u %s %s (previous state %s)' % (
                 port.lacp, port, port.port_role_name(new_state),
                 port.port_role_name(prev_state)))
+            self._set_var('port_lacp_role', new_state, labels=self.dp.port_labels(port.number))
         return new_state != prev_state
 
     def lacp_update_actor_state(self, port, lacp_up, now=None, lacp_pkt=None, cold_start=False):
