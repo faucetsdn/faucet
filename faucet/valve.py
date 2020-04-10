@@ -1180,7 +1180,7 @@ class Valve:
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.number, port.lacp_port_priority, 
+                port.lacp, port.number, port.lacp_port_priority,
                 actor_state_sync, actor_state_activity,
                 actor_state_col, actor_state_dist,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
