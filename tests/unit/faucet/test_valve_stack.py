@@ -153,6 +153,20 @@ dps:
                 self.assertTrue(
                     valve.lacp_update_port_selection_state(port, other_valves),
                     'Port selection state not updated')
+
+                # Testing accuracy of varz port_lacp_role
+                port_labels = {
+                    'port': port.name,
+                    'port_description': port.description,
+                    'dp_name': valve.dp.name,
+                    'dp_id': '0x%x' % valve.dp.dp_id
+                }
+                lacp_role = self.get_prom('port_lacp_role', labels=port_labels, bare=True)
+                self.assertEqual(
+                    port.lacp_port_state(), lacp_role,
+                    'Port %s DP %s role %s differs from varz value %s'
+                    % (port, valve, port.lacp_port_state(), lacp_role))
+
                 if valve.dp.dp_id == 0x1:
                     self.assertEqual(
                         port.lacp_port_state(), LACP_PORT_SELECTED,

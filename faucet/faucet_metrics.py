@@ -148,6 +148,10 @@ class FaucetMetrics(PromClient):
             'learned_l2_port',
             'learned port of l2 entries',
             self.REQUIRED_LABELS + ['vid', 'eth_src'])
+        self.port_lacp_role = self._gauge(
+            'port_lacp_role',
+            'LACP role of a port',
+            self.PORT_REQUIRED_LABELS)
         self.port_lacp_state = self._gauge(
             'port_lacp_state',
             'state of LACP on a port',
