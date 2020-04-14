@@ -4013,9 +4013,11 @@ vlans:
             %(port_1)d:
                 native_vlan: 100
                 lacp: 1
+                lacp_port_priority: 1
             %(port_2)d:
                 native_vlan: 100
                 lacp: 1
+                lacp_port_priority: 2
             %(port_3)d:
                 native_vlan: 100
             %(port_4)d:
@@ -4082,7 +4084,7 @@ details partner lacp pdu:
     system priority: 65535
     system mac address: 0e:00:00:00:00:01
     oper key: 1
-    port priority: 255
+    port priority: 1
     port number: %d
     port state: 62
 
@@ -4109,7 +4111,7 @@ details partner lacp pdu:
     system priority: 65535
     system mac address: 0e:00:00:00:00:01
     oper key: 1
-    port priority: 255
+    port priority: 2
     port number: %d
     port state: 62
 """.strip() % tuple([self.port_map['port_%u' % i] for i in lag_ports])

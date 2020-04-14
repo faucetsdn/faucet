@@ -105,6 +105,8 @@ class Port(Conf):
         # If set, fail the lacp on this port if any of the peer ports are down.
         'lacp_resp_interval': 1,
         # Min time since last LACP response. Used to control rate of response for LACP
+        'lacp_port_priority': 255,
+        # Sets port priority value sent out in lacp packet
         'loop_protect': False,
         # if True, do simple (host/access port) loop protection on this port.
         'loop_protect_external': False,
@@ -161,6 +163,7 @@ class Port(Conf):
         'lacp_standby': bool,
         'lacp_passthrough': list,
         'lacp_resp_interval': int,
+        'lacp_port_priority': int,
         'loop_protect': bool,
         'loop_protect_external': bool,
         'output_only': bool,
@@ -221,6 +224,7 @@ class Port(Conf):
         self.lacp_standby = None
         self.lacp_passthrough = None
         self.lacp_resp_interval = None
+        self.lacp_port_priority = None
         self.loop_protect = None
         self.loop_protect_external = None
         self.max_hosts = None
@@ -358,6 +362,10 @@ class Port(Conf):
             test_config_condition(
                 self.lacp_resp_interval > 65535 or self.lacp_resp_interval < 0.3,
                 ('interval must be at least 0.3 and less than 65536'))
+        if self.lacp_port_priority is not None:
+            test_config_condition(
+                self.lacp_port_priority > 255 or self.lacp_port_priority < 0,
+                ('lacp port priority must be at least 0 and less than 256'))
         if self.lldp_peer_mac:
             test_config_condition(not netaddr.valid_mac(self.lldp_peer_mac), (
                 'invalid MAC address %s' % self.lldp_peer_mac))
