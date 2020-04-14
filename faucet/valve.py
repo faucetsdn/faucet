@@ -24,11 +24,10 @@ from collections import defaultdict, deque
 
 from faucet import tfm_pipeline
 from faucet import valve_acl
-from faucet import valve_flood
-from faucet import valve_host
 from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_route
+from faucet import valve_switch
 from faucet import valve_table
 from faucet import valve_util
 from faucet import valve_pipeline
@@ -172,9 +171,9 @@ class Valve:
                 self._port_highwater[vlan_vid][port_number] = 0
         restricted_bcast_arpnd = bool(self.dp.restricted_bcast_arpnd_ports())
         if self.dp.stack_graph:
-            flood_class = valve_flood.ValveFloodStackManagerNoReflection
+            flood_class = valve_switch.ValveFloodStackManagerNoReflection
             if self.dp.stack_root_flood_reflection:
-                flood_class = valve_flood.ValveFloodStackManagerReflection
+                flood_class = valve_switch.ValveFloodStackManagerReflection
                 self.logger.info('Using stacking root flood reflection')
             else:
                 self.logger.info('Not using stacking root flood reflection')
@@ -188,7 +187,7 @@ class Valve:
                 self.dp.is_stack_root, self.dp.is_stack_root_candidate,
                 self.dp.is_stack_edge, self.dp.stack_graph)
         else:
-            self.flood_manager = valve_flood.ValveFloodManager(
+            self.flood_manager = valve_switch.ValveFloodManager(
                 self.logger, self.dp.tables['flood'], self.pipeline,
                 self.dp.group_table, self.dp.groups,
                 self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
@@ -221,9 +220,9 @@ class Valve:
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
-        host_manager_cl = valve_host.ValveHostManager
+        host_manager_cl = valve_switch.ValveHostManager
         if self.dp.use_idle_timeout:
-            host_manager_cl = valve_host.ValveHostFlowRemovedManager
+            host_manager_cl = valve_switch.ValveHostFlowRemovedManager
         self.host_manager = host_manager_cl(
             self.logger, self.dp.ports,
             self.dp.vlans, self.dp.tables['eth_src'],
