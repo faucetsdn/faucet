@@ -75,8 +75,7 @@ class Valve:
     __slots__ = [
         'dot1x',
         'dp',
-        'flood_manager',
-        'host_manager',
+        'switch_manager',
         'pipeline',
         'acl_manager',
         'logger',
@@ -163,35 +162,13 @@ class Valve:
         self._port_highwater = {}
 
         self.dp.reset_refs()
-
-        self.pipeline = valve_pipeline.ValvePipeline(self.dp)
         for vlan_vid in self.dp.vlans.keys():
             self._port_highwater[vlan_vid] = {}
             for port_number in self.dp.ports.keys():
                 self._port_highwater[vlan_vid][port_number] = 0
-        restricted_bcast_arpnd = bool(self.dp.restricted_bcast_arpnd_ports())
-        if self.dp.stack_graph:
-            flood_class = valve_switch.ValveFloodStackManagerNoReflection
-            if self.dp.stack_root_flood_reflection:
-                flood_class = valve_switch.ValveFloodStackManagerReflection
-                self.logger.info('Using stacking root flood reflection')
-            else:
-                self.logger.info('Not using stacking root flood reflection')
-            self.flood_manager = flood_class(
-                self.logger, self.dp.tables['flood'], self.pipeline,
-                self.dp.group_table, self.dp.groups,
-                self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
-                restricted_bcast_arpnd,
-                self.dp.stack_ports, self.dp.has_externals,
-                self.dp.shortest_path_to_root, self.dp.shortest_path_port,
-                self.dp.is_stack_root, self.dp.is_stack_root_candidate,
-                self.dp.is_stack_edge, self.dp.stack_graph)
-        else:
-            self.flood_manager = valve_switch.ValveFloodManager(
-                self.logger, self.dp.tables['flood'], self.pipeline,
-                self.dp.group_table, self.dp.groups,
-                self.dp.combinatorial_port_flood, self.dp.canonical_port_order,
-                restricted_bcast_arpnd)
+
+        self.pipeline = valve_pipeline.ValvePipeline(self.dp)
+        self.switch_manager = valve_switch.valve_switch_factory(self.logger, self.dp, self.pipeline)
         for ipv, route_manager_class, neighbor_timeout in (
                 (4, valve_route.ValveIPv4RouteManager, self.dp.arp_neighbor_timeout),
                 (6, valve_route.ValveIPv6RouteManager, self.dp.nd_neighbor_timeout)):
@@ -200,16 +177,13 @@ class Valve:
                 continue
             fib_table = self.dp.tables[fib_table_name]
             proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
-            valve_flood_manager = None
-            if self.dp.stack_graph:
-                valve_flood_manager = self.flood_manager
             route_manager = route_manager_class(
                 self.logger, self.notify, self.dp.global_vlan, neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle,
                 self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, proactive_learn,
                 self.DEC_TTL, self.dp.multi_out, fib_table,
-                self.dp.tables['vip'], self.pipeline, self.dp.routers, valve_flood_manager)
+                self.dp.tables['vip'], self.pipeline, self.dp.routers, self.switch_manager)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
             for vlan in self.dp.vlans.values():
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
@@ -219,17 +193,6 @@ class Valve:
                         route_manager.IPV, vlan, vips_str))
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
-        eth_dst_hairpin_table = self.dp.tables.get('eth_dst_hairpin', None)
-        host_manager_cl = valve_switch.ValveHostManager
-        if self.dp.use_idle_timeout:
-            host_manager_cl = valve_switch.ValveHostFlowRemovedManager
-        self.host_manager = host_manager_cl(
-            self.logger, self.dp.ports,
-            self.dp.vlans, self.dp.tables['eth_src'],
-            self.dp.tables['eth_dst'], eth_dst_hairpin_table, self.pipeline,
-            self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.cache_update_guard_time, self.dp.idle_dst, self.dp.stack_graph,
-            self.dp.has_externals, self.dp.stack_root_flood_reflection)
         self.acl_manager = None
         if self.dp.has_acls:
             self.acl_manager = valve_acl.ValveAclManager(
@@ -244,10 +207,9 @@ class Valve:
     def _get_managers(self):
         for manager in (
                 self.pipeline,
-                self.host_manager,
+                self.switch_manager,
                 self._route_manager_by_ipv.get(4),
                 self._route_manager_by_ipv.get(6),
-                self.flood_manager,
                 self.acl_manager):
             if manager is not None:
                 yield manager
@@ -295,7 +257,7 @@ class Valve:
 
     def floods_to_root(self):
         """Return True if our dp floods (only) to root switch"""
-        return self.flood_manager.floods_to_root(self.dp)
+        return self.switch_manager.floods_to_root(self.dp)
 
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
@@ -640,7 +602,7 @@ class Valve:
                     if port.is_stack_init() and port.stack['port'].is_stack_up():
                         port_stack_up = True
                 for valve in stacked_valves:
-                    valve.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+                    valve.switch_manager.update_stack_topo(port_stack_up, self.dp, port)
         if stack_changes:
             self.logger.info('%u stack ports changed state' % stack_changes)
             notify_dps = {}
@@ -649,7 +611,7 @@ class Valve:
                     continue
                 ofmsgs_by_valve[valve].extend(valve.add_vlans(valve.dp.vlans.values()))
                 for port in valve.dp.stack_ports:
-                    ofmsgs_by_valve[valve].extend(valve.host_manager.del_port(port))
+                    ofmsgs_by_valve[valve].extend(valve.switch_manager.del_port(port))
                 ofmsgs_by_valve[valve].extend(valve.get_tunnel_flowmods())
                 path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
                 path_port_number = path_port.number if path_port else 0.0
@@ -992,7 +954,7 @@ class Valve:
                 ofmsgs.extend(self._port_delete_flows_state(port, keep_cache=keep_cache))
 
         for vlan in vlans_with_deleted_ports:
-            ofmsgs.extend(self.flood_manager.update_vlan(vlan))
+            ofmsgs.extend(self.switch_manager.update_vlan(vlan))
 
         return ofmsgs
 
@@ -1139,7 +1101,7 @@ class Valve:
         """
         ofmsgs = []
         if not cold_start:
-            ofmsgs.extend(self.host_manager.del_port(port))
+            ofmsgs.extend(self.switch_manager.del_port(port))
             ofmsgs.extend(self.add_vlans(port.vlans()))
         vlan_table = self.dp.tables['vlan']
         ofmsgs.append(vlan_table.flowdrop(
@@ -1367,10 +1329,10 @@ class Valve:
             list: OpenFlow messages, if any.
         """
         if pkt_meta.eth_src == pkt_meta.vlan.faucet_mac:
-            return self.host_manager.learn_host_intervlan_routing_flows(
+            return self.switch_manager.learn_host_intervlan_routing_flows(
                 pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_src, pkt_meta.eth_dst)
         if pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
-            return self.host_manager.learn_host_intervlan_routing_flows(
+            return self.switch_manager.learn_host_intervlan_routing_flows(
                 pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_dst, pkt_meta.eth_src)
         return []
 
@@ -1384,10 +1346,10 @@ class Valve:
         Returns:
             list: OpenFlow messages, if any.
         """
-        learn_port = self.flood_manager.edge_learn_port(
+        learn_port = self.switch_manager.edge_learn_port(
             self._stacked_valves(other_valves), pkt_meta)
         if learn_port is not None:
-            learn_flows, previous_port, update_cache = self.host_manager.learn_host_on_vlan_ports(
+            learn_flows, previous_port, update_cache = self.switch_manager.learn_host_on_vlan_ports(
                 now, learn_port, pkt_meta.vlan, pkt_meta.eth_src,
                 last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
             if update_cache:
@@ -1647,7 +1609,7 @@ class Valve:
             dict: OpenFlow messages, if any by Valve.
         """
         self._inc_var('of_vlan_packet_ins')
-        ban_rules = self.host_manager.ban_rules(pkt_meta)
+        ban_rules = self.switch_manager.ban_rules(pkt_meta)
         if ban_rules:
             return {self: ban_rules}
 
@@ -1749,11 +1711,11 @@ class Valve:
         if self.dp.dyn_running:
             ofmsgs_by_valve.update(self._lacp_state_expire(now, other_valves))
             for vlan in self.dp.vlans.values():
-                expired_hosts = self.host_manager.expire_hosts_from_vlan(vlan, now)
+                expired_hosts = self.switch_manager.expire_hosts_from_vlan(vlan, now)
                 if not self.dp.idle_dst:
                     for entry in expired_hosts:
                         ofmsgs_by_valve[self].extend(
-                            self.host_manager.delete_host_from_vlan(entry.eth_src, vlan))
+                            self.switch_manager.delete_host_from_vlan(entry.eth_src, vlan))
                 for entry in expired_hosts:
                     learn_labels = dict(self.dp.base_prom_labels(), vid=vlan.vid,
                                         eth_src=entry.eth_src)
@@ -1919,11 +1881,11 @@ class Valve:
 
     def _warm_reconfig_port_vlans(self, port, vlans):
         ofmsgs = []
-        ofmsgs.extend(self.host_manager.del_port(port))
+        ofmsgs.extend(self.switch_manager.del_port(port))
         mirror_act = port.mirror_actions()
         ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         for vlan in vlans:
-            ofmsgs.extend(self.flood_manager.update_vlan(vlan))
+            ofmsgs.extend(self.switch_manager.update_vlan(vlan))
         return ofmsgs
 
     def add_dot1x_native_vlan(self, port_num, vlan_name):
@@ -2049,7 +2011,7 @@ class Valve:
         Returns:
             list: OpenFlow messages, if any.
         """
-        return self.host_manager.flow_timeout(now, table_id, match)
+        return self.switch_manager.flow_timeout(now, table_id, match)
 
     def get_config_dict(self):
         """Return datapath config as a dict for experimental API."""

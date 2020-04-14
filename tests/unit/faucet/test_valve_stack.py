@@ -1374,9 +1374,9 @@ vlans:
                 if port.stack:
                     self.set_stack_port_up(port.number, valve)
 
-    def flood_manager_flood_ports(self, flood_manager):
+    def switch_manager_flood_ports(self, switch_manager):
         """Return list of port numbers that will be flooded to"""
-        return [port.number for port in flood_manager._stack_flood_ports()]  # pylint: disable=protected-access
+        return [port.number for port in switch_manager._stack_flood_ports()]  # pylint: disable=protected-access
 
     def route_manager_ofmsgs(self, route_manager, vlan):
         """Return ofmsgs for route stack link flooding"""
@@ -1391,7 +1391,7 @@ vlans:
         """Test intervlan flooding goes towards the root"""
         output_ports = [3]
         valve = self.valves_manager.valves[1]
-        ports = self.flood_manager_flood_ports(valve.flood_manager)
+        ports = self.switch_manager_flood_ports(valve.switch_manager)
         self.assertEqual(output_ports, ports, 'InterVLAN flooding does not match expected')
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
@@ -1402,7 +1402,7 @@ vlans:
         """Test intervlan flooding goes away from the root"""
         output_ports = [3, 4]
         valve = self.valves_manager.valves[2]
-        ports = self.flood_manager_flood_ports(valve.flood_manager)
+        ports = self.switch_manager_flood_ports(valve.switch_manager)
         self.assertEqual(output_ports, ports, 'InterVLAN flooding does not match expected')
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
@@ -1413,7 +1413,7 @@ vlans:
         """Test intervlan flooding only goes towards the root (s4 will get the reflection)"""
         output_ports = [3]
         valve = self.valves_manager.valves[3]
-        ports = self.flood_manager_flood_ports(valve.flood_manager)
+        ports = self.switch_manager_flood_ports(valve.switch_manager)
         self.assertEqual(output_ports, ports, 'InterVLAN flooding does not match expected')
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
@@ -1424,7 +1424,7 @@ vlans:
         """Test intervlan flooding goes towards the root (through s3)"""
         output_ports = [3]
         valve = self.valves_manager.valves[4]
-        ports = self.flood_manager_flood_ports(valve.flood_manager)
+        ports = self.switch_manager_flood_ports(valve.switch_manager)
         self.assertEqual(output_ports, ports, 'InterVLAN flooding does not match expected')
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
