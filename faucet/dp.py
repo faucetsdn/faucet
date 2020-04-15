@@ -1296,9 +1296,10 @@ configuration.
             if bgp_routers:
                 for bgp_router in bgp_routers:
                     bgp_vlan = bgp_router.bgp_vlan()
-                    vlan_dps = [dp for dp in dps if bgp_vlan.vid in dp.vlans]
-                    test_config_condition(len(vlan_dps) != 1, (
-                        'DPs %s sharing a BGP speaker VLAN is unsupported'))
+                    vlan_dp_ids = [str(dp.dp_id) for dp in dps if bgp_vlan.vid in dp.vlans]
+                    test_config_condition(len(vlan_dp_ids) != 1, (
+                        'DPs (%s) sharing a BGP speaker VLAN (%s) is unsupported') % (
+                            ', '.join(vlan_dp_ids), bgp_vlan.vid))
                     test_config_condition(bgp_router.bgp_server_addresses() != (
                         bgp_routers[0].bgp_server_addresses()), (
                             'BGP server addresses must all be the same'))
