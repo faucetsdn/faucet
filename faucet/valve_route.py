@@ -27,6 +27,7 @@ from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 
 from faucet import valve_of
 from faucet import valve_packet
+from faucet.valve_switch_stack import ValveSwitchStackManagerBase
 from faucet.valve_manager_base import ValveManagerBase
 
 
@@ -110,7 +111,7 @@ class ValveRouteManager(ValveManagerBase):
         'route_priority',
         'routers',
         'vip_table',
-        'flood_manager',
+        'switch_manager',
     ]
 
     IPV = 0
@@ -124,7 +125,7 @@ class ValveRouteManager(ValveManagerBase):
     def __init__(self, logger, notify, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl, multi_out,
-                 fib_table, vip_table, pipeline, routers, flood_manager):
+                 fib_table, vip_table, pipeline, routers, switch_manager):
         self.notify = notify
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
@@ -142,7 +143,7 @@ class ValveRouteManager(ValveManagerBase):
         self.routers = routers
         self.active = False
         self.global_routing = self._global_routing()
-        self.flood_manager = flood_manager
+        self.switch_manager = switch_manager
         if self.global_routing:
             self.logger.info('global routing enabled')
 
@@ -175,8 +176,8 @@ class ValveRouteManager(ValveManagerBase):
     def _flood_stack_links(self, pkt_builder, vlan, multi_out=True, *args):
         """Return flood packet-out actions to stack ports for gw resolving"""
         ofmsgs = []
-        if self.flood_manager:
-            ports = self.flood_manager._stack_flood_ports()
+        if isinstance(self.switch_manager, ValveSwitchStackManagerBase):
+            ports = self.switch_manager._stack_flood_ports()
             if ports:
                 running_port_nos = [port.number for port in ports if port.running()]
                 pkt = pkt_builder(vlan.vid, *args)
