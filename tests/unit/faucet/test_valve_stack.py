@@ -2291,7 +2291,8 @@ dps:
         self.assertIsNotNone(groupmod)
         if groupdel_exists:
             self.assertIsNotNone(groupdel)
-            self.assertTrue(groupdel.group_id, 1001)
+            if groupdel is not None:
+                self.assertTrue(groupdel.group_id, 1001)
         else:
             self.assertIsNone(groupdel)
 

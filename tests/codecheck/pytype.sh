@@ -9,5 +9,5 @@ SRCFILES="$FAUCETHOME/tests/codecheck/src_files.sh $*"
 echo
 echo "Using $PYTYPE (header $PYHEADER)"
 
-python3 $PYTYPE --config $CONFIG -o $TMPDIR/{/} `$SRCFILES | shuf`
+python3 $PYTYPE --config $CONFIG -o $TMPDIR/{/} `$SRCFILES | shuf` || exit 1
 rm -rf $TMPDIR

@@ -35,6 +35,7 @@ def valve_switch_factory(logger, dp, pipeline):  # pylint: disable=invalid-name
     """
     restricted_bcast_arpnd = bool(dp.restricted_bcast_arpnd_ports())
     eth_dst_hairpin_table = dp.tables.get('eth_dst_hairpin', None)
+    vlan_acl_table = dp.tables.get('vlan_acl', None)
 
     if dp.stack_graph:
         switch_class = ValveSwitchStackManagerNoReflection
@@ -45,7 +46,8 @@ def valve_switch_factory(logger, dp, pipeline):  # pylint: disable=invalid-name
             logger.info('Not using stacking root flood reflection')
         return switch_class(
             logger, dp.ports, dp.vlans,
-            dp.tables['eth_src'], dp.tables['eth_dst'], eth_dst_hairpin_table, dp.tables['flood'],
+            dp.tables['vlan'], vlan_acl_table, dp.tables['eth_src'], dp.tables['eth_dst'],
+            eth_dst_hairpin_table, dp.tables['flood'], dp.classification_table,
             pipeline, dp.group_table, dp.groups,
             dp.combinatorial_port_flood, dp.canonical_port_order,
             restricted_bcast_arpnd, dp.has_externals,
@@ -62,7 +64,8 @@ def valve_switch_factory(logger, dp, pipeline):  # pylint: disable=invalid-name
         switch_class = ValveSwitchManager
     return switch_class(
         logger, dp.ports, dp.vlans,
-        dp.tables['eth_src'], dp.tables['eth_dst'], eth_dst_hairpin_table, dp.tables['flood'],
+        dp.tables['vlan'], vlan_acl_table, dp.tables['eth_src'], dp.tables['eth_dst'],
+        eth_dst_hairpin_table, dp.tables['flood'], dp.classification_table,
         pipeline, dp.group_table, dp.groups,
         dp.combinatorial_port_flood, dp.canonical_port_order,
         restricted_bcast_arpnd, dp.has_externals,
