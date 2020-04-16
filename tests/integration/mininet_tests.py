@@ -759,7 +759,7 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
                 'Identity: user', # supplicant replies with username
                 'Success', # supplicant success
                 ):
-            self.assertTrue(req_str in tcpdump_txt)
+            self.assertTrue(req_str in tcpdump_txt, msg='%s not in %s' % (req_str, tcpdump_txt))
 
         self.one_ipv4_ping(
             self.eapol1_host, self.ping_host.IP(),

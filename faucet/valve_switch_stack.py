@@ -17,10 +17,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from collections import defaultdict
-from faucet.valve_switch_standalone import ValveSwitchManager
 from faucet import valve_of
+from faucet.valve_switch_standalone import ValveSwitchManager
+from faucet.vlan import NullVLAN
 
 
 class ValveSwitchStackManagerBase(ValveSwitchManager):
@@ -30,7 +30,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
     _USES_REFLECTION = False
 
     def __init__(self, logger, ports, vlans,  # pylint: disable=too-many-arguments
-                 eth_src_table, eth_dst_table, eth_dst_hairpin_table, flood_table,
+                 vlan_table, vlan_acl_table, eth_src_table, eth_dst_table, eth_dst_hairpin_table,
+                 flood_table, classification_table,
                  pipeline,
                  use_group_table, groups,
                  combinatorial_port_flood, canonical_port_order,
@@ -41,7 +42,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                  is_stack_edge, graph):
         super(ValveSwitchStackManagerBase, self).__init__(
             logger, ports, vlans,
-            eth_src_table, eth_dst_table, eth_dst_hairpin_table, flood_table,
+            vlan_table, vlan_acl_table, eth_src_table, eth_dst_table, eth_dst_hairpin_table,
+            flood_table, classification_table,
             pipeline,
             use_group_table, groups,
             combinatorial_port_flood,
@@ -449,6 +451,22 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         away_flood_ports = [port for port in away_flood_ports if port not in exclude_ports]
         return towards_flood_ports + away_flood_ports
 
+    def add_port(self, port):
+        ofmsgs = super(ValveSwitchStackManagerBase, self).add_port(port)
+        # If this is a stacking port, accept all VLANs (came from another FAUCET)
+        if port.stack:
+            # Actual stack traffic will have VLAN tags.
+            ofmsgs.append(self.vlan_table.flowdrop(
+                match=self.vlan_table.match(
+                    in_port=port.number,
+                    vlan=NullVLAN()),
+                priority=self.low_priority+1))
+            ofmsgs.append(self.vlan_table.flowmod(
+                match=self.vlan_table.match(in_port=port.number),
+                priority=self.low_priority,
+                inst=self.pipeline.accept_to_classification()))
+        return ofmsgs
+
 
 class ValveSwitchStackManagerNoReflection(ValveSwitchStackManagerBase):
     """Stacks of size 2 - all switches directly connected to root.
@@ -627,8 +645,6 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
         # We find just one port that is the shortest unicast path to
         # the destination. We could use other factors (eg we could
         # load balance over multiple ports based on destination MAC).
-        # TODO: edge DPs could use a different forwarding algorithm
-        # (for example, just default switch to a neighbor).
         # Find port that forwards closer to destination DP that
         # has already learned this host (if any).
         peer_dp = pkt_meta.port.stack['dp']

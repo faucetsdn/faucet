@@ -17,11 +17,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import functools
 
 from faucet import valve_of
 from faucet import valve_packet
 from faucet.valve_manager_base import ValveManagerBase
+from faucet.vlan import NullVLAN
 
 
 class ValveSwitchManager(ValveManagerBase):
@@ -51,17 +53,20 @@ class ValveSwitchManager(ValveManagerBase):
     )
 
     def __init__(self, logger, ports, vlans,  # pylint: disable=too-many-arguments
-                 eth_src_table, eth_dst_table, eth_dst_hairpin_table, flood_table,
+                 vlan_table, vlan_acl_table, eth_src_table, eth_dst_table, eth_dst_hairpin_table, flood_table, classification_table,
                  pipeline, use_group_table, groups, combinatorial_port_flood,
                  canonical_port_order, restricted_bcast_arpnd, has_externals,
                  learn_ban_timeout, learn_timeout, learn_jitter, cache_update_guard_time, idle_dst):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
+        self.vlan_table = vlan_table
+        self.vlan_acl_table = vlan_acl_table
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
         self.eth_dst_hairpin_table = eth_dst_hairpin_table
         self.flood_table = flood_table
+        self.classification_table = classification_table
         self.pipeline = pipeline
         self.use_group_table = use_group_table
         self.groups = groups
@@ -314,14 +319,50 @@ class ValveSwitchManager(ValveManagerBase):
     def update_vlan(self, vlan):
         return self.build_flood_rules(vlan, modify=True)
 
+    def _find_forwarding_table(self, vlan):
+        if vlan.acls_in:
+            return self.vlan_acl_table
+        return self.classification_table()
+
+    def _port_add_vlan_rules(self, port, vlan, mirror_act, push_vlan=True):
+        actions = copy.copy(mirror_act)
+        match_vlan = vlan
+        if push_vlan:
+            actions.extend(valve_of.push_vlan_act(
+                self.vlan_table, vlan.vid))
+            match_vlan = NullVLAN()
+        if self.has_externals:
+            if port.loop_protect_external:
+                actions.append(self.vlan_table.set_no_external_forwarding_requested())
+            else:
+                actions.append(self.vlan_table.set_external_forwarding_requested())
+        inst = [
+            valve_of.apply_actions(actions),
+            self.vlan_table.goto(self._find_forwarding_table(vlan))]
+        return self.vlan_table.flowmod(
+            self.vlan_table.match(in_port=port.number, vlan=match_vlan),
+            priority=self.low_priority, inst=inst)
+
     def add_port(self, port):
-        ofmsgs = []
-        if port.coprocessor:
-            ofmsgs.append(self.eth_src_table.flowmod(
-                match=self.eth_src_table.match(in_port=port.number),
-                priority=self.high_priority,
-                inst=[self.eth_src_table.goto(self.output_table)]))
-        return ofmsgs
+        if port.vlans():
+            mirror_act = port.mirror_actions()
+            tagged_ofmsgs = []
+            for vlan in port.tagged_vlans:
+                tagged_ofmsgs.append(self._port_add_vlan_rules(
+                    port, vlan, mirror_act, push_vlan=False))
+            untagged_ofmsgs = []
+            for native_vlan in (port.dyn_dot1x_native_vlan, port.native_vlan):
+                if native_vlan is not None:
+                    untagged_ofmsgs.append(self._port_add_vlan_rules(
+                        port, native_vlan, mirror_act))
+                    break
+            # If no untagged VLANs, add explicit drop rule for untagged packets.
+            if port.count_untag_vlan_miss and not untagged_ofmsgs:
+                untagged_ofmsgs.append(self.vlan_table.flowmod(
+                    self.vlan_table.match(in_port=port.number, vlan=NullVLAN()),
+                    priority=self.low_priority))
+            return tagged_ofmsgs + untagged_ofmsgs
+        return []
 
     def del_port(self, port):
         ofmsgs = []

@@ -20,9 +20,11 @@ import eventlet
 
 eventlet.monkey_patch()
 
-from ryu.lib import hub  # pylint: disable=wrong-import-position
-from chewie import chewie  # pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-position
+from ryu.lib import hub
+from chewie import chewie
 from faucet.valve_util import kill_on_exception
+
 
 def get_mac_str(valve_index, port_num):
     """Gets the mac address string for the valve/port combo
