@@ -21,9 +21,9 @@ import eventlet
 eventlet.monkey_patch()
 
 # pylint: disable=wrong-import-position
-from ryu.lib import hub
-from chewie import chewie
-from faucet.valve_util import kill_on_exception
+from ryu.lib import hub  # noqa
+from chewie import chewie  # noqa
+from faucet.valve_util import kill_on_exception  # noqa
 
 
 def get_mac_str(valve_index, port_num):
@@ -178,7 +178,7 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
         Returns:
             list of flowmods
         """
-        #TODO Come back to. Should this be down?
+        # TODO Come back to. Should this be down?
         self._dot1x_speaker.port_down(
             get_mac_str(self.dp_id_to_valve_index[dp_id], nfv_sw_port.number))
         valve = self._valves[dp_id]

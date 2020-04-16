@@ -53,7 +53,8 @@ class ValveSwitchManager(ValveManagerBase):
     )
 
     def __init__(self, logger, ports, vlans,  # pylint: disable=too-many-arguments
-                 vlan_table, vlan_acl_table, eth_src_table, eth_dst_table, eth_dst_hairpin_table, flood_table, classification_table,
+                 vlan_table, vlan_acl_table, eth_src_table, eth_dst_table,
+                 eth_dst_hairpin_table, flood_table, classification_table,
                  pipeline, use_group_table, groups, combinatorial_port_flood,
                  canonical_port_order, restricted_bcast_arpnd, has_externals,
                  learn_ban_timeout, learn_timeout, learn_jitter, cache_update_guard_time, idle_dst):

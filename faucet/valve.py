@@ -31,7 +31,6 @@ from faucet import valve_switch
 from faucet import valve_table
 from faucet import valve_util
 from faucet import valve_pipeline
-from faucet.valve_manager_base import ValveManagerBase
 from faucet.valve_coprocessor import CoprocessorManager
 from faucet.valve_lldp import ValveLLDPManager
 from faucet.valve_outonly import OutputOnlyManager
@@ -190,7 +189,8 @@ class Valve:
         copro_table = self.dp.tables.get('copro', None)
         if copro_table:
             self._coprocessor_manager = CoprocessorManager(
-                self.dp.ports, copro_table, self.dp.tables['vlan'], self.dp.tables['eth_src'], self.switch_manager.output_table, self.dp.low_priority, self.dp.high_priority)
+                self.dp.ports, copro_table, self.dp.tables['vlan'], self.dp.tables['eth_src'],
+                self.switch_manager.output_table, self.dp.low_priority, self.dp.high_priority)
         for ipv, route_manager_class, neighbor_timeout in (
                 (4, valve_route.ValveIPv4RouteManager, self.dp.arp_neighbor_timeout),
                 (6, valve_route.ValveIPv6RouteManager, self.dp.nd_neighbor_timeout)):
