@@ -750,8 +750,8 @@ Slave queue ID: 0
 Aggregator ID: \d+
 Actor Churn State: monitoring
 Partner Churn State: monitoring
-Actor Churned Count: 0
-Partner Churned Count: 0
+Actor Churned Count: \d+
+Partner Churned Count: \d+
 details actor lacp pdu:
     system priority: 65535
     system mac address: 0e:00:00:00:00:99
