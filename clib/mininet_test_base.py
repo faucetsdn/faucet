@@ -2312,8 +2312,13 @@ dbs:
             require_host_learned=require_host_learned,
             expected_result=expected_result)
 
+    def flush_arp_cache(self, host):
+        """Flush the ARP cache for a host."""
+        host.cmd("ip -s neigh flush all")
+
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
+        self.flush_arp_cache(host)
         self.one_ipv4_ping(host, self.FAUCET_VIPV4.ip)
         self.verify_ipv4_host_learned_mac(
             host, self.FAUCET_VIPV4.ip, self.FAUCET_MAC)
