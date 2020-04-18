@@ -467,6 +467,12 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 inst=self.pipeline.accept_to_classification()))
         return ofmsgs
 
+    def del_port(self, port):
+        ofmsgs = super(ValveSwitchStackManagerBase, self).del_port(port)
+        if port.stack:
+            self._del_port_state(port, self.vlans.values())
+        return ofmsgs
+
 
 class ValveSwitchStackManagerNoReflection(ValveSwitchStackManagerBase):
     """Stacks of size 2 - all switches directly connected to root.

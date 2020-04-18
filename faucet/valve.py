@@ -33,9 +33,37 @@ from faucet import valve_util
 from faucet import valve_pipeline
 from faucet.valve_coprocessor import CoprocessorManager
 from faucet.valve_lldp import ValveLLDPManager
+from faucet.valve_manager_base import ValveManagerBase
 from faucet.valve_outonly import OutputOnlyManager
 from faucet.valve_switch_stack import ValveSwitchStackManagerBase
 from faucet.vlan import NullVLAN
+
+
+# TODO: has to be here not faucet_dot1x to avoid eventlet monkey patch
+class Dot1XManager(ValveManagerBase):
+
+    def __init__(self, dot1x, dp_id, nfv_sw_port, dot1x_ports):
+        self.dot1x = dot1x
+        self.dp_id = dp_id
+        self.nfv_sw_port = nfv_sw_port
+        self.dot1x_ports = dot1x_ports
+
+    def add_port(self, port):
+        ofmsgs = []
+        if port == self.nfv_sw_port:
+            ofmsgs.extend(self.dot1x.nfv_sw_port_up(
+                self.dp_id, self.dot1x_ports(), self.nfv_sw_port))
+        elif port.dot1x:
+            ofmsgs.extend(self.dot1x.port_up(
+                self.dp_id, port, self.nfv_sw_port))
+        return ofmsgs
+
+    def del_port(self, port):
+        ofmsgs = []
+        if port.dot1x:
+            ofmsgs.extend(self.dot1x.port_down(
+                self.dp_id, port, self.nfv_sw_port))
+        return ofmsgs
 
 
 class ValveLogger:
@@ -77,7 +105,7 @@ class Valve:
 
     __slots__ = [
         '_coprocessor_manager',
-        '_nfv_sw_port',
+        '_dot1x_manager',
         '_last_advertise_sec',
         '_last_fast_advertise_sec',
         '_last_packet_in_sec',
@@ -106,7 +134,6 @@ class Valve:
     USE_BARRIERS = True
     STATIC_TABLE_IDS = False
     GROUPS = True
-
 
     def __init__(self, dp, logname, metrics, notifier, dot1x):
         self.dot1x = dot1x
@@ -179,9 +206,11 @@ class Valve:
             self.dp.tables['vlan'], self.dp.highest_priority)
         self._output_only_manager = OutputOnlyManager(
             self.dp.tables['vlan'], self.dp.highest_priority)
-        self._nfv_sw_port = None
+        self._dot1x_manager = None
         if self.dp.dot1x:
-            self._nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
+            nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
+            self._dot1x_manager = Dot1XManager(
+                self.dot1x, self.dp.dp_id, nfv_sw_port, self.dp.dot1x_ports)
 
         self.pipeline = valve_pipeline.ValvePipeline(self.dp)
         self.switch_manager = valve_switch.valve_switch_factory(self.logger, self.dp, self.pipeline)
@@ -225,7 +254,8 @@ class Valve:
             manager for manager in (
                 self.pipeline, self.switch_manager, self.acl_manager, self._lldp_manager,
                 self._route_manager_by_ipv.get(4), self._route_manager_by_ipv.get(6),
-                self._coprocessor_manager, self._output_only_manager) if manager is not None)
+                self._coprocessor_manager, self._output_only_manager,
+                self._dot1x_manager) if manager is not None)
 
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
@@ -453,7 +483,7 @@ class Valve:
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
             return {}
-        if not reason in port_status_codes:
+        if reason not in port_status_codes:
             self.logger.warning('Unhandled port status %s/state %s for %s' % (
                 reason, state, port))
             return {}
@@ -793,14 +823,6 @@ class Valve:
             for manager in self._managers:
                 ofmsgs.extend(manager.add_port(port))
 
-            if self.dp.dot1x:
-                if port == self._nfv_sw_port:
-                    ofmsgs.extend(self.dot1x.nfv_sw_port_up(
-                        self.dp.dp_id, self.dp.dot1x_ports(), self._nfv_sw_port))
-                elif port.dot1x:
-                    ofmsgs.extend(self.dot1x.port_up(
-                        self.dp.dp_id, port, self._nfv_sw_port))
-
             if port.output_only:
                 continue
 
@@ -855,9 +877,6 @@ class Valve:
                 continue
 
             vlans_with_deleted_ports.update(set(port.vlans()))
-
-            if port.dot1x:
-                ofmsgs.extend(self.dot1x.port_down(self.dp.dp_id, port, self._nfv_sw_port))
 
             if port.lacp:
                 ofmsgs.extend(self.lacp_update(port, False, other_valves=other_valves))
@@ -1783,20 +1802,16 @@ class Valve:
         self.notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
         return ofmsgs
 
-    def _del_native_vlan(self, port):
-        vlan_table = self.dp.tables['vlan']
-        ofmsg = vlan_table.flowdel(
-            vlan_table.match(in_port=port.number, vlan=port.native_vlan),
-            priority=self.dp.low_priority,
-        )
-        return [ofmsg]
-
-    def _warm_reconfig_port_vlans(self, port, vlans):
+    def _warm_reconfig_port_native_vlans(self, port, new_dyn_dot1x_native_vlan):
         ofmsgs = []
+        old_dyn_vlan = port.dyn_dot1x_native_vlan
         ofmsgs.extend(self.switch_manager.del_port(port))
+        port.dyn_dot1x_native_vlan = new_dyn_dot1x_native_vlan
         ofmsgs.extend(self.switch_manager.add_port(port))
-        for vlan in vlans:
-            ofmsgs.extend(self.switch_manager.update_vlan(vlan))
+        for vlan in (old_dyn_vlan,) + (port.dyn_dot1x_native_vlan, port.native_vlan):
+            if vlan is not None:
+                vlan.reset_ports(self.dp.ports.values())
+                ofmsgs.extend(self.switch_manager.update_vlan(vlan))
         return ofmsgs
 
     def add_dot1x_native_vlan(self, port_num, vlan_name):
@@ -1805,27 +1820,14 @@ class Valve:
         vlans = [vlan for vlan in self.dp.vlans.values() if vlan.name == vlan_name]
         if vlans:
             vlan = vlans[0]
-            port.dyn_dot1x_native_vlan = vlan
-            vlan.reset_ports(self.dp.ports.values())
-            ofmsgs.extend(self._del_native_vlan(port))
-            ofmsgs.extend(self._warm_reconfig_port_vlans(
-                port, (port.dyn_dot1x_native_vlan, port.native_vlan)))
+            ofmsgs.extend(self._warm_reconfig_port_native_vlans(port, vlan))
         return ofmsgs
 
     def del_dot1x_native_vlan(self, port_num):
         ofmsgs = []
         port = self.dp.ports[port_num]
         if port.dyn_dot1x_native_vlan is not None:
-            dyn_vlan = port.dyn_dot1x_native_vlan
-            port.dyn_dot1x_native_vlan = None
-            dyn_vlan.reset_ports(self.dp.ports.values())
-            # Delete any existing native VLAN rule.
-            vlan_table = self.dp.tables['vlan']
-            ofmsgs.append(vlan_table.flowdel(
-                vlan_table.match(in_port=port.number, vlan=NullVLAN()),
-                priority=self.dp.low_priority))
-            ofmsgs.extend(self._warm_reconfig_port_vlans(
-                port, (dyn_vlan, port.native_vlan)))
+            ofmsgs.extend(self._warm_reconfig_port_native_vlans(port, None))
         return ofmsgs
 
     def router_vlan_for_ip_gw(self, vlan, ip_gw):

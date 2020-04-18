@@ -365,6 +365,10 @@ class ValveSwitchManager(ValveManagerBase):
             return tagged_ofmsgs + untagged_ofmsgs
         return []
 
+    def _del_port_state(self, port, vlans):
+        for vlan in vlans:
+            vlan.clear_cache_hosts_on_port(port)
+
     def del_port(self, port):
         ofmsgs = []
         ofmsgs.append(
@@ -375,10 +379,13 @@ class ValveSwitchManager(ValveManagerBase):
                 # that have an action targeting this port.
                 ofmsgs.append(table.flowdel(out_port=port.number))
         vlans = port.vlans()
-        if port.stack:
-            vlans = self.vlans.values()
-        for vlan in vlans:
-            vlan.clear_cache_hosts_on_port(port)
+        if vlans:
+            self._del_port_state(port, vlans)
+            for native_vlan in (port.dyn_dot1x_native_vlan, port.native_vlan):
+                if native_vlan is not None:
+                    ofmsgs.append(self.vlan_table.flowdel(
+                        self.vlan_table.match(in_port=port.number, vlan=native_vlan),
+                        priority=self.low_priority))
         return ofmsgs
 
     def build_flood_rules(self, vlan, modify=False):
