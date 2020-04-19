@@ -344,6 +344,12 @@ class ValveSwitchManager(ValveManagerBase):
             self.vlan_table.match(in_port=port.number, vlan=match_vlan),
             priority=self.low_priority, inst=inst)
 
+    def _native_vlan(self, port):
+        for native_vlan in (port.dyn_dot1x_native_vlan, port.native_vlan):
+            if native_vlan is not None:
+                return native_vlan
+        return None
+
     def add_port(self, port):
         if port.vlans():
             mirror_act = port.mirror_actions()
@@ -352,11 +358,10 @@ class ValveSwitchManager(ValveManagerBase):
                 tagged_ofmsgs.append(self._port_add_vlan_rules(
                     port, vlan, mirror_act, push_vlan=False))
             untagged_ofmsgs = []
-            for native_vlan in (port.dyn_dot1x_native_vlan, port.native_vlan):
-                if native_vlan is not None:
-                    untagged_ofmsgs.append(self._port_add_vlan_rules(
-                        port, native_vlan, mirror_act))
-                    break
+            native_vlan = self._native_vlan(port)
+            if native_vlan is not None:
+                untagged_ofmsgs.append(self._port_add_vlan_rules(
+                    port, native_vlan, mirror_act))
             # If no untagged VLANs, add explicit drop rule for untagged packets.
             if port.count_untag_vlan_miss and not untagged_ofmsgs:
                 untagged_ofmsgs.append(self.vlan_table.flowmod(
@@ -376,6 +381,11 @@ class ValveSwitchManager(ValveManagerBase):
                 ofmsgs.append(table.flowdel(out_port=port.number))
         for vlan in port.vlans():
             vlan.clear_cache_hosts_on_port(port)
+        native_vlan = self._native_vlan(port)
+        if native_vlan is not None:
+            ofmsgs.append(self.vlan_table.flowdel(
+                self.vlan_table.match(in_port=port.number, vlan=port.native_vlan),
+                priority=self.low_priority))
         return ofmsgs
 
     def build_flood_rules(self, vlan, modify=False):

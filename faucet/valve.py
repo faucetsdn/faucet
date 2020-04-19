@@ -1783,20 +1783,16 @@ class Valve:
         self.notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
         return ofmsgs
 
-    def _del_native_vlan(self, port):
-        vlan_table = self.dp.tables['vlan']
-        ofmsg = vlan_table.flowdel(
-            vlan_table.match(in_port=port.number, vlan=port.native_vlan),
-            priority=self.dp.low_priority,
-        )
-        return [ofmsg]
-
-    def _warm_reconfig_port_vlans(self, port, vlans):
+    def _warm_reconfig_port_native_vlans(self, port, new_dyn_dot1x_native_vlan):
         ofmsgs = []
+        old_vlan = port.dyn_dot1x_native_vlan
         ofmsgs.extend(self.switch_manager.del_port(port))
+        port.dyn_dot1x_native_vlan = new_dyn_dot1x_native_vlan
+        for vlan in (old_vlan,) + (port.dyn_dot1x_native_vlan, port.native_vlan):
+            if vlan is not None:
+                vlan.reset_ports(self.dp.ports.values())
+                ofmsgs.extend(self.switch_manager.update_vlan(vlan))
         ofmsgs.extend(self.switch_manager.add_port(port))
-        for vlan in vlans:
-            ofmsgs.extend(self.switch_manager.update_vlan(vlan))
         return ofmsgs
 
     def add_dot1x_native_vlan(self, port_num, vlan_name):
@@ -1805,27 +1801,14 @@ class Valve:
         vlans = [vlan for vlan in self.dp.vlans.values() if vlan.name == vlan_name]
         if vlans:
             vlan = vlans[0]
-            port.dyn_dot1x_native_vlan = vlan
-            vlan.reset_ports(self.dp.ports.values())
-            ofmsgs.extend(self._del_native_vlan(port))
-            ofmsgs.extend(self._warm_reconfig_port_vlans(
-                port, (port.dyn_dot1x_native_vlan, port.native_vlan)))
+            ofmsgs.extend(self._warm_reconfig_port_native_vlans(port, vlan))
         return ofmsgs
 
     def del_dot1x_native_vlan(self, port_num):
         ofmsgs = []
         port = self.dp.ports[port_num]
         if port.dyn_dot1x_native_vlan is not None:
-            dyn_vlan = port.dyn_dot1x_native_vlan
-            port.dyn_dot1x_native_vlan = None
-            dyn_vlan.reset_ports(self.dp.ports.values())
-            # Delete any existing native VLAN rule.
-            vlan_table = self.dp.tables['vlan']
-            ofmsgs.append(vlan_table.flowdel(
-                vlan_table.match(in_port=port.number, vlan=NullVLAN()),
-                priority=self.dp.low_priority))
-            ofmsgs.extend(self._warm_reconfig_port_vlans(
-                port, (dyn_vlan, port.native_vlan)))
+            ofmsgs.extend(self._warm_reconfig_port_native_vlans(port, None))
         return ofmsgs
 
     def router_vlan_for_ip_gw(self, vlan, ip_gw):
