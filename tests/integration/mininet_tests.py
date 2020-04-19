@@ -773,8 +773,8 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
                 lambda: port_up(port_no1)],
             timeout=30, vflags='-vvv', packets=2)
         for req_str in (
-                'Identity: %s' % username, # supplicant replies with username
-                'Success', # supplicant success
+                'Identity: %s' % username,  # supplicant replies with username
+                'Success',  # supplicant success
                 ):
             self.assertTrue(req_str in tcpdump_txt, msg='%s not in %s' % (req_str, tcpdump_txt))
 
