@@ -362,9 +362,20 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
                                 msg='expected event: {} not in events_that_happened {}'.format(
                                     expected_event, events_that_happened))
 
+    def _eapol_filter(self, fields):
+        return '(' + ' and '.join(('ether proto 0x888e',) + fields) + ')'
+
+    def _success_eapol_filter(self, expect_success):
+        eap_code = '0x04'
+        if expect_success:
+            eap_code = '0x03'
+        return self._eapol_filter(('ether[14:4] == 0x01000004', 'ether[18] == %s' % eap_code))
+
+    def _logoff_eapol_filter(self):
+        return self._eapol_filter(('ether[14:4] == 0x01020000',))
+
     def try_8021x(self, host, port_num, conf, and_logoff=False, terminate_wpasupplicant=False,
-                  wpasup_timeout=180, tcpdump_timeout=15, tcpdump_packets=10,
-                  expect_success=True):
+                  wpasup_timeout=180, tcpdump_timeout=30, expect_success=True):
         if expect_success:
             self.wait_8021x_flows(port_num)
         port_labels = self.port_labels(port_num)
@@ -380,7 +391,11 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             'dp_dot1x_failure_total', default=0)
         dp_logoff_total = self.scrape_prometheus_var(
             'dp_dot1x_logoff_total', default=0)
-        tcpdump_filter = 'ether proto 0x888e'
+        tcpdump_filters = [self._success_eapol_filter(expect_success)]
+        if and_logoff:
+            tcpdump_filters.append(self._logoff_eapol_filter())
+        tcpdump_packets = len(tcpdump_filters)
+        tcpdump_filter = ' or '.join(tcpdump_filters)
         tcpdump_txt = self.tcpdump_helper(
             host, tcpdump_filter, [
                 lambda: self.wpa_supplicant_callback(
@@ -393,6 +408,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             if not and_logoff:
                 self.wait_8021x_success_flows(host, port_num)
         success = 'Success' in tcpdump_txt
+        if expect_success != success:
+            return False
         new_success_total = self.scrape_prometheus_var(
             'port_dot1x_success_total', labels=port_labels, default=0)
         new_failure_total = self.scrape_prometheus_var(
@@ -405,8 +422,6 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
             'dp_dot1x_failure_total', default=0)
         new_dp_logoff_total = self.scrape_prometheus_var(
             'dp_dot1x_logoff_total', default=0)
-        if expect_success != success:
-            return False
         if expect_success and success:
             self.assertGreater(new_success_total, success_total)
             self.assertGreater(new_dp_success_total, dp_success_total)
@@ -735,11 +750,10 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
 
-        # start wpa sup, logon, then send id request. should then be 2 success.
+        # start wpa sup, logon, then send id request.
         self.set_port_up(port_no1)
         self.assertTrue(self.try_8021x(
-            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False,
-            tcpdump_timeout=180, tcpdump_packets=6))
+            self.eapol1_host, port_no1, self.wpasupplicant_conf_1, and_logoff=False))
         self.set_port_down(port_no1)
         self.one_ipv4_ping(
             self.eapol1_host, self.ping_host.IP(),
@@ -749,15 +763,18 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
             self.set_port_up(port)
             self.wait_8021x_flows(port)
 
-        tcpdump_filter = 'ether proto 0x888e'
+        username = 'user'
+        username_bytes = ''.join(('%2x' % ord(c) for c in username))
+        tcpdump_filter = ' or '.join((
+            self._success_eapol_filter(True),
+            self._eapol_filter(('ether[23:4] == 0x%s' % username_bytes,))))
         tcpdump_txt = self.tcpdump_helper(
             self.eapol1_host, tcpdump_filter, [
                 lambda: port_up(port_no1)],
-            timeout=80, vflags='-vvv', packets=10)
+            timeout=30, vflags='-vvv', packets=2)
         for req_str in (
-                'len 5, Request (1)', # assume that this is the identity request
-                'Identity: user', # supplicant replies with username
-                'Success', # supplicant success
+                'Identity: %s' % username,  # supplicant replies with username
+                'Success',  # supplicant success
                 ):
             self.assertTrue(req_str in tcpdump_txt, msg='%s not in %s' % (req_str, tcpdump_txt))
 
