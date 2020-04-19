@@ -374,10 +374,7 @@ class ValveSwitchManager(ValveManagerBase):
                 # per OF 1.3.5 B.6.23, the OFA will match flows
                 # that have an action targeting this port.
                 ofmsgs.append(table.flowdel(out_port=port.number))
-        vlans = port.vlans()
-        if port.stack:
-            vlans = self.vlans.values()
-        for vlan in vlans:
+        for vlan in port.vlans():
             vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
 
