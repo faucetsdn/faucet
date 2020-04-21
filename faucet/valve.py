@@ -31,11 +31,37 @@ from faucet import valve_switch
 from faucet import valve_table
 from faucet import valve_util
 from faucet import valve_pipeline
+from faucet.valve_manager_base import ValveManagerBase
 from faucet.valve_coprocessor import CoprocessorManager
 from faucet.valve_lldp import ValveLLDPManager
 from faucet.valve_outonly import OutputOnlyManager
 from faucet.valve_switch_stack import ValveSwitchStackManagerBase
 from faucet.vlan import NullVLAN
+
+
+class Dot1xManager(ValveManagerBase):
+
+    def __init__(self, dot1x, dp_id, dot1x_ports, nfv_sw_port):
+        self.dot1x = dot1x
+        self.dp_id = dp_id
+        self.dot1x_ports = dot1x_ports
+        self.nfv_sw_port = nfv_sw_port
+
+    def del_port(self, port):
+        ofmsgs = []
+        if port.dot1x:
+            ofmsgs.extend(self.dot1x.port_down(self.dp_id, port, self.nfv_sw_port))
+        return ofmsgs
+
+    def add_port(self, port):
+        ofmsgs = []
+        if port == self.nfv_sw_port:
+            ofmsgs.extend(self.dot1x.nfv_sw_port_up(
+                self.dp_id, self.dot1x_ports(), self.nfv_sw_port))
+        elif port.dot1x:
+            ofmsgs.extend(self.dot1x.port_up(
+                self.dp_id, port, self.nfv_sw_port))
+        return ofmsgs
 
 
 class ValveLogger:
@@ -77,7 +103,7 @@ class Valve:
 
     __slots__ = [
         '_coprocessor_manager',
-        '_nfv_sw_port',
+        '_dot1x_manager',
         '_last_advertise_sec',
         '_last_fast_advertise_sec',
         '_last_packet_in_sec',
@@ -179,9 +205,10 @@ class Valve:
             self.dp.tables['vlan'], self.dp.highest_priority)
         self._output_only_manager = OutputOnlyManager(
             self.dp.tables['vlan'], self.dp.highest_priority)
-        self._nfv_sw_port = None
+        self._dot1x_manager = None
         if self.dp.dot1x:
-            self._nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
+            nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
+            self._dot1x_manager = Dot1xManager(self.dot1x, self.dp.dp_id, self.dp.dot1x_ports, nfv_sw_port)
 
         self.pipeline = valve_pipeline.ValvePipeline(self.dp)
         self.switch_manager = valve_switch.valve_switch_factory(self.logger, self.dp, self.pipeline)
@@ -225,7 +252,8 @@ class Valve:
             manager for manager in (
                 self.pipeline, self.switch_manager, self.acl_manager, self._lldp_manager,
                 self._route_manager_by_ipv.get(4), self._route_manager_by_ipv.get(6),
-                self._coprocessor_manager, self._output_only_manager) if manager is not None)
+                self._coprocessor_manager, self._output_only_manager,
+                self._dot1x_manager) if manager is not None)
 
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
@@ -762,7 +790,7 @@ class Valve:
         for route_manager in self._route_manager_by_ipv.values():
             ofmsgs.extend(route_manager.expire_port_nexthops(port))
         ofmsgs.extend(self._delete_all_port_match_flows(port))
-        if not keep_cache:
+        if not keep_cache or port.dot1x:
             ofmsgs.extend(self._port_delete_manager_state(port))
         return ofmsgs
 
@@ -792,14 +820,6 @@ class Valve:
 
             for manager in self._managers:
                 ofmsgs.extend(manager.add_port(port))
-
-            if self.dp.dot1x:
-                if port == self._nfv_sw_port:
-                    ofmsgs.extend(self.dot1x.nfv_sw_port_up(
-                        self.dp.dp_id, self.dp.dot1x_ports(), self._nfv_sw_port))
-                elif port.dot1x:
-                    ofmsgs.extend(self.dot1x.port_up(
-                        self.dp.dp_id, port, self._nfv_sw_port))
 
             if port.output_only:
                 continue
@@ -855,9 +875,6 @@ class Valve:
                 continue
 
             vlans_with_deleted_ports.update(set(port.vlans()))
-
-            if port.dot1x:
-                ofmsgs.extend(self.dot1x.port_down(self.dp.dp_id, port, self._nfv_sw_port))
 
             if port.lacp:
                 ofmsgs.extend(self.lacp_update(port, False, other_valves=other_valves))
