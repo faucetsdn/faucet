@@ -39,6 +39,7 @@ from faucet.valve_switch_stack import ValveSwitchStackManagerBase
 from faucet.vlan import NullVLAN
 
 
+# TODO: has to be here to avoid eventlet monkey patch in faucet_dot1x.
 class Dot1xManager(ValveManagerBase):
 
     def __init__(self, dot1x, dp_id, dot1x_ports, nfv_sw_port):
