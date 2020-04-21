@@ -253,8 +253,7 @@ class Valve:
             manager for manager in (
                 self.pipeline, self.switch_manager, self.acl_manager, self._lldp_manager,
                 self._route_manager_by_ipv.get(4), self._route_manager_by_ipv.get(6),
-                self._coprocessor_manager, self._output_only_manager,
-                self._dot1x_manager) if manager is not None)
+                self._coprocessor_manager, self._output_only_manager) if manager is not None)
 
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
@@ -791,7 +790,7 @@ class Valve:
         for route_manager in self._route_manager_by_ipv.values():
             ofmsgs.extend(route_manager.expire_port_nexthops(port))
         ofmsgs.extend(self._delete_all_port_match_flows(port))
-        if not keep_cache or port.dot1x:
+        if not keep_cache:
             ofmsgs.extend(self._port_delete_manager_state(port))
         return ofmsgs
 
@@ -824,6 +823,9 @@ class Valve:
 
             if port.output_only:
                 continue
+
+            if self._dot1x_manager:
+                ofmsgs.extend(self._dot1x_manager.add_port(port))
 
             if port.lacp:
                 if cold_start:
@@ -874,6 +876,9 @@ class Valve:
 
             if port.output_only:
                 continue
+
+            if self._dot1x_manager:
+                ofmsgs.extend(self._dot1x_manager.del_port(port))
 
             vlans_with_deleted_ports.update(set(port.vlans()))
 
