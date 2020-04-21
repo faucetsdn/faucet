@@ -538,9 +538,9 @@ class ValveStackChainTest(ValveTestBases.ValveTestSmall):
         self.activate_all_ports()
         self.validate_edge_learn_ports()
 
-    def test_stack_learn_root(self):
-        """Test stack learned root"""
-        self.update_config(self._config_edge_learn_stack_root(True))
+    def test_stack_learn_not_root(self):
+        """Test stack learned when not root"""
+        self.update_config(self._config_edge_learn_stack_root(False))
         self.activate_all_ports()
         self.validate_edge_learn_ports()
 
@@ -631,7 +631,7 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
     def test_edge_learn_stack_root(self):
         """Check the behavior of learning always towards stack root"""
 
-        self.update_config(self._config_edge_learn_stack_root(True))
+        #self.update_config(self._config_edge_learn_stack_root(False))
 
         self.activate_all_ports()
 
