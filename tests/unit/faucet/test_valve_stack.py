@@ -617,6 +617,8 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
     def test_edge_learn_edge_port(self):
         """Check the behavior of the basic edge_learn_port algorithm"""
 
+        self.update_config(self._config_edge_learn_stack_root(False))
+
         self.activate_all_ports()
 
         self.validate_edge_learn_ports()
@@ -630,8 +632,6 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
 
     def test_edge_learn_stack_root(self):
         """Check the behavior of learning always towards stack root"""
-
-        #self.update_config(self._config_edge_learn_stack_root(False))
 
         self.activate_all_ports()
 
