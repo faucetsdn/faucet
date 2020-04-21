@@ -821,11 +821,11 @@ class Valve:
             for manager in self._managers:
                 ofmsgs.extend(manager.add_port(port))
 
-            if port.output_only:
-                continue
-
             if self._dot1x_manager:
                 ofmsgs.extend(self._dot1x_manager.add_port(port))
+
+            if port.output_only:
+                continue
 
             if port.lacp:
                 if cold_start:
