@@ -14,18 +14,15 @@ import networkx
 from networkx.generators.atlas import graph_atlas_g
 
 from clib.clib_mininet_test_main import test_main
-from clib.mininet_test_topo_generator import FaucetTopoGenerator
 
 import mininet_tests
 
 
-def test_generator(num_dps, num_vlans, n_dp_links, stack_roots, func_graph):
+def test_generator(func_graph, stack_roots):
     """Return the function that will start the fault-tolerance testing for a graph"""
     def test(self):
         """Test fault-tolerance of the topology"""
-        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
-            func_graph, n_dp_links=n_dp_links)
-        self.set_up(num_dps, num_vlans, dp_links, stack_roots)
+        self.set_up(func_graph, stack_roots)
         self.network_function()
     return test
 
@@ -43,9 +40,7 @@ if __name__ == '__main__':
     for i, test_class in enumerate(mininet_tests.TEST_CLASS_LIST):
         for test_graph in GRAPHS[test_class.NUM_DPS]:
             test_name = 'test_%s' % test_graph.name
-            test_func = test_generator(
-                test_class.NUM_DPS, test_class.NUM_VLANS,
-                test_class.N_DP_LINKS, test_class.STACK_ROOTS, test_graph)
+            test_func = test_generator(test_graph, test_class.STACK_ROOTS)
             setattr(test_class, test_name, test_func)
 
     test_main([mininet_tests.__name__])

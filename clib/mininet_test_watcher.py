@@ -28,33 +28,33 @@ class TopologyWatcher():
     # Dict of src host key and dst hosts value
     connected_hosts = None
 
-    def __init__(self, dpids, dp_links, host_links, n_vlans, host_information, routers):
+    def __init__(self, dpids, switch_links, host_links, n_vlans, host_information, routers):
         """
         Args:
             dpids (list): Switch dpids to match the DPID indices used in dp_links & other structures
-            dp_links (dict):
+            switch_links (dict):
             host_links (dict):
             n_vlans: Number of VLANs
             host_information (dict):
         """
         self.dpids = dpids
-        self.dp_links = dp_links
+        self.switch_links = switch_links
         self.host_links = host_links
         self.n_vlans = n_vlans
         self.host_information = host_information
         self.routers = routers
         self.fault_list = []
         self.add_fault('Initial')
-        self.generate_predicted_graph(dpids, dp_links, host_links, host_information)
+        self.generate_predicted_graph(dpids, switch_links, host_links, host_information)
 
-    def generate_predicted_graph(self, dpids, dp_links, host_links, host_information):
+    def generate_predicted_graph(self, dpids, switch_links, host_links, host_information):
         """Creates the predicted network graph"""
         self.predicted_network_graph = networkx.MultiGraph()
         for dpid in dpids:
             self.predicted_network_graph.add_node(dpid)
-        for src, dsts in dp_links.items():
-            for dst in dsts:
-                self.predicted_network_graph.add_edge(self.dpids[src], self.dpids[dst])
+        for link in switch_links:
+            u, v = link
+            self.predicted_network_graph.add_edge(self.dpids[u], self.dpids[v])
         self.host_name_to_index = {}
         for host_id, host_info in host_information.items():
             host_name = host_info['host'].name
