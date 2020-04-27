@@ -3,8 +3,7 @@
 if [ ${DIB_DEBUG_TRACE:-1} -gt 0 ]; then
     set -x
 fi
-set -eu
-set -o pipefail
+set -euo pipefail
 
 SCRIPTDIR=$(dirname $0)
 
@@ -12,6 +11,9 @@ SCRIPTDIR=$(dirname $0)
 adduser --disabled-password --gecos "faucet user" faucet
 echo faucet:faucet | chpasswd
 gpasswd -a faucet sudo
+
+# Recreate /etc/apt/sources.list.d
+mkdir -p /etc/apt/sources.list.d
 
 # Add faucet repo
 echo "deb https://packagecloud.io/faucetsdn/faucet/$(lsb_release -si | awk '{print tolower($0)}')/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/faucet.list
