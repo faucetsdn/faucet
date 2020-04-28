@@ -43,12 +43,16 @@ def create_mock_datapath(num_ports):
     dp_name = mock.PropertyMock(return_value='datapath')
 
     def table_by_id(i):
+        """Mock a table by id"""
+
         table = mock.Mock()
         table_name = mock.PropertyMock(return_value='table' + str(i))
         type(table).name = table_name
         return table
 
     def port_labels(port_no):
+        """Provide labels for a port"""
+
         return {
             'port': 'port%u' % port_no, 'port_description': 'port%u' % port_no,
             'dp_id': hex(dp_id), 'dp_name': dp_name}
