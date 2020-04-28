@@ -21,7 +21,8 @@
 import os
 import unittest
 
-from deb_pkg_tools.control import deb822_from_string, parse_control_fields
+from deb_pkg_tools.control import parse_control_fields
+from deb_pkg_tools.deb822 import parse_deb822
 from deb_pkg_tools.deps import VersionedRelationship
 
 try:
@@ -34,9 +35,9 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
     """Test debian packaging."""
 
     def setUp(self):
-        SRC_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../')
-        self.control_file = os.path.join(SRC_DIR, 'debian/control')
-        self.requirements_file = os.path.join(SRC_DIR, 'requirements.txt')
+        src_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../')
+        self.control_file = os.path.join(src_dir, 'debian/control')
+        self.requirements_file = os.path.join(src_dir, 'requirements.txt')
 
         self.dpkg_name = {
             'msgpack-python': 'python3-msgpack',
@@ -55,7 +56,7 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
                     break
                 faucet_dpkg += "\n{}".format(line)
 
-        faucet_dpkg = parse_control_fields(deb822_from_string(faucet_dpkg))
+        faucet_dpkg = parse_control_fields(parse_deb822(faucet_dpkg))
         self.faucet_dpkg_deps = {}
         for dep in faucet_dpkg['Depends']:
             if isinstance(dep, VersionedRelationship):
@@ -63,7 +64,7 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
                     self.faucet_dpkg_deps[dep.name] = []
                 self.faucet_dpkg_deps[dep.name].append("{}{}".format(dep.operator, dep.version))
 
-    def test_every_pip_requirement_in_debian_package(self):
+    def test_pip_reqs_in_deb_package(self):
         """Test pip requirements are listed as dependencies on debian package."""
 
         for pip_req in parse_requirements(self.requirements_file,
@@ -76,7 +77,7 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
 
                 self.assertIn(dpkg_name, self.faucet_dpkg_deps)
 
-    def test_every_pip_requirement_has_matching_version_in_debian_package(self):
+    def test_pip_reqs_versions_match_deb_package(self):
         """Test pip requirements versions match debian package dependencies."""
 
         for pip_req in parse_requirements(self.requirements_file,
