@@ -1545,7 +1545,10 @@ dbs:
         if config_name is None:
             del conf['dps'][self.DP_NAME]['interfaces'][port]
         else:
-            conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
+            if config_value is None:
+                del conf['dps'][self.DP_NAME]['interfaces'][port][config_name]
+            else:
+                conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
         self.reload_conf(
             conf, self.faucet_config_path,
             restart, cold_start, hup=hup)
@@ -1877,12 +1880,13 @@ dbs:
         self.assertGreaterEqual(received_pings, expected_pings)
         self.assertLessEqual(received_pings, max_expected_pings)
 
-    def verify_bcast_ping_mirrored(self, first_host, second_host, mirror_host, tagged=False):
+    def verify_bcast_ping_mirrored(self, first_host, second_host, mirror_host, tagged=False, require_learned=True):
         """Verify that broadcast to a mirrored port, is mirrored."""
-        self.ping((first_host, second_host))
-        for host in (first_host, second_host):
-            self.require_host_learned(host)
-        self.retry_net_ping(hosts=(first_host, second_host))
+        if require_learned:
+            self.ping((first_host, second_host))
+            for host in (first_host, second_host):
+                self.require_host_learned(host)
+            self.retry_net_ping(hosts=(first_host, second_host))
         tcpdump_filter = (
             'ether src %s and ether dst ff:ff:ff:ff:ff:ff and '
             'icmp[icmptype] == 8') % second_host.MAC()
