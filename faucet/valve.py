@@ -1293,8 +1293,10 @@ class Valve:
                     pkt_meta.reparse_ip()
                 learn_log = 'L2 learned on %s %s (%u hosts total)' % (
                     learn_port, pkt_meta.log(), pkt_meta.vlan.hosts_count())
+                stack_descr = None
                 if pkt_meta.port.stack:
-                    learn_log += ' from %s' % pkt_meta.port.stack_descr()
+                    stack_descr = pkt_meta.port.stack_descr()
+                    learn_log += ' from %s' % stack_descr
                 previous_port_no = None
                 if previous_port is not None:
                     previous_port_no = previous_port.number
@@ -1306,16 +1308,18 @@ class Valve:
                 learn_labels = dict(self.dp.base_prom_labels(), vid=pkt_meta.vlan.vid,
                                     eth_src=pkt_meta.eth_src)
                 self._set_var('learned_l2_port', learn_port.number, labels=learn_labels)
-                self.notify(
-                    {'L2_LEARN': {
-                        'port_no': learn_port.number,
-                        'previous_port_no': previous_port_no,
-                        'vid': pkt_meta.vlan.vid,
-                        'eth_src': pkt_meta.eth_src,
-                        'eth_dst': pkt_meta.eth_dst,
-                        'eth_type': pkt_meta.eth_type,
-                        'l3_src_ip': str(pkt_meta.l3_src),
-                        'l3_dst_ip': str(pkt_meta.l3_dst)}})
+                l2_learn_msg = {
+                    'port_no': learn_port.number,
+                    'previous_port_no': previous_port_no,
+                    'vid': pkt_meta.vlan.vid,
+                    'eth_src': pkt_meta.eth_src,
+                    'eth_dst': pkt_meta.eth_dst,
+                    'eth_type': pkt_meta.eth_type,
+                    'l3_src_ip': str(pkt_meta.l3_src),
+                    'l3_dst_ip': str(pkt_meta.l3_dst)}
+                if stack_descr:
+                    l2_learn_msg.update({'stack_descr': stack_descr})
+                self.notify({'L2_LEARN': l2_learn_msg})
             return learn_flows
         return []
 
