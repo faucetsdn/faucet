@@ -929,7 +929,7 @@ class Valve:
                 if lacp_id in all_lags:
                     ports[valve.dp.dp_id] += len(nosync_lags[lacp_id])
                 else:
-                     ports[valve.dp.dp_id] = len(nosync_lags[lacp_id])
+                    ports[valve.dp.dp_id] = len(nosync_lags[lacp_id])
             if valve.dp.is_stack_root():
                 root_dpid = valve.dp.dp_id
         # Order by number of ports
