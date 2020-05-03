@@ -73,6 +73,16 @@ Installation with Docker
 We provide official automated builds on `Docker Hub <https://hub.docker.com/r/faucet/>`_ so that you can easily
 run Faucet and it's components in a self-contained environment without installing on the main host system.
 
+The docker images support the following architectures:
+
+* amd64
+* 386
+* arm/v6
+* arm/v7
+* arm64/v8
+* ppc64le
+* s390x
+
 .. _docker-install:
 
 Installing docker

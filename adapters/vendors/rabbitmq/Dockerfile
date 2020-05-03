@@ -1,6 +1,6 @@
 ## Image name: faucet/event-adapter-rabbitmq
 
-FROM faucet/base:4.0.0
+FROM faucet/base:5.0.0
 LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 
 ENV PYTHONUNBUFFERED=0

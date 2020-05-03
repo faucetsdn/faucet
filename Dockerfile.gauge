@@ -1,10 +1,6 @@
 ## Image name: faucet/gauge
 
-FROM faucet/python3:4.0.0
-
-COPY ./ /faucet-src/
-
-RUN ./faucet-src/docker/install-faucet.sh
+FROM faucet/faucet:latest
 
 VOLUME ["/etc/faucet/", "/var/log/faucet/"]
 
