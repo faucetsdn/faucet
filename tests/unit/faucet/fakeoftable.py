@@ -598,7 +598,7 @@ class FlowMod:
             parser.OFPActionPushVlan.__name__: ('push_vlan', 'ethertype'),
             parser.OFPActionPopVlan.__name__: ('pop_vlan', None),
             parser.OFPActionGroup.__name__: ('group', 'group_id'),
-            }
+            parser.OFPActionDecNwTtl.__name__: ('dec_nw_ttl', None)}
         value = None
         if isinstance(action, parser.OFPActionOutput):
             name = 'output'

@@ -20,6 +20,7 @@
 from collections import namedtuple
 from functools import partial
 import cProfile
+import difflib
 import io
 import ipaddress
 import logging
@@ -475,6 +476,7 @@ class ValveTestBases:
         ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8')  # must support 64b payload.
         REQUIRE_TFM = True
         CONFIG_AUTO_REVERT = False
+        CONFIG = ''
 
         def __init__(self, *args, **kwargs):
             self.dot1x = None
@@ -590,8 +592,10 @@ class ValveTestBases:
             self.last_flows_to_dp[valve.dp.dp_id] = flows
 
         def update_config(self, config, reload_type='cold',
-                          reload_expected=True, error_expected=0):
+                          reload_expected=True, error_expected=0,
+                          no_reload_no_table_change=True):
             """Update FAUCET config with config as text."""
+            before_table_state = str(self.table)
             before_dp_status = int(self.get_prom('dp_status'))
             existing_config = None
             if os.path.exists(self.config_file):
@@ -621,9 +625,24 @@ class ValveTestBases:
                     reload_ofmsgs = self.connect_dp()
                 else:
                     self.apply_ofmsgs(reload_ofmsgs)
+                if not reload_expected and no_reload_no_table_change:
+                    diff = difflib.unified_diff(before_table_state.splitlines(), str(self.table).splitlines())
+                    self.assertEqual(before_table_state, str(self.table), msg='\n'.join(diff))
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
             self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
             return reload_ofmsgs
+
+        def update_and_revert_config(self, orig_config, new_config, reload_type,
+                                     verify_func=None, before_table_state=None):
+            if before_table_state is None:
+                before_table_state = str(self.table)
+            self.update_config(new_config, reload_type)
+            if verify_func is not None:
+                verify_func()
+            self.update_config(orig_config, reload_type)
+            final_table_state = str(self.table)
+            diff = difflib.unified_diff(before_table_state.splitlines(), str(final_table_state).splitlines())
+            self.assertEqual(before_table_state, final_table_state, msg='\n'.join(diff))
 
         def connect_dp(self):
             """Call DP connect and wth all ports up."""
@@ -964,7 +983,6 @@ class ValveTestBases:
             config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
             config['vlans']['v100']['edge_learn_stack_root'] = new_value
             return yaml.dump(config)
-
 
     class ValveTestBig(ValveTestSmall):
         """Test basic switching/L2/L3 functions."""
