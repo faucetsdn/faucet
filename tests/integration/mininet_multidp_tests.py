@@ -1818,5 +1818,5 @@ class FaucetStackTopoChangeTest(FaucetMultiDPTest):
                     self.assertTrue(graph)
                     nodeCount = len(graph.get('nodes'))
                     self.assertEqual(nodeCount, 3,
-                                'Number of nodes in graph object is %s (!=3)' % nodeCount)
+                                     'Number of nodes in graph object is %s (!=3)' % nodeCount)
         self.assertTrue(stack_event_found)
