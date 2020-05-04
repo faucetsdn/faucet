@@ -73,6 +73,16 @@ Installation with Docker
 We provide official automated builds on `Docker Hub <https://hub.docker.com/r/faucet/>`_ so that you can easily
 run Faucet and it's components in a self-contained environment without installing on the main host system.
 
+The docker images support the following architectures:
+
+* amd64
+* 386
+* arm/v6
+* arm/v7
+* arm64/v8
+* ppc64le
+* s390x
+
 .. _docker-install:
 
 Installing docker
@@ -327,12 +337,17 @@ Systemd can be used to start Faucet and Gauge at boot automatically:
 Installing on Raspberry Pi
 --------------------------
 
-We provide a Raspberry Pi image running FAUCET which can be retrieved from the `latest faucet release <https://github.com/faucetsdn/faucet/releases/latest>`_
+We provide a Raspberry Pi image running FAUCET which can be retrieved from the
+`latest faucet release <https://github.com/faucetsdn/faucet/releases/latest>`_
 page on GitHub. Download the faucet_VERSION_raspbian-lite.zip file.
 
-The image can then be copied onto an SD card following the same steps from the official `Raspberry Pi installation guide <https://www.raspberrypi.org/documentation/installation/installing-images/linux.md>`_.
+The image can then be copied onto an SD card following the same steps from the
+official `Raspberry Pi installation guide <https://www.raspberrypi.org/documentation/installation/installing-images/linux.md>`_.
 
-Once you have booted up the Raspberry Pi and logged in using the default credentials you can follow through the :doc:`../tutorials/first_time` tutorial starting from :ref:`tutorial-configure-prometheus` to properly configure each component.
+Once you have booted up the Raspberry Pi and logged in using the default
+credentials (username: pi, password: raspberry) you can follow through
+the :doc:`../tutorials/first_time` tutorial starting from
+:ref:`tutorial-configure-prometheus` to properly configure each component.
 
 .. note::
 	It is strongly recommended to use a Raspberry Pi 3 or better.
@@ -360,8 +375,7 @@ Building the images
 If you don't want to use our `pre-built images <https://github.com/faucetsdn/faucet/releases/latest>`_, you can build them yourself:
 
 1. `Install the latest disk-image-builder <https://docs.openstack.org/diskimage-builder/latest/user_guide/installation.html>`_
-2. `Install a patched vhd-util <https://launchpad.net/~openstack-ci-core/+archive/ubuntu/vhd-util>`_
-3. Run build-faucet-vm.sh
+2. Run build-faucet-vm.sh from the ``images/vm/`` directory.
 
 Security considerations
 ~~~~~~~~~~~~~~~~~~~~~~~
