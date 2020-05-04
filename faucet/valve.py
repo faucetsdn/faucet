@@ -671,7 +671,7 @@ class Valve:
                     self.notify(
                         {'STACK_TOPO_CHANGE': {
                             'stack_root': valve.dp.stack_root_name,
-                            'graph': valve.dp.stack_graph,
+                            'graph': valve.dp.get_node_link_data(),
                             'dps': notify_dps
                             }})
                     break

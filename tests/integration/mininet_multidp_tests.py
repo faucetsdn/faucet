@@ -4,6 +4,7 @@ import json
 import os
 import time
 import networkx
+import json
 
 from mininet.log import error
 
@@ -1806,3 +1807,28 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
         self.assertEqual(
             except_count, 1,
             'Number of links detecting the broadcast ARP %s (!= 1)' % except_count)
+
+
+class FaucetStackTopoChangeTest(FaucetMultiDPTest):
+    """Test STACK_TOPO_CHANGE event structure"""
+
+    NUM_DPS = 3
+
+    def test_graph_object(self):
+        """Parse event log and validate graph object in event."""
+        self.set_up(
+            stack=True, n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, switch_to_switch_links=2)
+        self._enable_event_log()
+        self.verify_stack_up()
+        stack_event_found = False
+        with open(self.event_log, 'r') as event_log_file:
+            for event_log_line in event_log_file.readlines():
+                event = json.loads(event_log_line.strip())
+                if 'STACK_TOPO_CHANGE' in event:
+                    stack_event_found = True
+                    graph = event.get('STACK_TOPO_CHANGE').get('graph')
+                    self.assertTrue(graph)
+                    nodeCount = len(graph.get('nodes'))
+                    self.assertEqual(nodeCount, 3,
+                                     'Number of nodes in graph object is %s (!=3)' % nodeCount)
+        self.assertTrue(stack_event_found)
