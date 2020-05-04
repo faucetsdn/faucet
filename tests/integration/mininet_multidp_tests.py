@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import time
 import networkx
@@ -269,12 +270,23 @@ class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTest):
     NUM_HOSTS = 2
     SOFTWARE_ONLY = True
 
+    def verify_events_log(self, event_log):
+        with open(event_log, 'r') as event_log_file:
+            events = [json.loads(event_log_line.strip()) for event_log_line in event_log_file]
+            l2_learns = [event['L2_LEARN'] for event in events if 'L2_LEARN' in event]
+            for event in l2_learns:
+                if event.get('stack_descr', None):
+                    return
+            self.fail('stack_descr not in events: %s' % l2_learns)
+
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
         self.set_up(
             stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
             switch_to_switch_links=2, hw_dpid=self.hw_dpid)
+        self._enable_event_log()
         self.verify_stack_hosts()
+        self.verify_events_log(self.event_log)
 
 
 class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
