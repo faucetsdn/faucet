@@ -134,13 +134,15 @@ dps:
 
     def test_delete_permanent_learn(self):
         """Test port permanent learn can deconfigured."""
+        before_table_state = str(self.table)
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.P3_V200_MAC,
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.3',
             'vid': 0x200})
-        self.update_config(self.LESS_CONFIG, reload_type='warm')
+        self.update_and_revert_config(
+            self.CONFIG, self.LESS_CONFIG, 'warm', before_table_state=before_table_state)
 
 
 class ValveDeletePortTestCase(ValveTestBases.ValveTestSmall):
@@ -180,7 +182,7 @@ dps:
 
     def test_port_delete(self):
         """Test port can be deleted."""
-        self.update_config(self.LESS_CONFIG, reload_type='warm')
+        self.update_and_revert_config(self.CONFIG, self.LESS_CONFIG, 'warm')
 
 
 class ValveAddPortTestCase(ValveTestBases.ValveTestSmall):
@@ -276,6 +278,7 @@ dps:
 
     def test_warm_start(self):
         """Test VLAN change is warm startable and metrics maintained."""
+        self.update_and_revert_config(self.CONFIG, self.WARM_CONFIG, 'warm')
         self.rcv_packet(9, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
@@ -284,15 +287,16 @@ dps:
         vlan_labels = {'vlan': str(int(0x100))}
         port_labels = {'port': 'p1', 'port_description': 'p1'}
         port_labels.update(vlan_labels)
-        self.assertEqual(
-            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
-        self.assertEqual(
-            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+
+        def verify_func():
+            self.assertEqual(
+                1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
+            self.assertEqual(
+                1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+
+        verify_func()
         self.update_config(self.WARM_CONFIG, reload_type='warm')
-        self.assertEqual(
-            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
-        self.assertEqual(
-            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+        verify_func()
 
 
 class ValveDeleteVLANTestCase(ValveTestBases.ValveTestSmall):
@@ -329,7 +333,7 @@ dps:
 
     def test_delete_vlan(self):
         """Test VLAN can be deleted."""
-        self.update_config(self.LESS_CONFIG, reload_type='cold')
+        self.update_and_revert_config(self.CONFIG, self.LESS_CONFIG, 'cold')
 
 
 class ValveChangeDPTestCase(ValveTestBases.ValveTestSmall):
@@ -368,7 +372,7 @@ dps:
 
     def test_change_dp(self):
         """Test DP changed."""
-        self.update_config(self.NEW_CONFIG, reload_type='cold')
+        self.update_and_revert_config(self.CONFIG, self.NEW_CONFIG, 'cold')
 
 
 class ValveAddVLANTestCase(ValveTestBases.ValveTestSmall):
@@ -405,7 +409,7 @@ dps:
 
     def test_add_vlan(self):
         """Test VLAN can added."""
-        self.update_config(self.MORE_CONFIG, reload_type='cold')
+        self.update_and_revert_config(self.CONFIG, self.MORE_CONFIG, 'cold')
 
 
 class ValveChangeACLTestCase(ValveTestBases.ValveTestSmall):
@@ -497,6 +501,7 @@ dps:
 
     def test_change_port_acl(self):
         """Test port ACL can be changed."""
+        self.update_and_revert_config(self.CONFIG, self.SAME_CONTENT_CONFIG, 'warm')
         self.update_config(self.SAME_CONTENT_CONFIG, reload_type='warm')
         self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
@@ -506,16 +511,17 @@ dps:
         vlan_labels = {'vlan': str(int(0x100))}
         port_labels = {'port': 'p1', 'port_description': 'p1'}
         port_labels.update(vlan_labels)
-        self.assertEqual(
-            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
-        self.assertEqual(
-            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+
+        def verify_func():
+            self.assertEqual(
+                1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
+            self.assertEqual(
+                1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+
+        verify_func()
         # ACL changed but we kept the learn cache.
         self.update_config(self.DIFF_CONTENT_CONFIG, reload_type='warm')
-        self.assertEqual(
-            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
-        self.assertEqual(
-            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+        verify_func()
 
 
 class ValveChangeMirrorTestCase(ValveTestBases.ValveTestSmall):
@@ -558,30 +564,31 @@ dps:
 
     def test_change_port_acl(self):
         """Test port ACL can be changed."""
+        self.update_and_revert_config(self.CONFIG, self.MIRROR_CONFIG, reload_type='warm')
+
+        vlan_labels = {'vlan': str(int(0x100))}
+        port_labels = {'port': 'p1', 'port_description': 'p1'}
+        port_labels.update(vlan_labels)
+
+        def verify_prom():
+            self.assertEqual(
+                1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
+            self.assertEqual(
+                1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+
         self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
             'ipv4_src': '10.0.0.1',
             'ipv4_dst': '10.0.0.2'})
-        vlan_labels = {'vlan': str(int(0x100))}
-        port_labels = {'port': 'p1', 'port_description': 'p1'}
-        port_labels.update(vlan_labels)
-        self.assertEqual(
-            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
-        self.assertEqual(
-            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+
+        verify_prom()
         # Now mirroring port 1 but we kept the cache.
         self.update_config(self.MIRROR_CONFIG, reload_type='warm')
-        self.assertEqual(
-            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
-        self.assertEqual(
-            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+        verify_prom()
         # Now unmirror again.
         self.update_config(self.CONFIG, reload_type='warm')
-        self.assertEqual(
-            1, self.get_prom('vlan_hosts_learned', labels=vlan_labels))
-        self.assertEqual(
-            1, self.get_prom('port_vlan_hosts_learned', labels=port_labels))
+        verify_prom()
 
 
 class ValveACLTestCase(ValveTestBases.ValveTestSmall):
@@ -650,14 +657,16 @@ acls:
                 self.table.is_output(match, port=3, vid=self.V200),
                 msg='Packet not output before adding ACL')
 
-        self.update_config(acl_config, reload_type='cold')
-        self.flap_port(2)
-        self.assertFalse(
-            self.table.is_output(drop_match),
-            msg='Packet not blocked by ACL')
-        self.assertTrue(
-            self.table.is_output(accept_match, port=3, vid=self.V200),
-            msg='Packet not allowed by ACL')
+        def verify_func():
+            self.flap_port(2)
+            self.assertFalse(
+                self.table.is_output(drop_match), msg='Packet not blocked by ACL')
+            self.assertTrue(
+                self.table.is_output(accept_match, port=3, vid=self.V200),
+                msg='Packet not allowed by ACL')
+
+        self.update_and_revert_config(
+            CONFIG, acl_config, reload_type='cold', verify_func=verify_func)
 
 
 class ValveEgressACLTestCase(ValveTestBases.ValveTestSmall):
@@ -738,64 +747,64 @@ acls:
                 self.table.is_output(match, port=4),
                 msg='Packet not output before adding ACL')
 
+        def verify_func():
+            self.assertTrue(
+                self.table.is_output(v100_accept_match, port=3),
+                msg='Packet not output when on vlan with no ACL')
+            self.assertFalse(
+                self.table.is_output(l2_drop_match, port=3),
+                msg='Packet not blocked by ACL')
+            self.assertTrue(
+                self.table.is_output(l2_accept_match, port=2),
+                msg='Packet not allowed by ACL')
+
+            # unicast
+            self.rcv_packet(2, 0x200, {
+                'eth_src': self.P2_V200_MAC,
+                'eth_dst': self.P3_V200_MAC,
+                'vid': 0x200,
+                'ipv6_src': ALLOW_HOST_V6,
+                'ipv6_dst': DENY_HOST_V6,
+                'neighbor_advert_ip': ALLOW_HOST_V6})
+            self.rcv_packet(3, 0x200, {
+                'eth_src': self.P3_V200_MAC,
+                'eth_dst': self.P2_V200_MAC,
+                'vid': 0x200,
+                'ipv6_src': DENY_HOST_V6,
+                'ipv6_dst': ALLOW_HOST_V6,
+                'neighbor_advert_ip': DENY_HOST_V6})
+
+            self.assertTrue(
+                self.table.is_output(l2_accept_match, port=2),
+                msg='Packet not allowed by ACL')
+            self.assertFalse(
+                self.table.is_output(l2_drop_match, port=3),
+                msg='Packet not blocked by ACL')
+
+            # l3
+            l3_drop_match = {
+                'in_port': 1,
+                'eth_dst': FAUCET_MAC,
+                'vlan_vid': 0,
+                'eth_type': 0x86DD,
+                'ipv6_dst': DENY_HOST_V6}
+            l3_accept_match = {
+                'in_port': 1,
+                'eth_dst': FAUCET_MAC,
+                'vlan_vid': 0,
+                'eth_type': 0x86DD,
+                'ipv6_dst': ALLOW_HOST_V6}
+
+            self.assertTrue(
+                self.table.is_output(l3_accept_match, port=2),
+                msg='Routed packet not allowed by ACL')
+            self.assertFalse(
+                self.table.is_output(l3_drop_match, port=3),
+                msg='Routed packet not blocked by ACL')
+
         # multicast
-        self.update_config(acl_config, reload_type='cold')
-        self.assertTrue(
-            self.table.is_output(v100_accept_match, port=3),
-            msg='Packet not output when on vlan with no ACL'
-            )
-        self.assertFalse(
-            self.table.is_output(l2_drop_match, port=3),
-            msg='Packet not blocked by ACL')
-        self.assertTrue(
-            self.table.is_output(l2_accept_match, port=2),
-            msg='Packet not allowed by ACL')
+        self.update_and_revert_config(CONFIG, acl_config, 'cold', verify_func=verify_func)
 
-        # unicast
-        self.rcv_packet(2, 0x200, {
-            'eth_src': self.P2_V200_MAC,
-            'eth_dst': self.P3_V200_MAC,
-            'vid': 0x200,
-            'ipv6_src': ALLOW_HOST_V6,
-            'ipv6_dst': DENY_HOST_V6,
-            'neighbor_advert_ip': ALLOW_HOST_V6,
-            })
-        self.rcv_packet(3, 0x200, {
-            'eth_src': self.P3_V200_MAC,
-            'eth_dst': self.P2_V200_MAC,
-            'vid': 0x200,
-            'ipv6_src': DENY_HOST_V6,
-            'ipv6_dst': ALLOW_HOST_V6,
-            'neighbor_advert_ip': DENY_HOST_V6,
-            })
-
-        self.assertTrue(
-            self.table.is_output(l2_accept_match, port=2),
-            msg='Packet not allowed by ACL')
-        self.assertFalse(
-            self.table.is_output(l2_drop_match, port=3),
-            msg='Packet not blocked by ACL')
-
-        # l3
-        l3_drop_match = {
-            'in_port': 1,
-            'eth_dst': FAUCET_MAC,
-            'vlan_vid': 0,
-            'eth_type': 0x86DD,
-            'ipv6_dst': DENY_HOST_V6}
-        l3_accept_match = {
-            'in_port': 1,
-            'eth_dst': FAUCET_MAC,
-            'vlan_vid': 0,
-            'eth_type': 0x86DD,
-            'ipv6_dst': ALLOW_HOST_V6}
-
-        self.assertTrue(
-            self.table.is_output(l3_accept_match, port=2),
-            msg='Routed packet not allowed by ACL')
-        self.assertFalse(
-            self.table.is_output(l3_drop_match, port=3),
-            msg='Routed packet not blocked by ACL')
 
 
 class ValveReloadConfigProfile(ValveTestBases.ValveTestSmall):

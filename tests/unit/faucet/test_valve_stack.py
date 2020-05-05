@@ -1107,7 +1107,7 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
         self.activate_stack_port(port)
         self.validate_flooding()
         new_config = self._set_max_lldp_lost(100)
-        self.update_config(new_config, reload_expected=False)
+        self.update_config(new_config, reload_expected=False, no_reload_no_table_change=False)
         self.activate_all_ports()
         self.validate_flooding()
 
@@ -2197,6 +2197,34 @@ dps:
                     port: 2
     """
 
+    CONFIG3 = """
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s2
+                    port: 2
+            3:
+                tagged_vlans: [100]
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s1
+                    port: 2
+    """
+
     def setUp(self):
         self.setup_valve(self.CONFIG)
 
@@ -2205,6 +2233,9 @@ dps:
         dp = self.valves_manager.valves[self.DP_ID].dp
         self.assertTrue(dp.is_stack_root())
         self.assertFalse(dp.is_stack_edge())
+
+    def test_add_remove_port(self):
+        self.update_and_revert_config(self.CONFIG, self.CONFIG3, 'warm')
 
 
 class ValveTwoDpRootEdge(ValveTestBases.ValveTestSmall):
@@ -2236,6 +2267,34 @@ dps:
                     port: 2
     """
 
+    CONFIG3 = """
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s2
+                    port: 2
+            3:
+                tagged_vlans: [100]
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: 100
+            2:
+                stack:
+                    dp: s1
+                    port: 2
+    """
+
     def setUp(self):
         self.setup_valve(self.CONFIG)
 
@@ -2244,6 +2303,9 @@ dps:
         dp_obj = self.valves_manager.valves[self.DP_ID].dp
         self.assertFalse(dp_obj.is_stack_root())
         self.assertTrue(dp_obj.is_stack_edge())
+
+    def test_add_remove_port(self):
+        self.update_and_revert_config(self.CONFIG, self.CONFIG3, 'warm')
 
 
 class GroupDeleteACLTestCase(ValveTestBases.ValveTestSmall):
