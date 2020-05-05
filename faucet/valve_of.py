@@ -221,6 +221,18 @@ def is_flowmod(ofmsg):
     return isinstance(ofmsg, parser.OFPFlowMod)
 
 
+def is_flowaddmod(ofmsg):
+    """Return True if flow message is a FlowMod, add or modify.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a FlowMod, add or modify.
+    """
+    return isinstance(ofmsg, parser.OFPFlowMod) and ofmsg.command in (
+        ofp.OFPFC_ADD, ofp.OFPFC_MODIFY, ofp.OFPFC_MODIFY_STRICT)
+
+
 def is_groupmod(ofmsg):
     """Return True if OF message is a GroupMod.
 
@@ -273,11 +285,7 @@ def is_flowdel(ofmsg):
     Returns:
         bool: True if is a FlowMod delete/strict.
     """
-    if (is_flowmod(ofmsg) and
-            (ofmsg.command == ofp.OFPFC_DELETE or
-             ofmsg.command == ofp.OFPFC_DELETE_STRICT)):
-        return True
-    return False
+    return is_flowmod(ofmsg) and ofmsg.command in (ofp.OFPFC_DELETE, ofp.OFPFC_DELETE_STRICT)
 
 
 def is_groupdel(ofmsg):
@@ -920,7 +928,7 @@ _MSG_KINDS_TYPES = {
 
 # We need to examine the OF message more closely to classify it.
 _MSG_KINDS = {
-    parser.OFPFlowMod: (('deleteglobal', is_global_flowdel), ('delete', is_flowdel)),
+    parser.OFPFlowMod: (('deleteglobal', is_global_flowdel), ('delete', is_flowdel), ('flowaddmod', is_flowaddmod)),
     parser.OFPGroupMod: (('deleteglobal', is_global_groupdel), ('delete', is_groupdel), ('groupadd', is_groupadd)),
     parser.OFPMeterMod: (('deleteglobal', is_global_meterdel), ('delete', is_meterdel), ('meteradd', is_meteradd)),
 }
@@ -947,11 +955,15 @@ def _partition_ofmsgs(input_ofmsgs):
     return by_kind
 
 
-def dedupe_ofmsgs(input_ofmsgs, random_order):
+def _flowmodkey(ofmsg):
+    return (ofmsg.match, ofmsg.cookie, ofmsg.priority, ofmsg.table_id)
+
+
+def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
     # Can't use dict or json comparison as may be nested
-    deduped_input_ofmsgs = {str(ofmsg): ofmsg for ofmsg in input_ofmsgs}
+    deduped_input_ofmsgs = {flowkey(ofmsg): ofmsg for ofmsg in input_ofmsgs}
     if random_order:
         ofmsgs = list(deduped_input_ofmsgs.values())
         random.shuffle(ofmsgs)
@@ -962,15 +974,16 @@ def dedupe_ofmsgs(input_ofmsgs, random_order):
         key=lambda ofmsg: getattr(ofmsg, 'priority', 2**16+1), reverse=True)
 
 
-# kind, random_order, suggest_barrier
+# kind, random_order, suggest_barrier, flowkey
 _OFMSG_ORDER = (
-    ('deleteglobal', False, True),
-    ('delete', False, True),
-    ('tfm', False, True),
-    ('groupadd', False, True),
-    ('meteradd', False, True),
-    ('other', False, False),
-    ('packetout', True, False),
+    ('deleteglobal', False, True, str),
+    ('delete', False, True, str),
+    ('tfm', False, True, str),
+    ('groupadd', False, True, str),
+    ('meteradd', False, True, str),
+    ('flowaddmod', False, False, _flowmodkey),
+    ('other', False, False, str),
+    ('packetout', True, False, str),
 )
 
 
@@ -995,8 +1008,8 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
                 new_delete.append(ofmsg)
         by_kind['delete'] = new_delete
 
-    for kind, random_order, suggest_barrier in _OFMSG_ORDER:
-        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []), random_order)
+    for kind, random_order, suggest_barrier, flowkey in _OFMSG_ORDER:
+        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []), random_order, flowkey)
         if ofmsgs:
             output_ofmsgs.extend(ofmsgs)
             if use_barriers and suggest_barrier:
