@@ -260,6 +260,7 @@ class Port(Conf):
         self.dyn_lacp_port_selected = LACP_PORT_NOTCONFIGURED
         self.dyn_lacp_actor_state = LACP_ACTOR_NOTCONFIGURED
         self.dyn_stack_probe_info = {}
+        self.dyn_lacp_port_id = None
 
         self.tagged_vlans = []
         self.lldp_beacon = {}

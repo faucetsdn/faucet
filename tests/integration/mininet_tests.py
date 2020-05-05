@@ -4040,6 +4040,10 @@ vlans:
 
     def test_untagged(self):
         first_host = self.hosts_name_ordered()[0]
+
+        def get_lacp_port_id(port):
+            return ((int(self.dpid) % 1000) * 100 + port) % 65535
+
         bond = 'bond0'
         # Linux driver should have this state (0x3f/63)
         #
@@ -4120,7 +4124,7 @@ details partner lacp pdu:
     port priority: 2
     port number: %d
     port state: 62
-""".strip() % tuple([self.port_map['port_%u' % i] for i in lag_ports])
+""".strip() % tuple([get_lacp_port_id(self.port_map['port_%u' % i]) for i in lag_ports])
 
         lacp_timeout = 5
 
