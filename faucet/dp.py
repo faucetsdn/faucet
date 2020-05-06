@@ -489,6 +489,7 @@ configuration.
                 included_tables.add('vip')
         if valve_cl.STATIC_TABLE_IDS:
             included_tables.add('port_acl')
+            self.has_acls = True
         if self.hairpin_ports:
             included_tables.add('eth_dst_hairpin')
         if self.use_classification:
