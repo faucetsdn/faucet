@@ -211,8 +211,16 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
             self.wait_for_all_lacp_up()
             self.verify_stack_hosts()
             self.flap_all_switch_ports()
-        # Check for presence of LAG_CHANGE event in event socket log
-        self.wait_until_matching_lines_from_file(r'.+LAG_CHANGE.+', self.event_log)
+        # Check for presence of LAG_CHANGE event in event socket log and check for it's structure
+        lag_event_found = False
+        with open(self.event_log, 'r') as event_log_file:
+            for event_log_line in event_log_file.readlines():
+                event = json.loads(event_log_line.strip())
+                if 'LAG_CHANGE' in event:
+                    lag_event_found = True
+                    lag_event = event.get('LAG_CHANGE')
+                    self.assertTrue(lag_event.get('state') and lag_event.get('role'))
+        self.assertTrue(lag_event_found)
 
     def test_dyn_fail(self):
         """Test lacp fail on reload with dynamic lacp status."""

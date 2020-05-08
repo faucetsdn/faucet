@@ -898,9 +898,10 @@ class Valve:
 
     def _reset_lacp_status(self, port):
         lacp_state = port.actor_state()
+        lacp_role = port.lacp_port_state()
         self._set_var('port_lacp_state', lacp_state, labels=self.dp.port_labels(port.number))
         self.notify(
-            {'LAG_CHANGE': {'port_no': port.number, 'state': lacp_state}})
+            {'LAG_CHANGE': {'port_no': port.number, 'state': lacp_state, 'role': lacp_role}})
 
     def get_lacp_dpid_nomination(self, lacp_id, other_valves):
         """
