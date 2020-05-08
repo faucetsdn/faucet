@@ -1324,7 +1324,7 @@ configuration.
 
         # Populate port.lacp_port_id if it wasn't set in config
         for port in self.ports.values():
-            if port.lacp and not port.lacp_port_id:
+            if port.lacp and port.lacp_port_id == -1:
                 dp_index = dps.index(self)
                 port.lacp_port_id = dp_index * 100 + port.number
 

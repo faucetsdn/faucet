@@ -107,7 +107,7 @@ class Port(Conf):
         # Min time since last LACP response. Used to control rate of response for LACP
         'lacp_port_priority': 255,
         # Sets port priority value sent out in lacp packet
-        'lacp_port_id': 0,
+        'lacp_port_id': -1,
         # Sets port id value sent out in lacp packet
         'loop_protect': False,
         # if True, do simple (host/access port) loop protection on this port.
