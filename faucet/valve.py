@@ -828,13 +828,14 @@ class Valve:
                 continue
 
             if port.lacp:
-                port.dyn_lacp_port_id = ((self.dp.dp_id % 1000) * 100 + port.number) % 65535
                 if cold_start:
                     self.lacp_update_actor_state(port, False, cold_start=cold_start)
                     self.lacp_update_port_selection_state(port, cold_start=cold_start)
                 ofmsgs.extend(self.lacp_update(port, False))
                 if port.lacp_active:
                     ofmsgs.extend(self._lacp_actions(port.dyn_last_lacp_pkt, port))
+                self._set_var('lacp_port_id',
+                              port.lacp_port_id, labels=self.dp.port_labels(port.number))
 
             if port.stack:
                 port_vlans = self.dp.vlans.values()
@@ -1077,7 +1078,7 @@ class Valve:
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.dyn_lacp_port_id, port.lacp_port_priority,
+                port.lacp, port.lacp_port_id, port.lacp_port_priority,
                 actor_state_sync, actor_state_activity,
                 actor_state_col, actor_state_dist,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
@@ -1093,7 +1094,7 @@ class Valve:
         else:
             pkt = valve_packet.lacp_reqreply(
                 self.dp.faucet_dp_mac, self.dp.faucet_dp_mac,
-                port.lacp, port.dyn_lacp_port_id, port.lacp_port_priority,
+                port.lacp, port.lacp_port_id, port.lacp_port_priority,
                 actor_state_synchronization=actor_state_sync,
                 actor_state_activity=actor_state_activity,
                 actor_state_collecting=actor_state_col,

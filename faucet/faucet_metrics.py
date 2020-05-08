@@ -193,6 +193,10 @@ class FaucetMetrics(PromClient):
             'port_dot1x_logoff',
             'number of eap-logoff events on port',
             self.PORT_REQUIRED_LABELS)
+        self.lacp_port_id = self._gauge(
+            'lacp_port_id',
+            'lacp port ID for for port',
+            self.PORT_REQUIRED_LABELS)
 
     def _counter(self, var, var_help, labels):
         return Counter(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
