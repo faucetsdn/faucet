@@ -219,7 +219,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
                 if 'LAG_CHANGE' in event:
                     lag_event_found = event.get('LAG_CHANGE')
         self.assertTrue(lag_event_found)
-        self.assertTrue(lag_event_found.get('state') and lag_event_found.get('role'))
+        if lag_event_found:
+            self.assertTrue(lag_event_found.get('state') and lag_event_found.get('role'))
 
     def test_dyn_fail(self):
         """Test lacp fail on reload with dynamic lacp status."""
