@@ -4020,12 +4020,12 @@ vlans:
                 native_vlan: 100
                 lacp: 1
                 lacp_port_priority: 1
-                lacp_port_id: 101
+                lacp_port_id: 100
             %(port_2)d:
                 native_vlan: 100
                 lacp: 1
                 lacp_port_priority: 2
-                lacp_port_id: 102
+                lacp_port_id: 101
             %(port_3)d:
                 native_vlan: 100
             %(port_4)d:
