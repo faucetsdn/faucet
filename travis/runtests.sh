@@ -13,7 +13,7 @@ RQ_FILES_CHANGED=""
 # TRAVIS_COMMIT_RANGE will be empty in a new branch.
 if [[ "$TRAVIS_COMMIT_RANGE" != "" ]] ; then
   echo TRAVIS_COMMIT_RANGE: $TRAVIS_COMMIT_RANGE
-  GIT_DIFF_CMD="git diff --name-only $TRAVIS_COMMIT_RANGE"
+  GIT_DIFF_CMD="git diff --diff-filter=ACMRT --name-only $TRAVIS_COMMIT_RANGE"
   FILES_CHANGED=`$GIT_DIFF_CMD`
   if [ $? -ne 0 ] ; then echo $GIT_DIFF_CMD returned $? ; fi
   PY_FILES_CHANGED=`$GIT_DIFF_CMD | grep -E ".py$"`
