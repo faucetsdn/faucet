@@ -1323,6 +1323,12 @@ configuration.
             port for port in self.ports.values() if port.loop_protect_external}
         self.has_externals = bool(loop_protect_external_ports)
 
+        # Populate port.lacp_port_id if it wasn't set in config
+        for port in self.ports.values():
+            if port.lacp and port.lacp_port_id == -1:
+                dp_index = dps.index(self)
+                port.lacp_port_id = dp_index * 100 + port.number
+
         resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_acls()

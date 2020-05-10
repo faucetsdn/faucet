@@ -107,6 +107,8 @@ class Port(Conf):
         # Min time since last LACP response. Used to control rate of response for LACP
         'lacp_port_priority': 255,
         # Sets port priority value sent out in lacp packet
+        'lacp_port_id': -1,
+        # Sets port id value sent out in lacp packet
         'loop_protect': False,
         # if True, do simple (host/access port) loop protection on this port.
         'loop_protect_external': False,
@@ -164,6 +166,7 @@ class Port(Conf):
         'lacp_passthrough': list,
         'lacp_resp_interval': int,
         'lacp_port_priority': int,
+        'lacp_port_id': int,
         'loop_protect': bool,
         'loop_protect_external': bool,
         'output_only': bool,
@@ -225,6 +228,7 @@ class Port(Conf):
         self.lacp_passthrough = None
         self.lacp_resp_interval = None
         self.lacp_port_priority = None
+        self.lacp_port_id = None
         self.loop_protect = None
         self.loop_protect_external = None
         self.max_hosts = None

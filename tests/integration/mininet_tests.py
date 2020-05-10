@@ -4020,10 +4020,12 @@ vlans:
                 native_vlan: 100
                 lacp: 1
                 lacp_port_priority: 1
+                lacp_port_id: 100
             %(port_2)d:
                 native_vlan: 100
                 lacp: 1
                 lacp_port_priority: 2
+                lacp_port_id: 101
             %(port_3)d:
                 native_vlan: 100
             %(port_4)d:
@@ -4040,6 +4042,12 @@ vlans:
 
     def test_untagged(self):
         first_host = self.hosts_name_ordered()[0]
+
+        def get_lacp_port_id(port):
+            port_labels = self.port_labels(port)
+            lacp_port_id = self.scrape_prometheus_var('lacp_port_id', port_labels, default=0)
+            return lacp_port_id
+
         bond = 'bond0'
         # Linux driver should have this state (0x3f/63)
         #
@@ -4120,7 +4128,7 @@ details partner lacp pdu:
     port priority: 2
     port number: %d
     port state: 62
-""".strip() % tuple([self.port_map['port_%u' % i] for i in lag_ports])
+""".strip() % tuple([get_lacp_port_id(self.port_map['port_%u' % i]) for i in lag_ports])
 
         lacp_timeout = 5
 
