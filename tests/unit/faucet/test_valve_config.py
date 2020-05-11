@@ -17,18 +17,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from functools import partial
 import copy
 import hashlib
 import unittest
 import time
 from ryu.ofproto import ofproto_v1_3 as ofp
+
+from mininet.topo import Topo  # pylint: disable=unused-import
+
 from faucet import config_parser_util
 from faucet import valve_of
-from valve_test_lib import BASE_DP1_CONFIG, CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
+
+from clib.valve_test_lib import BASE_DP1_CONFIG, CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
 
-class ValveIncludeTestCase(ValveTestBases.ValveTestSmall):
+class ValveIncludeTestCase(ValveTestBases.ValveTestNetwork):
     """Test include optional files."""
 
     CONFIG = """
@@ -43,14 +49,14 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_include_optional(self):
         """Test include optional files."""
         self.assertEqual(1, int(self.get_prom('dp_status')))
 
 
-class ValveBadConfTestCase(ValveTestBases.ValveTestSmall):
+class ValveBadConfTestCase(ValveTestBases.ValveTestNetwork):
     """Test recovery from a bad config file."""
 
     CONFIG = """
@@ -81,9 +87,10 @@ dps: {}
 """
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_bad_conf(self):
+        """Test various config types & config reloading"""
         for config, load_error in (
                 (self.CONFIG, 0),
                 (self.BAD_CONFIG, 1),
@@ -100,7 +107,7 @@ dps: {}
                 msg='%u: %s' % (load_error, config))
 
 
-class ValveChangePortTestCase(ValveTestBases.ValveTestSmall):
+class ValveChangePortTestCase(ValveTestBases.ValveTestNetwork):
     """Test changes to config on ports."""
 
     CONFIG = """
@@ -132,11 +139,12 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_delete_permanent_learn(self):
         """Test port permanent learn can deconfigured."""
-        before_table_state = str(self.table)
+        table = self.network.tables[self.DP_ID]
+        before_table_state = str(table)
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.P3_V200_MAC,
@@ -144,10 +152,11 @@ dps:
             'ipv4_dst': '10.0.0.3',
             'vid': 0x200})
         self.update_and_revert_config(
-            self.CONFIG, self.LESS_CONFIG, 'warm', before_table_state=before_table_state)
+            self.CONFIG, self.LESS_CONFIG,
+            'warm', before_table_states={self.DP_ID: before_table_state})
 
 
-class ValveDeletePortTestCase(ValveTestBases.ValveTestSmall):
+class ValveDeletePortTestCase(ValveTestBases.ValveTestNetwork):
     """Test deletion of a port."""
 
     CONFIG = """
@@ -180,14 +189,14 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_port_delete(self):
         """Test port can be deleted."""
         self.update_and_revert_config(self.CONFIG, self.LESS_CONFIG, 'warm')
 
 
-class ValveAddPortTestCase(ValveTestBases.ValveTestSmall):
+class ValveAddPortTestCase(ValveTestBases.ValveTestNetwork):
     """Test addition of a port."""
 
     CONFIG = """
@@ -221,20 +230,20 @@ dps:
 
     def _inport_flows(self, in_port, ofmsgs):
         return [
-            ofmsg for ofmsg in self.flowmods_from_flows(ofmsgs)
+            ofmsg for ofmsg in ValveTestBases.flowmods_from_flows(ofmsgs)
             if ofmsg.match.get('in_port') == in_port]
 
     def setUp(self):
-        initial_ofmsgs = self.setup_valve(self.CONFIG)
+        initial_ofmsgs = self.setup_valves(self.CONFIG)[self.DP_ID]
         self.assertFalse(self._inport_flows(3, initial_ofmsgs))
 
     def test_port_add(self):
         """Test port can be added."""
-        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='warm')
+        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='warm')[self.DP_ID]
         self.assertTrue(self._inport_flows(3, reload_ofmsgs))
 
 
-class ValveWarmStartVLANTestCase(ValveTestBases.ValveTestSmall):
+class ValveWarmStartVLANTestCase(ValveTestBases.ValveTestNetwork):
     """Test change of port VLAN only is a warm start."""
 
     CONFIG = """
@@ -276,7 +285,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_warm_start(self):
         """Test VLAN change is warm startable and metrics maintained."""
@@ -301,7 +310,7 @@ dps:
         verify_func()
 
 
-class ValveDeleteVLANTestCase(ValveTestBases.ValveTestSmall):
+class ValveDeleteVLANTestCase(ValveTestBases.ValveTestNetwork):
     """Test deleting VLAN."""
 
     CONFIG = """
@@ -331,14 +340,14 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_delete_vlan(self):
         """Test VLAN can be deleted."""
         self.update_and_revert_config(self.CONFIG, self.LESS_CONFIG, 'cold')
 
 
-class ValveChangeDPTestCase(ValveTestBases.ValveTestSmall):
+class ValveChangeDPTestCase(ValveTestBases.ValveTestNetwork):
     """Test changing DP."""
 
     CONFIG = """
@@ -370,14 +379,14 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_change_dp(self):
         """Test DP changed."""
         self.update_and_revert_config(self.CONFIG, self.NEW_CONFIG, 'cold')
 
 
-class ValveAddVLANTestCase(ValveTestBases.ValveTestSmall):
+class ValveAddVLANTestCase(ValveTestBases.ValveTestNetwork):
     """Test adding VLAN."""
 
     CONFIG = """
@@ -407,14 +416,14 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_add_vlan(self):
         """Test VLAN can added."""
         self.update_and_revert_config(self.CONFIG, self.MORE_CONFIG, 'cold')
 
 
-class ValveChangeACLTestCase(ValveTestBases.ValveTestSmall):
+class ValveChangeACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test changes to ACL on a port."""
 
     CONFIG = """
@@ -499,7 +508,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_change_port_acl(self):
         """Test port ACL can be changed."""
@@ -526,7 +535,7 @@ dps:
         verify_func()
 
 
-class ValveChangeMirrorTestCase(ValveTestBases.ValveTestSmall):
+class ValveChangeMirrorTestCase(ValveTestBases.ValveTestNetwork):
     """Test changes mirroring port."""
 
     CONFIG = """
@@ -562,7 +571,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_change_port_acl(self):
         """Test port ACL can be changed."""
@@ -593,11 +602,11 @@ dps:
         verify_prom()
 
 
-class ValveACLTestCase(ValveTestBases.ValveTestSmall):
+class ValveACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test ACL drop/allow and reloading."""
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
 
     def test_vlan_acl_deny(self):
         """Test VLAN ACL denies a packet."""
@@ -653,29 +662,31 @@ acls:
             'vlan_vid': 0,
             'eth_type': 0x800,
             'ipv4_dst': '224.0.0.5'}
+        table = self.network.tables[self.DP_ID]
+
         # base case
         for match in (drop_match, accept_match):
             self.assertTrue(
-                self.table.is_output(match, port=3, vid=self.V200),
+                table.is_output(match, port=3, vid=self.V200),
                 msg='Packet not output before adding ACL')
 
         def verify_func():
             self.flap_port(2)
             self.assertFalse(
-                self.table.is_output(drop_match), msg='Packet not blocked by ACL')
+                table.is_output(drop_match), msg='Packet not blocked by ACL')
             self.assertTrue(
-                self.table.is_output(accept_match, port=3, vid=self.V200),
+                table.is_output(accept_match, port=3, vid=self.V200),
                 msg='Packet not allowed by ACL')
 
         self.update_and_revert_config(
             CONFIG, acl_config, reload_type='cold', verify_func=verify_func)
 
 
-class ValveEgressACLTestCase(ValveTestBases.ValveTestSmall):
+class ValveEgressACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test ACL drop/allow and reloading."""
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
 
     def test_vlan_acl_deny(self):
         """Test VLAN ACL denies a packet."""
@@ -742,22 +753,23 @@ acls:
             'eth_type': 0x86DD,
             'ipv6_dst': ALLOW_HOST_V6}
         v100_accept_match = {'in_port': 1, 'vlan_vid': 0}
+        table = self.network.tables[self.DP_ID]
 
         # base case
         for match in (l2_drop_match, l2_accept_match):
             self.assertTrue(
-                self.table.is_output(match, port=4),
+                table.is_output(match, port=4),
                 msg='Packet not output before adding ACL')
 
         def verify_func():
             self.assertTrue(
-                self.table.is_output(v100_accept_match, port=3),
+                table.is_output(v100_accept_match, port=3),
                 msg='Packet not output when on vlan with no ACL')
             self.assertFalse(
-                self.table.is_output(l2_drop_match, port=3),
+                table.is_output(l2_drop_match, port=3),
                 msg='Packet not blocked by ACL')
             self.assertTrue(
-                self.table.is_output(l2_accept_match, port=2),
+                table.is_output(l2_accept_match, port=2),
                 msg='Packet not allowed by ACL')
 
             # unicast
@@ -777,10 +789,10 @@ acls:
                 'neighbor_advert_ip': DENY_HOST_V6})
 
             self.assertTrue(
-                self.table.is_output(l2_accept_match, port=2),
+                table.is_output(l2_accept_match, port=2),
                 msg='Packet not allowed by ACL')
             self.assertFalse(
-                self.table.is_output(l2_drop_match, port=3),
+                table.is_output(l2_drop_match, port=3),
                 msg='Packet not blocked by ACL')
 
             # l3
@@ -798,17 +810,17 @@ acls:
                 'ipv6_dst': ALLOW_HOST_V6}
 
             self.assertTrue(
-                self.table.is_output(l3_accept_match, port=2),
+                table.is_output(l3_accept_match, port=2),
                 msg='Routed packet not allowed by ACL')
             self.assertFalse(
-                self.table.is_output(l3_drop_match, port=3),
+                table.is_output(l3_drop_match, port=3),
                 msg='Routed packet not blocked by ACL')
 
         # multicast
         self.update_and_revert_config(CONFIG, acl_config, 'cold', verify_func=verify_func)
 
 
-class ValveReloadConfigProfile(ValveTestBases.ValveTestSmall):
+class ValveReloadConfigProfile(ValveTestBases.ValveTestNetwork):
     """Test reload processing time."""
 
     CONFIG = """
@@ -823,14 +835,15 @@ dps:
     NUM_PORTS = 100
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
 
     def test_profile_reload(self):
         """Test reload processing time."""
         ORIG_CONFIG = copy.copy(self.CONFIG)
 
         def load_orig_config():
-            pstats_out, _ = self.profile(partial(self.setup_valve, ORIG_CONFIG))
+            pstats_out, _ = self.profile(
+                partial(self.update_config, ORIG_CONFIG))
             self.baseline_total_tt = pstats_out.total_tt  # pytype: disable=attribute-error
 
         for i in range(2, 100):
@@ -855,7 +868,7 @@ dps:
         self.fail('%f: %s' % (total_tt_prop, pstats_text))
 
 
-class ValveTestConfigHash(ValveTestBases.ValveTestSmall):
+class ValveTestConfigHash(ValveTestBases.ValveTestNetwork):
     """Verify faucet_config_hash_info update after config change"""
 
     CONFIG = """
@@ -869,7 +882,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def _get_info(self, metric, name):
         """"Return (single) info dict for metric"""
@@ -940,7 +953,8 @@ dps:
                          'hashes should be restored to starting values')
 
 
-class ValveTestConfigRevert(ValveTestBases.ValveTestSmall):
+class ValveTestConfigRevert(ValveTestBases.ValveTestNetwork):
+    """Test configuration revert"""
 
     CONFIG = """
 dps:
@@ -956,7 +970,7 @@ dps:
     CONFIG_AUTO_REVERT = True
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_config_revert(self):
         """Verify config is automatically reverted if bad."""
@@ -975,7 +989,8 @@ dps:
         self.update_config(more_config, reload_expected=True, reload_type='warm', error_expected=0)
 
 
-class ValveTestConfigRevertBootstrap(ValveTestBases.ValveTestSmall):
+class ValveTestConfigRevertBootstrap(ValveTestBases.ValveTestNetwork):
+    """Test configuration auto reverted if bad"""
 
     BAD_CONFIG = """
     *** busted ***
@@ -994,7 +1009,7 @@ dps:
     CONFIG_AUTO_REVERT = True
 
     def setUp(self):
-        self.setup_valve(self.BAD_CONFIG, error_expected=1)
+        self.setup_valves(self.BAD_CONFIG, error_expected=1)
 
     def test_config_revert(self):
         """Verify config is automatically reverted if bad."""
@@ -1003,7 +1018,7 @@ dps:
         self.assertEqual(self.get_prom('faucet_config_load_error', bare=True), 0)
 
 
-class ValveTestConfigApplied(ValveTestBases.ValveTestSmall):
+class ValveTestConfigApplied(ValveTestBases.ValveTestNetwork):
     """Test cases for faucet_config_applied."""
 
     CONFIG = """
@@ -1030,7 +1045,7 @@ dps:
 """
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_config_applied_update(self):
         """Verify that config_applied increments after DP connect"""
@@ -1040,6 +1055,7 @@ dps:
         self.CONFIG += """
     s2:
         dp_id: 0x2
+        hardware: 'GenericTFM'
         interfaces:
             p1:
                 number: 1
@@ -1055,6 +1071,7 @@ dps:
         self.assertEqual(self.get_prom('faucet_config_applied', bare=True), 1.0)
 
     def test_description_only(self):
+        """Test updating config description"""
         self.update_config(self.NEW_DESCR_CONFIG, reload_expected=False)
 
 

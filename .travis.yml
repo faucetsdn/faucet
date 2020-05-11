@@ -83,7 +83,12 @@ jobs:
       services:
         - docker
     - stage: test
-      env: MATRIX_SHARD=fault-tolerance
+      env: MATRIX_SHARD=generative-unit
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=generative-integration
       language: bash
       services:
         - docker
