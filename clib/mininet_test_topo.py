@@ -56,6 +56,33 @@ class FaucetHost(CPULimitedHost):
     """Base Mininet Host class, for Mininet-based tests."""
 
 
+class VLANHost(FaucetHost):
+    """Implementation of a Mininet host on a tagged VLAN."""
+
+    intf_root_name = None
+
+    def config(self, vlans=[100], **params):  # pylint: disable=arguments-differ
+        """Configure VLANHost according to (optional) parameters:
+           vlans (list): List of VLAN IDs for default interface"""
+        super_config = super().config(**params)
+        intf = self.defaultIntf()
+        vlan_intf_name = '%s.%s' % (intf, '.'.join(str(v) for v in vlans))
+        cmds = [
+            'ip -4 addr flush dev %s' % intf,
+            'ip -6 addr flush dev %s' % intf,
+            'ip link set dev %s up' % vlan_intf_name,
+            'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)
+        ]
+        for v in vlans:
+            cmds.append('vconfig add %s %d' % (intf, v))
+        for cmd in cmds:
+            self.cmd(cmd)
+        self.intf_root_name = intf.name
+        intf.name = vlan_intf_name
+        self.nameToIntf[vlan_intf_name] = intf
+        return super_config
+
+
 class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (netdev based OVS)."""
 
@@ -152,33 +179,6 @@ class NoControllerFaucetSwitch(FaucetSwitch):
 
     def start(self, _controllers):
         super().start(controllers=[])
-
-
-class VLANHost(FaucetHost):
-    """Implementation of a Mininet host on a tagged VLAN."""
-
-    intf_root_name = None
-
-    def config(self, vlans=[100], **params):  # pylint: disable=arguments-differ
-        """Configure VLANHost according to (optional) parameters:
-           vlans (list): List of VLAN IDs for default interface"""
-        super_config = super().config(**params)
-        intf = self.defaultIntf()
-        vlan_intf_name = '%s.%s' % (intf, '.'.join(str(v) for v in vlans))
-        cmds = [
-            'ip -4 addr flush dev %s' % intf,
-            'ip -6 addr flush dev %s' % intf,
-            'ip link set dev %s up' % vlan_intf_name,
-            'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)
-        ]
-        for v in vlans:
-            cmds.append('vconfig add %s %d' % (intf, v))
-        for cmd in cmds:
-            self.cmd(cmd)
-        self.intf_root_name = intf.name
-        intf.name = vlan_intf_name
-        self.nameToIntf[vlan_intf_name] = intf
-        return super_config
 
 
 class FaucetSwitchTopo(Topo):
