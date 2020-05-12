@@ -642,6 +642,7 @@ class ValveTestBases:
             self.update_config(orig_config, reload_type)
             final_table_state = str(self.table)
             diff = difflib.unified_diff(before_table_state.splitlines(), str(final_table_state).splitlines())
+            self.maxDiff = None
             self.assertEqual(before_table_state, final_table_state, msg='\n'.join(diff))
 
         def connect_dp(self):
@@ -947,7 +948,9 @@ class ValveTestBases:
             port.dyn_stack_current_state = status
             valve.switch_manager.update_stack_topo(True, valve.dp, port)
             for valve_vlan in valve.dp.vlans.values():
-                self.apply_ofmsgs(valve.switch_manager.add_vlan(valve_vlan))
+                ofmsgs = valve.switch_manager.add_vlan(valve_vlan)
+                if valve is self.valve:
+                    self.apply_ofmsgs(ofmsgs)
 
         def set_stack_port_up(self, port_no, valve=None):
             """Set stack port up recalculating topology as necessary."""

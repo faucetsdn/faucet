@@ -1470,7 +1470,7 @@ dbs:
                 self.gauge_controller, int(self.gauge_of_port), 1))
 
     def reload_conf(self, yaml_conf, conf_path, restart, cold_start,
-                    change_expected=True, host_cache=None, hup=True):
+                    change_expected=True, host_cache=None, hup=True, dpid=True):
 
         def _update_conf(conf_path, yaml_conf):
             if yaml_conf:
@@ -1482,16 +1482,16 @@ dbs:
             self.verify_faucet_reconf,
             cold_start=cold_start,
             change_expected=change_expected,
-            reconf_funcs=[update_conf_func], hup=hup)
+            reconf_funcs=[update_conf_func], hup=hup, dpid=dpid)
 
         if restart:
             if host_cache:
                 vlan_labels = dict(vlan=host_cache)
                 old_mac_table = sorted(self.scrape_prometheus_var(
-                    'learned_macs', labels=vlan_labels, multiple=True, default=[]))
+                    'learned_macs', labels=vlan_labels, multiple=True, default=[], dpid=dpid))
                 verify_faucet_reconf_func()
                 new_mac_table = sorted(self.scrape_prometheus_var(
-                    'learned_macs', labels=vlan_labels, multiple=True, default=[]))
+                    'learned_macs', labels=vlan_labels, multiple=True, default=[], dpid=dpid))
                 self.assertFalse(
                     cold_start, msg='host cache is not maintained with cold start')
                 self.assertTrue(
@@ -2049,13 +2049,13 @@ dbs:
 
     def verify_faucet_reconf(self, timeout=10,
                              cold_start=True, change_expected=True,
-                             hup=True, reconf_funcs=None):
+                             hup=True, reconf_funcs=None, dpid=True):
         """HUP and verify the HUP was processed."""
         var = 'faucet_config_reload_warm_total'
         if cold_start:
             var = 'faucet_config_reload_cold_total'
         old_count = int(
-            self.scrape_prometheus_var(var, dpid=True, default=0))
+            self.scrape_prometheus_var(var, dpid=dpid, default=0))
         start_configure_count = self.get_configure_count()
         if reconf_funcs is None:
             reconf_funcs = []
@@ -2073,7 +2073,7 @@ dbs:
         if change_expected:
             for _ in range(timeout):
                 new_count = int(
-                    self.scrape_prometheus_var(var, dpid=True, default=0))
+                    self.scrape_prometheus_var(var, dpid=dpid, default=0))
                 if new_count > old_count:
                     break
                 time.sleep(1)
@@ -2082,7 +2082,7 @@ dbs:
                 msg='%s did not increment: %u' % (var, new_count))
         else:
             new_count = int(
-                self.scrape_prometheus_var(var, dpid=True, default=0))
+                self.scrape_prometheus_var(var, dpid=dpid, default=0))
             self.assertEqual(
                 old_count, new_count,
                 msg='%s incremented: %u' % (var, new_count))

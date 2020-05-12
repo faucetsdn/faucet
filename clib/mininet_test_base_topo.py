@@ -112,7 +112,7 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def build_net(self, host_links=None, host_vlans=None, switch_links=None,
                   link_vlans=None, mininet_host_options=None,
-                  n_vlans=1, acl_options=None, dp_options=None, host_options=None,
+                  n_vlans=1, dp_options=None, host_options=None,
                   link_options=None, vlan_options=None, routers=None, router_options=None,
                   include=None, include_optional=None):
         """
@@ -123,7 +123,6 @@ class FaucetTopoTestBase(FaucetTestBase):
             link_vlans (dict): Link tuple of switch indices (u, v) mapping to vlans
             mininet_host_options (dict): Host index map to additional mininet host options
             n_vlans (int): Number of VLANs to generate
-            acl_options (dict): Acls in use in the Faucet configuration file
             dp_options (dict): Additional options for each DP, keyed by DP index
             host_options (dict): Additional options for each host, keyed by host index
             link_options (dict): Additional options for each link, keyed by indices tuple (u, v)
@@ -159,30 +158,24 @@ class FaucetTopoTestBase(FaucetTestBase):
             name = self.topo.switches_by_id[i]
             dpid_names[dpid] = name
         self.set_dpid_names(dpid_names)
+        self.configuration_options = {
+            'acl_options': self.acls(),
+            'dp_options': dp_options,
+            'host_options': host_options,
+            'link_options': link_options,
+            'vlan_options': vlan_options,
+            'routers': routers,
+            'router_options': router_options,
+            'include': include,
+            'include_optional': include_optional
+        }
         self.CONFIG = self.topo.get_config(
             n_vlans,
-            acl_options=self.acls(),
-            dp_options=dp_options,
-            host_options=host_options,
-            link_options=link_options,
-            vlan_options=vlan_options,
-            routers=routers,
-            router_options=router_options,
-            include=include,
-            include_optional=include_optional
+            **self.configuration_options
         )
         self.n_vlans = n_vlans
-        self.routers = routers
-        self.configuration_options = {
-            'vlan': vlan_options,
-            'acl': acl_options,
-            'dp': dp_options,
-            'host': host_options,
-            'link': link_options,
-            'router': router_options,
-            'host_vlans': host_vlans,
-            'link_vlans': link_vlans
-        }
+        self.host_vlans = host_vlans
+        self.link_vlans = link_vlans
 
     def start_net(self):
         """
@@ -194,7 +187,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.host_information = {}
         for host_id, host_name in self.topo.hosts_by_id.items():
             host = self.net.get(host_name)
-            vlan = self.configuration_options['host_vlans'][host_id]
+            vlan = self.host_vlans[host_id]
             ip_interface = ipaddress.ip_interface(self.host_ip_address(host_id, vlan))
             self.set_host_ip(host, ip_interface)
             self.host_information[host_id] = {
@@ -216,7 +209,7 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def setup_lacp_bonds(self):
         """Search through host options for lacp hosts and configure accordingly"""
-        host_options = self.configuration_options['host']
+        host_options = self.configuration_options['host_options']
         if not host_options:
             return
         bond_index = 1
@@ -259,7 +252,7 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def setup_intervlan_host_routes(self):
         """Configure host routes between hosts that belong on routed VLANs"""
-        if self.routers:
+        if self.configuration_options['routers']:
             for src in self.host_information:
                 src_host = self.host_information[src]['host']
                 src_vlan = self.host_information[src]['vlan']
@@ -362,6 +355,20 @@ class FaucetTopoTestBase(FaucetTestBase):
                 return
             time.sleep(1)
         self.fail('not enough links up: %f / %f' % (links_up, links))
+
+    def verify_stack_down(self):
+        """Verify all stack ports are down"""
+        links = 0
+        links_down = 0
+        for link, ports in self.link_port_maps.items():
+            for port in ports:
+                dpid = self.topo.dpids_by_id[link[0]]
+                name = self.topo.switches_by_id[link[0]]
+                status = self.stack_port_status(dpid, name, port)
+                links += 1
+                if status != 3:
+                    links_down += 1
+        self.assertEqual(links, links_down, 'Not all links DOWN')
 
     def verify_one_stack_down(self, stack_offset_port, coldstart=False):
         """Test conditions when one stack port is down"""
@@ -470,7 +477,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         int_hosts = []
         ext_hosts = []
         dp_hosts = {self.topo.switches_by_id[dp_index]: ([], []) for dp_index in range(self.NUM_DPS)}
-        for host_id, options in self.configuration_options['host'].items():
+        for host_id, options in self.configuration_options['host_options'].items():
             host = self.host_information[host_id]['host']
             if options.get('loop_protect_external', False):
                 ext_hosts.append(host)
@@ -561,8 +568,8 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def is_routed_vlans(self, vlan_a, vlan_b):
         """Return true if the two vlans share a router"""
-        if self.routers:
-            for vlans in self.routers.values():
+        if self.configuration_options['routers']:
+            for vlans in self.configuration_options['routers'].values():
                 if (vlan_a in vlans and vlan_b in vlans):
                     return True
         return False
@@ -587,7 +594,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     def get_expected_synced_states(self, host_id):
         """Return the list of regex string for the expected sync state of a LACP LAG connection"""
         synced_state_list = []
-        oper_key = self.configuration_options['host'][host_id]['lacp']
+        oper_key = self.configuration_options['host_options'][host_id]['lacp']
         lacp_ports = [
             port for ports in self.host_information[host_id]['ports'].values() for port in ports]
         for port in lacp_ports:
@@ -625,7 +632,7 @@ details partner lacp pdu:
     def prom_lacp_up_ports(self, dpid):
         """Get the number of up LAG ports according to Prometheus for a dpid"""
         lacp_up_ports = 0
-        for host_id, options in self.configuration_options['host'].items():
+        for host_id, options in self.configuration_options['host_options'].items():
             # Find LACP hosts
             for key in options.keys():
                 if key == 'lacp':
@@ -710,7 +717,7 @@ details partner lacp pdu:
     def verify_lag_host_connectivity(self):
         """Verify LAG hosts can connect to any other host using the interface"""
         # Find all LACP hosts
-        for lacp_id, host_options in self.configuration_options['host'].items():
+        for lacp_id, host_options in self.configuration_options['host_options'].items():
             if 'lacp' in host_options:
                 # Found LACP host
                 for dst_id in self.host_information:

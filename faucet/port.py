@@ -26,6 +26,14 @@ STACK_STATE_BAD = 2
 STACK_STATE_UP = 3
 STACK_STATE_GONE = 4
 STACK_STATE_NONE = -1
+STACK_DISPLAY_DICT = {
+    STACK_STATE_ADMIN_DOWN: 'ADMIN_DOWN',
+    STACK_STATE_INIT: 'INITIALIZING',
+    STACK_STATE_BAD: 'BAD',
+    STACK_STATE_UP: 'UP',
+    STACK_STATE_GONE: 'GONE',
+    STACK_STATE_NONE: 'NONE'
+}
 
 # LACP not configured
 LACP_ACTOR_NOTCONFIGURED = -1
@@ -686,3 +694,7 @@ class Port(Conf):
     def stack_gone(self):
         """Change the current stack state to GONE."""
         self.dyn_stack_current_state = STACK_STATE_GONE
+
+    def stack_state_name(self, state):
+        """Return stack state name"""
+        return STACK_DISPLAY_DICT[state]
