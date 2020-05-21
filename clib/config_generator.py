@@ -512,7 +512,7 @@ class FaucetTopoGenerator(Topo):
         if include:
             config['include'] = list(include)
         if include_optional:
-            config['include_optional'] = list(include_optional)
+            config['include-optional'] = list(include_optional)
         if acl_options:
             config['acls'] = self.get_acls_config(acl_options)
         config['vlans'] = self.get_vlans_config(n_vlans, vlan_options)

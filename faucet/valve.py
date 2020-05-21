@@ -1203,7 +1203,7 @@ class Valve:
             if remote_port_state:
                 self.logger.info('LLDP on %s, %s from %s (remote %s, port %u) state %s' % (
                     chassis_id, port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id),
-                    remote_port_id, remote_port_state))
+                    remote_port_id, port.stack_state_name(remote_port_state)))
             port.dyn_lldp_beacon_recv_state = remote_port_state
 
         peer_mac_src = self.dp.ports[port.number].lldp_peer_mac

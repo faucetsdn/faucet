@@ -132,7 +132,7 @@ class Conf:
                     continue
                 if isinstance(value, (tuple, list, set)) and isinstance(value[0], Conf):
                     continue
-            conf_keys.append((key, value))
+            conf_keys.append((key, self._str_conf(value)))
         return conf_keys
 
     @staticmethod

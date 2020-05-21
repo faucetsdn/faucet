@@ -303,7 +303,7 @@ dps:
         """Return other running valves"""
         return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
 
-    def test_MCLAG_cold_start(self):
+    def test_mclag_cold_start(self):
         """Test cold-starting a switch with a downed port resets LACP states"""
         self.activate_all_ports()
         valve = self.valves_manager.valves[0x1]
@@ -377,7 +377,7 @@ dps:
         """Return other running valves"""
         return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
 
-    def test_MCLAG_standby_option(self):
+    def test_mclag_standby_option(self):
         """Test MCLAG standby option forces standby state instead of unselected"""
         self.activate_all_ports()
         valve = self.valves_manager.valves[0x1]
@@ -540,7 +540,7 @@ class ValveStackChainTest(ValveTestBases.ValveTestSmall):
 
     def test_stack_learn_not_root(self):
         """Test stack learned when not root"""
-        self.update_config(self._config_edge_learn_stack_root(False))
+        self.update_config(self._config_edge_learn_stack_root(False), reload_type='warm')
         self.activate_all_ports()
         self.validate_edge_learn_ports()
 
@@ -617,7 +617,7 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
     def test_edge_learn_edge_port(self):
         """Check the behavior of the basic edge_learn_port algorithm"""
 
-        self.update_config(self._config_edge_learn_stack_root(False))
+        self.update_config(self._config_edge_learn_stack_root(False), reload_type='warm')
 
         self.activate_all_ports()
 
@@ -2377,6 +2377,211 @@ dps:
         self.check_groupmods_exist(
             valve_of.valve_flowreorder(
                 ofmsgs + [global_flowmod, global_metermod, global_groupmod]), False)
+
+
+class ValveWarmStartStackTest(ValveTestBases.ValveTestSmall):
+    """Test warm starting stack ports"""
+
+    CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+    vlan200:
+        vid: 200
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack: {priority: 1}
+        interfaces:
+            1:
+                stack: {dp: s2, port: 1}
+            2:
+                name: host1
+                native_vlan: vlan100
+            3:
+                name: host2
+                native_vlan: vlan200
+            4:
+                name: host3
+                native_vlan: vlan200
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s1, port: 1}
+            2:
+                stack: {dp: s3, port: 1}
+            4:
+                name: host4
+                native_vlan: vlan100
+            5:
+                name: host5
+                native_vlan: vlan200
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s2, port: 2}
+            3:
+                name: host6
+                native_vlan: vlan100
+            4:
+                name: host7
+                native_vlan: vlan200
+"""
+
+    NEW_PORT_CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+    vlan200:
+        vid: 200
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack: {priority: 1}
+        interfaces:
+            1:
+                stack: {dp: s2, port: 1}
+            2:
+                name: host1
+                native_vlan: vlan100
+            3:
+                name: host2
+                native_vlan: vlan200
+            4:
+                name: host3
+                native_vlan: vlan200
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s1, port: 1}
+            2:
+                stack: {dp: s3, port: 1}
+            3:
+                stack: {dp: s3, port: 2}
+            4:
+                name: host4
+                native_vlan: vlan100
+            5:
+                name: host5
+                native_vlan: vlan200
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s2, port: 2}
+            2:
+                stack: {dp: s2, port: 3}
+            3:
+                name: host6
+                native_vlan: vlan100
+            4:
+                name: host7
+                native_vlan: vlan200
+"""
+
+    NEW_VLAN_CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+    vlan200:
+        vid: 200
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack: {priority: 1}
+        interfaces:
+            1:
+                stack: {dp: s2, port: 1}
+            2:
+                name: host1
+                native_vlan: vlan100
+            3:
+                name: host2
+                native_vlan: vlan100
+            4:
+                name: host3
+                native_vlan: vlan200
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s1, port: 1}
+            2:
+                stack: {dp: s3, port: 1}
+            4:
+                name: host4
+                native_vlan: vlan100
+            5:
+                name: host5
+                native_vlan: vlan200
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s2, port: 2}
+            3:
+                name: host6
+                native_vlan: vlan100
+            4:
+                name: host7
+                native_vlan: vlan200
+"""
+
+    def setUp(self):
+        """Setup network and start stack ports"""
+        self.setup_valve(self.CONFIG)
+        self.process_ports()
+
+    def process_ports(self):
+        """Makes sure all ports are up and flowrules installed"""
+        self.activate_all_ports()
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
+
+    def test_reload_topology_change(self):
+        """Test reload with topology change forces stack ports down"""
+        self.update_and_revert_config(
+            self.CONFIG, self.NEW_PORT_CONFIG,
+            'warm', verify_func=self.process_ports)
+        with open(self.config_file, 'w') as config_file:
+            config_file.write(self.NEW_PORT_CONFIG)
+        new_dps = self.valves_manager.parse_configs(self.config_file)
+        for new_dp in new_dps:
+            valve = self.valves_manager.valves[new_dp.dp_id]
+            changes = valve.dp.get_config_changes(valve.logger, new_dp)
+            changed_ports, all_ports_changed = changes[1], changes[6]
+            for port in valve.dp.stack_ports:
+                if not all_ports_changed:
+                    self.assertIn(
+                        port.number, changed_ports,
+                        'Stack port not detected as changed on topology change')
+
+    def test_reload_vlan_change(self):
+        """Test reload with topology change stack ports stay up"""
+        with open(self.config_file, 'w') as config_file:
+            config_file.write(self.NEW_VLAN_CONFIG)
+        new_dps = self.valves_manager.parse_configs(self.config_file)
+        for new_dp in new_dps:
+            valve = self.valves_manager.valves[new_dp.dp_id]
+            changed_ports = valve.dp.get_config_changes(valve.logger, new_dp)[1]
+            for port in valve.dp.stack_ports:
+                self.assertNotIn(
+                    port.number, changed_ports,
+                    'Stack port detected as changed on non-topology change')
 
 
 if __name__ == "__main__":
