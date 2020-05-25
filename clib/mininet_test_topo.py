@@ -301,7 +301,8 @@ class FaucetSwitchTopo(Topo):
         self.hw_ports = sorted(switch_map) if switch_map else []  # pylint: disable=attribute-defined-outside-init
         self.start_port = start_port  # pylint: disable=attribute-defined-outside-init
         maxlength = n_tagged + n_untagged + n_extended
-        self.port_order = self.extend_port_order(port_order, maxlength)  # pylint: disable=attribute-defined-outside-init
+        self.port_order = self.extend_port_order(  # pylint: disable=attribute-defined-outside-init
+            port_order, maxlength)
         for dpid in dpids:
             serialno = get_serialno(ports_sock, test_name)
             sid_prefix = self._get_sid_prefix(serialno)
