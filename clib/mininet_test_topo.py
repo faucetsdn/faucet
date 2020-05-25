@@ -297,11 +297,11 @@ class FaucetSwitchTopo(Topo):
               get_serialno=mininet_test_util.get_serialno):
         if not host_namespace:
             host_namespace = {}
-        self.hw_dpid = hw_dpid
-        self.hw_ports = sorted(switch_map) if switch_map else []
-        self.start_port = start_port
+        self.hw_dpid = hw_dpid  # pylint: disable=attribute-defined-outside-init
+        self.hw_ports = sorted(switch_map) if switch_map else []  # pylint: disable=attribute-defined-outside-init
+        self.start_port = start_port  # pylint: disable=attribute-defined-outside-init
         maxlength = n_tagged + n_untagged + n_extended
-        self.port_order = self.extend_port_order(port_order, maxlength)
+        self.port_order = self.extend_port_order(port_order, maxlength)  # pylint: disable=attribute-defined-outside-init
         for dpid in dpids:
             serialno = get_serialno(ports_sock, test_name)
             sid_prefix = self._get_sid_prefix(serialno)
