@@ -100,10 +100,14 @@ if [ -f /venv/bin/activate ]; then
 fi
 
 if [ "$SKIP_PIP" == 0 ] ; then
-    if [ -d /var/tmp/pip-cache ] ; then
+    CACHE_DIR=/var/tmp/pip-cache
+    if [ -d $CACHE_DIR ] ;
       echo Using pip cache
     fi
-    ./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache"
+    ./docker/pip_deps.sh "--cache-dir=$CACHE_DIR"
+    if [ "$DEPCHECK" == 1 ] ; then
+        PIP_REQUMENTS=dep-test-requirements.txt ./docker/pip_deps.sh "--cache-dir=$CACHE_DIR"
+    fi
 else
     echo "Skipping Pip Install Script"
 fi

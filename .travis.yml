@@ -36,6 +36,10 @@ jobs:
       python: 3.7
       env: MATRIX_SHARD=unittest
     - stage: test
+      language: python
+      python: 3.8
+      env: MATRIX_SHARD=unittest
+    - stage: test
       env: MATRIX_SHARD=sanity
       language: bash
       services:
