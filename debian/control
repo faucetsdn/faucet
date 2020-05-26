@@ -12,7 +12,7 @@ Build-Depends: debhelper (>=9),
                python3-pbr (>=1.9),
                python3-bitstring,
                python3-influxdb,
-               python3-msgpack,
+               python3-msgpack (>= 0.4.6), python3-msgpack (<< 1.0.0),
                python3-networkx,
                python3-prometheus-client,
                python3-yaml,
@@ -30,7 +30,7 @@ Vcs-Browser: https://github.com/faucetsdn/faucet
 Package: python3-faucet
 Architecture: all
 Depends: python3-influxdb (>= 2.12.0),
-         python3-msgpack (>= 0.4.2),
+         python3-msgpack (>= 0.4.6), python3-msgpack (<< 1.0.0),
          python3-networkx (>= 1.9),
          python3-pbr (>= 1.9),
          python3-prometheus-client (>= 0.7.1), python3-prometheus-client (<< 0.7.2),

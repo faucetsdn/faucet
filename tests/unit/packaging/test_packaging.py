@@ -40,7 +40,6 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
         self.requirements_file = os.path.join(src_dir, 'requirements.txt')
 
         self.dpkg_name = {
-            'msgpack-python': 'python3-msgpack',
             'pyyaml': 'python3-yaml'
             }
 
