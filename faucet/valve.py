@@ -586,7 +586,7 @@ class Valve:
         stacked_valves = {self}.union(self._stacked_valves(other_valves))
 
         for port in ports:
-            next_state = self.switch_manager.next_stack_link_state(port, now)
+            next_state = self.switch_manager.next_stack_link_state(port, now)  # pytype: disable=attribute-error
             if next_state is not None:
                 next_state()
                 self._set_port_var('port_stack_state', port.dyn_stack_current_state, port)
