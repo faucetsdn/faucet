@@ -106,7 +106,7 @@ if [ "$SKIP_PIP" == 0 ] ; then
     fi
     ./docker/pip_deps.sh "--cache-dir=$CACHE_DIR"
     if [ "$DEPCHECK" == 1 ] ; then
-      PIP_REQUMENTS=dep-test-requirements.txt ./docker/pip_deps.sh "--cache-dir=$CACHE_DIR"
+      PIP_REQUIREMENTS=dep-test-requirements.txt ./docker/pip_deps.sh "--cache-dir=$CACHE_DIR"
     fi
 else
     echo "Skipping Pip Install Script"
