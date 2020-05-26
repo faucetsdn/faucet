@@ -1541,14 +1541,14 @@ dps:
         valve = self.valves_manager.valves[0x1]
         port = valve.dp.ports[3]
         # Apply tunnel to ofmsgs on valve
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         # Should encapsulate and output packet towards tunnel destination s3
         self.validate_tunnel(
             1, 0, 3, self.SRC_ID, True,
             'Did not encapsulate and forward')
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
-        ofmsgs = valve.get_tunnel_flowmods()
+        ofmsgs = valve.switch_manager.add_tunnel_acls()
         self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
         self.apply_ofmsgs(ofmsgs)
         # Should encapsulate and output packet using the new path
@@ -1559,7 +1559,7 @@ dps:
     def test_update_same_tunnel(self):
         """Test tunnel rules when outputting to host on the same switch as the source"""
         valve = self.valves_manager.valves[0x1]
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         self.validate_tunnel(2, 0, 1, 0, True, 'Did not forward to host on same DP')
 
     def test_update_dst_tunnel(self):
@@ -1567,12 +1567,12 @@ dps:
         valve = self.valves_manager.valves[0x1]
         port = valve.dp.ports[3]
         # Apply tunnel to ofmsgs on valve
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         # Should accept encapsulated packet and output to the destination host
         self.validate_tunnel(3, self.DST_ID, 1, 0, True, 'Did not output to host')
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
-        ofmsgs = valve.get_tunnel_flowmods()
+        ofmsgs = valve.switch_manager.add_tunnel_acls()
         self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
         self.apply_ofmsgs(ofmsgs)
         # Should ccept encapsulated packet and output using the new path
@@ -1581,7 +1581,7 @@ dps:
     def test_update_none_tunnel(self):
         """Test tunnel on a switch not using a tunnel ACL"""
         valve = self.valves_manager.valves[0x1]
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         # Should drop any packets received from the tunnel
         self.validate_tunnel(
             5, self.NONE_ID, None, None, False,
@@ -1679,7 +1679,7 @@ dps:
         port1 = valve.dp.ports[3]
         port2 = valve.dp.ports[5]
         # Apply tunnel to ofmsgs on valve
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         # Should accept packet from stack and output to the next switch
         self.validate_tunnel(
             3, self.TRANSIT_ID, 5, self.TRANSIT_ID, True,
@@ -1692,7 +1692,7 @@ dps:
             'Did not output to next switch')
         # Set the chosen port to the next switch down to force a path recalculation
         self.set_port_down(port2.number)
-        ofmsgs = valve.get_tunnel_flowmods()
+        ofmsgs = valve.switch_manager.add_tunnel_acls()
         self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
         self.apply_ofmsgs(ofmsgs)
         # Should accept encapsulated packet and output using the new path
@@ -1778,7 +1778,7 @@ dps:
         valve = self.valves_manager.valves[0x1]
         port = valve.dp.ports[3]
         # Apply tunnel to ofmsgs on valve
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         # Should encapsulate and output packet towards tunnel destination s3
         self.validate_tunnel(
             1, 0, 3, self.TUNNEL_ID, True,
@@ -1788,7 +1788,7 @@ dps:
             'Did not encapsulate and forward')
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
-        ofmsgs = valve.get_tunnel_flowmods()
+        ofmsgs = valve.switch_manager.add_tunnel_acls()
         self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
         self.apply_ofmsgs(ofmsgs)
         # Should encapsulate and output packet using the new path
@@ -1909,14 +1909,14 @@ dps:
         valve = self.valves_manager.valves[0x1]
         port = valve.dp.ports[3]
         # Apply tunnel to ofmsgs on valve
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         # Should encapsulate and output packet towards tunnel destination s3
         self.validate_tunnel(
             1, 0, 3, self.SRC_ID, True,
             'Did not encapsulate and forward')
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
-        ofmsgs = valve.get_tunnel_flowmods()
+        ofmsgs = valve.switch_manager.add_tunnel_acls()
         self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
         self.apply_ofmsgs(ofmsgs)
         # Should encapsulate and output packet using the new path
@@ -1927,7 +1927,7 @@ dps:
     def test_update_same_tunnel(self):
         """Test tunnel rules when outputting to host on the same switch as the source"""
         valve = self.valves_manager.valves[0x1]
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         self.validate_tunnel(2, 0, 1, 0, True, 'Did not forward to host on same DP')
 
     def test_update_dst_tunnel(self):
@@ -1935,12 +1935,12 @@ dps:
         valve = self.valves_manager.valves[0x1]
         port = valve.dp.ports[3]
         # Apply tunnel to ofmsgs on valve
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         # Should accept encapsulated packet and output to the destination host
         self.validate_tunnel(3, self.DST_ID, 1, 0, True, 'Did not output to host')
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
-        ofmsgs = valve.get_tunnel_flowmods()
+        ofmsgs = valve.switch_manager.add_tunnel_acls()
         self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
         self.apply_ofmsgs(ofmsgs)
         # Should ccept encapsulated packet and output using the new path
@@ -1949,7 +1949,7 @@ dps:
     def test_update_none_tunnel(self):
         """Test tunnel on a switch not using a tunnel ACL"""
         valve = self.valves_manager.valves[0x1]
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         # Should drop any packets received from the tunnel
         self.validate_tunnel(
             5, self.NONE_ID, None, None, False,
@@ -2047,7 +2047,7 @@ dps:
         port1 = valve.dp.ports[3]
         port2 = valve.dp.ports[5]
         # Apply tunnel to ofmsgs on valve
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         # Should accept packet from stack and output to the next switch
         self.validate_tunnel(
             3, self.TRANSIT_ID, 5, self.TRANSIT_ID, True,
@@ -2060,7 +2060,7 @@ dps:
             'Did not output to next switch')
         # Set the chosen port to the next switch down to force a path recalculation
         self.set_port_down(port2.number)
-        ofmsgs = valve.get_tunnel_flowmods()
+        ofmsgs = valve.switch_manager.add_tunnel_acls()
         self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
         self.apply_ofmsgs(ofmsgs)
         # Should accept encapsulated packet and output using the new path
@@ -2146,7 +2146,7 @@ dps:
         valve = self.valves_manager.valves[0x1]
         port = valve.dp.ports[3]
         # Apply tunnel to ofmsgs on valve
-        self.apply_ofmsgs(valve.get_tunnel_flowmods())
+        self.apply_ofmsgs(valve.switch_manager.add_tunnel_acls())
         # Should encapsulate and output packet towards tunnel destination s3
         self.validate_tunnel(
             1, 0, 3, self.TUNNEL_ID, True,
@@ -2156,7 +2156,7 @@ dps:
             'Did not encapsulate and forward')
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
-        ofmsgs = valve.get_tunnel_flowmods()
+        ofmsgs = valve.switch_manager.add_tunnel_acls()
         self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
         self.apply_ofmsgs(ofmsgs)
         # Should encapsulate and output packet using the new path

@@ -214,7 +214,14 @@ class Valve:
             self._dot1x_manager = Dot1xManager(self.dot1x, self.dp.dp_id, self.dp.dot1x_ports, nfv_sw_port)
 
         self.pipeline = valve_pipeline.ValvePipeline(self.dp)
-        self.switch_manager = valve_switch.valve_switch_factory(self.logger, self.dp, self.pipeline)
+        self.acl_manager = None
+        if self.dp.has_acls:
+            self.acl_manager = valve_acl.ValveAclManager(
+                self.dp.tables.get('port_acl'), self.dp.tables.get('vlan_acl'),
+                self.dp.tables.get('egress_acl'), self.pipeline,
+                self.dp.meters, self.dp.dp_acls)
+        self.switch_manager = valve_switch.valve_switch_factory(
+            self.logger, self.dp, self.pipeline, self.acl_manager)
         self._coprocessor_manager = None
         copro_table = self.dp.tables.get('copro', None)
         if copro_table:
@@ -245,12 +252,6 @@ class Valve:
                         route_manager.IPV, vlan, vips_str))
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
-        self.acl_manager = None
-        if self.dp.has_acls:
-            self.acl_manager = valve_acl.ValveAclManager(
-                self.dp.tables.get('port_acl'), self.dp.tables.get('vlan_acl'),
-                self.dp.tables.get('egress_acl'), self.pipeline,
-                self.dp.meters, self.dp.dp_acls)
         self._managers = tuple(
             manager for manager in (
                 self.pipeline, self.switch_manager, self.acl_manager, self._lldp_manager,
@@ -579,58 +580,13 @@ class Valve:
             return {self: ofmsgs}
         return {}
 
-    def _next_stack_link_state(self, port, now):
-        next_state = None
-
-        if port.is_stack_admin_down():
-            return next_state
-
-        last_seen_lldp_time = port.dyn_stack_probe_info.get('last_seen_lldp_time', None)
-        if last_seen_lldp_time is None:
-            if port.is_stack_none():
-                next_state = port.stack_init
-                self.logger.info('Stack %s new, state INIT' % port)
-            return next_state
-
-        remote_dp = port.stack['dp']
-        stack_correct = port.dyn_stack_probe_info.get(
-            'stack_correct', None)
-        send_interval = remote_dp.lldp_beacon.get(
-            'send_interval', remote_dp.DEFAULT_LLDP_SEND_INTERVAL)
-
-        time_since_lldp_seen = None
-        num_lost_lldp = None
-        stack_timed_out = True
-
-        if last_seen_lldp_time is not None:
-            time_since_lldp_seen = now - last_seen_lldp_time
-            num_lost_lldp = time_since_lldp_seen / send_interval
-            if num_lost_lldp < port.max_lldp_lost:
-                stack_timed_out = False
-
-        if stack_timed_out:
-            if not port.is_stack_gone():
-                next_state = port.stack_gone
-                self.logger.error(
-                    'Stack %s GONE, too many (%u) packets lost, last received %us ago' % (
-                        port, num_lost_lldp, time_since_lldp_seen))
-        elif not stack_correct:
-            if not port.is_stack_bad():
-                next_state = port.stack_bad
-                self.logger.error('Stack %s BAD, incorrect cabling' % port)
-        elif not port.is_stack_up():
-            next_state = port.stack_up
-            self.logger.info('Stack %s UP' % port)
-
-        return next_state
-
     def _update_stack_link_state(self, ports, now, other_valves):
         stack_changes = 0
         ofmsgs_by_valve = defaultdict(list)
         stacked_valves = {self}.union(self._stacked_valves(other_valves))
 
         for port in ports:
-            next_state = self._next_stack_link_state(port, now)
+            next_state = self.switch_manager.next_stack_link_state(port, now)
             if next_state is not None:
                 next_state()
                 self._set_port_var('port_stack_state', port.dyn_stack_current_state, port)
@@ -656,7 +612,7 @@ class Valve:
                 ofmsgs_by_valve[valve].extend(valve.add_vlans(valve.dp.vlans.values()))
                 for port in valve.dp.stack_ports:
                     ofmsgs_by_valve[valve].extend(valve.switch_manager.del_port(port))
-                ofmsgs_by_valve[valve].extend(valve.get_tunnel_flowmods())
+                ofmsgs_by_valve[valve].extend(valve.switch_manager.add_tunnel_acls())
                 path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
                 path_port_number = path_port.number if path_port else 0.0
                 self._set_var(
@@ -674,52 +630,6 @@ class Valve:
                             }})
                     break
         return ofmsgs_by_valve
-
-    def acl_update_tunnel(self, acl):
-        """Return ofmsgs for a ACL with a tunnel rule"""
-        ofmsgs = []
-        source_vids = {}
-        for _id, info in acl.tunnel_info.items():
-            # Update the tunnel rules for each tunnel action specified
-            updated_sources = []
-            for i, source in enumerate(acl.tunnel_sources):
-                # Update each tunnel rule for each tunnel source
-                src_dp = source['dp']
-                dst_dp, dst_port = info['dst_dp'], info['dst_port']
-                out_port = None
-                shortest_path = self.dp.shortest_path(dst_dp, src_dp=src_dp)
-                if self.dp.name in shortest_path:
-                    # We are in the path, so we need to update
-                    if self.dp.name == dst_dp:
-                        out_port = dst_port
-                    if not out_port:
-                        out_port = self.dp.shortest_path_port(dst_dp).number
-                    updated = acl.update_source_tunnel_rules(
-                        self.dp.name, i, _id, out_port)
-                    if updated:
-                        if self.dp.name == src_dp:
-                            source_vids.setdefault(i, [])
-                            source_vids[i].append(_id)
-                        else:
-                            updated_sources.append(i)
-            if updated_sources:
-                for source_id in updated_sources:
-                    ofmsgs.extend(self.acl_manager.build_tunnel_rules_ofmsgs(
-                        source_id, _id, acl))
-        if source_vids:
-            for source_id, vids in source_vids.items():
-                for vid in vids:
-                    ofmsgs.extend(self.acl_manager.build_tunnel_acl_rule_ofmsgs(
-                        source_id, vid, acl))
-        return ofmsgs
-
-    def get_tunnel_flowmods(self):
-        """Return ofmsgs for all tunnel ACLs in the DP"""
-        ofmsgs = []
-        if self.dp.tunnel_acls:
-            for acl in self.dp.tunnel_acls:
-                ofmsgs.extend(self.acl_update_tunnel(acl))
-        return ofmsgs
 
     def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""
