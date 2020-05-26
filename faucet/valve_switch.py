@@ -58,10 +58,9 @@ def valve_switch_factory(logger, dp, pipeline):  # pylint: disable=invalid-name
             dp.is_stack_root, dp.is_stack_root_candidate,
             dp.is_stack_edge, dp.stack_graph)
 
+    switch_class = ValveSwitchManager
     if dp.use_idle_timeout:
         switch_class = ValveSwitchFlowRemovedManager
-    else:
-        switch_class = ValveSwitchManager
     return switch_class(
         logger, dp.ports, dp.vlans,
         dp.tables['vlan'], vlan_acl_table, dp.tables['eth_src'], dp.tables['eth_dst'],
