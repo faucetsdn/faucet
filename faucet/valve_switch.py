@@ -23,13 +23,14 @@ from faucet.valve_switch_stack import (
     ValveSwitchStackManagerNoReflection, ValveSwitchStackManagerReflection)
 
 
-def valve_switch_factory(logger, dp, pipeline):  # pylint: disable=invalid-name
+def valve_switch_factory(logger, dp, pipeline, acl_manager):  # pylint: disable=invalid-name
     """Return switch flood/learning manager based on datapath configuration.
 
         Args:
             logger: logger instance.
             dp: DP instance.
             pipeline: ValvePipeline instance.
+            acl_manager: AclManager instance.
         Returns:
             switch manager instance.
     """
@@ -54,9 +55,9 @@ def valve_switch_factory(logger, dp, pipeline):  # pylint: disable=invalid-name
             dp.learn_ban_timeout, dp.timeout, dp.learn_jitter,
             dp.cache_update_guard_time, dp.idle_dst,
             dp.stack_ports,
-            dp.shortest_path_to_root, dp.shortest_path_port,
+            dp.shortest_path_to_root, dp.shortest_path, dp.shortest_path_port,
             dp.is_stack_root, dp.is_stack_root_candidate,
-            dp.is_stack_edge, dp.stack_graph)
+            dp.is_stack_edge, dp.name, dp.stack_graph, dp.tunnel_acls, acl_manager)
 
     switch_class = ValveSwitchManager
     if dp.use_idle_timeout:
