@@ -209,7 +209,7 @@ class Valve:
         self._output_only_manager = OutputOnlyManager(
             self.dp.tables['vlan'], self.dp.highest_priority)
         self._dot1x_manager = None
-        if self.dp.dot1x:
+        if self.dp.dot1x and self.dp.dot1x_ports():
             nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
             self._dot1x_manager = Dot1xManager(self.dot1x, self.dp.dp_id, self.dp.dot1x_ports, nfv_sw_port)
 
