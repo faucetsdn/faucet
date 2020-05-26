@@ -7,9 +7,10 @@ MINRATING=9.44
 
 lintfile=`tempfile`.lint
 
+# TODO: --fail-under can't be used because it takes only integers.
 for f in $* ; do
     PYTHONPATH=$PYTHONPATH pylint --rcfile=/dev/null --extension-pkg-whitelist=netifaces,pytricia -d import-error $f > $lintfile
-    rating=`cat $lintfile | grep -ohE "rated at [0-9\.]+" | sed "s/rated at //g"`
+    rating=`cat $lintfile | grep -ohE "rated at [0-9\.\-]+" | sed "s/rated at //g"`
     echo pylint $f: $rating
     failing=$(bc <<< "$rating < $MINRATING")
     if [ "$failing" -ne 0 ]; then

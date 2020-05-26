@@ -335,9 +335,9 @@ class FaucetTopoGenerator(Topo):
             host_options (dict): Host index map to additional mininet host options
         """
         # Additional test generation information
-        self.ovs_type = ovs_type
-        self.ports_sock = ports_sock
-        self.test_name = test_name
+        self.ovs_type = ovs_type  # pylint: disable=attribute-defined-outside-init
+        self.ports_sock = ports_sock  # pylint: disable=attribute-defined-outside-init
+        self.test_name = test_name  # pylint: disable=attribute-defined-outside-init
         self.get_serialno = get_serialno
 
         # Information for hardware switches
