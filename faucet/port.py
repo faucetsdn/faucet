@@ -328,7 +328,7 @@ class Port(Conf):
             for key, default_val in self.defaults.items():
                 if key in vlan_agnostic_options or key in non_vlan_port_options:
                     continue
-                if key.startswith('acl') and self.stack:
+                if key.startswith('acl') and (self.stack or self.coprocessor):
                     continue
                 val = getattr(self, key)
                 test_config_condition(

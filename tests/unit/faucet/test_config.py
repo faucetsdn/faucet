@@ -318,6 +318,28 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+
+    def test_acl_with_copro_valid(self):
+        """Test coprocessor port can accept an ACL."""
+        config = """
+acls:
+    copro-acl:
+        - rule:
+            udp_src: 80
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                coprocessor:
+                    strategy: vlan_vid
+                acls_in: [copro-acl]
+            2:
+                native_vlan: 100
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+
     def test_acls_vlan_valid(self):
         """Test ACLs can be combined on VLAN."""
         config = """
