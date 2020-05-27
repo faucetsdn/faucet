@@ -195,7 +195,7 @@ class FaucetTopoGenerator(Topo):
         if 'cls' in host_opts:
             host_name = 'e%s%1.1u' % (sid_prefix, host_index + 1)
         else:
-            if isinstance(vlans, int) or vlans == None:
+            if isinstance(vlans, int) or vlans is None:
                 host_name = 'u%s%1.1u' % (sid_prefix, host_index + 1)
                 host_opts['cls'] = FaucetHost
             elif isinstance(vlans, list):
@@ -391,7 +391,7 @@ class FaucetTopoGenerator(Topo):
                         'port': dst_port
                     }
                 }
-            elif vlans == None:
+            elif vlans is None:
                 # output only link
                 interface_config = {
                     'name': 'b%u' % src_port,
