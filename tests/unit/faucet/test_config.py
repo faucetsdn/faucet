@@ -334,6 +334,7 @@ dps:
                 coprocessor:
                     strategy: vlan_vid
                 acls_in: [copro-acl]
+                mirror: 2
             2:
                 native_vlan: 100
 """
