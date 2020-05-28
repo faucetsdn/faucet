@@ -188,8 +188,10 @@ class FaucetTopoTestBase(FaucetTestBase):
         for host_id, host_name in self.topo.hosts_by_id.items():
             host = self.net.get(host_name)
             vlan = self.host_vlans[host_id]
-            ip_interface = ipaddress.ip_interface(self.host_ip_address(host_id, vlan))
-            self.set_host_ip(host, ip_interface)
+            ip_interface = None
+            if vlan is not None:
+                ip_interface = ipaddress.ip_interface(self.host_ip_address(host_id, vlan))
+                self.set_host_ip(host, ip_interface)
             self.host_information[host_id] = {
                 'host': host,
                 'ip': ip_interface,

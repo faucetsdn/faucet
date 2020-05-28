@@ -195,7 +195,7 @@ class FaucetTopoGenerator(Topo):
         if 'cls' in host_opts:
             host_name = 'e%s%1.1u' % (sid_prefix, host_index + 1)
         else:
-            if isinstance(vlans, int):
+            if isinstance(vlans, int) or vlans is None:
                 host_name = 'u%s%1.1u' % (sid_prefix, host_index + 1)
                 host_opts['cls'] = FaucetHost
             elif isinstance(vlans, list):
@@ -381,7 +381,7 @@ class FaucetTopoGenerator(Topo):
                     'description': 'tagged %s' % link_name,
                     'tagged_vlans': [self.vlan_name(vlan) for vlan in vlans]
                 }
-            elif dst_node and dst_port and vlans is None:
+            elif dst_node and dst_port:
                 # Stack link
                 interface_config = {
                     'name': 'b%u' % src_port,
@@ -390,6 +390,13 @@ class FaucetTopoGenerator(Topo):
                         'dp': dst_node,
                         'port': dst_port
                     }
+                }
+            elif vlans is None:
+                # output only link
+                interface_config = {
+                    'name': 'b%u' % src_port,
+                    'description': 'output only %s' % link_name,
+                    'output_only': True,
                 }
             else:
                 raise GenerationError('Unknown %s link type %s' % (type_, vlans))
