@@ -520,7 +520,7 @@ class FlowMod:
             return val
 
         def _val_to_bits(conv, val, length):
-            if val is -1:
+            if val == -1:
                 return Bits(int=-1, length=length)
             return Bits(bytes=conv(val), length=length)
 
