@@ -199,12 +199,12 @@ dps:
                     (stack_link_a + stack_link_b),
                     (stack_link_b + stack_link_a)):
                 self.assertEqual(
-                    port_a.stack['dp'].dp_id,
+                    port_a.stack['dp'].dp_id,  # pytype: disable=attribute-error
                     dpid_b,
                     'remote stack dp configured incorrectly')
                 self.assertEqual(
-                    port_a.stack['port'].number,
-                    port_b.number,
+                    port_a.stack['port'].number,  # pytype: disable=attribute-error
+                    port_b.number,  # pytype: disable=attribute-error
                     'remote stack dp configured incorrectly')
 
     def test_config_stack_and_non_stack(self):
@@ -315,6 +315,27 @@ dps:
         interfaces:
             1:
                 native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_acl_with_copro_valid(self):
+        """Test coprocessor port can accept an ACL."""
+        config = """
+acls:
+    copro-acl:
+        - rule:
+            udp_src: 80
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                coprocessor:
+                    strategy: vlan_vid
+                acls_in: [copro-acl]
+                mirror: 2
+            2:
+                native_vlan: 100
 """
         self.check_config_success(config, cp.dp_parser)
 
