@@ -545,7 +545,17 @@ class ValveTestBases:
 
         def apply_ofmsgs(self, ofmsgs):
             """Postprocess flows before sending to simulated DP."""
+            if not ofmsgs:
+                return ofmsgs
+            before_flow_count = len(ofmsgs)
             final_ofmsgs = self.valve.prepare_send_flows(ofmsgs)
+            after_flow_count = len(final_ofmsgs)
+            reorder_ratio = before_flow_count / after_flow_count
+            if before_flow_count >= 10:
+                self.assertGreater(
+                    reorder_ratio, 0.90,
+                    'inefficient duplicate flow generation (before %u, after %u)' % (
+                        before_flow_count, after_flow_count))
             self.table.apply_ofmsgs(final_ofmsgs)
             return final_ofmsgs
 
