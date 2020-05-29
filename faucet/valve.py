@@ -810,16 +810,18 @@ class Valve:
             {'LAG_CHANGE': {'port_no': port.number, 'state': lacp_state, 'role': lacp_role}})
 
     def get_lacp_dpid_nomination(self, lacp_id, other_valves):
-        """
-        Chooses the DP for a given LAG
+        """Chooses the DP for a given LAG.
+
         The DP will be nominated by the following conditions in order:
             1) Number of LAG ports
             2) Root DP
             3) Lowest DPID
+
         Args:
             lacp_id: The LACP LAG ID
             other_valves (list): list of other valves
-        Returns nominated_dpid, reason
+        Returns:
+            nominated_dpid, reason
         """
         if not other_valves:
             return None, ''
@@ -850,8 +852,8 @@ class Valve:
         return most_ports_dpid, 'most LAG ports'
 
     def lacp_update_port_selection_state(self, port, other_valves=None, cold_start=False):
-        """
-        Update the LACP port selection state
+        """Update the LACP port selection state.
+
         Args:
             port (Port): LACP port
             other_valves (list): List of other valves
@@ -872,8 +874,8 @@ class Valve:
         return new_state != prev_state
 
     def lacp_update_actor_state(self, port, lacp_up, now=None, lacp_pkt=None, cold_start=False):
-        """
-        Updates a LAG actor state
+        """Updates a LAG actor state.
+
         Args:
             port: LACP port
             lacp_up (bool): Whether LACP is going UP or DOWN
@@ -894,10 +896,8 @@ class Valve:
         return prev_actor_state != new_actor_state
 
     def lacp_update(self, port, lacp_up, now=None, lacp_pkt=None, other_valves=None):
-        """
-        Update the port's LACP states and enables/disables packets
-            from the link to be processed further through the pipeline
-            based on the state changes
+        """Update the port's LACP states and enables/disables pipeline processing.
+
         Args:
             port: The port the packet is being received on
             lacp_up (bool): Whether the lacp actor is up
@@ -920,11 +920,15 @@ class Valve:
         return ofmsgs
 
     def lacp_enable_forwarding(self, port):
-        """
-        Enables packets from the LAG link to progress through the pipeline
-            also recomputes the flooding & host rules
+        """Enables packets from the LAG link to progress through the pipeline.
+        Also recomputes the flooding & host rules.
         Should only be called when a LACP port is both ACTOR_UP & SELECTED
-        Return OpenFlow messages when LACP is UP and SELECTED on a port
+        Return OpenFlow messages when LACP is UP and SELECTED on a port.
+
+        Args:
+            port: Port instance with LACP enabled.
+        Returns:
+            ofmsgs
         """
         vlan_table = self.dp.tables['vlan']
         ofmsgs = []
