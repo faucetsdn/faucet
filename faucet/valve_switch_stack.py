@@ -292,11 +292,13 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         return self.canonical_port_order([port for port in ports if port.is_stack_up()])
 
     def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
-                                exclude_unicast, exclude_restricted_bcast_arpnd, command):
+                                exclude_unicast, exclude_restricted_bcast_arpnd,
+                                command, cold_start):
         # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
         ofmsgs = super(ValveSwitchStackManagerBase, self)._build_mask_flood_rules(
             vlan, eth_type, eth_dst, eth_dst_mask,
-            exclude_unicast, exclude_restricted_bcast_arpnd, command)
+            exclude_unicast, exclude_restricted_bcast_arpnd,
+            command, cold_start)
         away_up_ports_by_dp = defaultdict(list)
         for port in self._canonical_stack_up_ports(self.away_from_root_stack_ports):
             away_up_ports_by_dp[port.stack['dp']].append(port)

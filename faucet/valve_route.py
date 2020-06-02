@@ -402,7 +402,7 @@ class ValveRouteManager(ValveManagerBase):
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         raise NotImplementedError # pragma: no cover
 
-    def add_vlan(self, vlan):
+    def add_vlan(self, vlan, cold_start):
         ofmsgs = []
         # add controller IPs if configured.
         for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):

@@ -373,25 +373,27 @@ class Valve:
         ofmsgs.extend(self._add_default_drop_flows())
         return ofmsgs
 
-    def add_vlan(self, vlan):
+    def add_vlan(self, vlan, cold_start=False):
         """Configure a VLAN."""
         self.logger.info('Configuring %s' % vlan)
         ofmsgs = []
         for manager in self._managers:
-            ofmsgs.extend(manager.add_vlan(vlan))
+            ofmsgs.extend(manager.add_vlan(vlan, cold_start))
         return ofmsgs
 
-    def add_vlans(self, vlans):
+    def add_vlans(self, vlans, cold_start=False):
         ofmsgs = []
         for vlan in vlans:
-            ofmsgs.extend(self.add_vlan(vlan))
+            ofmsgs.extend(self.add_vlan(vlan, cold_start=cold_start))
         return ofmsgs
 
     def del_vlan(self, vlan):
         """Delete a configured VLAN."""
         self.logger.info('Delete VLAN %s' % vlan)
-        table = valve_table.wildcard_table
-        return [table.flowdel(match=table.match(vlan=vlan))]
+        ofmsgs = []
+        for manager in self._managers:
+            ofmsgs.extend(manager.del_vlan(vlan))
+        return ofmsgs
 
     def del_vlans(self, vlans):
         ofmsgs = []
@@ -413,8 +415,8 @@ class Valve:
         all_up_port_nos = {port_no for port_no, status in port_status.items() if status}
         return (port_status, all_up_port_nos)
 
-    def _add_ports_and_vlans(self, now, discovered_up_port_nos):
-        """Add all configured and discovered ports and VLANs."""
+    def _cold_start_ports_and_vlans(self, now, discovered_up_port_nos):
+        """Add all configured and discovered ports and VLANs at cold start time."""
         always_up_port_nos = {
             port.number for port in self.dp.ports.values() if not port.opstatus_reconf}
         discovered_up_port_nos = discovered_up_port_nos.union(always_up_port_nos)
@@ -428,9 +430,17 @@ class Valve:
         self.notify({'PORTS_STATUS': port_status})
 
         ofmsgs = []
+        ofmsgs.extend(self._add_default_flows())
+        for manager in self._managers:
+            ofmsgs.extend(manager.initialise_tables())
+        ofmsgs.append(
+            valve_of.faucet_async(
+                packet_in=True,
+                port_status=True,
+                notify_flow_removed=self.dp.use_idle_timeout))
         ofmsgs.extend(self.ports_add(
             all_up_port_nos, cold_start=True, log_msg='configured'))
-        ofmsgs.extend(self.add_vlans(self.dp.vlans.values()))
+        ofmsgs.extend(self.add_vlans(self.dp.vlans.values(), cold_start=True))
         return ofmsgs
 
     def ofdescstats_handler(self, body):
@@ -658,16 +668,7 @@ class Valve:
         self.notify(
             {'DP_CHANGE': {
                 'reason': 'cold_start'}})
-        ofmsgs = []
-        ofmsgs.extend(self._add_default_flows())
-        for manager in self._managers:
-            ofmsgs.extend(manager.initialise_tables())
-        ofmsgs.extend(self._add_ports_and_vlans(now, discovered_up_ports))
-        ofmsgs.append(
-            valve_of.faucet_async(
-                packet_in=True,
-                port_status=True,
-                notify_flow_removed=self.dp.use_idle_timeout))
+        ofmsgs = self._cold_start_ports_and_vlans(now, discovered_up_ports)
         self.dp.cold_start(now)
         self._inc_var('of_dp_connections')
         self._reset_dp_status()
@@ -1674,7 +1675,8 @@ class Valve:
             ofmsgs.extend(self.del_vlans(changed_vlans))
             for vlan in changed_vlans:
                 vlan.reset_caches()
-            ofmsgs.extend(self.add_vlans(changed_vlans))
+            # The proceeding delete operation means we don't have to generate more deletes.
+            ofmsgs.extend(self.add_vlans(changed_vlans, cold_start=True))
         if changed_ports:
             ofmsgs.extend(self.ports_add(all_up_port_nos))
         if added_ports:

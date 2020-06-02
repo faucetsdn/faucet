@@ -18,12 +18,14 @@
 # limitations under the License.
 
 from functools import partial
+import copy
 import hashlib
 import unittest
+import time
 from ryu.ofproto import ofproto_v1_3 as ofp
 from faucet import config_parser_util
 from faucet import valve_of
-from valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
+from valve_test_lib import BASE_DP1_CONFIG, CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
 
 class ValveIncludeTestCase(ValveTestBases.ValveTestSmall):
@@ -806,7 +808,6 @@ acls:
         self.update_and_revert_config(CONFIG, acl_config, 'cold', verify_func=verify_func)
 
 
-
 class ValveReloadConfigProfile(ValveTestBases.ValveTestSmall):
     """Test reload processing time."""
 
@@ -818,28 +819,40 @@ dps:
             p1:
                 number: 1
                 native_vlan: 0x100
-""" % DP1_CONFIG
+""" % BASE_DP1_CONFIG
+    NUM_PORTS = 100
 
     def setUp(self):
-        pstats_out, _ = self.profile(partial(self.setup_valve, self.CONFIG))
-        self.baseline_total_tt = pstats_out.total_tt  # pytype: disable=attribute-error
+        self.setup_valve(CONFIG)
 
     def test_profile_reload(self):
         """Test reload processing time."""
+        ORIG_CONFIG = copy.copy(self.CONFIG)
+
+        def load_orig_config():
+            pstats_out, _ = self.profile(partial(self.setup_valve, ORIG_CONFIG))
+            self.baseline_total_tt = pstats_out.total_tt  # pytype: disable=attribute-error
+
         for i in range(2, 100):
             self.CONFIG += """
             p%u:
                 number: %u
                 native_vlan: 0x100
 """ % (i, i)
-        pstats_out, pstats_text = self.profile(
-            partial(self.update_config, self.CONFIG, reload_type='cold'))
-        total_tt_prop = pstats_out.total_tt / self.baseline_total_tt  # pytype: disable=attribute-error
-        # must not be 30x slower, to ingest config for 100 interfaces than 1.
-        self.assertLessEqual(total_tt_prop, 30, msg=pstats_text)
-        cache_info = valve_of.output_non_output_actions.cache_info()
-        self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
 
+        for i in range(5):
+            load_orig_config()
+            pstats_out, pstats_text = self.profile(
+                partial(self.update_config, self.CONFIG, reload_type='cold'))
+            cache_info = valve_of.output_non_output_actions.cache_info()
+            self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
+            total_tt_prop = pstats_out.total_tt / self.baseline_total_tt  # pytype: disable=attribute-error
+            # must not be 15x slower, to ingest config for 100 interfaces than 1.
+            if total_tt_prop < 15:
+                return
+            time.sleep(i)
+
+        self.fail('%f: %s' % (total_tt_prop, pstats_text))
 
 
 class ValveTestConfigHash(ValveTestBases.ValveTestSmall):

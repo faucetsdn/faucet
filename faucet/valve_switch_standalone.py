@@ -24,6 +24,7 @@ from faucet import valve_of
 from faucet import valve_packet
 from faucet.valve_manager_base import ValveManagerBase
 from faucet.vlan import NullVLAN
+from faucet import valve_table
 
 
 class ValveSwitchManager(ValveManagerBase):
@@ -211,7 +212,8 @@ class ValveSwitchManager(ValveManagerBase):
         return self._build_flood_rule(match, command, flood_acts, flood_priority)
 
     def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
-                                exclude_unicast, exclude_restricted_bcast_arpnd, command):
+                                exclude_unicast, exclude_restricted_bcast_arpnd,
+                                command, cold_start):
         ofmsgs = []
         if self.combinatorial_port_flood:
             for port in self._vlan_all_ports(vlan, exclude_unicast):
@@ -241,16 +243,17 @@ class ValveSwitchManager(ValveManagerBase):
                         vlan_non_output_acts == port_non_output_acts):
                     # Delete a potentially existing port specific flow
                     # TODO: optimize, avoid generating delete for port if no existing flow.
-                    flood_priority, match = self._build_flood_match_priority(
-                        port, vlan, eth_type, eth_dst, eth_dst_mask, add_match=None)
-                    ofmsgs.append(self.flood_table.flowdel(
-                        match=match, priority=flood_priority))
+                    if not cold_start:
+                        flood_priority, match = self._build_flood_match_priority(
+                            port, vlan, eth_type, eth_dst, eth_dst_mask, add_match=None)
+                        ofmsgs.append(self.flood_table.flowdel(
+                            match=match, priority=flood_priority))
                 else:
                     ofmsgs.append(self._build_flood_rule_for_port(
                         vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts))
         return ofmsgs
 
-    def _build_multiout_flood_rules(self, vlan, command):
+    def _build_multiout_flood_rules(self, vlan, command, cold_start):
         """Build flooding rules for a VLAN without using groups."""
         ofmsgs = []
         for unicast_eth_dst, eth_type, eth_dst, eth_dst_mask in self.flood_dsts:
@@ -259,7 +262,8 @@ class ValveSwitchManager(ValveManagerBase):
             exclude_restricted_bcast_arpnd = eth_type is None
             ofmsgs.extend(self._build_mask_flood_rules(
                 vlan, eth_type, eth_dst, eth_dst_mask,
-                unicast_eth_dst, exclude_restricted_bcast_arpnd, command))
+                unicast_eth_dst, exclude_restricted_bcast_arpnd,
+                command, cold_start))
         return ofmsgs
 
     def _build_group_flood_rules(self, vlan, modify, command):
@@ -305,20 +309,21 @@ class ValveSwitchManager(ValveManagerBase):
                 priority=flood_priority))
         return ofmsgs
 
-    def add_vlan(self, vlan):
+    def add_vlan(self, vlan, cold_start):
         ofmsgs = []
         ofmsgs.append(self.eth_src_table.flowcontroller(
             match=self.eth_src_table.match(vlan=vlan),
             priority=self.low_priority,
             inst=[self.eth_src_table.goto(self.output_table)]))
-        ofmsgs.extend(self.build_flood_rules(vlan))
+        ofmsgs.extend(self._build_flood_rules(vlan, cold_start))
         return ofmsgs
 
     def del_vlan(self, vlan):
-        return [self.flood_table.flowdel(self.flood_table.match(vlan=vlan.vid))]
+        table = valve_table.wildcard_table
+        return [table.flowdel(match=table.match(vlan=vlan))]
 
     def update_vlan(self, vlan):
-        return self.build_flood_rules(vlan, modify=True)
+        return self._build_flood_rules(vlan, cold_start=False, modify=True)
 
     def _find_forwarding_table(self, vlan):
         if vlan.acls_in:
@@ -388,12 +393,12 @@ class ValveSwitchManager(ValveManagerBase):
                 priority=self.low_priority))
         return ofmsgs
 
-    def build_flood_rules(self, vlan, modify=False):
+    def _build_flood_rules(self, vlan, cold_start, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
         command = valve_of.ofp.OFPFC_ADD
         if modify:
             command = valve_of.ofp.OFPFC_MODIFY_STRICT
-        ofmsgs = self._build_multiout_flood_rules(vlan, command)
+        ofmsgs = self._build_multiout_flood_rules(vlan, command, cold_start)
         if self.use_group_table:
             ofmsgs.extend(self._build_group_flood_rules(vlan, modify, command))
         return ofmsgs
