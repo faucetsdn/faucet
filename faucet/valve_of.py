@@ -923,6 +923,9 @@ def is_global_meterdel(ofmsg):
 _MSG_KINDS_TYPES = {
     parser.OFPPacketOut: 'packetout',
     parser.OFPTableFeaturesStatsRequest: 'tfm',
+    parser.OFPSetConfig: 'config',
+    parser.OFPSetAsync: 'config',
+    parser.OFPDescStatsRequest: 'config',
 }
 
 
@@ -968,14 +971,15 @@ def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):
         ofmsgs = list(deduped_input_ofmsgs.values())
         random.shuffle(ofmsgs)
         return ofmsgs
-    # If priority present, send highest priority first.
+    # If priority present, send highest table ID/priority first.
     return sorted(
         deduped_input_ofmsgs.values(),
-        key=lambda ofmsg: getattr(ofmsg, 'priority', 2**16+1), reverse=True)
+        key=lambda ofmsg: (getattr(ofmsg, 'table_id', ofp.OFPTT_ALL), getattr(ofmsg, 'priority', 2**16+1)), reverse=True)
 
 
 # kind, random_order, suggest_barrier, flowkey
 _OFMSG_ORDER = (
+    ('config', False, True, str),
     ('deleteglobal', False, True, str),
     ('delete', False, True, str),
     ('tfm', False, True, str),
