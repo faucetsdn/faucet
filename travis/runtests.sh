@@ -42,6 +42,18 @@ if [ "${MATRIX_SHARD}" == "unittest" ] ; then
     cd ..
   fi
 
+  if [ "${PYLINT}" == "true" ] ; then
+    cd ./tests/codecheck
+    ./pylint.sh || exit 1
+    cd ../..
+  fi
+
+  if [ "${PYTYPE}" == "true" ] ; then
+    cd ./tests/codecheck
+    ./pytype.sh || exit 1
+    cd ../..
+  fi
+
   exit 0
 elif [ "${MATRIX_SHARD}" == "sanity" ] ; then
   FAUCET_TESTS="-u FaucetSanityTest"
@@ -94,9 +106,9 @@ if [ "${MATRIX_SHARD}" == "sanity" ] ; then
   # Simulate hardware test switch
   # TODO: run a standalone DP and also a stacked DP test to test hardware linkages.
   sudo docker run $SHARDARGS -e FAUCET_TESTS="-ni FaucetSanityTest FaucetStackStringOfDPUntaggedTest" -e HWTESTS="1" -t ${FAUCET_TEST_IMG} || exit 1
+else
+  sudo docker run $SHARDARGS -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG} || exit 1
 fi
-
-sudo docker run $SHARDARGS -e PY_FILES_CHANGED="${PY_FILES_CHANGED}" -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG} || exit 1
 
 if ls -1 /var/tmp/core* >/dev/null 2>&1 ; then
   echo coredumps found after tests run.
