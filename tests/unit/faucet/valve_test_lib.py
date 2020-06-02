@@ -551,7 +551,7 @@ class ValveTestBases:
             final_ofmsgs = self.valve.prepare_send_flows(ofmsgs)
             after_flow_count = len(final_ofmsgs)
             reorder_ratio = before_flow_count / after_flow_count
-            if before_flow_count >= 10:
+            if after_flow_count < before_flow_count:
                 self.assertGreater(
                     reorder_ratio, 0.90,
                     'inefficient duplicate flow generation (before %u, after %u)' % (
@@ -958,7 +958,7 @@ class ValveTestBases:
             port.dyn_stack_current_state = status
             valve.switch_manager.update_stack_topo(True, valve.dp, port)
             for valve_vlan in valve.dp.vlans.values():
-                ofmsgs = valve.switch_manager.add_vlan(valve_vlan)
+                ofmsgs = valve.switch_manager.add_vlan(valve_vlan, cold_start=False)
                 if valve is self.valve:
                     self.apply_ofmsgs(ofmsgs)
 
