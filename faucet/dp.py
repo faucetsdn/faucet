@@ -1118,6 +1118,7 @@ configuration.
             test_config_condition(acl_in not in self.acls, (
                 'missing ACL %s in DP: %s' % (acl_in, self.name)))
             acl = self.acls[acl_in]
+            tunnel_dsts_to_vlan = {}
 
             def resolve_port_cb(port_name):
                 """Resolve port"""
@@ -1137,21 +1138,40 @@ configuration.
                 Returns:
                     dst_dp name, dst_port name and tunnel id
                 """
+                if vid is not None:
+                    # VLAN ACL
+                    test_config_condition(True, 'Tunnels do not support VLAN-ACLs')
+                elif dp is not None:
+                    # DP ACL
+                    test_config_condition(True, 'Tunnels do not support DP-ACLs')
+                test_config_condition(dst_dp_name not in dp_by_name, (
+                    'Could not find referenced destination DP (%s) for tunnel ACL %s' % (
+                        dst_dp_name, acl_in)))
+                dst_dp = dp_by_name[dst_dp_name]
+                dst_port = dst_dp.resolve_port(dst_port_name)
+                test_config_condition(dst_port is None, (
+                    'Could not find referenced destination port (%s) for tunnel ACL %s' % (
+                        dst_port_name, acl_in)))
+                dst_port = dst_port.number
+                dst_dp = dst_dp.name
+                resolved_dst = (dst_dp, dst_port)
+
                 if not tunnel_id_name:
-                    # Create a VLAN using the first unused VLAN ID
-                    # Get highest non-reserved VLAN
-                    non_res = [vlan.vid for vlan in self.vlans.values()
-                               if not vlan.reserved_internal_vlan]
-                    vlan_offset = sorted(non_res)[-1]
-                    # Also need to account for the potential number of tunnels
-                    ordered_acls = sorted(self.acls)
-                    index = ordered_acls.index(acl_in) + 1
-                    acl_tunnels = [self.acls[name].get_num_tunnels() for name in ordered_acls]
-                    tunnel_offset = sum(acl_tunnels[:index])
-                    start_pos = vlan_offset + tunnel_offset
-                    tunnel_vid = first_unused_vlan_id(start_pos)
-                    tunnel_vlan = create_vlan(tunnel_vid)
-                    tunnel_vlan.reserved_internal_vlan = True
+                    if resolved_dst in tunnel_dsts_to_vlan:
+                        tunnel_vlan = tunnel_dsts_to_vlan[resolved_dst]
+                    else:
+                        # Create a VLAN using the first unused VLAN ID
+                        # Get highest non-reserved VLAN
+                        vlan_offset = max([vlan.vid for vlan in self.vlans.values() if not vlan.reserved_internal_vlan])
+                        # Also need to account for the potential number of tunnels
+                        ordered_acls = sorted(self.acls)
+                        index = ordered_acls.index(acl_in) + 1
+                        acl_tunnels = [self.acls[name].get_num_tunnels() for name in ordered_acls]
+                        tunnel_offset = sum(acl_tunnels[:index])
+                        start_pos = vlan_offset + tunnel_offset
+                        tunnel_vid = first_unused_vlan_id(start_pos)
+                        tunnel_vlan = create_vlan(tunnel_vid)
+                        tunnel_vlan.reserved_internal_vlan = True
                 else:
                     # Tunnel ID has been specified, so search for the VLAN
                     tunnel_vlan = resolve_vlan(tunnel_id_name)
@@ -1167,28 +1187,17 @@ configuration.
                         # Create the tunnel VLAN object
                         tunnel_vlan = create_vlan(tunnel_id_name)
                         tunnel_vlan.reserved_internal_vlan = True
-                tunnel_id = tunnel_vlan.vid
-                test_config_condition(
-                    [t_acl for t_acl in self.tunnel_acls if tunnel_id in t_acl.tunnel_info],
-                    'Tunnel ID %s is already applied to DP %s' % (tunnel_id, self.name))
-                test_config_condition(dst_dp_name not in dp_by_name, (
-                    'Could not find referenced destination DP (%s) for tunnel ACL %s' % (
-                        dst_dp_name, acl_in)))
-                dst_dp = dp_by_name[dst_dp_name]
-                dst_port = dst_dp.resolve_port(dst_port_name)
-                test_config_condition(dst_port is None, (
-                    'Could not find referenced destination port (%s) for tunnel ACL %s' % (
-                        dst_port_name, acl_in)))
-                dst_port = dst_port.number
-                dst_dp = dst_dp.name
-                if vid is not None:
-                    # VLAN ACL
-                    test_config_condition(True, 'Tunnels do not support VLAN-ACLs')
-                elif dp is not None:
-                    # DP ACL
-                    test_config_condition(True, 'Tunnels do not support DP-ACLs')
+                    existing_tunnel_vlan = tunnel_dsts_to_vlan.get(resolved_dst, None)
+                    if existing_tunnel_vlan is not None:
+                        test_config_condition(
+                            existing_tunnel_vlan == tunnel_vlan.vid,
+                            'Cannot have multiple tunnel IDs (%u, %u) to same destination %s' % (
+                                existing_tunnel_vlan.vid, tunnel_vlan.vid, resolved_dst))
+
                 # Sources will be resolved later on
                 self.tunnel_acls.append(self.acls[acl_in])
+                tunnel_dsts_to_vlan[resolved_dst] = tunnel_vlan
+                tunnel_id = tunnel_vlan.vid
                 return (dst_dp, dst_port, tunnel_id)
 
             acl.resolve_ports(resolve_port_cb, resolve_tunnel_objects)
