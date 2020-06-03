@@ -3,7 +3,7 @@ bitstring
 codecov
 concurrencytest
 deb_pkg_tools
-exabgp==4.2.9
+exabgp==4.2.10
 importlab>=0.3.1
 netifaces
 packaging
