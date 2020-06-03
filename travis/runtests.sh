@@ -120,8 +120,6 @@ if [ "${FILES_CHANGED}" != "all" ]; then
 fi
 
 docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests . || exit 1
-docker rmi faucet/test-base
-docker images
 
 SHARDARGS="--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   --ulimit core=99999999999:99999999999 \
