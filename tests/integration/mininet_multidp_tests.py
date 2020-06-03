@@ -1081,7 +1081,21 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
                                 'port': self.host_port_maps[2][1][0]}
                         }
                     }
-                }}
+                }},
+                {'rule': {
+                    'dl_type': IPV6_ETH,
+                    'ip_proto': 56,
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': self.topo.switches_by_id[1],
+                                'port': self.host_port_maps[2][1][0]}
+                        }
+                    }
+                }},
             ]
         }
 

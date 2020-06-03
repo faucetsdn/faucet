@@ -1803,7 +1803,7 @@ dps:
 class ValveTestOrderedTunnel2DP(ValveTestBases.ValveTestSmall):
     """Test Tunnel ACL implementation"""
 
-    SRC_ID = 5
+    SRC_ID = 6
     DST_ID = 2
     SAME_ID = 4
     NONE_ID = 3
@@ -1814,6 +1814,12 @@ acls:
         - rule:
             dl_type: 0x0800
             ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {dp: s2, port: 1}
+        - rule:
+            dl_type: 0x86dd
+            ip_proto: 56
             actions:
                 output:
                     - tunnel: {dp: s2, port: 1}
@@ -1887,15 +1893,15 @@ dps:
                 if port.stack:
                     self.set_stack_port_up(port.number, valve)
 
-    def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
+    def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg, eth_type=0x0800, ip_proto=1):
         if in_vid:
             in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
             'vlan_vid': in_vid,
-            'eth_type': 0x0800,
-            'ip_proto': 1
+            'eth_type': eth_type,
+            'ip_proto': ip_proto,
         }
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
@@ -1914,6 +1920,10 @@ dps:
         self.validate_tunnel(
             1, 0, 3, self.SRC_ID, True,
             'Did not encapsulate and forward')
+        self.validate_tunnel(
+            1, 0, 3, self.SRC_ID, True,
+            'Did not encapsulate and forward',
+            eth_type=0x86dd, ip_proto=56)
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.switch_manager.add_tunnel_acls()
