@@ -19,6 +19,7 @@
 
 import copy
 import logging
+import time
 
 from collections import defaultdict, deque
 
@@ -682,6 +683,7 @@ class Valve:
         self.dp.dyn_running = False
         self._inc_var('of_dp_disconnections')
         self._reset_dp_status()
+        self.ports_flush()
 
     def _port_delete_manager_state(self, port):
         ofmsgs = []
@@ -797,6 +799,31 @@ class Valve:
             ofmsgs.extend(self.switch_manager.update_vlan(vlan))
 
         return ofmsgs
+
+    def ports_flush(self):
+        """Used to flush ports and corresponding data.
+
+        Args: N/A
+        Returns: N/A
+        """
+        for port_num in self.dp.ports.keys():
+            if not self.dp.port_no_valid(port_num):
+                continue
+            port = self.dp.ports[port_num]
+            port.dyn_phys_up = False
+
+            self._set_port_status(port_num, False, time.time())
+
+            if port.output_only:
+                continue
+
+            if self._dot1x_manager:
+                self._dot1x_manager.del_port(port)
+
+            if port.lacp:
+                self.lacp_update(port, False)
+            else:
+                self._port_delete_flows_state(port)
 
     def port_delete(self, port_num, keep_cache=False, other_valves=None):
         """Return flow messages that delete port from pipeline."""

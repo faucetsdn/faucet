@@ -1843,6 +1843,13 @@ meters:
             self.assertTrue(self.valve.get_config_dict())
             self.assertTrue(self.valve.dp.get_tables())
 
+        def test_dp_disconnect_cleanup(self):
+            """Test port varz cleanup post dp disconnect"""
+            port_num = list(self.valve.dp.ports.keys())[0]
+            self.port_expected_status(port_num, 1)
+            self.valve.datapath_disconnect()
+            self.port_expected_status(port_num, 0)
+
 
     class ValveTestStackedRouting(ValveTestSmall):
         """Test inter-vlan routing with stacking capabilities in an IPV4 network"""
