@@ -1,9 +1,9 @@
 #!/bin/bash
 
-
 # See https://docs.travis-ci.com/user/environment-variables/#convenience-variables
 echo "TRAVIS_BRANCH: ${TRAVIS_BRANCH}"
 echo "TRAVIS_COMMIT: ${TRAVIS_COMMIT}"
+echo "TRAVIS_PULL_REQUEST: ${TRAVIS_PULL_REQUEST}"
 
 # If FILES_CHANGED is set to all, run codecheck tests on all files,
 # otherwise only run on changed files listed in PY_FILES_CHANGED
@@ -23,8 +23,8 @@ if [ ! -z "${TRAVIS_COMMIT_RANGE}" ]; then
     COMMIT1="$(echo "${TRAVIS_COMMIT_RANGE}" | cut -f 1 -d '.')"
     COMMIT2="$(echo "${TRAVIS_COMMIT_RANGE}" | cut -f 4 -d '.')"
 
-    if [ "$(git cat-file -t "${COMMIT1}" 2>/dev/null)" != "commit" ] || [ "$(git cat-file -t "${COMMIT2}" 2>/dev/null)" != "commit" ]; then
-      # This is a normal build
+    if [ "$(git cat-file -t "${COMMIT1}" 2>/dev/null)" == "commit" ] && [ "$(git cat-file -t "${COMMIT2}" 2>/dev/null)" == "commit" ]; then
+      # Both commits exist, this isn't a rewrite of history
       COMMIT_RANGE="${TRAVIS_COMMIT_RANGE}"
     fi
   else
