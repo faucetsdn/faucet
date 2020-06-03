@@ -23,7 +23,9 @@ jobs:
     - stage: test
       language: python
       python: 3.5
-      env: MATRIX_SHARD=unittest
+      env:
+        - MATRIX_SHARD=unittest
+        - PYTYPE=true
     - stage: test
       language: python
       python: 3.6
@@ -31,10 +33,20 @@ jobs:
         - MATRIX_SHARD=unittest
         - BUILD_DOCS=true
         - CODECOV_UPLOAD=true
+        - PYLINT=true
+        - PYTYPE=true
     - stage: test
       language: python
       python: 3.7
-      env: MATRIX_SHARD=unittest
+      env:
+        - MATRIX_SHARD=unittest
+        - PYTYPE=true
+    - stage: test
+      language: python
+      python: 3.8
+      env:
+        - MATRIX_SHARD=unittest
+        - PYTYPE=true
     - stage: test
       env: MATRIX_SHARD=sanity
       language: bash
