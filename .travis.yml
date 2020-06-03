@@ -4,6 +4,7 @@ addons:
   apt:
     update: true
     packages:
+      - docker-ce
       - librsvg2-bin
       - parallel
 cache:
