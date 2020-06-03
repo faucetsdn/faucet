@@ -1,5 +1,6 @@
 #!/bin/bash
 
+docker version
 
 # See https://docs.travis-ci.com/user/environment-variables/#convenience-variables
 echo "TRAVIS_BRANCH: ${TRAVIS_BRANCH}"
