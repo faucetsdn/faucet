@@ -20,14 +20,14 @@ script:
   - ./travis/runtests.sh
 jobs:
   include:
-    - stage: test
+    - &unit-test
+      stage: test
       language: python
       python: 3.5
       env:
         - MATRIX_SHARD=unittest
         - PYTYPE=true
-    - stage: test
-      language: python
+    - <<: *unit-test
       python: 3.6
       env:
         - MATRIX_SHARD=unittest
@@ -35,63 +35,43 @@ jobs:
         - CODECOV_UPLOAD=true
         - PYLINT=true
         - PYTYPE=true
-    - stage: test
-      language: python
+    - <<: *unit-test
       python: 3.7
       env:
         - MATRIX_SHARD=unittest
         - PYTYPE=true
-    - stage: test
-      language: python
+    - <<: *unit-test
       python: 3.8
       env:
         - MATRIX_SHARD=unittest
         - PYTYPE=true
-    - stage: test
+    - &integration-test
+      stage: test
       env: MATRIX_SHARD=sanity
       language: bash
+      before_install:
+        - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+        - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+        - sudo apt-get update
+        - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
       services:
         - docker
-    - stage: test
+    - <<: *integration-test
       env: MATRIX_SHARD=0
-      language: bash
-      services:
-        - docker
-    - stage: test
+    - <<: *integration-test
       env: MATRIX_SHARD=1
-      language: bash
-      services:
-        - docker
-    - stage: test
+    - <<: *integration-test
       env: MATRIX_SHARD=2
-      language: bash
-      services:
-        - docker
-    - stage: test
+    - <<: *integration-test
       env: MATRIX_SHARD=3
-      language: bash
-      services:
-        - docker
-    - stage: test
+    - <<: *integration-test
       env: MATRIX_SHARD=4
-      language: bash
-      services:
-        - docker
-    - stage: test
+    - <<: *integration-test
       env: MATRIX_SHARD=5
-      language: bash
-      services:
-        - docker
-    - stage: test
+    - <<: *integration-test
       env: MATRIX_SHARD=generative-unit
-      language: bash
-      services:
-        - docker
-    - stage: test
+    - <<: *integration-test
       env: MATRIX_SHARD=generative-integration
-      language: bash
-      services:
-        - docker
     - stage: deploy
       language: python
       python: 3.6
