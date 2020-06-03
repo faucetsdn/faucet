@@ -5,24 +5,45 @@
 echo TRAVIS_BRANCH: $TRAVIS_BRANCH
 echo TRAVIS_COMMIT: $TRAVIS_COMMIT
 
-# If PY_FILES_CHANGED is empty, run all codecheck tests (otherwise only on changed files).
-FILES_CHANGED=""
+# If FILES_CHANGED is set to all, run codecheck tests on all files,
+# otherwise only run on changed files listed in PY_FILES_CHANGED
+FILES_CHANGED="all"
 PY_FILES_CHANGED=""
 RQ_FILES_CHANGED=""
 
-# TRAVIS_COMMIT_RANGE will be empty in a new branch.
-if [[ "$TRAVIS_COMMIT_RANGE" != "" ]] ; then
-  echo TRAVIS_COMMIT_RANGE: $TRAVIS_COMMIT_RANGE
-  GIT_DIFF_CMD="git diff --diff-filter=ACMRT --name-only $TRAVIS_COMMIT_RANGE"
-  FILES_CHANGED=`$GIT_DIFF_CMD`
-  if [ $? -ne 0 ] ; then echo $GIT_DIFF_CMD returned $? ; fi
-  PY_FILES_CHANGED=`$GIT_DIFF_CMD | grep -E ".py$"`
-  RQ_FILES_CHANGED=`$GIT_DIFF_CMD | grep -E "requirements.*txt$"`
-  if [[ "$FILES_CHANGED" != "" ]] ; then
-    echo files changed: $FILES_CHANGED
+if [ ! -z "${TRAVIS_COMMIT_RANGE}" ]; then
+  # This isn't a new branch
+
+  echo "TRAVIS_COMMIT_RANGE: ${TRAVIS_COMMIT_RANGE}"
+
+  if [ "${TRAVIS_PULL_REQUEST}" == "false" ]; then
+    # This isn't a PR build
+
+    # We need the individual commits to detect force pushes
+    COMMIT1="$(echo "${TRAVIS_COMMIT_RANGE}" | cut -f 1 -d '.')"
+    COMMIT2="$(echo "${TRAVIS_COMMIT_RANGE}" | cut -f 4 -d '.')"
+
+    if [ "$(git cat-file -t "${COMMIT1}" 2>/dev/null)" != "commit" ] || [ "$(git cat-file -t "${COMMIT2}" 2>/dev/null)" != "commit" ]; then
+      # This is a normal build
+      COMMIT_RANGE="${TRAVIS_COMMIT_RANGE}"
+    fi
   else
-    echo no files changed.
+    # This is a PR build
+    COMMIT_RANGE="${TRAVIS_BRANCH}...HEAD"
   fi
+
+  if [ ! -z "${COMMIT_RANGE}" ]; then
+    GIT_DIFF_CMD="git diff --diff-filter=ACMRT --name-only ${COMMIT_RANGE} --"
+    FILES_CHANGED=$(${GIT_DIFF_CMD} | tr '\n' ' ')
+    PY_FILES_CHANGED=$(${GIT_DIFF_CMD} | grep -E ".py$" | tr '\n' ' ')
+    RQ_FILES_CHANGED=$(${GIT_DIFF_CMD} | grep -E "requirements(.*)txt$" | tr '\n' ' ')
+  fi
+fi
+
+if [ "${FILES_CHANGED}" != "all" ]; then
+  echo "These files have changed between ${COMMIT_RANGE}: ${FILES_CHANGED}"
+  [ ! -z "${PY_FILES_CHANGED}" ] && echo "Python code changes: ${PY_FILES_CHANGED}"
+  [ ! -z "${RQ_FILES_CHANGED}" ] && echo "Python requirements changes: ${RQ_FILES_CHANGED}"
 fi
 
 if [ "${MATRIX_SHARD}" == "unittest" ] ; then
@@ -43,15 +64,24 @@ if [ "${MATRIX_SHARD}" == "unittest" ] ; then
   fi
 
   if [ "${PYLINT}" == "true" ] ; then
-    cd ./tests/codecheck
-    ./pylint.sh || exit 1
-    cd ../..
+    if [ "${FILES_CHANGED}" == "all" ] || [ ! -z "${PY_FILES_CHANGED}" ]; then
+      cd ./tests/codecheck || exit 1
+      ./pylint.sh ${PY_FILES_CHANGED} || exit 1
+      cd ../..
+    fi
   fi
 
   if [ "${PYTYPE}" == "true" ] ; then
-    cd ./tests/codecheck
-    ./pytype.sh || exit 1
-    cd ../..
+    if [ "${FILES_CHANGED}" == "all" ] || [ ! -z "${PY_FILES_CHANGED}" ] || [ ! -z "${RQ_FILES_CHANGED}" ]; then
+      cd ./tests/codecheck
+      if [ ! -z "${RQ_FILES_CHANGED}" ]; then
+        # When requirements change, run pytype on everything
+        ./pytype.sh || exit 1
+      else
+        ./pytype.sh ${PY_FILES_CHANGED} || exit 1
+      fi
+      cd ../..
+    fi
   fi
 
   exit 0
@@ -79,12 +109,10 @@ else
   FAUCET_TESTS="-din ${sharded[${MATRIX_SHARD}]}"
 fi
 
-if [[ "$FILES_CHANGED" != "" ]] ; then
-  if [[ "$PY_FILES_CHANGED" == "" && "$RQ_FILES_CHANGED" == "" ]] ; then
-    echo Not running docker tests because only non-python/requirements changes: $FILES_CHANGED
+if [ "${FILES_CHANGED}" != "all" ]; then
+  if [ -z "${PY_FILES_CHANGED}" ] && [ -z "${RQ_FILES_CHANGED}" ]; then
+    echo "Not running docker tests because no code changes detected"
     exit 0
-  else
-    echo python/requirements changes: $PY_FILES_CHANGED $RQ_FILES_CHANGED
   fi
 fi
 
