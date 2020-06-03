@@ -2,8 +2,8 @@
 
 
 # See https://docs.travis-ci.com/user/environment-variables/#convenience-variables
-echo TRAVIS_BRANCH: $TRAVIS_BRANCH
-echo TRAVIS_COMMIT: $TRAVIS_COMMIT
+echo "TRAVIS_BRANCH: ${TRAVIS_BRANCH}"
+echo "TRAVIS_COMMIT: ${TRAVIS_COMMIT}"
 
 # If FILES_CHANGED is set to all, run codecheck tests on all files,
 # otherwise only run on changed files listed in PY_FILES_CHANGED
@@ -57,30 +57,33 @@ if [ "${MATRIX_SHARD}" == "unittest" ] ; then
   fi
 
   if [ "${BUILD_DOCS}" == "true" ] ; then
-    cd ./docs
+    (
+    cd ./docs || exit 1
     make html || exit 1
     rm -rf _build
-    cd ..
+    )
   fi
 
   if [ "${PYLINT}" == "true" ] ; then
     if [ "${FILES_CHANGED}" == "all" ] || [ ! -z "${PY_FILES_CHANGED}" ]; then
+      (
       cd ./tests/codecheck || exit 1
       ./pylint.sh ${PY_FILES_CHANGED} || exit 1
-      cd ../..
+      )
     fi
   fi
 
   if [ "${PYTYPE}" == "true" ] ; then
     if [ "${FILES_CHANGED}" == "all" ] || [ ! -z "${PY_FILES_CHANGED}" ] || [ ! -z "${RQ_FILES_CHANGED}" ]; then
-      cd ./tests/codecheck
+      (
+      cd ./tests/codecheck || exit 1
       if [ ! -z "${RQ_FILES_CHANGED}" ]; then
         # When requirements change, run pytype on everything
         ./pytype.sh || exit 1
       else
         ./pytype.sh ${PY_FILES_CHANGED} || exit 1
       fi
-      cd ../..
+      )
     fi
   fi
 
@@ -91,7 +94,7 @@ elif [ "${MATRIX_SHARD}" == "fault-tolerance" ] ; then
   FAUCET_TESTS="-t"
 else
   ALLTESTFILES="tests/integration/mininet_tests.py tests/integration/mininet_multidp_tests.py clib/clib_mininet_tests.py"
-  ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" ${ALLTESTFILES}|cut -f2 -d" "|sort`
+  ALLTESTS=$(grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" ${ALLTESTFILES} | cut -f2 -d" " | sort)
   declare -A sharded
 
   function shard {
@@ -124,9 +127,13 @@ SHARDARGS="--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   --ulimit core=99999999999:99999999999 \
   -v /var/local/lib/docker:/var/lib/docker \
   -v $HOME/.cache/pip:/var/tmp/pip-cache"
-echo Shard $MATRIX_SHARD: $FAUCETTESTS: $SHARDARGS
 
-ulimit -c unlimited && sudo echo '/var/tmp/core.%h.%e.%t' > /proc/sys/kernel/core_pattern
+echo "MATRIX_SHARD: ${MATRIX_SHARD}"
+echo "FAUCET_TESTS: ${FAUCET_TESTS}"
+echo "SHARDARGS: ${SHARDARGS}"
+
+ulimit -c unlimited
+echo '/var/tmp/core.%h.%e.%t' | sudo tee /proc/sys/kernel/core_pattern
 sudo modprobe openvswitch
 sudo modprobe ebtables
 
@@ -139,7 +146,7 @@ else
 fi
 
 if ls -1 /var/tmp/core* >/dev/null 2>&1 ; then
-  echo coredumps found after tests run.
+  echo "coredumps found after tests run."
   exit 1
   # TODO: automatically run gdb?
 fi
