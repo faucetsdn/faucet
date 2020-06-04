@@ -19,7 +19,6 @@
 
 import copy
 import logging
-import time
 
 from collections import defaultdict, deque
 
@@ -674,7 +673,7 @@ class Valve:
         self._reset_dp_status()
         return ofmsgs
 
-    def datapath_disconnect(self):
+    def datapath_disconnect(self, now):
         """Handle Ryu datapath disconnection event."""
         self.logger.warning('datapath down')
         self.notify(
@@ -683,7 +682,7 @@ class Valve:
         self.dp.dyn_running = False
         self._inc_var('of_dp_disconnections')
         self._reset_dp_status()
-        self.ports_flush()
+        self.ports_flush(now)
 
     def _port_delete_manager_state(self, port):
         ofmsgs = []
@@ -800,7 +799,7 @@ class Valve:
 
         return ofmsgs
 
-    def ports_flush(self):
+    def ports_flush(self, now):
         """Used to flush ports and corresponding data.
 
         Args: N/A
@@ -812,7 +811,7 @@ class Valve:
             port = self.dp.ports[port_num]
             port.dyn_phys_up = False
 
-            self._set_port_status(port_num, False, time.time())
+            self._set_port_status(port_num, False, now)
 
             if port.output_only:
                 continue
@@ -1854,7 +1853,7 @@ class Valve:
                 ryu_dp.send_msg(flow_msg)
 
         if flow_msgs is None:
-            self.datapath_disconnect()
+            self.datapath_disconnect(now)
             ryu_dp.close()
         else:
             ryu_send_flows(flow_msgs)

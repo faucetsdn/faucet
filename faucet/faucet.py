@@ -299,7 +299,7 @@ class Faucet(RyuAppBase):
         valve, _, _ = self._get_valve(ryu_event)
         if valve is None:
             return
-        valve.datapath_disconnect()
+        valve.datapath_disconnect(time.time())
 
     @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

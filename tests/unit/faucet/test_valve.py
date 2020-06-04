@@ -453,7 +453,7 @@ vlans:
             'actor_state_synchronization': 1})
         self.assertEqual(
             3, int(self.get_prom('port_lacp_state', labels=labels)))
-        self.valve.datapath_disconnect()
+        self.disconnect_dp()
         self.assertEqual(
             0, int(self.get_prom('port_lacp_state', labels=labels)))
 
