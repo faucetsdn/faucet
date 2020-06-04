@@ -31,7 +31,7 @@ from faucet.port import (
     STACK_STATE_INIT, STACK_STATE_UP,
     LACP_PORT_SELECTED, LACP_PORT_UNSELECTED)
 
-from mininet.topo import Topo
+from mininet.topo import Topo  # pylint: disable=unused-import
 
 from clib.fakeoftable import CONTROLLER_PORT
 
@@ -39,6 +39,7 @@ from clib.valve_test_lib import (
     BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
 
 import networkx
+
 
 class ValveStackMCLAGTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacked MCLAG"""
@@ -153,10 +154,7 @@ dps:
         for valve, ports in lacp_ports.items():
             other_valves = self.get_other_valves(valve)
             for port in ports:
-                self.assertTrue(
-                    valve.lacp_update_port_selection_state(port, other_valves),
-                    'Port selection state not updated')
-
+                valve.lacp_update_port_selection_state(port, other_valves)
                 # Testing accuracy of varz port_lacp_role
                 port_labels = {
                     'port': port.name,
@@ -169,7 +167,6 @@ dps:
                     port.lacp_port_state(), lacp_role,
                     'Port %s DP %s role %s differs from varz value %s'
                     % (port, valve, port.lacp_port_state(), lacp_role))
-
                 if valve.dp.dp_id == 0x1:
                     self.assertEqual(
                         port.lacp_port_state(), LACP_PORT_SELECTED,
@@ -300,7 +297,7 @@ dps:
 
     def setUp(self):
         """Setup basic loop config"""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def get_other_valves(self, valve):
         """Return other running valves"""
@@ -2430,7 +2427,7 @@ vlans:
         vid: 200
 dps:
     s1:
-        dp_id: 0x1
+        dp_id: 1
         hardware: 'GenericTFM'
         stack: {priority: 1}
         interfaces:
@@ -2446,7 +2443,7 @@ dps:
                 name: host3
                 native_vlan: vlan200
     s2:
-        dp_id: 0x2
+        dp_id: 2
         hardware: 'GenericTFM'
         interfaces:
             1:
@@ -2460,7 +2457,7 @@ dps:
                 name: host5
                 native_vlan: vlan200
     s3:
-        dp_id: 0x3
+        dp_id: 3
         hardware: 'GenericTFM'
         interfaces:
             1:
@@ -2481,7 +2478,7 @@ vlans:
         vid: 200
 dps:
     s1:
-        dp_id: 0x1
+        dp_id: 1
         hardware: 'GenericTFM'
         stack: {priority: 1}
         interfaces:
@@ -2497,7 +2494,7 @@ dps:
                 name: host3
                 native_vlan: vlan200
     s2:
-        dp_id: 0x2
+        dp_id: 2
         hardware: 'GenericTFM'
         interfaces:
             1:
@@ -2513,7 +2510,7 @@ dps:
                 name: host5
                 native_vlan: vlan200
     s3:
-        dp_id: 0x3
+        dp_id: 3
         hardware: 'GenericTFM'
         interfaces:
             1:
@@ -2536,7 +2533,7 @@ vlans:
         vid: 200
 dps:
     s1:
-        dp_id: 0x1
+        dp_id: 1
         hardware: 'GenericTFM'
         stack: {priority: 1}
         interfaces:
@@ -2552,7 +2549,7 @@ dps:
                 name: host3
                 native_vlan: vlan200
     s2:
-        dp_id: 0x2
+        dp_id: 2
         hardware: 'GenericTFM'
         interfaces:
             1:
@@ -2566,7 +2563,7 @@ dps:
                 name: host5
                 native_vlan: vlan200
     s3:
-        dp_id: 0x3
+        dp_id: 3
         hardware: 'GenericTFM'
         interfaces:
             1:
@@ -2582,21 +2579,11 @@ dps:
     def setUp(self):
         """Setup network and start stack ports"""
         self.setup_valves(self.CONFIG)
-        self.process_ports()
-
-    def process_ports(self):
-        """Makes sure all ports are up and flowrules installed"""
-        self.activate_all_ports()
-        for valve in self.valves_manager.valves.values():
-            for port in valve.dp.ports.values():
-                if port.stack:
-                    self.set_stack_port_up(port.number, valve)
 
     def test_reload_topology_change(self):
         """Test reload with topology change forces stack ports down"""
         self.update_and_revert_config(
-            self.CONFIG, self.NEW_PORT_CONFIG,
-            'warm', verify_func=self.process_ports)
+            self.CONFIG, self.NEW_PORT_CONFIG, 'warm')
         with open(self.config_file, 'w') as config_file:
             config_file.write(self.NEW_PORT_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)
@@ -2613,8 +2600,7 @@ dps:
     def test_reload_vlan_change(self):
         """Test reload with topology change stack ports stay up"""
         self.update_and_revert_config(
-            self.CONFIG, self.NEW_PORT_CONFIG,
-            'warm', verify_func=self.process_ports)
+            self.CONFIG, self.NEW_VLAN_CONFIG, 'warm')
         with open(self.config_file, 'w') as config_file:
             config_file.write(self.NEW_VLAN_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)

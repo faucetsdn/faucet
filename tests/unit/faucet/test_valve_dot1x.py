@@ -19,7 +19,7 @@
 
 import unittest
 
-from mininet.topo import Topo
+from mininet.topo import Topo  # pylint: disable=unused-import
 
 from faucet import faucet_dot1x
 

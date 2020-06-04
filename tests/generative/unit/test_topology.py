@@ -119,7 +119,7 @@ class ValveTopologyVLANTest(ValveTestBases.ValveTestNetwork):
         _, host_port_maps, _ = self.topo.create_port_maps()
         yaml_config = yaml.safe_load(self.CONFIG)
         intf_config = yaml_config['dps'][self.topo.switches_by_id[1]]['interfaces']
-        intf_config[host_port_maps[5][1][0]]['native_vlan'] = self.topo.vlan_name(1)
+        intf_config[host_port_maps[5][1][0]]['native_vlan'] = self.topo.vlan_name(0)
         new_config = yaml.dump(yaml_config)
         self.update_and_revert_config(self.CONFIG, new_config, None)
 
@@ -199,7 +199,13 @@ if __name__ == '__main__':
             test_func = test_generator(graph)
             setattr(test_class, test_name, test_func)
     for num_dps, nl in GRAPHS.items():
-        test_name = 'test_reconfigure_topologies_%s_nodes' % num_dps
-        test_func = test_generator(nl)
-        setattr(ValveTopologyRestartTest, test_name, test_func)
+        chunk = 50
+        batch = 1
+        for test_class in (ValveTopologyRestartTest, ):
+            for i in range(0, len(nl), chunk):
+                test_nl = [nl[0]] + nl[i:i + chunk]
+                test_name = 'test_reconfigure_topologies_%s_nodes_batch_%s' % (num_dps, batch)
+                test_func = test_generator(test_nl)
+                setattr(test_class, test_name, test_func)
+                batch += 1
     unittest.main()

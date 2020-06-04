@@ -17,13 +17,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 
 from functools import partial
 import copy
 import hashlib
 import unittest
 import time
+
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 from mininet.topo import Topo  # pylint: disable=unused-import
@@ -193,7 +193,7 @@ dps:
 
     def test_port_delete(self):
         """Test port can be deleted."""
-        self.update_and_revert_config(self.CONFIG, self.LESS_CONFIG, 'warm')
+        self.update_and_revert_config(self.CONFIG, self.LESS_CONFIG, 'cold')
 
 
 class ValveAddPortTestCase(ValveTestBases.ValveTestNetwork):
@@ -239,7 +239,7 @@ dps:
 
     def test_port_add(self):
         """Test port can be added."""
-        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='warm')[self.DP_ID]
+        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='cold')[self.DP_ID]
         self.assertTrue(self._inport_flows(3, reload_ofmsgs))
 
 

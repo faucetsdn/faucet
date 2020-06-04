@@ -172,7 +172,7 @@ FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
     EGRESS_DEFAULT_CONFIG.table_id + 1,
     match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
-    vlan_scale=16,
+    vlan_port_scale=7.0,
     )
 MINIMUM_FAUCET_PIPELINE_TABLES = {
     'vlan', 'eth_src', 'eth_dst', 'flood'}

@@ -741,10 +741,6 @@ class ValveTestBases:
                         after_table_state = str(self.network.tables[dp_id])
                         diff = difflib.unified_diff(
                             before_table_state.splitlines(), after_table_state.splitlines())
-                        import sys
-                        if before_table_state != after_table_state:
-                            sys.stderr.write('%s\n' % before_table_state)
-                            sys.stderr.write('%s\n' % after_table_state)
                         self.assertEqual(
                             before_table_state, after_table_state, msg='\n'.join(diff))
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
@@ -752,7 +748,8 @@ class ValveTestBases:
             return all_ofmsgs
 
         def update_and_revert_config(self, orig_config, new_config, reload_type,
-                                     verify_func=None, before_table_states=None):
+                                     verify_func=None, before_table_states=None,
+                                     table_dpid=None):
             """
             Updates to the new config then reverts back to the original config to ensure
                 restarting properly dismantles/keep appropriate flow rules
@@ -766,10 +763,10 @@ class ValveTestBases:
             if before_table_states is None:
                 before_table_states = {
                     dp_id: str(table) for dp_id, table in self.network.tables.items()}
-            self.update_config(new_config, reload_type=reload_type)
+            self.update_config(new_config, reload_type=reload_type, table_dpid=table_dpid)
             if verify_func is not None:
                 verify_func()
-            self.update_config(orig_config, reload_type=reload_type)
+            self.update_config(orig_config, reload_type=reload_type, table_dpid=table_dpid)
             for dp_id, table in self.network.tables.items():
                 if dp_id in before_table_states:
                     final_table_state = str(table)

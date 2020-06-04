@@ -20,7 +20,7 @@
 
 import unittest
 
-from mininet.topo import Topo
+from mininet.topo import Topo  # pylint: disable=unused-import
 
 from ryu.ofproto import ofproto_v1_3 as ofp
 

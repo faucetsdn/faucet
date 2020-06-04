@@ -169,7 +169,7 @@ if [ "$DEPCHECK" == 1 ] ; then
   time ./pytype.sh $PY_FILES_CHANGED
 fi
 
-echo "========== Starting docker container ==========\n"
+echo "========== Starting docker container =========="
 service docker start || true
 
 echo "========== Running faucet system tests =========="
