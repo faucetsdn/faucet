@@ -1839,7 +1839,7 @@ class Valve:
         self.recent_ofmsgs.extend(reordered_flow_msgs)
         return reordered_flow_msgs
 
-    def send_flows(self, ryu_dp, flow_msgs):
+    def send_flows(self, ryu_dp, flow_msgs, now):
         """Send flows to datapath (or disconnect an OF session).
 
         Args:

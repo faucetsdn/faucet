@@ -72,10 +72,10 @@ for opt in ${FAUCET_TESTS_SHORTENED}; do
             ;;
           t)
             # run only tolerance tests
-            UNITTESTS=0
+            UNITTESTS=1
             DEPCHECK=0
             INTEGRATIONTESTS=0
-            TOLTESTS=1
+            TOLTESTS=0
             PARAMS=" -${opt:$i:1}"
             ;;
           *)
