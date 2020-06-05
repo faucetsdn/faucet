@@ -800,7 +800,7 @@ class Valve:
         return ofmsgs
 
     def ports_flush(self, now):
-        """Used to flush ports and corresponding data.
+        """Used to flush ports, reset port status and corresponding data.
 
         Args: N/A
         Returns: N/A
