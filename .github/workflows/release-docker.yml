@@ -104,7 +104,7 @@ jobs:
           docker buildx build \
             --tag faucet/event-adapter-faucetagent:${{ github.event.release.tag_name }} \
             --tag faucet/event-adapter-faucetagent:latest \
-            --platform linux/amd64 \
+            --platform linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le \
             --output "type=registry" \
             --file Dockerfile \
             .
