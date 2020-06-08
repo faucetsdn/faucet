@@ -201,6 +201,9 @@ if __name__ == '__main__':
     for num_dps, nl in GRAPHS.items():
         chunk = 50
         batch = 1
+        if num_dps > 6:
+            # TODO: Travis can't handle much more than 6 without timing out
+            break
         for test_class in (ValveTopologyRestartTest, ):
             for i in range(0, len(nl), chunk):
                 test_nl = [nl[0]] + nl[i:i + chunk]

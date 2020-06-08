@@ -3274,7 +3274,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.ping_all_when_learned()
         self.reload_conf(
             orig_conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=False)
+            restart=True, cold_start=False, change_expected=True)
         self.assertEqual(0, self.scrape_prometheus_var('faucet_config_load_error', dpid=False))
         event = self._wait_until_matching_event(lambda event: event['CONFIG_CHANGE']['success'])
         self.assertEqual(good_config_hash_info, event['CONFIG_CHANGE']['config_hash_info'])
