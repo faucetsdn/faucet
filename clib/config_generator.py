@@ -16,8 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import string
 import random
+import string
+
 import yaml
 
 from mininet.log import output
@@ -155,11 +156,14 @@ class FaucetTopoGenerator(Topo):
         if len(port_order) >= max_length:
             return port_order
         extend_order = []
+        order = port_order
         start_port = max(port_order) + 1
-        for i in port_order:
-            extend_order.append(start_port + i)
-            if len(port_order) + len(extend_order) >= max_length:
-                break
+        while len(port_order) + len(extend_order) < max_length:
+            for i in order:
+                extend_order.append(start_port + i)
+                if len(port_order) + len(extend_order) >= max_length:
+                    break
+            start_port = max(extend_order) + 1
         return port_order + extend_order
 
     def _generate_sid_prefix(self):
@@ -348,9 +352,9 @@ class FaucetTopoGenerator(Topo):
         self.host_options = host_options if host_options else {}
 
         # Generate a port order for all of the switches to use
-        max_ports = len(switch_links) + len(host_links)
+        max_ports = (len(switch_links) * 2) + len(host_links)
         self.start_port = start_port
-        self.port_order = self.extend_port_order(port_order, max_ports)
+        self.port_order = self.extend_port_order(port_order, max_length=max_ports)
 
         # Build the network topology
         self.add_switch_topology(switch_links, link_vlans)

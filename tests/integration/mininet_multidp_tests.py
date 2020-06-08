@@ -386,7 +386,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         interfaces_conf[fail_port]['lacp'] = 0
         interfaces_conf[fail_port]['lacp_active'] = False
         self.reload_conf(conf, self.faucet_config_path, restart=True,
-                         cold_start=False, change_expected=False)
+                         cold_start=False, change_expected=True)
 
         self.wait_for_lacp_port_init(src_port, self.dpids[0], self.topo.switches_by_id[0])
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], self.topo.switches_by_id[0])
@@ -408,7 +408,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         interfaces_conf[end_port]['lacp'] = 2
 
         self.reload_conf(conf, self.faucet_config_path, restart=True,
-                         cold_start=False, change_expected=False)
+                         cold_start=True, change_expected=True)
 
         self.wait_for_all_lacp_up()
         self.verify_stack_hosts()
@@ -416,7 +416,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         interfaces_conf[fail_port]['lacp'] = 0
         interfaces_conf[fail_port]['lacp_active'] = False
         self.reload_conf(conf, self.faucet_config_path, restart=True,
-                         cold_start=False, change_expected=False)
+                         cold_start=False, change_expected=True)
 
         self.wait_for_lacp_port_init(src_port, self.dpids[0], self.topo.switches_by_id[0])
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], self.topo.switches_by_id[0])
@@ -2225,8 +2225,9 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         del conf['dps'][self.topo.switches_by_id[2]]['interfaces'][self.link_port_maps[(2, 1)][0]]
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
-        self.verify_stack_up(timeout=1)
+            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[0])
+        # Due to flood table size changes, some DPs will be cold starting
+        self.verify_stack_up(timeout=1, prop=0.5)
         self.verify_intervlan_routing()
 
     def test_del_primary_stack_port(self):
@@ -2239,8 +2240,9 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         del conf['dps'][self.topo.switches_by_id[2]]['interfaces'][self.link_port_maps[(2, 1)][1]]
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
-        self.verify_stack_up(timeout=1)
+            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[0])
+        # Due to flood table size changes, some DPs will be cold starting
+        self.verify_stack_up(timeout=1, prop=0.5)
         self.verify_intervlan_routing()
 
     def test_del_host(self):
@@ -2254,8 +2256,8 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         del interfaces_conf[self.host_port_maps[0][0][0]]
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[0])
-        self.verify_stack_up(timeout=1)
+            cold_start=True, change_expected=True, dpid=self.topo.dpids_by_id[0])
+        self.verify_stack_up()
         del self.host_information[0]
         self.verify_intervlan_routing()
 
@@ -2279,7 +2281,7 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
             'stack': {'dp': self.topo.switches_by_id[0], 'port': port_num}}
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
+            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[2])
         self.verify_stack_up()
         self.verify_intervlan_routing()
 
@@ -2303,7 +2305,7 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
             'stack': {'dp': self.topo.switches_by_id[1], 'port': port_num}}
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
+            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[0])
         self.verify_stack_up()
         self.verify_intervlan_routing()
 
@@ -2328,6 +2330,6 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         # Expected cold start as topology changed with all ports being stack ports
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
-            cold_start=True, change_expected=True, dpid=self.topo.dpids_by_id[1])
+            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[0])
         self.verify_stack_up()
         self.verify_intervlan_routing()

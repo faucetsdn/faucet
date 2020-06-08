@@ -18,11 +18,15 @@
 # limitations under the License.
 
 import unittest
+
+from mininet.topo import Topo  # pylint: disable=unused-import
+
 from faucet import faucet_dot1x
-from valve_test_lib import DOT1X_CONFIG, DOT1X_ACL_CONFIG, ValveTestBases
+
+from clib.valve_test_lib import DOT1X_CONFIG, DOT1X_ACL_CONFIG, ValveTestBases
 
 
-class ValveDot1xSmokeTestCase(ValveTestBases.ValveTestSmall):
+class ValveDot1xSmokeTestCase(ValveTestBases.ValveTestNetwork):
     """Smoke test to check dot1x can be initialized."""
 
     CONFIG = """
@@ -47,7 +51,7 @@ vlans:
 """ % DOT1X_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_get_mac_str(self):
         """Test NFV port formatter."""
@@ -161,7 +165,7 @@ vlans:
 """ % DOT1X_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_handlers(self):
         valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]

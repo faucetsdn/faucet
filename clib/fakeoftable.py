@@ -17,7 +17,13 @@ import sys
 import argparse
 import json
 import ast
+import heapq
+import pprint
+
+from collections import OrderedDict
+
 from bitstring import Bits
+
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.ofproto import ofproto_parser as ofp_parser
@@ -25,10 +31,190 @@ from ryu.lib import addrconv
 
 
 CONTROLLER_PORT = 4294967293
+IN_PORT = 4294967288
 
 
 class FakeOFTableException(Exception):
     """Indicates an erroneous flow or group mod"""
+
+
+class DFS:
+    """Provides a way of tracking the search through the FakeOFNetwork"""
+
+    visited = None
+    heap = None
+
+    def __init__(self):
+        self.visited = {}
+        self.heap = []
+
+    def visit(self, dp_id, pkt):
+        """
+        Notifies the DFS that a packet has visited the dp_id
+        Args:
+            dp_id: The DP ID for the node that is being visited
+            pkt: The packet that is visiting the node
+        """
+        self.visited.setdefault(dp_id, [])
+        if pkt not in self.visited[dp_id]:
+            self.visited[dp_id].append(pkt)
+
+    def has_visited(self, dp_id, pkt):
+        """
+        Returns true if the packet has visited the node DP ID before
+        Args:
+            dp_id: The DP ID for the node is being visited
+            pkt: The packet that is visiting the node
+        """
+        if dp_id in self.visited:
+            if pkt in self.visited[dp_id]:
+                return True
+        return False
+
+    def peek(self):
+        """
+        Returns the first item in the heap (with the highest priority (smallest value))
+        with popping from the heap
+        Returns:
+            dp_id, pkt
+        """
+        if not self.heap:
+            return None, None
+        item = self.heap[0]
+        return item[1][0], item[1][1]
+
+    def push(self, dp_id, pkt, priority):
+        """
+        Pushes the dp_id and pkt onto the heap with priority
+        Args:
+            dp_id:
+            pkt:
+            priority:
+        """
+        heapq.heappush(self.heap, (priority, (dp_id, tuple(pkt.items()))))
+
+    def pop(self):
+        """
+        Obtains the item with the highest priority
+        Returns:
+            dp_id, pkt
+        """
+        if not self.heap:
+            return None, None
+        item = heapq.heappop(self.heap)
+        return item[1][0], item[1][1]
+
+
+class FakeOFNetwork:
+    """
+    FakeOFNetwork is a virtual openflow pipeline used for testing openflow controllers
+    The network contains multiple FakeOFTables to represent multiple switches in a network
+    """
+
+    def __init__(self, valves_manager, num_tables, requires_tfm=True):
+        """
+        Args:
+            valves_manager (ValvesManager): Valves manager class to resolve stack traversals
+            num_tables (int): The number of tables to configure in each FakeOFTable
+            requires_tfm (bool): Whether TFMs are required
+        """
+        self.valves_manager = valves_manager
+        self.tables = {}
+        for dp_id in self.valves_manager.valves:
+            self.tables[dp_id] = FakeOFTable(dp_id, num_tables, requires_tfm)
+
+    def apply_ofmsgs(self, dp_id, ofmsgs):
+        """Applies ofmsgs to a FakeOFTable for DP ID"""
+        self.tables[dp_id].apply_ofmsgs(ofmsgs)
+
+    def print_table(self, dp_id):
+        """Prints the table in string format to STDERR"""
+        sys.stderr.write('TABLE %x' % dp_id)
+        sys.stderr.write(str(self.tables[dp_id]) + '\n')
+        sys.stderr.write('======================\n\n')
+
+    def shortest_path_len(self, src_dpid, dst_dpid):
+        """Returns the length of the shortest path from the source to the destination"""
+        src_valve = self.valves_manager.valves[src_dpid]
+        dst_valve = self.valves_manager.valves[dst_dpid]
+        return len(src_valve.dp.shortest_path(dst_valve.dp.name))
+
+    def is_output(self, match, src_dpid, dst_dpid, port=None, vid=None, trace=False):
+        """
+        Traverses a packet through the network until we have searched everything
+        or successfully output a packet to the destination with expected port and vid
+        If port is None return True if output to any port (including special ports)
+        regardless of VLAN tag.
+        If vid is None return True if output to specified port regardless of VLAN tag.
+        If vid OFPVID_PRESENT bit is 0, return True if output packet does not have
+        a VLAN tag OR packet OFPVID_PRESENT is 0
+        Args:
+            match (dict): A dictionary keyed by header field names with values
+            src_dpid: The source DP ID of the match packet entering the Fake OF network
+            dst_dpid: The expected destination DP ID of the packet match
+            port: The expected output port on the destination DP
+            vid: The expected output vid on the destination DP
+            trace (bool): Print the trace of traversing the tables
+        Returns:
+            true if packets with match fields is output to port with correct VLAN
+        """
+        found = False
+        dfs = DFS()
+        priority = self.shortest_path_len(src_dpid, dst_dpid)
+        pkt = match.copy()
+        dfs.push(src_dpid, pkt, priority)
+        dfs.visit(src_dpid, pkt)
+        while not found:
+            # Search through the packet paths until we have searched everything or
+            #   successfully output the packet to the destination in the expected format
+            dp_id, pkt = dfs.pop()
+            if dp_id is None or pkt is None:
+                break
+            pkt = dict(pkt)
+            if dp_id == dst_dpid:
+                # A packet has reached the destination, so test for the output
+                found = self.tables[dp_id].is_output(pkt, port, vid, trace=trace)
+                if not found and trace:
+                    # A packet on the destination DP is not output in the expected state so
+                    #   continue searching (flood reflection)
+                    sys.stderr.write('Output is away from destination\n')
+            if not found:
+                # Packet not reached destination, so continue traversing
+                if trace:
+                    sys.stderr.write('FakeOFTable %s: %s\n' % (dp_id, pkt))
+                port_outputs = self.tables[dp_id].get_port_outputs(pkt, trace=trace)
+                valve = self.valves_manager.valves[dp_id]
+                for out_port, out_pkts in port_outputs.items():
+                    if out_port == IN_PORT:
+                        # Rebind output to the packet in_port value
+                        out_port = pkt['in_port']
+                    if out_port not in valve.dp.ports:
+                        # Ignore output to improper ports & controller
+                        # TODO: Here we should actually send the packet to the
+                        #   controller, and maybe install necessary rules to
+                        #   help testing routing implementations
+                        continue
+                    for out_pkt in out_pkts:
+                        port_obj = valve.dp.ports[out_port]
+                        if port_obj.stack:
+                            # Need to continue traversing through the FakeOFNetwork
+                            adj_port = port_obj.stack['port']
+                            adj_dpid = port_obj.stack['dp'].dp_id
+                            new_pkt = out_pkt.copy()
+                            new_pkt['in_port'] = adj_port.number
+                            if not dfs.has_visited(adj_dpid, new_pkt):
+                                # Add packet to the heap if we have not visited the node with
+                                #   this packet before
+                                priority = self.shortest_path_len(adj_dpid, dst_dpid)
+                                dfs.push(adj_dpid, new_pkt, priority)
+                                dfs.visit(adj_dpid, new_pkt)
+                        elif trace:
+                            # Output to non-stack port, can ignore this output
+                            sys.stderr.write(
+                                'Ignoring non-stack output %s:%s\n' % (valve.dp.name, out_port))
+            if trace:
+                sys.stderr.write('\n')
+        return found
 
 
 class FakeOFTable:
@@ -39,7 +225,8 @@ class FakeOFTable:
     is_output.
     """
 
-    def __init__(self, num_tables=1, requires_tfm=True):
+    def __init__(self, dp_id, num_tables=1, requires_tfm=True):
+        self.dp_id = dp_id
         self.tables = [[] for _ in range(0, num_tables)]
         self.groups = {}
         self.requires_tfm = requires_tfm
@@ -174,8 +361,8 @@ class FakeOFTable:
             for table in tables:
                 entries = len(table)
                 if entries > tfm_body.max_entries:
-                    tfm_table_details = 'table %u %s full (max %u)' % (
-                        table_id, tfm_body.name, tfm_body.max_entries)
+                    tfm_table_details = '%s : table %u %s full (%u/%u)' % (
+                        self.dp_id, table_id, tfm_body.name, entries, tfm_body.max_entries)
                     flow_dump = '\n\n'.join(
                         (tfm_table_details, str(ofmsg), str(tfm_body)))
                     raise FakeOFTableException(flow_dump)
@@ -226,6 +413,209 @@ class FakeOFTable:
                 self.sort_tables()
                 continue
             raise FakeOFTableException('Unsupported flow %s' % str(ofmsg))
+
+    def single_table_lookup(self, match, table_id, trace=False):
+        """
+        Searches through a single table with `table_id` for entries
+        that will be applied to the packet with fields represented by match
+        Args:
+            match (dict): A dictionary keyed by header field names with values
+            table_id (int): The table ID to send the match packet through
+            trace (bool): Print the trace of traversing the table
+        Returns:
+            matching_fte: First matching flowmod in the table
+        """
+        packet_dict = match.copy()
+        table = self.tables[table_id]
+        matching_fte = None
+        # Find matching flowmods
+        for fte in table:
+            if fte.pkt_matches(packet_dict):
+                matching_fte = fte
+                break
+        if trace:
+            sys.stderr.write('%s: %s\n' % (table_id, matching_fte))
+        return matching_fte
+
+    def _process_instruction(self, match, instruction):
+        """
+        Process an instructions actions into an output dictionary
+        Args:
+            match (dict): A dictionary keyed by header field names with values
+            instruction: The instruction being applied to the packet match
+        Returns:
+            outputs: OrderedDict of an output port to list of output packets
+            packet_dict: final dictionary of the packet
+        """
+        outputs = OrderedDict()
+        packet_dict = match.copy()
+        for action in instruction.actions:
+            if action.type == ofp.OFPAT_SET_FIELD:
+                # Set field, modify a packet header
+                packet_dict[action.key] = action.value
+            elif action.type == ofp.OFPAT_PUSH_VLAN:
+                if 'vlan_vid' in packet_dict and packet_dict['vlan_vid'] & ofp.OFPVID_PRESENT:
+                    # Pushing on another tag, so create another
+                    #   field for the encapsulated VID
+                    packet_dict['encap_vid'] = packet_dict['vlan_vid']
+                # Push the VLAN header to the packet
+                packet_dict['vlan_vid'] = ofp.OFPVID_PRESENT
+            elif action.type == ofp.OFPAT_POP_VLAN:
+                # Remove VLAN header from the packet
+                packet_dict.pop('vlan_vid')
+                if 'encap_vid' in packet_dict:
+                    # Move the encapsulated VID to the front
+                    packet_dict['vlan_vid'] = packet_dict['encap_vid']
+                    packet_dict.pop('encap_vid')
+                else:
+                    packet_dict['vlan_vid'] = 0
+            elif action.type == ofp.OFPAT_GROUP:
+                # Group mod so make sure that we process the group buckets
+                if action.group_id not in self.groups:
+                    raise FakeOFTableException('output group not in group table: %s' % action)
+                buckets = self.groups[action.group_id].buckets
+                for bucket in buckets:
+                    bucket_outputs, _ = self._process_instruction(packet_dict, bucket)
+                    for out_port, out_pkts in bucket_outputs.items():
+                        outputs.setdefault(out_port, [])
+                        outputs[out_port].extend(out_pkts)
+            if action.type == ofp.OFPAT_OUTPUT:
+                # Save the packet that is output to a port
+                outputs.setdefault(action.port, [])
+                outputs[action.port].append(packet_dict.copy())
+        return outputs, packet_dict
+
+    def get_table_output(self, match, table_id, trace=False):
+        """
+        Send a packet through a single table and return the output
+        ports mapped to the output packet
+        Args:
+            match (dict): A dictionary keyed by header field names with values
+            table_id (int): The table ID to send the packet match through
+            trace (bool): Print the trace of traversing the table
+        Returns:
+            outputs: OrderedDict of an output port to output packet map
+            packet_dict: The last version of the packet
+            next_table: Table ID of the next table
+        """
+        next_table = None
+        packet_dict = match.copy()
+        outputs = OrderedDict()
+        matching_fte = self.single_table_lookup(match, table_id, trace)
+        if matching_fte:
+            for instruction in matching_fte.instructions:
+                if instruction.type == ofp.OFPIT_GOTO_TABLE:
+                    if table_id < instruction.table_id:
+                        next_table = instruction.table_id
+                elif instruction.type == ofp.OFPIT_APPLY_ACTIONS:
+                    instruction_outputs, packet_dict = self._process_instruction(
+                        packet_dict, instruction)
+                    for out_port, out_pkts in instruction_outputs.items():
+                        outputs.setdefault(out_port, [])
+                        outputs[out_port].extend(out_pkts)
+                elif instruction.type == ofp.OFPIT_WRITE_METADATA:
+                    metadata = packet_dict.get('metadata', 0)
+                    mask = instruction.metadata_mask
+                    mask_compl = mask ^ 0xFFFFFFFFFFFFFFFF
+                    packet_dict['metadata'] = (metadata & mask_compl) | (instruction.metadata & mask)
+        return outputs, packet_dict, next_table
+
+    def get_output(self, match, trace=False):
+        """
+        Get all of the outputs of the tables with the output packets
+        for each table in the FakeOFTable that match progresses through
+        Args:
+            match (dict): A dictionary keyed by header field names with values
+            trace (bool): Print the trace of traversing the table
+        Returns:
+            table_outputs: map from table_id output to output ports & packets
+                for that table
+        """
+        table_outputs = {}
+        table_id = 0
+        next_table = True
+        packet_dict = match.copy()
+        while next_table:
+            next_table = False
+            outputs, packet_dict, next_table_id = self.get_table_output(
+                packet_dict, table_id, trace)
+            table_outputs[table_id] = outputs
+            next_table = next_table_id is not None
+            table_id = next_table_id
+        return table_outputs
+
+    def get_port_outputs(self, match, trace=False):
+        """
+        Get all of the outputs of the tables with the output packets
+        for each table in the FakeOFTable that match progresses through
+        Args:
+            match (dict): A dictionary keyed by header field names with value
+            trace (bool): Print the trace of traversing the table
+        Returns:
+            table_outputs: Map from output port number to a list of unique output packets
+        """
+        port_outputs = {}
+        table_id = 0
+        next_table = True
+        packet_dict = match.copy()
+        while next_table:
+            next_table = False
+            outputs, packet_dict, next_table_id = self.get_table_output(
+                packet_dict, table_id, trace)
+            for out_port, out_pkts in outputs.items():
+                port_outputs.setdefault(out_port, [])
+                # Remove duplicate entries from the list
+                for out_pkt in out_pkts:
+                    if out_pkt not in port_outputs[out_port]:
+                        port_outputs[out_port].append(out_pkt)
+            next_table = next_table_id is not None
+            table_id = next_table_id
+        return port_outputs
+
+    def is_full_output(self, match, port=None, vid=None, trace=False):
+        """
+        If port is None return True if output to any port (including special ports)
+        regardless of VLAN tag.
+        If vid is None return True if output to specified port regardless of VLAN tag.
+        If vid OFPVID_PRESENT bit is 0, return True if output packet does not have
+        a VLAN tag OR packet OFPVID_PRESENT is 0
+        Args:
+            match (dict): A dictionary keyed by header field names with values
+            port: The expected output port
+            vid: The expected output vid
+            trace (bool): Print the trace of traversing the tables
+        Returns:
+            true if packets with match fields is output to port with correct VLAN
+        """
+        table_outputs = self.get_output(match, trace)
+        if trace:
+            sys.stderr.write(pprint.pformat(table_outputs) + '\n')
+        in_port = match.get('in_port')
+        for table_outputs in table_outputs.values():
+            for out_port, out_pkts in table_outputs.items():
+                for out_pkt in out_pkts:
+                    if port == out_port and port == out_pkt['in_port']:
+                        continue
+                    if port is None:
+                        # Port is None & outputting so return true
+                        return True
+                    if vid is None:
+                        # Vid is None, return true if output to specified port
+                        if port == out_port:
+                            return True
+                        if out_port == ofp.OFPP_IN_PORT and port == in_port:
+                            # In some cases we want to match to specifically ofp.OFPP_IN_PORT
+                            #   otherwise we treat ofp.OFPP_IN_PORT as the match in_port
+                            return True
+                    if port == out_port or (out_port == ofp.OFPP_IN_PORT and port == in_port):
+                        # Matching port, so check matching VID
+                        if vid & ofp.OFPVID_PRESENT == 0:
+                            # If OFPVID_PRESENT bit is 0 then packet should not have a VLAN tag
+                            return ('vlan_vid' not in out_pkt or
+                                    out_pkt['vlan_vid'] & ofp.OFPVID_PRESENT == 0)
+                        # VID specified, check if matching expected
+                        return 'vlan_vid' in out_pkt and vid == out_pkt['vlan_vid']
+        return False
 
     def lookup(self, match, trace=False):
         """Return the entries from flowmods that matches match.
@@ -297,6 +687,9 @@ class FakeOFTable:
         Arguments:
         Match: a dictionary keyed by header field names with values.
         """
+
+        full_output = self.is_full_output(match.copy(), port, vid, trace)
+
         def _output_result(action, vid_stack, port, vid):
             if port is None:
                 return True
@@ -310,7 +703,7 @@ class FakeOFTable:
                 elif vid & ofp.OFPVID_PRESENT == 0:
                     result = not vid_stack
                 else:
-                    result = vid_stack and vid == vid_stack[-1]
+                    result = bool(vid_stack and vid == vid_stack[-1])
             elif action.port == ofp.OFPP_IN_PORT and port == in_port:
                 result = True
             return result
@@ -326,8 +719,8 @@ class FakeOFTable:
             return vid_stack
 
         if trace:
-            sys.stderr.write('tracing packet flow %s\n' % match)
-            sys.stderr.write(str(self) + '\n')
+            sys.stderr.write(
+                'tracing packet flow %s matching to port %s, vid %s\n' % (match, port, vid))
 
         # vid_stack represents the packet's vlan stack, innermost label listed
         # first
@@ -346,6 +739,8 @@ class FakeOFTable:
                     output_result = _output_result(
                         action, vid_stack, port, vid)
                     if output_result is not None:
+                        if output_result != full_output:
+                            raise FakeOFTableException('Output functions do not match')
                         return output_result
                 elif action.type == ofp.OFPAT_GROUP:
                     if action.group_id not in self.groups:
@@ -361,7 +756,11 @@ class FakeOFTable:
                                 output_result = _output_result(
                                     bucket_action, vid_stack, port, vid)
                                 if output_result is not None:
+                                    if output_result != full_output:
+                                        raise FakeOFTableException('Output functions do not match')
                                     return output_result
+        if full_output != False:
+            raise FakeOFTableException('Output functions do not match')
         return False
 
     def apply_instructions_to_packet(self, match):
@@ -603,7 +1002,9 @@ class FlowMod:
         if isinstance(action, parser.OFPActionOutput):
             name = 'output'
             if action.port == CONTROLLER_PORT:
-                value = 'controller'
+                value = 'CONTROLLER'
+            if action.port == IN_PORT:
+                value = 'IN_PORT'
             else:
                 value = str(action.port)
         elif isinstance(action, parser.OFPActionSetField):
@@ -656,7 +1057,9 @@ class FakeRyuDp:  # pylint: disable=too-few-public-methods
     Just needed to provide a parser to allow us to extract ryu objects from
     JSON
     """
+
     def __init__(self):
+        """Create fake ryu DP"""
         self.ofproto_parser = parser
 
 
@@ -746,7 +1149,7 @@ def _print(filename):
         msg = json.load(f)
     dp = FakeRyuDp()
     ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
-    table = FakeOFTable()
+    table = FakeOFTable(1)
     table.apply_ofmsgs([ofmsg])
     print(table)
 
@@ -757,7 +1160,7 @@ def probe(filename, packet):
         msg = json.load(f)
     dp = FakeRyuDp()
     ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
-    table = FakeOFTable()
+    table = FakeOFTable(1)
     table.apply_ofmsgs([ofmsg])
     instructions, out_packet = table.lookup(packet)
     print(packet)

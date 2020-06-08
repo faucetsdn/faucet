@@ -556,6 +556,11 @@ configuration.
             if table_config.vlan_scale:
                 scale_factor *= (len(self.vlans) * table_config.vlan_scale)
 
+            # Table scales with number of ports and VLANs.
+            elif table_config.vlan_port_scale:
+                scale_factor *= (len(self.vlans) * len(self.ports) * table_config.vlan_port_scale)
+                scale_factor *= self.port_table_scale_factor
+
                 if table_config.name == 'flood':
                     # We need flows for all ports when using combinatorial port flood.
                     if self.combinatorial_port_flood:
@@ -563,11 +568,6 @@ configuration.
                     # We need more flows for more broadcast rules.
                     if self.restricted_bcast_arpnd_ports():
                         scale_factor *= 2
-
-            # Table scales with number of ports and VLANs.
-            elif table_config.vlan_port_scale:
-                scale_factor *= (len(self.vlans) * len(self.ports) * table_config.vlan_port_scale)
-                scale_factor *= self.port_table_scale_factor
 
             # Always multiple of min_wildcard_table_size
             table_size_multiple = int(scale_factor / self.min_wildcard_table_size) + 1
