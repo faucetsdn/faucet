@@ -7,7 +7,7 @@ exabgp==4.2.10
 importlab>=0.3.1
 netifaces
 packaging
-pylint==2.5.2
+pylint==2.5.3
 pytest-cov
 pytype==2020.6.1
 requests
