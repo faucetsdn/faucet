@@ -682,7 +682,7 @@ class Valve:
         self.dp.dyn_running = False
         self._inc_var('of_dp_disconnections')
         self._reset_dp_status()
-        self.ports_flush(now)
+        self.ports_delete(self.dp.ports.keys(), now=now)
 
     def _port_delete_manager_state(self, port):
         ofmsgs = []
@@ -763,7 +763,7 @@ class Valve:
         """
         return self.ports_add([port_num])
 
-    def ports_delete(self, port_nums, log_msg='down', keep_cache=False, other_valves=None):
+    def ports_delete(self, port_nums, log_msg='down', keep_cache=False, other_valves=None, now=None):
         """Handle the deletion of ports.
 
         Args:
@@ -780,6 +780,10 @@ class Valve:
             port = self.dp.ports[port_num]
             port.dyn_phys_up = False
             self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
+
+            # now is set to a time value only when ports_delete is called to flush
+            if now:
+                self._set_port_status(port_num, False, now)
 
             if port.output_only:
                 continue
@@ -798,31 +802,6 @@ class Valve:
             ofmsgs.extend(self.switch_manager.update_vlan(vlan))
 
         return ofmsgs
-
-    def ports_flush(self, now):
-        """Used to flush ports, reset port status and corresponding data.
-
-        Args: N/A
-        Returns: N/A
-        """
-        for port_num in self.dp.ports.keys():
-            if not self.dp.port_no_valid(port_num):
-                continue
-            port = self.dp.ports[port_num]
-            port.dyn_phys_up = False
-
-            self._set_port_status(port_num, False, now)
-
-            if port.output_only:
-                continue
-
-            if self._dot1x_manager:
-                self._dot1x_manager.del_port(port)
-
-            if port.lacp:
-                self.lacp_update(port, False)
-            else:
-                self._port_delete_flows_state(port)
 
     def port_delete(self, port_num, keep_cache=False, other_valves=None):
         """Return flow messages that delete port from pipeline."""
