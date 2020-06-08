@@ -3,7 +3,10 @@
 INTEGRATIONTESTS=1
 UNITTESTS=1
 DEPCHECK=1
-TOLTESTS=0
+
+GEN_UNIT=0
+GEN_INT=0
+
 SKIP_PIP=0
 HELP=0
 MINCOVERAGE=85
@@ -26,9 +29,6 @@ for opt in ${FAUCET_TESTS}; do
     --nocheck)
       FAUCET_TESTS_SHORTENED+=" -n"
       ;;
-    --tolerance)
-      FAUCET_TESTS_SHORTENED+=" -t"
-      ;;
     *)
       FAUCET_TESTS_SHORTENED+=" ${opt}"
       ;;
@@ -43,6 +43,20 @@ for opt in ${FAUCET_TESTS_SHORTENED}; do
   case "${opt}" in
     --help)
       HELP=1
+      ;;
+    --generative_unit)
+      GEN_UNIT=1
+      UNITTESTS=0
+      DEPCHECK=0
+      INTEGRATIONTESTS=0
+      PARAMS+=" ${opt}"
+      ;;
+    --generative_integration)
+      GEN_INT=1
+      UNITTESTS=0
+      DEPCHECK=0
+      INTEGRATIONTESTS=0
+      PARAMS+=" ${opt}"
       ;;
     --*)
       PARAMS+=" ${opt}"
@@ -70,14 +84,6 @@ for opt in ${FAUCET_TESTS_SHORTENED}; do
             echo "Option set to assume environment is set up."
             SKIP_PIP=1
             ;;
-          t)
-            # run only tolerance tests
-            UNITTESTS=0
-            DEPCHECK=0
-            INTEGRATIONTESTS=0
-            TOLTESTS=1
-            PARAMS=" -${opt:$i:1}"
-            ;;
           *)
             PARAMS+=" -${opt:$i:1}"
             ;;
@@ -100,12 +106,12 @@ if [ -f /venv/bin/activate ]; then
 fi
 
 if [ "$SKIP_PIP" == 0 ] ; then
-    if [ -d /var/tmp/pip-cache ] ; then
-      echo Using pip cache
-    fi
-    ./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache"
+  if [ -d /var/tmp/pip-cache ] ; then
+    echo Using pip cache
+  fi
+  ./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache"
 else
-    echo "Skipping Pip Install Script"
+  echo "Skipping Pip Install Script"
 fi
 
 echo "========== checking IPv4/v6 localhost is up ====="
@@ -139,23 +145,28 @@ if [ "$HELP" == 1 ] ; then
 fi
 
 if [ "$UNITTESTS" == 1 ] ; then
-    echo "========== Running faucet unit tests =========="
-    cd /faucet-src/tests
-    time ./run_unit_tests.sh
+  echo "========== Running faucet unit tests =========="
+  cd /faucet-src/tests
+  time ./run_unit_tests.sh
+elif [ "$GEN_UNIT" == 1 ] ; then
+  echo "========== Running Faucet generative unit tests =========="
+  cd /faucet-src/tests/generative/unit/
+  ./test_topology.py
+  cd /faucet-src/tests
 fi
 
 
 if [ "$DEPCHECK" == 1 ] ; then
-    echo "========== Building documentation =========="
-    cd /faucet-src/docs
-    time make html
-    rm -rf _build
+  echo "========== Building documentation =========="
+  cd /faucet-src/docs
+  time make html
+  rm -rf _build
 
-    cd /faucet-src/tests/codecheck
-    echo "============ Running pylint analyzer ============"
-    time ./pylint.sh $PY_FILES_CHANGED
-    echo "============ Running pytype analyzer ============"
-    time ./pytype.sh $PY_FILES_CHANGED
+  cd /faucet-src/tests/codecheck
+  echo "============ Running pylint analyzer ============"
+  time ./pylint.sh $PY_FILES_CHANGED
+  echo "============ Running pytype analyzer ============"
+  time ./pytype.sh $PY_FILES_CHANGED
 fi
 
 echo "========== Starting docker container =========="
@@ -170,9 +181,9 @@ if [ "$INTEGRATIONTESTS" == 1 ] ; then
   echo "========== Running Faucet integration tests =========="
   cd /faucet-src/tests/integration
   ./mininet_main.py -c
-elif [ "$TOLTESTS" == 1 ] ; then
-  echo "========== Running Faucet fault-tolerance tests =========="
-  cd /faucet-src/tests/tolerance
+elif [ "$GEN_INT" == 1 ] ; then
+  echo "========== Running Faucet generative integration tests =========="
+  cd /faucet-src/tests/generative/integration/
   ./mininet_main.py -c
 fi
 
@@ -215,10 +226,11 @@ EOL
   cat /etc/faucet/hw_switch_config.yaml && ovs-vsctl show && ovs-ofctl dump-ports hwbr || exit 1
 fi
 
-time ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
-
-cd /faucet-src/clib
-time ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
+if [ "$INTEGRATIONTESTS" == 1 ] || [ "$GEN_INT" == 1 ] ; then
+  time ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
+  cd /faucet-src/clib
+  time ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
+fi
 
 if [ -n "$test_failures" ]; then
     echo Test failures: $test_failures

@@ -19,8 +19,12 @@
 
 
 import unittest
+
+from mininet.topo import Topo  # pylint: disable=unused-import
+
 from ryu.ofproto import ofproto_v1_3 as ofp
-from valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
+
+from clib.valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
 
 class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):
@@ -31,11 +35,11 @@ class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):
     """ + DP1_CONFIG
 
 
-class ValveEgressACLTestCase(ValveTestBases.ValveTestSmall):
+class ValveEgressACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test ACL drop/allow and reloading."""
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
 
     def test_vlan_acl_deny(self):
         """Test VLAN ACL denies a packet."""
@@ -102,24 +106,25 @@ acls:
             'eth_type': 0x86DD,
             'ipv6_dst': ALLOW_HOST_V6}
         v100_accept_match = {'in_port': 1, 'vlan_vid': 0}
+        table = self.network.tables[self.DP_ID]
 
         # base case
         for match in (l2_drop_match, l2_accept_match):
             self.assertTrue(
-                self.table.is_output(match, port=4),
+                table.is_output(match, port=4),
                 msg='Packet not output before adding ACL')
 
         # multicast
         self.update_config(acl_config, reload_type='cold')
         self.assertTrue(
-            self.table.is_output(v100_accept_match, port=3),
+            table.is_output(v100_accept_match, port=3),
             msg='Packet not output when on vlan with no ACL'
             )
         self.assertFalse(
-            self.table.is_output(l2_drop_match, port=3),
+            table.is_output(l2_drop_match, port=3),
             msg='Packet not blocked by ACL')
         self.assertTrue(
-            self.table.is_output(l2_accept_match, port=2),
+            table.is_output(l2_accept_match, port=2),
             msg='Packet not allowed by ACL')
 
         # unicast
@@ -141,10 +146,10 @@ acls:
             })
 
         self.assertTrue(
-            self.table.is_output(l2_accept_match, port=2),
+            table.is_output(l2_accept_match, port=2),
             msg='Packet not allowed by ACL')
         self.assertFalse(
-            self.table.is_output(l2_drop_match, port=3),
+            table.is_output(l2_drop_match, port=3),
             msg='Packet not blocked by ACL')
 
         # l3
@@ -162,10 +167,10 @@ acls:
             'ipv6_dst': ALLOW_HOST_V6}
 
         self.assertTrue(
-            self.table.is_output(l3_accept_match, port=2),
+            table.is_output(l3_accept_match, port=2),
             msg='Routed packet not allowed by ACL')
         self.assertFalse(
-            self.table.is_output(l3_drop_match, port=3),
+            table.is_output(l3_drop_match, port=3),
             msg='Routed packet not blocked by ACL')
 
 

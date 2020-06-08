@@ -354,8 +354,8 @@ class ValveAclManager(ValveManagerBase):
         ofmsgs.extend(self.add_port(port))
         return ofmsgs
 
-    def add_vlan(self, vlan):
-        """Install vlan acls if configured"""
+    def add_vlan(self, vlan, cold_start):
+        """Install vlan ACLS if configured"""
         ofmsgs = []
         if vlan.acls_in:
             acl_allow_inst = self.pipeline.accept_to_classification()

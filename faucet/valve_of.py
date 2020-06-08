@@ -923,14 +923,20 @@ def is_global_meterdel(ofmsg):
 _MSG_KINDS_TYPES = {
     parser.OFPPacketOut: 'packetout',
     parser.OFPTableFeaturesStatsRequest: 'tfm',
+    parser.OFPSetConfig: 'config',
+    parser.OFPSetAsync: 'config',
+    parser.OFPDescStatsRequest: 'config',
 }
 
 
 # We need to examine the OF message more closely to classify it.
 _MSG_KINDS = {
-    parser.OFPFlowMod: (('deleteglobal', is_global_flowdel), ('delete', is_flowdel), ('flowaddmod', is_flowaddmod)),
-    parser.OFPGroupMod: (('deleteglobal', is_global_groupdel), ('delete', is_groupdel), ('groupadd', is_groupadd)),
-    parser.OFPMeterMod: (('deleteglobal', is_global_meterdel), ('delete', is_meterdel), ('meteradd', is_meteradd)),
+    parser.OFPFlowMod: (
+        ('deleteglobal', is_global_flowdel), ('delete', is_flowdel), ('flowaddmod', is_flowaddmod)),
+    parser.OFPGroupMod: (
+        ('deleteglobal', is_global_groupdel), ('delete', is_groupdel), ('groupadd', is_groupadd)),
+    parser.OFPMeterMod: (
+        ('deleteglobal', is_global_meterdel), ('delete', is_meterdel), ('meteradd', is_meteradd)),
 }
 
 
@@ -968,14 +974,16 @@ def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):
         ofmsgs = list(deduped_input_ofmsgs.values())
         random.shuffle(ofmsgs)
         return ofmsgs
-    # If priority present, send highest priority first.
+    # If priority present, send highest table ID/priority first.
     return sorted(
         deduped_input_ofmsgs.values(),
-        key=lambda ofmsg: getattr(ofmsg, 'priority', 2**16+1), reverse=True)
+        key=lambda ofmsg: (
+            getattr(ofmsg, 'table_id', ofp.OFPTT_ALL), getattr(ofmsg, 'priority', 2**16+1)), reverse=True)
 
 
 # kind, random_order, suggest_barrier, flowkey
 _OFMSG_ORDER = (
+    ('config', False, True, str),
     ('deleteglobal', False, True, str),
     ('delete', False, True, str),
     ('tfm', False, True, str),
@@ -999,13 +1007,8 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     # Suppress all other relevant deletes if a global delete is present.
     delete_global_ofmsgs = by_kind.get('deleteglobal', [])
     if delete_global_ofmsgs:
-        global_types = []
-        for ofmsg in delete_global_ofmsgs:
-            global_types.append(type(ofmsg))
-        new_delete = []
-        for ofmsg in by_kind.get('delete', []):
-            if type(ofmsg) not in global_types:
-                new_delete.append(ofmsg)
+        global_types = {type(ofmsg) for ofmsg in delete_global_ofmsgs}
+        new_delete = [ofmsg for ofmsg in by_kind.get('delete', []) if type(ofmsg) not in global_types]
         by_kind['delete'] = new_delete
 
     for kind, random_order, suggest_barrier, flowkey in _OFMSG_ORDER:
@@ -1032,7 +1035,7 @@ def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
             if exclude_ports and port in exclude_ports:
                 continue
             flood_acts.append(output_port(port.number))
-            # Only mirror if different mirror actions to in_port (port already will be mirrored on input).
+            # Only mirror if different mirror actions to in_port (already will be mirrored on input).
             mirror_actions = port.mirror_actions()
             mirror_output_ports = ports_from_output_port_acts(mirror_actions)
             if in_port is None or in_port_mirror_output_ports != mirror_output_ports:

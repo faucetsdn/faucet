@@ -20,25 +20,30 @@
 
 import copy
 import unittest
+
+from mininet.topo import Topo  # pylint: disable=unused-import
+
 from ryu.lib import mac
 from ryu.lib.packet import slow
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
+
 from faucet import valve_of
 from faucet import valve_packet
-from valve_test_lib import (
+
+from clib.valve_test_lib import (
     CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
     ValveTestBases)
 
-from fakeoftable import CONTROLLER_PORT
+from clib.fakeoftable import CONTROLLER_PORT
 
 
 class ValveTestCase(ValveTestBases.ValveTestBig):
     """Run complete set of basic tests."""
 
 
-class ValveFuzzTestCase(ValveTestBases.ValveTestSmall):
+class ValveFuzzTestCase(ValveTestBases.ValveTestNetwork):
     """Test unknown ports/VLANs."""
 
     CONFIG = """
@@ -52,7 +57,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_fuzz_vlan(self):
         """Test unknown VIDs/ports."""
@@ -77,7 +82,7 @@ dps:
         self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
 
 
-class ValveCoprocessorTestCase(ValveTestBases.ValveTestSmall):
+class ValveCoprocessorTestCase(ValveTestBases.ValveTestNetwork):
     """Test direct packet output using coprocessor."""
 
     CONFIG = """
@@ -97,14 +102,15 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_output(self):
         copro_vid_out = 102 | ofp.OFPVID_PRESENT
         direct_match = {
             'in_port': 1, 'vlan_vid': copro_vid_out, 'eth_type': ether.ETH_TYPE_IP,
             'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
-        self.assertTrue(self.table.is_output(direct_match, port=2))
+        table = self.network.tables[self.DP_ID]
+        self.assertTrue(table.is_output(direct_match, port=2))
         p2_host_match = {
             'eth_src': self.P1_V100_MAC, 'eth_dst': self.P2_V200_MAC,
             'ipv4_src': '10.0.0.2', 'ipv4_dst': '10.0.0.3',
@@ -120,12 +126,12 @@ dps:
              'eth_src': p2_host_match['eth_dst'],
              'eth_dst': p2_host_match['eth_src']})
         p2_copro_host_receive['vlan_vid'] = 0x100 | ofp.OFPVID_PRESENT
-        self.assertTrue(self.table.is_output(p2_copro_host_receive, port=2, vid=0x100))
+        self.assertTrue(table.is_output(p2_copro_host_receive, port=2, vid=0x100))
         # copro send to P2 was not flooded
-        self.assertFalse(self.table.is_output(p2_copro_host_receive, port=3, vid=0x100))
+        self.assertFalse(table.is_output(p2_copro_host_receive, port=3, vid=0x100))
 
 
-class ValveRestBcastTestCase(ValveTestBases.ValveTestSmall):
+class ValveRestBcastTestCase(ValveTestBases.ValveTestNetwork):
 
     CONFIG = """
 dps:
@@ -146,26 +152,27 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_rest_bcast(self):
         match = {
             'in_port': 1, 'vlan_vid': 0, 'eth_type': ether.ETH_TYPE_IP,
             'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
-        self.assertTrue(self.table.is_output(match, port=2))
-        self.assertFalse(self.table.is_output(match, port=3))
+        table = self.network.tables[self.DP_ID]
+        self.assertTrue(table.is_output(match, port=2))
+        self.assertFalse(table.is_output(match, port=3))
         match = {
             'in_port': 2, 'vlan_vid': 0, 'eth_type': ether.ETH_TYPE_IP,
             'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
-        self.assertTrue(self.table.is_output(match, port=1))
-        self.assertTrue(self.table.is_output(match, port=3))
+        self.assertTrue(table.is_output(match, port=1))
+        self.assertTrue(table.is_output(match, port=3))
 
 
-class ValveOFErrorTestCase(ValveTestBases.ValveTestSmall):
+class ValveOFErrorTestCase(ValveTestBases.ValveTestNetwork):
     """Test decoding of OFErrors."""
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
 
     def test_oferror_parser(self):
         """Test OF error parser works"""
@@ -178,16 +185,17 @@ class ValveOFErrorTestCase(ValveTestBases.ValveTestSmall):
                 self.assertTrue(isinstance(error_str, str))
         test_err = parser.OFPErrorMsg(
             datapath=None, type_=ofp.OFPET_FLOW_MOD_FAILED, code=ofp.OFPFMFC_UNKNOWN)
-        self.valve.oferror(test_err)
+        valve = self.valves_manager.valves[self.DP_ID]
+        valve.oferror(test_err)
         test_unknown_type_err = parser.OFPErrorMsg(
             datapath=None, type_=666, code=ofp.OFPFMFC_UNKNOWN)
-        self.valve.oferror(test_unknown_type_err)
+        valve.oferror(test_unknown_type_err)
         test_unknown_code_err = parser.OFPErrorMsg(
             datapath=None, type_=ofp.OFPET_FLOW_MOD_FAILED, code=666)
-        self.valve.oferror(test_unknown_code_err)
+        valve.oferror(test_unknown_code_err)
 
 
-class ValveGroupTestCase(ValveTestBases.ValveTestSmall):
+class ValveGroupTestCase(ValveTestBases.ValveTestNetwork):
     """Tests for datapath with group support."""
 
     CONFIG = """
@@ -216,7 +224,7 @@ vlans:
 """ % GROUP_DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_unknown_eth_dst_rule(self):
         """Test that packets with unkown eth dst addrs get flooded correctly.
@@ -250,7 +258,7 @@ vlans:
         self.verify_flooding(matches)
 
 
-class ValveIdleLearnTestCase(ValveTestBases.ValveTestSmall):
+class ValveIdleLearnTestCase(ValveTestBases.ValveTestNetwork):
     """Smoke test for idle-flow based learning. This feature is not currently reliable."""
 
     CONFIG = """
@@ -283,46 +291,49 @@ vlans:
 """ % IDLE_DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_known_eth_src_rule(self):
         """Test removal flow handlers."""
         self.learn_hosts()
+        valve = self.valves_manager.valves[self.DP_ID]
         self.assertTrue(
-            self.valve.flow_timeout(
+            valve.flow_timeout(
                 self.mock_time(),
-                self.valve.dp.tables['eth_dst'].table_id,
+                valve.dp.tables['eth_dst'].table_id,
                 {'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}))
         self.assertFalse(
-            self.valve.flow_timeout(
+            valve.flow_timeout(
                 self.mock_time(),
-                self.valve.dp.tables['eth_src'].table_id,
+                valve.dp.tables['eth_src'].table_id,
                 {'vlan_vid': self.V100, 'in_port': 1, 'eth_src': self.P1_V100_MAC}))
 
     def test_host_learn_coldstart(self):
         """Test flow learning, including cold-start cache invalidation"""
+        valve = self.valves_manager.valves[self.DP_ID]
         match = {
             'in_port': 3, 'vlan_vid': self.V100, 'eth_type': ether.ETH_TYPE_IP,
             'eth_src': self.P3_V100_MAC, 'eth_dst': self.P1_V100_MAC}
-        self.assertTrue(self.table.is_output(match, port=1))
-        self.assertTrue(self.table.is_output(match, port=2))
-        self.assertTrue(self.table.is_output(match, port=CONTROLLER_PORT))
+        table = self.network.tables[self.DP_ID]
+        self.assertTrue(table.is_output(match, port=1))
+        self.assertTrue(table.is_output(match, port=2))
+        self.assertTrue(table.is_output(match, port=CONTROLLER_PORT))
         self.learn_hosts()
-        self.assertTrue(self.table.is_output(match, port=1))
-        self.assertFalse(self.table.is_output(match, port=2))
-        self.assertFalse(self.table.is_output(match, port=CONTROLLER_PORT))
+        self.assertTrue(table.is_output(match, port=1))
+        self.assertFalse(table.is_output(match, port=2))
+        self.assertFalse(table.is_output(match, port=CONTROLLER_PORT))
         self.cold_start()
-        self.assertTrue(self.table.is_output(match, port=1))
-        self.assertTrue(self.table.is_output(match, port=2))
-        self.assertTrue(self.table.is_output(match, port=CONTROLLER_PORT))
-        self.mock_time(self.valve.dp.timeout // 4 * 3)
+        self.assertTrue(table.is_output(match, port=1))
+        self.assertTrue(table.is_output(match, port=2))
+        self.assertTrue(table.is_output(match, port=CONTROLLER_PORT))
+        self.mock_time(valve.dp.timeout // 4 * 3)
         self.learn_hosts()
-        self.assertTrue(self.table.is_output(match, port=1))
-        self.assertFalse(self.table.is_output(match, port=2))
-        self.assertFalse(self.table.is_output(match, port=CONTROLLER_PORT))
+        self.assertTrue(table.is_output(match, port=1))
+        self.assertFalse(table.is_output(match, port=2))
+        self.assertFalse(table.is_output(match, port=CONTROLLER_PORT))
 
 
-class ValveLACPTestCase(ValveTestBases.ValveTestSmall):
+class ValveLACPTestCase(ValveTestBases.ValveTestNetwork):
     """Test LACP."""
 
     CONFIG = """
@@ -358,17 +369,18 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
 
     def test_lacp(self):
         """Test LACP comes up."""
         test_port = 1
         labels = self.port_labels(test_port)
+        valve = self.valves_manager.valves[self.DP_ID]
         self.assertEqual(
             1, int(self.get_prom('port_lacp_state', labels=labels)))
         self.assertFalse(
-            self.valve.dp.ports[1].non_stack_forwarding())
+            valve.dp.ports[1].non_stack_forwarding())
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
@@ -378,18 +390,19 @@ vlans:
         self.assertEqual(
             3, int(self.get_prom('port_lacp_state', labels=labels)))
         self.assertTrue(
-            self.valve.dp.ports[1].non_stack_forwarding())
+            valve.dp.ports[1].non_stack_forwarding())
         self.learn_hosts()
         self.verify_expiry()
 
     def test_lacp_flap(self):
         """Test LACP handles state 0->1->0."""
+        valve = self.valves_manager.valves[self.DP_ID]
         test_port = 1
         labels = self.port_labels(test_port)
         self.assertEqual(
             1, int(self.get_prom('port_lacp_state', labels=labels)))
         self.assertFalse(
-            self.valve.dp.ports[1].non_stack_forwarding())
+            valve.dp.ports[1].non_stack_forwarding())
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
@@ -399,7 +412,7 @@ vlans:
         self.assertEqual(
             3, int(self.get_prom('port_lacp_state', labels=labels)))
         self.assertTrue(
-            self.valve.dp.ports[1].non_stack_forwarding())
+            valve.dp.ports[1].non_stack_forwarding())
         self.learn_hosts()
         self.verify_expiry()
         self.rcv_packet(test_port, 0, {
@@ -411,16 +424,17 @@ vlans:
         self.assertEqual(
             5, int(self.get_prom('port_lacp_state', labels=labels)))
         self.assertFalse(
-            self.valve.dp.ports[1].non_stack_forwarding())
+            valve.dp.ports[1].non_stack_forwarding())
 
     def test_lacp_timeout(self):
         """Test LACP comes up and then times out."""
+        valve = self.valves_manager.valves[self.DP_ID]
         test_port = 1
         labels = self.port_labels(test_port)
         self.assertEqual(
             1, int(self.get_prom('port_lacp_state', labels=labels)))
         self.assertFalse(
-            self.valve.dp.ports[1].non_stack_forwarding())
+            valve.dp.ports[1].non_stack_forwarding())
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
@@ -430,14 +444,14 @@ vlans:
         self.assertEqual(
             3, int(self.get_prom('port_lacp_state', labels=labels)))
         self.assertTrue(
-            self.valve.dp.ports[1].non_stack_forwarding())
+            valve.dp.ports[1].non_stack_forwarding())
         future_now = self.mock_time(10)
-        expire_ofmsgs = self.valve.state_expire(future_now, None)
+        expire_ofmsgs = valve.state_expire(future_now, None)
         self.assertTrue(expire_ofmsgs)
         self.assertEqual(
             1, int(self.get_prom('port_lacp_state', labels=labels)))
         self.assertFalse(
-            self.valve.dp.ports[1].non_stack_forwarding())
+            valve.dp.ports[1].non_stack_forwarding())
 
     def test_dp_disconnect(self):
         """Test LACP state when disconnects."""
@@ -458,7 +472,7 @@ vlans:
             0, int(self.get_prom('port_lacp_state', labels=labels)))
 
 
-class ValveTFMSizeOverride(ValveTestBases.ValveTestSmall):
+class ValveTFMSizeOverride(ValveTestBases.ValveTestNetwork):
     """Test TFM size override."""
 
     CONFIG = """
@@ -477,17 +491,18 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_size(self):
-        tfm_by_name = {body.name: body for body in self.table.tfm.values()}
+        table = self.network.tables[self.DP_ID]
+        tfm_by_name = {body.name: body for body in table.tfm.values()}
         eth_src_table = tfm_by_name.get(b'eth_src', None)
         self.assertTrue(eth_src_table)
         if eth_src_table is not None:
             self.assertEqual(999, eth_src_table.max_entries)
 
 
-class ValveTFMSize(ValveTestBases.ValveTestSmall):
+class ValveTFMSize(ValveTestBases.ValveTestNetwork):
     """Test TFM sizer."""
 
     NUM_PORTS = 128
@@ -529,17 +544,18 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_size(self):
-        tfm_by_name = {body.name: body for body in self.table.tfm.values()}
+        table = self.network.tables[self.DP_ID]
+        tfm_by_name = {body.name: body for body in table.tfm.values()}
         flood_table = tfm_by_name.get(b'flood', None)
         self.assertTrue(flood_table)
         if flood_table is not None:
             self.assertGreater(flood_table.max_entries, self.NUM_PORTS * 2)
 
 
-class ValveActiveLACPTestCase(ValveTestBases.ValveTestSmall):
+class ValveActiveLACPTestCase(ValveTestBases.ValveTestNetwork):
     """Test LACP."""
 
     CONFIG = """
@@ -576,7 +592,7 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
 
     def test_lacp(self):
@@ -586,8 +602,9 @@ vlans:
         self.assertEqual(
             1, int(self.get_prom('port_lacp_state', labels=labels)))
         # Ensure LACP packet sent.
-        ofmsgs = self.valve.fast_advertise(self.mock_time(), None)[self.valve]
-        self.assertTrue(self.packet_outs_from_flows(ofmsgs))
+        valve = self.valves_manager.valves[self.DP_ID]
+        ofmsgs = valve.fast_advertise(self.mock_time(), None)[valve]
+        self.assertTrue(ValveTestBases.packet_outs_from_flows(ofmsgs))
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
@@ -600,11 +617,11 @@ vlans:
         self.verify_expiry()
 
 
-class ValveL2LearnTestCase(ValveTestBases.ValveTestSmall):
+class ValveL2LearnTestCase(ValveTestBases.ValveTestNetwork):
     """Test L2 Learning"""
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
 
     def test_expiry(self):
         learn_labels = {
@@ -702,7 +719,7 @@ routers:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
 
 if __name__ == "__main__":

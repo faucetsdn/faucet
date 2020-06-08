@@ -20,7 +20,7 @@ class ValveManagerBase: # pylint: disable=too-few-public-methods
         """initialise tables controlled by this manager."""
         return []
 
-    def add_vlan(self, vlan):
+    def add_vlan(self, vlan, cold_start):
         """install flows in response to a new VLAN"""
         return []
 

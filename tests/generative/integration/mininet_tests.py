@@ -4,6 +4,8 @@ import random
 import unittest
 import networkx
 
+from mininet.topo import Topo
+
 from clib.mininet_test_watcher import TopologyWatcher
 from clib.mininet_test_base_topo import FaucetTopoTestBase
 
