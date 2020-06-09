@@ -1077,7 +1077,7 @@ class ValveTestBases:
             """Bring all the ports in a stack fully up"""
             for valve in self.valves_manager.valves.values():
                 valve.dp.dyn_running = True
-                for port in valve.dp.stack_ports:
+                for port in valve.dp.stack_ports():
                     port.stack_up()
 
         def up_stack_port(self, port, dp_id=None):
@@ -1121,7 +1121,7 @@ class ValveTestBases:
                 valve.dp.dyn_running = True
                 for port in valve.dp.ports.values():
                     port.dyn_phys_up = True
-                for port in valve.dp.stack_ports:
+                for port in valve.dp.stack_ports():
                     self.up_stack_port(port, dp_id=valve.dp.dp_id)
                     self._update_port_map(port, True)
             self.trigger_all_ports(packets=packets)
@@ -2498,7 +2498,7 @@ meters:
                 self.assertEqual(eth_match, nexthop.eth_src)
                 if host_valve != valve:
                     # Check the proper nexthop port is cached
-                    expected_port = valve.dp.shortest_path_port(host_valve.dp.name)
+                    expected_port = valve.dp.stack.shortest_path_port(host_valve.dp.name)
                     self.assertEqual(expected_port, nexthop.port)
 
         def test_router_cache_learn_hosts(self):

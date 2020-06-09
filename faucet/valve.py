@@ -619,10 +619,10 @@ class Valve:
                 if not valve.dp.dyn_running:
                     continue
                 ofmsgs_by_valve[valve].extend(valve.add_vlans(valve.dp.vlans.values()))
-                for port in valve.dp.stack_ports:
+                for port in valve.dp.stack_ports():
                     ofmsgs_by_valve[valve].extend(valve.switch_manager.del_port(port))
                 ofmsgs_by_valve[valve].extend(valve.switch_manager.add_tunnel_acls())
-                path_port = valve.dp.shortest_path_port(valve.dp.stack_root_name)
+                path_port = valve.dp.stack.shortest_path_port(valve.dp.stack.root_name)
                 path_port_number = path_port.number if path_port else 0.0
                 self._set_var(
                     'dp_root_hop_port', path_port_number, labels=valve.dp.base_prom_labels())
@@ -630,11 +630,11 @@ class Valve:
 
             # Find the first valve with a valid stack and trigger notification.
             for valve in stacked_valves:
-                if valve.dp.stack_graph:
+                if valve.dp.stack.graph:
                     self.notify(
                         {'STACK_TOPO_CHANGE': {
-                            'stack_root': valve.dp.stack_root_name,
-                            'graph': valve.dp.get_node_link_data(),
+                            'stack_root': valve.dp.stack.root_name,
+                            'graph': valve.dp.stack.get_node_link_data(),
                             'dps': notify_dps
                             }})
                     break
@@ -649,7 +649,7 @@ class Valve:
                     if age > self.dp.lldp_beacon['send_interval'] * port.max_lldp_lost:
                         self.logger.info('LLDP for %s inactive after %us' % (port, age))
                         port.dyn_lldp_beacon_recv_state = None
-        return self._update_stack_link_state(self.dp.stack_ports, now, other_valves)
+        return self._update_stack_link_state(self.dp.stack_ports(), now, other_valves)
 
     def _reset_dp_status(self):
         self._set_var('dp_status', int(self.dp.dyn_running))
@@ -1097,7 +1097,7 @@ class Valve:
                 'packet with all zeros eth_src %s port %u' % (
                     pkt_meta.eth_src, in_port))
             return None
-        if self.dp.stack_graph:
+        if self.dp.stack and self.dp.stack.graph:
             if (not pkt_meta.port.stack and
                     pkt_meta.vlan and
                     pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
@@ -1232,7 +1232,7 @@ class Valve:
 
     @staticmethod
     def _stacked_valves(valves):
-        return {valve for valve in valves if valve.dp.stack_root_name}
+        return {valve for valve in valves if valve.dp.stack and valve.dp.stack.root_name}
 
     def _vlan_rcv_packet(self, now, other_valves, pkt_meta):
         """Handle packet with VLAN tag across all Valves.
@@ -1253,7 +1253,7 @@ class Valve:
             ofmsgs = []
             ofmsgs.extend(valve.learn_host(now, pkt_meta, other_valves))
             ofmsgs.extend(valve.router_rcv_packet(now, pkt_meta))
-            if self.dp.stack_route_learning and not self.dp.is_stack_root():
+            if self.dp.stack and self.dp.stack.route_learning and not self.dp.stack.is_root():
                 # TODO: we will repeatedly spam the DP for each packet in.
                 # Should use learn_host() style rate limiting.
                 ofmsgs.extend(valve.router_learn_host(pkt_meta))
@@ -1264,7 +1264,7 @@ class Valve:
         all_stacked_valves = {self}.union(stacked_other_valves)
 
         # TODO: generalize multi DP routing
-        if self.dp.stack_route_learning:
+        if self.dp.stack and self.dp.stack.route_learning:
             # TODO: multi DP routing requires learning from directly attached switch first.
             if pkt_meta.port.stack:
                 peer_dp = pkt_meta.port.stack['dp']
@@ -1278,7 +1278,7 @@ class Valve:
 
             for valve in stacked_other_valves:
                 # TODO: does not handle pruning.
-                stack_port = valve.dp.shortest_path_port(self.dp.name)
+                stack_port = valve.dp.stack.shortest_path_port(self.dp.name)
                 valve_vlan = valve.dp.vlans.get(pkt_meta.vlan.vid, None)
                 if stack_port and valve_vlan:
                     valve_pkt_meta = copy.copy(pkt_meta)

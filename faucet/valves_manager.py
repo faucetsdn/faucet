@@ -117,7 +117,7 @@ class ValvesManager:
             return False
         if not candidate_dp.all_lags_up():
             return False
-        if not candidate_dp.any_stack_port_up():
+        if not candidate_dp.stack.any_port_up():
             return False
         return True
 
@@ -133,11 +133,11 @@ class ValvesManager:
             if valve.dp.dyn_running:
                 self.meta_dp_state.dp_last_live_time[valve.dp.name] = now
 
-        stacked_dps = [valve.dp for valve in self.valves.values() if valve.dp.stack_root_name]
+        stacked_dps = [valve.dp for valve in self.valves.values() if valve.dp.stack and valve.dp.stack.root_name]
         if not stacked_dps:
             return False
 
-        candidate_stack_roots_names = stacked_dps[0].stack_roots_names
+        candidate_stack_roots_names = stacked_dps[0].stack.roots_names
         candidate_dps = [dp for dp in stacked_dps if dp.name in candidate_stack_roots_names]
         healthy_stack_roots_names = self.healthy_stack_roots(now, candidate_dps)
 
@@ -165,7 +165,7 @@ class ValvesManager:
         else:
             inconsistent_dps = [
                 dp.name for dp in stacked_dps
-                if dp.stack_root_name != self.meta_dp_state.stack_root_name]
+                if dp.stack.root_name != self.meta_dp_state.stack_root_name]
             if inconsistent_dps:
                 self.logger.info('stack root on %s inconsistent' % inconsistent_dps)
                 stack_change = True

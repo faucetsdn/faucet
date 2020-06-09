@@ -23,7 +23,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             for a fault to build the full graph for the current fault.
     ASSUME_SYMMETRIC_PING:
         A simplification can assume that (h1 -> h2) implies (h2 -> h1).
-        Set to true assume that host connectivity is symmetric.
+        Set to true to assume that host connectivity is symmetric.
     INTERVLAN_ONLY:
         Set to true to test only the inter-VLAN connectivity; ignore connections between hosts on
             the same VLAN. Speed up the inter-VLAN testing by ignoring the intra-VLAN cases for
@@ -36,7 +36,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
     IGNORE_SUBGRAPH: Assume for a topology with subgraphs, the subgraphs do not need to be tested
         (if they have already been tested)
     """
-    INSTANT_FAIL = False
+    INSTANT_FAIL = True
     ASSUME_SYMMETRIC_PING = True
     INTERVLAN_ONLY = False
 
@@ -330,6 +330,8 @@ class FaucetSingleFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
     N_DP_LINKS = 1
     STACK_ROOTS = {0: 1}
 
+    ASSUME_SYMMETRIC_PING = False
+
 
 class FaucetSingleFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 3 DPs"""
@@ -386,7 +388,6 @@ class FaucetSingleFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
         self.N_DP_LINKS = 1
 
 
-@unittest.skip('Too expensive for Travis to run')
 class FaucetSingleFaultTolerance5DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 5 DPs"""
 
@@ -397,7 +398,7 @@ class FaucetSingleFaultTolerance5DPTest(FaucetFaultToleranceBaseTest):
     STACK_ROOTS = {0: 1}
 
 
-@unittest.skip('Too expensive for Travis to run')
+@unittest.skip('Too computationally complex')
 class FaucetSingleFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 5 DPs"""
 
@@ -408,7 +409,7 @@ class FaucetSingleFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     STACK_ROOTS = {0: 1}
 
 
-@unittest.skip('Too expensive for Travis to run')
+@unittest.skip('Too computationally complex')
 class FaucetSingleFaultTolerance7DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 5 DPs"""
 

@@ -29,19 +29,20 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
     # By default, no reflection used for flooding algorithms.
     _USES_REFLECTION = False
 
-    def __init__(self, stack_ports, dp_shortest_path_to_root, shortest_path,
-                 shortest_path_port, is_stack_root, is_stack_root_candidate,
-                 is_stack_edge, dp_name, graph, tunnel_acls, acl_manager, **kwargs):
+    def __init__(self, stack, tunnel_acls, acl_manager, **kwargs):
         super(ValveSwitchStackManagerBase, self).__init__(**kwargs)
-        self.stack_ports = stack_ports
-        self.dp_shortest_path_to_root = dp_shortest_path_to_root
-        self.shortest_path = shortest_path
-        self.shortest_path_port = shortest_path_port
-        self.is_stack_root = is_stack_root
-        self.is_stack_root_candidate = is_stack_root_candidate
-        self.is_stack_edge = is_stack_edge
-        self.graph = graph
-        self.dp_name = dp_name
+
+        self.stack = stack
+        self.stack_ports = stack.ports
+        self.dp_shortest_path_to_root = stack.shortest_path_to_root
+        self.shortest_path = stack.shortest_path
+        self.shortest_path_port = stack.shortest_path_port
+        self.is_stack_root = stack.is_root
+        self.is_stack_root_candidate = stack.is_root_candidate
+        self.is_stack_edge = stack.is_edge
+        self.graph = stack.graph
+        self.dp_name = stack.name
+
         self.tunnel_acls = tunnel_acls
         self.acl_manager = acl_manager
         self._set_ext_port_flag = ()
@@ -202,7 +203,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             self.away_from_root_stack_ports = all_peer_ports
         else:
             port_peer_distances = {
-                port: len(port.stack['dp'].shortest_path_to_root()) for port in all_peer_ports}
+                port: len(port.stack['dp'].stack.shortest_path_to_root()) for port in all_peer_ports}
             shortest_peer_distance = None
             for port, port_peer_distance in port_peer_distances.items():
                 if shortest_peer_distance is None:
@@ -260,7 +261,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         self_dp = shortest_path[0]
         inactive = []
         for port in all_peer_ports:
-            shortest_path = port.stack['dp'].shortest_path_to_root()
+            shortest_path = port.stack['dp'].stack.shortest_path_to_root()
             if len(shortest_path) > 1 and shortest_path[1] != self_dp:
                 inactive.append(port)
         return inactive
@@ -367,9 +368,9 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             return
 
         if event:
-            dp.add_stack_link(self.graph, dp, port)
+            dp.stack.add_link(self.graph, dp, port)
         else:
-            dp.remove_stack_link(self.graph, dp, port)
+            dp.stack.remove_link(self.graph, dp, port)
 
         self._reset_peer_distances()
 
@@ -570,7 +571,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             all_lags = valve.dp.lags_up()
             if lacp_id in all_lags:
                 ports[valve.dp.dp_id] = len(all_lags[lacp_id])
-            if valve.dp.is_stack_root():
+            if valve.dp.stack.is_root():
                 root_dpid = valve.dp.dp_id
         # Order by number of ports
         port_order = sorted(ports, key=ports.get, reverse=True)
@@ -772,7 +773,7 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
         if peer_dp.dyn_running:
             return self._non_stack_learned(other_valves, pkt_meta)
         # Fall back to peer knows if edge or root if we are not the peer's controller.
-        if peer_dp.is_stack_edge() or peer_dp.is_stack_root():
+        if peer_dp.stack.is_edge() or peer_dp.stack.is_root():
             return peer_dp
         # No DP has learned this host, yet. Take no action to allow remote learning to occur.
         return None

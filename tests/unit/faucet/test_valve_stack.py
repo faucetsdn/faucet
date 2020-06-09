@@ -811,7 +811,8 @@ dps:
 
     def test_nonstack_dp_port(self):
         """Test that finding a path from a stack swithc to a non-stack switch cannot happen"""
-        self.assertEqual(None, self.valves_manager.valves[0x3].dp.shortest_path_port('s1'))
+        self.assertIsNone(None, self.valves_manager.valves[0x3].dp.stack)
+        self.assertEqual(None, self.valves_manager.valves[0x1].dp.stack.shortest_path_port('s3'))
 
 
 class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
@@ -832,7 +833,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
     def set_stack_all_ports_status(self, dp_name, status):
         """Set all stack ports to status on dp"""
         dp = self.dp_by_name(dp_name)
-        for port in dp.stack_ports:
+        for port in dp.stack_ports():
             port.dyn_stack_current_state = status
 
     def test_redundancy(self):
@@ -846,8 +847,8 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
             self.set_stack_all_ports_status(dp.name, STACK_STATE_INIT)
         for valve in self.valves_manager.valves.values():
             self.assertFalse(valve.dp.dyn_running)
-            self.assertEqual('s1', valve.dp.stack_root_name)
-            root_hop_port = valve.dp.shortest_path_port('s1')
+            self.assertEqual('s1', valve.dp.stack.root_name)
+            root_hop_port = valve.dp.stack.shortest_path_port('s1')
             root_hop_port = root_hop_port.number if root_hop_port else 0
             self.assertEqual(root_hop_port, self.get_prom('dp_root_hop_port', dp_id=valve.dp.dp_id))
         # From a cold start - we pick the s1 as root.
@@ -932,8 +933,8 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
     def test_topo(self):
         """Test DP is assigned appropriate edge/root states"""
         dp = self.valves_manager.valves[self.DP_ID].dp
-        self.assertTrue(dp.is_stack_root())
-        self.assertFalse(dp.is_stack_edge())
+        self.assertTrue(dp.stack.is_root())
+        self.assertFalse(dp.stack.is_edge())
 
 
 class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
@@ -983,8 +984,8 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
     def test_topo(self):
         """Test DP is assigned appropriate edge/root states"""
         dp = self.valves_manager.valves[self.DP_ID].dp
-        self.assertFalse(dp.is_stack_root())
-        self.assertTrue(dp.is_stack_edge())
+        self.assertFalse(dp.stack.is_root())
+        self.assertTrue(dp.stack.is_edge())
 
 
 class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
@@ -1063,7 +1064,7 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestNetwork):
                 valve = self.valves_manager.valves[dpid]
                 if not valve.dp.stack:
                     continue
-                graph = valve.dp.stack_graph
+                graph = valve.dp.stack.graph
                 self.assertEqual(num_edges, len(graph.edges()))
                 if test_func and edge:
                     test_func(edge in graph.edges(keys=True))
@@ -2277,8 +2278,8 @@ dps:
     def test_topo(self):
         """Test topology functions."""
         dp = self.valves_manager.valves[self.DP_ID].dp
-        self.assertTrue(dp.is_stack_root())
-        self.assertFalse(dp.is_stack_edge())
+        self.assertTrue(dp.stack.is_root())
+        self.assertFalse(dp.stack.is_edge())
 
     def test_add_remove_port(self):
         self.update_and_revert_config(self.CONFIG, self.CONFIG3, 'warm')
@@ -2347,8 +2348,8 @@ dps:
     def test_topo(self):
         """Test topology functions."""
         dp_obj = self.valves_manager.valves[self.DP_ID].dp
-        self.assertFalse(dp_obj.is_stack_root())
-        self.assertTrue(dp_obj.is_stack_edge())
+        self.assertFalse(dp_obj.stack.is_root())
+        self.assertTrue(dp_obj.stack.is_edge())
 
     def test_add_remove_port(self):
         self.update_and_revert_config(self.CONFIG, self.CONFIG3, 'warm')
@@ -2600,7 +2601,7 @@ dps:
             valve = self.valves_manager.valves[new_dp.dp_id]
             changes = valve.dp.get_config_changes(valve.logger, new_dp)
             changed_ports, all_ports_changed = changes[1], changes[6]
-            for port in valve.dp.stack_ports:
+            for port in valve.dp.stack_ports():
                 if not all_ports_changed:
                     self.assertIn(
                         port.number, changed_ports,
@@ -2616,7 +2617,7 @@ dps:
         for new_dp in new_dps:
             valve = self.valves_manager.valves[new_dp.dp_id]
             changed_ports = valve.dp.get_config_changes(valve.logger, new_dp)[1]
-            for port in valve.dp.stack_ports:
+            for port in valve.dp.stack_ports():
                 self.assertNotIn(
                     port.number, changed_ports,
                     'Stack port detected as changed on non-topology change')
