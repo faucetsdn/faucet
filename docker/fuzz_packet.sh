@@ -14,4 +14,4 @@ if [ -e "$checkfile" ]; then
     fi
 fi
 
-AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_SKIP_CPUFREQ=1 py-afl-fuzz -m 5000 -x "$dictfile" -i "$inputfile" -o "$outputfile" -- /usr/bin/python3 /faucet-src/tests/fuzzer/fuzz_packet.py
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_SKIP_CPUFREQ=1 py-afl-fuzz -m 5000 -x "$dictfile" -i "$inputfile" -o "$outputfile" -- /usr/bin/python3 /faucet-src/tests/generative/fuzzer/fuzz_packet.py
