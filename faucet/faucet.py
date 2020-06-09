@@ -180,7 +180,7 @@ class Faucet(RyuAppBase):
         if not ryu_dp:
             valve.logger.error('send_flow_msgs: DP not up')
             return
-        valve.send_flows(ryu_dp, flow_msgs)
+        valve.send_flows(ryu_dp, flow_msgs, time.time())
 
     def _get_valve(self, ryu_event, require_running=False):
         """Get Valve instance to response to an event.
@@ -299,7 +299,7 @@ class Faucet(RyuAppBase):
         valve, _, _ = self._get_valve(ryu_event)
         if valve is None:
             return
-        valve.datapath_disconnect()
+        valve.datapath_disconnect(time.time())
 
     @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

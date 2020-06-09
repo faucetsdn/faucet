@@ -796,6 +796,10 @@ class ValveTestBases:
             self.assertTrue(valve.dp.to_conf())
             return connect_msgs
 
+        def disconnect_dp(self):
+            valve = self.valves_manager.valves[self.DP_ID]
+            valve.datapath_disconnect(time.time())
+
         def cold_start(self, dp_id=None):
             """
             Cold start a DP
@@ -807,7 +811,7 @@ class ValveTestBases:
             if dp_id is None:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
-            valve.datapath_disconnect()
+            valve.datapath_disconnect(time.time())
             return self.connect_dp(dp_id)
 
         def get_prom(self, var, labels=None, bare=False, dp_id=None):
@@ -1289,7 +1293,7 @@ class ValveTestBases:
             """Test disconnection of DP from controller."""
             valve = self.valves_manager.valves[self.DP_ID]
             self.assertEqual(1, int(self.get_prom('dp_status')))
-            self.prom_inc(partial(valve.datapath_disconnect), 'of_dp_disconnections_total')
+            self.prom_inc(partial(valve.datapath_disconnect, time.time()), 'of_dp_disconnections_total')
             self.assertEqual(0, int(self.get_prom('dp_status')))
 
         def test_unexpected_port(self):
@@ -2133,6 +2137,14 @@ meters:
             valve = self.valves_manager.valves[self.DP_ID]
             self.assertTrue(valve.get_config_dict())
             self.assertTrue(valve.dp.get_tables())
+
+        def test_dp_disconnect_cleanup(self):
+            """Test port varz cleanup post dp disconnect"""
+            valve = self.valves_manager.valves[self.DP_ID]
+            port_num = list(valve.dp.ports.keys())[0]
+            self.port_expected_status(port_num, 1)
+            self.disconnect_dp()
+            self.port_expected_status(port_num, 0)
 
 
     class ValveTestStackedRouting(ValveTestNetwork):

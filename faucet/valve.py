@@ -674,7 +674,7 @@ class Valve:
         self._reset_dp_status()
         return ofmsgs
 
-    def datapath_disconnect(self):
+    def datapath_disconnect(self, now):
         """Handle Ryu datapath disconnection event."""
         self.logger.warning('datapath down')
         self.notify(
@@ -683,6 +683,7 @@ class Valve:
         self.dp.dyn_running = False
         self._inc_var('of_dp_disconnections')
         self._reset_dp_status()
+        self.ports_delete(self.dp.ports.keys(), now=now)
 
     def _port_delete_manager_state(self, port):
         ofmsgs = []
@@ -763,7 +764,7 @@ class Valve:
         """
         return self.ports_add([port_num])
 
-    def ports_delete(self, port_nums, log_msg='down', keep_cache=False, other_valves=None):
+    def ports_delete(self, port_nums, log_msg='down', keep_cache=False, other_valves=None, now=None):
         """Handle the deletion of ports.
 
         Args:
@@ -780,6 +781,10 @@ class Valve:
             port = self.dp.ports[port_num]
             port.dyn_phys_up = False
             self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
+
+            # now is set to a time value only when ports_delete is called to flush
+            if now:
+                self._set_port_status(port_num, False, now)
 
             if port.output_only:
                 continue
@@ -1816,7 +1821,7 @@ class Valve:
         self.recent_ofmsgs.extend(reordered_flow_msgs)
         return reordered_flow_msgs
 
-    def send_flows(self, ryu_dp, flow_msgs):
+    def send_flows(self, ryu_dp, flow_msgs, now):
         """Send flows to datapath (or disconnect an OF session).
 
         Args:
@@ -1830,7 +1835,7 @@ class Valve:
                 ryu_dp.send_msg(flow_msg)
 
         if flow_msgs is None:
-            self.datapath_disconnect()
+            self.datapath_disconnect(now)
             ryu_dp.close()
         else:
             ryu_send_flows(flow_msgs)

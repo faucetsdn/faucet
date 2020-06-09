@@ -453,6 +453,24 @@ vlans:
         self.assertFalse(
             valve.dp.ports[1].non_stack_forwarding())
 
+    def test_dp_disconnect(self):
+        """Test LACP state when disconnects."""
+        test_port = 1
+        labels = self.port_labels(test_port)
+        self.assertEqual(
+            1, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.rcv_packet(test_port, 0, {
+            'actor_system': '0e:00:00:00:00:02',
+            'partner_system': FAUCET_MAC,
+            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
+            'eth_src': '0e:00:00:00:00:02',
+            'actor_state_synchronization': 1})
+        self.assertEqual(
+            3, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.disconnect_dp()
+        self.assertEqual(
+            0, int(self.get_prom('port_lacp_state', labels=labels)))
+
 
 class ValveTFMSizeOverride(ValveTestBases.ValveTestNetwork):
     """Test TFM size override."""
