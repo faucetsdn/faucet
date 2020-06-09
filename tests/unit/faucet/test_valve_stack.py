@@ -31,8 +31,6 @@ from faucet.port import (
     STACK_STATE_INIT, STACK_STATE_UP,
     LACP_PORT_SELECTED, LACP_PORT_UNSELECTED)
 
-from mininet.topo import Topo  # pylint: disable=unused-import
-
 from clib.fakeoftable import CONTROLLER_PORT
 
 from clib.valve_test_lib import (
@@ -2611,80 +2609,6 @@ dps:
                 self.assertNotIn(
                     port.number, changed_ports,
                     'Stack port detected as changed on non-topology change')
-
-
-class ValveNetworkTest(ValveTestBases.ValveTestNetwork):
-    """Test an auto-generated path topology and FakeOFNetwork packet traversal"""
-
-    topo = None
-
-    NUM_DPS = 2
-    NUM_VLANS = 1
-    NUM_HOSTS = 1
-    SWITCH_TO_SWITCH_LINKS = 1
-
-    def setUp(self):
-        """Setup auto-generated network topology and trigger stack ports"""
-        self.topo, self.CONFIG = self.create_topo_config(networkx.path_graph(self.NUM_DPS))
-        self.setup_valves(self.CONFIG)
-        self.trigger_stack_ports()
-
-    def test_network(self):
-        """Test packet output to the adjacent switch"""
-        _, host_port_maps, _ = self.topo.create_port_maps()
-        vlan_vid = self.topo.vlan_vid(0) | ofp.OFPVID_PRESENT
-        bcast_match = {
-            'in_port': host_port_maps[0][0][0],
-            'eth_src': '00:00:00:00:00:12',
-            'eth_dst': mac.BROADCAST_STR,
-            'ipv4_src': '10.1.0.1',
-            'ipv4_dst': '10.1.0.2',
-            'vlan_vid': vlan_vid
-        }
-        self.assertTrue(
-            self.network.is_output(bcast_match, 1, 2, host_port_maps[1][1][0], vlan_vid))
-
-
-class ValveLoopNetworkTest(ValveTestBases.ValveTestNetwork):
-    """Test an auto-generated loop topology and FakeOFNetwork packet traversal"""
-
-    topo = None
-
-    NUM_DPS = 3
-    NUM_VLANS = 1
-    NUM_HOSTS = 1
-    SWITCH_TO_SWITCH_LINKS = 2
-
-    def setUp(self):
-        """Setup auto-generated network topology and trigger stack ports"""
-        self.topo, self.CONFIG = self.create_topo_config(networkx.cycle_graph(self.NUM_DPS))
-        self.setup_valves(self.CONFIG)
-        self.trigger_stack_ports()
-
-    def test_network(self):
-        """Test packet output to the adjacent switch in a loop topology"""
-        _, host_port_maps, link_port_maps = self.topo.create_port_maps()
-        vlan_vid = self.topo.vlan_vid(0) | ofp.OFPVID_PRESENT
-        bcast_match = {
-            'in_port': host_port_maps[0][0][0],
-            'eth_src': '00:00:00:00:00:12',
-            'eth_dst': mac.BROADCAST_STR,
-            'ipv4_src': '10.1.0.1',
-            'ipv4_dst': '10.1.0.2',
-            'vlan_vid': vlan_vid
-        }
-        self.assertTrue(
-            self.network.is_output(bcast_match, 1, 3, host_port_maps[1][1][0], vlan_vid))
-        self.assertTrue(
-            self.network.is_output(bcast_match, 1, 2, host_port_maps[1][1][0], vlan_vid))
-        port_num = link_port_maps[(0, 1)][0]
-        port = self.valves_manager.valves[1].dp.ports[port_num]
-        reverse_port = port.stack['port']
-        self.trigger_stack_ports([port, reverse_port])
-        self.assertTrue(
-            self.network.is_output(bcast_match, 1, 3, host_port_maps[1][1][0], vlan_vid))
-        self.assertTrue(
-            self.network.is_output(bcast_match, 1, 2, host_port_maps[1][1][0], vlan_vid))
 
 
 if __name__ == "__main__":

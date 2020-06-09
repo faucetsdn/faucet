@@ -21,8 +21,6 @@
 import copy
 import unittest
 
-from mininet.topo import Topo  # pylint: disable=unused-import
-
 from ryu.lib import mac
 from ryu.lib.packet import slow
 from ryu.ofproto import ether

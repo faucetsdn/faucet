@@ -26,8 +26,6 @@ import time
 
 from ryu.ofproto import ofproto_v1_3 as ofp
 
-from mininet.topo import Topo  # pylint: disable=unused-import
-
 from faucet import config_parser_util
 from faucet import valve_of
 

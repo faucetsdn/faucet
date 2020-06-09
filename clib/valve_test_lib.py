@@ -55,10 +55,6 @@ from faucet.valve import TfmValve
 
 from clib.fakeoftable import FakeOFNetwork
 
-from clib.config_generator import FaucetFakeOFTopoGenerator
-
-import sys
-
 
 def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
@@ -515,53 +511,13 @@ class ValveTestBases:
 
         # Number of tables to configure in the FakeOFTable
         NUM_TABLES = 10
+        NUM_PORTS = 5
 
         LOGNAME = 'faucet'
         ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8')
         REQUIRE_TFM = True
         CONFIG_AUTO_REVERT = False
         CONFIG = None
-        topo = None
-
-        NUM_PORTS = 5
-        NUM_DPS = 2
-        NUM_VLANS = 1
-        NUM_HOSTS = 1
-        SWITCH_TO_SWITCH_LINKS = 1
-
-        PORT_ORDER = [0, 1, 2, 3]
-        START_PORT = 5
-
-        def create_topo_config(self, network_graph):
-            """Return topo object and a simple stack config generated from network_graph"""
-            host_links = {}
-            host_vlans = {}
-            dp_options = {}
-            host_n = 0
-            for dp_i in network_graph.nodes():
-                for _ in range(self.NUM_HOSTS):
-                    host_links[host_n] = [dp_i]
-                    host_vlans[host_n] = list(range(self.NUM_VLANS))
-                    host_n += 1
-                dp_options[dp_i] = {'hardware': 'GenericTFM'}
-                if dp_i == 0:
-                    dp_options[dp_i]['stack'] = {'priority': 1}
-            switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
-            link_vlans = {link: None for link in switch_links}
-            topo = FaucetFakeOFTopoGenerator(
-                'ovstype', 'portsock', 'testname',
-                host_links, host_vlans, switch_links, link_vlans,
-                start_port=self.START_PORT, port_order=self.PORT_ORDER,
-                get_serialno=self.get_serialno)
-            config = topo.get_config(self.NUM_VLANS, dp_options=dp_options)
-            return topo, config
-
-        serial = 0
-
-        def get_serialno(self, *_args, **_kwargs):
-            """"Return mock serial number"""
-            self.serial += 1
-            return self.serial
 
         def __init__(self, *args, **kwargs):
             self.dot1x = None
