@@ -19,7 +19,6 @@
 import functools
 import hashlib
 import struct
-
 from faucet import valve_of
 from faucet.faucet_pipeline import ValveTableConfig
 
@@ -65,12 +64,11 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
                 next_table.name, self.name))
         return valve_of.goto_table(next_table)
 
-    def set_field(self, **kwds):
+    @staticmethod
+    def set_field(**kwds):
         """Return set field action."""
-        for field in kwds.keys():
-            assert (self.table_id == valve_of.ofp.OFPTT_ALL or
-                    (self.set_fields and field in self.set_fields)), (
-                        '%s not configured as set field in %s' % (field, self.name))
+        # raise exception if unknown set field.
+        valve_of.match_from_dict(kwds)
         return valve_of.set_field(**kwds)
 
     def set_external_forwarding_requested(self):
@@ -132,6 +130,34 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
                         'exact match table %s matches %s do not match flow matches %s (%s)' % (
                             self.name, self.match_types, match_fields, flowmod))
 
+    def _trim_actions(self, actions):
+        new_actions = []
+        pending_actions = []
+        for action in actions:
+            if action.type in (valve_of.ofp.OFPAT_GROUP, valve_of.ofp.OFPAT_OUTPUT):
+                new_actions.extend(pending_actions)
+                new_actions.append(action)
+                pending_actions = []
+            else:
+                pending_actions.append(action)
+        set_fields = {action.key for action in new_actions if valve_of.is_set_field(action)}
+        if self.table_id != valve_of.ofp.OFPTT_ALL and set_fields:
+            assert set_fields.issubset(self.set_fields), (
+                'unexpected set fields %s configured %s in %s' % (set_fields, self.set_fields, self.name))
+        return new_actions
+
+    def _trim_inst(self, inst):
+        """Discard actions on packets that are not output and not goto another table."""
+        inst_types = {instruction.type for instruction in inst}
+        if valve_of.ofp.OFPIT_GOTO_TABLE in inst_types:
+            return inst
+        new_inst = []
+        for instruction in inst:
+            if instruction.type == valve_of.ofp.OFPIT_APPLY_ACTIONS:
+                instruction.actions = self._trim_actions(instruction.actions)
+            new_inst.append(instruction)
+        return new_inst
+
     def flowmod(self, match=None, priority=None, # pylint: disable=too-many-arguments
                 inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,
                 out_group=0, hard_timeout=0, idle_timeout=0, cookie=None):
@@ -147,6 +173,8 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         flags = 0
         if self.notify_flow_removed:
             flags = valve_of.ofp.OFPFF_SEND_FLOW_REM
+        if inst:
+            inst = self._trim_inst(inst)
         flowmod = valve_of.flowmod(
             cookie,
             command,
