@@ -529,10 +529,6 @@ configuration.
         if 'egress_acl' in included_tables:
             table_configs['eth_dst'].miss_goto = 'egress_acl'
 
-        if 'copro' in included_tables:
-            if 'vlan_acl' in included_tables:
-                table_configs['copro'].miss_goto = 'vlan_acl'
-
         oxm_fields = set(valve_of.MATCH_FIELDS.keys())
 
         for table_name, table_config in table_configs.items():

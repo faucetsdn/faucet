@@ -90,20 +90,35 @@ dps:
         interfaces:
             p1:
                 number: 1
-                coprocessor: {strategy: vlan_vid, vlan_vid_base: 100}
+                coprocessor: {strategy: vlan_vid, vlan_vid_base: 0x200}
             p2:
                 number: 2
-                native_vlan: 0x100
+                native_vlan: testvlan
             p3:
                 number: 3
-                native_vlan: 0x100
+                native_vlan: testvlan
+vlans:
+    testvlan:
+        vid: 0x100
+        acls_in: [bypassedbycoprocessor]
+acls:
+    bypassedbycoprocessor:
+        - rule:
+            ipv4_src: 10.0.0.99
+            dl_type: 0x0800
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
 """ % DP1_CONFIG
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_output(self):
-        copro_vid_out = 102 | ofp.OFPVID_PRESENT
+        # VID for direct output to port 2
+        copro_vid_out = (0x200 + 2) | ofp.OFPVID_PRESENT
         direct_match = {
             'in_port': 1, 'vlan_vid': copro_vid_out, 'eth_type': ether.ETH_TYPE_IP,
             'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
@@ -117,10 +132,11 @@ dps:
         p2_host_receive.update({'in_port': 2})
         # learn P2 host
         self.rcv_packet(2, 0x100, p2_host_receive)
-        # copro can send to P2 via regular pipeline
+        # copro can send to P2 via regular pipeline and is not subject to VLAN ACL.
         p2_copro_host_receive = copy.deepcopy(p2_host_match)
         p2_copro_host_receive.update(
             {'in_port': 1,
+             'ipv4_src': '10.0.0.99', 'ipv4_dst': '10.0.0.3',
              'eth_src': p2_host_match['eth_dst'],
              'eth_dst': p2_host_match['eth_src']})
         p2_copro_host_receive['vlan_vid'] = 0x100 | ofp.OFPVID_PRESENT

@@ -739,6 +739,9 @@ or a name. The following attributes can be configured:
       - None
       - The acl to be applied to all packets arriving on this vlan.
         ACLs listed first take priority over those later in the list.
+        NOTE: packets from coprocessor port are not subject to vlan acls,
+        because coprocessors intentionally bypass normal input processing
+        including vlan acls and switch/route learning.
     * - description
       - string
       - None
