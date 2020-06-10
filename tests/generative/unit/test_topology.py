@@ -34,10 +34,55 @@ from clib.valve_test_lib import ValveTestBases
 from clib.config_generator import FaucetFakeOFTopoGenerator
 
 
-class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
-    """Test warm starting to a different topology then reverting"""
+class ValveGenerativeBase(ValveTestBases.ValveTestNetwork):
+    """Base for generating configuration files"""
 
     topo = None
+
+    NUM_PORTS = 5
+    NUM_DPS = 2
+    NUM_VLANS = 1
+    NUM_HOSTS = 1
+    SWITCH_TO_SWITCH_LINKS = 1
+
+    PORT_ORDER = [0, 1, 2, 3]
+    START_PORT = 5
+
+    serial = 0
+
+    def get_serialno(self, *_args, **_kwargs):
+        """"Return mock serial number"""
+        self.serial += 1
+        return self.serial
+
+    def create_topo_config(self, network_graph):
+        """Return topo object and a simple stack config generated from network_graph"""
+        host_links = {}
+        host_vlans = {}
+        dp_options = {}
+        host_n = 0
+        for dp_i in network_graph.nodes():
+            for _ in range(self.NUM_HOSTS):
+                for v_i in range(self.NUM_VLANS):
+                    host_links[host_n] = [dp_i]
+                    host_vlans[host_n] = v_i
+                    host_n += 1
+            dp_options[dp_i] = {'hardware': 'GenericTFM'}
+            if dp_i == 0:
+                dp_options[dp_i]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
+        link_vlans = {link: None for link in switch_links}
+        topo = FaucetFakeOFTopoGenerator(
+            'ovstype', 'portsock', 'testname',
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=self.START_PORT, port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno)
+        config = topo.get_config(self.NUM_VLANS, dp_options=dp_options)
+        return topo, config
+
+
+class ValveTopologyRestartTest(ValveGenerativeBase):
+    """Test warm starting to a different topology then reverting"""
 
     NUM_DPS = 2
     NUM_VLANS = 1
@@ -67,40 +112,13 @@ class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
             self.update_and_revert_config(self.CONFIG, new_config, None)
 
 
-class ValveTopologyVLANTest(ValveTestBases.ValveTestNetwork):
+class ValveTopologyVLANTest(ValveGenerativeBase):
     """Generative testing of flowrules after warm-starting after a config host VLAN change"""
-
-    topo = None
 
     NUM_DPS = 2
     NUM_VLANS = 2
     NUM_HOSTS = 2
     SWITCH_TO_SWITCH_LINKS = 1
-
-    def create_topo_config(self, network_graph):
-        """Return topo object and a simple stack config generated from network_graph"""
-        host_links = {}
-        host_vlans = {}
-        dp_options = {}
-        host_n = 0
-        for dp_i in network_graph.nodes():
-            for _ in range(self.NUM_HOSTS):
-                for v_i in range(self.NUM_VLANS):
-                    host_links[host_n] = [dp_i]
-                    host_vlans[host_n] = v_i
-                    host_n += 1
-            dp_options[dp_i] = {'hardware': 'GenericTFM'}
-            if dp_i == 0:
-                dp_options[dp_i]['stack'] = {'priority': 1}
-        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
-        link_vlans = {link: None for link in switch_links}
-        topo = FaucetFakeOFTopoGenerator(
-            'ovstype', 'portsock', 'testname',
-            host_links, host_vlans, switch_links, link_vlans,
-            start_port=self.START_PORT, port_order=self.PORT_ORDER,
-            get_serialno=self.get_serialno)
-        config = topo.get_config(self.NUM_VLANS, dp_options=dp_options)
-        return topo, config
 
     def setUp(self):
         """Ignore, to call set_up with different topologies"""
@@ -124,7 +142,7 @@ class ValveTopologyVLANTest(ValveTestBases.ValveTestNetwork):
         self.update_and_revert_config(self.CONFIG, new_config, None)
 
 
-class ValveTopologyTableTest(ValveTestBases.ValveTestNetwork):
+class ValveTopologyTableTest(ValveGenerativeBase):
     """Test FakeOFNetwork packet traversal with all topologies imported from the networkx atlas"""
 
     topo = None

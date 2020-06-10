@@ -19,8 +19,6 @@
 
 import unittest
 
-from mininet.topo import Topo  # pylint: disable=unused-import
-
 from faucet import faucet_dot1x
 
 from clib.valve_test_lib import DOT1X_CONFIG, DOT1X_ACL_CONFIG, ValveTestBases
