@@ -223,7 +223,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                     first_peer_dp = first_peer_port.stack['dp'].name
                 self.towards_root_stack_ports = {
                     port for port in self.all_towards_root_stack_ports
-                    if port.stack['dp'].name == first_peer_dp}
+                    if port.stack['dp'].name == first_peer_dp}  # pytype: disable=attribute-error
             self.away_from_root_stack_ports = all_peer_ports - self.all_towards_root_stack_ports
             if self.towards_root_stack_ports:
                 self.logger.info(
