@@ -546,6 +546,48 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
 
+    def get_lacp_dpid_nomination(self, lacp_id, valve, other_valves):
+        """Chooses the DP for a given LAG.
+
+        The DP will be nominated by the following conditions in order:
+            1) Number of LAG ports
+            2) Root DP
+            3) Lowest DPID
+
+        Args:
+            lacp_id: The LACP LAG ID
+            other_valves (list): list of other valves
+        Returns:
+            nominated_dpid, reason
+        """
+        if not other_valves:
+            return None, ''
+        stacked_other_valves = valve._stacked_valves(other_valves)
+        all_stacked_valves = {valve}.union(stacked_other_valves)
+        ports = {}
+        root_dpid = None
+        for valve in all_stacked_valves:
+            all_lags = valve.dp.lags_up()
+            if lacp_id in all_lags:
+                ports[valve.dp.dp_id] = len(all_lags[lacp_id])
+            if valve.dp.is_stack_root():
+                root_dpid = valve.dp.dp_id
+        # Order by number of ports
+        port_order = sorted(ports, key=ports.get, reverse=True)
+        if not port_order:
+            return None, ''
+        most_ports_dpid = port_order[0]
+        most_ports_dpids = [dpid for dpid, num in ports.items() if num == ports[most_ports_dpid]]
+        if len(most_ports_dpids) > 1:
+            # There are several dpids that have the same number of lags
+            if root_dpid in most_ports_dpids:
+                # root_dpid is the chosen DPID
+                return root_dpid, 'root dp'
+            # Order by lowest DPID
+            return sorted(most_ports_dpids), 'lowest dpid'
+        # Most_ports_dpid is the chosen DPID
+        return most_ports_dpid, 'most LAG ports'
+
 
 class ValveSwitchStackManagerNoReflection(ValveSwitchStackManagerBase):
     """Stacks of size 2 - all switches directly connected to root.
