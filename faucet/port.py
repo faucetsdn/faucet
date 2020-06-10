@@ -409,7 +409,7 @@ class Port(Conf):
             self.acl_in and self.acls_in,
             'Found both acl_in and acls_in, use only acls_in')
         if self.acl_in and not isinstance(self.acl_in, list):
-            self.acls_in = [self.acl_in,]
+            self.acls_in = [self.acl_in]
             self.acl_in = None
         if self.acls_in:
             for acl in self.acls_in:

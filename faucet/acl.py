@@ -17,7 +17,6 @@
 # limitations under the License.
 import copy
 import netaddr
-
 from faucet import valve_of
 from faucet import valve_acl
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
@@ -480,7 +479,7 @@ The output action contains a dictionary with the following elements:
         if 'in_port' not in self.matches:
             self.matches['in_port'] = False
         if 'vlan_vid' not in self.matches:
-            self.matches['vlan_vid'] = True
+            self.matches['vlan_vid'] = False
         if 'vlan_vid' not in self.set_fields:
             self.set_fields.add('vlan_vid')
 
@@ -512,13 +511,16 @@ The output action contains a dictionary with the following elements:
 # NOTE: 802.1x steals the port ACL table.
 PORT_ACL_8021X = ACL(
     'port_acl_8021x', 0,
-    {'rules': [{'eth_type': 1, 'eth_src': '01:02:03:04:05:06', 'actions': {
-        'output': {'set_fields': [
-            {'eth_src': '01:02:03:04:05:06'}, {'eth_dst': '01:02:03:04:05:06'}]}}}]})
+    {'rules': [
+        {'eth_type': 1, 'eth_src': '01:02:03:04:05:06', 'actions': {'output': {
+            'port': valve_of.ofp.OFPP_LOCAL, 'set_fields': [
+                {'eth_src': '01:02:03:04:05:06'}, {'eth_dst': '01:02:03:04:05:06'}]}}}]})
 PORT_ACL_8021X.build({}, None, 1)
 
 MAB_ACL_8021X = ACL(
     'mab_acl_8021x', 0,
-    {'rules': [{'eth_type': valve_of.ether.ETH_TYPE_IP, 'eth_src': '01:02:03:04:05:06',
-                'ip_proto': valve_of.inet.IPPROTO_UDP, 'udp_src': 68, 'udp_dst': 67, }]})
+    {'rules': [{
+        'eth_type': valve_of.ether.ETH_TYPE_IP, 'eth_src': '01:02:03:04:05:06',
+        'ip_proto': valve_of.inet.IPPROTO_UDP, 'udp_src': 68, 'udp_dst': 67,
+        'actions': {'output': {'port': valve_of.ofp.OFPP_LOCAL}}}]})
 MAB_ACL_8021X.build({}, None, 1)

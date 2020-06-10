@@ -449,7 +449,17 @@ class FakeOFTable:
         """
         outputs = OrderedDict()
         packet_dict = match.copy()
+        pending_actions = []
         for action in instruction.actions:
+            if action.type == ofp.OFPAT_OUTPUT:
+                # Save the packet that is output to a port
+                outputs.setdefault(action.port, [])
+                outputs[action.port].append(packet_dict.copy())
+                pending_actions = []
+                continue
+
+            pending_actions.append(action)
+
             if action.type == ofp.OFPAT_SET_FIELD:
                 # Set field, modify a packet header
                 packet_dict[action.key] = action.value
@@ -475,15 +485,13 @@ class FakeOFTable:
                     raise FakeOFTableException('output group not in group table: %s' % action)
                 buckets = self.groups[action.group_id].buckets
                 for bucket in buckets:
-                    bucket_outputs, _ = self._process_instruction(packet_dict, bucket)
+                    bucket_outputs, _, _ = self._process_instruction(packet_dict, bucket)
                     for out_port, out_pkts in bucket_outputs.items():
                         outputs.setdefault(out_port, [])
                         outputs[out_port].extend(out_pkts)
-            if action.type == ofp.OFPAT_OUTPUT:
-                # Save the packet that is output to a port
-                outputs.setdefault(action.port, [])
-                outputs[action.port].append(packet_dict.copy())
-        return outputs, packet_dict
+                        pending_actions = []
+
+        return outputs, packet_dict, pending_actions
 
     def get_table_output(self, match, table_id, trace=False):
         """
@@ -502,13 +510,16 @@ class FakeOFTable:
         packet_dict = match.copy()
         outputs = OrderedDict()
         matching_fte = self.single_table_lookup(match, table_id, trace)
+        pending_actions = []
         if matching_fte:
             for instruction in matching_fte.instructions:
                 if instruction.type == ofp.OFPIT_GOTO_TABLE:
                     if table_id < instruction.table_id:
                         next_table = instruction.table_id
+                    else:
+                        raise FakeOFTableException('goto to lower table ID')
                 elif instruction.type == ofp.OFPIT_APPLY_ACTIONS:
-                    instruction_outputs, packet_dict = self._process_instruction(
+                    instruction_outputs, packet_dict, pending_actions = self._process_instruction(
                         packet_dict, instruction)
                     for out_port, out_pkts in instruction_outputs.items():
                         outputs.setdefault(out_port, [])
@@ -518,6 +529,10 @@ class FakeOFTable:
                     mask = instruction.metadata_mask
                     mask_compl = mask ^ 0xFFFFFFFFFFFFFFFF
                     packet_dict['metadata'] = (metadata & mask_compl) | (instruction.metadata & mask)
+        if next_table:
+            pending_actions = []
+        if pending_actions:
+            raise FakeOFTableException('flow performs actions on packet after output with no goto: %s' % matching_fte)
         return outputs, packet_dict, next_table
 
     def get_output(self, match, trace=False):
