@@ -19,7 +19,11 @@ $APK add -U git $BUILDDEPS && \
   $dir/retrycmd.sh "$PIP3 -r $FROOT/requirements.txt" && \
   $PIP3 $FROOT
 
-echo "Skipping tests on $(uname -m) platform"
+if [ "$(uname -m)" == "x86_64" ]; then
+  echo $FROOT/tests/unit/faucet/test_*.py $FROOT/tests/unit/gauge/test_*.py | xargs realpath | shuf | parallel --delay 1 --bar --halt now,fail=1 -j 2 python3 -m pytest
+else
+  echo "Skipping tests on $(uname -m) platform"
+fi
 
 pip3 uninstall -y $TESTDEPS || exit 1
 for i in $BUILDDEPS ; do
