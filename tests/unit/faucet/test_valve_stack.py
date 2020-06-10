@@ -108,13 +108,13 @@ dps:
         valve = self.valves_manager.valves[0x1]
         other_valves = self.get_other_valves(valve)
         # Equal number of LAG ports, choose root DP
-        nominated_dpid = valve.get_lacp_dpid_nomination(1, other_valves)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
         self.assertEqual(
             nominated_dpid, 0x1,
             'Expected nominated DPID %s but found %s' % (0x1, nominated_dpid))
         # Choose DP with most UP LAG ports
         lacp_ports[0x1][0].actor_nosync()
-        nominated_dpid = valve.get_lacp_dpid_nomination(1, other_valves)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
         self.assertEqual(
             nominated_dpid, 0x2,
             'Expected nominated DPID %s but found %s' % (0x2, nominated_dpid))
@@ -125,7 +125,7 @@ dps:
         valve = self.valves_manager.valves[0x1]
         other_valves = self.get_other_valves(valve)
         # No actors UP so should return None
-        nominated_dpid = valve.get_lacp_dpid_nomination(1, other_valves)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
         self.assertEqual(
             nominated_dpid, None,
             'Did not expect to nominate DPID %s' % nominated_dpid)
@@ -134,7 +134,7 @@ dps:
             for port in valve.dp.ports.values():
                 if port.lacp:
                     port.actor_up()
-        nominated_dpid = valve.get_lacp_dpid_nomination(1, None)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, None)[0]
         self.assertEqual(
             nominated_dpid, None,
             'Did not expect to nominate DPID %s' % nominated_dpid)
@@ -152,7 +152,8 @@ dps:
         for valve, ports in lacp_ports.items():
             other_valves = self.get_other_valves(valve)
             for port in ports:
-                valve.lacp_update_port_selection_state(port, other_valves)
+                valve.switch_manager.lacp_update_port_selection_state(port, valve, other_valves)
+                valve._reset_lacp_status(port)
                 # Testing accuracy of varz port_lacp_role
                 port_labels = {
                     'port': port.name,
