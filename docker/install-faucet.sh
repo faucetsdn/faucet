@@ -10,8 +10,6 @@ FROOT="/faucet-src"
 
 dir=$(dirname "$0")
 
-# Clean up
-rm -r "$FROOT/docs"
 ${APK} add -U git ${BUILDDEPS}
 "${dir}/retrycmd.sh" "${PIP3} pip"
 "${dir}/retrycmd.sh" "${PIP3} setuptools ${TESTDEPS}"
@@ -33,6 +31,9 @@ pip3 uninstall -y ${TESTDEPS} || exit 1
 for i in ${BUILDDEPS} ; do
   ${APK} del "$i" || exit 1
 done
+
+# Clean up
+rm -r "${FROOT}"
 
 # Smoke test
 faucet -V || exit 1
