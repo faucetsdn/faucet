@@ -38,6 +38,31 @@ def valve_switch_factory(logger, dp, pipeline, acl_manager):  # pylint: disable=
     eth_dst_hairpin_table = dp.tables.get('eth_dst_hairpin', None)
     vlan_acl_table = dp.tables.get('vlan_acl', None)
 
+    switch_args = {
+        'logger': logger,
+        'ports': dp.ports,
+        'vlans': dp.vlans,
+        'vlan_table': dp.tables['vlan'],
+        'vlan_acl_table': vlan_acl_table,
+        'eth_src_table': dp.tables['eth_src'],
+        'eth_dst_table': dp.tables['eth_dst'],
+        'eth_dst_hairpin_table': eth_dst_hairpin_table,
+        'flood_table': dp.tables['flood'],
+        'classification_table': dp.classification_table,
+        'pipeline': pipeline,
+        'use_group_table': dp.group_table,
+        'groups': dp.groups,
+        'combinatorial_port_flood': dp.combinatorial_port_flood,
+        'canonical_port_order': dp.canonical_port_order,
+        'restricted_bcast_arpnd': restricted_bcast_arpnd,
+        'has_externals': dp.has_externals,
+        'learn_ban_timeout': dp.learn_ban_timeout,
+        'learn_timeout': dp.timeout,
+        'learn_jitter': dp.learn_jitter,
+        'cache_update_guard_time': dp.cache_update_guard_time,
+        'idle_dst': dp.idle_dst,
+    }
+
     if dp.stack_graph:
         switch_class = ValveSwitchStackManagerNoReflection
         if dp.stack_root_flood_reflection:
@@ -45,28 +70,22 @@ def valve_switch_factory(logger, dp, pipeline, acl_manager):  # pylint: disable=
             logger.info('Using stacking root flood reflection')
         else:
             logger.info('Not using stacking root flood reflection')
-        return switch_class(
-            logger, dp.ports, dp.vlans,
-            dp.tables['vlan'], vlan_acl_table, dp.tables['eth_src'], dp.tables['eth_dst'],
-            eth_dst_hairpin_table, dp.tables['flood'], dp.classification_table,
-            pipeline, dp.group_table, dp.groups,
-            dp.combinatorial_port_flood, dp.canonical_port_order,
-            restricted_bcast_arpnd, dp.has_externals,
-            dp.learn_ban_timeout, dp.timeout, dp.learn_jitter,
-            dp.cache_update_guard_time, dp.idle_dst,
-            dp.stack_ports,
-            dp.shortest_path_to_root, dp.shortest_path, dp.shortest_path_port,
-            dp.is_stack_root, dp.is_stack_root_candidate,
-            dp.is_stack_edge, dp.name, dp.stack_graph, dp.tunnel_acls, acl_manager)
+        switch_args.update({
+            'stack_ports': dp.stack_ports,
+            'dp_shortest_path_to_root': dp.shortest_path_to_root,
+            'shortest_path': dp.shortest_path,
+            'shortest_path_port': dp.shortest_path_port,
+            'is_stack_root': dp.is_stack_root,
+            'is_stack_root_candidate': dp.is_stack_root_candidate,
+            'is_stack_edge': dp.is_stack_edge,
+            'dp_name': dp.name,
+            'graph': dp.stack_graph,
+            'tunnel_acls': dp.tunnel_acls,
+            'acl_manager': acl_manager,
+        })
+        return switch_class(**switch_args)
 
     switch_class = ValveSwitchManager
     if dp.use_idle_timeout:
         switch_class = ValveSwitchFlowRemovedManager
-    return switch_class(
-        logger, dp.ports, dp.vlans,
-        dp.tables['vlan'], vlan_acl_table, dp.tables['eth_src'], dp.tables['eth_dst'],
-        eth_dst_hairpin_table, dp.tables['flood'], dp.classification_table,
-        pipeline, dp.group_table, dp.groups,
-        dp.combinatorial_port_flood, dp.canonical_port_order,
-        restricted_bcast_arpnd, dp.has_externals,
-        dp.learn_ban_timeout, dp.timeout, dp.learn_jitter, dp.cache_update_guard_time, dp.idle_dst)
+    return switch_class(**switch_args)
