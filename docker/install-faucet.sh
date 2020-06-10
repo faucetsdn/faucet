@@ -20,7 +20,12 @@ $APK add -U git $BUILDDEPS && \
   $PIP3 $FROOT
 
 if [ "$(uname -m)" == "x86_64" ]; then
-  echo $FROOT/tests/unit/faucet/test_*.py $FROOT/tests/unit/gauge/test_*.py | xargs realpath | shuf | parallel --delay 1 --bar --halt now,fail=1 -j 2 python3 -m pytest
+  (
+  echo "Running unit tests"
+  cd "${FROOT}"
+  python3 -m unittest discover "tests/unit/faucet/"
+  python3 -m unittest discover "tests/unit/gauge/"
+  )
 else
   echo "Skipping tests on $(uname -m) platform"
 fi
