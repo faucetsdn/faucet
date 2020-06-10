@@ -825,10 +825,14 @@ class Valve:
         """
         ofmsgs = []
         if cold_start:
-            self.switch_manager.lacp_update_actor_state(port, lacp_up, now, lacp_pkt, cold_start=True)
-            self.switch_manager.lacp_update_port_selection_state(port, self, other_valves, cold_start=True)
-        updated = self.switch_manager.lacp_update_actor_state(port, lacp_up, now, lacp_pkt, cold_start=False)
-        select_updated = self.switch_manager.lacp_update_port_selection_state(port, self, other_valves, cold_start=False)
+            self.switch_manager.lacp_update_actor_state(
+                port, lacp_up, now, lacp_pkt, cold_start=True)
+            self.switch_manager.lacp_update_port_selection_state(
+                port, self, other_valves, cold_start=True)
+        updated = self.switch_manager.lacp_update_actor_state(
+            port, lacp_up, now, lacp_pkt, cold_start=False)
+        select_updated = self.switch_manager.lacp_update_port_selection_state(
+            port, self, other_valves, cold_start=False)
         if updated or select_updated:
             if updated:
                 self._reset_lacp_status(port)
