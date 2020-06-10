@@ -53,6 +53,14 @@ VLAN Table
     - Interception of L2 control traffic (e.g. LACP, LLDP if configured).
     - Unknown traffic is dropped
 
+
+Coprocessor Table
+~~~~~~~~~~~~~~~~~
+- Match fields: ``in_port, eth_type, vlan_vid``
+- Operations:
+    - For coprocessed ports only - allow an external NFV processor to output directly specific port, or ethernet destination address.
+
+
 VLAN_ACL Table
 ~~~~~~~~~~~~~~
 - Apply user supplied ACLs to a VLAN and send to next table
