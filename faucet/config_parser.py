@@ -328,5 +328,5 @@ def get_config_for_api(valves):
         valve_conf = valve.get_config_dict()
         for i in V2_TOP_CONFS:
             if i in valve_conf:
-                config[i].update(valve_conf[i])
+                config[i].update(valve_conf[i])  # pytype: disable=attribute-error
     return config

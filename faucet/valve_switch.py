@@ -88,4 +88,4 @@ def valve_switch_factory(logger, dp, pipeline, acl_manager):  # pylint: disable=
     switch_class = ValveSwitchManager
     if dp.use_idle_timeout:
         switch_class = ValveSwitchFlowRemovedManager
-    return switch_class(**switch_args)
+    return switch_class(**switch_args)  # pytype: disable=wrong-keyword-args
