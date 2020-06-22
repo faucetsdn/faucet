@@ -20,6 +20,7 @@
 
 import unittest
 import yaml
+import random
 
 from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -39,9 +40,12 @@ class ValveGenerativeBase(ValveTestBases.ValveTestNetwork):
 
     topo = None
 
+    graphs = None
+
     NUM_PORTS = 5
+
     NUM_DPS = 2
-    NUM_VLANS = 1
+    NUM_VLANS = 2
     NUM_HOSTS = 1
     SWITCH_TO_SWITCH_LINKS = 1
 
@@ -49,121 +53,6 @@ class ValveGenerativeBase(ValveTestBases.ValveTestNetwork):
     START_PORT = 5
 
     serial = 0
-
-    def get_serialno(self, *_args, **_kwargs):
-        """"Return mock serial number"""
-        self.serial += 1
-        return self.serial
-
-    def create_topo_config(self, network_graph):
-        """Return topo object and a simple stack config generated from network_graph"""
-        host_links = {}
-        host_vlans = {}
-        dp_options = {}
-        host_n = 0
-        for dp_i in network_graph.nodes():
-            for _ in range(self.NUM_HOSTS):
-                for v_i in range(self.NUM_VLANS):
-                    host_links[host_n] = [dp_i]
-                    host_vlans[host_n] = v_i
-                    host_n += 1
-            dp_options[dp_i] = {'hardware': 'GenericTFM'}
-            if dp_i == 0:
-                dp_options[dp_i]['stack'] = {'priority': 1}
-        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
-        link_vlans = {link: None for link in switch_links}
-        topo = FaucetFakeOFTopoGenerator(
-            'ovstype', 'portsock', 'testname',
-            self.NUM_DPS, False,
-            host_links, host_vlans, switch_links, link_vlans,
-            start_port=self.START_PORT, port_order=self.PORT_ORDER,
-            get_serialno=self.get_serialno)
-        config = topo.get_config(self.NUM_VLANS, dp_options=dp_options)
-        return topo, config
-
-
-class ValveTopologyRestartTest(ValveGenerativeBase):
-    """Test warm starting to a different topology then reverting"""
-
-    NUM_DPS = 2
-    NUM_VLANS = 1
-    NUM_HOSTS = 1
-    SWITCH_TO_SWITCH_LINKS = 1
-
-    def setUp(self):
-        """Ignore, to call set_up with different network topologies"""
-
-    def set_up(self, network_list):
-        """
-        Args:
-            network_list (list): List of networkx graphs
-        """
-        self.topo, self.CONFIG = self.create_topo_config(network_list[0])
-        self.setup_valves(self.CONFIG)
-        self.validate_topology_change(network_list)
-
-    def validate_topology_change(self, network_list):
-        """Test warm/cold-start changing topology"""
-        for network_graph in network_list:
-            if network_graph is network_list[0]:
-                # Ignore the first one because we are already that network
-                continue
-            self.serial = 0
-            _, new_config = self.create_topo_config(network_graph)
-            self.update_and_revert_config(self.CONFIG, new_config, None)
-
-
-class ValveTopologyVLANTest(ValveGenerativeBase):
-    """Generative testing of flowrules after warm-starting after a config host VLAN change"""
-
-    NUM_DPS = 2
-    NUM_VLANS = 2
-    NUM_HOSTS = 2
-    SWITCH_TO_SWITCH_LINKS = 1
-
-    def setUp(self):
-        """Ignore, to call set_up with different topologies"""
-
-    def set_up(self, network_graph):
-        """
-        Args:
-            network_graph (networkx.Graph): Topology for the network
-        """
-        self.topo, self.CONFIG = self.create_topo_config(network_graph)
-        self.setup_valves(self.CONFIG)
-        self.verify_vlan_change()
-
-    def verify_vlan_change(self):
-        """Change host VLAN, check restart of rules consistent"""
-        _, host_port_maps, _ = self.topo.create_port_maps()
-        yaml_config = yaml.safe_load(self.CONFIG)
-        intf_config = yaml_config['dps'][self.topo.switches_by_id[1]]['interfaces']
-        intf_config[host_port_maps[5][1][0]]['native_vlan'] = self.topo.vlan_name(0)
-        new_config = yaml.dump(yaml_config)
-        self.update_and_revert_config(self.CONFIG, new_config, None)
-
-
-class ValveTopologyTableTest(ValveGenerativeBase):
-    """Test FakeOFNetwork packet traversal with all topologies imported from the networkx atlas"""
-
-    topo = None
-
-    NUM_DPS = 2
-    NUM_VLANS = 1
-    NUM_HOSTS = 1
-    SWITCH_TO_SWITCH_LINKS = 1
-
-    def setUp(self):
-        """Ignore, to call set_up with different network topologies"""
-
-    def set_up(self, network_graph):
-        """
-        Args:
-            network_graph (networkx.Graph): Topology for the network
-        """
-        self.topo, self.CONFIG = self.create_topo_config(network_graph)
-        self.setup_valves(self.CONFIG)
-        self.verify_traversal()
 
     @staticmethod
     def create_bcast_match(in_port, in_vid=None):
@@ -179,7 +68,52 @@ class ValveTopologyTableTest(ValveGenerativeBase):
             bcast_match['vlan_vid'] = in_vid
         return bcast_match
 
-    def verify_traversal(self):
+    def get_serialno(self, *_args, **_kwargs):
+        """"Return mock serial number"""
+        self.serial += 1
+        return self.serial
+
+    def create_topo_config(self, network_graph):
+        """Return topo object and a simple stack config generated from network_graph"""
+        host_links = {}
+        host_vlans = {}
+        dp_options = {}
+        host_n = 0
+        for dp_i in network_graph.nodes():
+            for _ in range(self.NUM_HOSTS):
+                a_vlans = random.randint(0, self.NUM_VLANS - 1)
+                b_vlans = random.randint(0, self.NUM_VLANS - 1)
+                min_vlans = min(a_vlans, b_vlans)
+                max_vlans = max(a_vlans, b_vlans)
+                is_tagged = random.choice([True, False])
+                if is_tagged:
+                    if min_vlans != max_vlans:
+                        vlans = list(range(min_vlans, max_vlans))
+                    else:
+                        vlans = [min_vlans]
+                    host_links[host_n] = [dp_i]
+                    host_vlans[host_n] = vlans
+                    host_n += 1
+                else:
+                    for v_i in range(min_vlans, max_vlans):
+                        host_links[host_n] = [dp_i]
+                        host_vlans[host_n] = v_i
+                        host_n += 1
+            dp_options[dp_i] = {'hardware': 'GenericTFM'}
+            if dp_i == 0:
+                dp_options[dp_i]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
+        link_vlans = {link: None for link in switch_links}
+        topo = FaucetFakeOFTopoGenerator(
+            'ovstype', 'portsock', 'testname',
+            self.NUM_DPS, False,
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=self.START_PORT, port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno)
+        config = topo.get_config(self.NUM_VLANS, dp_options=dp_options)
+        return topo, config
+
+    def verify_flood_traversal(self):
         """Verify broadcasts flooding reach all destination hosts"""
         _, host_port_maps, _ = self.topo.create_port_maps()
         for src_host in host_port_maps:
@@ -196,35 +130,170 @@ class ValveTopologyTableTest(ValveGenerativeBase):
                 match = self.create_bcast_match(src_port)
                 self.network.is_output(match, int(src_dpid), int(dst_dpid), port=dst_port)
 
+    def verify_vlan_change(self):
+        """Change host VLAN, check restart of rules consistent"""
+        _, host_port_maps, _ = self.topo.create_port_maps()
+        yaml_config = yaml.safe_load(self.CONFIG)
+        intf_config = yaml_config['dps'][self.topo.switches_by_id[1]]['interfaces']
 
-def test_generator(param):
-    """Return the function that will start testing the topology/topologies"""
-    def test(self):
-        """Setup & test topology"""
-        self.set_up(param)
-    return test
+        for host_i in host_port_maps:
+            # Find a host on the second switch
+            if 1 in host_port_maps[host_i]:
+                port = host_port_maps[host_i][1][0]
+                if 'native_vlan' in intf_config[port]:
+                    prev_name = intf_config[port]['native_vlan']
+                    for v_i in range(self.NUM_VLANS):
+                        # Make sure that the new VLAN will be different
+                        new_name = self.topo.vlan_name(v_i)
+                        if new_name != prev_name:
+                            intf_config[port]['native_vlan'] = new_name
+                            break
+                    else:
+                        # Keep on searching for a host VLAN to change
+                        continue
+                    # Created a different VLAN so now stop searching
+                    break
+
+        new_config = yaml.dump(yaml_config)
+        self.update_and_revert_config(self.CONFIG, new_config, None)
+
+    def validate_topology_change(self):
+        """Test warm/cold-start changing topology"""
+        for network_graph in self.graphs:
+            if network_graph is self.graphs[0]:
+                # Ignore the first one because we are already that network
+                continue
+            self.serial = 0
+            _, new_config = self.create_topo_config(network_graph)
+            self.update_and_revert_config(self.CONFIG, new_config, None)
+
+
+class ClassGenerator:
+    """Generates the required classes for the integration tests"""
+
+    GRAPH_ATLAS = graph_atlas_g()
+
+    MAX_TESTS = 150
+
+    graphs = None
+
+    def __init__(self):
+        """Initialize the graph atlas"""
+        self.graphs = {}
+        for graph in self.GRAPH_ATLAS:
+            if not graph or len(graph.nodes()) < 2 or not networkx.is_connected(graph):
+                continue
+            self.graphs.setdefault(graph.number_of_nodes(), [])
+            self.graphs[graph.number_of_nodes()].append(graph)
+
+    @staticmethod
+    def setup_generator(func):
+        """Returns the class set_up function"""
+        def set_up(self, graphs):
+            self.graphs = graphs
+            self.topo, self.CONFIG = self.create_topo_config(graphs[0])
+            self.setup_valves(self.CONFIG)
+            func(self)
+        return set_up
+
+    @staticmethod
+    def test_generator(graphs):
+        """Returns the test set_up function"""
+        def test(self):
+            self.set_up(graphs)
+        return test
+
+    @staticmethod
+    def sums(length, total_sum):
+        """Returns the permutations of `length` numbers that sum to `total_sum`"""
+        if length == 1:
+            yield (total_sum,)
+        else:
+            for value in range(total_sum + 1):
+                for permutation in ClassGenerator.sums(length - 1, total_sum - value):
+                    yield (value,) + permutation
+
+    def generate_atlas_class(self, class_name, verify_name, constants):
+        """Return a class type generated as each test generated from the graph atlas"""
+        test_class = type(class_name, (ValveGenerativeBase, ), {**constants})
+        verify_func = getattr(test_class, verify_name)
+        set_up = self.setup_generator(verify_func)
+        setattr(test_class, 'set_up', set_up)
+        for graphs in self.graphs.values():
+            for graph in graphs:
+                test_func = self.test_generator([graph])
+                test_name = 'test_%s' % graph.name
+                setattr(test_class, test_name, test_func)
+        return test_class
+
+    def generate_atlas_size_class(self, class_name, verify_name, constants):
+        """Return a class type as each test generated from a set of tests in the graph atlas"""
+        test_class = type(class_name, (ValveGenerativeBase, ), {**constants})
+        verify_func = getattr(test_class, verify_name)
+        set_up = self.setup_generator(verify_func)
+        setattr(test_class, 'set_up', set_up)
+        for num_dps, graph_list in self.graphs.items():
+            test_func = self.test_generator(graph_list)
+            test_name = 'test_reconfigure_topologies_%s_dps' % num_dps
+            setattr(test_class, test_name, test_func)
+        return test_class
+
+    def generate_spine_and_leaf_class(self, class_name, verify_name, constants):
+        """Return a class type as each test generated from a set of tests in the graph atlas"""
+        test_class = type(class_name, (ValveGenerativeBase, ), {**constants})
+        verify_func = getattr(test_class, verify_name)
+        set_up = self.setup_generator(verify_func)
+        setattr(test_class, 'set_up', set_up)
+        curr_nodes = 8
+        curr_tests = 0
+        # Iteratively generate spine & leaf networks until `MAX_TESTS` stopping point
+        # By testing all non-isomorphic topologies up to (and including) 7 nodes,
+        #   SPINE_NODES + LEAF_NODES <= 7 are already tested
+        # Loop until we have reached a desired number of tests
+        while curr_tests <= self.MAX_TESTS:
+            # Get permutations of numbers that sum to the current number of nodes
+            # The current number of nodes will be split between the two partites of the topology
+            for nodes in ClassGenerator.sums(2, curr_nodes):
+                if 0 in nodes or nodes[0] > nodes[1]:
+                    # Ignore empty partites or inverse solutions
+                    continue
+                test_name = 'test_%s_%s_spine_and_%s_leaf_topology' % (
+                    curr_tests, nodes[0], nodes[1])
+                graph = networkx.complete_multipartite_graph(*nodes)
+                test_func = self.test_generator([graph])
+                setattr(test_class, test_name, test_func)
+                curr_tests += 1
+                if curr_tests > self.MAX_TESTS:
+                    break
+            # Increase current number of nodes
+            curr_nodes += 1
+        return test_class
 
 
 if __name__ == '__main__':
-    GRAPHS = {}
-    GRAPH_ATLAS = graph_atlas_g()
-    for graph in GRAPH_ATLAS:
-        if (not graph or len(graph.nodes()) < 2 or not networkx.is_connected(graph)):
-            continue
-        GRAPHS.setdefault(graph.number_of_nodes(), [])
-        GRAPHS[graph.number_of_nodes()].append(graph)
-        for test_class in (ValveTopologyVLANTest, ValveTopologyTableTest):
-            test_name = 'test_%s' % graph.name
-            test_func = test_generator(graph)
-            setattr(test_class, test_name, test_func)
-    for num_dps, nl in GRAPHS.items():
-        chunk = 50
-        batch = 1
-        for test_class in (ValveTopologyRestartTest, ):
-            for i in range(0, len(nl), chunk):
-                test_nl = [nl[0]] + nl[i:i + chunk]
-                test_name = 'test_reconfigure_topologies_%s_nodes_batch_%s' % (num_dps, batch)
-                test_func = test_generator(test_nl)
-                setattr(test_class, test_name, test_func)
-                batch += 1
+    class_generator = ClassGenerator()
+    # Generate generative tests of all non-isomorphic, complete toplogies with 7 nodes or less
+    ValveTopologyVLANTest = class_generator.generate_atlas_class(
+        'ValveTopologyVLANTest', 'verify_vlan_change', {'NUM_HOSTS': 2})
+    ValveTopologyTableTest = class_generator.generate_atlas_class(
+        'ValveTopologyTableTest', 'verify_flood_traversal', {})
+    ValveTopologyRestartTest = class_generator.generate_atlas_size_class(
+        'ValveTopologyRestartTest', 'validate_topology_change', {})
+    # Generate spine and leaf topologies
+    ValveTopologySpineAndLeafTest = class_generator.generate_spine_and_leaf_class(
+        'ValveTopologySpineAndLeafTest', 'verify_flood_traversal', {})
+    # Create new tests that are copies of the previous tests but test with redundant links
+    ValveTopologyVLANMultilinkTest = type(
+        'ValveTopologyVLANMultilinkTest', (ValveTopologyVLANTest,), {})
+    ValveTopologyVLANMultilinkTest.SWITCH_TO_SWITCH_LINKS = 2
+    ValveTopologyTableMultilinkTest = type(
+        'ValveTopologyTableMultilinkTest', (ValveTopologyTableTest,), {})
+    ValveTopologyTableMultilinkTest.SWITCH_TO_SWITCH_LINKS = 2
+    ValveTopologyRestartMultilinkTest = type(
+        'ValveTopologyRestartMultilinkTest', (ValveTopologyRestartTest,), {})
+    ValveTopologyRestartMultilinkTest.SWITCH_TO_SWITCH_LINKS = 2
+    ValveTopologySpineAndLeafMultilinkTest = type(
+        'ValveTopologySpineAndLeafMultilinkTest', (ValveTopologySpineAndLeafTest,), {})
+    ValveTopologySpineAndLeafMultilinkTest.SWITCH_TO_SWITCH_LINKS = 2
+    # Run unit tests
     unittest.main()

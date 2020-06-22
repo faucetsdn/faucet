@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """Implement configuration file parsing."""
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.

@@ -105,7 +105,7 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def host_ip_address(self, host_index, vlan_index):
         """Create a string of the host IP address"""
-        if isinstance(vlan_index, list):
+        if isinstance(vlan_index, (list, tuple)):
             vlan_index = vlan_index[0]
         return '10.%u.0.%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
 
@@ -197,12 +197,17 @@ class FaucetTopoTestBase(FaucetTestBase):
         super().start_net()
         # Create a dictionary of host information
         self.host_information = {}
+        ips_for_vlans = {}
         for host_id, host_name in self.topo.hosts_by_id.items():
             host = self.net.get(host_name)
             vlan = self.host_vlans[host_id]
             ip_interface = None
             if vlan is not None:
-                ip = self.host_ip_address(host_id, vlan)
+                if isinstance(vlan, list):
+                    vlan = tuple(vlan)
+                ips_for_vlans.setdefault(vlan, 0)
+                ip = self.host_ip_address(ips_for_vlans[vlan], vlan)
+                ips_for_vlans[vlan] += 1
                 if self.mininet_host_options and host_id in self.mininet_host_options:
                     mininet_ip = self.mininet_host_options[host_id].get('ip', None)
                     if mininet_ip:
@@ -374,7 +379,6 @@ class FaucetTopoTestBase(FaucetTestBase):
             prop_up = links_up / links
             if prop_up >= prop:
                 return
-            time.sleep(1)
         self.fail('not enough links up: %f / %f' % (links_up, links))
 
     def verify_stack_down(self):

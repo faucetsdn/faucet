@@ -30,6 +30,7 @@ import pstats
 import shutil
 import socket
 import tempfile
+
 import unittest
 import yaml
 
@@ -838,7 +839,8 @@ class ValveTestBases:
                         before_hash, before_str = before_table_states[dp_id]
                         self._check_table_difference(before_hash, before_str, dp_id)
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
-            self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
+            config_status = self.get_prom('faucet_config_load_error', bare=True)
+            self.assertEqual(error_expected, config_status)
             return all_ofmsgs
 
         def _verify_wildcard_deletes(self, reload_type, reload_ofmsgs):
@@ -1325,9 +1327,11 @@ class ValveTestBases:
             for pkts in state_expire.values():
                 self.assertFalse(pkts)
 
-        def verify_flooding(self, matches):
+        def verify_flooding(self, matches, dp_id=None):
             """Verify flooding for a packet, depending on the DP implementation."""
-            valve = self.valves_manager.valves[self.DP_ID]
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
 
             def _verify_flood_to_port(match, port, valve_vlan, port_number=None):
                 if valve_vlan.port_is_tagged(port):
@@ -1336,7 +1340,7 @@ class ValveTestBases:
                     vid = 0
                 if port_number is None:
                     port_number = port.number
-                return self.network.tables[self.DP_ID].is_output(match, port=port_number, vid=vid)
+                return self.network.tables[dp_id].is_output(match, port=port_number, vid=vid)
 
             for match in matches:
                 in_port_number = match['in_port']
@@ -1378,17 +1382,17 @@ class ValveTestBases:
                                     '%s with unknown eth_dst not flooded'
                                     ' on VLAN %u to port %u\n%s' % (
                                         match, valve_vlan.vid,
-                                        port.number, self.network.tables[self.DP_ID])))
+                                        port.number, self.network.tables[dp_id])))
 
                 # Packet must not be flooded to ports not on the VLAN.
                 for port in remaining_ports:
                     if port.stack:
                         self.assertTrue(
-                            self.network.tables[self.DP_ID].is_output(match, port=port.number),
+                            self.network.tables[dp_id].is_output(match, port=port.number),
                             msg=('Unknown eth_dst not flooded to stack port %s' % port))
                     elif not port.mirror:
                         self.assertFalse(
-                            self.network.tables[self.DP_ID].is_output(match, port=port.number),
+                            self.network.tables[dp_id].is_output(match, port=port.number),
                             msg=('Unknown eth_dst flooded to non-VLAN/stack/mirror %s' % port))
 
         def verify_pkt(self, pkt, expected_pkt):

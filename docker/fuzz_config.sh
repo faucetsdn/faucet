@@ -1,8 +1,21 @@
 #!/bin/sh
-dictfile="/faucet-src/tests/fuzzer/dict/config.dict"
-inputfile="/faucet-src/tests/fuzzer/config/"
+
+echo "FUZZING FAUCET CONFIGURATION FILES"
+
+export PYTHONPATH=/faucet-src:/faucet-src/faucet:/faucet-src/clib
+
+cd /faucet-src/tests/generative/fuzzer/config/
+
+python3 generate_dict.py || exit 0
+
+dictfile="/faucet-src/tests/generative/fuzzer/config/config.dict"
+
+inputfile="/faucet-src/tests/generative/fuzzer/config/examples/"
+
 outputfile="/var/log/afl"
 checkfile="$outputfile/fuzzer_stats"
+
+run_file="/faucet-src/tests/generative/fuzzer/config/fuzz_config.py"
 
 if [ -e "$checkfile" ]; then
     start=$(sed -n '1p' $checkfile | cut -c 18-)
@@ -14,4 +27,7 @@ if [ -e "$checkfile" ]; then
     fi
 fi
 
-AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_SKIP_CPUFREQ=1 py-afl-fuzz -x "$dictfile" -m 5000 -i "$inputfile" -o "$outputfile" -- /usr/bin/python3 /faucet-src/tests/generative/fuzzer/fuzz_config.py
+LIMIT_MB=5000
+ulimit -c unlimited; "$run_file" && sudo echo '/var/tmp/core.%h.%e.%t' > /proc/sys/kernel/core_pattern
+
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_SKIP_CPUFREQ=1 py-afl-fuzz -m $LIMIT_MB -x "$dictfile" -i "$inputfile" -o "$outputfile" -- /usr/bin/python3 "$run_file"

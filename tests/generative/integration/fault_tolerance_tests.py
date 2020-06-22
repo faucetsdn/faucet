@@ -4,10 +4,11 @@ import random
 import unittest
 import networkx
 
-from mininet.topo import Topo
+from mininet.topo import Topo  # pylint: disable=unused-import
 
-from clib.mininet_test_watcher import TopologyWatcher
+from clib.mininet_test_watcher import OptimizedTopologyWatcher
 from clib.mininet_test_base_topo import FaucetTopoTestBase
+from clib.mininet_test_topo import FAUCET
 
 
 class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
@@ -29,29 +30,39 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             the same VLAN. Speed up the inter-VLAN testing by ignoring the intra-VLAN cases for
             tests that inherit from a intra-VLAN test. This creates that assumption that inter-VLAN
             does not disrupt the intra-VLAN.
+    ASSUME_SYMMETRIC_PING:
+        A simplification can assume that (h1 -> h2) implies (h2 -> h1).
+        Set to true to assume that host connectivity is symmetric.
+        Symmetric only assumption produces `\\sum_{i=1}^{#nodes} i` pings per stage
+    ASSUME_TRANSITIVE_PING:
+        Assume for (h1 -> h2) & (h2 -> h3) then (h1 -> h3)
+        Set to true to assume that host connectivity is transitive
+        Transitive only assumption produces `#nodes` pings per stage
     ===============================================================================================
-    TODO: Add the following options
-    PROTECTED_NODES/EDGES: Prevent desired nodes/edges from being destroyed
-    ASSUME_TRANSITIVE_PING: Assume for (h1 -> h2) & (h2 -> h3) then (h1 -> h3)
-    IGNORE_SUBGRAPH: Assume for a topology with subgraphs, the subgraphs do not need to be tested
-        (if they have already been tested)
     """
+
     INSTANT_FAIL = True
-    ASSUME_SYMMETRIC_PING = True
     INTERVLAN_ONLY = False
+    ASSUME_SYMMETRIC_PING = True
+    ASSUME_TRANSITIVE_PING = True
 
     # Watches the faults and host connectvitiy
     topo_watcher = None
-    # List of fault events
-    fault_events = None
-    # Number of faults to occur before recalculating connectivity
-    num_faults = 1
-    # Fault-tolerance tests will only work in software
-    SOFTWARE_ONLY = True
+
     # Randomization variables
     seed = 1
     rng = None
 
+    # List of fault events
+    fault_events = None
+    # Number of faults to occur before recalculating connectivity
+    num_faults = 1
+
+    # Fault-tolerance tests will only work in software
+    SOFTWARE_ONLY = True
+
+    # Number of Faucet controllers to create
+    NUM_FAUCET_CONTROLLERS = 2
     # Number of VLANs to create, if >= 2 then routing will be applied
     NUM_VLANS = None
     # Number of DPs in the network
@@ -59,9 +70,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
     # Number of links between switches
     N_DP_LINKS = None
 
-    host_links = None
-    switch_links = None
-    routers = None
+    # Dictionary of roots to stack priority value
     stack_roots = None
 
     def setUp(self):
@@ -84,9 +93,9 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             host_vlans = {}
             host_n = 0
             for dp_i in network_graph.nodes():
-                for v in range(self.NUM_VLANS):
+                for v_i in range(self.NUM_VLANS):
                     host_links[host_n] = [dp_i]
-                    host_vlans[host_n] = v
+                    host_vlans[host_n] = v_i
                     host_n += 1
         dp_options = {}
         for i in network_graph.nodes():
@@ -139,15 +148,22 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
     def calculate_connectivity(self):
         """Ping between each set of host pairs to calculate host connectivity"""
         connected_hosts = self.topo_watcher.get_connected_hosts(
-            two_way=not self.ASSUME_SYMMETRIC_PING, strictly_intervlan=self.INTERVLAN_ONLY)
-        for src, dsts in connected_hosts.items():
-            src_host = self.host_information[src]['host']
-            for dst in dsts:
-                dst_host = self.host_information[dst]['host']
-                dst_ip = self.host_information[dst]['ip']
-                result = self.host_connectivity(src_host, dst_ip.ip)
-                self.topo_watcher.add_network_info(src_host.name, dst_host.name, result)
-                self.assertTrue(not self.INSTANT_FAIL or result, 'Pair connection failed')
+            symmetric=self.ASSUME_SYMMETRIC_PING, transitive=self.ASSUME_TRANSITIVE_PING,
+            intervlan_only=self.INTERVLAN_ONLY)
+        actual_graph = networkx.MultiDiGraph()
+        for src, dst in connected_hosts.edges():
+            src_id = self.topo.nodeInfo(src)['host_n']
+            dst_id = self.topo.nodeInfo(dst)['host_n']
+            result = self.host_connectivity(
+                self.host_information[src_id]['host'], self.host_information[dst_id]['ip'].ip)
+            if result:
+                actual_graph.add_edge(src, dst)
+            if self.INSTANT_FAIL:
+                self.assertTrue(result, 'Connection failed: %s -/-> %s' % (src, dst))
+        self.assertEqual(
+            list(connected_hosts.edges()), list(actual_graph.edges()),
+            'Resulting host connectivity graph does not match expected (%s != %s)' % (
+                list(connected_hosts.edges()), list(actual_graph.edges())))
 
     def create_controller_fault(self, *args):
         """
@@ -161,9 +177,15 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         self.net.controllers.remove(controller)
         self.topo_watcher.add_fault('Controller %s DOWN' % controller.name)
 
+    def get_faucet_controllers(self):
+        """Return list of Faucet controllers"""
+        return [c for c in self.net.controllers if isinstance(c, FAUCET)]
+
     def create_random_controller_fault(self, *args):
         """Randomly create a fault for a controller"""
-        controllers = [c for c in self.net.controllers if c.name != 'gauge']
+        controllers = self.get_faucet_controllers()
+        if len(controllers) == 1:
+            return
         i = random.randrange(len(controllers))
         c_name = controllers[i].name
         controller = next((cont for cont in self.net.controllers if cont.name == c_name), None)
@@ -195,21 +217,21 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
 
     def random_switch_fault(self, *args):
         """Randomly take out an available switch"""
-        dpid_list = self.topo_watcher.get_eligable_switch_events()
+        sw_list = self.topo_watcher.get_eligable_switch_events()
+        index_list = []
+        for sw_name in sw_list:
+            index_list.append(self.topo.nodeInfo(sw_name)['switch_n'])
         if len(self.stack_roots.keys()) <= 1:
-            # Prevent only root from being destroyed
+            # Prevent the only root from being destroyed
             sorted_roots = dict(sorted(self.stack_roots.items(), key=lambda item: item[1]))
             for root_index in sorted_roots.keys():
-                root_dpid = self.dpids[root_index]
-                if root_dpid in dpid_list:
-                    dpid_list.remove(root_dpid)
-                    break
-        if not dpid_list:
+                if root_index in index_list:
+                    index_list.remove(root_index)
+        if not index_list:
             return
-        dpid_item_index = self.rng.randrange(len(dpid_list))
-        dpid_item = dpid_list[dpid_item_index]
-        dpid_index = self.dpids.index(dpid_item)
-        self.create_switch_fault(dpid_index)
+        index = self.rng.randrange(len(index_list))
+        sw_index = index_list[index]
+        self.create_switch_fault(sw_index)
 
     def dp_link_fault(self, *args):
         """
@@ -237,36 +259,27 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
                 self.topo_watcher.add_link_fault(src_i, dst_i, name)
                 return
 
-    def random_dp_link_fault(self, *args):
+    def random_link_fault(self, *args):
         """Randomly create a fault for a DP link"""
         link_list = self.topo_watcher.get_eligable_link_events()
         if not link_list:
             return
         index = self.rng.randrange(len(link_list))
-        dplink = link_list[index]
-        srcdp = self.dpids.index(dplink[0])
-        dstdp = self.dpids.index(dplink[1])
-        self.dp_link_fault(srcdp, dstdp)
+        dp_link = link_list[index]
+        src_i = self.topo.nodeInfo(dp_link[0])['switch_n']
+        dst_i = self.topo.nodeInfo(dp_link[1])['switch_n']
+        self.dp_link_fault(src_i, dst_i)
 
     def create_proportional_random_fault_event(self):
         """Create a fault-event randomly based on the number of link and switch events available"""
         funcs = []
         for _ in self.topo_watcher.get_eligable_link_events():
-            funcs.append(self.random_dp_link_fault)
+            funcs.append(self.random_link_fault)
         for _ in self.topo_watcher.get_eligable_switch_events():
             funcs.append(self.random_switch_fault)
-        i = self.rng.randrange(len(funcs))
-        funcs[i]()
-
-    def create_random_fault_event(self):
-        """Randomly choose an event type to fault on"""
-        funcs = []
-        if self.topo_watcher.get_eligable_link_events():
-            funcs.append(self.random_dp_link_fault)
-        if self.topo_watcher.get_eligable_switch_events():
-            funcs.append(self.random_switch_fault)
-        if not funcs:
-            return
+        for _ in range(len(self.get_faucet_controllers()) - 1):
+            funcs.append(self.create_random_controller_fault)
+        random.shuffle(funcs)
         i = self.rng.randrange(len(funcs))
         funcs[i]()
 
@@ -284,14 +297,11 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         self.num_faults = num_faults
         self.rng = random.Random(self.seed)
 
-        self.topo_watcher = TopologyWatcher(
-            self.dpids, self.switch_links, self.host_links,
-            self.NUM_VLANS, self.host_information, self.routers)
+        self.topo_watcher = OptimizedTopologyWatcher(
+            self.topo, self.host_information, self.configuration_options['routers'])
 
         # Calculate stats (before any tear downs)
         self.calculate_connectivity()
-        self.assertTrue(self.topo_watcher.is_connected(), (
-            'Host connectivity does not match predicted'))
         # Start tearing down the network
         if self.fault_events:
             # Do Specified list of faults (in order) until failure or fault list completed
@@ -302,17 +312,13 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
                     fault_index += 1
                     event_func(*params)
                     self.calculate_connectivity()
-                    self.assertTrue(self.topo_watcher.is_connected(), (
-                        'Host connectivity does not match predicted'))
         else:
             # Continue creating fault until none are available or expected connectivity does not
             #      match real connectivity
-            while self.topo_watcher.continue_faults():
+            while (self.topo_watcher.continue_faults() or bool(len(self.get_faucet_controllers()) - 1)):
                 for _ in range(self.num_faults):
                     self.create_proportional_random_fault_event()
                 self.calculate_connectivity()
-                self.assertTrue(self.topo_watcher.is_connected(), (
-                    'Host connectivity does not match predicted'))
 
     def tearDown(self, ignore_oferrors=False):
         """Make sure to dump the watcher information too"""
@@ -321,7 +327,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         super(FaucetFaultToleranceBaseTest, self).tearDown(ignore_oferrors=ignore_oferrors)
 
 
-class FaucetSingleFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
+class FaucetFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 2 DPs"""
 
     NUM_DPS = 2
@@ -329,11 +335,10 @@ class FaucetSingleFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):
     NUM_VLANS = 2
     N_DP_LINKS = 1
     STACK_ROOTS = {0: 1}
-
     ASSUME_SYMMETRIC_PING = False
 
 
-class FaucetSingleFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
+class FaucetFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 3 DPs"""
 
     NUM_DPS = 3
@@ -343,7 +348,7 @@ class FaucetSingleFaultTolerance3DPTest(FaucetFaultToleranceBaseTest):
     STACK_ROOTS = {0: 1}
 
 
-class FaucetSingleFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
+class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 4 DPs"""
 
     NUM_DPS = 4
@@ -362,7 +367,8 @@ class FaucetSingleFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
     def test_ftp2_all_random_link_failures(self):
         """Test fat-tree-pod-2 randomly tearing down only switch-switch links"""
         network_graph = networkx.cycle_graph(self.NUM_DPS)
-        fault_events = [(self.random_dp_link_fault, (None,)) for _ in range(len(network_graph.edges()))]
+        fault_events = [
+            (self.random_link_fault, (None,)) for _ in range(len(network_graph.edges()))]
         stack_roots = {2*i: 1 for i in range(self.NUM_DPS//2)}
         self.set_up(network_graph, stack_roots)
         self.network_function(fault_events=fault_events)
@@ -388,7 +394,7 @@ class FaucetSingleFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
         self.N_DP_LINKS = 1
 
 
-class FaucetSingleFaultTolerance5DPTest(FaucetFaultToleranceBaseTest):
+class FaucetFaultTolerance5DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 5 DPs"""
 
     NUM_DPS = 5
@@ -398,8 +404,7 @@ class FaucetSingleFaultTolerance5DPTest(FaucetFaultToleranceBaseTest):
     STACK_ROOTS = {0: 1}
 
 
-@unittest.skip('Too computationally complex')
-class FaucetSingleFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
+class FaucetFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 5 DPs"""
 
     NUM_DPS = 6
@@ -410,7 +415,7 @@ class FaucetSingleFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
 
 
 @unittest.skip('Too computationally complex')
-class FaucetSingleFaultTolerance7DPTest(FaucetFaultToleranceBaseTest):
+class FaucetFaultTolerance7DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 5 DPs"""
 
     NUM_DPS = 7
@@ -421,12 +426,12 @@ class FaucetSingleFaultTolerance7DPTest(FaucetFaultToleranceBaseTest):
 
 
 TEST_CLASS_LIST = [
-    FaucetSingleFaultTolerance2DPTest,
-    FaucetSingleFaultTolerance3DPTest,
-    FaucetSingleFaultTolerance4DPTest,
-    FaucetSingleFaultTolerance5DPTest,
-    FaucetSingleFaultTolerance6DPTest,
-    FaucetSingleFaultTolerance7DPTest
+    FaucetFaultTolerance2DPTest,
+    FaucetFaultTolerance3DPTest,
+    FaucetFaultTolerance4DPTest,
+    FaucetFaultTolerance5DPTest,
+    FaucetFaultTolerance6DPTest,
+    FaucetFaultTolerance7DPTest
     ]
 MIN_NODES = min([c.NUM_DPS for c in TEST_CLASS_LIST])
 MAX_NODES = max([c.NUM_DPS for c in TEST_CLASS_LIST])

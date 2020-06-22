@@ -94,7 +94,7 @@ VLAN_DEFAULT_CONFIG = ValveTableConfig(
     match_types=(('eth_dst', True), ('eth_type', False),
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid',),
-    vlan_port_scale=1.5,
+    vlan_port_scale=3,
     next_tables=('copro', 'vlan_acl', 'classification', 'eth_src')
     )
 COPRO_DEFAULT_CONFIG = ValveTableConfig(
@@ -172,7 +172,7 @@ FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
     EGRESS_DEFAULT_CONFIG.table_id + 1,
     match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
-    vlan_port_scale=7.0,
+    vlan_port_scale=8.0,
     )
 MINIMUM_FAUCET_PIPELINE_TABLES = {
     'vlan', 'eth_src', 'eth_dst', 'flood'}

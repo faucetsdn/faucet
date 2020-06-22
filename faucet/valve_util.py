@@ -174,6 +174,8 @@ def close_logger(logger):
 
 def dpid_log(dpid):
     """Log a DP ID as hex/decimal."""
+    if dpid is None:
+        return 'DPID None (NoneType)'
     return 'DPID %u (0x%x)' % (dpid, dpid)
 
 
