@@ -1067,6 +1067,24 @@ dps:
         self.assertTrue(dp.ports[1].max_hosts == 4)
         self.assertEqual(dp.ports[1].description, "video conf")
 
+    def test_range_overlap(self):
+        """Test that ranges cannot overlap."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interface_ranges:
+            1-10:
+                native_vlan: office
+            5-15:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+
     def test_single_range_valid_config(self):
         """Test if port range with single port config applied correctly"""
         config = """
