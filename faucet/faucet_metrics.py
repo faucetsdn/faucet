@@ -172,6 +172,9 @@ class FaucetMetrics(PromClient):
         self.stack_probes_received = self._dpid_counter(
             'stack_probes_received',
             'number of stacking messages received')
+        self.is_dp_stack_root = self._dpid_gauge(
+            'is_dp_stack_root',
+            'bool indicating if dp is stack root')
         self.dp_dot1x_success = self._dpid_counter(
             'dp_dot1x_success',
             'number of successful authentications on dp')
