@@ -156,6 +156,9 @@ class ValvesManager:
                 self.meta_dp_state.stack_root_name, new_stack_root_name))
             if self.meta_dp_state.stack_root_name:
                 stack_change = True
+                prev_root = [dp for dp in stacked_dps if dp.name == self.meta_dp_state.stack_root_name]
+                labels = prev_root[0].base_prom_labels()
+                self.metrics.is_dp_stack_root.labels(**labels).set(0)
             self.meta_dp_state.stack_root_name = new_stack_root_name
             dpids = [dp.dp_id for dp in stacked_dps if dp.name == new_stack_root_name]
             self.metrics.faucet_stack_root_dpid.set(dpids[0])
@@ -175,6 +178,9 @@ class ValvesManager:
                     healthy_stack_roots_names))
             dps = dp_preparsed_parser(self.meta_dp_state.top_conf, self.meta_dp_state)
             self._apply_configs(dps, now, None)
+        root_dps = [dp for dp in stacked_dps if dp.name == new_stack_root_name]
+        labels = root_dps[0].base_prom_labels()
+        self.metrics.is_dp_stack_root.labels(**labels).set(1)
         return stack_change
 
     def event_socket_heartbeat(self, now):
