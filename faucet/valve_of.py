@@ -981,17 +981,21 @@ def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):
             getattr(ofmsg, 'table_id', ofp.OFPTT_ALL), getattr(ofmsg, 'priority', 2**16+1)), reverse=True)
 
 
+def dedupe_overlaps_ofmsgs(input_ofmsgs, random_order, flowkey):
+    return dedupe_ofmsgs(input_ofmsgs, random_order, flowkey)
+
+
 # kind, random_order, suggest_barrier, flowkey
 _OFMSG_ORDER = (
-    ('config', False, True, str),
-    ('deleteglobal', False, True, str),
-    ('delete', False, True, str),
-    ('tfm', False, True, str),
-    ('groupadd', False, True, str),
-    ('meteradd', False, True, str),
-    ('flowaddmod', False, False, _flowmodkey),
-    ('other', False, False, str),
-    ('packetout', True, False, str),
+    ('config', False, True, str, dedupe_ofmsgs),
+    ('deleteglobal', False, True, str, dedupe_ofmsgs),
+    ('delete', False, True, str, dedupe_overlaps_ofmsgs),
+    ('tfm', False, True, str, dedupe_ofmsgs),
+    ('groupadd', False, True, str, dedupe_ofmsgs),
+    ('meteradd', False, True, str, dedupe_ofmsgs),
+    ('flowaddmod', False, False, _flowmodkey, dedupe_ofmsgs),
+    ('other', False, False, str, dedupe_ofmsgs),
+    ('packetout', True, False, str, dedupe_ofmsgs),
 )
 
 
@@ -1011,8 +1015,8 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
         new_delete = [ofmsg for ofmsg in by_kind.get('delete', []) if type(ofmsg) not in global_types]
         by_kind['delete'] = new_delete
 
-    for kind, random_order, suggest_barrier, flowkey in _OFMSG_ORDER:
-        ofmsgs = dedupe_ofmsgs(by_kind.get(kind, []), random_order, flowkey)
+    for kind, random_order, suggest_barrier, flowkey, dedupe_func in _OFMSG_ORDER:
+        ofmsgs = dedupe_func(by_kind.get(kind, []), random_order, flowkey)
         if ofmsgs:
             output_ofmsgs.extend(ofmsgs)
             if use_barriers and suggest_barrier:
