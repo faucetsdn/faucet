@@ -982,7 +982,35 @@ def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):
 
 
 def dedupe_overlaps_ofmsgs(input_ofmsgs, random_order, flowkey):
-    return dedupe_ofmsgs(input_ofmsgs, random_order, flowkey)
+    deduped_ofmsgs = dedupe_ofmsgs(input_ofmsgs, random_order, flowkey)
+    ofmsgs_by_table = {}
+    for ofmsg in deduped_ofmsgs:
+        table_id = getattr(ofmsg, 'table_id', None)
+        ofmsgs_by_table.setdefault(table_id, []).append(ofmsg)
+    all_table_ids = {table_id for table_id in ofmsgs_by_table if isinstance(table_id, int)}
+
+    # If priority-less deletes across all tables are detected, then remove any
+    # overlapping deletes (e.g. if a delete all tables vlan=100 is deleted, then remove
+    # all other table-specific deletes that have vlan=100).
+    if ofp.OFPTT_ALL in all_table_ids:
+        overlap_matches = {
+            tuple(ofmsg.match.items()) for ofmsg in ofmsgs_by_table[ofp.OFPTT_ALL]
+            if not ofmsg.priority}
+        table_ids = all_table_ids - {ofp.OFPTT_ALL}
+        if overlap_matches and table_ids:
+            for table_id in table_ids:
+                for overlap_match in overlap_matches:
+                    overlap_match = set(overlap_match)
+                    ofmsgs_by_table[table_id] = [
+                        ofmsg for ofmsg in ofmsgs_by_table[table_id]
+                        if not overlap_match.issubset(set(ofmsg.match.items()))]
+            nooverlaps_ofmsgs = []
+            for _, ofmsgs in sorted(ofmsgs_by_table.items(), reverse=True):
+                nooverlaps_ofmsgs.extend(ofmsgs)
+            return nooverlaps_ofmsgs
+
+    return deduped_ofmsgs
+
 
 
 # kind, random_order, suggest_barrier, flowkey
