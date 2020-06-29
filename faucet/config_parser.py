@@ -112,6 +112,7 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans): # pylint: disable=invalid-name
         return port_num_to_port_conf
 
     def _parse_port_ranges(port_ranges_conf, port_num_to_port_conf):
+        all_port_nums = set()
         for port_range, port_conf in port_ranges_conf.items():
             # port range format: 1-6 OR 1-6,8-9 OR 1-3,5,7-9
             test_config_condition(not isinstance(port_conf, dict), 'Invalid syntax in port config')
@@ -126,7 +127,11 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans): # pylint: disable=invalid-name
                 port_range = re.sub(range_, '', port_range)
             other_nums = [int(p) for p in re.findall(r'\d+', str(port_range))]
             port_nums.update(other_nums)
-            test_config_condition(not port_nums, 'interface-ranges contain invalid config')
+            test_config_condition(
+                not port_nums, 'interface-ranges contain invalid config')
+            test_config_condition(
+                port_nums.intersection(all_port_nums), 'interfaces-ranges cannot overlap')
+            all_port_nums.update(port_nums)
             for port_num in port_nums:
                 if port_num in port_num_to_port_conf:
                     # port range config has lower priority than individual port config
