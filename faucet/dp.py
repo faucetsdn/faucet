@@ -1092,7 +1092,7 @@ configuration.
                         mirror_from_port[mirrored_port].append(mirror_port)
 
             # TODO: confusingly, mirror at config time means what ports to mirror from.
-            # But internally we use as a list of ports to mirror to.
+            #   But internally we use as a list of ports to mirror to.
             for mirrored_port, mirror_ports in mirror_from_port.items():
                 mirrored_port.mirror = []
                 for mirror_port in mirror_ports:

@@ -56,6 +56,90 @@ from faucet.valve import TfmValve
 from clib.fakeoftable import FakeOFNetwork
 
 
+def build_dict(pkt):
+    """
+    Build and return a dictionary from a pkt
+    This function is supposed to be in duality with build_pkt
+    i.e. build_dict(build_pkt(dict)) == dict && build_pkt(build_dict(pkt)) == pkt
+    """
+    pkt_dict = {}
+    arp_pkt = pkt.get_protocol(arp.arp)
+    if arp_pkt:
+        pkt_dict['arp_source_ip'] = arp_pkt.src_ip
+        pkt_dict['arp_target_ip'] = arp_pkt.dst_ip
+        pkt_dict['opcode'] = arp_pkt.opcode
+    ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
+    if ipv6_pkt:
+        pkt_dict['ipv6_src'] = ipv6_pkt.src
+        pkt_dict['ipv6_dst'] = ipv6_pkt.dst
+    icmpv6_pkt = pkt.get_protocol(icmpv6.icmpv6)
+    if icmpv6_pkt:
+        type_ = icmpv6_pkt.type_
+        if type_ == icmpv6.ND_ROUTER_ADVERT:
+            for option in icmpv6_pkt.data.options:
+                if hasattr(option, 'hw_src'):
+                    pkt_dict['eth_src'] = option.hw_src
+                if hasattr(option, 'prefix'):
+                    pkt_dict['router_advert_ip'] = option.prefix
+        elif type_ == icmpv6.ND_ROUTER_SOLICIT:
+            pkt_dict['router_solicit_ip'] = None
+        elif type_ == icmpv6.ND_NEIGHBOR_ADVERT:
+            pkt_dict['neighbor_advert_ip'] = icmpv6_pkt.data.dst
+            pkt_dict['eth_src'] = icmpv6_pkt.data.option.hw_src
+        elif type_ == icmpv6.ND_NEIGHBOR_SOLICIT:
+            pkt_dict['neighbor_solicit_ip'] = icmpv6_pkt.data.dst
+            pkt_dict['eth_src'] = icmpv6_pkt.data.option.hw_src
+        elif type_ == icmpv6.ICMPV6_ECHO_REQUEST:
+            pkt_dict['echo_request_data'] = icmpv6_pkt.data.data
+        else:
+            raise NotImplementedError('Unknown packet type %s \n' % icmpv6_pkt)
+    ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+    if ipv4_pkt:
+        pkt_dict['ipv4_src'] = ipv4_pkt.src
+        pkt_dict['ipv4_dst'] = ipv4_pkt.dst
+    icmp_pkt = pkt.get_protocol(icmp.icmp)
+    if icmp_pkt:
+        type_ = icmp_pkt.type_
+        if type_ == icmp.ICMP_ECHO_REQUEST:
+            pkt_dict['echo_request_data'] = icmp_pkt.data.data
+        else:
+            raise NotImplementedError('Unknown packet type %s \n' % icmp_pkt)
+    lacp_pkt = pkt.get_protocol(slow.lacp)
+    if lacp_pkt:
+        pkt_dict['actor_system'] = lacp_pkt.actor_system
+        pkt_dict['partner_system'] = lacp_pkt.partner_system
+        pkt_dict['actor_state_synchronization'] = lacp_pkt.actor_state_synchronization
+    lldp_pkt = pkt.get_protocol(lldp.lldp)
+    if lldp_pkt:
+        def faucet_lldp_tlvs(dp_mac, tlv_type, value):
+            oui = valve_packet.faucet_oui(dp_mac)
+            value = str(value).encode('utf-8')
+            return (oui, tlv_type, value)
+        chassis_tlv = valve_packet.tlvs_by_type(lldp_pkt.tlvs, lldp.LLDP_TLV_CHASSIS_ID)[0]
+        chassis_id = valve_packet.addrconv.mac.bin_to_text(chassis_tlv.chassis_id)
+        pkt_dict['chassis_id'] = chassis_id
+        faucet_tlvs = tuple(valve_packet.parse_faucet_lldp(lldp_pkt, chassis_id))
+        remote_dp_id, remote_dp_name, remote_port_id, remote_port_state = faucet_tlvs
+        pkt_dict['system_name'] = remote_dp_name
+        pkt_dict['port_id'] = remote_port_id
+        pkt_dict['eth_dst'] = lldp.LLDP_MAC_NEAREST_BRIDGE
+        tlvs = [
+            faucet_lldp_tlvs(chassis_id, valve_packet.LLDP_FAUCET_DP_ID, remote_dp_id),
+            faucet_lldp_tlvs(chassis_id, valve_packet.LLDP_FAUCET_STACK_STATE, remote_port_state)
+        ]
+        pkt_dict['tlvs'] = tlvs
+    vlan_pkt = pkt.get_protocol(vlan.vlan)
+    if vlan_pkt:
+        pkt_dict['vid'] = vlan_pkt.vid
+    eth_pkt = pkt.get_protocol(ethernet.ethernet)
+    if eth_pkt:
+        pkt_dict['eth_src'] = eth_pkt.src
+        if 'eth_dst' in pkt_dict and pkt_dict['eth_dst'] != eth_pkt.dst:
+            raise NotImplementedError('Previous allocation of eth_dst does not match ethernet dst\n')
+        pkt_dict['eth_dst'] = eth_pkt.dst
+    return pkt_dict
+
+
 def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
 
@@ -479,15 +563,21 @@ class ValveTestBases:
             prof_stats.print_stats(amount)
             return (prof_stats, prof_stream.getvalue())
 
+        @staticmethod
+        def create_mac_str(i, j):
+            """Create a host MAC string"""
+            return '00:00:00:%02x:00:%02x' % (i, j)
+
+        @staticmethod
+        def create_vid(i):
+            """Create a vid with VID_PRESENT"""
+            return 0x100 * i | ofp.OFPVID_PRESENT
+
         # Default DP name
         DP_NAME = 's1'
 
         # Default DP ID
         DP_ID = 1
-        @staticmethod
-        def create_mac_str(i, j):
-            """Create a host MAC string"""
-            return '00:00:00:%02x:00:%02x' % (i, j)
 
         P1_V100_MAC = '00:00:00:01:00:01'
         P2_V100_MAC = '00:00:00:01:00:02'
@@ -497,17 +587,13 @@ class ValveTestBases:
         P3_V200_MAC = '00:00:00:02:00:03'
         P1_V300_MAC = '00:00:00:03:00:01'
         UNKNOWN_MAC = '00:00:00:04:00:04'
+
         BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
         FAUCET_MAC = '0e:00:00:00:00:01'
 
         V100 = 0x100 | ofp.OFPVID_PRESENT
         V200 = 0x200 | ofp.OFPVID_PRESENT
         V300 = 0x300 | ofp.OFPVID_PRESENT
-
-        @staticmethod
-        def create_vid(i):
-            """Create a vid with VID_PRESENT"""
-            return 0x100 * i | ofp.OFPVID_PRESENT
 
         # Number of tables to configure in the FakeOFTable
         NUM_TABLES = 10
@@ -538,8 +624,9 @@ class ValveTestBases:
             self.mock_now_sec = 100
             self.maxDiff = None
 
-            # TODO: LEGACY
+            # Used for a legacy port mechanism
             self.up_ports = {}
+
             super(ValveTestBases.ValveTestNetwork, self).__init__(*args, **kwargs)
 
         def mock_time(self, increment_sec=1):
@@ -981,7 +1068,6 @@ class ValveTestBases:
                             '%s stack state %s != %s' % (
                                 port, port.dyn_stack_current_state, exp_state))
 
-        # TODO LEGACY PORT MECHANICS
         def flap_port(self, port_no):
             """Flap op status on a port."""
             self.set_port_down(port_no)
@@ -1089,7 +1175,6 @@ class ValveTestBases:
             """Set stack port up recalculating topology as necessary."""
             self.set_stack_port_status(port_no, 2, valve)
 
-        # TODO LEGACY METHODS
         def validate_flood(self, in_port, vlan_vid, out_port, expected, msg):
             bcast_match = {
                 'in_port': in_port,
@@ -1156,11 +1241,27 @@ class ValveTestBases:
         def verify_expiry(self):
             """Verify FIB resolution attempts expire."""
             valve = self.valves_manager.valves[self.DP_ID]
-            for _ in range(valve.dp.max_host_fib_retry_count + 1):
+
+            def expire():
                 now = self.mock_time(valve.dp.timeout * 2)
-                valve.state_expire(now, None)
-                valve.resolve_gateways(now, None)
-            # TODO: verify state expired
+                state_expire = valve.state_expire(now, None)
+                resolve_gws = valve.resolve_gateways(now, None)
+                return state_expire, resolve_gws
+
+            state_expire, resolve_gws = {}, {}
+            # Expire resolution attempts
+            for _ in range(valve.dp.max_host_fib_retry_count):
+                state_expire, resolve_gws = expire()
+            # If there are still more state_expire msgs, make sure they are flowdels
+            state_expire, resolve_gw = expire()
+            for pkts in state_expire.values():
+                if pkts:
+                    for pkt in pkts:
+                        self.assertTrue(valve_of.is_flowdel(pkt))
+            # Final check to make sure there are now absolutely no state expire msgs
+            state_expire, resolve_gws = expire()
+            for pkts in state_expire.values():
+                self.assertFalse(pkts)
 
         def verify_flooding(self, matches):
             """Verify flooding for a packet, depending on the DP implementation."""
@@ -1228,12 +1329,60 @@ class ValveTestBases:
                             self.network.tables[self.DP_ID].is_output(match, port=port.number),
                             msg=('Unknown eth_dst flooded to non-VLAN/stack/mirror %s' % port))
 
+        def verify_pkt(self, pkt, expected_pkt):
+            """
+            Verifies that a packet contains the matches with correct values
+
+            Args:
+                pkt (packet.Packet): The packet object to build into the dictionary
+                expected_pkt (dict): The expected values to be contained in the packet directory
+            """
+            pkt_dict = build_dict(pkt)
+            for key in expected_pkt:
+                self.assertTrue(
+                    key in pkt_dict,
+                    'key %s not in pkt %s' % (key, pkt_dict))
+                if expected_pkt[key] is None:
+                    # Sometimes we may not know that correct value but
+                    #   want to ensure that there exists a value so use the None
+                    #   value for a packet key
+                    continue
+                self.assertEqual(
+                    expected_pkt[key], pkt_dict[key],
+                    'key: %s not matching (%s != %s)' % (key, expected_pkt[key], pkt_dict[key]))
+
+        def verify_route_add_del(self, dp_id, vlan_vid, ip_gw, ip_dst):
+            """
+            Verifies that adding then deleting routes maintains consistent
+                flow rules in the FakeOFTable
+
+            Args:
+                dp_id (int): DP ID of the DP receiving the route
+                vlan_vid (Vlan): VLAN VID belonging to the route
+                ip_gw (ipaddress.IPv(4/6)Address): IP route gateway
+                ip_dst (ipaddress.IPv(4/6)Network): IP route destination
+            """
+            valve = self.valves_manager.valves[dp_id]
+            valve_vlan = valve.dp.vlans[vlan_vid]
+            before_table_state = str(self.network.tables[dp_id])
+            route_add_replies = valve.add_route(valve_vlan, ip_gw, ip_dst)
+            self.assertTrue(route_add_replies)
+            self.apply_ofmsgs(route_add_replies, dp_id)
+            route_del_replies = valve.del_route(valve_vlan, ip_dst)
+            self.assertTrue(route_del_replies)
+            self.apply_ofmsgs(route_del_replies, dp_id)
+            after_table_state = str(self.network.tables[dp_id])
+            diff = difflib.unified_diff(
+                before_table_state.splitlines(), after_table_state.splitlines())
+            self.assertEqual(
+                before_table_state, after_table_state, msg='\n'.join(diff))
 
 
     class ValveTestBig(ValveTestNetwork):
         """Test basic switching/L2/L3 functions."""
 
         def setUp(self):
+            self.CONFIG = CONFIG
             self.setup_valves(CONFIG)
 
         def test_notifier_socket_path(self):
@@ -1276,6 +1425,7 @@ class ValveTestBases:
         def test_tfm(self):
             """Test TFM is sent."""
             valve = self.valves_manager.valves[self.DP_ID]
+            network_table = self.network.tables[self.DP_ID]
             self.assertTrue(
                 isinstance(valve, TfmValve),
                 msg=type(valve))
@@ -1285,8 +1435,51 @@ class ValveTestBases:
             tfm_flows = [
                 flow for flow in flows if isinstance(
                     flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
-            # TODO: verify TFM content.
             self.assertTrue(tfm_flows)
+            for table_name, table in valve.dp.tables.items():
+                # Ensure the TFM generated for each table has the correct values
+                table_id = table.table_id
+                self.assertIn(table_id, network_table.tfm)
+                tfm_body = network_table.tfm[table_id]
+                tfm_oxm = [
+                    tfm for tfm in tfm_body.properties
+                    if isinstance(tfm, valve_of.parser.OFPTableFeaturePropOxm)]
+                tfm_setfields = []
+                tfm_matchtypes = []
+                tfm_exactmatch = []
+                for oxm in tfm_oxm:
+                    if oxm.type == valve_of.ofp.OFPTFPT_MATCH:
+                        tfm_matchtypes.extend(oxm.oxm_ids)
+                    elif oxm.type == valve_of.ofp.OFPTFPT_WILDCARDS:
+                        tfm_exactmatch.extend(oxm.oxm_ids)
+                    elif oxm.type == valve_of.ofp.OFPTFPT_APPLY_SETFIELD:
+                        tfm_setfields.extend(oxm.oxm_ids)
+                for oxm_id in tfm_matchtypes:
+                    self.assertIn(oxm_id.type, table.match_types)
+                    self.assertEqual(oxm_id.hasmask, table.match_types[oxm_id.type])
+                for oxm_id in tfm_exactmatch:
+                    self.assertIn(oxm_id.type, table.match_types)
+                    self.assertEqual(oxm_id.hasmask, table.match_types[oxm_id.type])
+                for oxm_id in tfm_setfields:
+                    self.assertIn(oxm_id.type, table.set_fields)
+                    self.assertFalse(oxm_id.hasmask)
+                tfm_nexttables = [
+                    tfm for tfm in tfm_body.properties
+                    if isinstance(tfm, valve_of.parser.OFPTableFeaturePropNextTables)]
+                tfm_nexttable = []
+                tfm_misstable = []
+                for tfm_nt in tfm_nexttables:
+                    if tfm_nt.type == valve_of.ofp.OFPTFPT_NEXT_TABLES:
+                        tfm_nexttable.append(tfm_nt)
+                    elif tfm_nt.type == valve_of.ofp.OFPTFPT_NEXT_TABLES_MISS:
+                        tfm_misstable.append(tfm_nt)
+                if table.next_tables:
+                    self.assertEqual(len(tfm_nexttable), 1)
+                    self.assertEqual(tfm_nexttable[0].table_ids, table.next_tables)
+                if table.table_config.miss_goto:
+                    self.assertEqual(len(tfm_misstable), 1)
+                    miss_id = valve.dp.tables[table.table_config.miss_goto].table_id
+                    self.assertEqual(tfm_misstable[0].table_ids, [miss_id])
 
         def test_pkt_meta(self):
             """Test bad fields in OFPacketIn."""
@@ -1347,8 +1540,17 @@ class ValveTestBases:
                         'arp_code': arp.ARP_REQUEST,
                         'arp_source_ip': '10.0.0.1',
                         'arp_target_ip': '10.0.0.254'})[self.DP_ID]
-                    # TODO: check ARP reply is valid
-                    self.assertTrue(ValveTestBases.packet_outs_from_flows(arp_replies), msg=arp_mac)
+                    packet_outs = ValveTestBases.packet_outs_from_flows(arp_replies)
+                    self.assertTrue(packet_outs)
+                    for arp_pktout in packet_outs:
+                        pkt = packet.Packet(arp_pktout.data)
+                        exp_pkt = {
+                            'opcode': 2,
+                            'arp_source_ip': '10.0.0.254',
+                            'arp_target_ip': '10.0.0.1',
+                            'eth_src': FAUCET_MAC,
+                            'eth_dst': self.P1_V100_MAC}
+                        self.verify_pkt(pkt, exp_pkt)
 
         def test_arp_reply_from_host(self):
             """ARP reply for host."""
@@ -1358,7 +1560,6 @@ class ValveTestBases:
                 'arp_code': arp.ARP_REPLY,
                 'arp_source_ip': '10.0.0.1',
                 'arp_target_ip': '10.0.0.254'})[self.DP_ID]
-            # TODO: check ARP reply is valid
             self.assertTrue(arp_replies)
             self.assertFalse(ValveTestBases.packet_outs_from_flows(arp_replies))
 
@@ -1377,9 +1578,17 @@ class ValveTestBases:
                         'ipv6_src': 'fc00::1:1',
                         'ipv6_dst': str(ip_gw_mcast),
                         'neighbor_solicit_ip': str(dst_ip)})[self.DP_ID]
-                    # TODO: check reply NA is valid
                     packet_outs = ValveTestBases.packet_outs_from_flows(nd_replies)
                     self.assertTrue(packet_outs)
+                    for nd_pktout in packet_outs:
+                        pkt = packet.Packet(nd_pktout.data)
+                        exp_pkt = {
+                            'eth_src': FAUCET_MAC,
+                            'eth_dst': self.P2_V200_MAC,
+                            'ipv6_src': str(dst_ip),
+                            'ipv6_dst': 'fc00::1:1',
+                            'neighbor_advert_ip': str(dst_ip)}
+                        self.verify_pkt(pkt, exp_pkt)
 
         def test_nd_from_host(self):
             """IPv6 NA from host."""
@@ -1390,7 +1599,6 @@ class ValveTestBases:
                 'ipv6_src': 'fc00::1:1',
                 'ipv6_dst': 'fc00::1:254',
                 'neighbor_advert_ip': 'fc00::1:1'})[self.DP_ID]
-            # TODO: check NA response flows are valid
             self.assertTrue(na_replies)
             self.assertFalse(ValveTestBases.packet_outs_from_flows(na_replies))
 
@@ -1404,8 +1612,17 @@ class ValveTestBases:
                 'ipv6_src': 'fe80::1:1',
                 'ipv6_dst': router_solicit_ip,
                 'router_solicit_ip': router_solicit_ip})[self.DP_ID]
-            # TODO: check RA is valid
-            self.assertTrue(ValveTestBases.packet_outs_from_flows(ra_replies))
+            packet_outs = ValveTestBases.packet_outs_from_flows(ra_replies)
+            self.assertTrue(packet_outs)
+            for ra_pktout in packet_outs:
+                pkt = packet.Packet(ra_pktout.data)
+                exp_pkt = {
+                    'ipv6_src': 'fe80::1:254',
+                    'ipv6_dst': 'fe80::1:1',
+                    'eth_src': FAUCET_MAC,
+                    'eth_dst': self.P2_V200_MAC,
+                    'router_advert_ip': 'fc00::1:0'}
+                self.verify_pkt(pkt, exp_pkt)
 
         def test_icmp_ping_controller(self):
             """IPv4 ping controller VIP."""
@@ -1445,20 +1662,19 @@ class ValveTestBases:
                 'arp_code': arp.ARP_REQUEST,
                 'arp_source_ip': '10.0.0.1',
                 'arp_target_ip': '10.0.0.254'})[self.DP_ID]
-            # TODO: check ARP reply is valid
-            self.assertTrue(ValveTestBases.packet_outs_from_flows(arp_replies))
-            valve = self.valves_manager.valves[self.DP_ID]
-            valve_vlan = valve.dp.vlans[0x100]
-            ip_dst = ipaddress.IPv4Network('10.100.100.0/24')
+            pkt_outs = ValveTestBases.packet_outs_from_flows(arp_replies)
+            self.assertTrue(pkt_outs)
+            for arp_pktout in pkt_outs:
+                pkt = packet.Packet(arp_pktout.data)
+                exp_pkt = {
+                    'arp_source_ip': '10.0.0.254',
+                    'arp_target_ip': '10.0.0.1',
+                    'eth_src': FAUCET_MAC,
+                    'eth_dst': self.P1_V100_MAC}
+                self.verify_pkt(pkt, exp_pkt)
             ip_gw = ipaddress.IPv4Address('10.0.0.1')
-            route_add_replies = valve.add_route(
-                valve_vlan, ip_gw, ip_dst)
-            # TODO: check add flows.
-            self.assertTrue(route_add_replies)
-            route_del_replies = valve.del_route(
-                valve_vlan, ip_dst)
-            # TODO: check del flows.
-            self.assertTrue(route_del_replies)
+            ip_dst = ipaddress.IPv4Network('10.100.100.0/24')
+            self.verify_route_add_del(self.DP_ID, 0x100, ip_gw, ip_dst)
 
         def test_host_ipv4_fib_route(self):
             """Test learning a FIB rule for an IPv4 host."""
@@ -1471,16 +1687,14 @@ class ValveTestBases:
                 'echo_request_data': bytes(
                     'A'*8, encoding='UTF-8')})  # pytype: disable=wrong-keyword-args
             fib_route_replies = fib_route_replies[self.DP_ID]
-            # TODO: verify learning rule contents
-            # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
-            # Verify adding default route via 10.0.0.2
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
             valve = self.valves_manager.valves[self.DP_ID]
-            self.assertTrue((valve.add_route(
+            route_add_replies = valve.add_route(
                 valve.dp.vlans[0x100],
                 ipaddress.IPv4Address('10.0.0.2'),
-                ipaddress.IPv4Network('0.0.0.0/0'))))
-            self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
+                ipaddress.IPv4Network('0.0.0.0/0'))
+            self.assertTrue(route_add_replies)
             self.verify_expiry()
 
         def test_host_ipv6_fib_route(self):
@@ -1492,7 +1706,6 @@ class ValveTestBases:
                 'ipv6_src': 'fc00::1:2',
                 'ipv6_dst': 'fc00::1:4',
                 'echo_request_data': self.ICMP_PAYLOAD})[self.DP_ID]
-            # TODO: verify learning rule contents
             # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
             self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
@@ -1507,8 +1720,19 @@ class ValveTestBases:
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.99',
                 'echo_request_data': self.ICMP_PAYLOAD})[self.DP_ID]
-            # TODO: check proactive neighbor resolution
-            self.assertTrue(ValveTestBases.packet_outs_from_flows(echo_replies))
+            self.assertTrue(echo_replies)
+            out_pkts = ValveTestBases.packet_outs_from_flows(echo_replies)
+            self.assertTrue(out_pkts)
+            for out_pkt in out_pkts:
+                pkt = packet.Packet(out_pkt.data)
+                exp_pkt = {
+                    'arp_source_ip': '10.0.0.254',
+                    'arp_target_ip': '10.0.0.99',
+                    'opcode': 1,
+                    'eth_src': FAUCET_MAC,
+                    'eth_dst': self.BROADCAST_MAC
+                }
+                self.verify_pkt(pkt, exp_pkt)
 
         def test_ping6_unknown_neighbor(self):
             """IPv6 ping unknown host on same subnet, causing proactive learning."""
@@ -1519,8 +1743,19 @@ class ValveTestBases:
                 'ipv6_src': 'fc00::1:2',
                 'ipv6_dst': 'fc00::1:4',
                 'echo_request_data': self.ICMP_PAYLOAD})[self.DP_ID]
-            # TODO: check proactive neighbor resolution
-            self.assertTrue(ValveTestBases.packet_outs_from_flows(echo_replies))
+            self.assertTrue(echo_replies)
+            out_pkts = ValveTestBases.packet_outs_from_flows(echo_replies)
+            self.assertTrue(out_pkts)
+            for out_pkt in out_pkts:
+                pkt = packet.Packet(out_pkt.data)
+                exp_pkt = {
+                    'ipv6_src': 'fc00::1:254',
+                    'ipv6_dst': 'ff02::1:ff01:4',
+                    'neighbor_solicit_ip': 'fc00::1:4',
+                    'eth_src': FAUCET_MAC,
+                    'eth_dst': '33:33:ff:01:00:04'
+                }
+                self.verify_pkt(pkt, exp_pkt)
 
         def test_icmpv6_ping_controller(self):
             """IPv6 ping controller VIP."""
@@ -1999,9 +2234,22 @@ meters:
 
         def test_lldp_beacon(self):
             """Test LLDP beacon service."""
-            # TODO: verify LLDP packet content.
             valve = self.valves_manager.valves[self.DP_ID]
-            self.assertTrue(valve.fast_advertise(self.mock_time(10), None))
+            lldp_pkts = valve.fast_advertise(self.mock_time(10), None)
+            self.assertTrue(lldp_pkts)
+            out_pkts = ValveTestBases.packet_outs_from_flows(lldp_pkts[valve])
+            self.assertTrue(out_pkts)
+            for out_pkt in out_pkts:
+                pkt = packet.Packet(out_pkt.data)
+                exp_pkt = {
+                    'chassis_id': FAUCET_MAC,
+                    'system_name': 'faucet',
+                    'port_id': None,
+                    'eth_src': FAUCET_MAC,
+                    'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
+                    'tlvs': None
+                }
+                self.verify_pkt(pkt, exp_pkt)
 
         def test_unknown_port(self):
             """Test port status change for unknown port handled."""
@@ -2089,9 +2337,13 @@ meters:
 
         def test_get_config_dict(self):
             """Test API call for DP config."""
-            # TODO: test actual config contents.
             valve = self.valves_manager.valves[self.DP_ID]
-            self.assertTrue(valve.get_config_dict())
+            config_dict = valve.get_config_dict()
+            self.assertIn('dps', config_dict)
+            self.assertIn(valve.dp.name, config_dict['dps'])
+            self.assertEqual(len(config_dict['dps']), 1)
+            self.assertIn('vlans', config_dict)
+            self.assertIn('acls', config_dict)
             self.assertTrue(valve.dp.get_tables())
 
         def test_dp_disconnect_cleanup(self):

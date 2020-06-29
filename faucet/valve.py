@@ -567,12 +567,12 @@ class Valve:
 
     def fast_advertise(self, now, _other_valves):
         """Called periodically to send LLDP/LACP packets."""
-        # TODO: the beacon service is specifically NOT to support conventional R/STP.
-        # It is intended to facilitate physical troubleshooting (e.g.
-        # a standard cable tester can display OF port information).
-        # It is used also by stacking to verify stacking links.
-        # TODO: in the stacking case, provide an authentication scheme for the probes
-        # so they cannot be forged.
+        # NOTE: The beacon service is specifically NOT to support conventional R/STP.
+        #   It is intended to facilitate physical troubleshooting (e.g.
+        #       a standard cable tester can display OF port information).
+        #   It is used also by stacking to verify stacking links.
+        # TODO: In the stacking case, provide an authentication scheme for the probes
+        #   so they cannot be forged.
         if (not self.dp.fast_advertise_interval or
                 now - self._last_fast_advertise_sec < self.dp.fast_advertise_interval):
             return {}
@@ -1305,12 +1305,6 @@ class Valve:
         Returns:
             dict: OpenFlow messages, if any by Valve.
         """
-        # TODO: expensive, even at non-debug level.
-        # self.logger.debug(
-        #    'Packet_in src:%s in_port:%d VLAN:%s' % (
-        #        pkt_meta.eth_src,
-        #        pkt_meta.port.number,
-        #        pkt_meta.vlan))
         if pkt_meta.vlan is None:
             return self._non_vlan_rcv_packet(now, other_valves, pkt_meta)
         return self._vlan_rcv_packet(now, other_valves, pkt_meta)

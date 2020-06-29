@@ -178,7 +178,6 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
         Returns:
             list of flowmods
         """
-        # TODO Come back to. Should this be down?
         self._dot1x_speaker.port_down(
             get_mac_str(self.dp_id_to_valve_index[dp_id], nfv_sw_port.number))
         valve = self._valves[dp_id]

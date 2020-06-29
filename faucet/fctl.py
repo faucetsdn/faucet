@@ -2,10 +2,6 @@
 
 """Report state based on FAUCET/Gauge/Prometheus variables."""
 
-# TODO: this script and is usage is experimental and its output
-# is expected to change significantly.
-# TODO: add control functionality.
-
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
