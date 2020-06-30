@@ -23,7 +23,7 @@ from faucet.valve_switch_stack import (
     ValveSwitchStackManagerNoReflection, ValveSwitchStackManagerReflection)
 
 
-def valve_switch_factory(logger, dp, pipeline, acl_manager):  # pylint: disable=invalid-name
+def valve_switch_factory(logger, dp, pipeline, acl_manager, stack_manager):  # pylint: disable=invalid-name
     """Return switch flood/learning manager based on datapath configuration.
 
         Args:
@@ -66,26 +66,15 @@ def valve_switch_factory(logger, dp, pipeline, acl_manager):  # pylint: disable=
         'faucet_dp_mac': dp.faucet_dp_mac,
     }
 
-    if dp.stack_graph:
+    if dp.stack:
         switch_class = ValveSwitchStackManagerNoReflection
-        if dp.stack_root_flood_reflection:
+        if dp.stack.root_flood_reflection:
             switch_class = ValveSwitchStackManagerReflection
             logger.info('Using stacking root flood reflection')
         else:
             logger.info('Not using stacking root flood reflection')
         switch_args.update({
-            'stack_ports': dp.stack_ports,
-            'dp_shortest_path_to_root': dp.shortest_path_to_root,
-            'shortest_path': dp.shortest_path,
-            'shortest_path_port': dp.shortest_path_port,
-            'is_stack_root': dp.is_stack_root,
-            'is_stack_root_candidate': dp.is_stack_root_candidate,
-            'is_stack_edge': dp.is_stack_edge,
-            'dp_name': dp.name,
-            'graph': dp.stack_graph,
-            'tunnel_acls': dp.tunnel_acls,
-            'stack_route_learning': dp.stack_route_learning,
-            'acl_manager': acl_manager,
+            'stack_manager': stack_manager,
         })
         return switch_class(**switch_args)
 

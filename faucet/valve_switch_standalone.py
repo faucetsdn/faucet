@@ -425,11 +425,6 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         return ofmsgs
 
     @staticmethod
-    def update_stack_topo(event, dp, port):  # pylint: disable=unused-argument,invalid-name
-        """Update the stack topology. It has nothing to do for non-stacking DPs."""
-        return
-
-    @staticmethod
     def edge_learn_port(_other_valves, pkt_meta):
         """Possibly learn a host on a port.
 

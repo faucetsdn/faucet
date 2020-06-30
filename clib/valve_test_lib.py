@@ -1077,7 +1077,7 @@ class ValveTestBases:
             """Bring all the ports in a stack fully up"""
             for valve in self.valves_manager.valves.values():
                 valve.dp.dyn_running = True
-                for port in valve.dp.stack_ports:
+                for port in valve.dp.stack_ports():
                     port.stack_up()
 
         def up_stack_port(self, port, dp_id=None):
@@ -1121,7 +1121,7 @@ class ValveTestBases:
                 valve.dp.dyn_running = True
                 for port in valve.dp.ports.values():
                     port.dyn_phys_up = True
-                for port in valve.dp.stack_ports:
+                for port in valve.dp.stack_ports():
                     self.up_stack_port(port, dp_id=valve.dp.dp_id)
                     self._update_port_map(port, True)
             self.trigger_all_ports(packets=packets)
@@ -1161,7 +1161,7 @@ class ValveTestBases:
                 valve = self.valves_manager.valves[self.DP_ID]
             port = valve.dp.ports[port_no]
             port.dyn_stack_current_state = status
-            valve.switch_manager.update_stack_topo(True, valve.dp, port)
+            valve.stack_manager.update_stack_topo(True, valve.dp, port)
             for valve_vlan in valve.dp.vlans.values():
                 ofmsgs = valve.switch_manager.add_vlan(valve_vlan, cold_start=False)
                 self.apply_ofmsgs(ofmsgs, dp_id=valve.dp.dp_id)
@@ -2379,6 +2379,8 @@ meters:
                     native_vlan: vlan200
                 3:
                     stack: {dp: s2, port: 3}
+                4:
+                    stack: {dp: s5, port: 4}
         s2:
             dp_id: 2
             hardware: 'GenericTFM'
@@ -2413,6 +2415,20 @@ meters:
                     native_vlan: vlan200
                 3:
                     stack: {dp: s3, port: 4}
+                4:
+                    stack: {dp: s5, port: 3}
+        s5:
+            dp_id: 5
+            hardware: 'GenericTFM'
+            interfaces:
+                1:
+                    native_vlan: vlan100
+                2:
+                    native_vlan: vlan200
+                3:
+                    stack: {dp: s4, port: 4}
+                4:
+                    stack: {dp: s1, port: 4}
     """
 
         def create_config(self):
@@ -2436,13 +2452,7 @@ meters:
             """Create a stacking config file."""
             self.create_config()
             self.setup_valves(self.CONFIG)
-            for valve in self.valves_manager.valves.values():
-                valve.dp.dyn_running = True
-                for port in valve.dp.ports.values():
-                    port.dyn_finalized = False
-                    port.enabled = True
-                    port.dyn_phys_up = True
-                    port.dyn_finalized = True
+            self.trigger_stack_ports()
 
         @staticmethod
         def create_mac(vindex, host):
@@ -2486,7 +2496,7 @@ meters:
                 self.assertEqual(eth_match, nexthop.eth_src)
                 if host_valve != valve:
                     # Check the proper nexthop port is cached
-                    expected_port = valve.dp.shortest_path_port(host_valve.dp.name)
+                    expected_port = valve.stack_manager.relative_port_towards(host_valve.dp.name)
                     self.assertEqual(expected_port, nexthop.port)
 
         def test_router_cache_learn_hosts(self):

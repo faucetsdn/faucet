@@ -125,7 +125,7 @@ class ValveRouteManager(ValveManagerBase):
     def __init__(self, logger, notify, global_vlan, neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl, multi_out,
-                 fib_table, vip_table, pipeline, routers, switch_manager):
+                 fib_table, vip_table, pipeline, routers, stack_manager):
         self.notify = notify
         self.logger = logger
         self.global_vlan = AnonVLAN(global_vlan)
@@ -143,7 +143,7 @@ class ValveRouteManager(ValveManagerBase):
         self.routers = routers
         self.active = False
         self.global_routing = self._global_routing()
-        self.switch_manager = switch_manager
+        self.stack_manager = stack_manager
         if self.global_routing:
             self.logger.info('global routing enabled')
 
@@ -176,8 +176,14 @@ class ValveRouteManager(ValveManagerBase):
     def _flood_stack_links(self, pkt_builder, vlan, multi_out=True, *args):
         """Return flood packet-out actions to stack ports for gw resolving"""
         ofmsgs = []
-        if isinstance(self.switch_manager, ValveSwitchStackManagerBase):
-            ports = self.switch_manager._stack_flood_ports()
+        if self.stack_manager:
+            ports = list()
+            if self.stack_manager.stack.is_root():
+                ports = list(self.stack_manager.away_ports -
+                             self.stack_manager.inactive_away_ports -
+                             self.stack_manager.pruned_away_ports)
+            else:
+                ports = [self.stack_manager.chosen_towards_port]
             if ports:
                 running_port_nos = [port.number for port in ports if port.running()]
                 pkt = pkt_builder(vlan.vid, *args)

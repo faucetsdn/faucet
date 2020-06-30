@@ -1020,7 +1020,7 @@ class FlowMod:
             name = 'output'
             if action.port == CONTROLLER_PORT:
                 value = 'CONTROLLER'
-            if action.port == IN_PORT:
+            elif action.port == IN_PORT:
                 value = 'IN_PORT'
             else:
                 value = str(action.port)

@@ -49,12 +49,14 @@ class Conf:
         if self.defaults is not None and self.defaults_types is not None:
             diff = set(self.defaults.keys()).symmetric_difference(set(self.defaults_types.keys()))
             assert not diff, diff
-        # TODO: handle conf as a sequence. # pylint: disable=fixme
         if isinstance(conf, dict):
             self.update(conf)
             self.set_defaults()
         self.check_config()
         self.orig_conf = {k: self.__dict__[k] for k in self.defaults}
+        for k, conf_v in self.orig_conf.items():
+            if isinstance(conf_v, Conf):
+                self.orig_conf[k] = conf_v.orig_conf
 
     def __setattr__(self, name, value):
         if not self.dyn_finalized or name.startswith('dyn') or name in self.mutable_attrs:

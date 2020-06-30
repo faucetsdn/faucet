@@ -72,6 +72,7 @@ DEFAULTS = {
         ':',
         _PREFIX,
         '/etc/ryu/faucet/faucet.yaml')),
+    'FAUCET_STACK_ROOT_STATE_UPDATE_TIME': 10,
     'FAUCET_CONFIG_STAT_RELOAD': False,
     'FAUCET_CONFIG_AUTO_REVERT': False,
     'FAUCET_LOG_LEVEL': 'INFO',
