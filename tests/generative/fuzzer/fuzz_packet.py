@@ -30,7 +30,7 @@ def main():
             valve.dp.running = True
             valve.dp.dyn_finalized = state
 
-    while afl.loop(ROUNDS): # pylint: disable=c-extension-no-member
+    while afl.loop(ROUNDS):  # pylint: disable=c-extension-no-member
         # receive input from afl
         rcv = sys.stdin.read()
         data = None

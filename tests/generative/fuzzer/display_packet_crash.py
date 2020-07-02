@@ -52,4 +52,4 @@ if __name__ == "__main__":
     if len(sys.argv) == 2:
         main()
     else:
-        print('USAGE: python3 display_packet_crash.py <AFL_CRASH_FILE>')
+        sys.stderr.write('USAGE: python3 display_packet_crash.py <AFL_CRASH_FILE>\n')

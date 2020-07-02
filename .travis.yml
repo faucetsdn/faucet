@@ -9,73 +9,13 @@ addons:
 cache:
   pip: true
 stages:
-  - test
   - name: deploy
     if: repo = faucetsdn/faucet AND tag IS present
-env:
-  global:
-    - FAUCET_TEST_IMG=faucet/tests
-    - MATRIX_SHARDS=6
-script:
-  - ./travis/runtests.sh
 jobs:
   include:
-    - &unit-test
-      stage: test
-      language: python
-      python: 3.5
-      env:
-        - MATRIX_SHARD=unittest
-        - PYTYPE=true
-    - <<: *unit-test
-      python: 3.6
-      env:
-        - MATRIX_SHARD=unittest
-        - BUILD_DOCS=true
-        - CODECOV_UPLOAD=true
-        - PYLINT=true
-        - PYTYPE=true
-    - <<: *unit-test
-      python: 3.7
-      env:
-        - MATRIX_SHARD=unittest
-        - PYTYPE=true
-    - <<: *unit-test
-      python: 3.8
-      env:
-        - MATRIX_SHARD=unittest
-        - PYTYPE=true
-    - &integration-test
-      stage: test
-      env: MATRIX_SHARD=sanity
-      language: bash
-      before_install:
-        - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-        - sudo apt-get update
-        - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-      services:
-        - docker
-    - <<: *integration-test
-      env: MATRIX_SHARD=0
-    - <<: *integration-test
-      env: MATRIX_SHARD=1
-    - <<: *integration-test
-      env: MATRIX_SHARD=2
-    - <<: *integration-test
-      env: MATRIX_SHARD=3
-    - <<: *integration-test
-      env: MATRIX_SHARD=4
-    - <<: *integration-test
-      env: MATRIX_SHARD=5
-    - <<: *integration-test
-      env: MATRIX_SHARD=generative-unit
-    - <<: *integration-test
-      env: MATRIX_SHARD=generative-integration
     - stage: deploy
       language: python
       python: 3.6
-      script: skip
       deploy:
         provider: pypi
         on:

@@ -26,7 +26,7 @@ def create_config_file(config):
 
 def main():
     logging.disable(logging.CRITICAL)
-    while afl.loop(ROUNDS): # pylint: disable=c-extension-no-member
+    while afl.loop(ROUNDS):  # pylint: disable=c-extension-no-member
         config = sys.stdin.read()
         file_name = create_config_file(config)
         try:
