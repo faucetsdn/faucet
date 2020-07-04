@@ -1441,21 +1441,6 @@ class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
 """ + CONFIG_BOILER_UNTAGGED
 
 
-class FaucetExperimentalAPITest(FaucetUntaggedTest):
-    """Test the experimental Faucet API."""
-
-    CONTROLLER_CLASS = mininet_test_topo.FaucetExperimentalAPI
-    results_file = None
-
-    def _set_static_vars(self):
-        super(FaucetExperimentalAPITest, self)._set_static_vars()
-        self._set_var_path('faucet', 'API_TEST_RESULT', 'result.txt')
-        self.results_file = self.env['faucet']['API_TEST_RESULT']
-
-    def test_untagged(self):
-        self.wait_until_matching_lines_from_file(r'.*pass.*', self.results_file)
-
-
 class FaucetUntaggedLogRotateTest(FaucetUntaggedTest):
 
     def test_untagged(self):

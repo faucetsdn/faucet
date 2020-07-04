@@ -25,7 +25,6 @@ from prometheus_client import CollectorRegistry
 from ryu.controller import dpset
 from ryu.controller.ofp_event import EventOFPMsgBase
 from faucet import faucet
-from faucet import faucet_experimental_api
 
 
 class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
@@ -43,13 +42,10 @@ class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
         os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
         ryu_app = faucet.Faucet(
             dpset={},
-            faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI(),
             reg=CollectorRegistry())
         ryu_app.reload_config(None)
         self.assertFalse(ryu_app._config_files_changed())  # pylint: disable=protected-access
         ryu_app.metric_update(None)
-        ryu_app.get_config()
-        ryu_app.get_tables(0)
         event_dp = dpset.EventDPReconnected(dp=self._fake_dp())
         for enter in (True, False):
             event_dp.enter = enter

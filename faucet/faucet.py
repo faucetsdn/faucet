@@ -33,17 +33,12 @@ from ryu.lib import hub
 from faucet.config_parser import get_config_for_api
 from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
-from faucet import faucet_experimental_api
 from faucet import faucet_event
 from faucet import faucet_bgp
 from faucet import faucet_dot1x
 from faucet import valves_manager
 from faucet import faucet_metrics
 from faucet import valve_of
-
-
-class EventFaucetExperimentalAPIRegistered(event.EventBase):  # pylint: disable=too-few-public-methods
-    """Event used to notify that the API is registered with Faucet."""
 
 
 class EventFaucetMaintainStackRoot(event.EventBase):  # pylint: disable=too-few-public-methods
@@ -85,9 +80,7 @@ class Faucet(RyuAppBase):
     """
     _CONTEXTS = {
         'dpset': dpset.DPSet,
-        'faucet_experimental_api': faucet_experimental_api.FaucetExperimentalAPI,
         }
-    _EVENTS = [EventFaucetExperimentalAPIRegistered]
     _VALVE_SERVICES = {
         EventFaucetMetricUpdate: (None, 5),
         EventFaucetMaintainStackRoot: (None, valves_manager.STACK_ROOT_STATE_UPDATE_TIME),
@@ -106,7 +99,6 @@ class Faucet(RyuAppBase):
 
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
-        self.api = kwargs['faucet_experimental_api']
         self.prom_client = faucet_metrics.FaucetMetrics(reg=self._reg)
         self.bgp = faucet_bgp.FaucetBgp(
             self.logger, self.exc_logname, self.prom_client, self._send_flow_msgs)
@@ -146,10 +138,6 @@ class Faucet(RyuAppBase):
                 partial(self._thread_reschedule, service_event(), interval))
             thread.name = name
             self.threads.append(thread)
-
-        # Register to API
-        self.api._register(self)
-        self.send_event_to_observers(EventFaucetExperimentalAPIRegistered())
 
     def _delete_deconfigured_dp(self, deleted_dpid):
         self.logger.info(
@@ -340,13 +328,3 @@ class Faucet(RyuAppBase):
             return
         if msg.reason == ryu_dp.ofproto.OFPRR_IDLE_TIMEOUT:
             self._send_flow_msgs(valve, valve.flow_timeout(time.time(), msg.table_id, msg.match))
-
-    def get_config(self):
-        """FAUCET experimental API: return config for all Valves."""
-        return get_config_for_api(self.valves_manager.valves)
-
-    def get_tables(self, dp_id):
-        """FAUCET experimental API: return config tables for one Valve."""
-        if dp_id in self.valves_manager.valves:
-            return self.valves_manager.valves[dp_id].dp.get_tables()
-        return {}

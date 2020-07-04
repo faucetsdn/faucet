@@ -2335,17 +2335,6 @@ meters:
                 dp_desc=b'test_dp_desc')
             valve.ofdescstats_handler(invalid_body)
 
-        def test_get_config_dict(self):
-            """Test API call for DP config."""
-            valve = self.valves_manager.valves[self.DP_ID]
-            config_dict = valve.get_config_dict()
-            self.assertIn('dps', config_dict)
-            self.assertIn(valve.dp.name, config_dict['dps'])
-            self.assertEqual(len(config_dict['dps']), 1)
-            self.assertIn('vlans', config_dict)
-            self.assertIn('acls', config_dict)
-            self.assertTrue(valve.dp.get_tables())
-
         def test_dp_disconnect_cleanup(self):
             """Test port varz cleanup post dp disconnect"""
             valve = self.valves_manager.valves[self.DP_ID]
