@@ -12,4 +12,5 @@ SRCFILES="find $TESTDIR/unit/*/test_*py $TESTDIR/integration/experimental_api_te
 coverage erase || exit 1
 $SRCFILES | xargs realpath | shuf | parallel --timeout 300 --delay 1 --bar --halt now,fail=1 -j 2 $TESTCMD || exit 1
 coverage combine
+coverage xml
 coverage report -m --fail-under=$MINCOVERAGE || exit 1
