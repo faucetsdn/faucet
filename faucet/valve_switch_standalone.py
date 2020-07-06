@@ -909,6 +909,12 @@ class ValveSwitchManager(ValveManagerBase):
                                 other_lag_port, other_actor_system))
         return ofmsgs_by_valve
 
+    def learn_host_from_pkt(self, valve, now, pkt_meta, other_valves):
+        ofmsgs = []
+        ofmsgs.extend(valve.learn_host(now, pkt_meta, other_valves))
+        ofmsgs.extend(valve.router_rcv_packet(now, pkt_meta))
+        return {valve: ofmsgs}
+
 
 class ValveSwitchFlowRemovedManager(ValveSwitchManager):
     """Trigger relearning on flow removed notifications.
