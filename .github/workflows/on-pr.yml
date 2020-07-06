@@ -29,8 +29,8 @@ jobs:
       - if: ${{ steps.file_changes.outputs.files }}
         name: Compare file changes
         run: |
-          FILES_CHANGED="${{ steps.file_changes.outputs.files }}"
-          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
+          FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
+          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
           RQ_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "requirements(.*)txt$" | tr '\n' ' ')
           DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/**" | tr '\n' ' ')
           echo "Files changed: ${FILES_CHANGED}"
@@ -54,7 +54,7 @@ jobs:
         run: ./tests/run_unit_tests.sh || exit 1
       - if: ${{ matrix.python-version == env.CODECHECK_PY_VER }}
         name: Upload codecov
-        uses: codecov/codecov-action@v1.0.7
+        uses: codecov/codecov-action@v1.0.10
       - if: ${{ env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED }}
         name: Pytype
         run: |
@@ -82,8 +82,8 @@ jobs:
       - if: ${{ steps.file_changes.outputs.files }}
         name: Compare file changes
         run: |
-          FILES_CHANGED="${{ steps.file_changes.outputs.files }}"
-          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
+          FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
+          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
           RQ_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "requirements(.*)txt$" | tr '\n' ' ')
           DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/**" | tr '\n' ' ')
           echo "Files changed: ${FILES_CHANGED}"
@@ -132,8 +132,8 @@ jobs:
       - if: ${{ steps.file_changes.outputs.files }}
         name: Compare file changes
         run: |
-          FILES_CHANGED="${{ steps.file_changes.outputs.files }}"
-          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
+          FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
+          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
           RQ_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "requirements(.*)txt$" | tr '\n' ' ')
           DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/**" | tr '\n' ' ')
           echo "Files changed: ${FILES_CHANGED}"
@@ -194,8 +194,8 @@ jobs:
       - if: ${{ steps.file_changes.outputs.files }}
         name: Compare file changes
         run: |
-          FILES_CHANGED="${{ steps.file_changes.outputs.files }}"
-          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
+          FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
+          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
           RQ_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "requirements(.*)txt$" | tr '\n' ' ')
           DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/**" | tr '\n' ' ')
           echo "Files changed: ${FILES_CHANGED}"
