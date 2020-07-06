@@ -35,7 +35,6 @@ from faucet.valve_manager_base import ValveManagerBase
 from faucet.valve_coprocessor import CoprocessorManager
 from faucet.valve_lldp import ValveLLDPManager
 from faucet.valve_outonly import OutputOnlyManager
-from faucet.valve_switch_stack import ValveSwitchStackManagerBase
 
 
 # TODO: has to be here to avoid eventlet monkey patch in faucet_dot1x.
