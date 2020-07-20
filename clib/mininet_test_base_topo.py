@@ -487,7 +487,8 @@ class FaucetTopoTestBase(FaucetTestBase):
             else:
                 int_hosts.append(host)
                 int_or_ext = 0
-            for dp_i, switch in self.host_port_maps[host_id].items():
+            for dp_i in self.host_port_maps[host_id].keys():
+                switch = self.topo.switches_by_id[dp_i]
                 if isinstance(dp_hosts[switch][int_or_ext], list):
                     dp_hosts[switch][int_or_ext].append(host)
         return set(int_hosts), set(ext_hosts), dp_hosts
