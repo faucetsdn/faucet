@@ -27,7 +27,7 @@ from faucet.vlan import NullVLAN
 from faucet import valve_table
 
 
-class ValveSwitchManager(ValveManagerBase):
+class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-methods
     """Implement dataplane based flooding/learning for standalone dataplanes."""
 
     # Enumerate possible eth_dst flood destinations.
@@ -822,7 +822,7 @@ class ValveSwitchManager(ValveManagerBase):
         self.logger.debug('Sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
         return [valve_of.packetout(port.number, pkt.data)]
 
-    def get_lacp_dpid_nomination(self, lacp_id, valve, other_valves):
+    def get_lacp_dpid_nomination(self, lacp_id, valve, other_valves):  # pylint: disable=unused-argument
         """Chooses the DP for a given LAG.
 
         The DP will be nominated by the following conditions in order:
@@ -908,6 +908,13 @@ class ValveSwitchManager(ValveManagerBase):
                                 pkt_meta.port, actor_system,
                                 other_lag_port, other_actor_system))
         return ofmsgs_by_valve
+
+    def learn_host_from_pkt(self, valve, now, pkt_meta, other_valves):
+        """Learn host from packet."""
+        ofmsgs = []
+        ofmsgs.extend(valve.learn_host(now, pkt_meta, other_valves))
+        ofmsgs.extend(valve.router_rcv_packet(now, pkt_meta))
+        return {valve: ofmsgs}
 
 
 class ValveSwitchFlowRemovedManager(ValveSwitchManager):

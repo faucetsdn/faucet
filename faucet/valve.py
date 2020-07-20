@@ -35,7 +35,6 @@ from faucet.valve_manager_base import ValveManagerBase
 from faucet.valve_coprocessor import CoprocessorManager
 from faucet.valve_lldp import ValveLLDPManager
 from faucet.valve_outonly import OutputOnlyManager
-from faucet.valve_switch_stack import ValveSwitchStackManagerBase
 
 
 # TODO: has to be here to avoid eventlet monkey patch in faucet_dot1x.
@@ -951,23 +950,6 @@ class Valve:
                 return True
         return False
 
-    def router_learn_host(self, pkt_meta):
-        """Add L3 forwarding rule.
-
-        Args:
-            pkt_meta (PacketMeta): PacketMeta instance for packet received.
-        Returns:
-            list: OpenFlow messages, if any.
-        """
-        if isinstance(self.switch_manager, ValveSwitchStackManagerBase):
-            if pkt_meta.eth_src == pkt_meta.vlan.faucet_mac:
-                return self.switch_manager.learn_host_intervlan_routing_flows(
-                    pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_src, pkt_meta.eth_dst)
-            if pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
-                return self.switch_manager.learn_host_intervlan_routing_flows(
-                    pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_dst, pkt_meta.eth_src)
-        return []
-
     def learn_host(self, now, pkt_meta, other_valves):
         """Possibly learn a host on a port.
 
@@ -1248,47 +1230,7 @@ class Valve:
         ban_rules = self.switch_manager.ban_rules(pkt_meta)
         if ban_rules:
             return {self: ban_rules}
-
-        def handle_pkt(valve, now, pkt_meta, other_valves):
-            ofmsgs = []
-            ofmsgs.extend(valve.learn_host(now, pkt_meta, other_valves))
-            ofmsgs.extend(valve.router_rcv_packet(now, pkt_meta))
-            if self.dp.stack_route_learning and not self.dp.is_stack_root():
-                # TODO: we will repeatedly spam the DP for each packet in.
-                # Should use learn_host() style rate limiting.
-                ofmsgs.extend(valve.router_learn_host(pkt_meta))
-            return ofmsgs
-
-        ofmsgs_by_valve = {}
-        stacked_other_valves = self._stacked_valves(other_valves)
-        all_stacked_valves = {self}.union(stacked_other_valves)
-
-        # TODO: generalize multi DP routing
-        if self.dp.stack_route_learning:
-            # TODO: multi DP routing requires learning from directly attached switch first.
-            if pkt_meta.port.stack:
-                peer_dp = pkt_meta.port.stack['dp']
-                if peer_dp.dyn_running:
-                    faucet_macs = {pkt_meta.vlan.faucet_mac}.union(
-                        {valve.dp.faucet_dp_mac for valve in all_stacked_valves})
-                    # Must always learn FAUCET VIP, but rely on neighbor
-                    # to learn other hosts first.
-                    if pkt_meta.eth_src not in faucet_macs:
-                        return {}
-
-            for valve in stacked_other_valves:
-                # TODO: does not handle pruning.
-                stack_port = valve.dp.shortest_path_port(self.dp.name)
-                valve_vlan = valve.dp.vlans.get(pkt_meta.vlan.vid, None)
-                if stack_port and valve_vlan:
-                    valve_pkt_meta = copy.copy(pkt_meta)
-                    valve_pkt_meta.vlan = valve_vlan
-                    valve_pkt_meta.port = stack_port
-                    valve_other_valves = all_stacked_valves - {valve}
-                    ofmsgs_by_valve[valve] = handle_pkt(
-                        valve, now, valve_pkt_meta, valve_other_valves)
-
-        ofmsgs_by_valve[self] = handle_pkt(
+        ofmsgs_by_valve = self.switch_manager.learn_host_from_pkt(
             self, now, pkt_meta, other_valves)
         return ofmsgs_by_valve
 

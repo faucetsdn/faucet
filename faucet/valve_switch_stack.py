@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from collections import defaultdict
 from faucet import valve_of
 from faucet.valve_switch_standalone import ValveSwitchManager
@@ -31,7 +32,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
     def __init__(self, stack_ports, dp_shortest_path_to_root, shortest_path,
                  shortest_path_port, is_stack_root, is_stack_root_candidate,
-                 is_stack_edge, dp_name, graph, tunnel_acls, acl_manager, **kwargs):
+                 is_stack_edge, dp_name, graph, tunnel_acls,
+                 stack_route_learning, acl_manager, **kwargs):
         super(ValveSwitchStackManagerBase, self).__init__(**kwargs)
         self.stack_ports = stack_ports
         self.dp_shortest_path_to_root = dp_shortest_path_to_root
@@ -43,6 +45,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         self.graph = graph
         self.dp_name = dp_name
         self.tunnel_acls = tunnel_acls
+        self.stack_route_learning = stack_route_learning
         self.acl_manager = acl_manager
         self._set_ext_port_flag = ()
         self._set_nonext_port_flag = ()
@@ -153,7 +156,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
         return next_state
 
-    def learn_host_intervlan_routing_flows(self, port, vlan, eth_src, eth_dst):
+    def _learn_host_intervlan_routing_flows(self, port, vlan, eth_src, eth_dst):
         """Returns flows for the eth_src_table that enable packets that have been
            routed to be accepted from an adjacent DP and then switched to the destination.
            Eth_src_table flow rule to match on port, eth_src, eth_dst and vlan
@@ -587,6 +590,57 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             return sorted(most_ports_dpids), 'lowest dpid'
         # Most_ports_dpid is the chosen DPID
         return most_ports_dpid, 'most LAG ports'
+
+    @staticmethod
+    def _stacked_valves(valves):
+        return {valve for valve in valves if valve.dp.stack_root_name}
+
+    def _valve_learn_host_from_pkt(self, valve, now, pkt_meta, other_valves):
+        """Add L3 forwarding rule if necessary for inter-VLAN routing."""
+        ofmsgs_by_valve = super(ValveSwitchStackManagerBase, self).learn_host_from_pkt(
+            valve, now, pkt_meta, other_valves)
+        if self.stack_route_learning and not self.is_stack_root():
+            if pkt_meta.eth_src == pkt_meta.vlan.faucet_mac:
+                ofmsgs_by_valve[valve].extend(self._learn_host_intervlan_routing_flows(
+                    pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_src, pkt_meta.eth_dst))
+            elif pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac:
+                ofmsgs_by_valve[valve].extend(self._learn_host_intervlan_routing_flows(
+                    pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_dst, pkt_meta.eth_src))
+        return ofmsgs_by_valve
+
+    def learn_host_from_pkt(self, valve, now, pkt_meta, other_valves):
+        ofmsgs_by_valve = {}
+
+        if self.stack_route_learning:
+            stacked_other_valves = self._stacked_valves(other_valves)
+            all_stacked_valves = {valve}.union(stacked_other_valves)
+
+            # TODO: multi DP routing requires learning from directly attached switch first.
+            if pkt_meta.port.stack:
+                peer_dp = pkt_meta.port.stack['dp']
+                if peer_dp.dyn_running:
+                    faucet_macs = {pkt_meta.vlan.faucet_mac}.union(
+                        {valve.dp.faucet_dp_mac for valve in all_stacked_valves})
+                    # Must always learn FAUCET VIP, but rely on neighbor
+                    # to learn other hosts first.
+                    if pkt_meta.eth_src not in faucet_macs:
+                        return ofmsgs_by_valve
+
+            for other_valve in stacked_other_valves:
+                # TODO: does not handle pruning.
+                stack_port = other_valve.dp.shortest_path_port(self.dp_name)
+                valve_vlan = other_valve.dp.vlans.get(pkt_meta.vlan.vid, None)
+                if stack_port and valve_vlan:
+                    valve_pkt_meta = copy.copy(pkt_meta)
+                    valve_pkt_meta.vlan = valve_vlan
+                    valve_pkt_meta.port = stack_port
+                    valve_other_valves = all_stacked_valves - {other_valve}
+                    ofmsgs_by_valve.update(self._valve_learn_host_from_pkt(
+                        other_valve, now, valve_pkt_meta, valve_other_valves))
+
+        ofmsgs_by_valve.update(
+            self._valve_learn_host_from_pkt(valve, now, pkt_meta, other_valves))
+        return ofmsgs_by_valve
 
 
 class ValveSwitchStackManagerNoReflection(ValveSwitchStackManagerBase):
