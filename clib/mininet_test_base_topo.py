@@ -488,7 +488,9 @@ class FaucetTopoTestBase(FaucetTestBase):
                 int_hosts.append(host)
                 int_or_ext = 0
             for dp_i in self.host_port_maps[host_id].keys():
-                dp_hosts[self.topo.switches_by_id[dp_i]][int_or_ext].append(host)
+                switch = self.topo.switches_by_id[dp_i]
+                if isinstance(dp_hosts[switch][int_or_ext], list):
+                    dp_hosts[switch][int_or_ext].append(host)
         return set(int_hosts), set(ext_hosts), dp_hosts
 
     def verify_protected_connectivity(self):

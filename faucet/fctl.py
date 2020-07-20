@@ -140,12 +140,12 @@ def parse_args(sys_args):
         usage="""
     MACs learned on a DP.
 
-    {self} -n --endpoints=http://172.17.0.1:9302 --metrics=learned_macs --labels=dp_id:0xb827eb608918
+    {argv0} -n --endpoints=http://172.17.0.1:9302 --metrics=learned_macs --labels=dp_id:0xb827eb608918
 
     Status of all DPs
 
-    {self} -n --endpoints=http://172.17.0.1:9302 --metrics=dp_status
-""".format(**{'self': sys.argv[0]})) # pytype: disable=duplicate-keyword-argument
+    {argv0} -n --endpoints=http://172.17.0.1:9302 --metrics=dp_status
+""".format(**{'argv0': sys.argv[0]}))
     arg_parser.add_argument(
         '-n', '--nonzero', action='store_true', help='nonzero results only')
     arg_parser.add_argument(

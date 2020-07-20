@@ -160,6 +160,7 @@ class DockerHost(Host):
 
     def inspect_pid(self):
         """Return container PID."""
+        pid_pipe = None
         try:
             pid_cmd = ["docker", "inspect", "--format={{ .State.Pid }}", self.container]
             pid_pipe = self._popen(pid_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
@@ -167,7 +168,7 @@ class DockerHost(Host):
             pid_pipe.stdout.close()
             return int(ps_out[0])
         except:
-            if pid_pipe:
+            if pid_pipe is not None:
                 pid_pipe.poll()
             raise
 
