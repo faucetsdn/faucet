@@ -152,8 +152,7 @@ dps:
         for valve, ports in lacp_ports.items():
             other_valves = self.get_other_valves(valve)
             for port in ports:
-                valve.switch_manager.lacp_update_port_selection_state(port, valve, other_valves)
-                valve._reset_lacp_status(port)
+                valve.lacp_update(port, True, 1, 1, other_valves)
                 # Testing accuracy of varz port_lacp_role
                 port_labels = {
                     'port': port.name,
