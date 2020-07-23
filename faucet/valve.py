@@ -833,6 +833,7 @@ class Valve:
         select_updated = self.switch_manager.lacp_update_port_selection_state(
             port, self, other_valves, cold_start=False)
         if updated or select_updated:
+            # Update varz and send out event if role/state are updated
             if updated or select_updated:
                 self._reset_lacp_status(port)
             if port.is_port_selected() and port.is_actor_up():
