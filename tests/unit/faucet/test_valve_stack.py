@@ -929,6 +929,24 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
             }]
         self.verify_flooding(matches)
 
+    def test_stack_off_on(self):
+        SIMPLE_DP_CONFIG = """
+        dps:
+            s3:
+                dp_id: 3
+                hardware: Open vSwitch
+                interfaces:
+                    1:
+                        native_vlan: 100
+        """
+        self.update_config(SIMPLE_DP_CONFIG, reload_expected=True)
+        dp = self.valves_manager.valves[self.DP_ID].dp
+        self.assertFalse(dp.is_stack_root())
+        self.update_config(CONFIG, reload_expected=True)
+        self.set_stack_port_up(5)
+        dp = self.valves_manager.valves[self.DP_ID].dp
+        self.assertTrue(dp.is_stack_root())
+
     def test_topo(self):
         """Test DP is assigned appropriate edge/root states"""
         dp = self.valves_manager.valves[self.DP_ID].dp

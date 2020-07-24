@@ -157,8 +157,9 @@ class ValvesManager:
             if self.meta_dp_state.stack_root_name:
                 stack_change = True
                 prev_root = [dp for dp in stacked_dps if dp.name == self.meta_dp_state.stack_root_name]
-                labels = prev_root[0].base_prom_labels()
-                self.metrics.is_dp_stack_root.labels(**labels).set(0)
+                if prev_root:
+                    labels = prev_root[0].base_prom_labels()
+                    self.metrics.is_dp_stack_root.labels(**labels).set(0)
             self.meta_dp_state.stack_root_name = new_stack_root_name
             dpids = [dp.dp_id for dp in stacked_dps if dp.name == new_stack_root_name]
             self.metrics.faucet_stack_root_dpid.set(dpids[0])
