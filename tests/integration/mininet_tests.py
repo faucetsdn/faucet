@@ -1855,6 +1855,11 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
+    def test_ryu_config(self):
+        varstr = ', '.join(self.scrape_prometheus(var='ryu_config'))
+        self.assertTrue('echo_request_interval"} 10.0' in varstr)
+        self.assertTrue('maximum_unreplied_echo_requests"} 5.0' in varstr)
+
     def verify_dp_port_healthy(self, dp_port, retries=5, min_mbps=MIN_MBPS):
         for _ in range(retries):
             port_desc = self.get_port_desc_from_dpid(self.dpid, dp_port)
