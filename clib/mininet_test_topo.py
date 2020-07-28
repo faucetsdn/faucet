@@ -571,9 +571,3 @@ class Gauge(BaseFAUCET):
             command=self._command(env, tmpdir, name, '--gauge'),
             port=port,
             **kwargs)
-
-
-class FaucetExperimentalAPI(FAUCET):
-    """Start a controller to run the Faucet experimental API tests."""
-
-    START_ARGS = ['--ryu-app=experimental_api_test_app.py', '--ryu-app=ryu.app.ofctl_rest']

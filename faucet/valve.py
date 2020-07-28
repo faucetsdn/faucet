@@ -1569,10 +1569,6 @@ class Valve:
         """
         return self.switch_manager.flow_timeout(now, table_id, match)
 
-    def get_config_dict(self):
-        """Return datapath config as a dict for experimental API."""
-        return self.dp.get_config_dict()
-
 
 class TfmValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""

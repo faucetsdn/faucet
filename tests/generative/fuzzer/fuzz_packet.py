@@ -8,7 +8,6 @@ import sys
 import afl
 from ryu.controller import dpset
 from faucet import faucet
-from faucet import faucet_experimental_api
 import fake_packet
 
 ROUNDS = 1
@@ -17,9 +16,7 @@ logging.disable(logging.CRITICAL)
 
 def main():
     """Run AFL repeatedly with externally supplied generated packet from STDIN."""
-    application = faucet.Faucet(
-        dpset=dpset.DPSet(),
-        faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())
+    application = faucet.Faucet(dpset=dpset.DPSet())
     application.start()
 
     # make sure dps are running
