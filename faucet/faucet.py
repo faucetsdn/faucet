@@ -41,6 +41,9 @@ from faucet import faucet_metrics
 from faucet import valve_of
 
 
+EXPORT_RYU_CONFIGS = ['echo_request_interval', 'maximum_unreplied_echo_requests']
+
+
 class EventFaucetMaintainStackRoot(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to maintain stack root."""
 
@@ -71,6 +74,7 @@ class EventFaucetFastAdvertise(event.EventBase):  # pylint: disable=too-few-publ
 
 class EventFaucetEventSockHeartbeat(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger periodic events on event sock, causing it to raise an exception if conn is broken."""
+
 
 class Faucet(RyuAppBase):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
@@ -118,6 +122,12 @@ class Faucet(RyuAppBase):
     def _check_thread_exception(self):
         super(Faucet, self)._check_thread_exception()
 
+    def _export_ryu_config(self):
+        for opt_name in EXPORT_RYU_CONFIGS:
+            value = int(getattr(self.CONF, opt_name))
+            config_labels = dict(param=opt_name)
+            self.prom_client.ryu_config.labels(**config_labels).set(value)
+
     @kill_on_exception(exc_logname)
     def start(self):
         super(Faucet, self).start()
@@ -126,6 +136,7 @@ class Faucet(RyuAppBase):
         prom_port = int(self.get_setting('PROMETHEUS_PORT'))
         prom_addr = self.get_setting('PROMETHEUS_ADDR')
         self.prom_client.start(prom_port, prom_addr)
+        self._export_ryu_config()
 
         # Start event notifier
         notifier_thread = self.notifier.start()
