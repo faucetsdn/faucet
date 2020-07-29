@@ -1001,7 +1001,7 @@ configuration.
             vlan.reset_ports(self.ports.values())
             if (vlan.get_ports() or vlan.reserved_internal_vlan or
                     vlan.dot1x_assigned or vlan._id in router_vlans or
-                    self.is_transit_stack_switch()):
+                    self.is_transit_stack_switch() or self.is_stack_root()):
                 self.vlans[vlan.vid] = vlan
 
     def resolve_port(self, port_name):
@@ -1521,6 +1521,8 @@ configuration.
                     changed_vlans.update({vlan.vid for vlan in port_dp.vlans.values()})
 
             for port_no in changed_ports:
+                if port_no not in self.ports:
+                    continue
                 old_port = self.ports[port_no]
                 new_port = new_dp.ports[port_no]
                 # native_vlan changed.

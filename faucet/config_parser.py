@@ -146,7 +146,6 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans): # pylint: disable=invalid-name
     for port_num, port_conf in port_num_to_port_conf.values():
         port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
         dp.add_port(port)
-    dp.reset_refs(vlans=vlans)
 
 
 def _parse_acls(dp, acls_conf): # pylint: disable=invalid-name
@@ -186,19 +185,33 @@ def _parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
     _parse_routers(dp, routers_conf)
     _parse_meters(dp, meters_conf)
     _dp_add_ports(dp, dp_conf, dp.dp_id, vlans)
-    return dp
+    return (dp, vlans)
 
 
 def _dp_parser_v2(dps_conf, acls_conf, meters_conf,
                   routers_conf, vlans_conf, meta_dp_state):
-
-    dps = []
+    # pylint: disable=invalid-name
+    dp_vlans = []
     for dp_key, dp_conf in dps_conf.items():
         try:
-            dps.append(_parse_dp(
-                dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf))
+            dp, vlans = _parse_dp(
+                dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
+            dp_vlans.append((dp, vlans))
         except InvalidConfigError as err:
             raise InvalidConfigError('DP %s: %s' % (dp_key, err))
+
+    # Some VLANs are created implicitly just by referencing them in tagged/native,
+    # so we must make them available to all DPs.
+    implicit_vids = set()
+    for dp, vlans in dp_vlans:
+        implicit_vids.update(set(vlans.keys()) - set(vlans_conf.keys()))
+    dps = []
+    for dp, vlans in dp_vlans:
+        for vlan_key in implicit_vids:
+            if vlan_key not in vlans:
+                vlans[vlan_key] = VLAN(vlan_key, dp.dp_id)
+        dp.reset_refs(vlans=vlans)
+        dps.append(dp)
 
     for dp in dps:
         dp.finalize_config(dps)

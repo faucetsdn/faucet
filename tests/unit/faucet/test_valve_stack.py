@@ -39,6 +39,108 @@ from clib.valve_test_lib import (
 import networkx
 
 
+class ValveEdgeVLANTestCase(ValveTestBases.ValveTestNetwork):
+
+    CONFIG1 = """
+dps:
+    s1:
+        dp_id: 1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: s2
+                    port: 1
+    s2:
+        dp_id: 2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                stack:
+                    dp: s3
+                    port: 1
+    s3:
+        dp_id: 3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack:
+                    dp: s2
+                    port: 2
+    """
+    CONFIG2 = """
+dps:
+    s1:
+        dp_id: 1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: s2
+                    port: 1
+    s2:
+        dp_id: 2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                stack:
+                    dp: s3
+                    port: 1
+    s3:
+        dp_id: 3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack:
+                    dp: s2
+                    port: 2
+            2:
+                native_vlan: 100
+            3:
+                native_vlan: 100
+    """
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG1)
+        self.activate_stack()
+
+    def activate_stack(self):
+        self.activate_all_ports()
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
+
+    def test_edge_vlan(self):
+        self.update_config(self.CONFIG2, reload_type=None)
+        self.activate_stack()
+        s1 = self.valves_manager.valves[1].dp
+        self.assertTrue(s1.is_stack_root())
+        self.assertFalse(s1.is_stack_edge())
+        s2 = self.valves_manager.valves[2].dp
+        self.assertFalse(s2.is_stack_root())
+        self.assertFalse(s2.is_stack_edge())
+        s3 = self.valves_manager.valves[3].dp
+        self.assertFalse(s3.is_stack_root())
+        self.assertTrue(s3.is_stack_edge())
+        match = {'in_port': 2, 'vlan_vid': 0, 'eth_src': self.P2_V100_MAC}
+        self.network.tables[3].is_output(match, port=3)
+        match = {'in_port': 3, 'vlan_vid': 0, 'eth_src': self.P2_V100_MAC}
+        self.network.tables[3].is_output(match, port=2)
+
+
 class ValveStackMCLAGTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacked MCLAG"""
 

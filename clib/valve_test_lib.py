@@ -1164,8 +1164,7 @@ class ValveTestBases:
             valve.switch_manager.update_stack_topo(True, valve.dp, port)
             for valve_vlan in valve.dp.vlans.values():
                 ofmsgs = valve.switch_manager.add_vlan(valve_vlan, cold_start=False)
-                if valve is self.valves_manager.valves[self.DP_ID]:
-                    self.apply_ofmsgs(ofmsgs, dp_id=self.DP_ID)
+                self.apply_ofmsgs(ofmsgs, dp_id=valve.dp.dp_id)
 
         def set_stack_port_up(self, port_no, valve=None):
             """Set stack port up recalculating topology as necessary."""

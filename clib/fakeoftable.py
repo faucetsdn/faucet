@@ -1050,8 +1050,13 @@ class FlowMod:
             if isinstance(instruction, parser.OFPInstructionGotoTable):
                 result += ' goto {}'.format(instruction.table_id)
             elif isinstance(instruction, parser.OFPInstructionActions):
-                for action in instruction.actions:
-                    result += " {},".format(self._pretty_action_str(action))
+                if instruction.actions:
+                    for action in instruction.actions:
+                        result += " {},".format(self._pretty_action_str(action))
+                else:
+                    result += ' drop'
+            else:
+                result += str(instruction)
         result = result.rstrip(',')
         return result
 
