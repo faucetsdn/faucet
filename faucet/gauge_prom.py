@@ -17,7 +17,7 @@
 # limitations under the License.
 
 import collections
-
+from functools import partial
 from prometheus_client import Gauge
 
 from faucet.gauge_pollers import GaugePortStatsPoller, GaugePortStatePoller, GaugeFlowTablePoller
@@ -66,31 +66,52 @@ class GaugePrometheusClient(PromClient):
             'status of datapaths',
             self.REQUIRED_LABELS,
             registry=self._reg)
+        self.reregister_nonflow_vars()
+
+    def _reregister_var(self, var_key, var_func):
+        try:
+            self._reg.unregister(self.metrics[var_key])
+        except KeyError:
+            pass
+        self.metrics[var_key] = var_func()
+
+    def reregister_nonflow_vars(self):
+        """Reset all metrics to empty."""
         for prom_var in PROM_PORT_VARS + PROM_PORT_STATE_VARS:
             exported_prom_var = PROM_PREFIX_DELIM.join(
                 (PROM_PORT_PREFIX, prom_var))
-            self.metrics[exported_prom_var] = Gauge(  # pylint: disable=unexpected-keyword-arg
-                exported_prom_var, '',
-                self.REQUIRED_LABELS + ['port', 'port_description'],
-                registry=self._reg)
+            self._reregister_var(
+                exported_prom_var,
+                partial(
+                    Gauge,
+                    exported_prom_var,
+                    '',
+                    self.REQUIRED_LABELS + ['port', 'port_description'],
+                    registry=self._reg))
         for prom_var in PROM_METER_VARS:
             exported_prom_var = PROM_PREFIX_DELIM.join(
                 (PROM_METER_PREFIX, prom_var))
-            self.metrics[exported_prom_var] = Gauge(  # pylint: disable=unexpected-keyword-arg
-                exported_prom_var, '',
-                self.REQUIRED_LABELS + ['meter_id'],
-                registry=self._reg)
+            self._reregister_var(
+                exported_prom_var,
+                partial(
+                    Gauge,
+                    exported_prom_var,
+                    '',
+                    self.REQUIRED_LABELS + ['meter_id'],
+                    registry=self._reg))
 
     def reregister_flow_vars(self, table_name, table_tags):
         """Register the flow variables needed for this client"""
         for prom_var in PROM_FLOW_VARS:
             table_prom_var = PROM_PREFIX_DELIM.join((prom_var, table_name))
-            try:
-                self._reg.unregister(self.metrics[table_prom_var])
-            except KeyError:
-                pass
-            self.metrics[table_prom_var] = Gauge( # pylint: disable=unexpected-keyword-arg
-                table_prom_var, '', list(table_tags), registry=self._reg)
+            self._reregister_var(
+                table_prom_var,
+                partial(
+                    Gauge,
+                    table_prom_var,
+                    '',
+                    list(table_tags),
+                    registry=self._reg))
 
 
 class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):

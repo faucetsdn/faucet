@@ -75,6 +75,7 @@ class Gauge(RyuAppBase):
             watchers = [
                 watcher_factory(watcher_conf)(watcher_conf, self.logname, self.prom_client)
                 for watcher_conf in new_confs]
+            self.prom_client.reregister_nonflow_vars()
         except InvalidConfigError as err:
             self.config_watcher.update(self.config_file)
             self.logger.error('invalid config: %s', err)
