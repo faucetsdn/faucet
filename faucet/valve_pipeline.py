@@ -18,9 +18,11 @@
 # limitations under the License.
 
 import copy
+import functools
 import faucet.faucet_metadata as faucet_md
 from faucet import valve_of
 from faucet.valve_manager_base import ValveManagerBase
+
 
 class ValvePipeline(ValveManagerBase):
     """Responsible for maintaing the integrity of the Faucet pipeline for a
@@ -46,12 +48,14 @@ class ValvePipeline(ValveManagerBase):
         self.select_priority = self._HIGH_PRIORITY
 
     @staticmethod
+    @functools.lru_cache()
     def _accept_to_table(table, actions):
         inst = [table.goto_this()]
-        if actions is not None:
+        if actions:
             inst.append(valve_of.apply_actions(actions))
-        return inst
+        return tuple(inst)
 
+    @functools.lru_cache()
     def accept_to_vlan(self, actions=None):
         """Get instructions to forward packet through the pipeline to
         vlan table.
@@ -62,6 +66,7 @@ class ValvePipeline(ValveManagerBase):
         """
         return self._accept_to_table(self.vlan_table, actions)
 
+    @functools.lru_cache()
     def accept_to_classification(self, actions=None):
         """Get instructions to forward packet through the pipeline to
         classification table.
@@ -72,6 +77,7 @@ class ValvePipeline(ValveManagerBase):
         """
         return self._accept_to_table(self.classification_table, actions)
 
+    @functools.lru_cache()
     def accept_to_l2_forwarding(self, actions=None):
         """Get instructions to forward packet through the pipeline to l2
         forwarding.
@@ -82,6 +88,7 @@ class ValvePipeline(ValveManagerBase):
         """
         return self._accept_to_table(self.output_table, actions)
 
+    @functools.lru_cache()
     def accept_to_egress(self, actions=None):
         """Get instructions to forward packet through the pipeline to egress
         table
@@ -123,7 +130,7 @@ class ValvePipeline(ValveManagerBase):
             instructions.append(valve_of.apply_actions(vlan.output_port(
                 port, hairpin=hairpin, output_table=self.output_table,
                 external_forwarding_requested=external_forwarding_requested)))
-        return instructions
+        return tuple(instructions)
 
     def initialise_tables(self):
         """Install rules to initialise the classification_table"""
@@ -167,7 +174,7 @@ class ValvePipeline(ValveManagerBase):
         if pop_vlan:
             actions.append(valve_of.pop_vlan())
         actions.append(valve_of.output_port(port.number))
-        inst = [valve_of.apply_actions(actions)]
+        inst = (valve_of.apply_actions(tuple(actions)),)
         return self.egress_table.flowmod(
             self.egress_table.match(
                 vlan=vlan,
@@ -220,7 +227,7 @@ class ValvePipeline(ValveManagerBase):
         return [self.classification_table.flowmod(
             self.classification_table.match(**match_dict),
             priority=self.select_priority + priority_offset,
-            inst=inst)]
+            inst=tuple(inst))]
 
     def remove_filter(self, match_dict, strict=True, priority_offset=0):
         """retrieve flow mods to remove a filter from the classification table

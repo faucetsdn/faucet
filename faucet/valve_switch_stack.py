@@ -171,7 +171,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         (src_rule_idle_timeout, src_rule_hard_timeout, _) = self._learn_host_timeouts(port, eth_src)
         src_match = self.eth_src_table.match(vlan=vlan, eth_src=eth_src, eth_dst=eth_dst)
         src_priority = self.host_priority - 1
-        inst = [self.eth_src_table.goto(self.output_table)]
+        inst = (self.eth_src_table.goto(self.output_table),)
         ofmsgs.extend([self.eth_src_table.flowmod(
             match=src_match,
             priority=src_priority,

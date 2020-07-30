@@ -214,7 +214,7 @@ class ValveRouteManager(ValveManagerBase):
     def _controller_and_flood(self):
         """Return instructions to forward packet to l2-forwarding"""
         return self.pipeline.accept_to_l2_forwarding(
-            actions=[valve_of.output_controller(max_len=self.MAX_PACKET_IN_SIZE)])
+            actions=(valve_of.output_controller(max_len=self.MAX_PACKET_IN_SIZE),))
 
     def _resolve_vip_response(self, pkt_meta, solicited_ip, now):
         """Learn host requesting for router, and return packet-out ofmsgs router response"""
@@ -297,7 +297,7 @@ class ValveRouteManager(ValveManagerBase):
             self.fib_table.set_field(eth_dst=eth_dst)])
         if self.dec_ttl:
             actions.append(valve_of.dec_ip_ttl())
-        return actions
+        return tuple(actions)
 
     def _route_match(self, vlan, ip_dst):
         """Return vid, dst, eth_type flowrule match for fib entry"""
@@ -357,14 +357,14 @@ class ValveRouteManager(ValveManagerBase):
         ofmsgs.append(self.fib_table.flowmod(
             self._route_match(vlan, faucet_vip_host),
             priority=priority,
-            inst=[self.fib_table.goto(self.vip_table)]))
+            inst=(self.fib_table.goto(self.vip_table),)))
         if self.proactive_learn and not faucet_vip.ip.is_link_local:
             routed_vlans = self._routed_vlans(vlan)
             for routed_vlan in routed_vlans:
                 ofmsgs.append(self.fib_table.flowmod(
                     self._route_match(routed_vlan, faucet_vip),
                     priority=learn_connected_priority,
-                    inst=[self.fib_table.goto(self.vip_table)]))
+                    inst=(self.fib_table.goto(self.vip_table),)))
             # Unicast ICMP to us.
             priority -= 1
             ofmsgs.append(self.vip_table.flowcontroller(
@@ -1011,7 +1011,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         ofmsgs.append(self.fib_table.flowmod(
             self._route_match(vlan, faucet_vip_broadcast),
             priority=priority,
-            inst=[self.fib_table.goto(self.vip_table)]))
+            inst=(self.fib_table.goto(self.vip_table),)))
         return ofmsgs
 
     def _nd_solicit_handler(self, now, pkt_meta, _ipv6_pkt, icmpv6_pkt):

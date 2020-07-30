@@ -162,7 +162,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
                     if not instruction.actions:
                         continue
                 new_inst.append(instruction)
-            return new_inst
+            return tuple(new_inst)
         return inst
 
     def flowmod(self, match=None, priority=None, # pylint: disable=too-many-arguments
@@ -181,7 +181,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         if self.notify_flow_removed:
             flags = valve_of.ofp.OFPFF_SEND_FLOW_REM
         if inst:
-            inst = self._trim_inst(tuple(inst))
+            inst = self._trim_inst(inst)
         flowmod = valve_of.flowmod(
             cookie,
             command,
@@ -190,7 +190,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             out_port,
             out_group,
             match,
-            inst,
+            tuple(inst),
             hard_timeout,
             idle_timeout,
             flags)
@@ -212,17 +212,17 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             match=match,
             priority=priority,
             hard_timeout=hard_timeout,
-            inst=[])
+            inst=())
 
     def flowcontroller(self, match=None, priority=None, inst=None, max_len=96):
         """Add flow outputting to controller."""
         if inst is None:
-            inst = []
+            inst = ()
         return self.flowmod(
             match=match,
             priority=priority,
-            inst=[valve_of.apply_actions(
-                [valve_of.output_controller(max_len)])] + inst)
+            inst=(valve_of.apply_actions(
+                (valve_of.output_controller(max_len),)),) + inst)
 
 
 class ValveGroupEntry:

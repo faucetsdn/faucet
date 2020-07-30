@@ -155,7 +155,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         return self.flood_table.flowmod(
             match=match,
             command=command,
-            inst=[valve_of.apply_actions(flood_acts)],
+            inst=(valve_of.apply_actions(flood_acts),),
             priority=flood_priority)
 
     @functools.lru_cache(maxsize=1024)
@@ -309,7 +309,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             ofmsgs.append(self.flood_table.flowmod(
                 match=match,
                 command=command,
-                inst=[valve_of.apply_actions([valve_of.group_act(group.group_id)])],
+                inst=(valve_of.apply_actions((valve_of.group_act(group.group_id),)),),
                 priority=flood_priority))
         return ofmsgs
 
@@ -318,7 +318,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         ofmsgs.append(self.eth_src_table.flowcontroller(
             match=self.eth_src_table.match(vlan=vlan),
             priority=self.low_priority,
-            inst=[self.eth_src_table.goto(self.output_table)]))
+            inst=(self.eth_src_table.goto(self.output_table),)))
         ofmsgs.extend(self._build_flood_rules(vlan, cold_start))
         return ofmsgs
 
@@ -346,9 +346,9 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 actions.append(self.vlan_table.set_no_external_forwarding_requested())
             else:
                 actions.append(self.vlan_table.set_external_forwarding_requested())
-        inst = [
+        inst = (
             valve_of.apply_actions(actions),
-            self.vlan_table.goto(self._find_forwarding_table(vlan))]
+            self.vlan_table.goto(self._find_forwarding_table(vlan)))
         return self.vlan_table.flowmod(
             self.vlan_table.match(in_port=port.number, vlan=match_vlan),
             priority=self.low_priority, inst=inst)
@@ -559,10 +559,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             in_port=port.number, vlan=vlan, eth_src=eth_src)
         src_priority = self.host_priority - 1
 
-        inst = []
-
-        inst.append(self.eth_src_table.goto(self.output_table))
-
+        inst = (self.eth_src_table.goto(self.output_table),)
         ofmsgs.append(self.eth_src_table.flowmod(
             match=src_match,
             priority=src_priority,
