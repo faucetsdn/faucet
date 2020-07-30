@@ -519,6 +519,8 @@ class FakeOFTable:
                     else:
                         raise FakeOFTableException('goto to lower table ID')
                 elif instruction.type == ofp.OFPIT_APPLY_ACTIONS:
+                    if not instruction.actions:
+                        raise FakeOFTableException('no-op instruction actions')
                     instruction_outputs, packet_dict, pending_actions = self._process_instruction(
                         packet_dict, instruction)
                     for out_port, out_pkts in instruction_outputs.items():
@@ -1050,11 +1052,8 @@ class FlowMod:
             if isinstance(instruction, parser.OFPInstructionGotoTable):
                 result += ' goto {}'.format(instruction.table_id)
             elif isinstance(instruction, parser.OFPInstructionActions):
-                if instruction.actions:
-                    for action in instruction.actions:
-                        result += " {},".format(self._pretty_action_str(action))
-                else:
-                    result += ' drop'
+                for action in instruction.actions:
+                    result += " {},".format(self._pretty_action_str(action))
             else:
                 result += str(instruction)
         result = result.rstrip(',')

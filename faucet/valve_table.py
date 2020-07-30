@@ -147,16 +147,22 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         return new_actions
 
     def _trim_inst(self, inst):
-        """Discard actions on packets that are not output and not goto another table."""
+        """Discard empty/actions on packets that are not output and not goto another table."""
         inst_types = {instruction.type for instruction in inst}
-        if valve_of.ofp.OFPIT_GOTO_TABLE in inst_types:
-            return inst
-        new_inst = []
-        for instruction in inst:
-            if instruction.type == valve_of.ofp.OFPIT_APPLY_ACTIONS:
-                instruction.actions = self._trim_actions(instruction.actions)
-            new_inst.append(instruction)
-        return new_inst
+        if valve_of.ofp.OFPIT_APPLY_ACTIONS in inst_types:
+            goto_present = valve_of.ofp.OFPIT_GOTO_TABLE in inst_types
+            new_inst = []
+            for instruction in inst:
+                if instruction.type == valve_of.ofp.OFPIT_APPLY_ACTIONS:
+                    # If no goto present, this is the last set of actions that can take place
+                    if not goto_present:
+                        instruction.actions = self._trim_actions(instruction.actions)
+                    # Always drop an apply actions instruction with no actions.
+                    if not instruction.actions:
+                        continue
+                new_inst.append(instruction)
+            return new_inst
+        return inst
 
     def flowmod(self, match=None, priority=None, # pylint: disable=too-many-arguments
                 inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,
