@@ -184,10 +184,10 @@ class ValveRouteManager(ValveManagerBase):
                 if running_port_nos:
                     random.shuffle(running_port_nos)
                     if multi_out:
-                        ofmsgs.append(valve_of.packetouts(running_port_nos, pkt.data))
+                        ofmsgs.append(valve_of.packetouts(running_port_nos, bytes(pkt.data)))
                     else:
                         ofmsgs.extend(
-                            [valve_of.packetout(port_no, pkt.data) for port_no in running_port_nos])
+                            [valve_of.packetout(port_no, bytes(pkt.data)) for port_no in running_port_nos])
         return ofmsgs
 
     def _resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):

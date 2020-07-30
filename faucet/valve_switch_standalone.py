@@ -820,7 +820,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 actor_state_collecting=actor_state_col,
                 actor_state_distributing=actor_state_dist)
         self.logger.debug('Sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
-        return [valve_of.packetout(port.number, pkt.data)]
+        return [valve_of.packetout(port.number, bytes(pkt.data))]
 
     def get_lacp_dpid_nomination(self, lacp_id, valve, other_valves):  # pylint: disable=unused-argument
         """Chooses the DP for a given LAG.

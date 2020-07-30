@@ -146,6 +146,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
                 'unexpected set fields %s configured %s in %s' % (set_fields, self.set_fields, self.name))
         return new_actions
 
+    @functools.lru_cache()
     def _trim_inst(self, inst):
         """Discard empty/actions on packets that are not output and not goto another table."""
         inst_types = {instruction.type for instruction in inst}
@@ -173,14 +174,14 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         if not match:
             match = self.match()
         if inst is None:
-            inst = []
+            inst = ()
         if cookie is None:
             cookie = self.flow_cookie
         flags = 0
         if self.notify_flow_removed:
             flags = valve_of.ofp.OFPFF_SEND_FLOW_REM
         if inst:
-            inst = self._trim_inst(inst)
+            inst = self._trim_inst(tuple(inst))
         flowmod = valve_of.flowmod(
             cookie,
             command,

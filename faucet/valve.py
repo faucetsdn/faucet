@@ -562,7 +562,7 @@ class Valve:
             system_name=system_name,
             port_descr=port.lldp_beacon['port_descr'])
         port.dyn_last_lldp_beacon_time = now
-        return valve_of.packetout(port.number, lldp_beacon_pkt.data)
+        return valve_of.packetout(port.number, bytes(lldp_beacon_pkt.data))
 
     def fast_advertise(self, now, _other_valves):
         """Called periodically to send LLDP/LACP packets."""

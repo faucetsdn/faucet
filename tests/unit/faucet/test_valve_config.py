@@ -860,6 +860,10 @@ dps:
             total_tt_prop = pstats_out.total_tt / self.baseline_total_tt  # pytype: disable=attribute-error
             # must not be 15x slower, to ingest config for 100 interfaces than 1.
             if total_tt_prop < 15:
+                for valve in self.valves_manager.valves.values():
+                    for table in valve.dp.tables.values():
+                        cache_info = table._trim_inst.cache_info()
+                        self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
                 return
             time.sleep(i)
 
