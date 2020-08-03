@@ -39,11 +39,11 @@ class ValveOfTestCase(unittest.TestCase): # pytype: disable=module-attr
         global_groupdel = valve_of.groupdel(group_id=valve_of.ofp.OFPG_ALL)
         global_flowdel = valve_of.flowmod(
             cookie=None, hard_timeout=None, idle_timeout=None, match_fields=None, out_port=None,
-            table_id=valve_of.ofp.OFPTT_ALL, inst=[], priority=0, command=valve_of.ofp.OFPFC_DELETE,
+            table_id=valve_of.ofp.OFPTT_ALL, inst=(), priority=0, command=valve_of.ofp.OFPFC_DELETE,
             out_group=valve_of.ofp.OFPG_ANY)
         flowdel = valve_of.flowmod(
             cookie=None, hard_timeout=None, idle_timeout=None, match_fields=None, out_port=None,
-            table_id=9, inst=[], priority=0, command=valve_of.ofp.OFPFC_DELETE,
+            table_id=9, inst=(), priority=0, command=valve_of.ofp.OFPFC_DELETE,
             out_group=valve_of.ofp.OFPG_ANY)
         flow = valve_of.output_port(1)
         flows = [flowdel, flow, flow, flow, global_flowdel, global_groupdel]

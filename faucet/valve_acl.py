@@ -221,7 +221,7 @@ def build_tunnel_ofmsgs(rule_conf, acl_table, priority,
     if vlan_vid is not None:
         acl_match_dict['vlan_vid'] = valve_of.vid_present(vlan_vid)
     acl_match = valve_of.match_from_dict(acl_match_dict)
-    flowmod = acl_table.flowmod(acl_match, priority=priority, inst=acl_inst)
+    flowmod = acl_table.flowmod(acl_match, priority=priority, inst=tuple(acl_inst))
     if flowdel:
         ofmsgs.append(acl_table.flowdel(match=acl_match, priority=priority, strict=False))
     ofmsgs.append(flowmod)
@@ -244,7 +244,7 @@ def build_rule_ofmsgs(rule_conf, acl_table,
     if exact_match:
         priority = highest_priority
     flowmod = acl_table.flowmod(
-        acl_match, priority=priority, inst=acl_inst, cookie=acl_cookie)
+        acl_match, priority=priority, inst=tuple(acl_inst), cookie=acl_cookie)
     if flowdel:
         ofmsgs.append(acl_table.flowdel(match=acl_match, priority=priority))
     ofmsgs.append(flowmod)
@@ -342,7 +342,7 @@ class ValveAclManager(ValveManagerBase):
             ofmsgs.append(self.port_acl_table.flowmod(
                 in_port_match,
                 priority=self.acl_priority,
-                inst=acl_allow_inst))
+                inst=tuple(acl_allow_inst)))
         return ofmsgs
 
     def cold_start_port(self, port):
@@ -376,7 +376,7 @@ class ValveAclManager(ValveManagerBase):
                 ofmsgs.append(self.egress_acl_table.flowmod(
                     self.egress_acl_table.match(vlan=vlan),
                     priority=self.acl_priority,
-                    inst=egress_acl_allow_inst
+                    inst=tuple(egress_acl_allow_inst),
                     ))
         return ofmsgs
 
@@ -385,7 +385,7 @@ class ValveAclManager(ValveManagerBase):
         return [self.port_acl_table.flowmod(
             self.port_acl_table.match(in_port=port_num, eth_src=mac),
             priority=self.auth_priority,
-            inst=self.pipeline.accept_to_vlan())]
+            inst=tuple(self.pipeline.accept_to_vlan()))]
 
     def del_authed_mac(self, port_num, mac=None, strict=True):
         """remove authed mac address"""
@@ -436,9 +436,9 @@ class ValveAclManager(ValveManagerBase):
                     in_port=port_num,
                     eth_type=valve_packet.ETH_EAPOL),
                 priority=self.override_priority,
-                inst=[valve_of.apply_actions([
+                inst=(valve_of.apply_actions([
                     self.port_acl_table.set_field(eth_dst=mac),
-                    valve_of.output_port(nfv_sw_port_num)])],
+                    valve_of.output_port(nfv_sw_port_num)]),),
             ),
             self.port_acl_table.flowmod(
                 match=self.port_acl_table.match(
@@ -446,11 +446,11 @@ class ValveAclManager(ValveManagerBase):
                     eth_type=valve_packet.ETH_EAPOL,
                     eth_src=mac),
                 priority=self.override_priority,
-                inst=[valve_of.apply_actions([
+                inst=(valve_of.apply_actions([
                     self.port_acl_table.set_field(
                         eth_src=valve_packet.EAPOL_ETH_DST),
                     valve_of.output_port(port_num)
-                ])],
+                ]),),
             )
         ]
 
@@ -495,9 +495,9 @@ class ValveAclManager(ValveManagerBase):
                 udp_dst=67,
             ),
             priority=self.low_priority,
-            inst=[valve_of.apply_actions([
+            inst=(valve_of.apply_actions([
                 self.port_acl_table.set_field(eth_dst=mac),
-                valve_of.output_port(nfv_sw_port_num)])],
+                valve_of.output_port(nfv_sw_port_num)]),),
         )
 
     def del_mab_flow(self, port_num, nfv_sw_port_num, mac):

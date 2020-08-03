@@ -340,7 +340,7 @@ class Valve:
                 miss_table = self.dp.tables[miss_table_name]
                 ofmsgs.append(table.flowmod(
                     priority=self.dp.lowest_priority,
-                    inst=[table.goto_miss(miss_table)]))
+                    inst=(table.goto_miss(miss_table),)))
             else:
                 ofmsgs.append(table.flowdrop(
                     priority=self.dp.lowest_priority))
@@ -562,7 +562,7 @@ class Valve:
             system_name=system_name,
             port_descr=port.lldp_beacon['port_descr'])
         port.dyn_last_lldp_beacon_time = now
-        return valve_of.packetout(port.number, lldp_beacon_pkt.data)
+        return valve_of.packetout(port.number, bytes(lldp_beacon_pkt.data))
 
     def fast_advertise(self, now, _other_valves):
         """Called periodically to send LLDP/LACP packets."""

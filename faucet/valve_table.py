@@ -146,17 +146,24 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
                 'unexpected set fields %s configured %s in %s' % (set_fields, self.set_fields, self.name))
         return new_actions
 
+    @functools.lru_cache()
     def _trim_inst(self, inst):
-        """Discard actions on packets that are not output and not goto another table."""
+        """Discard empty/actions on packets that are not output and not goto another table."""
         inst_types = {instruction.type for instruction in inst}
-        if valve_of.ofp.OFPIT_GOTO_TABLE in inst_types:
-            return inst
-        new_inst = []
-        for instruction in inst:
-            if instruction.type == valve_of.ofp.OFPIT_APPLY_ACTIONS:
-                instruction.actions = self._trim_actions(instruction.actions)
-            new_inst.append(instruction)
-        return new_inst
+        if valve_of.ofp.OFPIT_APPLY_ACTIONS in inst_types:
+            goto_present = valve_of.ofp.OFPIT_GOTO_TABLE in inst_types
+            new_inst = []
+            for instruction in inst:
+                if instruction.type == valve_of.ofp.OFPIT_APPLY_ACTIONS:
+                    # If no goto present, this is the last set of actions that can take place
+                    if not goto_present:
+                        instruction.actions = self._trim_actions(instruction.actions)
+                    # Always drop an apply actions instruction with no actions.
+                    if not instruction.actions:
+                        continue
+                new_inst.append(instruction)
+            return tuple(new_inst)
+        return inst
 
     def flowmod(self, match=None, priority=None, # pylint: disable=too-many-arguments
                 inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,
@@ -167,7 +174,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         if not match:
             match = self.match()
         if inst is None:
-            inst = []
+            inst = ()
         if cookie is None:
             cookie = self.flow_cookie
         flags = 0
@@ -183,7 +190,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             out_port,
             out_group,
             match,
-            inst,
+            tuple(inst),
             hard_timeout,
             idle_timeout,
             flags)
@@ -205,17 +212,17 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             match=match,
             priority=priority,
             hard_timeout=hard_timeout,
-            inst=[])
+            inst=())
 
     def flowcontroller(self, match=None, priority=None, inst=None, max_len=96):
         """Add flow outputting to controller."""
         if inst is None:
-            inst = []
+            inst = ()
         return self.flowmod(
             match=match,
             priority=priority,
-            inst=[valve_of.apply_actions(
-                [valve_of.output_controller(max_len)])] + inst)
+            inst=(valve_of.apply_actions(
+                (valve_of.output_controller(max_len),)),) + inst)
 
 
 class ValveGroupEntry:

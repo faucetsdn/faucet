@@ -833,7 +833,7 @@ class ValveTestBases:
             connect_msgs = (
                 valve.switch_features(None) +
                 valve.datapath_connect(self.mock_time(10), discovered_up_ports))
-            self.apply_ofmsgs(connect_msgs, dp_id)
+            connect_msgs = self.apply_ofmsgs(connect_msgs, dp_id)
             self.valves_manager.update_config_applied(sent={dp_id: True})
             self.assertEqual(1, int(self.get_prom('dp_status', dp_id=dp_id)))
             self.assertTrue(valve.dp.to_conf())

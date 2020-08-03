@@ -2532,7 +2532,7 @@ dps:
         global_flowmod = valve_of.flowmod(
             0, ofp.OFPFC_DELETE, ofp.OFPTT_ALL,
             0, ofp.OFPP_CONTROLLER, ofp.OFPP_CONTROLLER,
-            valve_of.match_from_dict({}), [], 0, 0, 0)
+            valve_of.match_from_dict({}), (), 0, 0, 0)
         self.check_groupmods_exist(
             valve_of.valve_flowreorder(ofmsgs + [global_flowmod]))
         global_metermod = valve_of.meterdel()

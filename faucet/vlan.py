@@ -554,7 +554,7 @@ class VLAN(Conf):
         if self.port_is_tagged(port):
             vid = self.vid
         pkt = packet_builder(vid, *args)
-        return valve_of.packetout(port.number, pkt.data)
+        return valve_of.packetout(port.number, bytes(pkt.data))
 
     def flood_pkt(self, packet_builder, multi_out=True, *args):
         """Return Packet-out actions via flooding"""
