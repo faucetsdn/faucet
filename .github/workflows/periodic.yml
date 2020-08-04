@@ -1,4 +1,4 @@
-name: Faucet scheduled tests
+name: Periodic tests
 
 on:
   schedule:
@@ -11,7 +11,6 @@ env:
   SHARDARGS: "--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=99999999999:99999999999 -v /var/local/lib/docker:/var/lib/docker"
 
 jobs:
-
   generative-testing:
     name: Generative tests
     runs-on: ubuntu-latest
@@ -19,8 +18,8 @@ jobs:
       matrix:
         MATRIX_SHARD: [--generative_unit, --generative_integration]
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v2.3.1
+      - name: Checkout repo
+        uses: actions/checkout@v2
       - name: Setup docker test requirements
         run: |
           ulimit -c unlimited

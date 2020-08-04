@@ -1,4 +1,4 @@
-name: Faucet on pull-request tests
+name: Pull request tests
 
 on: [push, pull_request]
 
@@ -10,7 +10,6 @@ env:
   MATRIX_SHARDS: 10
 
 jobs:
-
   unit-tests:
     name: Unit tests
     runs-on: ubuntu-latest
@@ -18,8 +17,8 @@ jobs:
       matrix:
         python-version: [3.5, 3.6, 3.7, 3.8]
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v2.3.1
+      - name: Checkout repo
+        uses: actions/checkout@v2
       - if: ${{ github.event.before != '0000000000000000000000000000000000000000' }}
         name: Get file changes
         id: file_changes
@@ -54,7 +53,7 @@ jobs:
         run: ./tests/run_unit_tests.sh || exit 1
       - if: ${{ matrix.python-version == env.CODECHECK_PY_VER }}
         name: Upload codecov
-        uses: codecov/codecov-action@v1.0.10
+        uses: codecov/codecov-action@v1
       - if: ${{ env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED }}
         name: Pytype
         run: |
@@ -71,8 +70,8 @@ jobs:
     name: Code check
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v2.3.1
+      - name: Checkout repo
+        uses: actions/checkout@v2
       - if: ${{ github.event.before != '0000000000000000000000000000000000000000' }}
         name: Get file changes
         id: file_changes
@@ -121,8 +120,8 @@ jobs:
       matrix:
         MATRIX_SHARD: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v2.3.1
+      - name: Checkout repo
+        uses: actions/checkout@v2
       - if: ${{ github.event.before != '0000000000000000000000000000000000000000' }}
         name: Get file changes
         id: file_changes
@@ -183,8 +182,8 @@ jobs:
     name: Sanity tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v2.3.1
+      - name: Checkout repo
+        uses: actions/checkout@v2
       - if: ${{ github.event.before != '0000000000000000000000000000000000000000' }}
         name: Get file changes
         id: file_changes

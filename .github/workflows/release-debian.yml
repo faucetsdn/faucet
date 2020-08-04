@@ -1,4 +1,4 @@
-name: Release workflow for building debian packages and images
+name: Build debian packages and images for release
 
 on:
   release:

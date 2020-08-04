@@ -1,4 +1,4 @@
-name: Release workflow for building docker images
+name: Build docker images for release
 
 on:
   release:
@@ -10,7 +10,7 @@ jobs:
     name: "Build faucet docker image"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v2
       - name: Set up docker buildx
         id: buildx
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: faucet-docker-image
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v2
       - name: Set up docker buildx
         id: buildx
@@ -61,7 +61,7 @@ jobs:
     name: "Build rabbitmq adapter docker image"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v2
       - name: Set up docker buildx
         id: buildx
@@ -87,7 +87,7 @@ jobs:
     name: "Build faucetagent adapter docker image"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v2
       - name: Set up docker buildx
         id: buildx
