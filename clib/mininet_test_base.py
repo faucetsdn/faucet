@@ -2712,7 +2712,7 @@ dbs:
         for _ in range(3):
             port = mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
-            iperf_base_cmd = 'iperf -f M -p %u' % port
+            iperf_base_cmd = 'iperf3 -f M -p %u' % port
             if server_ip.version == 6:
                 iperf_base_cmd += ' -V'
             iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
