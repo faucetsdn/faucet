@@ -689,11 +689,57 @@ class ValveTestBases:
             """Tear down the test"""
             self.teardown_valves()
 
-        def apply_ofmsgs(self, ofmsgs, dp_id=None):
+        def _check_table_difference(self, before_hash, before_str, dp_id):
+            """
+            Checks the current table state after another check to ensure that
+            the current table state is equal to the before table state.
+
+            Args:
+                before_hash (int): Hash of the table before changes
+                before_str (str): String representation of the table before changes
+                dp_id (int): DP ID of the table to test difference
+            """
+            after_hash = self.network.hash_table(int(dp_id))
+            if before_hash != after_hash:
+                after_str = str(self.network.tables[dp_id])
+                diff = difflib.unified_diff(
+                    before_str.splitlines(), after_str.splitlines())
+                self.assertEqual(before_hash, after_hash,
+                                 msg='%s != %s\n'.join(diff) % (before_hash, after_hash))
+
+        def _verify_redundant_safe_offset_ofmsgs(self, ofmsgs, dp_id, offset=1):
+            """
+            Verify that a copy of the ofmsgs applied to the FakeOFTable with an offset
+            will converge to the original table state. This ensures that a redundant
+            controller with a delayed ofmsgs application will still result in
+            a consistent table structure.
+
+            Args:
+                ofmsgs (list): ofmsgs to copy and apply offset to the original ofmsgs
+                dp_id (int): The dp_id of the FakeOFTable to apply the ofmsgs to
+                offset (int): Offset for the copied ofmsgs
+            """
+            if offset:
+                before_hash, before_str = self.network.table_state(int(dp_id))
+                offset_ofmsgs = []
+                for i in range(0-offset, len(ofmsgs)):
+                    if i >= 0 and i < len(ofmsgs):
+                        offset_ofmsgs.append(ofmsgs[i])
+                    j = i + offset
+                    if j >= 0 and j < len(ofmsgs):
+                        offset_ofmsgs.append(ofmsgs[j])
+                self.network.apply_ofmsgs(int(dp_id), offset_ofmsgs, ignore_errors=True)
+                self._check_table_difference(before_hash, before_str, dp_id)
+
+        def apply_ofmsgs(self, ofmsgs, dp_id=None, offset=1, all_offsets=False):
             """
             Prepare and apply ofmsgs to a DP FakeOFTable
+
             Args:
-                dp_id: The dp_id of the FakeOFTable to apply the ofmsgs to
+                ofmsgs (list): Ofmsgs to prepare and then send to the FakeOFTable
+                dp_id (int): The dp_id of the FakeOFTable to apply the ofmsgs to
+                offset (int): offset for the duplicate flow offset check
+                all_offsets (bool): If true, test all offsets for the ofmsg offset check
             """
             if not ofmsgs:
                 return ofmsgs
@@ -709,7 +755,12 @@ class ValveTestBases:
                     reorder_ratio, 0.90,
                     'inefficient duplicate flow generation (before %u, after %u)' % (
                         before_flow_count, after_flow_count))
-            self.network.apply_ofmsgs(int(dp_id), ofmsgs)
+            self.network.apply_ofmsgs(int(dp_id), final_ofmsgs)
+            if all_offsets:
+                for offset_iter in range(len(ofmsgs)):
+                    self._verify_redundant_safe_offset_ofmsgs(ofmsgs, dp_id, offset_iter)
+            elif offset:
+                self._verify_redundant_safe_offset_ofmsgs(ofmsgs, dp_id, offset)
             return final_ofmsgs
 
         def send_flows_to_dp_by_id(self, valve, flows):
@@ -739,7 +790,7 @@ class ValveTestBases:
             before_table_states = None
             if self.network is not None:
                 before_table_states = {
-                    dp_id: str(table) for dp_id, table in self.network.tables.items()}
+                    dp_id: table.table_state() for dp_id, table in self.network.tables.items()}
             before_dp_status = int(self.get_prom('dp_status'))
             existing_config = None
             if os.path.exists(self.config_file):
@@ -780,12 +831,8 @@ class ValveTestBases:
                     all_ofmsgs[dp_id] = reload_ofmsgs
                     if (not reload_expected and no_reload_no_table_change and
                             before_table_states is not None and dp_id in before_table_states):
-                        before_table_state = before_table_states[dp_id]
-                        after_table_state = str(self.network.tables[dp_id])
-                        diff = difflib.unified_diff(
-                            before_table_state.splitlines(), after_table_state.splitlines())
-                        self.assertEqual(
-                            before_table_state, after_table_state, msg='\n'.join(diff))
+                        before_hash, before_str = before_table_states[dp_id]
+                        self._check_table_difference(before_hash, before_str, dp_id)
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
             self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
             return all_ofmsgs
@@ -805,18 +852,14 @@ class ValveTestBases:
             """
             if before_table_states is None:
                 before_table_states = {
-                    dp_id: str(table) for dp_id, table in self.network.tables.items()}
+                    dp_id: table.table_state() for dp_id, table in self.network.tables.items()}
             self.update_config(new_config, reload_type=reload_type, table_dpid=table_dpid)
             if verify_func is not None:
                 verify_func()
             self.update_config(orig_config, reload_type=reload_type, table_dpid=table_dpid)
-            for dp_id, table in self.network.tables.items():
-                if dp_id in before_table_states:
-                    final_table_state = str(table)
-                    diff = difflib.unified_diff(
-                        before_table_states[dp_id].splitlines(), final_table_state.splitlines())
-                    self.assertEqual(
-                        before_table_states[dp_id], final_table_state, msg='\n'.join(diff))
+            for dp_id, states in before_table_states.items():
+                before_hash, before_str = states
+                self._check_table_difference(before_hash, before_str, dp_id)
 
         def connect_dp(self, dp_id=None):
             """

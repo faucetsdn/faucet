@@ -142,7 +142,7 @@ dps:
     def test_delete_permanent_learn(self):
         """Test port permanent learn can deconfigured."""
         table = self.network.tables[self.DP_ID]
-        before_table_state = str(table)
+        before_table_state = table.table_state()
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.P3_V200_MAC,

@@ -2543,6 +2543,13 @@ dps:
             valve_of.valve_flowreorder(
                 ofmsgs + [global_flowmod, global_metermod, global_groupmod]), False)
 
+    def test_all_offset(self):
+        """Test groups with the redundant controller offset check for all possible offsets"""
+        valve = self.valves_manager.valves[0x1]
+        port = valve.dp.ports[1]
+        ofmsgs = valve.acl_manager.add_port(port)
+        self.apply_ofmsgs(ofmsgs, 0x1, all_offsets=True)
+
 
 class ValveWarmStartStackTest(ValveTestBases.ValveTestNetwork):
     """Test warm starting stack ports"""
