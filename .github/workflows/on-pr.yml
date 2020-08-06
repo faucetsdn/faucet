@@ -168,6 +168,9 @@ jobs:
             shard "$ALLTESTS" ${{ env.MATRIX_SHARDS }}
             FAUCET_TESTS="-din ${sharded[${{ matrix.MATRIX_SHARD }}]}"
             echo ::set-env name=FAUCET_TESTS::${FAUCET_TESTS}
+      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
+        name: Prune docker
+        run: docker system prune -af --volumes
       - if: ${{ env.FAUCET_TESTS }}
         name: Build docker
         run: docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests . || exit 1
@@ -220,6 +223,9 @@ jobs:
           echo '/var/tmp/core.%h.%e.%t' | sudo tee /proc/sys/kernel/core_pattern
           sudo modprobe openvswitch
           sudo modprobe ebtables
+      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
+        name: Prune docker
+        run: docker system prune -af --volumes
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Build docker
         run: docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests . || exit 1
