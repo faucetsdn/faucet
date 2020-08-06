@@ -29,14 +29,16 @@ jobs:
         name: Compare file changes
         run: |
           FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
-          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
-          RQ_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "requirements(.*)txt$" | tr '\n' ' ')
-          DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/**" | tr '\n' ' ')
+          PY_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}' | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E '(workflows/on-pr\.yml|Dockerfile\.tests)$' | tr '\n' ' ')"
+          RQ_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
+          DOC_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'docs/**' | tr '\n' ' ')"
           echo "Files changed: ${FILES_CHANGED}"
+          echo "CI test files changed: ${CI_TEST_FILES_CHANGED}"
           echo "Python code changed: ${PY_FILES_CHANGED}"
           echo "Requirement changes: ${RQ_FILES_CHANGED}"
           echo "Documentation changes: ${DOC_FILES_CHANGED}"
-          echo ::set-env name=FILES_CHANGED::${FILES_CHANGED}
+          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then echo ::set-env name=FILES_CHANGED::all; else echo ::set-env name=FILES_CHANGED::${FILES_CHANGED}; fi
           echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
           echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
           echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
@@ -82,14 +84,16 @@ jobs:
         name: Compare file changes
         run: |
           FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
-          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
-          RQ_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "requirements(.*)txt$" | tr '\n' ' ')
-          DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/**" | tr '\n' ' ')
+          PY_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}' | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E '(workflows/on-pr\.yml|Dockerfile\.tests)$' | tr '\n' ' ')"
+          RQ_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
+          DOC_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'docs/**' | tr '\n' ' ')"
           echo "Files changed: ${FILES_CHANGED}"
+          echo "CI test files changed: ${CI_TEST_FILES_CHANGED}"
           echo "Python code changed: ${PY_FILES_CHANGED}"
           echo "Requirement changes: ${RQ_FILES_CHANGED}"
           echo "Documentation changes: ${DOC_FILES_CHANGED}"
-          echo ::set-env name=FILES_CHANGED::${FILES_CHANGED}
+          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then echo ::set-env name=FILES_CHANGED::all; else echo ::set-env name=FILES_CHANGED::${FILES_CHANGED}; fi
           echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
           echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
           echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
@@ -132,14 +136,16 @@ jobs:
         name: Compare file changes
         run: |
           FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
-          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
-          RQ_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "requirements(.*)txt$" | tr '\n' ' ')
-          DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/**" | tr '\n' ' ')
+          PY_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}' | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E '(workflows/on-pr\.yml|Dockerfile\.tests)$' | tr '\n' ' ')"
+          RQ_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
+          DOC_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'docs/**' | tr '\n' ' ')"
           echo "Files changed: ${FILES_CHANGED}"
+          echo "CI test files changed: ${CI_TEST_FILES_CHANGED}"
           echo "Python code changed: ${PY_FILES_CHANGED}"
           echo "Requirement changes: ${RQ_FILES_CHANGED}"
           echo "Documentation changes: ${DOC_FILES_CHANGED}"
-          echo ::set-env name=FILES_CHANGED::${FILES_CHANGED}
+          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then echo ::set-env name=FILES_CHANGED::all; else echo ::set-env name=FILES_CHANGED::${FILES_CHANGED}; fi
           echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
           echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
           echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
@@ -194,14 +200,16 @@ jobs:
         name: Compare file changes
         run: |
           FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
-          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
-          RQ_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "requirements(.*)txt$" | tr '\n' ' ')
-          DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/**" | tr '\n' ' ')
+          PY_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}' | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E '(workflows/on-pr\.yml|Dockerfile\.tests)$' | tr '\n' ' ')"
+          RQ_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
+          DOC_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'docs/**' | tr '\n' ' ')"
           echo "Files changed: ${FILES_CHANGED}"
+          echo "CI test files changed: ${CI_TEST_FILES_CHANGED}"
           echo "Python code changed: ${PY_FILES_CHANGED}"
           echo "Requirement changes: ${RQ_FILES_CHANGED}"
           echo "Documentation changes: ${DOC_FILES_CHANGED}"
-          echo ::set-env name=FILES_CHANGED::${FILES_CHANGED}
+          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then echo ::set-env name=FILES_CHANGED::all; else echo ::set-env name=FILES_CHANGED::${FILES_CHANGED}; fi
           echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
           echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
           echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
