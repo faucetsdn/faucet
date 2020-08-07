@@ -150,6 +150,19 @@ jobs:
           echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
           echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
+        name: Clean up disk space
+        run: |
+            df -h
+            sudo apt-get remove -y '^ghc-8.*'
+            sudo apt-get remove -y '^dotnet-.*'
+            sudo apt-get remove -y '^llvm-.*'
+            sudo apt-get remove -y 'php.*'
+            sudo apt-get remove -y azure-cli google-cloud-sdk hhvm google-chrome-stable firefox powershell mono-devel
+            sudo apt-get autoremove -y
+            sudo apt-get clean
+            sudo rm -rf /usr/share/dotnet
+            df -h
+      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Shard out tests
         run: |
             ALLTESTFILES="tests/integration/mininet_tests.py tests/integration/mininet_multidp_tests.py clib/clib_mininet_tests.py"
@@ -168,9 +181,6 @@ jobs:
             shard "$ALLTESTS" ${{ env.MATRIX_SHARDS }}
             FAUCET_TESTS="-din ${sharded[${{ matrix.MATRIX_SHARD }}]}"
             echo ::set-env name=FAUCET_TESTS::${FAUCET_TESTS}
-      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
-        name: Prune docker
-        run: docker system prune -af --volumes
       - if: ${{ env.FAUCET_TESTS }}
         name: Build docker
         run: docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests . || exit 1
@@ -217,15 +227,25 @@ jobs:
           echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
           echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
+        name: Clean up disk space
+        run: |
+            df -h
+            sudo apt-get remove -y '^ghc-8.*'
+            sudo apt-get remove -y '^dotnet-.*'
+            sudo apt-get remove -y '^llvm-.*'
+            sudo apt-get remove -y 'php.*'
+            sudo apt-get remove -y azure-cli google-cloud-sdk hhvm google-chrome-stable firefox powershell mono-devel
+            sudo apt-get autoremove -y
+            sudo apt-get clean
+            sudo rm -rf /usr/share/dotnet
+            df -h
+      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Setup docker test requirements
         run: |
           ulimit -c unlimited
           echo '/var/tmp/core.%h.%e.%t' | sudo tee /proc/sys/kernel/core_pattern
           sudo modprobe openvswitch
           sudo modprobe ebtables
-      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
-        name: Prune docker
-        run: docker system prune -af --volumes
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Build docker
         run: docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests . || exit 1
