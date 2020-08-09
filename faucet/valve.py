@@ -1337,6 +1337,8 @@ class Valve:
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
                 ofmsgs.extend(self.acl_manager.cold_start_port(port))
+        if self.stack_manager:
+            ofmsgs.extend(self.stack_manager.add_tunnel_acls())
         ofmsgs.extend(self.pipeline.add_drop_spoofed_faucet_mac_rules())
         return False, ofmsgs
 
