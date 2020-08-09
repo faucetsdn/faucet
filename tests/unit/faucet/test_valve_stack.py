@@ -3136,7 +3136,7 @@ dps:
     def test_stack(self):
         """Test getting config for stack with correct config"""
         dp = self.valves_manager.valves[1].dp
-        stack_conf = yaml.load(dp.stack.to_conf())
+        stack_conf = yaml.safe_load(dp.stack.to_conf())
         self.assertIsInstance(stack_conf, dict)
         self.assertIn('priority', stack_conf)
         self.assertIn('down_time_multiple', stack_conf)
@@ -3149,8 +3149,8 @@ dps:
     def test_dp_stack(self):
         """Test getting config for DP with correct subconfig stack"""
         dp = self.valves_manager.valves[1].dp
-        dp_conf = yaml.load(dp.to_conf())
-        stack_conf = yaml.load(dp.stack.to_conf())
+        dp_conf = yaml.safe_load(dp.to_conf())
+        stack_conf = yaml.safe_load(dp.stack.to_conf())
         self.assertIn('stack', dp_conf)
         self.assertIsInstance(dp_conf['stack'], dict)
         self.assertEqual(dp_conf['stack'], stack_conf)
