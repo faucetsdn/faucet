@@ -1724,6 +1724,14 @@ dps:
         self.validate_tunnel(
             1, 0, 3, self.SRC_ID, True,
             'Did not encapsulate and forward')
+        new_config_yaml = yaml.safe_load(self.CONFIG)
+        new_config_yaml['dps']['s1']['interfaces'][1]['description'] = 'changed'
+        self.update_config(yaml.dump(new_config_yaml), reload_type='warm')
+        self.activate_all_ports()
+        # warm start with no topo change with tunnel.
+        self.validate_tunnel(
+            1, 0, 3, self.SRC_ID, True,
+            'Did not encapsulate and forward')
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
