@@ -1724,6 +1724,14 @@ dps:
         self.validate_tunnel(
             1, 0, 3, self.SRC_ID, True,
             'Did not encapsulate and forward')
+        new_config_yaml = yaml.safe_load(self.CONFIG)
+        new_config_yaml['dps']['s1']['interfaces'][1]['description'] = 'changed'
+        self.update_config(yaml.dump(new_config_yaml), reload_type='warm')
+        self.activate_all_ports()
+        # warm start with no topo change with tunnel.
+        self.validate_tunnel(
+            1, 0, 3, self.SRC_ID, True,
+            'Did not encapsulate and forward')
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
@@ -3136,7 +3144,7 @@ dps:
     def test_stack(self):
         """Test getting config for stack with correct config"""
         dp = self.valves_manager.valves[1].dp
-        stack_conf = yaml.load(dp.stack.to_conf())
+        stack_conf = yaml.safe_load(dp.stack.to_conf())
         self.assertIsInstance(stack_conf, dict)
         self.assertIn('priority', stack_conf)
         self.assertIn('down_time_multiple', stack_conf)
@@ -3149,8 +3157,8 @@ dps:
     def test_dp_stack(self):
         """Test getting config for DP with correct subconfig stack"""
         dp = self.valves_manager.valves[1].dp
-        dp_conf = yaml.load(dp.to_conf())
-        stack_conf = yaml.load(dp.stack.to_conf())
+        dp_conf = yaml.safe_load(dp.to_conf())
+        stack_conf = yaml.safe_load(dp.stack.to_conf())
         self.assertIn('stack', dp_conf)
         self.assertIsInstance(dp_conf['stack'], dict)
         self.assertEqual(dp_conf['stack'], stack_conf)
