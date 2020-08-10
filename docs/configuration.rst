@@ -276,7 +276,14 @@ within the configuration block 'stack':
       - integer
       - 0
       - Setting any value for stack priority indicates that this datapath
-        should be the root for the stacking topology.
+        should be the root for the stacking topology. When multiple stack DPs
+        have a priority value applied, the root will be chosen as the DP with
+        the lowest priority
+    * - down_time_multiple
+      - integer
+      - 3
+      - The down_time_multiple value determines the number of root update time
+        intervals for a stack node to be considered healthy when not running.
 
 LLDP (DP)
 #########
@@ -1140,6 +1147,11 @@ such as paths for configuration files and port numbers.
       - | /etc/faucet/faucet.yaml:
         | /etc/ryu/faucet/faucet.yaml
       - Faucet will load its configuration from the first valid file in list
+    * - FAUCET_STACK_ROOT_STATE_UPDATE_TIME
+      - int
+      - 10
+      - Configures the number of seconds to wait before checking stack root health. If the current root is unhealthy, a new root will be nominated.
+        If set to 0, Faucet will not check root node health.
     * - FAUCET_CONFIG_AUTO_REVERT
       - boolean
       - False
