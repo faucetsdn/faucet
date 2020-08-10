@@ -20,8 +20,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - if: ${{ steps.file_changes.outputs.all }}
+        name: Setup dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+      - if: ${{ steps.file_changes.outputs.all }}
         name: Compare file changes
         run: |
+          sudo apt-get install jq
           FILES_ALL="$(echo '${{ steps.file_changes.outputs.all }}' | jq -r '.[]' | tr '\n' ' ')"
           FILES_ADDED="$(echo '${{ steps.file_changes.outputs.added }}' | jq -r '.[]' | tr '\n' ' ')"
           FILES_DELETED="$(echo '${{ steps.file_changes.outputs.deleted }}' | jq -r '.[]' | tr '\n' ' ')"

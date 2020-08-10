@@ -19,6 +19,9 @@ class FaucetTopoTestBase(FaucetTestBase):
     Extension to the base test for the integration test suite to help set up arbitrary topologies
     """
 
+    NUM_FAUCET_CONTROLLERS = 2
+    NUM_GAUGE_CONTROLLERS = 1
+
     NETPREFIX = 24
     IPV = 4
     GROUP_TABLE = False
@@ -285,10 +288,10 @@ class FaucetTopoTestBase(FaucetTestBase):
             labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': name}
             self.assertEqual(
                 0, self.scrape_prometheus_var(
-                    var='stack_cabling_errors_total', labels=labels, default=None))
+                    var='stack_cabling_errors_total', labels=labels, default=None, verify_consistent=True))
             self.assertGreater(
                 self.scrape_prometheus_var(
-                    var='stack_probes_received_total', labels=labels), 0)
+                    var='stack_probes_received_total', labels=labels, verify_consistent=True), 0)
 
     def verify_stack_hosts(self, verify_bridge_local_rule=True, retries=3):
         """Verify hosts with stack LLDP messages"""
@@ -317,7 +320,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         return self.scrape_prometheus_var(
             'port_stack_state', labels=labels,
-            default=None, dpid=dpid)
+            default=None, dpid=dpid, verify_consistent=True)
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         """Wait until prometheus detects a stack port has a certain status"""
@@ -648,7 +651,7 @@ details partner lacp pdu:
                                 # Obtain up LACP ports for that dpid
                                 port_labels = self.port_labels(port)
                                 lacp_state = self.scrape_prometheus_var(
-                                    'port_lacp_state', port_labels, default=0, dpid=dpid)
+                                    'port_lacp_state', port_labels, default=0, dpid=dpid, verify_consistent=True)
                                 lacp_up_ports += 1 if lacp_state == 3 else 0
         return lacp_up_ports
 
