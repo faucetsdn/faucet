@@ -58,16 +58,14 @@ def dp_parser(config_file, logname, meta_dp_state=None):
 
 
 def _get_vlan_by_key(dp_id, vlan_key, vlans):
-    test_config_condition(not isinstance(vlan_key, (str, int)), (
-        'VLAN key must not be type %s' % type(vlan_key)))
     if vlan_key in vlans:
         return vlans[vlan_key]
-    test_config_condition(not isinstance(vlan_key, int), (
-        'Implicitly created VLAN %s must be an int (not %s)' % (
-            vlan_key, type(vlan_key))))
     for vlan in vlans.values():
         if vlan_key == vlan.vid:
             return vlan
+    test_config_condition(not isinstance(vlan_key, int), (
+        'Implicitly created VLAN %s must be an int (not %s)' % (
+            vlan_key, type(vlan_key))))
     # Create VLAN with VID, if not defined.
     return vlans.setdefault(vlan_key, VLAN(vlan_key, dp_id))
 
@@ -180,6 +178,8 @@ def _parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
         vlan = VLAN(vlan_key, dp.dp_id, vlan_conf)
         test_config_condition(str(vlan_key) not in (str(vlan.vid), vlan.name), (
             'VLAN %s key must match VLAN name or VLAN VID' % vlan_key))
+        test_config_condition(not isinstance(vlan_key, (str, int)), (
+            'VLAN %s key must not be type %s' % (vlan_key, type(vlan_key))))
         test_config_condition(vlan.vid in vids, (
             'VLAN VID %u multiply configured' % vlan.vid))
         vlans[vlan_key] = vlan
