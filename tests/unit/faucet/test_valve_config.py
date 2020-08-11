@@ -870,6 +870,34 @@ dps:
         self.fail('%f: %s' % (total_tt_prop, pstats_text))
 
 
+class ValveTestVLANRef(ValveTestBases.ValveTestNetwork):
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 333
+            p2:
+                number: 2
+                native_vlan: threes
+vlans:
+    threes:
+        vid: 333
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_vlan_refs(self):
+        vlans = self.valves_manager.valves[self.DP_ID].dp.vlans
+        self.assertEqual(1, len(vlans))
+        self.assertEqual('threes', vlans[333].name, vlans[333])
+        self.assertEqual(2, len(vlans[333].untagged))
+
+
 class ValveTestConfigHash(ValveTestBases.ValveTestNetwork):
     """Verify faucet_config_hash_info update after config change"""
 

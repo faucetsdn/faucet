@@ -3347,8 +3347,8 @@ class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
         del conf['dps'][self.DP_NAME]['interfaces']
         conf['dps'][self.DP_NAME]['interfaces'] = {
             int(self.port_map['port_1']): {
-                'native_vlan': '100',
-                'tagged_vlans': ['200'],
+                'native_vlan': 100,
+                'tagged_vlans': [200],
             }
         }
         self.reload_conf(
@@ -3362,7 +3362,7 @@ class FaucetRouterConfigReloadTest(FaucetConfigReloadTestBase):
         conf = self._get_faucet_conf()
         conf['routers'] = {
             'router-1': {
-                'vlans': ['100', '200'],
+                'vlans': [100, 200],
             }
         }
         self.reload_conf(
