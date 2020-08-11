@@ -62,8 +62,11 @@ def _get_vlan_by_key(dp_id, vlan_key, vlans):
         'VLAN key must not be type %s' % type(vlan_key)))
     if vlan_key in vlans:
         return vlans[vlan_key]
+    test_config_condition(not isinstance(vlan_key, int), (
+        'Implicitly created VLAN %s must be an int (not %s)' % (
+            vlan_key, type(vlan_key))))
     for vlan in vlans.values():
-        if vlan_key == str(vlan.vid):
+        if vlan_key == vlan.vid:
             return vlan
     # Create VLAN with VID, if not defined.
     return vlans.setdefault(vlan_key, VLAN(vlan_key, dp_id))
