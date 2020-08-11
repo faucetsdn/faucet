@@ -58,8 +58,11 @@ def dp_parser(config_file, logname, meta_dp_state=None):
 
 
 def _get_vlan_by_key(dp_id, vlan_key, vlans):
-    if vlan_key in vlans:
-        return vlans[vlan_key]
+    try:
+        if vlan_key in vlans:
+            return vlans[vlan_key]
+    except TypeError as err:
+        raise InvalidConfigError(err)
     for vlan in vlans.values():
         if vlan_key == vlan.vid:
             return vlan
