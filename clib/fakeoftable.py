@@ -137,7 +137,12 @@ class FakeOFNetwork:
         """Returns the length of the shortest path from the source to the destination"""
         src_valve = self.valves_manager.valves[src_dpid]
         dst_valve = self.valves_manager.valves[dst_dpid]
-        return len(src_valve.dp.shortest_path(dst_valve.dp.name))
+        if src_valve == dst_valve:
+            return 1
+        elif src_valve.dp.stack and dst_valve.dp.stack:
+            return len(src_valve.dp.stack.shortest_path(dst_valve.dp.name))
+        else:
+            return 2
 
     def is_output(self, match, src_dpid, dst_dpid, port=None, vid=None, trace=False):
         """
