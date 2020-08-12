@@ -1,16 +1,20 @@
 #!/bin/bash
 
+set -euo pipefail
+
 MINCOVERAGE=92
+
 SCRIPTPATH=$(readlink -f "$0")
-TESTDIR=`dirname $SCRIPTPATH`
-BASEDIR=`readlink -f $TESTDIR/..`
-cd $BASEDIR || exit 1
+TESTDIR=$(dirname "${SCRIPTPATH}")
+BASEDIR=$(readlink -f "${TESTDIR}/..")
+
+cd "${BASEDIR}"
 
 TESTCMD="PYTHONPATH=$BASEDIR coverage run --parallel-mode --source $BASEDIR/faucet"
 SRCFILES="find $TESTDIR/unit/*/test_*py -type f"
 
-coverage erase || exit 1
+coverage erase
 $SRCFILES | xargs realpath | shuf | parallel --timeout 300 --delay 1 --bar --halt now,fail=1 -j 2 $TESTCMD || exit 1
 coverage combine
 coverage xml
-coverage report -m --fail-under=$MINCOVERAGE || exit 1
+coverage report -m --fail-under=${MINCOVERAGE}

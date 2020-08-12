@@ -1,22 +1,21 @@
 #!/bin/bash
 
+set -euo pipefail
+
 INTEGRATIONTESTS=1
 UNITTESTS=1
 DEPCHECK=1
-
 GEN_UNIT=0
 GEN_INT=0
-
 SKIP_PIP=0
 HELP=0
-MINCOVERAGE=85
+HWTESTS=${HWTESTS:-0}
+PY_FILES_CHANGED=${PY_FILES_CHANGED:-""}
 
-set -e  # quit on error
 
-
-if [ -z "${FAUCET_TESTS}" ]; then
+if [ -z "${FAUCET_TESTS:-}" ]; then
   # If FAUCET_TESTS env var isn't set read arguments from argv
-  FAUCET_TESTS="$@"
+  FAUCET_TESTS="$*"
 fi
 
 # Shorten long form arguments to make parsing easier
@@ -149,7 +148,7 @@ if [ "$UNITTESTS" == 1 ] ; then
   cd /faucet-src/tests
   time ./run_unit_tests.sh
 elif [ "$GEN_UNIT" == 1 ] ; then
-  echo "========== Running Faucet generative unit tests =========="
+  echo "========== Running faucet generative unit tests =========="
   cd /faucet-src/tests/generative/unit/
   ./test_topology.py
   cd /faucet-src/tests
@@ -178,11 +177,11 @@ export FAUCET_DIR=/faucet-src/faucet
 export http_proxy=
 
 if [ "$INTEGRATIONTESTS" == 1 ] ; then
-  echo "========== Running Faucet integration tests =========="
+  echo "========== Running faucet integration tests =========="
   cd /faucet-src/tests/integration
   ./mininet_main.py -c
 elif [ "$GEN_INT" == 1 ] ; then
-  echo "========== Running Faucet generative integration tests =========="
+  echo "========== Running faucet generative integration tests =========="
   cd /faucet-src/tests/generative/integration/
   ./mininet_main.py -c
 fi
@@ -192,8 +191,7 @@ if [ "$HWTESTS" == 1 ] ; then
   ovs-vsctl add-br hwbr &&
     ovs-vsctl set-controller hwbr tcp:127.0.0.1:6653 tcp:127.0.0.1:6654 &&
     ovs-vsctl set-fail-mode hwbr secure &&
-    ovs-vsctl set Open_vSwitch . other_config:vlan-limit=2 ||
-    exit 1
+    ovs-vsctl set Open_vSwitch . other_config:vlan-limit=2
   DPID='0x'`sudo ovs-vsctl get bridge hwbr datapath-id|sed 's/"//g'`
   DP_PORTS=""
   N=$'\n'
@@ -203,8 +201,7 @@ if [ "$HWTESTS" == 1 ] ; then
     PHWP="p$HWP"
     ip link add dev $HWP type veth peer name $PHWP &&
       ifconfig $PHWP up &&
-      ovs-vsctl add-port hwbr $PHWP -- set interface $PHWP ofport_request=$p ||
-      exit 1
+      ovs-vsctl add-port hwbr $PHWP -- set interface $PHWP ofport_request=$p
     for i in $HWP $PHWP ; do
       echo 1 > /proc/sys/net/ipv6/conf/$i/disable_ipv6
       ip -4 addr flush dev $i
@@ -222,8 +219,11 @@ dp_ports:
 ${DP_PORTS}
 dpid: ${DPID}
 EOL
-  mkdir -p /etc/faucet && cp /tmp/hw_switch_config.yaml /etc/faucet || exit 1
-  cat /etc/faucet/hw_switch_config.yaml && ovs-vsctl show && ovs-ofctl dump-ports hwbr || exit 1
+  mkdir -p /etc/faucet
+  cp /tmp/hw_switch_config.yaml /etc/faucet
+  cat /etc/faucet/hw_switch_config.yaml
+  ovs-vsctl show
+  ovs-ofctl dump-ports hwbr
 fi
 
 if [ "$INTEGRATIONTESTS" == 1 ] || [ "$GEN_INT" == 1 ] ; then
@@ -232,8 +232,8 @@ if [ "$INTEGRATIONTESTS" == 1 ] || [ "$GEN_INT" == 1 ] ; then
   time ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
 fi
 
-if [ -n "$test_failures" ]; then
-    echo Test failures: $test_failures
+if [ -n "${test_failures}" ]; then
+    echo "Test failures: ${test_failures}"
     exit 1
 fi
 
