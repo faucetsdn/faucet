@@ -1923,6 +1923,8 @@ dps:
                 stack: {dp: s2, port: 3}
             4:
                 stack: {dp: s2, port: 4}
+            5:
+                native_vlan: vlan100
     s2:
         dp_id: 0x2
         hardware: 'GenericTFM'
@@ -1943,6 +1945,13 @@ dps:
             for port in valve.dp.ports.values():
                 if port.stack:
                     self.set_stack_port_up(port.number, valve)
+
+    def test_new_tunnel_source(self):
+        config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+        config['dps']['s1']['interfaces'][5]['acls_in'] = ['tunnel_acl']
+        self.update_config(yaml.dump(config), reload_type='warm')
+        self.activate_all_ports()
+        self.test_tunnel_update_multiple_tunnels()
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
         bcast_match = {
@@ -2143,7 +2152,7 @@ dps:
         ofmsgs = valve.stack_manager.add_tunnel_acls()
         self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
         self.apply_ofmsgs(ofmsgs)
-        # Should ccept encapsulated packet and output using the new path
+        # Should accept encapsulated packet and output using the new path
         self.validate_tunnel(4, self.DST_ID, 1, 0, True, 'Did not output to host')
 
     def test_update_none_tunnel(self):
