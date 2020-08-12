@@ -1512,6 +1512,45 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
                 msg='%s: %s' % (lldp_required, tcpdump_txt))
 
 
+class FaucetLLDPIntervalTest(FaucetUntaggedTest):
+
+    CONFIG = """
+        lldp_beacon:
+            send_interval: 10
+            max_per_interval: 5
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                lldp_beacon:
+                    enable: True
+                    system_name: "faucet"
+                    port_descr: "first_port"
+                    org_tlvs:
+                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    def test_untagged(self):
+        first_host = self.hosts_name_ordered()[0]
+        tcpdump_filter = 'ether proto 0x88cc'
+        timeout = 10 * 3
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, tcpdump_filter, [
+                lambda: first_host.cmd('sleep %u' % timeout)],
+            timeout=timeout, vflags='-vv', packets=2)
+        timestamps = re.findall(r'\d{2}:\d{2}:\d{2}\.[0-9]+', tcpdump_txt)
+        timestamps = [int(time.split('.')[0].split(':')[2]) for time in timestamps]
+        if timestamps[1] > timestamps[0]:
+            self.assertTrue(timestamps[1] - timestamps[0] > 10)
+        else:
+            self.assertTrue(timestamps[1] - timestamps[0] + 60 > 10)
+
+
 class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
 
     CONFIG = """

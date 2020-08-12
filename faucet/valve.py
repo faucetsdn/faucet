@@ -107,6 +107,7 @@ class Valve:
         '_dot1x_manager',
         '_last_advertise_sec',
         '_last_fast_advertise_sec',
+        '_last_lldp_advertise_sec',
         '_last_packet_in_sec',
         '_last_pipeline_flows',
         '_packet_in_count_sec',
@@ -150,6 +151,7 @@ class Valve:
         self._last_packet_in_sec = None
         self._last_advertise_sec = None
         self._last_fast_advertise_sec = None
+        self._last_lldp_advertise_sec = None
         self.dp_init()
 
     def _port_vlan_labels(self, port, vlan):
@@ -196,6 +198,7 @@ class Valve:
         self._last_packet_in_sec = 0
         self._last_advertise_sec = 0
         self._last_fast_advertise_sec = 0
+        self._last_lldp_advertise_sec = 0
         self._route_manager_by_ipv = {}
         self._route_manager_by_eth_type = {}
         self._port_highwater = {}
@@ -594,8 +597,11 @@ class Valve:
         for port in self.dp.lacp_active_ports:
             ofmsgs.extend(self.switch_manager.lacp_advertise(port))
 
-        ports = self.dp.lldp_beacon_send_ports(now)
-        ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
+        lldp_send_interval = self.dp.lldp_beacon.get('send_interval')
+        if (not lldp_send_interval or now - self._last_lldp_advertise_sec >= lldp_send_interval):
+            ports = self.dp.lldp_beacon_send_ports(now)
+            ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
+            self._last_lldp_advertise_sec = now
 
         if ofmsgs:
             return {self: ofmsgs}
