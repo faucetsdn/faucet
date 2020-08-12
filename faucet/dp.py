@@ -930,6 +930,9 @@ configuration.
                 test_config_condition(dst_port is None, (
                     'Could not find referenced destination port (%s) for tunnel ACL %s' % (
                         dst_port_name, acl_in)))
+                test_config_condition(dst_port.stack is not None, (
+                    'destination port %s for tunnel ACL %s cannot be a stack port' % (
+                        dst_port_name, acl_in)))
                 dst_port = dst_port.number
                 dst_dp = dst_dp.name
                 resolved_dst = (dst_dp, dst_port)
