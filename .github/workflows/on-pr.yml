@@ -30,7 +30,7 @@ jobs:
         run: |
           FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
           PY_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}' | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
-          CI_TEST_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E '(workflows/on-pr\.yml|Dockerfile\.tests)$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E '(workflows/on-pr\.yml$|Dockerfile\.tests$|^docker/|tests/.+\.sh$)' | tr '\n' ' ')"
           RQ_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
           DOC_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'docs/**' | tr '\n' ' ')"
           echo "Files changed: ${FILES_CHANGED}"
@@ -138,7 +138,7 @@ jobs:
         run: |
           FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
           PY_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}' | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
-          CI_TEST_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E '(workflows/on-pr\.yml|Dockerfile\.tests)$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E '(workflows/on-pr\.yml$|Dockerfile\.tests$|^docker/|tests/.+\.sh$)' | tr '\n' ' ')"
           RQ_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
           DOC_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'docs/**' | tr '\n' ' ')"
           echo "Files changed: ${FILES_CHANGED}"
@@ -204,7 +204,7 @@ jobs:
         run: |
           FILES_CHANGED="${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}"
           PY_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files_added }} ${{ steps.file_changes.outputs.files_modified }}' | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
-          CI_TEST_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E '(workflows/on-pr\.yml|Dockerfile\.tests)$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E '(workflows/on-pr\.yml$|Dockerfile\.tests$|^docker/|tests/.+\.sh$)' | tr '\n' ' ')"
           RQ_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
           DOC_FILES_CHANGED="$(echo '${{ steps.file_changes.outputs.files }}' | tr ' ' '\n' | grep -E 'docs/**' | tr '\n' ' ')"
           echo "Files changed: ${FILES_CHANGED}"
