@@ -100,10 +100,6 @@ FAUCET_TESTS="${PARAMS#"${PARAMS%%[![:space:]]*}"}"
 
 cd /faucet-src
 
-if [ -f /venv/bin/activate ]; then
-  source /venv/bin/activate
-fi
-
 if [ "$SKIP_PIP" == 0 ] ; then
   if [ -d /var/tmp/pip-cache ] ; then
     echo Using pip cache
