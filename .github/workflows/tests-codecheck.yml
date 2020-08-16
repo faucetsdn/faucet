@@ -1,0 +1,62 @@
+name: Code health checks
+
+on: [push, pull_request]
+
+env:
+  FILES_CHANGED: "all"
+  CODECHECK_PY_VER: 3.6
+
+jobs:
+  codecheck:
+    name: Code check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+      - if: ${{ github.event_name == 'pull_request' && github.event.before != '0000000000000000000000000000000000000000' }}
+        name: Get file changes
+        id: file_changes
+        uses: lots0logs/gh-action-get-changed-files@2.1.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - if: ${{ steps.file_changes.outputs.all }}
+        name: Compare file changes
+        run: |
+          FILES_ALL="$(echo '${{ steps.file_changes.outputs.all }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_ADDED="$(echo '${{ steps.file_changes.outputs.added }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_DELETED="$(echo '${{ steps.file_changes.outputs.deleted }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_RENAMED="$(echo '${{ steps.file_changes.outputs.renamed }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_MODIFIED="$(echo '${{ steps.file_changes.outputs.modified }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_ADDED_MODIFIED="${FILES_ADDED} ${FILES_MODIFIED}"
+          PY_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '(workflows\/tests-.+\.yml$|Dockerfile\.tests$|^docker\/.+$|tests\/.+\.sh$)' | tr '\n' ' ')"
+          RQ_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
+          DOC_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '^docs/.+$' | tr '\n' ' ')"
+          echo "Files changed: ${FILES_ADDED_MODIFIED}"
+          echo "CI test files changed: ${CI_TEST_FILES_CHANGED}"
+          echo "Python code changed: ${PY_FILES_CHANGED}"
+          echo "Requirement changes: ${RQ_FILES_CHANGED}"
+          echo "Documentation changes: ${DOC_FILES_CHANGED}"
+          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then echo ::set-env name=FILES_CHANGED::all; else echo ::set-env name=FILES_CHANGED::${FILES_ADDED_MODIFIED}; fi
+          echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
+          echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
+          echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
+      - name: Set up python-${{ env.CODECHECK_PY_VER }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ env.CODECHECK_PY_VER }}
+      - name: Install dependencies
+        run: |
+          ./docker/pip_deps.sh
+      - if: ${{ env.FILES_CHANGED == 'all' || env.DOC_FILES_CHANGED }}
+        name: Build docs
+        run: |
+          cd ./docs
+          sudo apt-get install librsvg2-bin
+          make html
+          rm -rf _build
+      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED }}
+        name: Pylint
+        run: |
+          cd ./tests/codecheck
+          ./pylint.sh ${{ env.PY_FILES_CHANGED }}

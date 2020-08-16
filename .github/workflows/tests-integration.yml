@@ -1,0 +1,137 @@
+name: Integration tests
+
+on: [push, pull_request]
+
+env:
+  FILES_CHANGED: "all"
+  FAUCET_TEST_IMG: "faucet/tests"
+  SHARDARGS: "--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=99999999999:99999999999 -v /var/local/lib/docker:/var/lib/docker -v /var/tmp/:/var/tmp/"
+  MATRIX_SHARDS: 10
+
+jobs:
+  sanity-tests:
+    name: Sanity tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+      - if: ${{ github.event_name == 'pull_request' && github.event.before != '0000000000000000000000000000000000000000' }}
+        name: Get file changes
+        id: file_changes
+        uses: lots0logs/gh-action-get-changed-files@2.1.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - if: ${{ steps.file_changes.outputs.all }}
+        name: Compare file changes
+        run: |
+          FILES_ALL="$(echo '${{ steps.file_changes.outputs.all }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_ADDED="$(echo '${{ steps.file_changes.outputs.added }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_DELETED="$(echo '${{ steps.file_changes.outputs.deleted }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_RENAMED="$(echo '${{ steps.file_changes.outputs.renamed }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_MODIFIED="$(echo '${{ steps.file_changes.outputs.modified }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_ADDED_MODIFIED="${FILES_ADDED} ${FILES_MODIFIED}"
+          PY_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '(workflows\/tests-.+\.yml$|Dockerfile\.tests$|^docker\/.+$|tests\/.+\.sh$)' | tr '\n' ' ')"
+          RQ_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
+          DOC_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '^docs/.+$' | tr '\n' ' ')"
+          echo "Files changed: ${FILES_ADDED_MODIFIED}"
+          echo "CI test files changed: ${CI_TEST_FILES_CHANGED}"
+          echo "Python code changed: ${PY_FILES_CHANGED}"
+          echo "Requirement changes: ${RQ_FILES_CHANGED}"
+          echo "Documentation changes: ${DOC_FILES_CHANGED}"
+          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then echo ::set-env name=FILES_CHANGED::all; else echo ::set-env name=FILES_CHANGED::${FILES_ADDED_MODIFIED}; fi
+          echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
+          echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
+          echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
+      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
+        name: Build docker
+        run: |
+          docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
+      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
+        name: Run docker
+        run: |
+          ulimit -c unlimited
+          echo '/var/tmp/core.%h.%e.%t' | sudo tee /proc/sys/kernel/core_pattern
+          sudo modprobe openvswitch
+          sudo modprobe ebtables
+          sudo docker run ${SHARDARGS} -e FAUCET_TESTS="-ni FaucetSanityTest FaucetStackStringOfDPUntaggedTest" -e HWTESTS="1" -t ${FAUCET_TEST_IMG}
+      - name: Detect core dumps
+        run: |
+          if [ ls -1 /var/tmp/core* > /dev/null 2>&1 ]; then
+            exit 1
+          fi
+
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    needs: sanity-tests
+    strategy:
+      matrix:
+        MATRIX_SHARD: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+      - if: ${{ github.event_name == 'pull_request' && github.event.before != '0000000000000000000000000000000000000000' }}
+        name: Get file changes
+        id: file_changes
+        uses: lots0logs/gh-action-get-changed-files@2.1.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - if: ${{ steps.file_changes.outputs.all }}
+        name: Compare file changes
+        run: |
+          FILES_ALL="$(echo '${{ steps.file_changes.outputs.all }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_ADDED="$(echo '${{ steps.file_changes.outputs.added }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_DELETED="$(echo '${{ steps.file_changes.outputs.deleted }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_RENAMED="$(echo '${{ steps.file_changes.outputs.renamed }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_MODIFIED="$(echo '${{ steps.file_changes.outputs.modified }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_ADDED_MODIFIED="${FILES_ADDED} ${FILES_MODIFIED}"
+          PY_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '(workflows\/tests-.+\.yml$|Dockerfile\.tests$|^docker\/.+$|tests\/.+\.sh$)' | tr '\n' ' ')"
+          RQ_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
+          DOC_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '^docs/.+$' | tr '\n' ' ')"
+          echo "Files changed: ${FILES_ADDED_MODIFIED}"
+          echo "CI test files changed: ${CI_TEST_FILES_CHANGED}"
+          echo "Python code changed: ${PY_FILES_CHANGED}"
+          echo "Requirement changes: ${RQ_FILES_CHANGED}"
+          echo "Documentation changes: ${DOC_FILES_CHANGED}"
+          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then echo ::set-env name=FILES_CHANGED::all; else echo ::set-env name=FILES_CHANGED::${FILES_ADDED_MODIFIED}; fi
+          echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
+          echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
+          echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
+      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
+        name: Shard out tests
+        run: |
+          ALLTESTFILES="tests/integration/mininet_tests.py tests/integration/mininet_multidp_tests.py clib/clib_mininet_tests.py"
+          ALLTESTS=$(grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" ${ALLTESTFILES} | cut -f2 -d" " | sort)
+          declare -A sharded
+          function shard {
+            work=$1
+            workers=$2
+            i=0
+            for shard in $work ; do
+              i=$(( i % workers ))
+              sharded[$i]="${sharded[$i]} $shard"
+              i=$(( i + 1 ))
+            done
+          }
+          shard "$ALLTESTS" ${{ env.MATRIX_SHARDS }}
+          FAUCET_TESTS="-din ${sharded[${{ matrix.MATRIX_SHARD }}]}"
+          echo ::set-env name=FAUCET_TESTS::${FAUCET_TESTS}
+      - if: ${{ env.FAUCET_TESTS }}
+        name: Build docker
+        run: |
+          docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
+      - if: ${{ env.FAUCET_TESTS }}
+        name: Run docker
+        run: |
+          ulimit -c unlimited
+          echo '/var/tmp/core.%h.%e.%t' | sudo tee /proc/sys/kernel/core_pattern
+          sudo modprobe openvswitch
+          sudo modprobe ebtables
+          sudo docker run ${SHARDARGS} -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG}
+      - name: Detect core dumps
+        run: |
+          if [ ls -1 /var/tmp/core* > /dev/null 2>&1 ]; then
+            exit 1
+          fi
