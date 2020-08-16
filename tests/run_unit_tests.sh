@@ -7,14 +7,14 @@ MINCOVERAGE=92
 SCRIPTPATH=$(readlink -f "$0")
 TESTDIR=$(dirname "${SCRIPTPATH}")
 BASEDIR=$(readlink -f "${TESTDIR}/..")
+PYTHONPATH=${BASEDIR}:${BASEDIR}/clib
 
-cd "${BASEDIR}"
+unit_test_files=(${TESTDIR}/unit/*/test_*.py)
 
-TESTCMD="PYTHONPATH=$BASEDIR coverage run --parallel-mode --source $BASEDIR/faucet"
-SRCFILES="find $TESTDIR/unit/*/test_*py -type f"
+test_cmd="PYTHONPATH=${PYTHONPATH} coverage run --parallel-mode --source ${BASEDIR}/faucet/ -m unittest --verbose"
 
 coverage erase
-$SRCFILES | xargs realpath | shuf | parallel --timeout 300 --delay 1 --bar --halt now,fail=1 -j 2 $TESTCMD || exit 1
+printf '%s\n' "${unit_test_files[@]}" | shuf | parallel --verbose --timeout 600 --delay 1 --halt now,fail=1 -j 4 "${test_cmd}"
 coverage combine
 coverage xml
 coverage report -m --fail-under=${MINCOVERAGE}
