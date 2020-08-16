@@ -1538,17 +1538,16 @@ class FaucetLLDPIntervalTest(FaucetUntaggedTest):
     def test_untagged(self):
         first_host = self.hosts_name_ordered()[0]
         tcpdump_filter = 'ether proto 0x88cc'
-        timeout = 10 * 3
+        interval = 10
+        timeout = interval * 3
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [
                 lambda: first_host.cmd('sleep %u' % timeout)],
-            timeout=timeout, vflags='-vv', packets=2)
-        timestamps = re.findall(r'\d{2}:\d{2}:\d{2}\.[0-9]+', tcpdump_txt)
-        timestamps = [int(time.split('.')[0].split(':')[2]) for time in timestamps]
-        if timestamps[1] > timestamps[0]:
-            self.assertTrue(timestamps[1] - timestamps[0] > 10)
-        else:
-            self.assertTrue(timestamps[1] - timestamps[0] + 60 > 10)
+            # output epoch secs
+            timeout=timeout, vflags='-tt', packets=2)
+        timestamps = re.findall(r'(\d+)\.\d+ [0-9a-f:]+ \> [0-9a-f:]+', tcpdump_txt)
+        timestamps = [int(timestamp) for timestamp in timestamps]
+        self.assertTrue(timestamps[1] - timestamps[0] >= interval, msg=tcpdump_txt)
 
 
 class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
