@@ -1,6 +1,9 @@
 #!/bin/bash
 
-FAUCETHOME=`dirname $0`"/../.."
-SRCFILES="$FAUCETHOME/tests/codecheck/src_files.sh $*"
-$SRCFILES | shuf | parallel --delay 1 --bar --halt now,fail=1 -j 2 ./min_pylint.sh || exit 1
-exit 0
+set -euo pipefail
+
+SCRIPTPATH=$(readlink -f "$0")
+TESTDIR=$(dirname "${SCRIPTPATH}")
+
+srcfiles="${TESTDIR}/src_files.sh $*"
+${srcfiles} | shuf | parallel --timeout 300 --delay 1 --halt now,fail=1 -j 4 ./min_pylint.sh

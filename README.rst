@@ -1,8 +1,11 @@
 Faucet
 ======
 
-.. image:: https://travis-ci.com/faucetsdn/faucet.svg?branch=master
-    :target: https://travis-ci.com/faucetsdn/faucet
+.. image:: https://github.com/faucetsdn/faucet/workflows/Unit%20tests/badge.svg?branch=master
+    :target: https://github.com/faucetsdn/faucet/actions?query=workflow%3A%22Unit+tests%22
+
+.. image:: https://github.com/faucetsdn/faucet/workflows/Integration%20tests/badge.svg?branch=master
+    :target: https://github.com/faucetsdn/faucet/actions?query=workflow%3A%22Integration+tests%22
 
 .. image:: https://codecov.io/gh/faucetsdn/faucet/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/faucetsdn/faucet

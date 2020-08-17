@@ -1,14 +1,22 @@
 #!/bin/bash
 
-FAUCETHOME=`dirname $0`"/../.."
-TMPFILE=`tempfile`.srcfiles
+set -euo pipefail
+
+SCRIPTPATH=$(readlink -f "$0")
+TESTDIR=$(dirname "${SCRIPTPATH}")
+BASEDIR=$(readlink -f "${TESTDIR}/../..")
+
+tmpfile=$(mktemp /tmp/srcfilesXXXXXX)
 
 if [[ "$*" == "" ]] ; then
-  for i in clib faucet tests ; do find $FAUCETHOME/$i/ -type f -name '[a-z]*.py' ; done | xargs realpath > $TMPFILE || exit 1
+  for dir in clib faucet tests ; do
+      find "${BASEDIR}/${dir}/" -type f -name '[a-z]*.py'
+  done | xargs realpath > "${tmpfile}"
 else
-  (cd $FAUCETHOME && readlink -f $*) > $TMPFILE || exit 1
+  cd "${BASEDIR}"
+  readlink -f "$@" > "${tmpfile}"
 fi
 
-sort < $TMPFILE || exit 1
-rm -f $TMPFILE
-exit 0
+sort < "${tmpfile}"
+
+rm "${tmpfile}"

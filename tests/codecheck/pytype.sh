@@ -1,13 +1,15 @@
 #!/bin/bash
 
-FAUCETHOME=`dirname $0`"/../.."
-TMPDIR=`mktemp -d -p /var/tmp`
-CONFIG="$FAUCETHOME/setup.cfg"
-PYTYPE=`which pytype`
-PYHEADER=`head -1 $PYTYPE`
-SRCFILES="$FAUCETHOME/tests/codecheck/src_files.sh $*"
-echo
-echo "Using $PYTYPE (header $PYHEADER)"
+set -euo pipefail
 
-python3 $PYTYPE -j 2 --config $CONFIG -o $TMPDIR/{/} `$SRCFILES | shuf` || exit 1
-rm -rf $TMPDIR
+SCRIPTPATH=$(readlink -f "$0")
+TESTDIR=$(dirname "${SCRIPTPATH}")
+BASEDIR=$(readlink -f "${TESTDIR}/../..")
+
+tmpdir=$(mktemp -d /tmp/pytypeXXXXXX)
+config="${BASEDIR}/setup.cfg"
+srcfiles=$("${TESTDIR}/src_files.sh" "$@" | shuf)
+
+pytype -j 2 --config "${config}" -o "${tmpdir}" "${srcfiles}"
+
+rm -rf "${tmpdir}"
