@@ -8,6 +8,6 @@ importlab>=0.3.1
 netifaces
 packaging
 pylint==2.5.3
-pytype==2020.7.30
+pytype==2020.8.10
 requests
 scapy==2.4.3
