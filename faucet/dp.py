@@ -752,19 +752,19 @@ configuration.
 
     def finalize_tunnel_acls(self, dps):
         """Resolve each tunnels sources"""
-        # Resolve the source of the tunnels
-        for tunnel_acl in self.tunnel_acls:
+        if self.tunnel_acls:
+            tunnel_ids = {tunnel_acl._id: tunnel_acl for tunnel_acl in self.tunnel_acls}
+            referenced_acls = set()
             for dp in dps:
-                # Loop through each DP for each port acl
                 for port in dp.ports.values():
                     if port.acls_in:
                         for acl in port.acls_in:
-                            # Same ACL applied to port
-                            if acl._id == tunnel_acl._id:
+                            tunnel_acl = tunnel_ids.get(acl._id)
+                            if tunnel_acl:
                                 tunnel_acl.add_tunnel_source(dp.name, port.number)
-            # If still no tunnel sources, then ACL is not used
-            for source in tunnel_acl.tunnel_sources:
-                if not source:
+                                referenced_acls.add(tunnel_acl._id)
+            for tunnel_id, tunnel_acl in tunnel_ids.items():
+                if tunnel_id not in referenced_acls:
                     self.tunnel_acls.remove(tunnel_acl)
 
     @staticmethod
@@ -929,6 +929,9 @@ configuration.
                 dst_port = dst_dp.resolve_port(dst_port_name)
                 test_config_condition(dst_port is None, (
                     'Could not find referenced destination port (%s) for tunnel ACL %s' % (
+                        dst_port_name, acl_in)))
+                test_config_condition(dst_port.stack is None, (
+                    'destination port %s for tunnel ACL %s cannot be a stack port' % (
                         dst_port_name, acl_in)))
                 dst_port = dst_port.number
                 dst_dp = dst_dp.name

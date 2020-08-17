@@ -327,22 +327,22 @@ This includes port nominations and flood directionality."""
         """Return ofmsgs for all tunnels in an ACL with a tunnel rule"""
         ofmsgs = []
         source_vids = defaultdict(list)
-        for _id, info in acl.tunnel_info.items():
-            dst_dp, dst_port = info['dst_dp'], info['dst_port']
+        for _id, tunnel_dest in acl.tunnel_dests.items():
+            dst_dp, dst_port = tunnel_dest['dst_dp'], tunnel_dest['dst_port']
             # Update the tunnel rules for each tunnel action specified
             updated_sources = []
-            for i, source in enumerate(acl.tunnel_sources):
+            for source_id, source in acl.tunnel_sources.items():
                 src_dp = source['dp']
                 out_port = self.tunnel_outport(
                     src_dp, dst_dp, dst_port)
                 if out_port:
                     updated = acl.update_source_tunnel_rules(
-                        self.stack.name, i, _id, out_port)
+                        self.stack.name, source_id, _id, out_port)
                     if updated:
                         if self.stack.name == src_dp:
-                            source_vids[i].append(_id)
+                            source_vids[source_id].append(_id)
                         else:
-                            updated_sources.append(i)
+                            updated_sources.append(source_id)
             for source_id in updated_sources:
                 ofmsgs.extend(self.acl_manager.build_tunnel_rules_ofmsgs(
                     source_id, _id, acl))

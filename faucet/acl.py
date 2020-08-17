@@ -115,9 +115,9 @@ The output action contains a dictionary with the following elements:
         self._ports_resolved = False
 
         # Tunnel info maintains the tunnel output information for each tunnel rule
-        self.tunnel_info = {}
+        self.tunnel_dests = {}
         # Tunnel sources is a list of the sources in the network for this ACL
-        self.tunnel_sources = []
+        self.tunnel_sources = {}
         # Tunnel rules is the rules for each tunnel in the ACL for each source
         self.dyn_tunnel_rules = {}
 
@@ -268,7 +268,7 @@ The output action contains a dictionary with the following elements:
                         'tunnel_id': tunnel_id,
                         'type': tunnel_type
                     }
-                    self.tunnel_info[tunnel_id] = tunnel_dict
+                    self.tunnel_dests[tunnel_id] = tunnel_dict
                     result.append({key: tunnel_id})
                 elif key == 'port':
                     port_name = value
@@ -341,7 +341,7 @@ The output action contains a dictionary with the following elements:
                     'tunnel_id': tunnel_id,
                     'type': tunnel_type
                 }
-                self.tunnel_info[tunnel_id] = tunnel_dict
+                self.tunnel_dests[tunnel_id] = tunnel_dict
                 result[output_action] = tunnel_id
             elif output_action == 'port':
                 port_name = output_action_values
@@ -460,19 +460,24 @@ The output action contains a dictionary with the following elements:
 
     def is_tunnel_acl(self):
         """Return true if the ACL contains a tunnel"""
-        if self.tunnel_info:
+        if self.tunnel_dests:
             return True
         for rule_conf in self.rules:
             if self.does_rule_contain_tunnel(rule_conf):
                 return True
         return False
 
+    def _tunnel_source_id(self, source):
+        """Return ID for a tunnel source."""
+        return tuple(sorted(source.items()))
+
     def add_tunnel_source(self, dp, port):
         """Add a source dp/port pair for the tunnel ACL"""
-        self.tunnel_sources += ({'dp': dp, 'port': port},)
-        for _id in self.tunnel_info:
-            self.dyn_tunnel_rules.setdefault(_id, [])
-            self.dyn_tunnel_rules[_id].append([])
+        source = {'dp': dp, 'port': port}
+        source_id = self._tunnel_source_id(source)
+        self.tunnel_sources[source_id] = source
+        for _id in self.tunnel_dests:
+            self.dyn_tunnel_rules.setdefault(_id, {})
 
     def verify_tunnel_rules(self):
         """Make sure that matches & set fields are configured correctly to handle tunnels"""
@@ -486,22 +491,19 @@ The output action contains a dictionary with the following elements:
     def update_source_tunnel_rules(self, curr_dp, source_id, tunnel_id, out_port):
         """Update the tunnel rulelist for when the output port has changed"""
         src_dp = self.tunnel_sources[source_id]['dp']
-        dst_dp = self.tunnel_info[tunnel_id]['dst_dp']
-        prev_list = self.dyn_tunnel_rules[tunnel_id][source_id]
+        dst_dp = self.tunnel_dests[tunnel_id]['dst_dp']
+        prev_list = self.dyn_tunnel_rules[tunnel_id].get(source_id, [])
         new_list = []
         if curr_dp == src_dp and curr_dp != dst_dp:
             # SRC DP: in_port, actions=[push_vlan, output, pop_vlans]
-            new_list.append({'vlan_vid': tunnel_id})
-            new_list.append({'port': out_port})
-            new_list.append({'pop_vlans': 1})
+            new_list = [{'vlan_vid': tunnel_id}, {'port': out_port}, {'pop_vlans': 1}]
         elif curr_dp == dst_dp and curr_dp != src_dp:
             # DST DP: in_port, vlan_vid, actions=[pop_vlan, output]
-            new_list.append({'pop_vlans': 1})
-            new_list.append({'port': out_port})
+            new_list = [{'pop_vlans': 1}, {'port': out_port}]
         else:
             # SINGLE DP: in_port, actions=[out_port]
             # TRANSIT DP: in_port, vlan_vid, actions=[output]
-            new_list.append({'port': out_port})
+            new_list = [{'port': out_port}]
         if new_list != prev_list:
             self.dyn_tunnel_rules[tunnel_id][source_id] = new_list
             return True
