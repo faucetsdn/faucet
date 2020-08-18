@@ -165,6 +165,13 @@ if [ "$DEPCHECK" == 1 ] ; then
 fi
 
 echo "========== Starting docker container =========="
+mkdir -p /var/local/run/
+if ! grep -q "unix:///var/local/run/docker.sock" /etc/default/docker; then
+cat << EOF >> /etc/default/docker
+DOCKER_OPTS="-H unix:///var/local/run/docker.sock"
+EOF
+fi
+export DOCKER_HOST="unix:///var/local/run/docker.sock"
 service docker start || true
 
 echo "========== Running faucet system tests =========="

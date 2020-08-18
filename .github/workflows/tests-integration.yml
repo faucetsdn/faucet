@@ -4,14 +4,15 @@ on: [push, pull_request]
 
 env:
   FILES_CHANGED: "all"
-  FAUCET_TEST_IMG: "faucet/tests"
-  SHARDARGS: "--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=99999999999:99999999999 -v /var/local/lib/docker:/var/lib/docker -v /var/tmp/:/var/tmp/"
   MATRIX_SHARDS: 10
 
 jobs:
   sanity-tests:
     name: Sanity tests
     runs-on: ubuntu-latest
+    container:
+      image: faucet/test-base:8.0.3
+      options: --privileged --cap-add=ALL -v /lib/modules:/lib/modules -v /var/local/lib/docker:/var/lib/docker --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=-1
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -44,17 +45,20 @@ jobs:
           echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
           echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
-        name: Build docker
+        name: Initialise environment
         run: |
-          docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
+          sysctl --quiet -w kernel.core_pattern="/var/tmp/core.%h.%e.%t"
+          modprobe openvswitch
+          modprobe ebtables
+          ln -s "$(pwd)" /faucet-src
+          cd /faucet-src/
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
-        name: Run docker
+        name: Run sanity tests
         run: |
-          ulimit -c unlimited
-          echo '/var/tmp/core.%h.%e.%t' | sudo tee /proc/sys/kernel/core_pattern
-          sudo modprobe openvswitch
-          sudo modprobe ebtables
-          sudo docker run ${SHARDARGS} -e FAUCET_TESTS="-ni FaucetSanityTest FaucetStackStringOfDPUntaggedTest" -e HWTESTS="1" -t ${FAUCET_TEST_IMG}
+          ./docker/runtests.sh
+        env:
+          FAUCET_TESTS: "-ni FaucetSanityTest FaucetStackStringOfDPUntaggedTest"
+          HWTESTS: 1
       - name: Detect core dumps
         run: |
           if [ ls -1 /var/tmp/core* > /dev/null 2>&1 ]; then
@@ -65,6 +69,9 @@ jobs:
     name: Integration tests
     runs-on: ubuntu-latest
     needs: sanity-tests
+    container:
+      image: faucet/test-base:8.0.3
+      options: --privileged --cap-add=ALL -v /lib/modules:/lib/modules -v /var/local/lib/docker:/var/lib/docker --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=-1
     strategy:
       matrix:
         MATRIX_SHARD: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -100,36 +107,24 @@ jobs:
           echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
           echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
-        name: Shard out tests
+        name: Initialise environment
         run: |
-          ALLTESTFILES="tests/integration/mininet_tests.py tests/integration/mininet_multidp_tests.py clib/clib_mininet_tests.py"
-          ALLTESTS=$(grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" ${ALLTESTFILES} | cut -f2 -d" " | sort)
-          declare -A sharded
-          function shard {
-            work=$1
-            workers=$2
-            i=0
-            for shard in $work ; do
-              i=$(( i % workers ))
-              sharded[$i]="${sharded[$i]} $shard"
-              i=$(( i + 1 ))
-            done
-          }
-          shard "$ALLTESTS" ${{ env.MATRIX_SHARDS }}
-          FAUCET_TESTS="-din ${sharded[${{ matrix.MATRIX_SHARD }}]}"
-          echo ::set-env name=FAUCET_TESTS::${FAUCET_TESTS}
-      - if: ${{ env.FAUCET_TESTS }}
-        name: Build docker
+          sysctl --quiet -w kernel.core_pattern="/var/tmp/core.%h.%e.%t"
+          modprobe openvswitch
+          modprobe ebtables
+          ln -s "$(pwd)" /faucet-src
+          cd /faucet-src/
+      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
+        name: Shard tests
         run: |
-          docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
-      - if: ${{ env.FAUCET_TESTS }}
-        name: Run docker
+          shard_tests=$(./docker/shard_tests.sh "${{ env.MATRIX_SHARDS }}" "${{ matrix.MATRIX_SHARD }}")
+          faucet_tests="-din ${shard_tests}"
+          echo "Running the following faucet tests on this shard: ${shard_tests}"
+          echo ::set-env name=FAUCET_TESTS::${faucet_tests}
+      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
+        name: Run integration tests
         run: |
-          ulimit -c unlimited
-          echo '/var/tmp/core.%h.%e.%t' | sudo tee /proc/sys/kernel/core_pattern
-          sudo modprobe openvswitch
-          sudo modprobe ebtables
-          sudo docker run ${SHARDARGS} -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG}
+          ./docker/runtests.sh
       - name: Detect core dumps
         run: |
           if [ ls -1 /var/tmp/core* > /dev/null 2>&1 ]; then
