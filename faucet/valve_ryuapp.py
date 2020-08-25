@@ -52,7 +52,7 @@ class RyuAppBase(app_manager.RyuApp):
     exc_logname = ''
 
     def __init__(self, *args, **kwargs):
-        super(RyuAppBase, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.dpset = kwargs['dpset']
         self._reg = kwargs.get('reg', None)
         self.config_file = self.get_setting('CONFIG', True)
@@ -138,7 +138,7 @@ class RyuAppBase(app_manager.RyuApp):
 
     def start(self):
         """Start controller."""
-        super(RyuAppBase, self).start()
+        super().start()
         if self.prom_client:
             self.logger.info('version %s' % self.prom_client.version)
         if self.stat_reload:

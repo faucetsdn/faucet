@@ -38,7 +38,7 @@ class Meter(Conf):
     }
 
     def __init__(self, _id, dp_id, conf):
-        super(Meter, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
         assert conf['entry']
         assert conf['entry']['flags']
         assert conf['entry']['bands']
@@ -46,7 +46,7 @@ class Meter(Conf):
         self.entry_msg = meteradd(self.entry)
 
     def check_config(self):
-        super(Meter, self).check_config()
+        super().check_config()
         test_config_condition(
             self.meter_id < 0, 'meter_id is than 0')
         test_config_condition(

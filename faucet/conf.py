@@ -60,7 +60,7 @@ class Conf:
 
     def __setattr__(self, name, value):
         if not self.dyn_finalized or name.startswith('dyn') or name in self.mutable_attrs:
-            super(Conf, self).__setattr__(name, value)
+            super().__setattr__(name, value)
         else:
             raise ValueError('cannot update %s on finalized Conf object' % name)
 

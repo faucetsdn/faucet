@@ -184,16 +184,16 @@ class VLAN(Conf):
         self.dyn_host_gws_by_ipv = collections.defaultdict(set)
         self.dyn_route_gws_by_ipv = collections.defaultdict(set)
         self.reset_caches()
-        super(VLAN, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
     def set_defaults(self):
-        super(VLAN, self).set_defaults()
+        super().set_defaults()
         self._set_default('vid', self._id)
         self._set_default('name', str(self._id))
         self._set_default('faucet_vips', [])
 
     def check_config(self):
-        super(VLAN, self).check_config()
+        super().check_config()
         test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
         test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
             'invalid MAC address %s' % self.faucet_mac))

@@ -1525,7 +1525,7 @@ class TfmValve(Valve):
     def _add_default_flows(self):
         ofmsgs = self._pipeline_flows()
         self._last_pipeline_flows = copy.deepcopy(ofmsgs)
-        ofmsgs.extend(super(TfmValve, self)._add_default_flows())
+        ofmsgs.extend(super()._add_default_flows())
         return ofmsgs
 
 
@@ -1554,7 +1554,7 @@ class ArubaValve(TfmValve):
     FILL_REQ = False
 
     def _delete_all_valve_flows(self):
-        ofmsgs = super(ArubaValve, self)._delete_all_valve_flows()
+        ofmsgs = super()._delete_all_valve_flows()
         # Unreferenced group(s) from a previous config that used them,
         # can steal resources from regular flowmods. Unconditionally
         # delete all groups even if groups are not enabled to avoid this.

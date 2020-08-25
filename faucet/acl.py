@@ -142,11 +142,11 @@ The output action contains a dictionary with the following elements:
             test_config_condition(not isinstance(normalized_rule, dict), (
                 'ACL rule is %s not %s (%s)' % (type(normalized_rule), dict, rules)))
             conf['rules'].append(normalized_rule)
-        super(ACL, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
     def finalize(self):
         self._ports_resolved = True
-        super(ACL, self).finalize()
+        super().finalize()
 
     def check_config(self):
         test_config_condition(

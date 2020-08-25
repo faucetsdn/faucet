@@ -281,7 +281,7 @@ class Port(Conf):
 
         self.tagged_vlans = []
         self.lldp_beacon = {}
-        super(Port, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
         # If the port is mirrored convert single attributes to a array
         if self.mirror and not isinstance(self.mirror, list):
@@ -300,14 +300,14 @@ class Port(Conf):
         return ''
 
     def set_defaults(self):
-        super(Port, self).set_defaults()
+        super().set_defaults()
         self._set_default('number', self._id)
         self._set_default('name', str(self._id))
         self._set_default('description', self.name)
         self._set_default('tagged_vlans', [])
 
     def check_config(self):
-        super(Port, self).check_config()
+        super().check_config()
         test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
             not valve_of.ignore_port(self.number))), ('Port number invalid: %s' % self.number))
         non_vlan_options = {'stack', 'mirror', 'coprocessor', 'output_only'}
@@ -431,7 +431,7 @@ class Port(Conf):
             test_config_condition(self.native_vlan in self.tagged_vlans, (
                 'cannot have same native and tagged VLAN on same port'))
         self.tagged_vlans = tuple(self.tagged_vlans)
-        super(Port, self).finalize()
+        super().finalize()
 
     def running(self):
         """Return True if port enabled and up."""
