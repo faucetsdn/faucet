@@ -120,7 +120,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         away_flood_actions = tuple(valve_of.flood_tagged_port_outputs(
             self.stack_manager.away_ports, in_port, exclude_ports=exclude_ports))
         toward_flood_actions = tuple(valve_of.flood_tagged_port_outputs(
-            self.stack_manager.towards_root_ports, in_port))
+            self.stack_manager.chosen_towards_ports, in_port))
         flood_acts = self._flood_actions(
             in_port, external_ports, away_flood_actions,
             toward_flood_actions, local_flood_actions)
