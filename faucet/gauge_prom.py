@@ -58,7 +58,7 @@ class GaugePrometheusClient(PromClient):
     """Wrapper for Prometheus client that is shared between all pollers."""
 
     def __init__(self, reg=None):
-        super(GaugePrometheusClient, self).__init__(reg=reg)
+        super().__init__(reg=reg)
         self.table_tags = collections.defaultdict(set)
         self.metrics = {}
         self.dp_status = Gauge( # pylint: disable=unexpected-keyword-arg
@@ -118,7 +118,7 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
     """Exports port stats to Prometheus."""
 
     def __init__(self, conf, logger, prom_client):
-        super(GaugePortStatsPrometheusPoller, self).__init__(
+        super().__init__(
             conf, logger, prom_client)
         self.prom_client.start(
             self.conf.prometheus_port, self.conf.prometheus_addr, self.conf.prometheus_test_thread)
@@ -141,7 +141,7 @@ class GaugeMeterStatsPrometheusPoller(GaugePortStatsPoller):
     """Exports meter stats to Prometheus."""
 
     def __init__(self, conf, logger, prom_client):
-        super(GaugeMeterStatsPrometheusPoller, self).__init__(
+        super().__init__(
             conf, logger, prom_client)
         self.prom_client.start(
             self.conf.prometheus_port, self.conf.prometheus_addr, self.conf.prometheus_test_thread)

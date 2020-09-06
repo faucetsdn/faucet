@@ -46,7 +46,7 @@ class Meter(Conf):
         self.entry_msg = meteradd(self.entry)
 
     def check_config(self):
-        super(Meter, self).check_config()
+        super().check_config()
         test_config_condition(
             self.meter_id < 0, 'meter_id is than 0')
         test_config_condition(

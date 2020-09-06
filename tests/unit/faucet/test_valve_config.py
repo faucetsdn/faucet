@@ -226,7 +226,8 @@ dps:
                 tagged_vlans: [0x100]
 """ % DP1_CONFIG
 
-    def _inport_flows(self, in_port, ofmsgs):
+    @staticmethod
+    def _inport_flows(in_port, ofmsgs):
         return [
             ofmsg for ofmsg in ValveTestBases.flowmods_from_flows(ofmsgs)
             if ofmsg.match.get('in_port') == in_port]
@@ -872,6 +873,7 @@ dps:
 
 
 class ValveTestVLANRef(ValveTestBases.ValveTestNetwork):
+    """Test reference to same VLAN by name or VID."""
 
     CONFIG = """
 dps:
@@ -893,6 +895,7 @@ vlans:
         self.setup_valves(self.CONFIG)
 
     def test_vlan_refs(self):
+        """Test same VLAN is referred to."""
         vlans = self.valves_manager.valves[self.DP_ID].dp.vlans
         self.assertEqual(1, len(vlans))
         self.assertEqual('threes', vlans[333].name, vlans[333])
@@ -1110,7 +1113,7 @@ class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):
     """Repeats the tests after a config reload."""
 
     def setUp(self):
-        super(ValveReloadConfigTestCase, self).setUp()
+        super().setUp()
         self.flap_port(1)
         self.update_config(CONFIG, reload_type='warm', reload_expected=False)
 

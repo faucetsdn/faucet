@@ -168,7 +168,7 @@ For Prometheus:
         self.prometheus_test_thread = None
         self.defaults.update(self.db_defaults)
         self.defaults_types.update(self.db_defaults_types)
-        super(WatcherConf, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
         self.name = str(self._id)
         self.prom_client = prom_client
 
@@ -192,7 +192,7 @@ For Prometheus:
         self.dp = dp # pylint: disable=invalid-name
 
     def check_config(self):
-        super(WatcherConf, self).check_config()
+        super().check_config()
         test_config_condition(
             self.all_dps and self.dps is not None,
             'all_dps and dps cannot be set together')

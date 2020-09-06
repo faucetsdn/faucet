@@ -32,7 +32,8 @@ except ImportError:
 CONFIG_HASH_FUNC = 'sha256'
 
 
-class UniqueKeyLoader(Loader):
+class UniqueKeyLoader(Loader):  # pylint: disable=too-many-ancestors
+    """YAML loader that will reject duplicate/overwriting keys."""
 
     def construct_mapping(self, node, deep=False):
         """Check for duplicate YAML keys."""
@@ -97,7 +98,8 @@ def dp_config_path(config_file, parent_file=None):
     return os.path.realpath(config_file)
 
 
-def dp_include(config_hashes, config_contents, config_file, logname, top_confs):
+def dp_include(config_hashes, config_contents, config_file, logname,  # pylint: disable=too-many-locals
+               top_confs):
     """Handles including additional config files"""
     logger = get_logger(logname)
     if not os.path.isfile(config_file):

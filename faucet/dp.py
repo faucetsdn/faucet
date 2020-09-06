@@ -320,7 +320,7 @@ configuration.
         self.has_externals = None
         self.tunnel_acls = []
 
-        super(DP, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
     def __str__(self):
         return self.name
@@ -340,7 +340,7 @@ configuration.
 
     def check_config(self):
         """Check configuration of this dp"""
-        super(DP, self).check_config()
+        super().check_config()
         test_config_condition(not isinstance(self.dp_id, int), (
             'dp_id must be %s not %s' % (int, type(self.dp_id))))
         test_config_condition(self.dp_id < 0 or self.dp_id > 2**64-1, (
@@ -577,7 +577,7 @@ configuration.
         self.tables = tables
 
     def set_defaults(self):
-        super(DP, self).set_defaults()
+        super().set_defaults()
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
         self._set_default('lowest_priority', self.priority_offset)
@@ -1150,7 +1150,7 @@ configuration.
     def finalize(self):
         """Need to configure OF tables as very last step."""
         self._configure_tables()
-        super(DP, self).finalize()
+        super().finalize()
 
     def get_native_vlan(self, port_num):
         """Return native VLAN for a port by number, or None."""
