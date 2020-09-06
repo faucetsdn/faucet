@@ -126,7 +126,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             toward_flood_actions, local_flood_actions)
         return flood_acts
 
-    def _build_mask_flood_rules_filters(self, port, vlan, eth_dst, eth_dst_mask, prune):  # pylint: disable=too-many-arguments
+    def _build_mask_flood_rules_filters(self, port, vlan, eth_dst, eth_dst_mask, prune):
         """Builds filter for the input table to filter packets on ports that are pruned"""
         ofmsgs = []
 
@@ -163,7 +163,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                         priority_offset=self.classification_offset))
         return ofmsgs
 
-    def _build_mask_flood_rules_flood_acts(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
+    def _build_mask_flood_rules_flood_acts(self, vlan, eth_type, eth_dst, eth_dst_mask,
                                            exclude_unicast, exclude_restricted_bcast_arpnd,
                                            command, cold_start, prune, port):
         """Builds the flood rules for the flood table to forward packets along the stack topology"""
