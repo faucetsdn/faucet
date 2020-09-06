@@ -10,4 +10,4 @@ packaging
 pylint==2.5.3
 pytype==2020.8.17
 requests
-scapy==2.4.3
+scapy==2.4.4
