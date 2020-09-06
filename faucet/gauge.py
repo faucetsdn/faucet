@@ -46,7 +46,7 @@ class Gauge(RyuAppBase):
     exc_logname = logname + '.exception'
 
     def __init__(self, *args, **kwargs):
-        super(Gauge, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.watchers = {}
         self.config_watcher = ConfigWatcher()
         self.faucet_config_watchers = []
@@ -55,7 +55,7 @@ class Gauge(RyuAppBase):
 
     @kill_on_exception(exc_logname)
     def _check_thread_exception(self):
-        super(Gauge, self)._check_thread_exception()
+        super()._check_thread_exception()
 
     def _get_watchers(self, ryu_event):
         """Get Watchers instances to response to an event.
@@ -70,7 +70,7 @@ class Gauge(RyuAppBase):
     def _load_config(self):
         """Load Gauge config."""
         try:
-            conf_hash, faucet_config_files, faucet_conf_hashes, new_confs = watcher_parser(
+            conf_hash, _faucet_config_files, faucet_conf_hashes, new_confs = watcher_parser(
                 self.config_file, self.logname, self.prom_client)
             watchers = [
                 watcher_factory(watcher_conf)(watcher_conf, self.logname, self.prom_client)
@@ -107,13 +107,13 @@ class Gauge(RyuAppBase):
             faucet_config_watcher = ConfigWatcher()
             faucet_config_watcher.update(faucet_config_file, faucet_conf_hash)
             self.faucet_config_watchers.append(faucet_config_watcher)
-            self.logger.info('watching FAUCET config %s' % faucet_config_file)
+            self.logger.info('watching FAUCET config %s', faucet_config_file)
         self.logger.info('config complete')
 
     @kill_on_exception(exc_logname)
     def _update_watcher(self, name, ryu_event):
         """Call watcher with event data."""
-        watchers, ryu_dp, msg = self._get_watchers(ryu_event)
+        watchers, _ryu_dp, msg = self._get_watchers(ryu_event)
         if watchers is None:
             return
         if name in watchers:
@@ -129,7 +129,7 @@ class Gauge(RyuAppBase):
     @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
     def reload_config(self, ryu_event):
         """Handle request for Gauge config reload."""
-        super(Gauge, self).reload_config(ryu_event)
+        super().reload_config(ryu_event)
         self._load_config()
 
     def _start_watchers(self, ryu_dp, watchers, timestamp):

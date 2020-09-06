@@ -31,7 +31,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
     _USES_REFLECTION = False
 
     def __init__(self, stack_manager, **kwargs):
-        super(ValveSwitchStackManagerBase, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.stack_manager = stack_manager
 
@@ -98,16 +98,16 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                                    exclude_restricted_bcast_arpnd=False):
         if self.external_root_only:
             exclude_all_external = True
-        return super(ValveSwitchStackManagerBase, self)._build_flood_acts_for_port(
+        return super()._build_flood_acts_for_port(
             vlan, exclude_unicast, port,
             exclude_all_external=exclude_all_external,
             exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
 
-    def _flood_actions(self, in_port, external_ports,
+    def _flood_actions(self, in_port, external_ports,  # pylint: disable=too-many-arguments
                        away_flood_actions, toward_flood_actions, local_flood_actions):
         raise NotImplementedError
 
-    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port,
+    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port,  # pylint: disable=too-many-arguments
                                   exclude_all_external=False, exclude_restricted_bcast_arpnd=False):
         """Compiles all the possible flood rule actions for a port on a stack node"""
         exclude_ports = list(self.stack_manager.inactive_away_ports)
@@ -120,7 +120,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         away_flood_actions = tuple(valve_of.flood_tagged_port_outputs(
             self.stack_manager.away_ports, in_port, exclude_ports=exclude_ports))
         toward_flood_actions = tuple(valve_of.flood_tagged_port_outputs(
-            self.stack_manager.towards_root_ports, in_port))
+            self.stack_manager.chosen_towards_ports, in_port))
         flood_acts = self._flood_actions(
             in_port, external_ports, away_flood_actions,
             toward_flood_actions, local_flood_actions)
@@ -200,7 +200,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         This takes into account the pruned and non-pruned ports and returns
             the appropriate flood rule actions"""
         # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
-        ofmsgs = super(ValveSwitchStackManagerBase, self)._build_mask_flood_rules(
+        ofmsgs = super()._build_mask_flood_rules(
             vlan, eth_type, eth_dst, eth_dst_mask,
             exclude_unicast, exclude_restricted_bcast_arpnd,
             command, cold_start)
@@ -250,7 +250,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             if edge_dp:
                 return self.stack_manager.edge_learn_port_towards(pkt_meta, edge_dp)
         # Locally learn.
-        return super(ValveSwitchStackManagerBase, self).edge_learn_port(
+        return super().edge_learn_port(
             other_valves, pkt_meta)
 
     def _edge_dp_for_host(self, other_valves, pkt_meta):
@@ -265,7 +265,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         raise NotImplementedError
 
     def add_port(self, port):
-        ofmsgs = super(ValveSwitchStackManagerBase, self).add_port(port)
+        ofmsgs = super().add_port(port)
         # If this is a stacking port, accept all VLANs (came from another FAUCET)
         if port.stack:
             # Actual stack traffic will have VLAN tags.
@@ -281,7 +281,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         return ofmsgs
 
     def del_port(self, port):
-        ofmsgs = super(ValveSwitchStackManagerBase, self).del_port(port)
+        ofmsgs = super().del_port(port)
         if port.stack:
             for vlan in self.vlans.values():
                 vlan.clear_cache_hosts_on_port(port)
@@ -355,7 +355,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
     def _valve_learn_host_from_pkt(self, valve, now, pkt_meta, other_valves):
         """Add L3 forwarding rule if necessary for inter-VLAN routing."""
-        ofmsgs_by_valve = super(ValveSwitchStackManagerBase, self).learn_host_from_pkt(
+        ofmsgs_by_valve = super().learn_host_from_pkt(
             valve, now, pkt_meta, other_valves)
         if self.stack_manager.stack.route_learning and not self.stack_manager.stack.is_root():
             if pkt_meta.eth_src == pkt_meta.vlan.faucet_mac:
@@ -409,7 +409,7 @@ class ValveSwitchStackManagerNoReflection(ValveSwitchStackManagerBase):
     Non-root switches simply flood to the root.
     """
 
-    def _flood_actions(self, in_port, external_ports,
+    def _flood_actions(self, in_port, external_ports,  # pylint: disable=too-many-arguments
                        away_flood_actions, toward_flood_actions, local_flood_actions):
         if not in_port or self.stack_manager.is_stack_port(in_port):
             flood_prefix = ()
@@ -523,7 +523,7 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
                     refresh_rules = True
         return (learn_exit, ofmsgs, cache_port, update_cache, delete_existing, refresh_rules)
 
-    def _flood_actions(self, in_port, external_ports,
+    def _flood_actions(self, in_port, external_ports,  # pylint: disable=too-many-arguments
                        away_flood_actions, toward_flood_actions, local_flood_actions):
         if self.stack_manager.stack.is_root():
             if external_ports:

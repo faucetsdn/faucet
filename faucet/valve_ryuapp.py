@@ -52,7 +52,7 @@ class RyuAppBase(app_manager.RyuApp):
     exc_logname = ''
 
     def __init__(self, *args, **kwargs):
-        super(RyuAppBase, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.dpset = kwargs['dpset']
         self._reg = kwargs.get('reg', None)
         self.config_file = self.get_setting('CONFIG', True)
@@ -85,7 +85,7 @@ class RyuAppBase(app_manager.RyuApp):
                 # Inconveniently, eventlet and friends helpfully put the last
                 # exception on stderr but not anywhere else where we can log it.
                 self.logger.error(
-                    'unexpected %s thread termination - check Ryu/process stderr log' % thread_name)
+                    'unexpected %s thread termination - check Ryu/process stderr log', thread_name)
             # If that succeeds (was a temporary error that killed the thread),
             # then raise an exception to make sure we know a thread died.
             raise ValveDeadThreadException
@@ -138,9 +138,9 @@ class RyuAppBase(app_manager.RyuApp):
 
     def start(self):
         """Start controller."""
-        super(RyuAppBase, self).start()
+        super().start()
         if self.prom_client:
-            self.logger.info('version %s' % self.prom_client.version)
+            self.logger.info('version %s', self.prom_client.version)
         if self.stat_reload:
             self.logger.info('will automatically reload new config on changes')
         self.reload_config(None)

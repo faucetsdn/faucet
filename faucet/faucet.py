@@ -30,7 +30,6 @@ from ryu.controller import event
 from ryu.controller import ofp_event
 from ryu.lib import hub
 
-from faucet.config_parser import get_config_for_api
 from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
 from faucet import faucet_event
@@ -101,7 +100,7 @@ class Faucet(RyuAppBase):
     event_socket_heartbeat_time = 0
 
     def __init__(self, *args, **kwargs):
-        super(Faucet, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.prom_client = faucet_metrics.FaucetMetrics(reg=self._reg)
         self.bgp = faucet_bgp.FaucetBgp(
             self.logger, self.exc_logname, self.prom_client, self._send_flow_msgs)
@@ -122,7 +121,7 @@ class Faucet(RyuAppBase):
 
     @kill_on_exception(exc_logname)
     def _check_thread_exception(self):
-        super(Faucet, self)._check_thread_exception()
+        super()._check_thread_exception()
 
     def _export_ryu_config(self):
         for opt_name in EXPORT_RYU_CONFIGS:
@@ -132,7 +131,7 @@ class Faucet(RyuAppBase):
 
     @kill_on_exception(exc_logname)
     def start(self):
-        super(Faucet, self).start()
+        super().start()
 
         # Start Prometheus
         prom_port = int(self.get_setting('PROMETHEUS_PORT'))
@@ -163,7 +162,7 @@ class Faucet(RyuAppBase):
     @kill_on_exception(exc_logname)
     def reload_config(self, ryu_event):
         """Handle a request to reload configuration."""
-        super(Faucet, self).reload_config(ryu_event)
+        super().reload_config(ryu_event)
         self.valves_manager.request_reload_configs(
             time.time(), self.config_file, delete_dp=self._delete_deconfigured_dp)
 
