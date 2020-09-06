@@ -131,7 +131,7 @@ class Gauge(RyuAppBase):
         """Handle request for Gauge config reload."""
         super().reload_config(ryu_event)
         self._load_config()
-        
+
     def _start_watchers(self, ryu_dp, watchers, timestamp):
         """Start watchers for DP if active."""
         for watchers_by_name in watchers.values():
