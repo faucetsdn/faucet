@@ -34,7 +34,7 @@ CONFIG_HASH_FUNC = 'sha256'
 
 class UniqueKeyLoader(Loader):  # pylint: disable=too-many-ancestors
     """YAML loader that will reject duplicate/overwriting keys."""
-    
+
     def construct_mapping(self, node, deep=False):
         """Check for duplicate YAML keys."""
         try:
