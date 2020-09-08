@@ -373,7 +373,7 @@ def max_loadavg():
     return int(multiprocessing.cpu_count() * 1.5)
 
 
-def expand_tests(modules, requested_test_classes, excluded_test_classes,
+def expand_tests(modules, requested_test_classes, regex_test_classes, excluded_test_classes,
                  hw_config, root_tmpdir, ports_sock, serial,
                  port_order, start_port):
     sanity_test_suites = []
@@ -385,8 +385,10 @@ def expand_tests(modules, requested_test_classes, excluded_test_classes,
             test_name = full_name.split('.')[-1]
             if not inspect.isclass(test_obj):
                 continue
-            if requested_test_classes and test_name not in requested_test_classes:
-                continue
+            if regex_test_classes or requested_test_classes:
+                if not ((regex_test_classes and regex_test_classes.match(test_name)) or (
+                        requested_test_classes and test_name in requested_test_classes)):
+                    continue
             if excluded_test_classes and test_name in excluded_test_classes:
                 continue
             if test_name.endswith('Test') and test_name.startswith('Faucet'):
@@ -635,7 +637,7 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
                         dump_failed_test(test_name, test_dir)
 
 
-def run_tests(modules, hw_config, requested_test_classes, dumpfail, debug,
+def run_tests(modules, hw_config, requested_test_classes, regex_test_classes, dumpfail, debug,
               keep_logs, serial, repeat, excluded_test_classes, report_json_filename,
               port_order, start_port):
     """Actually run the test suites, potentially in parallel."""
@@ -660,7 +662,7 @@ def run_tests(modules, hw_config, requested_test_classes, dumpfail, debug,
     no_tests = True
 
     sanity_tests, single_tests, parallel_tests = expand_tests(
-        modules, requested_test_classes, excluded_test_classes,
+        modules, requested_test_classes, regex_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial, port_order, start_port)
 
     if sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases():
@@ -703,6 +705,8 @@ def parse_args():
 
     parser = argparse.ArgumentParser(
         prog='mininet_tests')
+    parser.add_argument(
+        '--regex', help='run tests that match regular expression pattern')
     parser.add_argument(
         '-c', '--clean', action='store_true', help='run mininet cleanup')
     parser.add_argument(
@@ -759,6 +763,10 @@ def parse_args():
             start_port = random.randint(1, 10)
         else:
             start_port = int(args.port)
+        regex_test_classes = None
+        if args.regex:
+            regex_test_classes = re.compile(args.regex)
+            print('Running tests on classes matching %s' % args.regex)
     except(KeyError, IndexError, ValueError):
         parser.print_usage()
         sys.exit(-1)
@@ -769,7 +777,7 @@ def parse_args():
         excluded_test_classes = args.x.split(',')
 
     return (
-        requested_test_classes, args.clean, args.dumpfail, args.debug,
+        requested_test_classes, regex_test_classes, args.clean, args.dumpfail, args.debug,
         args.keep_logs, args.nocheck, args.serial, args.repeat,
         excluded_test_classes, report_json_filename, port_order, start_port,
         args.loglevel, args.profile)
@@ -780,7 +788,7 @@ def test_main(modules):
 
     print('testing module %s' % modules)
 
-    (requested_test_classes, clean, dumpfail, debug, keep_logs, nocheck,
+    (requested_test_classes, regex_test_classes, clean, dumpfail, debug, keep_logs, nocheck,
      serial, repeat, excluded_test_classes, report_json_filename, port_order,
      start_port, loglevel, profile) = parse_args()
 
@@ -810,7 +818,7 @@ def test_main(modules):
         pr.enable()
 
     run_tests(
-        modules, hw_config, requested_test_classes, dumpfail, debug,
+        modules, hw_config, requested_test_classes, regex_test_classes, dumpfail, debug,
         keep_logs, serial, repeat, excluded_test_classes, report_json_filename,
         port_order, start_port)
 
