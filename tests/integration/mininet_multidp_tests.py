@@ -12,7 +12,7 @@ from clib.mininet_test_base import IPV4_ETH, IPV6_ETH
 from clib.mininet_test_base_topo import FaucetTopoTestBase
 
 
-class FaucetMultiDPTest(FaucetTopoTestBase):
+class FaucetMultiDPTestBase(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a generalized test topology & config builder"""
 
     def mininet_host_options(self):
@@ -195,7 +195,7 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
         self.start_net()
 
 
-class FaucetStringOfDPUntaggedTest(FaucetMultiDPTest):
+class FaucetStringOfDPUntaggedTest(FaucetMultiDPTestBase):
     """Test untagged hosts"""
 
     NUM_DPS = 3
@@ -208,7 +208,7 @@ class FaucetStringOfDPUntaggedTest(FaucetMultiDPTest):
         self.verify_traveling_dhcp_mac()
 
 
-class FaucetStringOfDPTaggedTest(FaucetMultiDPTest):
+class FaucetStringOfDPTaggedTest(FaucetMultiDPTestBase):
     """Test tagged hosts"""
 
     NUM_DPS = 3
@@ -221,7 +221,7 @@ class FaucetStringOfDPTaggedTest(FaucetMultiDPTest):
         self.verify_traveling_dhcp_mac()
 
 
-class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTest):
+class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
     """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
@@ -235,7 +235,7 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTest):
             self.verify_one_stack_down(0, coldstart)
 
 
-class FaucetSingleStackStringOfDPTagged1Test(FaucetMultiDPTest):
+class FaucetSingleStackStringOfDPTagged1Test(FaucetMultiDPTestBase):
     """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
@@ -249,7 +249,7 @@ class FaucetSingleStackStringOfDPTagged1Test(FaucetMultiDPTest):
             self.verify_one_stack_down(1, coldstart)
 
 
-class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
+class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
     """Test topology of LACP-connected datapaths with untagged hosts."""
 
     NUM_DPS = 2
@@ -423,7 +423,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         self.wait_for_lacp_port_init(end_port, self.dpids[1], self.topo.switches_by_id[1])
 
 
-class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTest):
+class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTestBase):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
@@ -450,7 +450,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTest):
         self.verify_events_log(self.event_log)
 
 
-class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
+class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTestBase):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
@@ -505,7 +505,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
         self.validate_with_externals_down_fails(self.topo.switches_by_id[1])
 
 
-class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTest):
+class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTestBase):
     """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 3
@@ -551,7 +551,7 @@ class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
     GROUP_TABLE = True
 
 
-class FaucetStackRingOfDPTest(FaucetMultiDPTest):
+class FaucetStackRingOfDPTest(FaucetMultiDPTestBase):
     """Test Faucet with a 3-cycle topology"""
 
     NUM_DPS = 3
@@ -582,7 +582,7 @@ class FaucetSingleStack4RingOfDPTest(FaucetStackRingOfDPTest):
     NUM_DPS = 4
 
 
-class FaucetSingleStack3RingOfDPReversePortOrderTest(FaucetMultiDPTest):
+class FaucetSingleStack3RingOfDPReversePortOrderTest(FaucetMultiDPTestBase):
     """Make sure even if the ports are in reverse order, the stack can properly form"""
 
     NUM_DPS = 3
@@ -620,7 +620,7 @@ class FaucetSingleStack4RingOfDPReversePortOrderTest(FaucetSingleStack3RingOfDPR
     NUM_DPS = 4
 
 
-class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
+class FaucetSingleStackAclControlTest(FaucetMultiDPTestBase):
     """Test ACL control of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 3
@@ -759,7 +759,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
         self.verify_no_cable_errors()
 
 
-class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
+class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTestBase):
     """Test ACL control of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 3
@@ -896,7 +896,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
         self.verify_no_cable_errors()
 
 
-class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
+class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTestBase):
     """Test overriding ACL rules"""
 
     NUM_DPS = 2
@@ -1008,7 +1008,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
-class FaucetTunnelSameDpTest(FaucetMultiDPTest):
+class FaucetTunnelSameDpTest(FaucetMultiDPTestBase):
     """Test the tunnel ACL option with output to the same DP"""
 
     NUM_DPS = 2
@@ -1055,7 +1055,7 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
 
-class FaucetSingleTunnelTest(FaucetMultiDPTest):
+class FaucetSingleTunnelTest(FaucetMultiDPTestBase):
     """Test the Faucet tunnel ACL option both locally and remotely with link failure"""
 
     NUM_DPS = 2
@@ -1232,7 +1232,7 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
         self.check_host_connectivity_by_id(0, 3)
 
 
-class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
+class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTestBase):
     """Test the tunnel ACL option with output to the same DP"""
 
     NUM_DPS = 2
@@ -1279,7 +1279,7 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
 
-class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
+class FaucetSingleTunnelOrderedTest(FaucetMultiDPTestBase):
     """Test the Faucet tunnel ACL option"""
 
     NUM_DPS = 2
@@ -2070,7 +2070,7 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
             'Number of links detecting the broadcast ARP %s (!= 1)' % except_count)
 
 
-class FaucetStackTopoChangeTest(FaucetMultiDPTest):
+class FaucetStackTopoChangeTest(FaucetMultiDPTestBase):
     """Test STACK_TOPO_CHANGE event structure"""
 
     NUM_DPS = 3

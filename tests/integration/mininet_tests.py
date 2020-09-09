@@ -169,7 +169,7 @@ vlans:
         self.verify_events_log(self.event_log)
 
 
-class Faucet8021XBaseTest(FaucetTest):
+class Faucet8021XBase(FaucetTest):
 
     HOST_NAMESPACE = {3: False}
     N_UNTAGGED = 4
@@ -276,10 +276,10 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
 
         self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
         self.CONFIG = self.CONFIG.replace('RADIUS_PORT', str(self.RADIUS_PORT))
-        super(Faucet8021XBaseTest, self)._init_faucet_config()
+        super(Faucet8021XBase, self)._init_faucet_config()
 
     def setUp(self):
-        super(Faucet8021XBaseTest, self).setUp()
+        super(Faucet8021XBase, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
@@ -315,7 +315,7 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
     def tearDown(self, ignore_oferrors=False):
         for pid in self.nfv_pids:
             self.nfv_host.cmd('kill %u' % pid)
-        super(Faucet8021XBaseTest, self).tearDown(ignore_oferrors=ignore_oferrors)
+        super(Faucet8021XBase, self).tearDown(ignore_oferrors=ignore_oferrors)
 
     def post_test_checks(self):
         self.assertGreater(os.path.getsize(self.event_log), 0)
@@ -614,7 +614,7 @@ listen {
         return radius_log_path
 
 
-class Faucet8021XSuccessTest(Faucet8021XBaseTest):
+class Faucet8021XSuccessTest(Faucet8021XBase):
 
     DOT1X_EXPECTED_EVENTS = [
         {'ENABLED': {}},
@@ -634,7 +634,7 @@ class Faucet8021XSuccessTest(Faucet8021XBaseTest):
         self.post_test_checks()
 
 
-class Faucet8021XFailureTest(Faucet8021XBaseTest):
+class Faucet8021XFailureTest(Faucet8021XBase):
     """Failure due to incorrect identity/password"""
 
     wpasupplicant_conf_1 = """
@@ -661,7 +661,7 @@ class Faucet8021XFailureTest(Faucet8021XBaseTest):
         self.post_test_checks()
 
 
-class Faucet8021XPortStatusTest(Faucet8021XBaseTest):
+class Faucet8021XPortStatusTest(Faucet8021XBase):
 
     DOT1X_EXPECTED_EVENTS = [
         {'ENABLED': {}},
@@ -719,7 +719,7 @@ class Faucet8021XPortStatusTest(Faucet8021XBaseTest):
         self.post_test_checks()
 
 
-class Faucet8021XPortFlapTest(Faucet8021XBaseTest):
+class Faucet8021XPortFlapTest(Faucet8021XBase):
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -745,7 +745,7 @@ class Faucet8021XPortFlapTest(Faucet8021XBaseTest):
         self.post_test_checks()
 
 
-class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
+class Faucet8021XIdentityOnPortUpTest(Faucet8021XBase):
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -785,7 +785,7 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XBaseTest):
         self.post_test_checks()
 
 
-class Faucet8021XPeriodicReauthTest(Faucet8021XBaseTest):
+class Faucet8021XPeriodicReauthTest(Faucet8021XBase):
 
     SESSION_TIMEOUT = 15
 
@@ -811,7 +811,7 @@ class Faucet8021XPeriodicReauthTest(Faucet8021XBaseTest):
         self.post_test_checks()
 
 
-class Faucet8021XConfigReloadTest(Faucet8021XBaseTest):
+class Faucet8021XConfigReloadTest(Faucet8021XBase):
 
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
@@ -831,7 +831,7 @@ class Faucet8021XConfigReloadTest(Faucet8021XBaseTest):
         self.post_test_checks()
 
 
-class Faucet8021XCustomACLLoginTest(Faucet8021XBaseTest):
+class Faucet8021XCustomACLLoginTest(Faucet8021XBase):
     """Ensure that 8021X Port ACLs Work before and after Login"""
 
     CONFIG_GLOBAL = """
@@ -1357,7 +1357,7 @@ vlans:
             last_vid = vid
 
 
-class FaucetUntaggedNoCombinatorialFlood(FaucetUntaggedTest):
+class FaucetUntaggedNoCombinatorialFloodTest(FaucetUntaggedTest):
 
     CONFIG = """
         combinatorial_port_flood: False
