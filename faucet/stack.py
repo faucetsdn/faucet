@@ -34,15 +34,21 @@ is technically a fixed allocation for this DP Stack instance."""
         # Use the stack route algorithms, will be forced true if routing is enabled
         'down_time_multiple': 3,
         # Number of update time intervals for a down stack node to still be considered healthy
+        'min_stack_health': 1.0,
+        # Minimum percentage value of required UP stack ports for this stack node to be considered healthy
+        'min_lacp_health': 1.0,
+        # Minimum percentage value of required UP LACP ports for this stack node to be considered healthy
     }
 
     defaults_types = {
         'priority': int,
         'route_learning': bool,
         'down_time_multiple': int,
+        'min_stack_health': float,
+        'min_lacp_health': float,
     }
 
-    def __init__(self, _id, dp_id, name, canonical_port_order, conf):
+    def __init__(self, _id, dp_id, name, canonical_port_order, lacp_down_ports, lacp_ports, conf):
         """
         Constructs a new stack object
 
@@ -51,17 +57,23 @@ is technically a fixed allocation for this DP Stack instance."""
             dp_id (int): DP ID of the DP that holds this stack instance
             name (str): Name of the DP that holds this stack instance
             canonical_port_order (func): Function to order ports in a standardized way
+            lacp_down_ports (func): Returns a tuple of the not UP LACP ports for this stack node
+            lacp_ports (func): Returns a tuple of all LACP ports for this stack node
             conf (dict): Stack configuration
         """
         self.name = name
 
         # Function to order ports in a standardized way
         self.canonical_port_order = canonical_port_order
+        self.lacp_down_ports = lacp_down_ports
+        self.lacp_ports = lacp_ports
 
         # Stack configuration options
         self.priority = None
         self.route_learning = None
         self.down_time_multiple = None
+        self.min_stack_health = None
+        self.min_lacp_health = None
 
         # Ports that have stacking configured
         self.ports = []
@@ -75,57 +87,139 @@ is technically a fixed allocation for this DP Stack instance."""
         self.root_flood_reflection = None
 
         # Whether the stack node is currently healthy
+        # dyn_healthy_info := (<running>, <stack ports>, <lacp ports>)
+        self.dyn_healthy_info = (False, 0.0, 0.0)
         self.dyn_healthy = False
 
         super(Stack, self).__init__(_id, dp_id, conf)
 
     def clone_dyn_state(self, prev_stack):
+        """Copy dyn state into the new stack instance when warm/cold starting"""
         if prev_stack:
             self.dyn_healthy = prev_stack.dyn_healthy
+            self.dyn_healthy_info = prev_stack.dyn_healthy_info
 
-    def health_timeout(self, now, update_time):
-        """Return stack node's health_timeout, the time before a timeout is recognized"""
+    def live_timeout_healthy(self, last_live_time, now, update_time):
+        """
+        Determines the timeout of the current stack node, and whether
+        the current stack node can be considered healthy according to
+        the `down_time_multiple` number of stack root update time intervals.
+
+        Args:
+            last_live_time (float): Last known live time for this current stack node
+            now (float): Current time
+            update_time (int): Update time interval
+        Return:
+            bool: If node down time is still in update time interval threshold; considered healthy,
+            float: Time elapsed since timed out
+        """
+        # Time elapsed for the number of safe down time multiples before considered unhealthy
         down_time = self.down_time_multiple * update_time
+        # Final time at which nodes are still considered healthy
         health_timeout = now - down_time
-        return health_timeout
+        # If node last known live time was greater than the health timeout then it is healthy
+        timeout_healthy = last_live_time >= health_timeout
+        return timeout_healthy, health_timeout
 
-    def update_health(self, now, dp_last_live_time, update_time, down_lacp_ports, down_stack_ports):
+    def stack_port_healthy(self):
+        """
+        Determines the percentage of UP stack ports, and whether
+        the current stack node can be considered healthy according to
+        the `min_stack_health` configuration option.
+
+        Return:
+            bool: Whether threshold from DOWN stack ports is met; considered healthy,
+            float: Percentage of stack ports UP out of all stack ports
+        """
+        down_ports = self.down_ports()
+        all_ports = self.ports
+        if len(all_ports) == 0:
+            return True, 1.0
+        percentage = 1.0 - (float(len(down_ports) / float(len(all_ports))))
+        stack_ports_healthy = percentage >= self.min_stack_health
+        return stack_ports_healthy, percentage
+
+    def lacp_port_healthy(self):
+        """
+        Determines the percentage of UP LACP ports, and whether
+        the current stack node can be considered healthy according to
+        the `min_lacp_health` configuration option.
+
+        Return:
+            bool: Whether threshold from DOWN LACP ports is met; considered healthy,
+            float: Percentage of LACP ports UP out of all lacp ports
+        """
+        down_ports = self.lacp_down_ports()
+        all_ports = self.lacp_ports()
+        if len(all_ports) == 0:
+            return True, 1.0
+        percentage = 1.0 - (float(len(down_ports) / float(len(all_ports))))
+        lacp_ports_healthy = percentage >= self.min_lacp_health
+        return lacp_ports_healthy, percentage
+
+    def update_health(self, now, dp_last_live_time, update_time):
         """
         Determines whether the current stack node is healthy
 
         Args:
-            now (float):
-            dp_last_live_time (dict): Last live time value for each DP
+            now (float): Current time
+            last_live_times (dict): Last live time value for each DP
             update_time (int): Stack root update interval time
-            down_lacp_ports (tuple): Tuple of LACP ports that are not UP
-            down_stack_ports (tuple): Tuple of stack ports that are not UP
         Return:
-            bool: Current stack node health state,
+            tuple: Current stack node health state,
             str: Reason for the current state
         """
+        reason = ''
         last_live_time = dp_last_live_time.get(self.name, 0)
-        health_timeout = self.health_timeout(now, update_time)
-        if last_live_time < health_timeout:
-            # Too long since DP last running
-            reason = 'last running %us ago (timeout %us)' % (last_live_time, health_timeout)
+        timeout_healthy, health_timeout = self.live_timeout_healthy(
+            last_live_time, now, update_time)
+        if not timeout_healthy:
+            # Too long since DP last running, if DP not running then
+            #   number of UP stack or LACP ports should be 0
+            reason += 'last running %us ago (timeout %us)' % (now - last_live_time, health_timeout)
+            self.dyn_healthy_info = (False, 0.0, 0.0)
             self.dyn_healthy = False
-        elif down_lacp_ports:
-            # Not all LAG ports are UP
-            reason = 'LACP ports %s not up' % list(down_lacp_ports)
-            self.dyn_healthy = False
-        elif down_stack_ports:
-            # Not all stack ports are UP
-            reason = 'stack ports %s not up' % list(down_stack_ports)
-            self.dyn_healthy = False
+            return self.dyn_healthy, reason
         else:
-            # Nothing wrong with stack node
-            reason = 'running, all stack and lacp ports UP'
+            reason += 'running %us ago' % (now - last_live_time)
+        if reason:
+            reason += ', '
+        stack_ports_healthy, stack_percentage = self.stack_port_healthy()
+        if not stack_ports_healthy:
+            # The number of DOWN stack ports surpasses the threshold for DOWN stack port tolerance
+            reason += 'stack ports %s (%.0f%%) not up' % (
+                list(self.down_ports()), (1.0 - stack_percentage) * 100.0)
+        else:
+            reason += '%.0f%% stack ports running' % (stack_percentage * 100.0)
+        if self.lacp_ports():
+            if reason:
+                reason += ', '
+            lacp_ports_healthy, lacp_percentage = self.lacp_port_healthy()
+            if not lacp_ports_healthy:
+                # The number of DOWN LACP ports surpasses the threshold for DOWN LACP port tolerance
+                reason += 'lacp ports %s (%.0f%%) not up' % (
+                    list(self.lacp_down_ports()), (1.0 - lacp_percentage) * 100.0)
+            else:
+                reason += '%.0f%% lacp ports running' % (lacp_percentage * 100.0)
+        else:
+            # No LACP ports in node, so default to 100% UP & don't report information
+            lacp_ports_healthy = True
+            lacp_percentage = 0.0
+        self.dyn_healthy_info = (timeout_healthy, stack_percentage, lacp_percentage)
+        if timeout_healthy and stack_ports_healthy and lacp_ports_healthy:
             self.dyn_healthy = True
+        else:
+            self.dyn_healthy = False
         return self.dyn_healthy, reason
 
     def nominate_stack_root(self, stacks):
         """Return stack names in priority order and the chosen root"""
-        stack_priorities = sorted(stacks, key=lambda x: x.priority)
+        def health_priority(stack):
+            # Invert the health priority info so it is sorted correctly
+            invert_info = (1.0 - stack.dyn_healthy_info[1],
+                           1.0 - stack.dyn_healthy_info[2])
+            return (not stack.dyn_healthy, *invert_info, stack.priority)
+        stack_priorities = sorted(stacks, key=health_priority)
         priority_names = tuple(stack.name for stack in stack_priorities)
         nominated_name = priority_names[0]
         return priority_names, nominated_name

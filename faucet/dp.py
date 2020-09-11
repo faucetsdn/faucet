@@ -324,7 +324,7 @@ configuration.
         super().__init__(_id, dp_id, conf)
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def clone_dyn_state(self, prev_dp):
         """Clone dynamic state for this dp"""
@@ -378,7 +378,9 @@ configuration.
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
         self._check_conf_types(self.table_sizes, self.default_table_sizes_types)
-        self.stack = Stack('stack', self.dp_id, self.name, self.canonical_port_order, self.stack)
+        self.stack = Stack('stack', self.dp_id, self.name,
+                           self.canonical_port_order, self.lacp_down_ports, self.lacp_ports,
+                           self.stack)
 
     def _lldp_defaults(self):
         self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)

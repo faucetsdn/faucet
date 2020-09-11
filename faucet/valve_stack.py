@@ -222,22 +222,15 @@ This includes port nominations and flood directionality."""
         Returns:
             bool: True if current stack node is healthy
         """
-        prev_health = self.stack.dyn_healthy
+        prev_health = self.stack.dyn_healthy_info
         new_health, reason = self.stack.update_health(
-            now, last_live_times, update_time, self.dp.lacp_down_ports(),
-            self.stack.down_ports())
+            now, last_live_times, update_time)
+        new_health = self.stack.dyn_healthy_info
         if prev_health != new_health:
-            health = 'HEALTHY' if new_health else 'UNHEALTHY'
+            health = 'HEALTHY' if self.stack.dyn_healthy else 'UNHEALTHY'
             self.logger.info('Stack node %s %s (%s)' % (self.stack.name, health, reason))
+        new_health = self.stack.dyn_healthy
         return new_health
-
-    def consistent_roots(self, expected_root_name, valve, other_valves):
-        """Returns true if all the stack nodes have the root configured correctly"""
-        stacked_valves = {valve}.union(self.stacked_valves(other_valves))
-        for stack_valve in stacked_valves:
-            if stack_valve.dp.stack.root_name != expected_root_name:
-                return False
-        return True
 
     def nominate_stack_root(self, root_valve, other_valves, now, last_live_times, update_time):
         """
@@ -287,6 +280,14 @@ This includes port nominations and flood directionality."""
             _, new_root_name = stacks[0].nominate_stack_root(stacks)
 
         return new_root_name
+
+    def consistent_roots(self, expected_root_name, valve, other_valves):
+        """Returns true if all the stack nodes have the root configured correctly"""
+        stacked_valves = {valve}.union(self.stacked_valves(other_valves))
+        for stack_valve in stacked_valves:
+            if stack_valve.dp.stack.root_name != expected_root_name:
+                return False
+        return True
 
     def stack_ports(self):
         """Yield the stack ports of this stack node"""
