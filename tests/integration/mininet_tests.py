@@ -3475,6 +3475,7 @@ vlans:
 """
 
     STAT_RELOAD = '1'
+
     def test_port_acls(self):
         hup = not self.STAT_RELOAD
         self.change_port_config(
