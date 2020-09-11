@@ -1361,7 +1361,7 @@ configuration.
                     changed_acl_ports.add(port_no)
                     logger.info('port %s ACL changed (ACL %s content changed)' % (
                         port_no, port_acls_changed))
-                elif old_acl_ids != new_acl_ids:
+                elif (old_acl_ids or new_acl_ids) and old_acl_ids != new_acl_ids:
                     changed_acl_ports.add(port_no)
                     logger.info('port %s ACL changed (ACL %s to %s)' % (
                         port_no, old_acl_ids, new_acl_ids))
