@@ -3450,6 +3450,42 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
         self.verify_tp_dst_blocked(5003, first_host, second_host)
 
 
+class FaucetConfigReloadEmptyAclTest(FaucetConfigReloadTestBase):
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 300
+            %(port_4)d:
+                native_vlan: 100
+"""
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+    200:
+        description: "untagged"
+    300:
+        description: "untagged"
+        acls_in: [1]
+"""
+
+    STAT_RELOAD = '1'
+
+    def test_port_acls(self):
+        hup = not self.STAT_RELOAD
+        self.change_port_config(
+            self.port_map['port_3'], 'acls_in', [],
+            restart=True, cold_start=False, hup=hup)
+        self.change_port_config(
+            self.port_map['port_1'], 'acls_in', [],
+            restart=True, cold_start=False, hup=hup)
+
+
 class FaucetConfigStatReloadAclTest(FaucetConfigReloadAclTest):
 
     # Use the stat-based reload method.
