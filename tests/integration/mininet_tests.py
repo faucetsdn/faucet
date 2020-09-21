@@ -3426,8 +3426,6 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
                 acl_in: deny
 """
 
-    STAT_RELOAD = '1'
-
     def _verify_hosts_learned(self, hosts):
         self.pingAll()
         for host in hosts:
