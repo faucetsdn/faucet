@@ -3469,6 +3469,28 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
         self.verify_tp_dst_blocked(5003, first_host, second_host)
 
 
+class FaucetConfigReloadMACFlushTest(FaucetConfigReloadTestBase):
+
+    def test_port_change_vlan(self):
+        self.ping_all_when_learned()
+        self.assertEqual(4, len(self.scrape_prometheus(var='learned_l2_port')))
+        self.change_port_config(
+            self.port_map['port_1'], 'native_vlan', 200,
+            restart=False, cold_start=False)
+        self.wait_until_matching_flow(
+            {'vlan_vid': 200}, table_id=self._ETH_SRC_TABLE,
+            actions=['OUTPUT:CONTROLLER', 'GOTO_TABLE:%u' % self._ETH_DST_TABLE])
+        self.change_port_config(
+            self.port_map['port_2'], 'native_vlan', 200,
+            restart=True, cold_start=False)
+        for port_name in ('port_1', 'port_2'):
+            self.wait_until_matching_flow(
+                {'in_port': int(self.port_map[port_name])},
+                table_id=self._VLAN_TABLE,
+                actions=['SET_FIELD: {vlan_vid:4296}'])
+        self.assertEqual(0, len(self.scrape_prometheus(var='learned_l2_port')))
+
+
 class FaucetConfigReloadEmptyAclTest(FaucetConfigReloadTestBase):
 
     CONFIG = """
