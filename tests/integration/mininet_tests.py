@@ -3450,7 +3450,7 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
         self.verify_tp_dst_blocked(5003, first_host, second_host)
 
 
-class FaucetConfigReloadMACExpireTest(FaucetConfigReloadTestBase):
+class FaucetConfigReloadMACFlushTest(FaucetConfigReloadTestBase):
 
     def test_port_change_vlan(self):
         self.ping_all_when_learned()
