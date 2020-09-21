@@ -22,6 +22,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - if: ${{ steps.file_changes.outputs.all }}
+        name: Setup dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+      - if: ${{ steps.file_changes.outputs.all }}
         name: Compare file changes
         run: |
           FILES_ALL="$(echo '${{ steps.file_changes.outputs.all }}' | jq -r '.[]' | tr '\n' ' ')"

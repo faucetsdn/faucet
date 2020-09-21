@@ -41,7 +41,6 @@ class FaucetIntf(TCIntf):
 class FaucetLink(Link):
     """Link using FaucetIntfs"""
 
-    # TODO: This can be simplified when we update Mininet in the test image
     def __init__(self, node1, node2, port1=None, port2=None,
                  intfName1=None, intfName2=None,
                  addr1=None, addr2=None, **params):
@@ -86,12 +85,15 @@ class VLANHost(FaucetHost):
 class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (netdev based OVS)."""
 
+    clist = None
+
     controller_params = {
         'controller_burst_limit': 25,
         'controller_rate_limit': 100,
     }
 
     def __init__(self, name, **params):
+        self.clist = []
         super().__init__(
             name=name, reconnectms=8000, **params)
 
@@ -129,6 +131,26 @@ class FaucetSwitch(OVSSwitch):
         port = self.ports[intf]
         self.cmd('ovs-vsctl set Interface', intf, 'ofport_request=%s' % port)
 
+    def addController(self, controller):
+        self.clist.append((
+            self.name + controller.name, '%s:%s:%d' % (
+                controller.protocol, controller.IP(), controller.port)))
+        if self.listenPort:
+            self.clist.append((self.name + '-listen',
+                               'ptcp:%s' % self.listenPort))
+        ccmd = '-- --id=@%s create Controller target=\\"%s\\"'
+        if self.reconnectms:
+            ccmd += ' max_backoff=%d' % self.reconnectms
+        for param, value in self.controller_params.items():
+            ccmd += ' %s=%s' % (param, value)
+        cargs = ' '.join(ccmd % (name, target)
+                         for name, target in self.clist)
+        # Controller ID list
+        cids = ','.join('@%s' % name for name, _target in self.clist)
+        # One ovs-vsctl command to rule them all!
+        self.vsctl(cargs +
+                   ' -- set bridge %s controller=[%s]' % (self, cids))
+
     def start(self, controllers):
         # Transcluded from Mininet source, since need to insert
         # controller parameters at switch creation time.
@@ -139,11 +161,11 @@ class FaucetSwitch(OVSSwitch):
                          self.intfOpts(intf)
                          for intf in switch_intfs)
         # Command to create controller entries
-        clist = [(self.name + c.name, '%s:%s:%d' %
+        self.clist = [(self.name + c.name, '%s:%s:%d' %
                   (c.protocol, c.IP(), c.port))
                  for c in controllers]
         if self.listenPort:
-            clist.append((self.name + '-listen',
+            self.clist.append((self.name + '-listen',
                           'ptcp:%s' % self.listenPort))
         ccmd = '-- --id=@%s create Controller target=\\"%s\\"'
         if self.reconnectms:
@@ -151,9 +173,9 @@ class FaucetSwitch(OVSSwitch):
         for param, value in self.controller_params.items():
             ccmd += ' %s=%s' % (param, value)
         cargs = ' '.join(ccmd % (name, target)
-                         for name, target in clist)
+                         for name, target in self.clist)
         # Controller ID list
-        cids = ','.join('@%s' % name for name, _target in clist)
+        cids = ','.join('@%s' % name for name, _target in self.clist)
         # Try to delete any existing bridges with the same name
         if not self.isOldOVS():
             cargs += ' -- --if-exists del-br %s' % self
