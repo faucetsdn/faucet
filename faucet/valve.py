@@ -665,6 +665,9 @@ class Valve:
             ofmsgs.extend(route_manager.expire_port_nexthops(port))
         ofmsgs.extend(self._delete_all_port_match_flows(port))
         if not keep_cache:
+            for vlan in port.vlans():
+                for entry in port.hosts([vlan]):
+                    self._update_expired_host(entry, vlan)
             ofmsgs.extend(self._port_delete_manager_state(port))
         return ofmsgs
 
@@ -1225,17 +1228,20 @@ class Valve:
                         ofmsgs_by_valve[self].extend(
                             self.switch_manager.delete_host_from_vlan(entry.eth_src, vlan))
                 for entry in expired_hosts:
-                    learn_labels = dict(self.dp.base_prom_labels(), vid=vlan.vid,
-                                        eth_src=entry.eth_src)
-                    self._remove_var('learned_l2_port', labels=learn_labels)
-                    self.notify(
-                        {'L2_EXPIRE': {
-                            'port_no': entry.port.number,
-                            'vid': vlan.vid,
-                            'eth_src': entry.eth_src}})
+                    self._update_expired_host(entry, vlan)
                 for route_manager in self._route_manager_by_ipv.values():
                     ofmsgs_by_valve[self].extend(route_manager.resolve_expire_hosts(vlan, now))
         return ofmsgs_by_valve
+
+    def _update_expired_host(self, entry, vlan):
+        learn_labels = dict(self.dp.base_prom_labels(), vid=vlan.vid,
+                            eth_src=entry.eth_src)
+        self._remove_var('learned_l2_port', labels=learn_labels)
+        self.notify(
+            {'L2_EXPIRE': {
+                'port_no': entry.port.number,
+                'vid': vlan.vid,
+                'eth_src': entry.eth_src}})
 
     def _pipeline_change(self):
         def table_msgs(tfm_flow):
@@ -1332,6 +1338,10 @@ class Valve:
             # TODO: handle change versus add separately so can avoid delete first.
             ofmsgs.extend(self.del_vlans(changed_vlans))
             for vlan in changed_vlans:
+                expired_hosts = [
+                    entry for entry in vlan.dyn_host_cache.values()]
+                for entry in expired_hosts:
+                    self._update_expired_host(entry, vlan)
                 vlan.reset_caches()
             # The proceeding delete operation means we don't have to generate more deletes.
             ofmsgs.extend(self.add_vlans(changed_vlans, cold_start=True))
