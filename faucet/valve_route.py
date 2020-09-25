@@ -177,13 +177,14 @@ class ValveRouteManager(ValveManagerBase):
         """Return flood packet-out actions to stack ports for gw resolving"""
         ofmsgs = []
         if self.stack_manager:
-            ports = list()
+            ports = []
             if self.stack_manager.stack.is_root():
                 ports = list(self.stack_manager.away_ports -
                              self.stack_manager.inactive_away_ports -
                              self.stack_manager.pruned_away_ports)
             else:
-                ports = [self.stack_manager.chosen_towards_port]
+                if self.stack_manager.chosen_towards_port is not None:
+                    ports = [self.stack_manager.chosen_towards_port]
             if ports:
                 running_port_nos = [port.number for port in ports if port.running()]
                 pkt = pkt_builder(vlan.vid, *args)
