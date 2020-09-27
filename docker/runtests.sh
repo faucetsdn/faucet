@@ -181,6 +181,8 @@ export http_proxy=
 
 if [ "$INTEGRATIONTESTS" == 1 ] ; then
   echo "========== Running faucet integration tests =========="
+  sudo apt-get update -y
+  sudo apt-get install dnsmasq -y
   cd /faucet-src/tests/integration
   ./mininet_main.py -c
 elif [ "$GEN_INT" == 1 ] ; then

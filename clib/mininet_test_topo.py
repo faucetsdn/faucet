@@ -55,31 +55,74 @@ class FaucetLink(Link):
 class FaucetHost(CPULimitedHost):
     """Base Mininet Host class, for Mininet-based tests."""
 
+    def create_dnsmasq(self, tmpdir, iprange, router, vlan, interface=None):
+        """Start dnsmasq instance inside dnsmasq namespace"""
+        if interface is None:
+            interface = self.defaultIntf()
+        dhcp_leasefile = os.path.join(tmpdir, 'nfv-dhcp-%s-vlan%u.leases' % (self.name, vlan))
+        log_facility = os.path.join(tmpdir, 'nfv-dhcp-%s-vlan%u.log' % (self.name, vlan))
+        pid_file = os.path.join(tmpdir, 'dnsmasq-%s-vlan%u.pid' % (self.name, vlan))
+        cmd = 'dnsmasq'
+        opts = ''
+        opts += ' --dhcp-range=%s,255.255.255.0' % iprange
+        opts += ' --dhcp-sequential-ip'
+        opts += ' --dhcp-option=option:router,%s' % router
+        opts += ' --no-resolv --txt-record=does.it.work,yes'
+        opts += ' --bind-interfaces'
+        opts += ' --except-interface=lo'
+        opts += ' --interface=%s' % (interface)
+        opts += ' --dhcp-leasefile=%s' % dhcp_leasefile
+        opts += ' --log-facility=%s' % log_facility
+        opts += ' --pid-file=%s' % pid_file
+        opts += ' --conf-file='
+        return self.cmd(cmd + opts)
+
+    def return_ip(self):
+        """Return host IP as a string"""
+        return self.cmd('hostname -I')
+
 
 class VLANHost(FaucetHost):
     """Implementation of a Mininet host on a tagged VLAN."""
 
     intf_root_name = None
 
+    vlans = None
+    vlan_intfs = None
+
     def config(self, vlans=[100], **params):  # pylint: disable=arguments-differ
         """Configure VLANHost according to (optional) parameters:
            vlans (list): List of VLAN IDs for default interface"""
         super_config = super().config(**params)
+        self.vlans = vlans
+        self.vlan_intfs = {}
+        cmds = []
         intf = self.defaultIntf()
-        vlan_intf_name = '%s.%s' % (intf, '.'.join(str(v) for v in vlans))
-        cmds = [
+        self.intf_root_name = intf.name
+        if 'vlan_intfs' in params:
+            vlan_intfs = params.get('vlan_intfs', {})
+            for vlan_id, ip in vlan_intfs.items():
+                intf_name = '%s.%s' % (intf, vlans[vlan_id])
+                cmds.extend([
+                    'vconfig add %s %d' % (intf.name, vlans[vlan_id]),
+                    'ip -4 addr add %s dev %s' % (ip, intf_name),
+                    'ip link set dev %s up' % intf_name])
+                self.nameToIntf[intf_name] = intf
+                self.vlan_intfs[vlan_id] = intf_name
+        else:
+            vlan_intf_name = '%s.%s' % (intf, '.'.join(str(v) for v in vlans))
+            cmds.extend([
+                'ip link set dev %s up' % vlan_intf_name,
+                'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)])
+            for v in vlans:
+                cmds.append('vconfig add %s %d' % (intf, v))
+            intf.name = vlan_intf_name
+            self.nameToIntf[vlan_intf_name] = intf
+        cmds.extend([
             'ip -4 addr flush dev %s' % intf,
-            'ip -6 addr flush dev %s' % intf,
-            'ip link set dev %s up' % vlan_intf_name,
-            'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)
-        ]
-        for v in vlans:
-            cmds.append('vconfig add %s %d' % (intf, v))
+            'ip -6 addr flush dev %s' % intf])
         for cmd in cmds:
             self.cmd(cmd)
-        self.intf_root_name = intf.name
-        intf.name = vlan_intf_name
-        self.nameToIntf[vlan_intf_name] = intf
         return super_config
 
 
