@@ -509,6 +509,18 @@ dps:
             'faucet mac configured incorrectly'
             )
 
+    def test_novlans(self):
+        """Test DP with no VLANs."""
+        config = """
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                output_only: true
+        """
+        self.check_config_success(config, cp.dp_parser)
+
     def test_resolved_mirror_port(self):
         """Test can use name reference to mirrored port."""
         config = """
