@@ -37,6 +37,9 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     n_vlans = 0
     configuration_options = None
+    mininet_host_options = None
+    host_vlans = None
+    link_vlans = None
 
     host_information = None
     faucet_vips = None
@@ -176,6 +179,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             n_vlans,
             **self.configuration_options
         )
+        self.mininet_host_options = mininet_host_options
         self.n_vlans = n_vlans
         self.host_vlans = host_vlans
         self.link_vlans = link_vlans
@@ -193,7 +197,12 @@ class FaucetTopoTestBase(FaucetTestBase):
             vlan = self.host_vlans[host_id]
             ip_interface = None
             if vlan is not None:
-                ip_interface = ipaddress.ip_interface(self.host_ip_address(host_id, vlan))
+                ip = self.host_ip_address(host_id, vlan)
+                if self.mininet_host_options and host_id in self.mininet_host_options:
+                    mininet_ip = self.mininet_host_options[host_id].get('ip', None)
+                    if mininet_ip:
+                        ip = mininet_ip
+                ip_interface = ipaddress.ip_interface(ip)
                 self.set_host_ip(host, ip_interface)
             self.host_information[host_id] = {
                 'host': host,
