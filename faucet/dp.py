@@ -17,6 +17,7 @@
 # limitations under the License.
 
 from collections import defaultdict
+from collections.abc import Iterable
 import copy
 import random
 import math
@@ -1303,34 +1304,33 @@ configuration.
 
         # Detect changes to VLANs and ACLs based on port changes.
         if not all_ports_changed:
+            def get_vids(vlans):
+                if not vlans:
+                    return set()
+                if isinstance(vlans, Iterable):
+                    return {vlan.vid for vlan in vlans}
+                return {vlans.vid}
+
             def _add_changed_vlan_port(port, port_dp):
-                if port.native_vlan:
-                    changed_vlans.add(port.native_vlan.vid)
-                if port.tagged_vlans:
-                    changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
+                changed_vlans.update(get_vids(port.vlans()))
                 if port.stack:
-                    changed_vlans.update({vlan.vid for vlan in port_dp.vlans.values()})
+                    changed_vlans.update(get_vids(port_dp.vlans.values()))
+
+            def _add_changed_vlans(old_port, new_port):
+                if old_port.vlans() != new_port.vlans():
+                    old_vids = get_vids(old_port.vlans())
+                    new_vids = get_vids(new_port.vlans())
+                    changed_vlans.update(old_vids.symmetric_difference(new_vids))
+                # stacking dis/enabled on a port.
+                if bool(old_port.stack) != bool(new_port.stack):
+                    changed_vlans.update(get_vids(new_dp.vlans.values()))
 
             for port_no in changed_ports:
                 if port_no not in self.ports:
                     continue
                 old_port = self.ports[port_no]
                 new_port = new_dp.ports[port_no]
-                # native_vlan changed.
-                if old_port.native_vlan != new_port.native_vlan:
-                    for port in (old_port, new_port):
-                        if port.native_vlan:
-                            changed_vlans.add(port.native_vlan.vid)
-                # tagged vlans changed.
-                if old_port.tagged_vlans != new_port.tagged_vlans:
-                    for port in (old_port, new_port):
-                        if port.tagged_vlans:
-                            changed_vlans.update({vlan.vid for vlan in port.tagged_vlans})
-                # stacking dis/enabled on a port.
-                if bool(old_port.stack) != bool(new_port.stack):
-                    changed_vlans.update({vlan.vid for vlan in new_dp.vlans.values()})
-
-            # ports deleted or added.
+                _add_changed_vlans(old_port, new_port)
             for port_no in deleted_ports:
                 port = self.ports[port_no]
                 _add_changed_vlan_port(port, self)
@@ -1340,14 +1340,10 @@ configuration.
             for port_no in same_ports:
                 old_port = self.ports[port_no]
                 new_port = new_dp.ports[port_no]
-                # mirror options changed.
                 if old_port.mirror != new_port.mirror:
                     logger.info('port %s mirror options changed: %s' % (
                         port_no, new_port.mirror))
                     changed_ports.add(port_no)
-                    for mirrored_port, port_dp in ((old_port, self), (new_port, new_dp)):
-                        if mirrored_port.mirror:
-                            _add_changed_vlan_port(mirrored_port, port_dp)
                 # ACL changes
                 new_acl_ids = new_port.acls_in
                 port_acls_changed = set()
@@ -1393,7 +1389,8 @@ configuration.
             all_ports_changed = True
 
         return (all_ports_changed, deleted_ports,
-                changed_ports, added_ports, changed_acl_ports, changed_vlans)
+                changed_ports, added_ports, changed_acl_ports,
+                changed_vlans)
 
     def _get_meter_config_changes(self, logger, new_dp):
         """Detect any config changes to meters.
