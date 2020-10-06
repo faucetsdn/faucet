@@ -773,18 +773,31 @@ configuration.
 
     def reset_refs(self, vlans=None):
         """Resets VLAN references."""
+
         if vlans is None:
             vlans = self.vlans
-            router_vlans = [vlan._id for router in self.routers.values() for vlan in router.vlans]
+            router_vlans = {vlan._id for router in self.routers.values() for vlan in router.vlans}
         else:
-            router_vlans = [vlan for router in self.routers.values() for vlan in router.vlans]
+            router_vlans = {vlan for router in self.routers.values() for vlan in router.vlans}
+
+        vlan_ports = defaultdict(set)
+        for port in self.ports.values():
+            for vlan in port.vlans():
+                vlan_ports[vlan].add(port)
+
+        if self.stack_ports or self.stack.is_root():
+            new_vlans = list(vlans.values())
+        else:
+            new_vlans = []
+            for vlan in vlans.values():
+                if (vlan_ports[vlan] or vlan.reserved_internal_vlan or
+                        vlan.dot1x_assigned or vlan._id in router_vlans):
+                    new_vlans.append(vlan)
+
         self.vlans = {}
-        for vlan in vlans.values():
-            vlan.reset_ports(self.ports.values())
-            if (vlan.get_ports() or vlan.reserved_internal_vlan or
-                    vlan.dot1x_assigned or vlan._id in router_vlans or
-                    self.stack_ports() or self.stack.is_root()):
-                self.vlans[vlan.vid] = vlan
+        for vlan in new_vlans:
+            vlan.reset_ports(vlan_ports[vlan])
+            self.vlans[vlan.vid] = vlan
 
     def resolve_port(self, port_name):
         """Resolve a port by number or name."""
