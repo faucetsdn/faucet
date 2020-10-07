@@ -331,6 +331,10 @@ configuration.
         self.dyn_running = prev_dp.dyn_running
         self.dyn_up_port_nos = set(prev_dp.dyn_up_port_nos)
         self.dyn_last_coldstart_time = prev_dp.dyn_last_coldstart_time
+        if self.stack:
+            self.stack.clone_dyn_state(prev_dp.stack)
+        for port in self.ports:
+            port.clone_dyn_state(prev_dp.ports.get(port.number))
 
     def cold_start(self, now):
         """Update to reflect a cold start"""

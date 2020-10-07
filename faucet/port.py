@@ -293,6 +293,11 @@ class Port(Conf):
     def __repr__(self):
         return self.__str__()
 
+    def clone_dyn_state(self, prev_port):
+        if prev_port:
+            self.dyn_lldp_beacon_recv_time = prev_port.dyn_lldp_beacon_recv_time
+            self.dyn_lldp_beacon_recv_state = prev_port.dyn_lldp_beacon_recv_state
+
     def stack_descr(self):
         """"Return stacking annotation if this is a stacking port."""
         if self.stack:
