@@ -194,6 +194,54 @@ dps:
         self.update_and_revert_config(self.CONFIG, self.LESS_CONFIG, 'cold')
 
 
+class ValveAddPortMirrorNoDelVLANTestCase(ValveTestBases.ValveTestNetwork):
+    """Test addition of port mirroring does not cause a del VLAN."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+            p3:
+                number: 3
+                output_only: true
+""" % DP1_CONFIG
+
+    MORE_CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+            p3:
+                number: 3
+                output_only: true
+                mirror: [1]
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)[self.DP_ID]
+
+    def test_port_mirror(self):
+        """Test addition of port mirroring does not cause a del VLAN."""
+        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='warm')[self.DP_ID]
+        for ofmsg in reload_ofmsgs:
+            if valve_of.is_flowdel(ofmsg):
+                if ofmsg.table_id == valve_of.ofp.OFPTT_ALL and ofmsg.match:
+                    self.assertNotIn('vlan_vid', ofmsg.match, ofmsg)
+
+
 class ValveAddPortTestCase(ValveTestBases.ValveTestNetwork):
     """Test addition of a port."""
 
