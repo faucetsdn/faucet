@@ -783,6 +783,31 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_output_in_port(self):
+        """Test DP ACLs."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        - port: 0xfffffff8
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        dp_acls: [good_acl]
+        interfaces:
+            1:
+                native_vlan: 100
+            0xfffffff8:
+                output_only: True
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_force_port_vlan(self):
         """Test push force_port_vlan."""
         config = """
@@ -3618,7 +3643,7 @@ dps:
         dp_id: &x1
         interfaces:
             1:
-                native_vlan: office        
+                native_vlan: office
 """
         self.check_config_failure(config, cp.dp_parser)
 
@@ -3722,7 +3747,7 @@ acls:
     office-vlan-protect:
         - rule:
             dl_type: 0x800
-            ipv4_src: 
+            ipv4_src:
             actions:
                 allow: 0
 vlans:
@@ -3756,7 +3781,7 @@ dps:
         interfaces:
             1:
                 native_vlan: 100
-                acl_in: 101     
+                acl_in: 101
 """
         self.check_config_failure(config, cp.dp_parser)
 
@@ -3792,7 +3817,7 @@ acls:
         - rule:
             dl_dst: "0e:00:00:00:02:02"
             actions:
-               mirror: 
+               mirror:
                     port: 1
 dps:
     switch1:
@@ -3814,7 +3839,7 @@ acls:
         - rule:
             dl_dst: "0e:00:00:00:02:02"
             actions:
-               mirror: 
+               mirror:
                     port: 1
 dps:
     switch1:
@@ -3971,7 +3996,7 @@ acls:
     office-vlan-protect:
         - rule:
             dl_type: 0x800
-            ipv6_src: 
+            ipv6_src:
             actions:
                 allow: 0
 vlans:
@@ -4385,7 +4410,7 @@ dps:
                 lldp_peer_mac: '11:22:33:44:55:66:77:88'
 """
         self.check_config_failure(config, cp.dp_parser)
-        
+
     def test_vlan_route_missing_value_invalid(self):
         """Test new vlan route format fails when missing value"""
         config = """
