@@ -40,15 +40,17 @@ jobs:
           CI_TEST_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '(workflows\/tests-.+\.yml$|Dockerfile\.tests$|^docker\/.+$|tests\/.+\.sh$)' | tr '\n' ' ')"
           RQ_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
           DOC_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '^docs/.+$' | tr '\n' ' ')"
-          echo "Files changed: ${FILES_ADDED_MODIFIED}"
+          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then FILES_CHANGED="all"; else FILES_CHANGED="${FILES_ADDED_MODIFIED}"; fi
+          echo "Git added/modified: ${FILES_ADDED_MODIFIED}"
           echo "CI test files changed: ${CI_TEST_FILES_CHANGED}"
           echo "Python code changed: ${PY_FILES_CHANGED}"
           echo "Requirement changes: ${RQ_FILES_CHANGED}"
           echo "Documentation changes: ${DOC_FILES_CHANGED}"
-          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then echo ::set-env name=FILES_CHANGED::all; else echo ::set-env name=FILES_CHANGED::${FILES_ADDED_MODIFIED}; fi
-          echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
-          echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
-          echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
+          echo "Files changed: ${FILES_CHANGED}"
+          echo "FILES_CHANGED=${FILES_CHANGED}" >> ${GITHUB_ENV}
+          echo "PY_FILES_CHANGED=${PY_FILES_CHANGED}" >> ${GITHUB_ENV}
+          echo "RQ_FILES_CHANGED=${RQ_FILES_CHANGED}" >> ${GITHUB_ENV}
+          echo "DOC_FILES_CHANGED=${DOC_FILES_CHANGED}" >> ${GITHUB_ENV}
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Initialise environment
         run: |
@@ -107,15 +109,17 @@ jobs:
           CI_TEST_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '(workflows\/tests-.+\.yml$|Dockerfile\.tests$|^docker\/.+$|tests\/.+\.sh$)' | tr '\n' ' ')"
           RQ_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
           DOC_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '^docs/.+$' | tr '\n' ' ')"
-          echo "Files changed: ${FILES_ADDED_MODIFIED}"
+          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then FILES_CHANGED="all"; else FILES_CHANGED="${FILES_ADDED_MODIFIED}"; fi
+          echo "Git added/modified: ${FILES_ADDED_MODIFIED}"
           echo "CI test files changed: ${CI_TEST_FILES_CHANGED}"
           echo "Python code changed: ${PY_FILES_CHANGED}"
           echo "Requirement changes: ${RQ_FILES_CHANGED}"
           echo "Documentation changes: ${DOC_FILES_CHANGED}"
-          if [ ! -z "${CI_TEST_FILES_CHANGED}" ]; then echo ::set-env name=FILES_CHANGED::all; else echo ::set-env name=FILES_CHANGED::${FILES_ADDED_MODIFIED}; fi
-          echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
-          echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
-          echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
+          echo "Files changed: ${FILES_CHANGED}"
+          echo "FILES_CHANGED=${FILES_CHANGED}" >> ${GITHUB_ENV}
+          echo "PY_FILES_CHANGED=${PY_FILES_CHANGED}" >> ${GITHUB_ENV}
+          echo "RQ_FILES_CHANGED=${RQ_FILES_CHANGED}" >> ${GITHUB_ENV}
+          echo "DOC_FILES_CHANGED=${DOC_FILES_CHANGED}" >> ${GITHUB_ENV}
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Initialise environment
         run: |
@@ -130,7 +134,7 @@ jobs:
           shard_tests=$(./docker/shard_tests.sh "${{ env.MATRIX_SHARDS }}" "${{ matrix.MATRIX_SHARD }}")
           faucet_tests="-din ${shard_tests}"
           echo "Running the following faucet tests on this shard: ${shard_tests}"
-          echo ::set-env name=FAUCET_TESTS::${faucet_tests}
+          echo "FAUCET_TESTS=${faucet_tests}" >> ${GITHUB_ENV}
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Run integration tests
         run: |
