@@ -26,6 +26,6 @@ RUN apk add --update pytest && \
     python3 -m pytest -l -v --cov=. --cov-report term-missing && \
     apk del pytest && \
     pip3 uninstall -y pytest-cov && \
-    find / -name \*pyc -delete
+    find / -xdev -name \*pyc -delete
 
 CMD ["python3", "rabbit.py"]
