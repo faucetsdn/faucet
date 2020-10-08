@@ -187,7 +187,7 @@ class Valve:
     def dp_init(self, new_dp=None):
         """Initialize datapath state at connection/re/config time."""
         if new_dp:
-            new_dp.clone_dyn_state(self.dp)
+            new_dp.clone_dyn_state(self.dp, self.logger)
             self.dp = new_dp
 
         self.close_logs()

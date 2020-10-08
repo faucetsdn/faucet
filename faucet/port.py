@@ -293,8 +293,10 @@ class Port(Conf):
     def __repr__(self):
         return self.__str__()
 
-    def clone_dyn_state(self, prev_port):
+    def clone_dyn_state(self, prev_port, logger):
         if prev_port:
+            if logger:
+                logger.info('clone_dyn_state port ' + prev_port.number)
             self.dyn_lldp_beacon_recv_time = prev_port.dyn_lldp_beacon_recv_time
             self.dyn_lldp_beacon_recv_state = prev_port.dyn_lldp_beacon_recv_state
 

@@ -326,15 +326,17 @@ configuration.
     def __str__(self):
         return self.name
 
-    def clone_dyn_state(self, prev_dp):
+    def clone_dyn_state(self, prev_dp, logger):
         """Clone dynamic state for this dp"""
         self.dyn_running = prev_dp.dyn_running
         self.dyn_up_port_nos = set(prev_dp.dyn_up_port_nos)
         self.dyn_last_coldstart_time = prev_dp.dyn_last_coldstart_time
+        if logger:
+            logger.info('clone_dyn_state dp')
         if self.stack:
-            self.stack.clone_dyn_state(prev_dp.stack)
+            self.stack.clone_dyn_state(prev_dp.stack, logger)
         for number in self.ports:
-            self.ports[number].clone_dyn_state(prev_dp.ports.get(number))
+            self.ports[number].clone_dyn_state(prev_dp.ports.get(number), logger)
 
     def cold_start(self, now):
         """Update to reflect a cold start"""

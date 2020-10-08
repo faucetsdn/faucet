@@ -79,8 +79,10 @@ is technically a fixed allocation for this DP Stack instance."""
 
         super(Stack, self).__init__(_id, dp_id, conf)
 
-    def clone_dyn_state(self, prev_stack):
+    def clone_dyn_state(self, prev_stack, logger):
         if prev_stack:
+            if logger:
+                logger.info('clone_dyn_state stack')
             self.dyn_healthy = prev_stack.dyn_healthy
 
     def health_timeout(self, now, update_time):
