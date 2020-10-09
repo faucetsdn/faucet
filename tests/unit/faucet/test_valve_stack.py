@@ -407,7 +407,6 @@ dps:
         valve = self.valves_manager.valves[0x1]
         other_valves = self.get_other_valves(valve)
         port = valve.dp.ports[3]
-        print('TAP port is %s' % id(port))
         # Make sure LACP state has been updated
         self.assertTrue(valve.lacp_update(port, True, 1, 1, other_valves), 'No OFMSGS returned')
         self.assertTrue(port.is_actor_up(), 'Actor not UP')
@@ -415,8 +414,7 @@ dps:
         valve.port_delete(3, other_valves=other_valves)
         self.assertTrue(port.is_actor_none(), 'Actor not NONE')
         # Restart switch & LACP port
-        self.cold_start_stack()
-        print('TAP port is %s/%s' % (id(port), id(self.valves_manager.valves[0x1].dp.ports[3])))
+        self.cold_start()
         self.assertTrue(valve.port_add(3), 'No OFMSGS returned')
         # Successfully restart LACP from downed
         self.assertTrue(valve.lacp_update(port, True, 1, 1, other_valves), 'No OFMSGS returned')

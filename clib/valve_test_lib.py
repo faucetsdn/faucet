@@ -886,10 +886,6 @@ class ValveTestBases:
             valve = self.valves_manager.valves[self.DP_ID]
             valve.datapath_disconnect(self.mock_time())
 
-        def cold_start_stack(self):
-            """Cold-start entire stack"""
-            self.valves_manager.reload_stack_root_config(self, self.mock_time())
-
         def cold_start(self, dp_id=None):
             """
             Cold start a DP
