@@ -29,7 +29,6 @@ import pstats
 import shutil
 import socket
 import tempfile
-import time
 import unittest
 import yaml
 
