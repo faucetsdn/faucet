@@ -25,7 +25,6 @@ import yaml
 from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
 
-from faucet import valves_manager
 from faucet import valve_of
 from faucet.port import (
     STACK_STATE_INIT, STACK_STATE_UP,
@@ -190,10 +189,6 @@ dps:
     def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
-
-    def get_other_valves(self, valve):
-        """Return other running valves"""
-        return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
 
     def test_dpid_nominations(self):
         """Test dpids are nominated correctly"""
@@ -397,28 +392,27 @@ dps:
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
-    def get_other_valves(self, valve):
-        """Return other running valves"""
-        return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
-
     def test_mclag_cold_start(self):
         """Test cold-starting a switch with a downed port resets LACP states"""
         self.activate_all_ports()
         valve = self.valves_manager.valves[0x1]
         other_valves = self.get_other_valves(valve)
-        port = valve.dp.ports[3]
+        old_port = valve.dp.ports[3]
         # Make sure LACP state has been updated
-        self.assertTrue(valve.lacp_update(port, True, 1, 1, other_valves), 'No OFMSGS returned')
-        self.assertTrue(port.is_actor_up(), 'Actor not UP')
+        self.assertTrue(valve.lacp_update(old_port, True, 1, 1, other_valves), 'No OFMSGS returned')
+        self.assertTrue(old_port.is_actor_up(), 'Actor not UP')
         # Set port DOWN
         valve.port_delete(3, other_valves=other_valves)
-        self.assertTrue(port.is_actor_none(), 'Actor not NONE')
+        self.assertTrue(old_port.is_actor_none(), 'Actor not NONE')
         # Restart switch & LACP port
         self.cold_start()
+        new_port = valve.dp.ports[3]
+        # For a full cold-start, the port object should be different.
+        self.assertEqual(id(old_port), id(new_port), 'Port object not changed')
         self.assertTrue(valve.port_add(3), 'No OFMSGS returned')
         # Successfully restart LACP from downed
-        self.assertTrue(valve.lacp_update(port, True, 1, 1, other_valves), 'No OFMSGS returned')
-        self.assertTrue(port.is_actor_up(), 'Actor not UP')
+        self.assertTrue(valve.lacp_update(new_port, True, 1, 1, other_valves), 'No OFMSGS returned')
+        self.assertTrue(new_port.is_actor_up(), 'Actor not UP')
 
 
 class ValveStackMCLAGStandbyTestCase(ValveTestBases.ValveTestNetwork):
@@ -470,10 +464,6 @@ dps:
     def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
-
-    def get_other_valves(self, valve):
-        """Return other running valves"""
-        return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
 
     def test_mclag_standby_option(self):
         """Test MCLAG standby option forces standby state instead of unselected"""
@@ -3039,6 +3029,7 @@ dps:
         self.setup_valves(self.CONFIG)
 
     def other_valves(self, root_valve):
+        """Return a list of the other valves"""
         return [valve for valve in self.valves_manager.valves.values() if valve != root_valve]
 
     def test_root_nomination(self):
@@ -3171,6 +3162,75 @@ dps:
         self.assertIn('stack', dp_conf)
         self.assertIsInstance(dp_conf['stack'], dict)
         self.assertEqual(dp_conf['stack'], stack_conf)
+
+class ValveStackLLDPRestartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test restarting stacked LLDP"""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s2
+                    port: 1
+            2:
+                description: p2
+                native_vlan: 100
+    s2:
+        hardware: 'GenericTFM'
+        dp_id: 0x2
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                description: p1
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                description: p2
+                native_vlan: 100
+""" % BASE_DP1_CONFIG
+
+    def setUp(self):
+        """Setup basic loop config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_lldp_cold_start(self):
+        """Test cold-starting a switch preserves LLDP states"""
+        self.migrate_stack_root('s1')
+        self.activate_all_ports()
+        valve = self.valves_manager.valves[0x1]
+        old_port = valve.dp.ports[1]
+        self.assertTrue(old_port.is_stack_up(), 'Port stack not UP')
+        init_events = self.get_events()
+        init_ports = [event for event in init_events if 'PORTS_STATUS' in event]
+        self.assertEqual(2, len(init_ports), 'Expected 2 PORTS_STATUS events')
+
+        self.migrate_stack_root('s2')
+        migrate_events = self.get_events()
+
+        def is_coldstart(event):
+            return 'CONFIG_CHANGE' in event and event['CONFIG_CHANGE']['restart_type'] == 'cold'
+        migrate_coldstarts = [event for event in migrate_events if is_coldstart(event)]
+        self.assertEqual(2, len(migrate_coldstarts), 'Expected 2 coldstart events')
+
+        migrate_stack = [event for event in migrate_events if 'STACK_STATE' in event]
+        # TODO: This should be 0
+        self.assertEqual(4, len(migrate_stack), 'Expected 0 stack state events')
+
+        migrate_topo = [event for event in migrate_events if 'STACK_TOPO_CHANGE' in event]
+        # TODO: This should be 2
+        self.assertEqual(4, len(migrate_topo), 'Expected 2 topo change events')
+
+        new_port = valve.dp.ports[1]
+        self.assertNotEqual(id(old_port), id(new_port), 'Port object not changed')
+        self.assertTrue(new_port.is_stack_up(), 'Port stack not UP')
 
 
 if __name__ == "__main__":
