@@ -122,6 +122,7 @@ class ValvesManager:
         self._apply_configs(dps, now, None)
 
     def valves_by_name(self):
+        """Return a name/valve dict of all the stacking valves"""
         return {
             valve.dp.name: valve for valve in self.valves.values()
             if valve.stack_manager}
@@ -191,6 +192,9 @@ class ValvesManager:
                     stack_change = True
             labels = new_root_valve.dp.base_prom_labels()
             self.metrics.is_dp_stack_root.labels(**labels).set(1)
+        if stack_change:
+            for valve in valves_by_name.values():
+                valve.stale_root = True
         return stack_change
 
     def event_socket_heartbeat(self, now):
