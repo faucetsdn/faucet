@@ -3163,6 +3163,7 @@ dps:
         self.assertIsInstance(dp_conf['stack'], dict)
         self.assertEqual(dp_conf['stack'], stack_conf)
 
+
 class ValveStackLLDPRestartTestCase(ValveTestBases.ValveTestNetwork):
     """Test restarting stacked LLDP"""
 
