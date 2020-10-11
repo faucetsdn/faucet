@@ -18,30 +18,25 @@ RUN apk add --update \
     python3-dev \
     && rm -rf /var/cache/apk/*
 
-ENV GOROOT /usr/lib/go
+ENV GO111MODULE on
 ENV GOPATH /go
 ENV PATH /go/bin:$PATH
 
-RUN mkdir -p ${GOPATH}/src ${GOPATH}/bin
+COPY requirements.txt /src/requirements.txt
 
-RUN go get github.com/google/gnxi/gnmi_capabilities
-RUN go install github.com/google/gnxi/gnmi_capabilities
-RUN go get github.com/google/gnxi/gnmi_get
-RUN go install github.com/google/gnxi/gnmi_get
-RUN go get github.com/google/gnxi/gnmi_set
-RUN go install github.com/google/gnxi/gnmi_set
-RUN go get github.com/google/gnxi/gnmi_target
-RUN go install github.com/google/gnxi/gnmi_target
+RUN for module in gnmi_capabilities gnmi_get gnmi_set gnmi_subscribe gnmi_target; do \
+    go get github.com/google/gnxi/${module} \
+    ; go install github.com/google/gnxi/${module} \
+    ; done \
+    && cd /src \
+    && pip3 install --no-cache-dir --upgrade pip \
+    && pip3 install --no-cache-dir -r requirements.txt \
+    && git clone https://github.com/faucetsdn/faucetagent \
+    && cd faucetagent \
+    && make all
 
-WORKDIR /src
-COPY requirements.txt requirements.txt
-RUN pip3 install --no-cache-dir --upgrade pip==19.1.1
-RUN pip3 install --no-cache-dir -r requirements.txt
-
-RUN git clone https://github.com/faucetsdn/faucetagent
 WORKDIR /src/faucetagent
-RUN make all
 
 EXPOSE 10161
 
-CMD ["./faucetagent.py", "--cert", "/opt/faucetagent/certs/server.crt", "--key", "/opt/faucetagent/certs/server.key", "--configfile", "/etc/faucet/faucet.yaml", "--promaddr", "http://faucet", "--promport", "9302", "--nohup"]
+CMD ["/src/faucetagent/faucetagent.py", "--cert", "/opt/faucetagent/certs/server.crt", "--key", "/opt/faucetagent/certs/server.key", "--configfile", "/etc/faucet/faucet.yaml", "--promaddr", "http://faucet", "--promport", "9302", "--nohup"]
