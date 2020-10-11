@@ -293,6 +293,15 @@ class Port(Conf):
     def __repr__(self):
         return self.__str__()
 
+    def clone_dyn_state(self, prev_port):
+        if prev_port:
+            self.dyn_lldp_beacon_recv_time = prev_port.dyn_lldp_beacon_recv_time
+            self.dyn_lldp_beacon_recv_state = prev_port.dyn_lldp_beacon_recv_state
+            self.dyn_stack_current_state = prev_port.dyn_stack_current_state
+            self.dyn_last_lldp_beacon_time = prev_port.dyn_last_lldp_beacon_time
+            self.dyn_phys_up = prev_port.dyn_phys_up
+            self.dyn_stack_probe_info = prev_port.dyn_stack_probe_info
+
     def stack_descr(self):
         """"Return stacking annotation if this is a stacking port."""
         if self.stack:
@@ -680,7 +689,7 @@ class Port(Conf):
                 reason = 'new'
         else:
             # Not a new stack port, so progess through state machine
-            peer_dp = self.stack['dp']
+            peer_dp = self.stack['dp']  # pytype: disable=key-error
             stack_correct = self.dyn_stack_probe_info.get(
                 'stack_correct', None)
             send_interval = peer_dp.lldp_beacon.get(

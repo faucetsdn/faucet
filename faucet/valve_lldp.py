@@ -136,8 +136,10 @@ class ValveLLDPManager(ValveManagerBase):
                     port_up = True
                 for stack_valve in stacked_valves:
                     stack_valve.stack_manager.update_stack_topo(port_up, valve.dp, port)
-        if stack_changes:
-            self.logger.info('%u stack ports changed state' % stack_changes)
+        if stack_changes or valve.stale_root:
+            self.logger.info('%u stack ports changed state, stale root %s' %
+                             (stack_changes, valve.stale_root))
+            valve.stale_root = False
             notify_dps = {}
             for stack_valve in stacked_valves:
                 if not stack_valve.dp.dyn_running:

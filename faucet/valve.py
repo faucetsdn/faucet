@@ -126,6 +126,7 @@ class Valve:
         'logname',
         'metrics',
         'notifier',
+        'stale_root',
         'ofchannel_logger',
         'pipeline',
         'recent_ofmsgs',
@@ -146,6 +147,7 @@ class Valve:
         self.ofchannel_logger = None
         self.logger = None
         self.recent_ofmsgs = deque(maxlen=32)
+        self.stale_root = False
         self._last_pipeline_flows = []
         self._packet_in_count_sec = None
         self._last_packet_in_sec = None
@@ -227,6 +229,7 @@ class Valve:
 
         self.stack_manager = None
         if self.dp.stack:
+            # TODO: Verify intention that this is reset on cold-start
             self.stack_manager = ValveStackManager(
                 self.logger, self.dp, self.dp.stack, self.dp.tunnel_acls, self.acl_manager)
 
