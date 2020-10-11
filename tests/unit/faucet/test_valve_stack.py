@@ -3221,12 +3221,10 @@ dps:
         self.assertEqual(2, len(migrate_coldstarts), 'Expected 2 coldstart events')
 
         migrate_stack = [event for event in migrate_events if 'STACK_STATE' in event]
-        # TODO: This should be 0
-        self.assertEqual(4, len(migrate_stack), 'Expected 0 stack state events')
+        self.assertEqual(0, len(migrate_stack), 'Expected 0 stack state events')
 
         migrate_topo = [event for event in migrate_events if 'STACK_TOPO_CHANGE' in event]
-        # TODO: This should be 2
-        self.assertEqual(4, len(migrate_topo), 'Expected 2 topo change events')
+        self.assertEqual(2, len(migrate_topo), 'Expected 2 topo change events')
 
         new_port = valve.dp.ports[1]
         self.assertNotEqual(id(old_port), id(new_port), 'Port object not changed')
