@@ -407,8 +407,8 @@ dps:
         # Restart switch & LACP port
         self.cold_start()
         new_port = valve.dp.ports[3]
-        # For a full cold-start, the port object should be different.
-        self.assertEqual(id(old_port), id(new_port), 'Port object not changed')
+        # A full cold-start should change port object, but self.cold_start() is 'incomplete'
+        self.assertEqual(id(old_port), id(new_port), 'Port object changed')
         self.assertTrue(valve.port_add(3), 'No OFMSGS returned')
         # Successfully restart LACP from downed
         self.assertTrue(valve.lacp_update(new_port, True, 1, 1, other_valves), 'No OFMSGS returned')
