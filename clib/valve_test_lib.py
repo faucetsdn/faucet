@@ -29,7 +29,6 @@ import pstats
 import shutil
 import socket
 import tempfile
-import time
 import unittest
 import yaml
 
@@ -884,7 +883,7 @@ class ValveTestBases:
 
         def disconnect_dp(self):
             valve = self.valves_manager.valves[self.DP_ID]
-            valve.datapath_disconnect(time.time())
+            valve.datapath_disconnect(self.mock_time())
 
         def migrate_stack_root(self, new_root_name):
             now = self.mock_time()
@@ -904,7 +903,7 @@ class ValveTestBases:
             if dp_id is None:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
-            valve.datapath_disconnect(time.time())
+            valve.datapath_disconnect(self.mock_time())
             return self.connect_dp(dp_id)
 
         def get_prom(self, var, labels=None, bare=False, dp_id=None):
@@ -1447,7 +1446,7 @@ class ValveTestBases:
             """Test disconnection of DP from controller."""
             valve = self.valves_manager.valves[self.DP_ID]
             self.assertEqual(1, int(self.get_prom('dp_status')))
-            self.prom_inc(partial(valve.datapath_disconnect, time.time()), 'of_dp_disconnections_total')
+            self.prom_inc(partial(valve.datapath_disconnect, self.mock_time()), 'of_dp_disconnections_total')
             self.assertEqual(0, int(self.get_prom('dp_status')))
 
         def test_unexpected_port(self):
@@ -2309,7 +2308,7 @@ meters:
             valve = self.valves_manager.valves[self.DP_ID]
             for port_status in (0, 1):
                 self.apply_ofmsgs(valve.port_status_handler(
-                    1, ofp.OFPPR_MODIFY, port_status, [], time.time())[valve])
+                    1, ofp.OFPPR_MODIFY, port_status, [], self.mock_time())[valve])
 
         def test_unknown_port_status(self):
             """Test unknown port status message."""
@@ -2318,7 +2317,7 @@ meters:
             unknown_messages = list(set(range(0, len(known_messages) + 1)) - known_messages)
             self.assertTrue(unknown_messages)
             self.assertFalse(valve.port_status_handler(
-                1, unknown_messages[0], 1, [], time.time()).get(valve, []))
+                1, unknown_messages[0], 1, [], self.mock_time()).get(valve, []))
 
         def test_move_port(self):
             """Test host moves a port."""
