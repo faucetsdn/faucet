@@ -90,7 +90,7 @@ class FaucetEventNotifier:
             pass
 
     def get_event(self):
-        assert self.thread == None, 'not allowed with async _loop'
+        assert self.thread is None, 'not allowed with async _loop'
         return None if self.event_q.empty() else self.event_q.get()
 
     def notify(self, dp_id, dp_name, event_dict):
