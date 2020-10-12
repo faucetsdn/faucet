@@ -8,6 +8,8 @@ Documentation="https://docs.faucet.nz"
 EnvironmentFile=/etc/default/faucet
 User=faucet
 Group=faucet
+RuntimeDirectory=faucet
+RuntimeDirectoryMode=0755
 ExecStart=/usr/bin/faucet --ryu-config-file=${FAUCET_RYU_CONF} --ryu-ofp-tcp-listen-port=${FAUCET_LISTEN_PORT}
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
