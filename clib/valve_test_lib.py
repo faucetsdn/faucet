@@ -611,9 +611,7 @@ class ValveTestBases:
             self.bgp = None
             self.logger = None
 
-            self.faucet_event_sock = None
             self.registry = None
-            self.sock = None
             self.notifier = None
             self.network = None
             self.last_flows_to_dp = {}
@@ -649,13 +647,11 @@ class ValveTestBases:
             """
             self.tmpdir = tempfile.mkdtemp()
             self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
-            self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
             logfile = 'STDOUT' if log_stdout else os.path.join(self.tmpdir, 'faucet.log')
             self.logger = valve_util.get_logger(self.LOGNAME, logfile, logging.DEBUG, 0)
             self.registry = CollectorRegistry()
             self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry)
-            self.notifier = faucet_event.FaucetEventNotifier(
-                self.faucet_event_sock, self.metrics, self.logger)
+            self.notifier = faucet_event.FaucetEventNotifier(None, self.metrics, self.logger)
             self.bgp = faucet_bgp.FaucetBgp(
                 self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
             self.dot1x = faucet_dot1x.FaucetDot1x(
@@ -664,12 +660,9 @@ class ValveTestBases:
                 self.LOGNAME, self.logger, self.metrics, self.notifier,
                 self.bgp, self.dot1x, self.CONFIG_AUTO_REVERT, self.send_flows_to_dp_by_id)
             self.last_flows_to_dp[self.DP_ID] = []
-            self.notifier.start()
             initial_ofmsgs = self.update_config(
                 config, reload_expected=False,
                 error_expected=error_expected, configure_network=True)
-            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.sock.connect(self.faucet_event_sock)
             if not error_expected:
                 for dp_id in self.valves_manager.valves:
                     self.connect_dp(dp_id)
@@ -681,7 +674,6 @@ class ValveTestBases:
             valve_util.close_logger(self.logger)
             for valve in self.valves_manager.valves.values():
                 valve.close_logs()
-            self.sock.close()
             shutil.rmtree(self.tmpdir)
 
         def tearDown(self):
@@ -772,6 +764,14 @@ class ValveTestBases:
             for dp_id in self.valves_manager.valves:
                 self.last_flows_to_dp[dp_id] = []
             self.network = FakeOFNetwork(self.valves_manager, self.NUM_TABLES, self.REQUIRE_TFM)
+
+        def get_events(self):
+            events = []
+            while True:
+                event = self.valves_manager.notifier.get_event()
+                if not event:
+                    return events
+                events.append(event)
 
         def update_config(self, config, table_dpid=None, reload_type='cold',
                           reload_expected=True, error_expected=0,
@@ -884,6 +884,13 @@ class ValveTestBases:
         def disconnect_dp(self):
             valve = self.valves_manager.valves[self.DP_ID]
             valve.datapath_disconnect(self.mock_time())
+
+        def migrate_stack_root(self, new_root_name):
+            now = self.mock_time()
+            self.valves_manager.set_stack_root(now, new_root_name)
+            self.valves_manager.reload_stack_root_config(now)
+            self.valves_manager.valve_flow_services(now, 'fast_state_expire')
+            self.trigger_all_ports()
 
         def cold_start(self, dp_id=None):
             """

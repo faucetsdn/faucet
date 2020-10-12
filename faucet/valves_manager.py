@@ -75,8 +75,6 @@ class ConfigWatcher:
 class ValvesManager:
     """Manage a collection of Valves."""
 
-    valves = None # type: dict
-
     def __init__(self, logname, logger, metrics, notifier, bgp,
                  dot1x, config_auto_revert, send_flows_to_dp_by_id):
         """Initialize ValvesManager.
@@ -123,6 +121,12 @@ class ValvesManager:
         dps = dp_preparsed_parser(self.meta_dp_state.top_conf, self.meta_dp_state)
         self._apply_configs(dps, now, None)
 
+    def valves_by_name(self):
+        """Return a name/valve dict of all the stacking valves"""
+        return {
+            valve.dp.name: valve for valve in self.valves.values()
+            if valve.stack_manager}
+
     def maintain_stack_root(self, now, update_time):
         """
         Maintain current stack root
@@ -134,10 +138,7 @@ class ValvesManager:
         self.update_dp_live_time(now)
         last_live_times = self.meta_dp_state.dp_last_live_time
 
-        valves_by_name = {
-            valve.dp.name: valve for valve in self.valves.values()
-            if valve.stack_manager}
-
+        valves_by_name = self.valves_by_name()
         if not valves_by_name:
             return False
 
@@ -150,6 +151,19 @@ class ValvesManager:
 
         new_root_name = list(valves_by_name.values())[0].stack_manager.nominate_stack_root(
             prev_root_valve, prev_other_valves, now, last_live_times, update_time)
+        return self.set_stack_root(now, new_root_name)
+
+    def set_stack_root(self, now, new_root_name):
+        """
+        Set stack root
+
+        Args:
+            now (float): Current time
+            new_root_name (string): Name of new stack root
+        """
+        valves_by_name = self.valves_by_name()
+        prev_root_name = self.meta_dp_state.stack_root_name
+        prev_root_valve = valves_by_name.get(prev_root_name, None)
         new_root_valve = valves_by_name.get(new_root_name, None)
 
         stack_change = False
@@ -178,6 +192,9 @@ class ValvesManager:
                     stack_change = True
             labels = new_root_valve.dp.base_prom_labels()
             self.metrics.is_dp_stack_root.labels(**labels).set(1)
+        if stack_change:
+            for valve in valves_by_name.values():
+                valve.stale_root = True
         return stack_change
 
     def event_socket_heartbeat(self, now):
