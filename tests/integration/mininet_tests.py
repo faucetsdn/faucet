@@ -3321,7 +3321,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.ping_all_when_learned()
         self.reload_conf(
             orig_conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=True)
+            restart=True, cold_start=False, change_expected=False)
         self.assertEqual(0, self.scrape_prometheus_var('faucet_config_load_error', dpid=False))
         event = self._wait_until_matching_event(lambda event: event['CONFIG_CHANGE']['success'])
         self.assertEqual(good_config_hash_info, event['CONFIG_CHANGE']['config_hash_info'])
@@ -3521,10 +3521,10 @@ vlans:
         hup = not self.STAT_RELOAD
         self.change_port_config(
             self.port_map['port_3'], 'acls_in', [],
-            restart=True, cold_start=False, hup=hup)
+            restart=True, cold_start=False, hup=hup, change_expected=False)
         self.change_port_config(
             self.port_map['port_1'], 'acls_in', [],
-            restart=True, cold_start=False, hup=hup)
+            restart=True, cold_start=False, hup=hup, change_expected=False)
 
 
 class FaucetConfigStatReloadAclTest(FaucetConfigReloadAclTest):

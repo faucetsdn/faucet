@@ -1716,7 +1716,7 @@ dps:
             'Did not encapsulate and forward')
         new_config_yaml = yaml.safe_load(self.CONFIG)
         new_config_yaml['dps']['s1']['interfaces'][1]['description'] = 'changed'
-        self.update_config(yaml.dump(new_config_yaml), reload_type='warm')
+        self.update_config(yaml.dump(new_config_yaml), reload_type=None)
         self.activate_all_ports()
         # warm start with no topo change with tunnel.
         self.validate_tunnel(

@@ -59,7 +59,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                  pipeline, use_group_table, groups, combinatorial_port_flood,
                  canonical_port_order, restricted_bcast_arpnd, has_externals,
                  learn_ban_timeout, learn_timeout, learn_jitter, cache_update_guard_time,
-                 idle_dst, dp_high_priority, dp_highest_priority, faucet_dp_mac):
+                 idle_dst, dp_high_priority, dp_highest_priority, faucet_dp_mac,
+                 drop_spoofed_faucet_mac):
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
@@ -98,6 +99,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         self.dp_high_priority = dp_high_priority
         self.dp_highest_priority = dp_highest_priority
         self.faucet_dp_mac = faucet_dp_mac
+        self.drop_spoofed_faucet_mac = drop_spoofed_faucet_mac
 
     def initialise_tables(self):
         """Initialise the flood table with filtering flows."""
@@ -313,8 +315,18 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 priority=flood_priority))
         return ofmsgs
 
+    def add_drop_spoofed_faucet_mac_rules(self, vlan):
+        """Install rules to drop spoofed faucet mac"""
+        # antispoof for FAUCET's MAC address
+        # TODO: antispoof for controller IPs on this VLAN, too.
+        ofmsgs = []
+        if self.drop_spoofed_faucet_mac:
+            ofmsgs.extend(self.pipeline.filter_packets({'eth_src': vlan.faucet_mac}))
+        return ofmsgs
+
     def add_vlan(self, vlan, cold_start):
         ofmsgs = []
+        ofmsgs.extend(self.add_drop_spoofed_faucet_mac_rules(vlan))
         ofmsgs.append(self.eth_src_table.flowcontroller(
             match=self.eth_src_table.match(vlan=vlan),
             priority=self.low_priority,
@@ -323,8 +335,11 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         return ofmsgs
 
     def del_vlan(self, vlan):
-        table = valve_table.wildcard_table
-        return [table.flowdel(match=table.match(vlan=vlan))]
+        return [
+            self.flood_table.flowdel(
+                match=self.flood_table.match(vlan=vlan)),
+            self.eth_src_table.flowdel(
+                match=self.eth_src_table.match(vlan=vlan), priority=self.low_priority)]
 
     def update_vlan(self, vlan):
         return self._build_flood_rules(vlan, cold_start=False, modify=True)

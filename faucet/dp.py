@@ -1378,16 +1378,6 @@ configuration.
                     changed_acl_ports.add(port_no)
                     logger.info('port %s ACL changed (ACL %s to %s)' % (
                         port_no, old_acl_ids, new_acl_ids))
-            # If any of the changed VLANs have tagged ports we will need to restore their flows,
-            # even if those tagged ports didn't change, as the delete VLAN operation uses
-            # a wildcard delete.
-            for port_no in same_ports:
-                old_port = self.ports[port_no]
-                new_port = new_dp.ports[port_no]
-                for tagged_vlan in new_port.tagged_vlans:
-                    if tagged_vlan.vid in changed_vlans:
-                        logger.info('port %s has a changed tagged VLAN' % port_no)
-                        changed_ports.add(port_no)
 
             if changed_acl_ports:
                 same_ports -= changed_acl_ports

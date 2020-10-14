@@ -144,27 +144,6 @@ class ValvePipeline(ValveManagerBase):
         ofmsgs.extend(self.filter_packets(
             {'eth_type': valve_of.ECTP_ETH_TYPE}, priority_offset=10))
 
-        ofmsgs.extend(self.add_drop_spoofed_faucet_mac_rules())
-
-        return ofmsgs
-
-    def add_drop_spoofed_faucet_mac_rules(self):
-        """Install rules to drop spoofed faucet mac"""
-        # antispoof for FAUCET's MAC address
-        # TODO: antispoof for controller IPs on this VLAN, too.
-        ofmsgs = []
-        if self.dp.drop_spoofed_faucet_mac:
-            if self.dp.stack_ports:
-                vlan_macs = {vlan.faucet_mac for vlan in self.dp.vlans.values()}
-                for port in self.dp.ports.values():
-                    if not port.stack:
-                        for mac in vlan_macs:
-                            ofmsgs.extend(self.filter_packets(
-                                {'eth_src': mac, 'in_port': port.number}))
-            else:
-                for vlan in list(self.dp.vlans.values()):
-                    ofmsgs.extend(self.filter_packets(
-                        {'eth_src': vlan.faucet_mac}))
         return ofmsgs
 
     def _add_egress_table_rule(self, port, vlan, pop_vlan=True):

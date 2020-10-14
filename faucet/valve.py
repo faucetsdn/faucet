@@ -276,11 +276,6 @@ class Valve:
                 self._route_manager_by_ipv.get(6), self._coprocessor_manager,
                 self._output_only_manager) if manager is not None)
 
-        table_configs = sorted([
-            (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
-        for table_id, table_config in table_configs:
-            self.logger.info('table ID %u %s' % (table_id, table_config))
-
     def notify(self, event_dict):
         """Send an event notification."""
         self.notifier.notify(self.dp.dp_id, self.dp.name, event_dict)
@@ -411,6 +406,11 @@ class Valve:
         ofmsgs = []
         for manager in self._managers:
             ofmsgs.extend(manager.del_vlan(vlan))
+        expired_hosts = [
+            entry for entry in vlan.dyn_host_cache.values()]
+        for entry in expired_hosts:
+            self._update_expired_host(entry, vlan)
+        vlan.reset_caches()
         return ofmsgs
 
     def del_vlans(self, vlans):
@@ -642,6 +642,10 @@ class Valve:
         self.dp.cold_start(now)
         self._inc_var('of_dp_connections')
         self._reset_dp_status()
+        table_configs = sorted([
+            (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
+        for table_id, table_config in table_configs:
+            self.logger.info('table ID %u %s' % (table_id, table_config))
         return ofmsgs
 
     def datapath_disconnect(self, now):
@@ -1278,88 +1282,90 @@ class Valve:
                 added_meters: (set): added meter numbers.
         Returns:
             tuple:
-                cold_start (bool): whether cold starting.
+                restart_type (string or None)
                 ofmsgs (list): OpenFlow messages.
         """
         (deleted_ports, changed_ports, added_ports, changed_acl_ports,
          deleted_vids, changed_vids, all_ports_changed,
          _, deleted_meters, added_meters, changed_meters) = changes
+        restart_type = 'cold'
+        ofmsgs = []
 
+        # If pipeline or all ports changed, default to cold start.
         if self._pipeline_change():
             self.logger.info('pipeline change')
             self.dp_init(new_dp)
-            return True, []
+            return restart_type, ofmsgs
 
         if all_ports_changed:
             self.logger.info('all ports changed')
             self.dp_init(new_dp)
-            return True, []
+            return restart_type, ofmsgs
 
-        all_up_port_nos = [
-            port for port in changed_ports
-            if port in self.dp.dyn_up_port_nos]
+        restart_type = None
+        for change in changes:
+            if change:
+                restart_type = 'warm'
+                break
 
-        ofmsgs = []
+        # Nothing changed, nothing to check.
+        if restart_type is None:
+            self.dp_init(new_dp)
+            return restart_type, ofmsgs
 
-        # TODO: optimize for all meters being erased
         if deleted_ports:
             ofmsgs.extend(self.ports_delete(deleted_ports))
         if deleted_vids:
             deleted_vlans = [self.dp.vlans[vid] for vid in deleted_vids]
             ofmsgs.extend(self.del_vlans(deleted_vlans))
-        if deleted_meters:
-            for meter_key in self.dp.meters.keys():
-                if meter_key in deleted_meters:
-                    ofmsgs.append(valve_of.meterdel(
-                        meter_id=self.dp.meters.get(meter_key).meter_id))
-
-        if changed_ports:
-            ofmsgs.extend(self.ports_delete(changed_ports))
+        # TODO: optimize for all meters being erased
         if changed_meters:
-            for changed_meter in changed_meters:
-                for dp_meter_key in self.dp.meters.keys():
-                    if (changed_meter == dp_meter_key) and (
-                            new_dp.meters.get(changed_meter).meter_id != self.dp.meters.get(
-                                changed_meter).meter_id):
-                        ofmsgs.append(valve_of.meterdel(
-                            meter_id=self.dp.meters.get(changed_meter).meter_id))
-                        ofmsgs.append(valve_of.meteradd(
-                            new_dp.meters.get(changed_meter).entry, command=0))
-                    else:
-                        ofmsgs.append(valve_of.meteradd(
-                            new_dp.meters.get(changed_meter).entry, command=1))
-
-        if added_meters:
-            for added_meter in added_meters:
-                ofmsgs.append(valve_of.meteradd(
-                    new_dp.meters.get(added_meter).entry, command=0))
+            # If a meter changed meter IDs, delete the old ID first and consider
+            # the change, an add.
+            for meter_key in changed_meters:
+                old_meter = self.dp.meters.get(meter_key, None)
+                new_meter = new_dp.meters.get(meter_key, None)
+                if old_meter and new_meter and old_meter.meter_id != new_meter.meter_id:
+                    deleted_meters.add(meter_key)
+                    added_meters.add(meter_key)
+            changed_meters -= added_meters
+        if deleted_meters:
+            deleted_meter_ids = [self.dp.meters[meter_key].meter_id for meter_key in deleted_meters]
+            ofmsgs.extend([valve_of.meterdel(deleted_meter_id) for deleted_meter_id in deleted_meter_ids])
 
         self.dp_init(new_dp)
 
-        if changed_vids:
-            changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
-            # TODO: handle change versus add separately so can avoid delete first.
-            ofmsgs.extend(self.del_vlans(changed_vlans))
-            for vlan in changed_vlans:
-                expired_hosts = [
-                    entry for entry in vlan.dyn_host_cache.values()]
-                for entry in expired_hosts:
-                    self._update_expired_host(entry, vlan)
-                vlan.reset_caches()
-            # The proceeding delete operation means we don't have to generate more deletes.
-            ofmsgs.extend(self.add_vlans(changed_vlans, cold_start=True))
-        if changed_ports:
-            ofmsgs.extend(self.ports_add(all_up_port_nos))
+        if changed_meters:
+            for changed_meter in changed_meters:
+                ofmsgs.append(valve_of.meteradd(
+                    new_dp.meters.get(changed_meter).entry, command=1))
+        if added_meters:
+            for added_meter in added_meters:
+                ofmsgs.append(valve_of.meteradd(
+                    self.dp.meters.get(added_meter).entry, command=0))
+
         if added_ports:
             ofmsgs.extend(self.ports_add(added_ports))
+        if changed_ports:
+            ofmsgs.extend(self.ports_delete(changed_ports))
+            all_up_port_nos = [
+                port for port in changed_ports
+                if port in self.dp.dyn_up_port_nos]
+            ofmsgs.extend(self.ports_add(all_up_port_nos))
         if self.acl_manager and changed_acl_ports:
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
                 ofmsgs.extend(self.acl_manager.cold_start_port(port))
+        if changed_vids:
+            changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
+            # TODO: handle change versus add separately so can avoid delete first.
+            ofmsgs.extend(self.del_vlans(changed_vlans))
+            # The proceeding delete operation means we don't have to generate more deletes.
+            ofmsgs.extend(self.add_vlans(changed_vlans, cold_start=True))
         if self.stack_manager:
             ofmsgs.extend(self.stack_manager.add_tunnel_acls())
-        ofmsgs.extend(self.pipeline.add_drop_spoofed_faucet_mac_rules())
-        return False, ofmsgs
+
+        return restart_type, ofmsgs
 
     def reload_config(self, _now, new_dp):
         """Reload configuration new_dp.
@@ -1378,21 +1384,19 @@ class Valve:
         Returns:
             ofmsgs (list): OpenFlow messages.
         """
-        cold_start, ofmsgs = self._apply_config_changes(
+        restart_type, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
-        restart_type = None
-        if cold_start:
-            restart_type = 'cold'
-            if self.dp.dyn_running:
-                self.logger.info('forcing DP reconnection to ensure ports are synchronized')
-                ofmsgs = None
-        elif self.dp.dyn_running and ofmsgs:
-            restart_type = 'warm'
-        else:
-            ofmsgs = []
         if restart_type is not None:
             self._inc_var('faucet_config_reload_%s' % restart_type)
             self.logger.info('%s starting' % restart_type)
+            if restart_type == 'cold':
+                if self.dp.dyn_running:
+                    self.logger.info('forcing DP reconnection to ensure ports are synchronized')
+                    ofmsgs = None
+            elif restart_type == 'warm':
+                # DP not currently up, so no messages to send.
+                if not self.dp.dyn_running:
+                    ofmsgs = []
         self.notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
         return ofmsgs
 

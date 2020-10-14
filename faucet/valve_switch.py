@@ -64,6 +64,7 @@ def valve_switch_factory(logger, dp, pipeline, acl_manager, stack_manager):  # p
         'dp_high_priority': dp.high_priority,
         'dp_highest_priority': dp.highest_priority,
         'faucet_dp_mac': dp.faucet_dp_mac,
+        'drop_spoofed_faucet_mac': dp.drop_spoofed_faucet_mac,
     }
 
     if dp.stack:
