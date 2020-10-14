@@ -56,6 +56,9 @@ class FaucetTestBase(unittest.TestCase):
     # Number of Gauge controllers to create
     NUM_GAUGE_CONTROLLERS = 1
 
+    # List of switches (by switch index) to ignore (treating them as outside the Faucet network)
+    IGNORED_SWITCHES = []
+
     CONTROLLER_CLASS = mininet_test_topo.FAUCET
 
     DP_NAME = 'faucet-1'
@@ -2574,7 +2577,7 @@ dbs:
                 return
             time.sleep(1)
         if flow:
-            self.fail('flow %s matching %s table ID %s had zero packet count' % (flow, match, table_id))
+            self.fail('DPID %s flow %s matching %s table ID %s had zero packet count' % (dpid, flow, match, table_id))
         else:
             self.fail('no flow matching %s table ID %s' % (match, table_id))
 

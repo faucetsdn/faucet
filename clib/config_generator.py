@@ -138,7 +138,8 @@ class FaucetTopoGenerator(Topo):
         """VLAN name"""
         return 'vlan-%i' % (i+1)
 
-    def vlan_vid(self, i):
+    @staticmethod
+    def vlan_vid(i):
         """VLAN VID value"""
         return (i+1) * 100
 
@@ -224,7 +225,7 @@ class FaucetTopoGenerator(Topo):
                 host_opts['cls'] = FaucetHost
             elif isinstance(vlans, list):
                 host_name = 't%s%1.1u' % (sid_prefix, host_index + 1)
-                host_opts['vlans'] = [self.vlan_vid(vlan) for vlan in vlans]
+                host_opts['vlans'] = [FaucetTopoGenerator.vlan_vid(vlan) for vlan in vlans]
                 host_opts['cls'] = VLANHost
             else:
                 raise GenerationError('Unknown host type')
@@ -386,14 +387,21 @@ class FaucetTopoGenerator(Topo):
         """Return the ACLs in dictionary format for the configuration file"""
         return acl_options.copy()
 
-    def get_dps_config(self, dp_options, host_options, link_options):
+    def get_dps_config(self, dp_options, host_options, link_options, ignored_switches):
         """Return the DPs in dictionary format for the configuration file"""
         dps_config = {}
 
-        def get_interface_config(link_name, src_port, dst_node, dst_port, vlans, options):
+        def get_interface_config(link_name, src_port, dst_node, dst_port, vlans, options, ignored):
             interface_config = {}
             type_ = 'switch-switch' if dst_port else 'switch-host'
-            if isinstance(vlans, int):
+            if ignored:
+                # Link is to an outside network, so treat it as a output only link with more
+                #   specific options defined in the options dictionary
+                interface_config = {
+                    'name': 'b%u' % src_port,
+                    'description': 'output only %s' % link_name,
+                }
+            elif isinstance(vlans, int):
                 # Untagged link
                 interface_config = {
                     'name': 'b%u' % src_port,
@@ -418,11 +426,10 @@ class FaucetTopoGenerator(Topo):
                     }
                 }
             elif vlans is None:
-                # output only link
+                # output only link or coprocessor, leave to more specific options to handle
                 interface_config = {
                     'name': 'b%u' % src_port,
                     'description': 'output only %s' % link_name,
-                    'output_only': True,
                 }
             else:
                 raise GenerationError('Unknown %s link type %s' % (type_, vlans))
@@ -438,6 +445,7 @@ class FaucetTopoGenerator(Topo):
             src_id = src_info['switch_n']
             dp_config.setdefault('interfaces', {})
             options = {}
+            ignored = False
             if self.isSwitch(dst_node):
                 # Generate switch-switch config link
                 if reverse:
@@ -449,6 +457,8 @@ class FaucetTopoGenerator(Topo):
                 dst_id = dst_info['switch_n']
                 if link_options and (src_id, dst_id) in link_options:
                     options.update(link_options[(src_id, dst_id)])
+                if dst_id in ignored_switches:
+                    ignored = True
             else:
                 # Generate host-switch config link
                 src_port, dst_port = link_info['port1'], None
@@ -458,18 +468,18 @@ class FaucetTopoGenerator(Topo):
                     options = host_options[host_n]
             dp_config['interfaces'].setdefault(  # pytype: disable=attribute-error
                 src_port,
-                get_interface_config(link_name, src_port, dst_node, dst_port, vlans, options))
+                get_interface_config(link_name, src_port, dst_node, dst_port, vlans, options, ignored))
 
         for links in self.links(withKeys=True, withInfo=True):
             src_node, dst_node, link_key, link_info = links
             src_info = self.nodeInfo(src_node)
             dst_info = self.nodeInfo(dst_node)
-            if self.isSwitch(src_node):
+            if self.isSwitch(src_node) and src_info['switch_n'] not in ignored_switches:
                 dps_config.setdefault(src_node, {})
                 src_dpid = self.dpids_by_id[src_info['switch_n']]
                 dps_config[src_node].setdefault('dp_id', int(src_dpid))
                 add_dp_config(src_node, dst_node, link_key, link_info)
-            if self.isSwitch(dst_node):
+            if self.isSwitch(dst_node) and dst_info['switch_n'] not in ignored_switches:
                 dps_config.setdefault(dst_node, {})
                 dst_dpid = self.dpids_by_id[dst_info['switch_n']]
                 dps_config[dst_node].setdefault('dp_id', int(dst_dpid))
@@ -494,7 +504,7 @@ class FaucetTopoGenerator(Topo):
         for vlan in range(n_vlans):
             vlan_name = self.vlan_name(vlan)
             vlans_config[vlan_name] = {
-                'vid': self.vlan_vid(vlan)
+                'vid': FaucetTopoGenerator.vlan_vid(vlan)
             }
         if vlan_options:
             for vlan, options in vlan_options.items():
@@ -525,7 +535,7 @@ class FaucetTopoGenerator(Topo):
 
     def get_config(self, n_vlans, acl_options=None, dp_options=None, host_options=None,
                    link_options=None, vlan_options=None, routers=None, router_options=None,
-                   include=None, include_optional=None):
+                   include=None, include_optional=None, ignored_switches=None):
         """
         Creates a Faucet YAML configuration file using the current topology
 
@@ -540,6 +550,7 @@ class FaucetTopoGenerator(Topo):
             router_options (dict): Additional options for each router, keyed by router index
             include (list): Files to include using the the Faucet config 'include' key
             include_optional (list): File to include using the Faucet config 'include_optional' key
+            ignored_switches (list): List of switches to not include for the configuration file
         """
         config = {'version': 2}
         if include:
@@ -551,7 +562,9 @@ class FaucetTopoGenerator(Topo):
         config['vlans'] = self.get_vlans_config(n_vlans, vlan_options)
         if routers:
             config['routers'] = self.get_routers_config(routers, router_options)
-        config['dps'] = self.get_dps_config(dp_options, host_options, link_options)
+        if ignored_switches is None:
+            ignored_switches = []
+        config['dps'] = self.get_dps_config(dp_options, host_options, link_options, ignored_switches)
         return yaml.dump(config, default_flow_style=False)
 
 

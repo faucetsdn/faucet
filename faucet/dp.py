@@ -768,17 +768,28 @@ configuration.
 
     def finalize_tunnel_acls(self, dps):
         """Resolve each tunnels sources"""
+        # Find all tunnel ACLs that are in `self.tunnel_acls` that are have a configured source
         if self.tunnel_acls:
+            # TODO: A Tunnel ACL can contain multiple different tunnel IDs
             tunnel_ids = {tunnel_acl._id: tunnel_acl for tunnel_acl in self.tunnel_acls}
             referenced_acls = set()
             for dp in dps:
-                for port in dp.ports.values():
-                    if port.acls_in:
-                        for acl in port.acls_in:
-                            tunnel_acl = tunnel_ids.get(acl._id)
-                            if tunnel_acl:
-                                tunnel_acl.add_tunnel_source(dp.name, port.number)
-                                referenced_acls.add(tunnel_acl._id)
+                if dp.dp_acls:
+                    for acl in dp.dp_acls:
+                        tunnel_acl = tunnel_ids.get(acl._id)
+                        if tunnel_acl:
+                            # ACL is configured on a DP
+                            tunnel_acl.add_tunnel_source(dp.name, None)
+                            referenced_acls.add(tunnel_acl._id)
+                else:
+                    for port in dp.ports.values():
+                        if port.acls_in:
+                            for acl in port.acls_in:
+                                tunnel_acl = tunnel_ids.get(acl._id)
+                                if tunnel_acl:
+                                    tunnel_acl.add_tunnel_source(dp.name, port.number)
+                                    referenced_acls.add(tunnel_acl._id)
+            # Any tunnel ACL that has not been resolved should be ignored
             for tunnel_id, tunnel_acl in tunnel_ids.items():
                 if tunnel_id not in referenced_acls:
                     self.tunnel_acls.remove(tunnel_acl)
@@ -935,38 +946,18 @@ configuration.
                     return port.number
                 return port
 
-            def resolve_tunnel_objects(dst_dp_name, dst_port_name, tunnel_id_name):
+            def get_tunnel_vlan(tunnel_id_name, resolved_dst):
                 """
-                Resolves the names of the tunnel src and dst (DP & port) pairs into the correct \
-                    objects
-                Args:
-                    dst_dp (str): DP of the tunnel's destination port
-                    dst_port (int): Destination port of the tunnel
-                    tunnel_id_name (int/str/None): Tunnel identification number or VLAN reference
-                Returns:
-                    dst_dp name, dst_port name and tunnel id
-                """
-                if vid is not None:
-                    # VLAN ACL
-                    test_config_condition(True, 'Tunnels do not support VLAN-ACLs')
-                elif dp is not None:
-                    # DP ACL
-                    test_config_condition(True, 'Tunnels do not support DP-ACLs')
-                test_config_condition(dst_dp_name not in dp_by_name, (
-                    'Could not find referenced destination DP (%s) for tunnel ACL %s' % (
-                        dst_dp_name, acl_in)))
-                dst_dp = dp_by_name[dst_dp_name]
-                dst_port = dst_dp.resolve_port(dst_port_name)
-                test_config_condition(dst_port is None, (
-                    'Could not find referenced destination port (%s) for tunnel ACL %s' % (
-                        dst_port_name, acl_in)))
-                test_config_condition(dst_port.stack is None, (
-                    'destination port %s for tunnel ACL %s cannot be a stack port' % (
-                        dst_port_name, acl_in)))
-                dst_port = dst_port.number
-                dst_dp = dst_dp.name
-                resolved_dst = (dst_dp, dst_port)
+                Obtain the VLAN that is configured for a tunnel.
+                If the tunnel VLAN exists, ensure it has the correct properties and is not used.
+                If the VLAN does not exist, then create one.
 
+                Args:
+                    tunnel_id_name (str/int/None): Reference to the VLAN object that the tunnel will use
+                    resolved_dst (tuple): DP, port destination tuple
+                Returns:
+                    VLAN: VLAN object used by the tunnel
+                """
                 if not tunnel_id_name:
                     if resolved_dst in tunnel_dsts_to_vlan:
                         tunnel_vlan = tunnel_dsts_to_vlan[resolved_dst]
@@ -1006,7 +997,39 @@ configuration.
                             existing_tunnel_vlan == tunnel_vlan.vid,
                             'Cannot have multiple tunnel IDs (%u, %u) to same destination %s' % (
                                 existing_tunnel_vlan.vid, tunnel_vlan.vid, resolved_dst))
+                return tunnel_vlan
 
+            def resolve_tunnel_objects(dst_dp_name, dst_port_name, tunnel_id_name):
+                """
+                Resolves the names of the tunnel src and dst (DP & port) pairs into the correct \
+                    objects
+                Args:
+                    dst_dp (str): DP of the tunnel's destination port
+                    dst_port (int/None): Destination port of the tunnel
+                    tunnel_id_name (int/str/None): Tunnel identification number or VLAN reference
+                Returns:
+                    dst_dp name, dst_port name and tunnel id
+                """
+                # VLAN tunnel ACL
+                test_config_condition(vid is not None, 'Tunnels do not support VLAN-ACLs')
+                # Port & DP tunnel ACL
+                test_config_condition(dst_dp_name not in dp_by_name, (
+                    'Could not find referenced destination DP (%s) for tunnel ACL %s' % (
+                        dst_dp_name, acl_in)))
+                dst_dp = dp_by_name[dst_dp_name]
+                dst_port = None
+                if dst_port_name:
+                    dst_port = dst_dp.resolve_port(dst_port_name)
+                    test_config_condition(dst_port is None, (
+                        'Could not find referenced destination port (%s) for tunnel ACL %s' % (
+                            dst_port_name, acl_in)))
+                    test_config_condition(dst_port.stack is None, (
+                        'destination port %s for tunnel ACL %s cannot be a stack port' % (
+                            dst_port_name, acl_in)))
+                    dst_port = dst_port.number
+                dst_dp = dst_dp.name
+                resolved_dst = (dst_dp, dst_port)
+                tunnel_vlan = get_tunnel_vlan(tunnel_id_name, resolved_dst)
                 # Sources will be resolved later on
                 self.tunnel_acls.append(self.acls[acl_in])
                 tunnel_dsts_to_vlan[resolved_dst] = tunnel_vlan
@@ -1031,7 +1054,6 @@ configuration.
 
         def resolve_acls():
             """Resolve config references in ACLs."""
-            # TODO: move this config validation to ACL object.
             for vlan in self.vlans.values():
                 if vlan.acls_in:
                     acls = []
@@ -1075,7 +1097,7 @@ configuration.
 
             if self.dp_acls:
                 acls = []
-                for acl in self.acls:
+                for acl in self.dp_acls:
                     resolve_acl(acl, dp=self)
                     acls.append(self.acls[acl])
                 self.dp_acls = acls

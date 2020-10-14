@@ -42,6 +42,7 @@ def build_ordered_output_actions(acl_table, output_list, tunnel_rules=None, sour
     output_actions = []
     output_ports = []
     output_ofmsgs = []
+    output_inst = []
     for action in output_list:
         for key, value in action.items():
             if key == 'pop_vlans':
@@ -74,10 +75,13 @@ def build_ordered_output_actions(acl_table, output_list, tunnel_rules=None, sour
                 output_actions.append(valve_of.group_act(group_id=group_id))
             if key == 'tunnel' and tunnel_rules and source_id is not None:
                 source_rule = tunnel_rules[value][source_id]
-                _, tunnel_actions, tunnel_ofmsgs = build_output_actions(acl_table, source_rule)
+                _, tunnel_actions, tunnel_ofmsgs, tunnel_inst = build_output_actions(acl_table, source_rule)
                 output_actions.extend(tunnel_actions)
-                tunnel_ofmsgs.extend(tunnel_ofmsgs)
-    return (output_ports, output_actions, output_ofmsgs)
+                output_ofmsgs.extend(tunnel_ofmsgs)
+                output_inst.extend(tunnel_inst)
+            if key == 'goto':
+                output_inst.append(valve_of.goto_table_id(value))
+    return (output_ports, output_actions, output_ofmsgs, output_inst)
 
 
 def rewrite_vlan(acl_table, output_dict):
@@ -105,6 +109,7 @@ def build_output_actions(acl_table, output_dict, tunnel_rules=None, source_id=No
     if isinstance(output_dict, (list, tuple)):
         return build_ordered_output_actions(acl_table, output_dict, tunnel_rules, source_id)
     output_actions = []
+    output_inst = []
     output_port = None
     ofmsgs = []
     # rewrite any VLAN headers first always
@@ -132,13 +137,15 @@ def build_output_actions(acl_table, output_dict, tunnel_rules=None, source_id=No
     if 'tunnel' in output_dict and tunnel_rules and source_id is not None:
         tunnel_id = output_dict['tunnel']
         source_rule = tunnel_rules[tunnel_id][source_id]
-        _, tunnel_actions, tunnel_ofmsgs = build_output_actions(acl_table, source_rule)
+        _, tunnel_actions, tunnel_ofmsgs, tunnel_inst = build_output_actions(acl_table, source_rule)
         output_actions.extend(tunnel_actions)
         tunnel_ofmsgs.extend(tunnel_ofmsgs)
-    return (output_port, output_actions, ofmsgs)
+        output_inst.extend(tunnel_inst)
+    if 'goto' in output_dict:
+        output_inst.append(valve_of.goto_table_id(output_dict['goto']))
+    return (output_port, output_actions, ofmsgs, output_inst)
 
 
-# possibly replace with a class for ACLs
 def build_acl_entry(  # pylint: disable=too-many-arguments,too-many-branches,too-many-statements
         acl_table, rule_conf, meters,
         acl_allow_inst, acl_force_port_vlan_inst,
@@ -152,8 +159,8 @@ def build_acl_entry(  # pylint: disable=too-many-arguments,too-many-branches,too
     allow_inst = acl_allow_inst
 
     for attrib, attrib_value in rule_conf.items():
-        if attrib == 'in_port':
-            continue
+        # if attrib == 'in_port':
+        #     continue
         if attrib == 'cookie':
             acl_cookie = attrib_value
             continue
@@ -178,10 +185,11 @@ def build_acl_entry(  # pylint: disable=too-many-arguments,too-many-branches,too
                 if not allow_specified:
                     allow = True
             if 'output' in attrib_value:
-                output_port, output_actions, output_ofmsgs = build_output_actions(
+                output_port, output_actions, output_ofmsgs, output_inst = build_output_actions(
                     acl_table, attrib_value['output'], tunnel_rules, source_id)
                 acl_act.extend(output_actions)
                 acl_ofmsgs.extend(output_ofmsgs)
+                acl_inst.extend(output_inst)
 
                 # if port specified, output packet now and exit pipeline.
                 if not allow and output_port is not None:
@@ -192,33 +200,44 @@ def build_acl_entry(  # pylint: disable=too-many-arguments,too-many-branches,too
         else:
             acl_match_dict[attrib] = attrib_value
     if port_num is not None:
+        # This overwrites the `in_port` match if it is specified in the ACL config
         acl_match_dict['in_port'] = port_num
     if vlan_vid is not None:
+        # This overwrites the `vlan_vid` match if it is specified in the ACL config
         acl_match_dict['vlan_vid'] = valve_of.vid_present(vlan_vid)
     try:
         acl_match = valve_of.match_from_dict(acl_match_dict)
     except TypeError:
-        raise InvalidConfigError('invalid type in ACL')
+        raise InvalidConfigError('invalid match type in ACL')
     if acl_act:
         acl_inst.append(valve_of.apply_actions(acl_act))
     return (acl_match, acl_inst, acl_cookie, acl_ofmsgs)
 
 
 def build_tunnel_ofmsgs(rule_conf, acl_table, priority,
-                        port_num=None, vlan_vid=None, flowdel=False):
+                        port_num=None, vlan_vid=None, flowdel=False,
+                        reverse=False):
     """Build a specific tunnel only ofmsgs"""
     ofmsgs = []
     acl_inst = []
     acl_match = []
     acl_match_dict = {}
-    _, output_actions, output_ofmsgs = build_output_actions(acl_table, rule_conf)
+    _, output_actions, output_ofmsgs, output_inst = build_output_actions(acl_table, rule_conf)
     ofmsgs.extend(output_ofmsgs)
+    acl_inst.extend(output_inst)
     acl_inst.append(valve_of.apply_actions(output_actions))
     if port_num is not None:
         acl_match_dict['in_port'] = port_num
     if vlan_vid is not None:
         acl_match_dict['vlan_vid'] = valve_of.vid_present(vlan_vid)
-    acl_match = valve_of.match_from_dict(acl_match_dict)
+    if reverse:
+        acl_match_dict['vlan_pcp'] = valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG
+    else:
+        acl_match_dict['vlan_pcp'] = valve_of.PCP_TUNNEL_FLAG
+    try:
+        acl_match = valve_of.match_from_dict(acl_match_dict)
+    except TypeError:
+        raise InvalidConfigError('invalid match type in ACL')
     flowmod = acl_table.flowmod(acl_match, priority=priority, inst=tuple(acl_inst))
     if flowdel:
         ofmsgs.append(acl_table.flowdel(match=acl_match, priority=priority, strict=False))
@@ -252,7 +271,8 @@ def build_rule_ofmsgs(rule_conf, acl_table,
 def build_acl_ofmsgs(acls, acl_table,
                      acl_allow_inst, acl_force_port_vlan_inst,
                      highest_priority, meters,
-                     exact_match, port_num=None, vlan_vid=None):
+                     exact_match, port_num=None, vlan_vid=None,
+                     tunnel_rules=None, source_id=None, flowdel=False):
     """Build flow/groupmods for all entries in an ACL."""
     ofmsgs = []
     acl_rule_priority = highest_priority
@@ -262,7 +282,8 @@ def build_acl_ofmsgs(acls, acl_table,
                 rule_conf, acl_table,
                 acl_allow_inst, acl_force_port_vlan_inst,
                 highest_priority, acl_rule_priority, meters,
-                exact_match, port_num, vlan_vid))
+                exact_match, port_num, vlan_vid,
+                tunnel_rules=tunnel_rules, source_id=source_id, flowdel=flowdel))
             acl_rule_priority -= 1
     return ofmsgs
 
@@ -532,26 +553,44 @@ class ValveAclManager(ValveManagerBase):
         ofmsgs = []
         acl_table = self.port_acl_table
         priority = self.override_priority
+        reverse = acl.tunnel_dests[tunnel_id]['reverse']
         ofmsgs.extend(build_tunnel_ofmsgs(
             acl.dyn_tunnel_rules[tunnel_id][source_id], acl_table, priority,
-            None, tunnel_id, flowdel=True))
+            None, tunnel_id, flowdel=True, reverse=reverse))
+        return ofmsgs
+
+    def build_reverse_tunnel_rules_ofmsgs(self, source_id, tunnel_id, acl):
+        """Build a (reverse) tunnel only generated rule"""
+        ofmsgs = []
+        acl_table = self.port_acl_table
+        priority = self.override_priority
+        if acl.requires_reverse_tunnel(tunnel_id):
+            ofmsgs.extend(build_tunnel_ofmsgs(
+                acl.dyn_reverse_tunnel_rules[tunnel_id][source_id], acl_table, priority,
+                None, tunnel_id, flowdel=True, reverse=True))
         return ofmsgs
 
     def build_tunnel_acl_rule_ofmsgs(self, source_id, tunnel_id, acl):
         """Build a rule of an ACL that contains a tunnel"""
         ofmsgs = []
-        acl_table = self.port_acl_table
         acl_allow_inst = self.pipeline.accept_to_vlan()
-        acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
+        acl_table = self.port_acl_table
         rules = acl.get_tunnel_rules(tunnel_id)
-        for rule_conf in rules:
-            rule_index = acl.rules.index(rule_conf)
-            priority = self.acl_priority - rule_index
-            in_port = acl.tunnel_sources[source_id]['port']
-            ofmsgs.extend(build_rule_ofmsgs(
-                rule_conf, acl_table, acl_allow_inst, acl_force_port_vlan_inst,
-                self.acl_priority, priority, self.meters,
-                acl.exact_match, in_port, None, acl.dyn_tunnel_rules, source_id, flowdel=True))
+        acl_force_port_vlan_inst = self.pipeline.accept_to_l2_forwarding()
+        if self.dp_acls and acl in self.dp_acls:
+            ofmsgs.extend(build_acl_ofmsgs(
+                self.dp_acls, acl_table, acl_allow_inst,
+                acl_force_port_vlan_inst, self.acl_priority, self.meters,
+                False, tunnel_rules=acl.dyn_tunnel_rules, source_id=source_id, flowdel=True))
+        else:
+            for rule_conf in rules:
+                rule_index = acl.rules.index(rule_conf)
+                priority = self.acl_priority - rule_index
+                in_port = acl.tunnel_sources[source_id]['port']
+                ofmsgs.extend(build_rule_ofmsgs(
+                    rule_conf, acl_table, acl_allow_inst, acl_force_port_vlan_inst,
+                    self.acl_priority, priority, self.meters,
+                    acl.exact_match, in_port, None, acl.dyn_tunnel_rules, source_id, flowdel=True))
         return ofmsgs
 
     def change_meters(self, changed_meters):

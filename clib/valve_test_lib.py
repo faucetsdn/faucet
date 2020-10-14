@@ -2406,6 +2406,67 @@ meters:
             self.disconnect_dp()
             self.port_expected_status(port_num, 0)
 
+    class ValveTestTunnel(ValveTestNetwork):
+        """Test stack tunnel ACL implementations"""
+
+        def setUp(self):
+            """Create a stacking config file."""
+            self.setup_valves(self.CONFIG)
+            self.activate_all_ports()
+            for valve in self.valves_manager.valves.values():
+                for port in valve.dp.ports.values():
+                    if port.stack:
+                        self.set_stack_port_up(port.number, valve)
+
+        def validate_tunnel(self, src_dpid, dst_dpid, in_port, in_vid, out_port, out_vid, expected, msg,
+                            pcp=False, packet_match=None, eth_type=0x0800, ip_proto=1, trace=False):
+            """
+            Validate correct tunnel output by constructing a test packet and inputting it into the network
+                and measure for the state of the packet and where it is output
+
+            Args:
+                src_dpid (int): DPID for the source of the test packet
+                dst_dpid (int): Expected DPID for the destination of the test packet
+                in_port (int): Port number for the source of the test packet
+                in_vid (int/list): VID(s) for the test packet to start with
+                out_port (int): Expected output port for the destination of the test packet
+                out_vid (int): Expected output VID
+                expected (bool): Whether we expect this output (assertTrue) or not (assertFalse)
+                msg (str): Message to display if the test packet does not output as expected
+                pcp (int): VLAN PCP value put into the test packet VLAN header
+                packet_match (dict): Additional packet headers
+                eth_type (int): Eth type for the test packet
+                ip_proto (int): IP proto for the test packet
+                trace (bool): Whether to print the trace of the packet through the network (for debugging)
+            """
+            bcast_match = {
+                'in_port': in_port,
+                'eth_dst': mac.BROADCAST_STR,
+                'eth_type': eth_type,
+                'ip_proto': ip_proto
+            }
+            if in_vid:
+                if isinstance(in_vid, list):
+                    bcast_match['vlan_vid'] = in_vid[0] | ofp.OFPVID_PRESENT
+                    bcast_match['encap_vid'] = in_vid[1] | ofp.OFPVID_PRESENT
+                else:
+                    in_vid = in_vid | ofp.OFPVID_PRESENT
+                    bcast_match['vlan_vid'] = in_vid
+            if pcp:
+                bcast_match[valve_of.TUNNEL_INDICATOR_FIELD] = pcp
+            if packet_match:
+                for key, value in packet_match.items():
+                    bcast_match[key] = value
+            if out_vid:
+                if not isinstance(out_vid, list):
+                    out_vid = out_vid | ofp.OFPVID_PRESENT
+            if expected:
+                self.assertTrue(self.network.is_output(
+                    bcast_match, src_dpid, dst_dpid, port=out_port, vid=out_vid, trace=trace), msg=msg)
+            else:
+                self.assertFalse(self.network.is_output(
+                    bcast_match, src_dpid, dst_dpid, port=out_port, vid=out_vid, trace=trace), msg=msg)
+
 
     class ValveTestStackedRouting(ValveTestNetwork):
         """Test inter-vlan routing with stacking capabilities in an IPV4 network"""

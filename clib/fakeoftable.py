@@ -178,7 +178,7 @@ class FakeOFNetwork:
             pkt = dict(pkt)
             if dp_id == dst_dpid:
                 # A packet has reached the destination, so test for the output
-                found = self.tables[dp_id].is_output(pkt, port, vid, trace=trace)
+                found = self.tables[dp_id].is_full_output(pkt, port, vid, trace=trace)
                 if not found and trace:
                     # A packet on the destination DP is not output in the expected state so
                     #   continue searching (flood reflection)
@@ -500,6 +500,9 @@ class FakeOFTable:
             elif action.type == ofp.OFPAT_POP_VLAN:
                 # Remove VLAN header from the packet
                 packet_dict.pop('vlan_vid')
+                if 'vlan_pcp' in packet_dict:
+                    # Also make sure to pop off any VLAN header information too
+                    packet_dict.pop('vlan_pcp')
                 if 'encap_vid' in packet_dict:
                     # Move the encapsulated VID to the front
                     packet_dict['vlan_vid'] = packet_dict['encap_vid']

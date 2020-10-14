@@ -1131,7 +1131,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTestBase):
         """Test remote tunnel path is rerouted when a link is down."""
         self.verify_stack_up()
         self.verify_tunnels()
-        first_stack_port = self.link_port_maps[(0, 1)][0]
+        first_stack_port = min(self.link_port_maps[(0, 1)])
         self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
         self.verify_tunnels()
 
@@ -1321,7 +1321,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTestBase):
         super(FaucetSingleTunnelOrderedTest, self).set_up(
             stack=True,
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
+            n_tagged=self.NUM_HOSTS,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
 
     def test_tunnel_established(self):
@@ -1339,7 +1339,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTestBase):
         dst_host = self.net.get(self.topo.hosts_by_id[2])
         other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
-        first_stack_port = self.link_port_maps[(0, 1)][0]
+        first_stack_port = min(self.link_port_maps[(0, 1)])
         self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
@@ -2713,3 +2713,929 @@ class FaucetBipartiteGraphPortDownTest(FaucetTopoTestBase):
         self.one_stack_port_down(self.dpids[1], self.topo.switches_by_id[1], sw2_stack_port)
         self.check_host_connectivity_by_id(3, 7)
         self.check_host_connectivity_by_id(3, 11)
+
+
+class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
+    """
+    Test Faucet in a multi DP network with DHCP allocating IP addresses to
+       hosts on multiple VLANs from a single tagged DHCP interface
+    """
+
+    NUM_DPS = 2
+    NUM_HOSTS = 5
+    NUM_VLANS = 2
+
+    N_TAGGED = 5
+    N_UNTAGGED = 0
+
+    SOFTWARE_ONLY = True
+
+    def host_ip_address(self, host_index, vlan_index):
+        """Create a string of the host IP address"""
+        return '0.0.0.0'
+
+    def setUp(self):
+        """Ignore to allow for setting up network in each test"""
+
+    def set_up(self):
+        """Set up network"""
+        super().setUp()
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options.setdefault(dp_i, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            if dp_i == 0:
+                dp_options[dp_i]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1], 4: [0]}
+        # two host on each native VLAN then DHCP host on tagged VLANs
+        host_vlans = {0: [0], 1: [1], 2: [0], 3: [1], 4: [0, 1]}
+        # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
+        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
+        mininet_host_options[4] = {'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'}, 'ip': '0.0.0.0'}
+        vlan_options = {
+            v_i: {'faucet_vips': [self.faucet_vip(v_i)], 'faucet_mac': self.faucet_mac(v_i)}
+            for v_i in range(self.NUM_VLANS)}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            vlan_options=vlan_options,
+            mininet_host_options=mininet_host_options
+        )
+        self.start_net()
+
+    @staticmethod
+    def dhclient_callback(host, timeout):
+        """Run DHCLIENT to obtain ip address via DHCP"""
+        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
+            host.name, host.name, host.defaultIntf())
+        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
+
+    def test_dhcp_ip_allocation(self):
+        """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
+        self.set_up()
+        host = self.net.get(self.topo.hosts_by_id[4])
+        iprange = '10.1.0.10,10.1.0.20'
+        router = '10.1.0.254'
+        vlan = 100
+        host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[0])
+        iprange = '10.2.0.10,10.2.0.20'
+        router = '10.2.0.254'
+        vlan = 200
+        host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[1])
+        for host_n in range(self.NUM_HOSTS - 1):
+            host = self.net.get(self.topo.hosts_by_id[host_n])
+            self.dhclient_callback(host, 10)
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.11')
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.10')
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], '10.2.0.11')
+        self.check_host_connectivity_by_id(0, 2)
+        self.check_host_connectivity_by_id(1, 3)
+
+
+class FaucetTunneltoCoprocessorTest(FaucetTopoTestBase):
+    """Test network topology with a tunnel exiting on a corprocessor port"""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 4
+    NUM_VLANS = 1
+    N_TAGGED = 0
+    N_UNTAGGED = 4
+
+    SOFTWARE_ONLY = True
+
+    def acls(self):
+        """Return ACL config"""
+        # Tunnel from host 3 (switch 1) to host 0 (switch 0)
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': self.topo.switches_by_id[0],  # Switch 0
+                                'port': self.host_port_maps[0][0][0]}  # Switch 0 host 0
+                        }
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ]
+        }
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        super().setUp()
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options.setdefault(dp_i, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            if dp_i == 0:
+                dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
+        host_vlans = {0: None, 1: 0, 2: 0, 3: 0}
+        host_options = {0: {'coprocessor': {'strategy': 'vlan_vid'}}, 3: {'acls_in': [1]}}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            host_options=host_options,
+        )
+        self.start_net()
+
+    def test_tunnel_into_coprocessor_port(self):
+        """Test tunnel gets encapsulated into a coprocessor port"""
+        self.verify_stack_up()
+        src_host = self.net.get(self.topo.hosts_by_id[3])
+        other_host = self.net.get(self.topo.hosts_by_id[2])
+        dst_host = self.net.get(self.topo.hosts_by_id[0])
+        self.verify_tunnel_established(src_host, dst_host, other_host, dpid=self.dpids[1])
+
+
+class FaucetDPACLTunnelTest(FaucetTopoTestBase):
+    """Test tunnel ACL configured as a DP ACL"""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 4
+    NUM_VLANS = 1
+    N_TAGGED = 0
+    N_UNTAGGED = 4
+    SWITCH_TO_SWITCH_LINKS = 2
+
+    SOFTWARE_ONLY = True
+
+    def acls(self):
+        """Return ACL config"""
+        # Tunnel from switch 0 to host 2 (switch 1)
+        # DP ACLs normally apply to all ports (wildcarded), so there are rules
+        #   to match each host port to ensure that packets from the stack ports do not get
+        #   sent into the tunnel.
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'in_port': self.host_port_maps[0][0][0],
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': self.topo.switches_by_id[1],  # Switch 1
+                                'port': self.host_port_maps[2][1][0]}  # Switch 1 host 2
+                        }
+                    }
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'in_port': self.host_port_maps[1][0][0],
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': self.topo.switches_by_id[1],
+                                'port': self.host_port_maps[2][1][0]}
+                        }
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ],
+            2: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': self.topo.switches_by_id[1],
+                                'port': self.host_port_maps[2][1][0]}
+                        }
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ]
+        }
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        super().setUp()
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options.setdefault(dp_i, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            if dp_i == 0:
+                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]['dp_acls'] = [1]
+        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
+        host_vlans = {0: 0, 1: 0, 2: 0, 3: 0}
+        host_options = {3: {'acls_in': [2]}}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            host_options=host_options,
+        )
+        self.start_net()
+
+    def test_tunnel_established(self):
+        """Test a DP ACL tunnel path can be created."""
+        self.verify_stack_up()
+        src_host = self.net.get(self.topo.hosts_by_id[0])
+        dst_host = self.net.get(self.topo.hosts_by_id[2])
+        other_host = self.net.get(self.topo.hosts_by_id[3])
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+
+    def test_tunnel_path_rerouted(self):
+        """Test a DP ACL tunnel path is rerouted when a link is down."""
+        self.verify_stack_up()
+        src_host = self.net.get(self.topo.hosts_by_id[0])
+        dst_host = self.net.get(self.topo.hosts_by_id[2])
+        other_host = self.net.get(self.topo.hosts_by_id[3])
+        self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
+        first_stack_port = min(self.link_port_maps[(0, 1)])
+        self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
+        self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
+
+
+class FaucetACLTunnelDPDestinationTest(FaucetTopoTestBase):
+    """Test tunnel ACL configured as a DP ACL"""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 4
+    NUM_VLANS = 1
+    N_TAGGED = 0
+    N_UNTAGGED = 4
+    SWITCH_TO_SWITCH_LINKS = 2
+
+    NUM_FAUCET_CONTROLLERS = 1
+
+    SOFTWARE_ONLY = True
+
+    def acls(self):
+        """Return ACL config"""
+        # Tunnel from switch 0 to host 2 (switch 1)
+        # DP ACLs normally apply to all ports (wildcarded), so there are rules
+        #   to match each host port to ensure that packets from the stack ports do not get
+        #   sent into the tunnel.
+        return {
+            2: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': self.topo.switches_by_id[1],
+                                'exit_instructions': [{'vlan_vid': 100}]
+                            }
+                        }
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ]
+        }
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        super().setUp()
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options.setdefault(dp_i, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            if dp_i == 0:
+                dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
+        host_vlans = {0: 0, 1: 0, 2: 0, 3: 0}
+        host_options = {0: {'acls_in': [2]}}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            host_options=host_options,
+        )
+        self.start_net()
+
+    def test_tunnel_established(self):
+        """Test a DP ACL tunnel path can be created."""
+        self.verify_stack_up()
+        # NOTE: The tunnelled host should be able to ping host1 but
+        #   due to ovs dropping packets that are outputted out the input port
+        #   will result in the packet for host1 being dropped.
+        self.check_host_connectivity_by_id(0, 2)
+        self.check_host_connectivity_by_id(0, 3)
+
+    def test_tunnel_path_rerouted(self):
+        """Test a DP ACL tunnel path is rerouted when a link is down."""
+        self.verify_stack_up()
+        self.check_host_connectivity_by_id(0, 2)
+        self.check_host_connectivity_by_id(0, 3)
+        first_stack_port = min(self.link_port_maps[(0, 1)])
+        self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
+        self.check_host_connectivity_by_id(0, 2)
+        self.check_host_connectivity_by_id(0, 3)
+
+
+class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
+    """Test tunnel ACL configured with a reverse path"""
+
+    NUM_DPS = 3
+    NUM_HOSTS = 3
+    # 1 host VLAN + 2 DP tunnel VLANS
+    NUM_VLANS = 3
+    N_TAGGED = 1
+    N_UNTAGGED = 3
+    SWITCH_TO_SWITCH_LINKS = 2
+
+    # The last switch will be behind a coprocessor port
+    IGNORED_SWITCHES = [2]
+
+    SOFTWARE_ONLY = True
+
+    def acls(self):
+        """Return ACL config"""
+        return {
+            1: [
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'in_port': self.host_port_maps[0][0][0],
+                    'actions': {
+                        'allow': 0,
+                        'output': [
+                            {'vlan_vid': 100},
+                            {'tunnel': {
+                                'dp': self.topo.switches_by_id[0],
+                                'port': self.link_port_maps[(0, 2)][0],
+                                'maintain_encapsulation': True,
+                                'bi_directional': True,
+                                'tunnel_id': 200}}
+                        ]
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'actions':  {
+                        'allow': 0,
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 67,
+                    'udp_dst': 68,
+                    'dl_type': 0x0800,
+                    'actions':  {
+                        'allow': 0,
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ],
+            2: [
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'in_port': self.host_port_maps[1][1][0],
+                    'actions': {
+                        'allow': 0,
+                        'output': [
+                            {'vlan_vid': 100},
+                            {'tunnel': {
+                                'dp': self.topo.switches_by_id[0],
+                                'port': self.link_port_maps[(0, 2)][0],
+                                'maintain_encapsulation': True,
+                                'bi_directional': True,
+                                'tunnel_id': 300}}
+                        ]
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'actions':  {
+                        'allow': 0,
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 67,
+                    'udp_dst': 68,
+                    'dl_type': 0x0800,
+                    'actions':  {
+                        'allow': 0,
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ],
+        }
+
+    @staticmethod
+    def dhclient_callback(host, timeout):
+        """Run DHCLIENT to obtain ip address via DHCP"""
+        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
+            host.name, host.name, host.defaultIntf())
+        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
+
+    def host_ip_address(self, host_index, vlan_index):
+        """Create a string of the host IP address"""
+        return '0.0.0.0'
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        super().setUp()
+        network_graph = networkx.path_graph(self.NUM_DPS - 1)
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options.setdefault(dp_i, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            dp_options[dp_i]['dp_acls'] = [dp_i + 1]
+            if dp_i == 0:
+                dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
+        # Add in coprocessor switch link
+        switch_links.append((0, 2))
+        link_vlans = {edge: None for edge in switch_links}
+        link_options = {(0, 2): {'coprocessor': {'strategy': 'vlan_vid'}}}
+        host_links = {0: [0], 1: [1], 2: [2]}
+        host_vlans = {0: 0, 1: 0, 2: [0, 1, 2]}
+        # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
+        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
+        mininet_host_options[2] = {'vlan_intfs': {(1, 0): '10.1.0.20/24', (2, 0): '10.1.0.30/24'}, 'ip': '0.0.0.0'}
+        vlan_options = {0: {'faucet_vips': [self.faucet_vip(0)], 'faucet_mac': self.faucet_mac(0)}}
+        vlan_options[1] = {'reserved_internal_vlan': True}
+        vlan_options[2] = {'reserved_internal_vlan': True}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            mininet_host_options=mininet_host_options,
+            vlan_options=vlan_options,
+            link_options=link_options,
+        )
+        self.start_net()
+
+    def configure_coprocessor_network(self):
+        """Configure the dummy switch and host behind the coprocessor port (DHCP NFV)"""
+        switch = self.net.get(self.topo.switches_by_id[2])
+        # Change DHCP server reply packet to a `reverse` (indicated by the VLAN_PCP) tunnel packet,
+        #   and output to the Faucet network.
+        # Packets returned from the server do not have a PCP value set
+        switch.cmd(
+            ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=200,'
+             'actions=set_field:4-\\>vlan_pcp,output:%s') % (
+                switch.name, self.host_port_maps[2][2][0], self.link_port_maps[(2, 0)][0]))
+        switch.cmd(
+            ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=300,'
+             'actions=set_field:4-\\>vlan_pcp,output:%s') % (
+                switch.name, self.host_port_maps[2][2][0], self.link_port_maps[(2, 0)][0]))
+        # Forward tunneled DHCP packets to the DNSMASQ server
+        switch.cmd(
+            ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=200,'
+             'vlan_pcp=3,actions=output:%s') % (
+                switch.name, self.link_port_maps[(2, 0)][0], self.host_port_maps[2][2][0]))
+        switch.cmd(
+            ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=300,'
+             'vlan_pcp=3,actions=output:%s') % (
+                switch.name, self.link_port_maps[(2, 0)][0], self.host_port_maps[2][2][0]))
+        # Drop all other (non-DHCP tunnelled) traffic
+        switch.cmd('ovs-ofctl add-flow %s priority=0,actions=drop' % (switch.name))
+        # Setup DHCP server
+        host = self.net.get(self.topo.hosts_by_id[2])
+        iprange = '10.1.0.10,10.1.0.20'
+        router = '10.1.0.254'
+        vlan = host.vlans[0]
+        intf0 = host.vlan_intfs[(1, 0)][-1]
+        host.create_dnsmasq(self.tmpdir, iprange, router, vlan, intf0)
+        iprange = '10.1.0.21,10.1.0.30'
+        router = '10.1.0.254'
+        vlan = host.vlans[0]
+        intf1 = host.vlan_intfs[(2, 0)][-1]
+        host.create_dnsmasq(self.tmpdir, iprange, router, vlan, intf1)
+
+    def test_dhcp_ip_allocation(self):
+        """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
+        self.verify_stack_up()
+        self.configure_coprocessor_network()
+        for host_n in range(self.NUM_HOSTS - 1):
+            host = self.net.get(self.topo.hosts_by_id[host_n])
+            self.dhclient_callback(host, 10)
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.21')
+        self.check_host_connectivity_by_id(0, 1)
+
+
+class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
+    """Test tunnel ACL configured with a reverse path"""
+
+    # 3 Faucet DPs, 1 NFV coprocessor DP
+    NUM_DPS = 4
+    NUM_HOSTS = 7
+    N_TAGGED = 1
+    N_UNTAGGED = 6
+    # 2 host VLANS + 3 DP Tunnel VLANs
+    NUM_VLANS = 5
+    SWITCH_TO_SWITCH_LINKS = 2
+
+    # The last switch will be behind a coprocessor port
+    IGNORED_SWITCHES = [3]
+
+    SOFTWARE_ONLY = True
+
+    def acls(self):
+        """Return ACL config"""
+        return {
+            1: [
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'in_port': self.host_port_maps[0][0][0],
+                    'actions': {
+                        'allow': 0,
+                        'output': [
+                            {'vlan_vid': 100},
+                            {'tunnel': {
+                                'dp': self.topo.switches_by_id[0],
+                                'port': self.link_port_maps[(0, 3)][0],
+                                'maintain_encapsulation': True,
+                                'bi_directional': True,
+                                'tunnel_id': 300}}
+                        ]
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'in_port': self.host_port_maps[1][0][0],
+                    'actions': {
+                        'allow': 0,
+                        'output': [
+                            {'vlan_vid': 200},
+                            {'tunnel': {
+                                'dp': self.topo.switches_by_id[0],
+                                'port': self.link_port_maps[(0, 3)][0],
+                                'maintain_encapsulation': True,
+                                'bi_directional': True,
+                                'tunnel_id': 300}}
+                        ]
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'actions':  {
+                        'allow': 0,
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 67,
+                    'udp_dst': 68,
+                    'dl_type': 0x0800,
+                    'actions':  {
+                        'allow': 0,
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ],
+            2: [
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'in_port': self.host_port_maps[2][1][0],
+                    'actions': {
+                        'allow': 0,
+                        'output': [
+                            {'vlan_vid': 100},
+                            {'tunnel': {
+                                'dp': self.topo.switches_by_id[0],
+                                'port': self.link_port_maps[(0, 3)][0],
+                                'maintain_encapsulation': True,
+                                'bi_directional': True,
+                                'tunnel_id': 400}}
+                        ]
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'in_port': self.host_port_maps[3][1][0],
+                    'actions': {
+                        'allow': 0,
+                        'output': [
+                            {'vlan_vid': 200},
+                            {'tunnel': {
+                                'dp': self.topo.switches_by_id[0],
+                                'port': self.link_port_maps[(0, 3)][0],
+                                'maintain_encapsulation': True,
+                                'bi_directional': True,
+                                'tunnel_id': 400}}
+                        ]
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'actions':  {
+                        'allow': 0,
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 67,
+                    'udp_dst': 68,
+                    'dl_type': 0x0800,
+                    'actions':  {
+                        'allow': 0,
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ],
+            3: [
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'in_port': self.host_port_maps[4][2][0],
+                    'actions': {
+                        'allow': 0,
+                        'output': [
+                            {'vlan_vid': 100},
+                            {'tunnel': {
+                                'dp': self.topo.switches_by_id[0],
+                                'port': self.link_port_maps[(0, 3)][0],
+                                'maintain_encapsulation': True,
+                                'bi_directional': True,
+                                'tunnel_id': 500}}
+                        ]
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'in_port': self.host_port_maps[5][2][0],
+                    'actions': {
+                        'allow': 0,
+                        'output': [
+                            {'vlan_vid': 200},
+                            {'tunnel': {
+                                'dp': self.topo.switches_by_id[0],
+                                'port': self.link_port_maps[(0, 3)][0],
+                                'maintain_encapsulation': True,
+                                'bi_directional': True,
+                                'tunnel_id': 500}}
+                        ]
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 68,
+                    'udp_dst': 67,
+                    'dl_type': 0x0800,
+                    'actions':  {
+                        'allow': 0,
+                    }
+                }},
+                {'rule': {
+                    'nw_proto': 17,
+                    'udp_src': 67,
+                    'udp_dst': 68,
+                    'dl_type': 0x0800,
+                    'actions':  {
+                        'allow': 0,
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ],
+        }
+
+    @staticmethod
+    def dhclient_callback(host, timeout):
+        """Run DHCLIENT to obtain ip address via DHCP"""
+        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
+            host.name, host.name, host.defaultIntf())
+        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
+
+    def host_ip_address(self, host_index, vlan_index):
+        """Create a string of the host IP address"""
+        return '0.0.0.0'
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        super().setUp()
+        network_graph = networkx.path_graph(self.NUM_DPS - 1)
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options.setdefault(dp_i, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            dp_options[dp_i]['dp_acls'] = [dp_i + 1]
+            if dp_i == 0:
+                dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
+        # Add in coprocessor switch link
+        switch_links.append((0, 3))
+        link_vlans = {edge: None for edge in switch_links}
+        link_options = {(0, 3): {'coprocessor': {'strategy': 'vlan_vid'}}}
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1], 4: [2], 5: [2], 6: [3]}
+        host_vlans = {0: 0, 1: 1, 2: 0, 3: 1, 4: 0, 5: 1, 6: [0, 1, 2, 3, 4]}
+        # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
+        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
+        mininet_host_options[6] = {
+            'vlan_intfs': {
+                (2, 0): '10.1.0.20/24',
+                (3, 0): '10.1.0.30/24',
+                (4, 0): '10.1.0.40/24',
+                (2, 1): '10.2.0.20/24',
+                (3, 1): '10.2.0.30/24',
+                (4, 1): '10.2.0.40/24'},
+            'ip': '0.0.0.0'}
+        vlan_options = {
+            0: {'faucet_vips': [self.faucet_vip(0)], 'faucet_mac': self.faucet_mac(0)},
+            1: {'faucet_vips': [self.faucet_vip(1)], 'faucet_mac': self.faucet_mac(1)}}
+        vlan_options[2] = {'reserved_internal_vlan': True}
+        vlan_options[3] = {'reserved_internal_vlan': True}
+        vlan_options[4] = {'reserved_internal_vlan': True}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            mininet_host_options=mininet_host_options,
+            vlan_options=vlan_options,
+            link_options=link_options,
+        )
+        self.start_net()
+
+    def create_dnsmasq_link(self, tunnel_id, host_id):
+        """Create the DNSMASQ interface link"""
+        host = self.net.get(self.topo.hosts_by_id[6])
+        tunnel_ip = tunnel_id - 1
+        iprange = '10.%u.0.%u,10.%u.0.%u' % (host_id+1, (tunnel_ip*10) + 1, host_id+1, (tunnel_ip+1)*10)
+        router = '10.%u.0.254' % (host_id+1)
+        vlan = host.vlans[host_id]
+        intf = host.vlan_intfs[(tunnel_id, host_id)][-1]
+        host.create_dnsmasq(self.tmpdir, iprange, router, vlan, intf)
+
+    def configure_coprocessor_network(self):
+        """Configure the dummy switch and host behind the coprocessor port (DHCP NFV)"""
+        switch = self.net.get(self.topo.switches_by_id[3])
+        # Change DHCP server reply packet to a `reverse` (indicated by the VLAN_PCP) tunnel packet,
+        #   and output to the Faucet network.
+        # Packets returned from the server do not have a PCP value set
+        for i in [300, 400, 500]:
+            switch.cmd(
+                ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=%s,'
+                 'actions=set_field:4-\\>vlan_pcp,output:%s') % (
+                    switch.name, self.host_port_maps[6][3][0], i, self.link_port_maps[(3, 0)][0]))
+        # Forward tunneled DHCP packets to the DNSMASQ server
+        for i in [300, 400, 500]:
+            switch.cmd(
+                ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=%s,'
+                 'vlan_pcp=3,actions=output:%s') % (
+                    switch.name, self.link_port_maps[(3, 0)][0], i, self.host_port_maps[6][3][0]))
+        # Drop all other (non-DHCP tunnelled) traffic
+        switch.cmd('ovs-ofctl add-flow %s priority=0,actions=drop' % (switch.name))
+        # Setup DHCP server
+        for i in [0, 1]:
+            # i: host VLANS
+            for j in [2, 3, 4]:
+                # j: DP Tunnel VLANS
+                self.create_dnsmasq_link(j, i)
+
+    def test_dhcp_ip_allocation(self):
+        """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
+        self.configure_coprocessor_network()
+        self.verify_stack_up()
+        for host_n in range(self.NUM_HOSTS - 1):
+            host = self.net.get(self.topo.hosts_by_id[host_n])
+            self.dhclient_callback(host, 10)
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.11')
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.11')
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.21')
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], '10.2.0.21')
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[4]).return_ip()[:-3], '10.1.0.31')
+        self.assertEqual(self.net.get(self.topo.hosts_by_id[5]).return_ip()[:-3], '10.2.0.31')
+        self.check_host_connectivity_by_id(0, 1)
+        self.check_host_connectivity_by_id(0, 2)
+        self.check_host_connectivity_by_id(0, 3)
+        self.check_host_connectivity_by_id(0, 4)
+        self.check_host_connectivity_by_id(0, 5)
