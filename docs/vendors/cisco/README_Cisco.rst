@@ -89,6 +89,19 @@ Configure Openflow
         Switch-C9300(config-if-range)#no keepalive
         Switch-C9300(config-if-range)#exit
 
+** Configure TCP window. **
+
+        Configure a larger than default TCP window, so that the switch can output OpenFlow messages to controllers more efficiently.
+
+        See https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/ipapp/configuration/xe-3s/iap-xe-3s-book/iap-tcp.html#GUID-69BF753F-A478-4B38-808F-D7830EB7B70F
+
+.. code-block::  console
+
+        Switch-C9300#configure terminal
+        Switch-C9300(config)#ip tcp window-size 65535
+        Switch-C9300(config)#exit
+        Switch-C9300#
+
 Faucet
 ^^^^^^
 
