@@ -264,6 +264,18 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         """
         raise NotImplementedError
 
+    def add_drop_spoofed_faucet_mac_rules(self, vlan):
+        """Install rules to drop spoofed faucet mac"""
+        # antispoof for FAUCET's MAC address
+        # TODO: antispoof for controller IPs on this VLAN, too.
+        ofmsgs = []
+        if self.drop_spoofed_faucet_mac:
+            for port in self.ports.values():
+                if not port.stack:
+                    ofmsgs.extend(self.pipeline.filter_packets(
+                        {'eth_src': vlan.faucet_mac, 'in_port': port.number}))
+        return ofmsgs
+
     def add_port(self, port):
         ofmsgs = super().add_port(port)
         # If this is a stacking port, accept all VLANs (came from another FAUCET)

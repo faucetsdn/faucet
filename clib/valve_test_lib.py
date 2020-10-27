@@ -826,6 +826,7 @@ class ValveTestBases:
                     if reload_ofmsgs is None:
                         reload_ofmsgs = self.connect_dp(dp_id)
                     else:
+                        self._verify_wildcard_deletes(reload_type, reload_ofmsgs)
                         self.apply_ofmsgs(reload_ofmsgs, dp_id)
                     all_ofmsgs[dp_id] = reload_ofmsgs
                     if (not reload_expected and no_reload_no_table_change and
@@ -835,6 +836,18 @@ class ValveTestBases:
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
             self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
             return all_ofmsgs
+
+        def _verify_wildcard_deletes(self, reload_type, reload_ofmsgs):
+            """Verify the only wildcard delete usage when warm starting, is for in_port."""
+            if reload_type != 'warm':
+                return
+            for ofmsg in reload_ofmsgs:
+                if not valve_of.is_flowdel(ofmsg):
+                    continue
+                if ofmsg.table_id != valve_of.ofp.OFPTT_ALL:
+                    continue
+                self.assertTrue(ofmsg.match, ofmsg)
+                self.assertIn('in_port', ofmsg.match, ofmsg)
 
         def update_and_revert_config(self, orig_config, new_config, reload_type,
                                      verify_func=None, before_table_states=None,

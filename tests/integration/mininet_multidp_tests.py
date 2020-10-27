@@ -388,7 +388,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
         interfaces_conf[fail_port]['lacp'] = 0
         interfaces_conf[fail_port]['lacp_active'] = False
         self.reload_conf(conf, self.faucet_config_path, restart=True,
-                         cold_start=False, change_expected=True)
+                         cold_start=False, change_expected=True, dpid=self.dpids[1])
 
         self.wait_for_lacp_port_init(src_port, self.dpids[0], self.topo.switches_by_id[0])
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], self.topo.switches_by_id[0])
@@ -418,7 +418,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
         interfaces_conf[fail_port]['lacp'] = 0
         interfaces_conf[fail_port]['lacp_active'] = False
         self.reload_conf(conf, self.faucet_config_path, restart=True,
-                         cold_start=False, change_expected=True)
+                         cold_start=False, change_expected=True, dpid=self.dpids[1])
 
         self.wait_for_lacp_port_init(src_port, self.dpids[0], self.topo.switches_by_id[0])
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], self.topo.switches_by_id[0])

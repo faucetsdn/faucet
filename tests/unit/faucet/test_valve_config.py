@@ -234,12 +234,8 @@ dps:
         self.setup_valves(self.CONFIG)[self.DP_ID]
 
     def test_port_mirror(self):
-        """Test addition of port mirroring does not cause a del VLAN."""
-        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='warm')[self.DP_ID]
-        for ofmsg in reload_ofmsgs:
-            if valve_of.is_flowdel(ofmsg):
-                if ofmsg.table_id == valve_of.ofp.OFPTT_ALL and ofmsg.match:
-                    self.assertNotIn('vlan_vid', ofmsg.match, ofmsg)
+        """Test addition of port mirroring is a warm start."""
+        self.update_config(self.MORE_CONFIG, reload_type='warm')[self.DP_ID]
 
 
 class ValveAddPortTestCase(ValveTestBases.ValveTestNetwork):
