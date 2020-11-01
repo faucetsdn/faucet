@@ -13,3 +13,4 @@ Vendor-specific Documentation
    cisco/README_Cisco.rst
    ovs/README_OVS-DPDK.rst
    ovs/faucet_testing_with_OVS_on_hardware.rst
+   openbsd/README_OpenBSD.rst
