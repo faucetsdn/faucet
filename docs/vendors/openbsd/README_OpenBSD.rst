@@ -9,6 +9,7 @@ switchofp through a /dev interface. switchd can also relay messages between the 
 and TCP, which makes Faucet support possible.
 
 There are some limitations (see below) and support has not yet been integrated mainline OpenBSD as of 6.8.
+The `diff from OpenBSD master <https://github.com/openbsd/src/compare/master...anarkiwi:faucet.diff>`_ is not complex.
 
 Installation
 ------------
