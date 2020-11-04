@@ -823,6 +823,9 @@ class ValveTestBases:
                     self.configure_network()
                 for dp_id in self.valves_manager.valves:
                     reload_ofmsgs = self.last_flows_to_dp.get(dp_id, [])
+                    # When cold starting, we must either request a disconnect from the switch or have flows to send.
+                    if dp_id == self.DP_ID and before_dp_status and reload_type == 'cold' and reload_expected:
+                        self.assertTrue(reload_ofmsgs is None or reload_ofmsgs, reload_ofmsgs)
                     if reload_ofmsgs is None:
                         reload_ofmsgs = self.connect_dp(dp_id)
                     else:
