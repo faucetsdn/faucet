@@ -93,11 +93,21 @@ is technically a fixed allocation for this DP Stack instance."""
 
         super(Stack, self).__init__(_id, dp_id, conf)
 
-    def clone_dyn_state(self, prev_stack):
-        """Copy dyn state into the new stack instance when warm/cold starting"""
+    def clone_dyn_state(self, prev_stack, dps=None):
+        """Copy dyn state from the old stack instance when warm/cold starting"""
         if prev_stack:
             self.dyn_healthy = prev_stack.dyn_healthy
             self.dyn_healthy_info = prev_stack.dyn_healthy_info
+            if dps:
+                stack_port_dps = [dp for dp in dps if dp.stack_ports()]
+                for dp in stack_port_dps:
+                    for port in dp.stack_ports():
+                        port_up = False
+                        if port.is_stack_up():
+                            port_up = True
+                        elif port.is_stack_init() and port.stack['port'].is_stack_up():
+                            port_up = True
+                        self.modify_link(dp, port, add=port_up)
 
     def live_timeout_healthy(self, last_live_time, now, update_time):
         """
@@ -216,9 +226,10 @@ is technically a fixed allocation for this DP Stack instance."""
         """Return stack names in priority order and the chosen root"""
         def health_priority(stack):
             # Invert the health priority info so it is sorted correctly
+            #   in relation to priority and the binary health
             invert_info = (1.0 - stack.dyn_healthy_info[1],
                            1.0 - stack.dyn_healthy_info[2])
-            return (not stack.dyn_healthy, *invert_info, stack.priority)
+            return (not stack.dyn_healthy, *invert_info, stack.priority, stack.dp_id)
         stack_priorities = sorted(stacks, key=health_priority)
         priority_names = tuple(stack.name for stack in stack_priorities)
         nominated_name = priority_names[0]

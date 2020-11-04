@@ -932,7 +932,6 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
     def test_redundancy(self):
         """Test redundant stack connections"""
         now = 1
-        import sys
         self.trigger_stack_ports()
         # All switches are down to start with.
         for dpid in self.valves_manager.valves:
@@ -965,10 +964,8 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
         now += (self.STACK_ROOT_STATE_UPDATE_TIME * 2)
         # No change because s2 still isn't healthy.
-        sys.stderr.write('\nFAIL HERE??\n')
         self.assertFalse(
             self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
-        sys.stderr.write('PASSED FAIL\n')
         # We expect s2 to be the new root because now it has stack links up.
         self.set_stack_all_ports_status('s2', STACK_STATE_UP)
         now += (self.STACK_ROOT_STATE_UPDATE_TIME * 2)
@@ -2755,10 +2752,13 @@ dps:
         """Setup network and start stack ports"""
         self.setup_valves(self.CONFIG)
 
-    def test_reload_topology_change(self):
-        """Test reload with topology change forces stack ports down"""
+    def test_reload_topology_change_warmstart(self):
+        """Test reload with topology change forces stack ports down, only warm starts"""
         self.update_and_revert_config(
             self.CONFIG, self.NEW_PORT_CONFIG, 'warm')
+
+    def test_reload_topology_change(self):
+        """Test reload with topology change forces stack ports down"""
         with open(self.config_file, 'w') as config_file:
             config_file.write(self.NEW_PORT_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)
@@ -2772,16 +2772,20 @@ dps:
                         port.number, changed_ports,
                         'Stack port not detected as changed on topology change')
 
-    def test_reload_vlan_change(self):
-        """Test reload with topology change stack ports stay up"""
+    def test_reload_vlan_change_warmstart(self):
+        """Test reload with topology change, only do a warm start"""
         self.update_and_revert_config(
             self.CONFIG, self.NEW_VLAN_CONFIG, 'warm')
+
+    def test_reload_vlan_change(self):
+        """Test reload with topology change, stack ports stay up"""
         with open(self.config_file, 'w') as config_file:
             config_file.write(self.NEW_VLAN_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)
         for new_dp in new_dps:
             valve = self.valves_manager.valves[new_dp.dp_id]
-            changed_ports = valve.dp.get_config_changes(valve.logger, new_dp)[1]
+            changed = valve.dp.get_config_changes(valve.logger, new_dp)
+            changed_ports = changed[1]
             for port in valve.dp.stack_ports():
                 self.assertNotIn(
                     port.number, changed_ports,
@@ -3403,11 +3407,11 @@ dps:
             self.assertEqual(valve.stack_manager.nominate_stack_root(
                 valves[1], self.other_valves(valves[1]), 111,
                 last_live_times, self.UPDATE_TIME), 'sw2')
-        # timeout sw2, default select sw1
+        # timeout sw2, should stay sw2 because there are no healthy switches
         for valve in valves.values():
             self.assertEqual(valve.stack_manager.nominate_stack_root(
                 valves[2], self.other_valves(valves[2]),
-                121, last_live_times, self.UPDATE_TIME), 'sw1')
+                121, last_live_times, self.UPDATE_TIME), 'sw2')
 
     def test_consistent_roots(self):
         """Test inconsistent root detection"""

@@ -225,11 +225,9 @@ This includes port nominations and flood directionality."""
         prev_health = self.stack.dyn_healthy_info
         new_health, reason = self.stack.update_health(
             now, last_live_times, update_time)
-        new_health = self.stack.dyn_healthy_info
-        if prev_health != new_health:
-            health = 'HEALTHY' if self.stack.dyn_healthy else 'UNHEALTHY'
+        if prev_health != self.stack.dyn_healthy_info:
+            health = 'HEALTHY' if new_health else 'UNHEALTHY'
             self.logger.info('Stack node %s %s (%s)' % (self.stack.name, health, reason))
-        new_health = self.stack.dyn_healthy
         return new_health
 
     def nominate_stack_root(self, root_valve, other_valves, now, last_live_times, update_time):
@@ -276,8 +274,14 @@ This includes port nominations and flood directionality."""
                 _, new_root_name = stacks[0].nominate_stack_root(stacks)
         else:
             # No healthy stack roots, so forced to choose a bad root
-            stacks = [valve.dp.stack for valve in unhealthy_valves]
-            _, new_root_name = stacks[0].nominate_stack_root(stacks)
+            new_root_name = None
+            if root_valve:
+                # Current root is unhealthy along with all other roots, so keep root the same
+                new_root_name = root_valve.dp.name
+            if root_valve not in unhealthy_valves:
+                # Pick the best unhealthy root
+                stacks = [valve.dp.stack for valve in unhealthy_valves]
+                _, new_root_name = stacks[0].nominate_stack_root(stacks)
 
         return new_root_name
 

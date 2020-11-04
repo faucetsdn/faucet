@@ -152,9 +152,10 @@ class FaucetTestBase(unittest.TestCase):
     cpn_intf = None
     cpn_ipv6 = False
     config_ports = {}
-    rand_dpids = set()
     event_sock = None
     event_log = None
+
+    rand_dpids = set()
 
     def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load,
                  port_order=None, start_port=None):
