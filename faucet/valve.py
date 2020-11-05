@@ -1390,9 +1390,8 @@ class Valve:
             self._inc_var('faucet_config_reload_%s' % restart_type)
             self.logger.info('%s starting' % restart_type)
             if restart_type == 'cold':
-                if self.dp.dyn_running:
-                    self.logger.info('forcing DP reconnection to ensure ports are synchronized')
-                    ofmsgs = None
+                self.logger.info('forcing DP reconnection to ensure ports are synchronized')
+                ofmsgs = None
             elif restart_type == 'warm':
                 # DP not currently up, so no messages to send.
                 if not self.dp.dyn_running:
