@@ -410,6 +410,7 @@ class ValveRouteManager(ValveManagerBase):
         raise NotImplementedError # pragma: no cover
 
     def add_vlan(self, vlan, cold_start):
+        """Add a VLAN."""
         ofmsgs = []
         # add controller IPs if configured.
         for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
@@ -421,6 +422,15 @@ class ValveRouteManager(ValveManagerBase):
             ofmsgs.extend(self._add_faucet_fib_to_vip(
                 vlan, priority, faucet_vip, faucet_vip_host))
         return ofmsgs
+
+    def del_vlan(self, vlan):
+        """Delete a VLAN."""
+        return [
+            self.vip_table.flowdel(
+                match=self.vip_table.match(vlan=vlan)),
+            self.fib_table.flowdel(
+                match=self.fib_table.match(vlan=vlan)),
+        ]
 
     def _add_resolved_route(self, vlan, ip_gw, ip_dst, eth_dst, is_updated):
         """Return flowmods for enabling routing of a resolved nexthop"""
