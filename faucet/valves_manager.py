@@ -266,7 +266,7 @@ class ValvesManager:
             if dp_id in self.valves:
                 self.logger.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
                 valve = self.valves[dp_id]
-                ofmsgs = valve.reload_config(now, new_dp)
+                ofmsgs = valve.reload_config(now, new_dp, list(self.valves.values()))
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
                 sent[dp_id] = valve.dp.dyn_running
             else:

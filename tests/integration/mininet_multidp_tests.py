@@ -2641,3 +2641,75 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         self.assertEqual(self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], '10.2.0.11')
         self.check_host_connectivity_by_id(0, 2)
         self.check_host_connectivity_by_id(1, 3)
+
+
+class FaucetBipartiteGraphPortDownTest(FaucetTopoTestBase):
+    """Test a specific topology correctly floods after 2 ports are taken down"""
+
+    NUM_DPS = 5
+    NUM_HOSTS = 15
+    NUM_VLANS = 2
+
+    N_TAGGED = 3
+    N_UNTAGGED = 12
+
+    DESCENDING_DPIDS = False
+
+    SOFTWARE_ONLY = True
+
+    def setUp(self):
+        """Ignore to allow for setting up network in each test"""
+
+    def set_up(self):
+        """Set up network"""
+        super().setUp()
+        network_graph = networkx.algorithms.bipartite.generators.complete_bipartite_graph(2, 3)
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options.setdefault(dp_i, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            if dp_i == 0 or dp_i == 1:
+                dp_options[dp_i]['stack'] = {'priority': 1}
+                dp_options[dp_i]['lacp_timeout'] = 5
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        # Host 0 is a tap
+        # Tier 1 switches contain egress LACP hosts
+        # Host devices on tier 2 switches
+        host_links = {
+            0: [0], 1: [0],
+            2: [1],
+            3: [2], 4: [2], 5: [2], 6: [2],
+            7: [3], 8: [3], 9: [3], 10: [3],
+            11: [4], 12: [4], 13: [4], 14: [4]}
+        host_vlans = {
+            0: [0, 1], 1: [0],
+            2: [0],
+            3: 0, 4: 0, 5: 0, 6: 0,
+            7: 0, 8: 0, 9: 0, 10: 0,
+            11: 0, 12: 0, 13: 0, 14: 0}
+        host_options = {1: {'lacp': 3}, 2: {'lacp': 3}}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            host_options=host_options
+        )
+        self.start_net()
+
+    def test_flooding_on_stack_port_downs(self):
+        """Take down 2 stack ports and test flood rules"""
+        self.set_up()
+        self.verify_stack_up()
+        sw1_stack_port = min(self.link_port_maps[(0, 2)])
+        sw2_stack_port = min(self.link_port_maps[(1, 3)])
+        self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], sw1_stack_port)
+        self.one_stack_port_down(self.dpids[1], self.topo.switches_by_id[1], sw2_stack_port)
+        self.check_host_connectivity_by_id(3, 7)
+        self.check_host_connectivity_by_id(3, 11)

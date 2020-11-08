@@ -39,6 +39,7 @@ class FaucetTopoTest(TestCase):
         expected_ports = [self.START_PORT + port for port in port_order]
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
+            2, False,
             host_links, host_vlans, switch_links, link_vlans,
             start_port=self.START_PORT, port_order=port_order,
             get_serialno=self.get_serialno)
@@ -60,6 +61,7 @@ class FaucetTopoTest(TestCase):
         expected_ports = [start_port + port for port in port_order]
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
+            2, False,
             host_links, host_vlans, switch_links, link_vlans,
             start_port=start_port, port_order=port_order,
             get_serialno=self.get_serialno)
@@ -80,6 +82,7 @@ class FaucetTopoTest(TestCase):
         hw_ports = {1: 'p1', 2: 'p2', 3: 'p3', 4: 'p4', 5: 'p5', 6: 'p6'}
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
+            2, False,
             host_links, host_vlans, switch_links, link_vlans,
             hw_dpid=hw_dpid, hw_ports=hw_ports,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
@@ -95,6 +98,7 @@ class FaucetTopoTest(TestCase):
         link_vlans = {}
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
+            2, False,
             host_links, host_vlans, switch_links, link_vlans,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)
@@ -113,6 +117,7 @@ class FaucetTopoTest(TestCase):
         link_vlans = {(0, 1): [0, 1]}
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
+            2, False,
             host_links, host_vlans, switch_links, link_vlans,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)
@@ -142,6 +147,7 @@ class FaucetTopoTest(TestCase):
         link_vlans = {}
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
+            2, False,
             host_links, host_vlans, switch_links, link_vlans,
             host_options=host_options,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
@@ -160,6 +166,7 @@ class FaucetTopoTest(TestCase):
         link_vlans = {edge: None for edge in switch_links}
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
+            2, False,
             host_links, host_vlans, switch_links, link_vlans,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)
@@ -176,6 +183,7 @@ class FaucetTopoTest(TestCase):
         link_vlans = {edge: None for edge in switch_links}
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
+            2, False,
             host_links, host_vlans, switch_links, link_vlans,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)

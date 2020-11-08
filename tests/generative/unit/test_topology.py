@@ -74,6 +74,7 @@ class ValveGenerativeBase(ValveTestBases.ValveTestNetwork):
         link_vlans = {link: None for link in switch_links}
         topo = FaucetFakeOFTopoGenerator(
             'ovstype', 'portsock', 'testname',
+            self.NUM_DPS, False,
             host_links, host_vlans, switch_links, link_vlans,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)

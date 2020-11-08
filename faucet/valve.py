@@ -186,10 +186,13 @@ class Valve:
             valve_util.close_logger(self.logger.logger)
         valve_util.close_logger(self.ofchannel_logger)
 
-    def dp_init(self, new_dp=None):
+    def dp_init(self, new_dp=None, valves=None):
         """Initialize datapath state at connection/re/config time."""
         if new_dp:
-            new_dp.clone_dyn_state(self.dp)
+            dps = None
+            if valves:
+                dps = [valve.dp for valve in valves]
+            new_dp.clone_dyn_state(self.dp, dps)
             self.dp = new_dp
 
         self.close_logs()
@@ -229,7 +232,6 @@ class Valve:
 
         self.stack_manager = None
         if self.dp.stack:
-            # TODO: Verify intention that this is reset on cold-start
             self.stack_manager = ValveStackManager(
                 self.logger, self.dp, self.dp.stack, self.dp.tunnel_acls, self.acl_manager)
 
@@ -275,6 +277,7 @@ class Valve:
                 self._lldp_manager, self._route_manager_by_ipv.get(4),
                 self._route_manager_by_ipv.get(6), self._coprocessor_manager,
                 self._output_only_manager) if manager is not None)
+
 
     def notify(self, event_dict):
         """Send an event notification."""
@@ -1263,7 +1266,7 @@ class Valve:
                 return True
         return False
 
-    def _apply_config_changes(self, new_dp, changes):
+    def _apply_config_changes(self, new_dp, changes, valves=None):
         """Apply any detected configuration changes.
 
         Args:
@@ -1280,6 +1283,7 @@ class Valve:
                 deleted_meters: (set): deleted meter numbers.
                 changed_meters: (set): changed meter numbers.
                 added_meters: (set): added meter numbers.
+            valves (list): List of other running valves
         Returns:
             tuple:
                 restart_type (string or None)
@@ -1294,12 +1298,12 @@ class Valve:
         # If pipeline or all ports changed, default to cold start.
         if self._pipeline_change():
             self.logger.info('pipeline change')
-            self.dp_init(new_dp)
+            self.dp_init(new_dp, valves)
             return restart_type, ofmsgs
 
         if all_ports_changed:
             self.logger.info('all ports changed')
-            self.dp_init(new_dp)
+            self.dp_init(new_dp, valves)
             return restart_type, ofmsgs
 
         restart_type = None
@@ -1312,6 +1316,7 @@ class Valve:
         if restart_type is None:
             self.dp_init(new_dp)
             return restart_type, ofmsgs
+
 
         if deleted_ports:
             ofmsgs.extend(self.ports_delete(deleted_ports))
@@ -1333,7 +1338,7 @@ class Valve:
             deleted_meter_ids = [self.dp.meters[meter_key].meter_id for meter_key in deleted_meters]
             ofmsgs.extend([valve_of.meterdel(deleted_meter_id) for deleted_meter_id in deleted_meter_ids])
 
-        self.dp_init(new_dp)
+        self.dp_init(new_dp, valves)
 
         if changed_meters:
             for changed_meter in changed_meters:
@@ -1364,10 +1369,9 @@ class Valve:
             ofmsgs.extend(self.add_vlans(changed_vlans, cold_start=True))
         if self.stack_manager:
             ofmsgs.extend(self.stack_manager.add_tunnel_acls())
-
         return restart_type, ofmsgs
 
-    def reload_config(self, _now, new_dp):
+    def reload_config(self, _now, new_dp, valves=None):
         """Reload configuration new_dp.
 
         Following config changes are currently supported:
@@ -1381,11 +1385,12 @@ class Valve:
         Args:
             now (float): current epoch time.
             new_dp (DP): new dataplane configuration.
+            valves (list): List of all valves
         Returns:
             ofmsgs (list): OpenFlow messages.
         """
         restart_type, ofmsgs = self._apply_config_changes(
-            new_dp, self.dp.get_config_changes(self.logger, new_dp))
+            new_dp, self.dp.get_config_changes(self.logger, new_dp), valves)
         if restart_type is not None:
             self._inc_var('faucet_config_reload_%s' % restart_type)
             self.logger.info('%s starting' % restart_type)

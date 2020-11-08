@@ -960,7 +960,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=1))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=2))
-        # s2 has come up, but has all stack ports down and but s1 is still down.
+        # s2 has come up, but has all stack ports down and s1 is still down.
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
         now += (self.STACK_ROOT_STATE_UPDATE_TIME * 2)
         # No change because s2 still isn't healthy.
@@ -2752,10 +2752,13 @@ dps:
         """Setup network and start stack ports"""
         self.setup_valves(self.CONFIG)
 
-    def test_reload_topology_change(self):
-        """Test reload with topology change forces stack ports down"""
+    def test_reload_topology_change_warmstart(self):
+        """Test reload with topology change forces stack ports down, only warm starts"""
         self.update_and_revert_config(
             self.CONFIG, self.NEW_PORT_CONFIG, 'warm')
+
+    def test_reload_topology_change(self):
+        """Test reload with topology change forces stack ports down"""
         with open(self.config_file, 'w') as config_file:
             config_file.write(self.NEW_PORT_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)
@@ -2769,16 +2772,20 @@ dps:
                         port.number, changed_ports,
                         'Stack port not detected as changed on topology change')
 
-    def test_reload_vlan_change(self):
-        """Test reload with topology change stack ports stay up"""
+    def test_reload_vlan_change_warmstart(self):
+        """Test reload with topology change, only do a warm start"""
         self.update_and_revert_config(
             self.CONFIG, self.NEW_VLAN_CONFIG, 'warm')
+
+    def test_reload_vlan_change(self):
+        """Test reload with topology change, stack ports stay up"""
         with open(self.config_file, 'w') as config_file:
             config_file.write(self.NEW_VLAN_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)
         for new_dp in new_dps:
             valve = self.valves_manager.valves[new_dp.dp_id]
-            changed_ports = valve.dp.get_config_changes(valve.logger, new_dp)[1]
+            changed = valve.dp.get_config_changes(valve.logger, new_dp)
+            changed_ports = changed[1]
             for port in valve.dp.stack_ports():
                 self.assertNotIn(
                     port.number, changed_ports,
@@ -2867,23 +2874,17 @@ dps:
                     port.stack_up()
         last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
         self.assertTrue(dps[0].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[0].lacp_down_ports(), dp.stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         self.assertFalse(dps[0].stack.update_health(
-            120, last_live_times, self.UPDATE_TIME,
-            dps[0].lacp_down_ports(), dp.stack.down_ports())[0])
+            120, last_live_times, self.UPDATE_TIME)[0])
         self.assertTrue(dps[1].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[1].lacp_down_ports(), dp.stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         self.assertFalse(dps[1].stack.update_health(
-            130, last_live_times, self.UPDATE_TIME,
-            dps[1].lacp_down_ports(), dp.stack.down_ports())[0])
+            130, last_live_times, self.UPDATE_TIME)[0])
         self.assertTrue(dps[2].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[2].lacp_down_ports(), dp.stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         self.assertFalse(dps[2].stack.update_health(
-            140, last_live_times, self.UPDATE_TIME,
-            dps[2].lacp_down_ports(), dp.stack.down_ports())[0])
+            140, last_live_times, self.UPDATE_TIME)[0])
 
     def test_lacp_down(self):
         """Test stack health on LACP ports being DOWN"""
@@ -2897,26 +2898,21 @@ dps:
                     port.stack_up()
         last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
         self.assertTrue(dps[0].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[0].lacp_down_ports(), dps[0].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         for port in dps[0].ports.values():
             if port.lacp:
                 port.actor_notconfigured()
         self.assertFalse(dps[0].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[0].lacp_down_ports(), dps[0].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         self.assertTrue(dps[1].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[1].lacp_down_ports(), dps[1].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         for port in dps[1].ports.values():
             if port.lacp:
                 port.actor_nosync()
         self.assertFalse(dps[1].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[1].lacp_down_ports(), dps[1].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         self.assertTrue(dps[2].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[2].lacp_down_ports(), dps[2].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
 
     def test_stack_port_down(self):
         """Test stack health on stack ports being DOWN"""
@@ -2930,32 +2926,390 @@ dps:
                     port.stack_up()
         last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
         self.assertTrue(dps[0].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[0].lacp_down_ports(), dps[0].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         for port in dps[0].ports.values():
             if port.stack:
                 port.stack_bad()
         self.assertFalse(dps[0].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[0].lacp_down_ports(), dps[0].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         self.assertTrue(dps[1].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[1].lacp_down_ports(), dps[1].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         for port in dps[1].ports.values():
             if port.stack:
                 port.stack_gone()
         self.assertFalse(dps[1].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[1].lacp_down_ports(), dps[1].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         self.assertTrue(dps[2].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[2].lacp_down_ports(), dps[2].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
         for port in dps[2].ports.values():
             if port.stack:
                 port.stack_admin_down()
         self.assertFalse(dps[2].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME,
-            dps[2].lacp_down_ports(), dps[2].stack.down_ports())[0])
+            110, last_live_times, self.UPDATE_TIME)[0])
+
+
+class ValveVariableRootHealthTest(ValveTestBases.ValveTestNetwork):
+    """Test stack root health metrics"""
+
+    UPDATE_TIME = 10
+
+    CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        hardware: 'GenericTFM'
+        dp_id: 1
+        stack: {priority: 1, down_time_multiple: 1, min_stack_health: 0.5, min_lacp_health: 0.1}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+            3:
+                stack: {dp: sw3, port: 2}
+            4:
+                native_vlan: vlan100
+                lacp: 1
+            5:
+                native_vlan: vlan100
+                lacp: 1
+            6:
+                stack: {dp: sw2, port: 3}
+            7:
+                stack: {dp: sw3, port: 3}
+    sw2:
+        hardware: 'GenericTFM'
+        dp_id: 2
+        stack: {priority: 2, down_time_multiple: 2, min_stack_health: 0.1, min_lacp_health: 0.5}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+            3:
+                stack: {dp: sw1, port: 6}
+            4:
+                native_vlan: vlan100
+                lacp: 1
+            5:
+                native_vlan: vlan100
+                lacp: 1
+            6:
+                native_vlan: vlan100
+                lacp: 2
+            7:
+                native_vlan: vlan100
+                lacp: 2
+    sw3:
+        hardware: 'GenericTFM'
+        dp_id: 3
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 3}
+            3:
+                stack: {dp: sw1, port: 7}
+"""
+
+    def setUp(self):
+        """Start network for test"""
+        self.setup_valves(self.CONFIG)
+
+    def other_valves(self, root_valve):
+        return [valve for valve in self.valves_manager.valves.values() if valve != root_valve]
+
+    def test_sw3_lacp(self):
+        """Test LACP health metrics with SW3"""
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
+        for dp in dps:
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        # SW3 has no LACP ports, so LACP health percentage should be 0.0,
+        #   but overall should be considered healthy
+        dps[2].stack.update_health(100, last_live_times, self.UPDATE_TIME)
+        self.assertEqual(dps[2].stack.dyn_healthy_info[2], 0.0)
+        self.assertTrue(dps[2].stack.dyn_healthy)
+
+    def test_sw1_lacp_down(self):
+        """Test LACP health metrics with SW1"""
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
+        for dp in dps:
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        # Take down some LACP ports, health percentage configured so
+        #   SW1 will still be healthy
+        for port in dps[0].ports.values():
+            if port.lacp:
+                port.actor_nosync()
+                port.deselect_port()
+                break
+        dps[0].stack.update_health(100, last_live_times, self.UPDATE_TIME)
+        self.assertEqual(dps[0].stack.dyn_healthy_info[2], 0.5)
+        self.assertTrue(dps[0].stack.dyn_healthy)
+        # Take down the remaining LACP ports, now unhealthy
+        for port in dps[0].ports.values():
+            if port.lacp:
+                port.actor_nosync()
+                port.deselect_port()
+        dps[0].stack.update_health(100, last_live_times, self.UPDATE_TIME)
+        self.assertEqual(dps[0].stack.dyn_healthy_info[2], 0.0)
+        self.assertFalse(dps[0].stack.dyn_healthy)
+
+    def test_sw2_lacp_down(self):
+        """Test LACP health metrics with SW2"""
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
+        for dp in dps:
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        # Take down some LACP ports, health percentage configured
+        #   so SW2 will still be healthy
+        for port_num in [4, 5]:
+            port = dps[1].ports[port_num]
+            if port.lacp:
+                port.actor_nosync()
+                port.deselect_port()
+        dps[1].stack.update_health(100, last_live_times, self.UPDATE_TIME)
+        self.assertEqual(dps[1].stack.dyn_healthy_info[2], 0.5)
+        self.assertTrue(dps[1].stack.dyn_healthy)
+        # Take down the remaining LACP ports
+        for port_num in [6]:
+            port = dps[1].ports[port_num]
+            if port.lacp:
+                port.actor_nosync()
+                port.deselect_port()
+        dps[1].stack.update_health(100, last_live_times, self.UPDATE_TIME)
+        self.assertEqual(dps[1].stack.dyn_healthy_info[2], 0.25)
+        self.assertFalse(dps[1].stack.dyn_healthy)
+
+    def test_sw1_stack_down(self):
+        """Test stack health metrics with SW1"""
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
+        for dp in dps:
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        # All switches running, stack and LACP UP
+        for port_num in [2, 3]:
+            port = dps[0].ports[port_num]
+            if port.stack:
+                port.stack_bad()
+        dps[0].stack.update_health(100, last_live_times, self.UPDATE_TIME)
+        self.assertEqual(dps[0].stack.dyn_healthy_info[1], 0.5)
+        self.assertTrue(dps[0].stack.dyn_healthy)
+        for port_num in [6]:
+            port = dps[0].ports[port_num]
+            if port.stack:
+                port.stack_bad()
+        dps[0].stack.update_health(100, last_live_times, self.UPDATE_TIME)
+        self.assertEqual(dps[0].stack.dyn_healthy_info[1], 0.25)
+        self.assertFalse(dps[0].stack.dyn_healthy)
+
+    def test_sw2_stack_down(self):
+        """Test stack health metrics with SW2"""
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
+        for dp in dps:
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        # All switches running, stack and LACP UP
+        for port_num in [2]:
+            port = dps[1].ports[port_num]
+            if port.stack:
+                port.stack_bad()
+        dps[1].stack.update_health(100, last_live_times, self.UPDATE_TIME)
+        self.assertEqual(dps[1].stack.dyn_healthy_info[1], 0.5)
+        self.assertTrue(dps[1].stack.dyn_healthy)
+        for port_num in [3]:
+            port = dps[1].ports[port_num]
+            if port.stack:
+                port.stack_bad()
+        dps[1].stack.update_health(100, last_live_times, self.UPDATE_TIME)
+        self.assertEqual(dps[1].stack.dyn_healthy_info[1], 0.0)
+        self.assertFalse(dps[1].stack.dyn_healthy)
+
+
+class ValveRootVariableNominationTest(ValveStackHealthTest):
+    """Test ValveStackManager root nomination calculations"""
+
+    UPDATE_TIME = 10
+
+    CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        hardware: 'GenericTFM'
+        dp_id: 1
+        stack: {priority: 1, down_time_multiple: 1, min_stack_health: 0.5, min_lacp_health: 0.1}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+            3:
+                stack: {dp: sw3, port: 2}
+            4:
+                native_vlan: vlan100
+                lacp: 1
+            5:
+                native_vlan: vlan100
+                lacp: 1
+            6:
+                stack: {dp: sw2, port: 3}
+            7:
+                stack: {dp: sw3, port: 3}
+    sw2:
+        hardware: 'GenericTFM'
+        dp_id: 2
+        stack: {priority: 2, down_time_multiple: 2, min_stack_health: 0.1, min_lacp_health: 0.5}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+            3:
+                stack: {dp: sw1, port: 6}
+            4:
+                native_vlan: vlan100
+                lacp: 1
+            5:
+                native_vlan: vlan100
+                lacp: 1
+            6:
+                native_vlan: vlan100
+                lacp: 2
+            7:
+                native_vlan: vlan100
+                lacp: 2
+    sw3:
+        hardware: 'GenericTFM'
+        dp_id: 3
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 3}
+            3:
+                stack: {dp: sw1, port: 7}
+"""
+
+    def setUp(self):
+        """Start network for test"""
+        self.setup_valves(self.CONFIG)
+
+    def other_valves(self, root_valve):
+        return [valve for valve in self.valves_manager.valves.values() if valve != root_valve]
+
+    def test_lacp_root_nomination(self):
+        """Test root selection health"""
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
+        for dp in dps:
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        valves = self.valves_manager.valves
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        # Start not root currently selected, all valves should select root sw1
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+        # Create some LACP ports DOWN, but maintain above the health threshold, Equal percentage
+        #   of LACP ports taken down so LACP stays the same
+        for port_num in [4]:
+            port = dps[0].ports[port_num]
+            port.actor_nosync()
+        for port_num in [4, 5]:
+            port = dps[1].ports[port_num]
+            port.actor_nosync()
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+        # Change it so SW2 has greater percentage of LACP ports UP, so should be elected
+        for port_num in [4]:
+            port = dps[1].ports[port_num]
+            port.actor_up()
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw2')
+        # Stats of Sw1 and Sw2 the same, should choose lower priority: SW1
+        for port_num in [4]:
+            port = dps[1].ports[port_num]
+            port.actor_nosync()
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+        # SW2 considered DOWN, so should only nominate SW1
+        for port_num in [4, 5]:
+            port = dps[1].ports[port_num]
+            port.actor_nosync()
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+
+    def test_stack_root_nomination(self):
+        """Test root selection health"""
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
+        for dp in dps:
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        valves = self.valves_manager.valves
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        # Start not root currently selected, all valves should select root sw1
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+        # Create some stack ports DOWN, but maintain above the health threshold, Equal percentage
+        #   of stack ports taken down so stack stays the same
+        for port_num in [2]:
+            port = dps[1].ports[port_num]
+            port.stack_bad()
+        for port_num in [2, 3]:
+            port = dps[0].ports[port_num]
+            port.stack_bad()
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+        # Change it so SW2 has greater percentage of stack ports UP, so should be elected
+        for port_num in [2]:
+            port = dps[1].ports[port_num]
+            port.stack_up()
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw2')
 
 
 class ValveRootNominationTest(ValveStackHealthTest):
@@ -3053,11 +3407,11 @@ dps:
             self.assertEqual(valve.stack_manager.nominate_stack_root(
                 valves[1], self.other_valves(valves[1]), 111,
                 last_live_times, self.UPDATE_TIME), 'sw2')
-        # timeout sw2, default select sw1
+        # timeout sw2, should stay sw2 because there are no healthy switches
         for valve in valves.values():
             self.assertEqual(valve.stack_manager.nominate_stack_root(
                 valves[2], self.other_valves(valves[2]),
-                121, last_live_times, self.UPDATE_TIME), 'sw1')
+                121, last_live_times, self.UPDATE_TIME), 'sw2')
 
     def test_consistent_roots(self):
         """Test inconsistent root detection"""

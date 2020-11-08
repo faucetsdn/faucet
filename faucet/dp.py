@@ -324,17 +324,17 @@ configuration.
         super().__init__(_id, dp_id, conf)
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
-    def clone_dyn_state(self, prev_dp):
+    def clone_dyn_state(self, prev_dp, dps=None):
         """Clone dynamic state for this dp"""
         self.dyn_running = prev_dp.dyn_running
         self.dyn_up_port_nos = set(prev_dp.dyn_up_port_nos)
         self.dyn_last_coldstart_time = prev_dp.dyn_last_coldstart_time
-        if self.stack:
-            self.stack.clone_dyn_state(prev_dp.stack)
         for number in self.ports:
             self.ports[number].clone_dyn_state(prev_dp.ports.get(number))
+        if self.stack:
+            self.stack.clone_dyn_state(prev_dp.stack, dps)
 
     def cold_start(self, now):
         """Update to reflect a cold start"""
@@ -378,7 +378,9 @@ configuration.
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
         self._check_conf_types(self.table_sizes, self.default_table_sizes_types)
-        self.stack = Stack('stack', self.dp_id, self.name, self.canonical_port_order, self.stack)
+        self.stack = Stack('stack', self.dp_id, self.name,
+                           self.canonical_port_order, self.lacp_down_ports, self.lacp_ports,
+                           self.stack)
 
     def _lldp_defaults(self):
         self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)

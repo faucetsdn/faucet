@@ -22,6 +22,8 @@ class FaucetTopoTestBase(FaucetTestBase):
     NUM_FAUCET_CONTROLLERS = 2
     NUM_GAUGE_CONTROLLERS = 1
 
+    DESCENDING_DPIDS = False
+
     NETPREFIX = 24
     IPV = 4
     GROUP_TABLE = False
@@ -142,6 +144,8 @@ class FaucetTopoTestBase(FaucetTestBase):
             self.OVS_TYPE,
             self.ports_sock,
             self._test_name(),
+            self.NUM_DPS,
+            self.DESCENDING_DPIDS,
             host_links=host_links,
             host_vlans=host_vlans,
             switch_links=switch_links,

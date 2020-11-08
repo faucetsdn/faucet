@@ -284,6 +284,16 @@ within the configuration block 'stack':
       - 3
       - The down_time_multiple value determines the number of root update time
         intervals for a stack node to be considered healthy when not running.
+    * - min_stack_health
+      - float
+      - 1.0
+      - Minimum percentage value of required UP stack ports for this stack node to
+        be considered healthy. The default value of 1.0 is considered 100%.
+    * - min_lacp_health
+      - float
+      - 1.0
+      - Minimum percentage value of required UP stack ports for this stack node to
+        be considered healthy. The default value of 1.0 is considered 100%.
 
 LLDP (DP)
 #########

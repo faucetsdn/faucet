@@ -104,13 +104,33 @@ class FaucetTopoGenerator(Topo):
         """Return host port maps and link port maps"""
         return self._create_port_map(), self._create_host_port_map(), self._create_link_port_map()
 
-    def dp_dpid(self, i):
-        """DP DPID"""
+    def rand_sequential_dpid(self, i):
+        """Returns a DPID that is sequential to the other DPIDs in the topology"""
+        # Some functions in the Faucet code relies on the DPID for determining the order
+        #   of an operation; E.g. stack root nominations. This could mean that by using randomized
+        #   DPIDs, the test could be flaky due to the random ordering of the DPIDs
         if i == 0 and self.hw_dpid:
+            # HW_DPID probably won't obey the starting DPID
             return self.hw_dpid
-        reserved_range = 100
+        if not self.dpids_by_id or (i == 1 and self.hw_dpid):
+            # Choose a random starting DPID if none exist
+            # If the hw_dpid exists, then switch0 will have it,
+            #   in this case it might ruin the sequential dpid choosing
+            #   so just randomly choose a DPID
+            reserved_range = 100
+            min_dpid = 2 + self.num_dps
+            max_dpid = 2**32 - reserved_range - self.num_dps - 1
+            while True:
+                dpid = random.randint(min_dpid, max_dpid) + reserved_range
+                if dpid not in self.dpids_by_id.values():
+                    return str(dpid)
+        # Get most recent DPID and increase by 1
+        prev_dpid = sorted(self.dpids_by_id.values(), reverse=self.descending_dpids)[-1]
         while True:
-            dpid = random.randint(1, (2**32 - reserved_range)) + reserved_range
+            if self.descending_dpids:
+                dpid = int(prev_dpid) - 1
+            else:
+                dpid = int(prev_dpid) + 1
             if dpid not in self.dpids_by_id.values():
                 return str(dpid)
 
@@ -236,7 +256,7 @@ class FaucetTopoGenerator(Topo):
                 self.hw_dpid, int(self.hw_dpid), dpid, int(dpid)))
             switch_cls = NoControllerFaucetSwitch
         else:
-            dpid = self.dp_dpid(switch_index)
+            dpid = self.rand_sequential_dpid(switch_index)
             self.dpids_by_id[switch_index] = dpid
         self.switches_by_id[switch_index] = switch_name
         return self.addSwitch(
@@ -315,7 +335,7 @@ class FaucetTopoGenerator(Topo):
                 switch_name = self.switches_by_id[dp_i]
                 self._add_link(switch_name, host_name, vlans)
 
-    def build(self, ovs_type, ports_sock, test_name,
+    def build(self, ovs_type, ports_sock, test_name, num_dps, descending_dpids,
               host_links, host_vlans, switch_links, link_vlans,
               hw_dpid=None, hw_ports=None,
               port_order=None, start_port=5,
@@ -343,6 +363,8 @@ class FaucetTopoGenerator(Topo):
         self.ports_sock = ports_sock  # pylint: disable=attribute-defined-outside-init
         self.test_name = test_name  # pylint: disable=attribute-defined-outside-init
         self.get_serialno = get_serialno
+        self.num_dps = num_dps
+        self.descending_dpids = descending_dpids
 
         # Information for hardware switches
         self.hw_dpid = hw_dpid
@@ -453,8 +475,8 @@ class FaucetTopoGenerator(Topo):
                 dps_config[dst_node].setdefault('dp_id', int(dst_dpid))
                 add_dp_config(dst_node, src_node, link_key, link_info, True)
         if dp_options:
-            for dp, options in dp_options.items():
-                switch_name = self.switches_by_id[dp]
+            for dp_i, options in dp_options.items():
+                switch_name = self.switches_by_id[dp_i]
                 dps_config.setdefault(switch_name, {})
                 for option_key, option_value in options.items():
                     dps_config[switch_name][option_key] = option_value

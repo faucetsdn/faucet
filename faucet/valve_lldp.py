@@ -125,10 +125,10 @@ class ValveLLDPManager(ValveManagerBase):
                 self.notify({'STACK_STATE': {
                     'port': port.number,
                     'state': after_state}})
-                stack_changes += 1
                 self.logger.info('Stack %s state %s (previous state %s): %s' % (
                     port, port.stack_state_name(after_state),
                     port.stack_state_name(before_state), reason))
+                stack_changes += 1
                 port_up = False
                 if port.is_stack_up():
                     port_up = True

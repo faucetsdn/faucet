@@ -222,22 +222,13 @@ This includes port nominations and flood directionality."""
         Returns:
             bool: True if current stack node is healthy
         """
-        prev_health = self.stack.dyn_healthy
+        prev_health = self.stack.dyn_healthy_info
         new_health, reason = self.stack.update_health(
-            now, last_live_times, update_time, self.dp.lacp_down_ports(),
-            self.stack.down_ports())
-        if prev_health != new_health:
+            now, last_live_times, update_time)
+        if prev_health != self.stack.dyn_healthy_info:
             health = 'HEALTHY' if new_health else 'UNHEALTHY'
             self.logger.info('Stack node %s %s (%s)' % (self.stack.name, health, reason))
         return new_health
-
-    def consistent_roots(self, expected_root_name, valve, other_valves):
-        """Returns true if all the stack nodes have the root configured correctly"""
-        stacked_valves = {valve}.union(self.stacked_valves(other_valves))
-        for stack_valve in stacked_valves:
-            if stack_valve.dp.stack.root_name != expected_root_name:
-                return False
-        return True
 
     def nominate_stack_root(self, root_valve, other_valves, now, last_live_times, update_time):
         """
@@ -283,10 +274,24 @@ This includes port nominations and flood directionality."""
                 _, new_root_name = stacks[0].nominate_stack_root(stacks)
         else:
             # No healthy stack roots, so forced to choose a bad root
-            stacks = [valve.dp.stack for valve in unhealthy_valves]
-            _, new_root_name = stacks[0].nominate_stack_root(stacks)
+            new_root_name = None
+            if root_valve:
+                # Current root is unhealthy along with all other roots, so keep root the same
+                new_root_name = root_valve.dp.name
+            if root_valve not in unhealthy_valves:
+                # Pick the best unhealthy root
+                stacks = [valve.dp.stack for valve in unhealthy_valves]
+                _, new_root_name = stacks[0].nominate_stack_root(stacks)
 
         return new_root_name
+
+    def consistent_roots(self, expected_root_name, valve, other_valves):
+        """Returns true if all the stack nodes have the root configured correctly"""
+        stacked_valves = {valve}.union(self.stacked_valves(other_valves))
+        for stack_valve in stacked_valves:
+            if stack_valve.dp.stack.root_name != expected_root_name:
+                return False
+        return True
 
     def stack_ports(self):
         """Yield the stack ports of this stack node"""
