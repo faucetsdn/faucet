@@ -549,3 +549,28 @@ class ValveAclManager(ValveManagerBase):
                 self.acl_priority, priority, self.meters,
                 acl.exact_match, in_port, None, acl.dyn_tunnel_rules, source_id, flowdel=True))
         return ofmsgs
+
+    def change_meters(self, changed_meters):
+        """Change existing meters with same name/ID."""
+        ofmsgs = []
+        if changed_meters:
+            for changed_meter in changed_meters:
+                ofmsgs.append(valve_of.meteradd(
+                    self.meters.get(changed_meter).entry, command=1))
+        return ofmsgs
+
+    def add_meters(self, added_meters):
+        """Add new meters."""
+        ofmsgs = []
+        if added_meters:
+            for added_meter in added_meters:
+                ofmsgs.append(valve_of.meteradd(
+                    self.meters.get(added_meter).entry, command=0))
+        return ofmsgs
+
+    def del_meters(self, deleted_meters):
+        ofmsgs = []
+        if deleted_meters:
+            deleted_meter_ids = [self.dp.meters[meter_key].meter_id for meter_key in deleted_meters]
+            ofmsgs.extend([valve_of.meterdel(deleted_meter_id) for deleted_meter_id in deleted_meter_ids])
+        return ofmsgs

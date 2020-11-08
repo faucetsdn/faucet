@@ -1335,20 +1335,14 @@ class Valve:
                     added_meters.add(meter_key)
             changed_meters -= added_meters
         if deleted_meters:
-            deleted_meter_ids = [self.dp.meters[meter_key].meter_id for meter_key in deleted_meters]
-            ofmsgs.extend([valve_of.meterdel(deleted_meter_id) for deleted_meter_id in deleted_meter_ids])
+            ofmsgs.extend(self.acl_manager.del_meters(deleted_meters))
 
         self.dp_init(new_dp, valves)
 
         if changed_meters:
-            for changed_meter in changed_meters:
-                ofmsgs.append(valve_of.meteradd(
-                    new_dp.meters.get(changed_meter).entry, command=1))
+            ofmsgs.extend(self.acl_manager.change_meters(changed_meters))
         if added_meters:
-            for added_meter in added_meters:
-                ofmsgs.append(valve_of.meteradd(
-                    self.dp.meters.get(added_meter).entry, command=0))
-
+            ofmsgs.extend(self.acl_manager.add_meters(added_meters))
         if added_ports:
             ofmsgs.extend(self.ports_add(added_ports))
         if changed_ports:

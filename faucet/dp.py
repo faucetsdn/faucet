@@ -822,6 +822,7 @@ configuration.
 
         dp_by_name = {}
         vlan_by_name = {}
+        acl_meters = set()
 
         def first_unused_vlan_id(vid):
             """Returns the first unused VID from the starting vid"""
@@ -1007,6 +1008,7 @@ configuration.
             for meter_name in acl.get_meters():
                 test_config_condition(meter_name not in self.meters, (
                     'meter %s is not configured' % meter_name))
+                acl_meters.add(meter_name)
             for port_no in acl.get_mirror_destinations():
                 port = self.ports[port_no]
                 port.output_only = True
@@ -1075,6 +1077,8 @@ configuration.
             if self.tunnel_acls:
                 for tunnel_acl in self.tunnel_acls:
                     tunnel_acl.verify_tunnel_rules()
+            for unused_meter in set(self.meters.keys()) - acl_meters:
+                del self.meters[unused_meter]
 
         def resolve_routers():
             """Resolve VLAN references in routers."""

@@ -182,6 +182,57 @@ dps:
         self.assertTrue(table.is_output(match, port=3))
 
 
+class ValveUnusedMeterTestCase(ValveTestBases.ValveTestNetwork):
+    """Test unused meters are not configured."""
+
+    CONFIG = """
+meters:
+    unusedmeter:
+        meter_id: 1
+        entry:
+            flags: "KBPS"
+            bands:
+                [
+                    {
+                        type: "DROP",
+                        rate: 1
+                    }
+                ]
+    usedmeter:
+        meter_id: 2
+        entry:
+            flags: "KBPS"
+            bands:
+                [
+                    {
+                        type: "DROP",
+                        rate: 2
+                    }
+                ]
+acls:
+    meteracl:
+        - rule:
+            actions:
+                meter: usedmeter
+                allow: 1
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acls_in: [meteracl]
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_usedmeter(self):
+        valve = self.valves_manager.valves[self.DP_ID]
+        self.assertEqual(['usedmeter'], list(valve.dp.meters.keys()))
+
+
 class ValveOFErrorTestCase(ValveTestBases.ValveTestNetwork):
     """Test decoding of OFErrors."""
 
