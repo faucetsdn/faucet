@@ -500,15 +500,15 @@ class ValveAclManager(ValveManagerBase):
                 valve_of.output_port(nfv_sw_port_num)]),),
         )
 
-    def del_mab_flow(self, port_num, nfv_sw_port_num, mac):
+    def del_mab_flow(self, port_num, _nfv_sw_port_num, _mac):
         """
         Remove MAB ACL for sending IP Activity to Chewie NFV
             Returns flowmods to send all IP traffic to Chewie
 
         Args:
             port_num (int): Number of port in
-            nfv_sw_port_num(int): Number of port out
-            mac(str): MAC address of the valve/port combo
+            _nfv_sw_port_num(int): Number of port out
+            _mac(str): MAC address of the valve/port combo
 
         """
         return [self.port_acl_table.flowdel(
@@ -571,6 +571,8 @@ class ValveAclManager(ValveManagerBase):
     def del_meters(self, deleted_meters):
         ofmsgs = []
         if deleted_meters:
-            deleted_meter_ids = [self.dp.meters[meter_key].meter_id for meter_key in deleted_meters]
-            ofmsgs.extend([valve_of.meterdel(deleted_meter_id) for deleted_meter_id in deleted_meter_ids])
+            deleted_meter_ids = [
+                self.meters[meter_key].meter_id for meter_key in deleted_meters]
+            ofmsgs.extend([
+                valve_of.meterdel(deleted_meter_id) for deleted_meter_id in deleted_meter_ids])
         return ofmsgs

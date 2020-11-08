@@ -1334,15 +1334,17 @@ class Valve:
                     deleted_meters.add(meter_key)
                     added_meters.add(meter_key)
             changed_meters -= added_meters
-        if deleted_meters:
-            ofmsgs.extend(self.acl_manager.del_meters(deleted_meters))
+        if self.acl_manager:
+            if deleted_meters:
+                ofmsgs.extend(self.acl_manager.del_meters(deleted_meters))
 
         self.dp_init(new_dp, valves)
 
-        if changed_meters:
-            ofmsgs.extend(self.acl_manager.change_meters(changed_meters))
-        if added_meters:
-            ofmsgs.extend(self.acl_manager.add_meters(added_meters))
+        if self.acl_manager:
+            if changed_meters:
+                ofmsgs.extend(self.acl_manager.change_meters(changed_meters))
+            if added_meters:
+                ofmsgs.extend(self.acl_manager.add_meters(added_meters))
         if added_ports:
             ofmsgs.extend(self.ports_add(added_ports))
         if changed_ports:

@@ -182,10 +182,6 @@ The output action contains a dictionary with the following elements:
     def build(self, meters, vid, port_num):
         """Check that ACL can be built from config."""
 
-        class NullRyuDatapath:
-            """Placeholder Ryu Datapath."""
-            ofproto = valve_of.ofp
-
         self.matches = {}
         self.set_fields = set()
         self.meter = False
@@ -201,10 +197,8 @@ The output action contains a dictionary with the following elements:
                 raise InvalidConfigError(err)
             test_config_condition(not ofmsgs, 'OF messages is empty')
             for ofmsg in ofmsgs:
-                ofmsg.datapath = NullRyuDatapath()
-                ofmsg.set_xid(0)
                 try:
-                    ofmsg.serialize()
+                    valve_of.verify_flowmod(ofmsg)
                 except (KeyError, ValueError) as err:
                     raise InvalidConfigError(err)
                 except Exception as err:

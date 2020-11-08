@@ -774,6 +774,20 @@ def flowmod(cookie, command, table_id, priority, out_port, out_group,
         flags=flags)
 
 
+class NullRyuDatapath:
+    """Placeholder Ryu Datapath."""
+    ofproto = ofp
+
+
+@functools.lru_cache()
+def verify_flowmod(flowmod):
+    """Verify flowmod can be serialized."""
+    flowmod.datapath = NullRyuDatapath()
+    # Must be non-zero.
+    flowmod.set_xid(1)
+    flowmod.serialize()
+
+
 def group_act(group_id):
     """Return an action to run a group."""
     return parser.OFPActionGroup(group_id)
