@@ -425,12 +425,11 @@ class ValveRouteManager(ValveManagerBase):
 
     def del_vlan(self, vlan):
         """Delete a VLAN."""
-        return [
-            self.vip_table.flowdel(
-                match=self.vip_table.match(vlan=vlan)),
-            self.fib_table.flowdel(
-                match=self.fib_table.match(vlan=vlan)),
-        ]
+        ofmsgs = []
+        if vlan.faucet_vips_by_ipv:
+            ofmsgs.append(self.fib_table.flowdel(
+                match=self.fib_table.match(vlan=vlan)))
+        return ofmsgs
 
     def _add_resolved_route(self, vlan, ip_gw, ip_dst, eth_dst, is_updated):
         """Return flowmods for enabling routing of a resolved nexthop"""
