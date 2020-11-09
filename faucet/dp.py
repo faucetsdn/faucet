@@ -277,6 +277,7 @@ configuration.
         self.max_hosts_per_resolve_cycle = None
         self.max_resolve_backoff_time = None
         self.meters = None
+        self.all_meters = None
         self.metrics_rate_limit_sec = None
         self.name = None
         self.ofchannel_log = None
@@ -315,6 +316,7 @@ configuration.
         self.lacp_active_ports = []
         self.tables = {}
         self.meters = {}
+        self.all_meters = {}
         self.lldp_beacon = {}
         self.table_sizes = {}
         self.dyn_up_port_nos = set()
@@ -1077,6 +1079,7 @@ configuration.
             if self.tunnel_acls:
                 for tunnel_acl in self.tunnel_acls:
                     tunnel_acl.verify_tunnel_rules()
+            self.all_meters = copy.copy(self.meters)
             for unused_meter in set(self.meters.keys()) - acl_meters:
                 del self.meters[unused_meter]
 

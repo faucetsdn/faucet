@@ -327,7 +327,7 @@ class Valve:
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = [valve_table.wildcard_table.flowdel()]
-        if self.dp.meters or self.dp.packetin_pps or self.dp.slowpath_pps:
+        if self.dp.all_meters or self.dp.packetin_pps or self.dp.slowpath_pps:
             ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
             ofmsgs.append(self.dp.groups.delete_all())
@@ -1316,7 +1316,6 @@ class Valve:
         if restart_type is None:
             self.dp_init(new_dp)
             return restart_type, ofmsgs
-
 
         if deleted_ports:
             ofmsgs.extend(self.ports_delete(deleted_ports))
