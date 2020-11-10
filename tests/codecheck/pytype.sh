@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+if [[ "$(which pytype)" == "" ]] ; then
+  echo pytype not installed - skipping
+  exit
+fi
+
 SCRIPTPATH=$(readlink -f "$0")
 TESTDIR=$(dirname "${SCRIPTPATH}")
 BASEDIR=$(readlink -f "${TESTDIR}/../..")
