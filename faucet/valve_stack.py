@@ -275,13 +275,8 @@ This includes port nominations and flood directionality."""
         else:
             # No healthy stack roots, so forced to choose a bad root
             new_root_name = None
-            if root_valve:
-                # Current root is unhealthy along with all other roots, so keep root the same
-                new_root_name = root_valve.dp.name
-            if root_valve not in unhealthy_valves:
-                # Pick the best unhealthy root
-                stacks = [valve.dp.stack for valve in unhealthy_valves]
-                _, new_root_name = stacks[0].nominate_stack_root(stacks)
+            stacks = [valve.dp.stack for valve in unhealthy_valves]
+            _, new_root_name = stacks[0].nominate_stack_root(stacks)
 
         return new_root_name
 
