@@ -3407,11 +3407,11 @@ dps:
             self.assertEqual(valve.stack_manager.nominate_stack_root(
                 valves[1], self.other_valves(valves[1]), 111,
                 last_live_times, self.UPDATE_TIME), 'sw2')
-        # timeout sw2, should stay sw2 because there are no healthy switches
+        # timeout sw2, should pick sw1 because there are no healthy switches and owing to naming scheme, sw1 is picked
         for valve in valves.values():
             self.assertEqual(valve.stack_manager.nominate_stack_root(
                 valves[2], self.other_valves(valves[2]),
-                121, last_live_times, self.UPDATE_TIME), 'sw2')
+                121, last_live_times, self.UPDATE_TIME), 'sw1')
 
     def test_consistent_roots(self):
         """Test inconsistent root detection"""
