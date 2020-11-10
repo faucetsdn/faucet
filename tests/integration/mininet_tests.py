@@ -1730,7 +1730,6 @@ class FaucetUntaggedMeterAddTest(FaucetUntaggedMeterParseTest):
     def test_untagged(self):
         super(FaucetUntaggedMeterAddTest, self).test_untagged()
         conf = self._get_faucet_conf()
-        del conf['acls']
         conf['meters']['lossymeter2'] = {
             'meter_id': 2,
             'entry': {
@@ -1738,25 +1737,28 @@ class FaucetUntaggedMeterAddTest(FaucetUntaggedMeterParseTest):
                 'bands': [{'rate': '1000', 'type': 'DROP'}]
             },
         }
+        conf['acls']['lossyacl2'] = [{
+            'rule': {
+                'actions': {
+                    'allow': 1,
+                    'meter': 'lossymeter2'
+                }
+            }
+        }]
+        port_conf = conf['dps'][self.DP_NAME]['interfaces'][self.port_map['port_2']]
+        port_conf['acls_in'] = ['lossyacl2']
         self.reload_conf(
             conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=True, hup=True)
+            restart=True, cold_start=True, change_expected=True, hup=True)
         self.wait_until_matching_lines_from_file(
             r'.+\'meter_id\'\: 2+',
             self.get_matching_meters_on_dpid(self.dpid))
-
-
-class FaucetUntaggedMeterDeleteTest(FaucetUntaggedMeterParseTest):
-
-    def test_untagged(self):
-        super(FaucetUntaggedMeterDeleteTest, self).test_untagged()
-        conf = self._get_faucet_conf()
-        del conf['meters']['lossymeter']
+        port_conf['acls_in'] = []
         self.reload_conf(
             conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=True)
+            restart=True, cold_start=True, change_expected=True)
         self.wait_until_no_matching_lines_from_file(
-            r'.+meter_id+',
+            r'.+\'meter_id\'\: 2+',
             self.get_matching_meters_on_dpid(self.dpid))
 
 
@@ -1765,14 +1767,14 @@ class FaucetUntaggedMeterModTest(FaucetUntaggedMeterParseTest):
     def test_untagged(self):
         super(FaucetUntaggedMeterModTest, self).test_untagged()
         conf = self._get_faucet_conf()
-        del conf['acls']
-        conf['meters']['lossymeter'] = {
-            'meter_id': 1,
-            'entry': {
-                'flags': ['PKTPS'],
-                'bands': [{'rate': '1000', 'type': 'DROP'}]
-            },
-        }
+        conf['dps'][self.DP_NAME]['interfaces'][self.port_map['port_1']]['acls_in'] = ['lossyacl']
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=True, change_expected=True, hup=True)
+        self.wait_until_matching_lines_from_file(
+            r'.+KBPS+',
+            self.get_matching_meters_on_dpid(self.dpid))
+        conf['meters']['lossymeter']['entry']['flags'] = ['PKTPS']
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True, hup=True)

@@ -327,7 +327,7 @@ class Valve:
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = [valve_table.wildcard_table.flowdel()]
-        if self.dp.meters or self.dp.packetin_pps or self.dp.slowpath_pps:
+        if self.dp.all_meters or self.dp.packetin_pps or self.dp.slowpath_pps:
             ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
             ofmsgs.append(self.dp.groups.delete_all())
@@ -1317,7 +1317,6 @@ class Valve:
             self.dp_init(new_dp)
             return restart_type, ofmsgs
 
-
         if deleted_ports:
             ofmsgs.extend(self.ports_delete(deleted_ports))
         if deleted_vids:
@@ -1334,21 +1333,17 @@ class Valve:
                     deleted_meters.add(meter_key)
                     added_meters.add(meter_key)
             changed_meters -= added_meters
-        if deleted_meters:
-            deleted_meter_ids = [self.dp.meters[meter_key].meter_id for meter_key in deleted_meters]
-            ofmsgs.extend([valve_of.meterdel(deleted_meter_id) for deleted_meter_id in deleted_meter_ids])
+        if self.acl_manager:
+            if deleted_meters:
+                ofmsgs.extend(self.acl_manager.del_meters(deleted_meters))
 
         self.dp_init(new_dp, valves)
 
-        if changed_meters:
-            for changed_meter in changed_meters:
-                ofmsgs.append(valve_of.meteradd(
-                    new_dp.meters.get(changed_meter).entry, command=1))
-        if added_meters:
-            for added_meter in added_meters:
-                ofmsgs.append(valve_of.meteradd(
-                    self.dp.meters.get(added_meter).entry, command=0))
-
+        if self.acl_manager:
+            if changed_meters:
+                ofmsgs.extend(self.acl_manager.change_meters(changed_meters))
+            if added_meters:
+                ofmsgs.extend(self.acl_manager.add_meters(added_meters))
         if added_ports:
             ofmsgs.extend(self.ports_add(added_ports))
         if changed_ports:
