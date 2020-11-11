@@ -101,12 +101,17 @@ FAUCET_TESTS="${PARAMS#"${PARAMS%%[![:space:]]*}"}"
 cd /faucet-src
 
 if [ "$SKIP_PIP" == 0 ] ; then
+    pip_deps_args=()
   if [ -d /var/tmp/pip-cache ] ; then
-    echo Using pip cache
+    echo "Using pip cache"
+    pip_deps_args+=("--pip-args=--cache-dir=/var/tmp/pip-cache")
   fi
-  ./docker/pip_deps.sh --pip-args="--cache-dir=/var/tmp/pip-cache"
+  if [ "$DEPCHECK" == 1 ] ; then
+    pip_deps_args+=("--extra-requirements=codecheck-requirements.txt")
+  fi
+  ./docker/pip_deps.sh "${pip_deps_args[@]}"
 else
-  echo "Skipping Pip Install Script"
+  echo "Skipping pip install script"
 fi
 
 echo "========== checking IPv4/v6 localhost is up ====="
@@ -149,7 +154,6 @@ elif [ "$GEN_UNIT" == 1 ] ; then
   ./test_topology.py
   cd /faucet-src/tests
 fi
-
 
 if [ "$DEPCHECK" == 1 ] ; then
   echo "========== Building documentation =========="
