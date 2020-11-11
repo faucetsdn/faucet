@@ -150,8 +150,9 @@ elif [ "$GEN_UNIT" == 1 ] ; then
   cd /faucet-src/tests
 fi
 
-
 if [ "$DEPCHECK" == 1 ] ; then
+  ./docker/pip_deps.sh --pip-args="--cache-dir=/var/tmp/pip-cache" --extra-requirements="codecheck-requirements.txt"
+
   echo "========== Building documentation =========="
   cd /faucet-src/docs
   time make html
