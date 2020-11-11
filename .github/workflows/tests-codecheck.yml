@@ -54,7 +54,7 @@ jobs:
           python-version: ${{ env.CODECHECK_PY_VER }}
       - name: Install dependencies
         run: |
-          ./docker/pip_deps.sh
+          ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt"
       - if: ${{ env.FILES_CHANGED == 'all' || env.DOC_FILES_CHANGED }}
         name: Build docs
         run: |

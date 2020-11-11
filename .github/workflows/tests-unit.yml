@@ -65,9 +65,10 @@ jobs:
       - if: ${{ matrix.python-version == env.CODECHECK_PY_VER }}
         name: Upload codecov
         uses: codecov/codecov-action@v1
-      - if: ${{ env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED }}
+      - if: ${{ matrix.python-version != 3.5 && (env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED) }}
         name: Pytype
         run: |
+          ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt"
           cd ./tests/codecheck
           if [[ "${{ env.FILES_CHANGED }}" == "all" || ! -z "${{ env.RQ_FILES_CHANGED }}" ]]; then
             echo "Running pytype on everything"
