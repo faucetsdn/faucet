@@ -3409,7 +3409,7 @@ dps:
             self.assertEqual(valve.stack_manager.nominate_stack_root(
                 valves[2], self.other_valves(valves[2]),
                 121, last_live_times, self.UPDATE_TIME), None)
-        # timeout SW1, despite being unhealthy, all valves should select sw2
+        # timeout sw1, despite being unhealthy, all valves should select sw2
         for port in valves[2].dp.ports.values():
             if port.stack:
                 port.stack_bad()
