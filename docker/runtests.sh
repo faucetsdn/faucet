@@ -104,7 +104,7 @@ if [ "$SKIP_PIP" == 0 ] ; then
   if [ -d /var/tmp/pip-cache ] ; then
     echo Using pip cache
   fi
-  ./docker/pip_deps.sh "--cache-dir=/var/tmp/pip-cache"
+  ./docker/pip_deps.sh --pip-args="--cache-dir=/var/tmp/pip-cache"
 else
   echo "Skipping Pip Install Script"
 fi
