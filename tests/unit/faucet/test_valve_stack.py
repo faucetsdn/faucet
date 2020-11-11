@@ -963,9 +963,6 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         # s2 has come up, but has all stack ports down and s1 is still down.
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
         now += (self.STACK_ROOT_STATE_UPDATE_TIME * 2)
-        # No change because s2 still isn't healthy.
-        self.assertFalse(
-            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
         # We expect s2 to be the new root because now it has stack links up.
         self.set_stack_all_ports_status('s2', STACK_STATE_UP)
         now += (self.STACK_ROOT_STATE_UPDATE_TIME * 2)
@@ -3407,11 +3404,19 @@ dps:
             self.assertEqual(valve.stack_manager.nominate_stack_root(
                 valves[1], self.other_valves(valves[1]), 111,
                 last_live_times, self.UPDATE_TIME), 'sw2')
-        # timeout sw2, should stay sw2 because there are no healthy switches
+        # timeout sw2, should return None because there are no healthy switches
         for valve in valves.values():
             self.assertEqual(valve.stack_manager.nominate_stack_root(
                 valves[2], self.other_valves(valves[2]),
-                121, last_live_times, self.UPDATE_TIME), 'sw2')
+                121, last_live_times, self.UPDATE_TIME), None)
+        # timeout SW1, despite being unhealthy, all valves should select sw2
+        for port in valves[2].dp.ports.values():
+            if port.stack:
+                port.stack_bad()
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                valves[1], self.other_valves(valves[1]), 111,
+                last_live_times, self.UPDATE_TIME), 'sw2')
 
     def test_consistent_roots(self):
         """Test inconsistent root detection"""

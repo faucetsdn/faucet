@@ -255,7 +255,7 @@ This includes port nominations and flood directionality."""
                 healthy = valve.stack_manager.update_health(now, last_live_times, update_time)
                 if healthy:
                     healthy_valves.append(valve)
-                else:
+                elif valve.dp.stack.dyn_healthy_info[0]:
                     unhealthy_valves.append(valve)
 
         if not healthy_valves and not unhealthy_valves:
