@@ -685,6 +685,10 @@ configuration.
         """Return ports that have LACP not UP"""
         return tuple([port for port in self.lacp_ports() if not port.is_actor_up()])
 
+    def lacp_nosync_ports(self):
+        """Return ports that have LACP status NO SYNC."""
+        return tuple([port for port in self.lacp_ports() if port.is_actor_nosync()])
+
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
         lags = defaultdict(list)
@@ -696,6 +700,13 @@ configuration.
         """Return dict of LAGs mapped to member ports that have LACP up."""
         lags = defaultdict(list)
         for port in self.lacp_up_ports():
+            lags[port.lacp].append(port)
+        return lags
+
+    def lags_nosync(self):
+        """Return dict of LAGs mapped to member ports that have LACP in NO SYNC."""
+        lags = defaultdict(list)
+        for port in self.lacp_nosync_ports():
             lags[port.lacp].append(port)
         return lags
 
