@@ -24,7 +24,6 @@ from faucet import valve_of
 from faucet import valve_packet
 from faucet.valve_manager_base import ValveManagerBase
 from faucet.vlan import NullVLAN
-from faucet import valve_table
 
 
 class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-methods
@@ -375,6 +374,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         return None
 
     def lacp_advertise(self, port):
+        """Return flows to send LACP if active."""
         ofmsgs = []
         if port.running() and port.lacp_active:
             ofmsgs.extend(self.lacp_req_reply(port.dyn_last_lacp_pkt, port))
@@ -420,8 +420,6 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 # per OF 1.3.5 B.6.23, the OFA will match flows
                 # that have an action targeting this port.
                 ofmsgs.append(table.flowdel(out_port=port.number))
-        for vlan in port.vlans():
-            vlan.clear_cache_hosts_on_port(port)
         native_vlan = self._native_vlan(port)
         if native_vlan is not None:
             ofmsgs.append(self.vlan_table.flowdel(
@@ -643,19 +641,20 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             same_lag = (port.lacp and port.lacp == cache_port.lacp)
             guard_time = self.cache_update_guard_time
             if cache_port == port or same_lag:
+                port_cache_valid = (
+                    port.dyn_update_time is not None and port.dyn_update_time <= entry.cache_time)
                 # aggressively re-learn on LAGs
                 if same_lag:
                     guard_time = 2
                 # port didn't change status, and recent cache update, don't do anything.
-                if (cache_age < guard_time and
-                        port.dyn_update_time is not None and
-                        port.dyn_update_time <= entry.cache_time):
+                if cache_age < guard_time and port_cache_valid:
                     update_cache = False
                     learn_exit = True
                 # skip delete if host didn't change ports or on same LAG.
                 elif cache_port == port or same_lag:
                     delete_existing = False
-                    refresh_rules = True
+                    if port_cache_valid:
+                        refresh_rules = True
         return (learn_exit, ofmsgs, cache_port, update_cache, delete_existing, refresh_rules)
 
     def _loop_protect_check(self, entry, vlan, now, eth_src, port, ofmsgs,  # pylint: disable=unused-argument

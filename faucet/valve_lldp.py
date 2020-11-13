@@ -40,17 +40,28 @@ class ValveLLDPManager(ValveManagerBase):
         self._set_port_var = set_port_var
         self.stack_manager = stack_manager
 
+    def _lldp_match(self, port):
+        return self.vlan_table.match(
+            in_port=port.number,
+            eth_dst=valve_packet.LLDP_MAC_NEAREST_BRIDGE,
+            eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK,
+            eth_type=valve_of.ether.ETH_TYPE_LLDP)
+
     def add_port(self, port):
         ofmsgs = []
         if port.receive_lldp:
             ofmsgs.append(self.vlan_table.flowcontroller(
-                match=self.vlan_table.match(
-                    in_port=port.number,
-                    eth_dst=valve_packet.LLDP_MAC_NEAREST_BRIDGE,
-                    eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK,
-                    eth_type=valve_of.ether.ETH_TYPE_LLDP),
+                match=self._lldp_match(port),
                 priority=self.highest_priority,
                 max_len=128))
+        return ofmsgs
+
+    def del_port(self, port):
+        ofmsgs = []
+        if port.receive_lldp:
+            ofmsgs.append(self.vlan_table.flowdel(
+                match=self._lldp_match(port),
+                priority=self.highest_priority))
         return ofmsgs
 
     def _verify_lldp(self, port, now, valve, other_valves,

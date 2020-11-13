@@ -780,12 +780,12 @@ class NullRyuDatapath:
 
 
 @functools.lru_cache()
-def verify_flowmod(flowmod):
+def verify_flowmod(flowmod_msg):
     """Verify flowmod can be serialized."""
-    flowmod.datapath = NullRyuDatapath()
+    flowmod_msg.datapath = NullRyuDatapath()
     # Must be non-zero.
-    flowmod.set_xid(1)
-    flowmod.serialize()
+    flowmod_msg.set_xid(1)
+    flowmod_msg.serialize()
 
 
 def group_act(group_id):
@@ -964,6 +964,7 @@ _MSG_KINDS = {
 }
 
 
+@functools.lru_cache()
 def _msg_kind(ofmsg):
     ofmsg_type = type(ofmsg)
     ofmsg_kind = _MSG_KINDS_TYPES.get(ofmsg_type, None)
@@ -989,6 +990,14 @@ def _flowmodkey(ofmsg):
     return (ofmsg.match, ofmsg.cookie, ofmsg.priority, ofmsg.table_id)
 
 
+def sort_flows(input_ofmsgs):
+    """Sort flows in canonical order, descending table and priority."""
+    return sorted(
+        input_ofmsgs,
+        key=lambda ofmsg: (
+            getattr(ofmsg, 'table_id', ofp.OFPTT_ALL), getattr(ofmsg, 'priority', 2**16+1)), reverse=True)
+
+
 def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
@@ -998,11 +1007,7 @@ def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):
         ofmsgs = list(deduped_input_ofmsgs.values())
         random.shuffle(ofmsgs)
         return ofmsgs
-    # If priority present, send highest table ID/priority first.
-    return sorted(
-        deduped_input_ofmsgs.values(),
-        key=lambda ofmsg: (
-            getattr(ofmsg, 'table_id', ofp.OFPTT_ALL), getattr(ofmsg, 'priority', 2**16+1)), reverse=True)
+    return sort_flows(deduped_input_ofmsgs.values())
 
 
 def dedupe_overlaps_ofmsgs(input_ofmsgs, random_order, flowkey):
