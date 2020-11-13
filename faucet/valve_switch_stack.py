@@ -318,7 +318,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         stacked_other_valves = self.stack_manager.stacked_valves(other_valves)
         all_stacked_valves = {valve}.union(stacked_other_valves)
         ports = {}
-        no_sync_ports= {}
+        no_sync_ports = {}
         root_dpid = None
         for stack_valve in all_stacked_valves:
             all_lags = stack_valve.dp.lags_up()
@@ -333,7 +333,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         # Order by number of ports
         port_order = sorted(ports,
                             key=lambda port: (ports.get(port, 0), no_sync_ports.get(port, 0)),
-                                 reverse=True)
+                            reverse=True)
         if not port_order:
             return None, ''
         most_ports_dpid = port_order[0]
