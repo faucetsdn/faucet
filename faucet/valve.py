@@ -695,9 +695,6 @@ class Valve:
             if self._dot1x_manager:
                 ofmsgs.extend(self._dot1x_manager.add_port(port))
 
-            if port.output_only:
-                continue
-
             if port.lacp:
                 ofmsgs.extend(self.lacp_update(port, False, cold_start=cold_start))
 
@@ -744,9 +741,6 @@ class Valve:
             # now is set to a time value only when ports_delete is called to flush
             if now:
                 self._set_port_status(port_num, False, now)
-
-            if port.output_only:
-                continue
 
             if self._dot1x_manager:
                 ofmsgs.extend(self._dot1x_manager.del_port(port))
@@ -809,6 +803,7 @@ class Valve:
                 ofmsgs.extend(self.switch_manager.disable_forwarding(port))
                 if not cold_start:
                     ofmsgs.extend(self.switch_manager.del_port(port))
+                    ofmsgs.extend(self.switch_manager.add_port(port))
                     ofmsgs.extend(self.add_vlans(port.vlans()))
         return ofmsgs
 

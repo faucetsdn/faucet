@@ -297,6 +297,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         if port.stack:
             for vlan in self.vlans.values():
                 vlan.clear_cache_hosts_on_port(port)
+            ofmsgs.extend(self._del_host_flows(port))
         return ofmsgs
 
     def get_lacp_dpid_nomination(self, lacp_id, valve, other_valves):

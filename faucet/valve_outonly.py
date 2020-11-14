@@ -34,3 +34,11 @@ class OutputOnlyManager(ValveManagerBase):
                 match=self.vlan_table.match(in_port=port.number),
                 priority=self.highest_priority))
         return ofmsgs
+
+    def del_port(self, port):
+        ofmsgs = []
+        if port.output_only:
+            ofmsgs.append(self.vlan_table.flowdel(
+                match=self.vlan_table.match(in_port=port.number),
+                priority=self.highest_priority))
+        return ofmsgs

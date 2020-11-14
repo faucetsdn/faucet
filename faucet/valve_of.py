@@ -990,12 +990,20 @@ def _flowmodkey(ofmsg):
     return (ofmsg.match, ofmsg.cookie, ofmsg.priority, ofmsg.table_id)
 
 
+def _none_flowmodkey(ofmsg):
+    try:
+        return _flowmodkey(ofmsg)
+    except AttributeError:
+        return None
+
+
 def sort_flows(input_ofmsgs):
     """Sort flows in canonical order, descending table and priority."""
     return sorted(
         input_ofmsgs,
         key=lambda ofmsg: (
-            getattr(ofmsg, 'table_id', ofp.OFPTT_ALL), getattr(ofmsg, 'priority', 2**16+1)), reverse=True)
+            getattr(ofmsg, 'table_id', ofp.OFPTT_ALL),
+            getattr(ofmsg, 'priority', 2**16+1)), reverse=True)
 
 
 def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):
@@ -1041,6 +1049,16 @@ def dedupe_overlaps_ofmsgs(input_ofmsgs, random_order, flowkey):
     return deduped_ofmsgs
 
 
+def remove_overlap_ofmsgs(input_ofmsgs, overlap_input_ofmsgs):
+    overlap_keys = {_none_flowmodkey(ofmsg) for ofmsg in overlap_input_ofmsgs} - {None}
+    input_ofmsgs_without_overlaps = []
+    for ofmsg in input_ofmsgs:
+        key = _none_flowmodkey(ofmsg)
+        if key is not None and key in overlap_keys:
+            continue
+        input_ofmsgs_without_overlaps.append(ofmsg)
+    return input_ofmsgs_without_overlaps
+
 
 # kind, random_order, suggest_barrier, flowkey
 _OFMSG_ORDER = (
@@ -1069,11 +1087,22 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     delete_global_ofmsgs = by_kind.get('deleteglobal', [])
     if delete_global_ofmsgs:
         global_types = {type(ofmsg) for ofmsg in delete_global_ofmsgs}
-        new_delete = [ofmsg for ofmsg in by_kind.get('delete', []) if type(ofmsg) not in global_types]
+        new_delete = [
+            ofmsg for ofmsg in by_kind.get('delete', []) if type(ofmsg) not in global_types]
         by_kind['delete'] = new_delete
 
-    for kind, random_order, suggest_barrier, flowkey, dedupe_func in _OFMSG_ORDER:
+    for kind, random_order, _suggest_barrier, flowkey, dedupe_func in _OFMSG_ORDER:
         ofmsgs = dedupe_func(by_kind.get(kind, []), random_order, flowkey)
+        if ofmsgs:
+            by_kind[kind] = ofmsgs
+
+    deletes = by_kind.get('delete', None)
+    addmod = by_kind.get('flowaddmod', None)
+    if deletes and addmod:
+        by_kind['delete'] = remove_overlap_ofmsgs(deletes, addmod)
+
+    for kind, _random_order, suggest_barrier, _flowkey, dedupe_func in _OFMSG_ORDER:
+        ofmsgs = by_kind.get(kind, [])
         if ofmsgs:
             output_ofmsgs.extend(ofmsgs)
             if use_barriers and suggest_barrier:
@@ -1096,7 +1125,8 @@ def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
             if exclude_ports and port in exclude_ports:
                 continue
             flood_acts.append(output_port(port.number))
-            # Only mirror if different mirror actions to in_port (already will be mirrored on input).
+            # Only mirror if different mirror actions to in_port
+            # (already will be mirrored on input).
             mirror_actions = port.mirror_actions()
             mirror_output_ports = ports_from_output_port_acts(mirror_actions)
             if in_port is None or in_port_mirror_output_ports != mirror_output_ports:
