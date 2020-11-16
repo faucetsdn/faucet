@@ -76,9 +76,7 @@ for opt in ${FAUCET_TESTS_SHORTENED}; do
             ;;
           u)
             # skip unit tests
-            UNITTESTS=1
-            DEPCHECK=0
-            INTEGRATIONTESTS=0
+            UNITTESTS=0
             ;;
           z)
             # Skip pip installer
