@@ -30,6 +30,8 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 from faucet import valve_of
 from faucet import valve_packet
 
+import yaml
+
 from clib.valve_test_lib import (
     CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
     ValveTestBases)
@@ -785,6 +787,11 @@ routers:
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
+
+    def test_unmirror(self):
+        config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+        del config['dps']['s1']['interfaces']['p5']['mirror']
+        self.update_config(yaml.dump(config), reload_type='warm')
 
 
 if __name__ == "__main__":

@@ -648,10 +648,6 @@ configuration.
             table for table in self.tables.values()
             if table.match_types is None or match_type in table.match_types]
 
-    def in_port_tables(self):
-        """Return list of tables that specify in_port as a match."""
-        return self.match_tables('in_port')
-
     def non_vlan_ports(self):
         """Ports that don't have VLANs on them."""
         ports = set()

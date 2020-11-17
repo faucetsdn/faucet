@@ -297,6 +297,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         if port.stack:
             for vlan in self.vlans.values():
                 vlan.clear_cache_hosts_on_port(port)
+            ofmsgs.extend(self._del_host_flows(port))
         return ofmsgs
 
     def get_lacp_dpid_nomination(self, lacp_id, valve, other_valves):
@@ -519,20 +520,21 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
             local_stack_learn = port.stack and not cache_port.stack
             guard_time = self.cache_update_guard_time
             if cache_port == port or same_lag or local_stack_learn:
+                port_cache_valid = (
+                    port.dyn_update_time is not None and port.dyn_update_time <= entry.cache_time)
                 # aggressively re-learn on LAGs, and prefer recently learned
                 # locally learned hosts on a stack.
                 if same_lag or local_stack_learn:
                     guard_time = 2
                 # port didn't change status, and recent cache update, don't do anything.
-                if (cache_age < guard_time and
-                        port.dyn_update_time is not None and
-                        port.dyn_update_time <= entry.cache_time):
+                if cache_age < guard_time and port_cache_valid:
                     update_cache = False
                     learn_exit = True
                 # skip delete if host didn't change ports or on same LAG.
                 elif cache_port == port or same_lag:
                     delete_existing = False
-                    refresh_rules = True
+                    if port_cache_valid:
+                        refresh_rules = True
         return (learn_exit, ofmsgs, cache_port, update_cache, delete_existing, refresh_rules)
 
     def _flood_actions(self, in_port, external_ports,  # pylint: disable=too-many-arguments

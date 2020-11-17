@@ -333,17 +333,6 @@ class Valve:
             ofmsgs.append(self.dp.groups.delete_all())
         return ofmsgs
 
-    def _delete_all_port_match_flows(self, port):
-        """Delete all flows that match an input port from all FAUCET tables."""
-        tables = [valve_table.wildcard_table]
-        if self.dp.dp_acls:
-            # DP ACL flows live forever.
-            port_acl_table = self.dp.tables['port_acl']
-            tables = set(self.dp.in_port_tables()) - set([port_acl_table])
-        return [
-            table.flowdel(match=table.match(in_port=port.number))
-            for table in tables]
-
     @staticmethod
     def _pipeline_flows():
         return []
@@ -662,23 +651,18 @@ class Valve:
         self._reset_dp_status()
         self.ports_delete(self.dp.ports.keys(), now=now)
 
-    def _port_delete_manager_state(self, port):
-        ofmsgs = []
-        for manager in self._managers:
-            ofmsgs.extend(manager.del_port(port))
-        return ofmsgs
-
     def _port_delete_flows_state(self, port, keep_cache=False):
         """Delete flows/state for a port."""
         ofmsgs = []
         for route_manager in self._route_manager_by_ipv.values():
             ofmsgs.extend(route_manager.expire_port_nexthops(port))
-        ofmsgs.extend(self._delete_all_port_match_flows(port))
+        for manager in self._managers:
+            ofmsgs.extend(manager.del_port(port))
         if not keep_cache:
             for vlan in port.vlans():
                 for entry in port.hosts([vlan]):
                     self._update_expired_host(entry, vlan)
-            ofmsgs.extend(self._port_delete_manager_state(port))
+                vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
 
     def ports_add(self, port_nums, cold_start=False, log_msg='up'):
@@ -710,9 +694,6 @@ class Valve:
 
             if self._dot1x_manager:
                 ofmsgs.extend(self._dot1x_manager.add_port(port))
-
-            if port.output_only:
-                continue
 
             if port.lacp:
                 ofmsgs.extend(self.lacp_update(port, False, cold_start=cold_start))
@@ -760,9 +741,6 @@ class Valve:
             # now is set to a time value only when ports_delete is called to flush
             if now:
                 self._set_port_status(port_num, False, now)
-
-            if port.output_only:
-                continue
 
             if self._dot1x_manager:
                 ofmsgs.extend(self._dot1x_manager.del_port(port))
@@ -825,6 +803,7 @@ class Valve:
                 ofmsgs.extend(self.switch_manager.disable_forwarding(port))
                 if not cold_start:
                     ofmsgs.extend(self.switch_manager.del_port(port))
+                    ofmsgs.extend(self.switch_manager.add_port(port))
                     ofmsgs.extend(self.add_vlans(port.vlans()))
         return ofmsgs
 
@@ -1319,6 +1298,8 @@ class Valve:
 
         if deleted_ports:
             ofmsgs.extend(self.ports_delete(deleted_ports))
+        if changed_ports:
+            ofmsgs.extend(self.ports_delete(changed_ports))
         if deleted_vids:
             deleted_vlans = [self.dp.vlans[vid] for vid in deleted_vids]
             ofmsgs.extend(self.del_vlans(deleted_vlans))
@@ -1347,7 +1328,6 @@ class Valve:
         if added_ports:
             ofmsgs.extend(self.ports_add(added_ports))
         if changed_ports:
-            ofmsgs.extend(self.ports_delete(changed_ports))
             all_up_port_nos = [
                 port for port in changed_ports
                 if port in self.dp.dyn_up_port_nos]

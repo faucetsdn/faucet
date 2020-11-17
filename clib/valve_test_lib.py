@@ -20,6 +20,7 @@
 from collections import namedtuple
 from functools import partial
 import cProfile
+import copy
 import difflib
 import io
 import ipaddress
@@ -847,10 +848,7 @@ class ValveTestBases:
             for ofmsg in reload_ofmsgs:
                 if not valve_of.is_flowdel(ofmsg):
                     continue
-                if ofmsg.table_id != valve_of.ofp.OFPTT_ALL:
-                    continue
-                self.assertTrue(ofmsg.match, ofmsg)
-                self.assertIn('in_port', ofmsg.match, ofmsg)
+                self.assertNotEqual(ofmsg.table_id, valve_of.ofp.OFPTT_ALL, ofmsg)
 
         def update_and_revert_config(self, orig_config, new_config, reload_type,
                                      verify_func=None, before_table_states=None,
@@ -2087,14 +2085,15 @@ class ValveTestBases:
             valve = self.valves_manager.valves[self.DP_ID]
 
             match = {'in_port': 1, 'vlan_vid': 0}
-            self.apply_ofmsgs(
-                valve.port_delete(port_num=1))
+            orig_config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+            deletedport1_config = copy.copy(orig_config)
+            del deletedport1_config['dps'][self.DP_NAME]['interfaces']['p1']
+            self.update_config(yaml.dump(deletedport1_config))
             self.assertFalse(
                 self.network.tables[self.DP_ID].is_output(match, port=2, vid=self.V100),
                 msg='Packet output after port delete')
 
-            self.apply_ofmsgs(
-                valve.port_add(port_num=1))
+            self.update_config(self.CONFIG)
             self.assertTrue(
                 self.network.tables[self.DP_ID].is_output(match, port=2, vid=self.V100),
                 msg='Packet not output after port add')
