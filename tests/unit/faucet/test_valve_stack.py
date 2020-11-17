@@ -213,6 +213,32 @@ dps:
         self.assertEqual(
             nominated_dpid, 0x2,
             'Expected nominated DPID %s but found %s' % (0x2, nominated_dpid))
+        # Set all links to no_sync
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.lacp:
+                    lacp_ports.setdefault(valve.dp.dp_id, [])
+                    lacp_ports[valve.dp.dp_id].append(port)
+                    port.actor_nosync()
+        valve = self.valves_manager.valves[0x1]
+        other_valves = self.get_other_valves(valve)
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
+        self.assertEqual(
+            nominated_dpid, 0x1,
+            'Expected nominated DPID %s but found %s' % (0x1, nominated_dpid))
+        # Set one link to up
+        lacp_ports[0x1][0].actor_up()
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
+        self.assertEqual(
+            nominated_dpid, 0x1,
+            'Expected nominated DPID %s but found %s' % (0x1, nominated_dpid))
+        # Set DP 1 links to init
+        lacp_ports[0x1][0].actor_init()
+        lacp_ports[0x1][1].actor_init()
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
+        self.assertEqual(
+            nominated_dpid, 0x2,
+            'Expected nominated DPID %s but found %s' % (0x2, nominated_dpid))
 
     def test_no_dpid_nominations(self):
         """Test dpid nomination doesn't nominate when no LACP ports are up"""
