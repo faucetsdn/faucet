@@ -271,7 +271,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 command, cold_start))
         return ofmsgs
 
-    def _build_group_flood_rules(self, vlan, modify, command):
+    def _build_group_flood_rules(self, vlan, command):
         """Build flooding rules for a VLAN using groups."""
         _, vlan_flood_acts = self._build_flood_rule_for_vlan(
             vlan, None, None, None, False, command)
@@ -295,10 +295,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             groups_by_unicast_eth[True] = group
 
         for group in groups_by_unicast_eth.values():
-            if modify:
-                ofmsgs.append(group.modify())
-            else:
-                ofmsgs.extend(group.add())
+            ofmsgs.extend(group.add())
 
         for unicast_eth_dst, eth_type, eth_dst, eth_dst_mask in self.flood_dsts:
             if unicast_eth_dst and not vlan.unicast_flood:
@@ -447,7 +444,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             command = valve_of.ofp.OFPFC_MODIFY_STRICT
         ofmsgs = self._build_multiout_flood_rules(vlan, command, cold_start)
         if self.use_group_table:
-            ofmsgs.extend(self._build_group_flood_rules(vlan, modify, command))
+            ofmsgs.extend(self._build_group_flood_rules(vlan, command))
         return ofmsgs
 
     @staticmethod

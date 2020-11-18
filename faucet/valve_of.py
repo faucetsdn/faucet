@@ -50,10 +50,10 @@ EXTERNAL_FORWARDING_FIELD = 'vlan_pcp'
 
 
 OFERROR_TYPE_CODE = {
-    0: ('OFPET_HELLO_FAILED', {
+    ofp.OFPET_HELLO_FAILED: ('OFPET_HELLO_FAILED', {
         ofp.OFPHFC_INCOMPATIBLE: 'OFPHFC_INCOMPATIBLE',
         ofp.OFPHFC_EPERM: 'OFPHFC_EPERM'}),
-    1: ('OFPET_BAD_REQUEST', {
+    ofp.OFPET_BAD_REQUEST: ('OFPET_BAD_REQUEST', {
         ofp.OFPBRC_BAD_VERSION: 'OFPBRC_BAD_VERSION',
         ofp.OFPBRC_BAD_TYPE: 'OFPBRC_BAD_TYPE',
         ofp.OFPBRC_BAD_MULTIPART: 'OFPBRC_BAD_MULTIPART',
@@ -68,7 +68,7 @@ OFERROR_TYPE_CODE = {
         ofp.OFPBRC_BAD_PORT: 'OFPBRC_BAD_PORT',
         ofp.OFPBRC_BAD_PACKET: 'OFPBRC_BAD_PACKET',
         ofp.OFPBRC_MULTIPART_BUFFER_OVERFLOW: 'OFPBRC_MULTIPART_BUFFER_OVERFLOW'}),
-    2: ('OFPET_BAD_ACTION', {
+    ofp.OFPET_BAD_ACTION: ('OFPET_BAD_ACTION', {
         ofp.OFPBAC_BAD_TYPE: 'OFPBAC_BAD_TYPE',
         ofp.OFPBAC_BAD_LEN: 'OFPBAC_BAD_LEN',
         ofp.OFPBAC_BAD_EXPERIMENTER: 'OFPBAC_BAD_EXPERIMENTER',
@@ -85,7 +85,7 @@ OFERROR_TYPE_CODE = {
         ofp.OFPBAC_BAD_SET_TYPE: 'OFPBAC_BAD_SET_TYPE',
         ofp.OFPBAC_BAD_SET_LEN: 'OFPBAC_BAD_SET_LEN',
         ofp.OFPBAC_BAD_SET_ARGUMENT: 'OFPBAC_BAD_SET_ARGUMENT'}),
-    3: ('OFPET_BAD_INSTRUCTION', {
+    ofp.OFPET_BAD_INSTRUCTION: ('OFPET_BAD_INSTRUCTION', {
         ofp.OFPBIC_UNKNOWN_INST: 'OFPBIC_UNKNOWN_INST',
         ofp.OFPBIC_UNSUP_INST: 'OFPBIC_UNSUP_INST',
         ofp.OFPBIC_BAD_TABLE_ID: 'OFPBIC_BAD_TABLE_ID',
@@ -95,7 +95,7 @@ OFERROR_TYPE_CODE = {
         ofp.OFPBIC_BAD_EXP_TYPE: 'OFPBIC_BAD_EXP_TYPE',
         ofp.OFPBIC_BAD_LEN: 'OFPBIC_BAD_LEN',
         ofp.OFPBIC_EPERM: 'OFPBIC_EPERM'}),
-    4: ('OFPET_BAD_MATCH', {
+    ofp.OFPET_BAD_MATCH: ('OFPET_BAD_MATCH', {
         ofp.OFPBMC_BAD_TYPE: 'OFPBMC_BAD_TYPE',
         ofp.OFPBMC_BAD_LEN: 'OFPBMC_BAD_LEN',
         ofp.OFPBMC_BAD_TAG: 'OFPBMC_BAD_TAG',
@@ -108,7 +108,7 @@ OFERROR_TYPE_CODE = {
         ofp.OFPBMC_BAD_PREREQ: 'OFPBMC_BAD_PREREQ',
         ofp.OFPBMC_DUP_FIELD: 'OFPBMC_DUP_FIELD',
         ofp.OFPBMC_EPERM: 'OFPBMC_EPERM'}),
-    5: ('OFPET_FLOW_MOD_FAILED', {
+    ofp.OFPET_FLOW_MOD_FAILED: ('OFPET_FLOW_MOD_FAILED', {
         ofp.OFPFMFC_UNKNOWN: 'OFPFMFC_UNKNOWN',
         ofp.OFPFMFC_TABLE_FULL: 'OFPFMFC_TABLE_FULL',
         ofp.OFPFMFC_BAD_TABLE_ID: 'OFPFMFC_BAD_TABLE_ID',
@@ -117,7 +117,7 @@ OFERROR_TYPE_CODE = {
         ofp.OFPFMFC_BAD_TIMEOUT: 'OFPFMFC_BAD_TIMEOUT',
         ofp.OFPFMFC_BAD_COMMAND: 'OFPFMFC_BAD_COMMAND',
         ofp.OFPFMFC_BAD_FLAGS: 'OFPFMFC_BAD_FLAGS'}),
-    6: ('OFPET_GROUP_MOD_FAILED', {
+    ofp.OFPET_GROUP_MOD_FAILED: ('OFPET_GROUP_MOD_FAILED', {
         ofp.OFPGMFC_GROUP_EXISTS: 'OFPGMFC_GROUP_EXISTS',
         ofp.OFPGMFC_INVALID_GROUP: 'OFPGMFC_INVALID_GROUP',
         ofp.OFPGMFC_WEIGHT_UNSUPPORTED: 'OFPGMFC_WEIGHT_UNSUPPORTED',
@@ -133,29 +133,29 @@ OFERROR_TYPE_CODE = {
         ofp.OFPGMFC_BAD_BUCKET: 'OFPGMFC_BAD_BUCKET',
         ofp.OFPGMFC_BAD_WATCH: 'OFPGMFC_BAD_WATCH',
         ofp.OFPGMFC_EPERM: 'OFPGMFC_EPERM'}),
-    7: ('OFPET_PORT_MOD_FAILED', {
+    ofp.OFPET_PORT_MOD_FAILED: ('OFPET_PORT_MOD_FAILED', {
         ofp.OFPPMFC_BAD_PORT: 'OFPPMFC_BAD_PORT',
         ofp.OFPPMFC_BAD_HW_ADDR: 'OFPPMFC_BAD_HW_ADDR',
         ofp.OFPPMFC_BAD_CONFIG: 'OFPPMFC_BAD_CONFIG',
         ofp.OFPPMFC_BAD_ADVERTISE: 'OFPPMFC_BAD_ADVERTISE',
         ofp.OFPPMFC_EPERM: 'OFPPMFC_EPERM'}),
-    8: ('OFPET_TABLE_MOD_FAILED', {
+    ofp.OFPET_TABLE_MOD_FAILED: ('OFPET_TABLE_MOD_FAILED', {
         ofp.OFPTMFC_BAD_TABLE: 'OFPTMFC_BAD_TABLE',
         ofp.OFPTMFC_BAD_CONFIG: 'OFPTMFC_BAD_CONFIG',
         ofp.OFPTMFC_EPERM: 'OFPTMFC_EPERM'}),
-    9: ('OFPET_QUEUE_OP_FAILED', {
+    ofp.OFPET_QUEUE_OP_FAILED: ('OFPET_QUEUE_OP_FAILED', {
         ofp.OFPQOFC_BAD_PORT: 'OFPQOFC_BAD_PORT',
         ofp.OFPQOFC_BAD_QUEUE: 'OFPQOFC_BAD_QUEUE',
         ofp.OFPQOFC_EPERM: 'OFPQOFC_EPERM'}),
-    10: ('OFPET_SWITCH_CONFIG_FAILED', {
+    ofp.OFPET_SWITCH_CONFIG_FAILED: ('OFPET_SWITCH_CONFIG_FAILED', {
         ofp.OFPSCFC_BAD_FLAGS: 'OFPSCFC_BAD_FLAGS',
         ofp.OFPSCFC_BAD_LEN: 'OFPSCFC_BAD_LEN',
         ofp.OFPSCFC_EPERM: 'OFPSCFC_EPERM'}),
-    11: ('OFPET_ROLE_REQUEST_FAILED', {
+    ofp.OFPET_ROLE_REQUEST_FAILED: ('OFPET_ROLE_REQUEST_FAILED', {
         ofp.OFPRRFC_STALE: 'OFPRRFC_STALE',
         ofp.OFPRRFC_UNSUP: 'OFPRRFC_UNSUP',
         ofp.OFPRRFC_BAD_ROLE: 'OFPRRFC_BAD_ROLE'}),
-    12: ('OFPET_METER_MOD_FAILED', {
+    ofp.OFPET_METER_MOD_FAILED: ('OFPET_METER_MOD_FAILED', {
         ofp.OFPMMFC_UNKNOWN: 'OFPMMFC_UNKNOWN',
         ofp.OFPMMFC_METER_EXISTS: 'OFPMMFC_METER_EXISTS',
         ofp.OFPMMFC_INVALID_METER: 'OFPMMFC_INVALID_METER',
@@ -168,14 +168,14 @@ OFERROR_TYPE_CODE = {
         ofp.OFPMMFC_BAD_BAND_VALUE: 'OFPMMFC_BAD_BAND_VALUE',
         ofp.OFPMMFC_OUT_OF_METERS: 'OFPMMFC_OUT_OF_METERS',
         ofp.OFPMMFC_OUT_OF_BANDS: 'OFPMMFC_OUT_OF_BANDS'}),
-    13: ('OFPET_TABLE_FEATURES_FAILED', {
+    ofp.OFPET_TABLE_FEATURES_FAILED: ('OFPET_TABLE_FEATURES_FAILED', {
         ofp.OFPTFFC_BAD_TABLE: 'OFPTFFC_BAD_TABLE',
         ofp.OFPTFFC_BAD_METADATA: 'OFPTFFC_BAD_METADATA',
         ofp.OFPTFFC_BAD_TYPE: 'OFPTFFC_BAD_TYPE',
         ofp.OFPTFFC_BAD_LEN: 'OFPTFFC_BAD_LEN',
         ofp.OFPTFFC_BAD_ARGUMENT: 'OFPTFFC_BAD_ARGUMENT',
         ofp.OFPTFFC_EPERM: 'OFPTFFC_EPERM'}),
-    65535: ('OFPET_EXPERIMENTER', {}),
+    ofp.OFPET_EXPERIMENTER: ('OFPET_EXPERIMENTER', {}),
 }
 
 
@@ -815,36 +815,6 @@ def build_group_flood_buckets(vlan_flood_acts):
     return buckets
 
 
-def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
-    """Modify a group."""
-    return parser.OFPGroupMod(
-        datapath,
-        ofp.OFPGC_MODIFY,
-        type_,
-        group_id,
-        buckets)
-
-
-def groupmod_ff(datapath=None, group_id=0, buckets=None):
-    """Modify a fast failover group."""
-    return groupmod(datapath, type_=ofp.OFPGT_FF, group_id=group_id, buckets=buckets)
-
-
-def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
-    """Add a group."""
-    return parser.OFPGroupMod(
-        datapath,
-        ofp.OFPGC_ADD,
-        type_,
-        group_id,
-        buckets)
-
-
-def groupadd_ff(datapath=None, group_id=0, buckets=None):
-    """Add a fast failover group."""
-    return groupadd(datapath, type_=ofp.OFPGT_FF, group_id=group_id, buckets=buckets)
-
-
 def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
     """Delete a group (default all groups)."""
     return parser.OFPGroupMod(
@@ -852,6 +822,18 @@ def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
         ofp.OFPGC_DELETE,
         0,
         group_id)
+
+
+def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
+    """Add a group."""
+    return [
+        groupdel(datapath=datapath, group_id=group_id),
+        parser.OFPGroupMod(datapath, ofp.OFPGC_ADD, type_, group_id, buckets)]
+
+
+def groupadd_ff(datapath=None, group_id=0, buckets=None):
+    """Add a fast failover group."""
+    return groupadd(datapath, type_=ofp.OFPGT_FF, group_id=group_id, buckets=buckets)
 
 
 def meterdel(datapath=None, meter_id=ofp.OFPM_ALL):

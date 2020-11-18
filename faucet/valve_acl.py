@@ -70,8 +70,7 @@ def build_ordered_output_actions(acl_table, output_list, tunnel_rules=None, sour
                 for port in value['ports']:
                     buckets.append(valve_of.bucket(
                         watch_port=port, actions=[valve_of.output_port(port)]))
-                output_ofmsgs.append(valve_of.groupdel(group_id=group_id))
-                output_ofmsgs.append(valve_of.groupadd_ff(group_id=group_id, buckets=buckets))
+                output_ofmsgs.extend(valve_of.groupadd_ff(group_id=group_id, buckets=buckets))
                 output_actions.append(valve_of.group_act(group_id=group_id))
             if key == 'tunnel' and tunnel_rules and source_id is not None:
                 source_rule = tunnel_rules[value][source_id]
@@ -128,8 +127,7 @@ def build_output_actions(acl_table, output_dict, tunnel_rules=None, source_id=No
         for port in failover['ports']:
             buckets.append(valve_of.bucket(
                 watch_port=port, actions=[valve_of.output_port(port)]))
-        ofmsgs.append(valve_of.groupdel(group_id=group_id))
-        ofmsgs.append(valve_of.groupadd_ff(group_id=group_id, buckets=buckets))
+        ofmsgs.extend(valve_of.groupadd_ff(group_id=group_id, buckets=buckets))
         output_actions.append(valve_of.group_act(group_id=group_id))
     if 'tunnel' in output_dict and tunnel_rules and source_id is not None:
         tunnel_id = output_dict['tunnel']
