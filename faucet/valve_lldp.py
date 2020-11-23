@@ -162,8 +162,7 @@ class ValveLLDPManager(ValveManagerBase):
                         stack_valve.switch_manager.del_port(port))
                 ofmsgs_by_valve[stack_valve].extend(
                     stack_valve.stack_manager.add_tunnel_acls())
-                path_port = stack_valve.stack_manager.default_port_towards(
-                    stack_valve.dp.stack.root_name)
+                path_port = stack_valve.stack_manager.chosen_towards_port
                 path_port_number = path_port.number if path_port else 0.0
                 self._set_var(
                     'dp_root_hop_port', path_port_number, labels=stack_valve.dp.base_prom_labels())

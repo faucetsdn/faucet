@@ -192,6 +192,11 @@ class ValvesManager:
                     stack_change = True
             labels = new_root_valve.dp.base_prom_labels()
             self.metrics.is_dp_stack_root.labels(**labels).set(1)
+            for valve in valves_by_name.values():
+                labels = valve.dp.base_prom_labels()
+                path_port = valve.stack_manager.chosen_towards_port
+                path_port_number = path_port.number if path_port else 0.0
+                self.metrics.dp_root_hop_port.labels(**labels).set(path_port_number)
         if stack_change:
             for valve in valves_by_name.values():
                 valve.stale_root = True

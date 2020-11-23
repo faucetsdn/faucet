@@ -236,6 +236,25 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
         for coldstart in (False, True):
             self.verify_one_stack_down(0, coldstart)
 
+    def test_dp_root_hop_port(self):
+        """Test if dp_root_hop_port is set"""
+        self.set_up(
+            stack=True, n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, switch_to_switch_links=1)
+        self.verify_stack_up()
+        conf = self._get_faucet_conf()
+        for index in range(self.NUM_DPS):
+            dp_id = self.topo.dpids_by_id[index]
+            dp_name = self.topo.switches_by_id[index]
+            root_port = 0
+            for link, ports in self.link_port_maps.items():
+                if link == (index, index - 1):
+                    root_port = ports[0]
+            labels = {}
+            labels.update({'dp_id': '0x%x' % int(dp_id), 'dp_name': dp_name})
+            self.assertEqual(self.scrape_prometheus_var(
+                var='dp_root_hop_port', labels=labels, default=0,
+                dpid=dp_id, verify_consistent=True), root_port)
+
 
 class FaucetSingleStackStringOfDPTagged1Test(FaucetMultiDPTestBase):
     """Test topology of stacked datapaths with tagged hosts."""
