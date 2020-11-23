@@ -241,7 +241,6 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
         self.set_up(
             stack=True, n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, switch_to_switch_links=1)
         self.verify_stack_up()
-        conf = self._get_faucet_conf()
         for index in range(self.NUM_DPS):
             dp_id = self.topo.dpids_by_id[index]
             dp_name = self.topo.switches_by_id[index]
