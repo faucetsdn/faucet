@@ -1442,7 +1442,6 @@ class Valve:
         Args:
             msg (ryu.controller.ofp_event.EventOFPMsgBase): message from datapath.
         """
-        self._inc_var('of_errors')
         orig_msgs = [orig_msg for orig_msg in self.recent_ofmsgs if orig_msg.xid == msg.xid]
         error_txt = msg
         if orig_msgs:
@@ -1455,6 +1454,14 @@ class Valve:
             error_code = error_tuple[1][msg.code]
         except KeyError:
             pass
+        if (self.dp.group_table and
+                msg.type == valve_of.ofp.OFPET_GROUP_MOD_FAILED and
+                msg.code == valve_of.ofp.OFPGMFC_GROUP_EXISTS):
+            # Unlike flows, adding an overwriting group (same group_id) is considered an error.
+            # This "error" is expected with groups and redundant controllers, as one controller
+            # may delete another's groups while they synchronize with new network state.
+            return
+        self._inc_var('of_errors')
         self.logger.error('OFError type: %s code: %s %s' % (error_type, error_code, error_txt))
 
     def prepare_send_flows(self, flow_msgs):
