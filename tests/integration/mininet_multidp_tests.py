@@ -228,7 +228,15 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
 
     NUM_DPS = 3
 
-    def test_tagged(self):
+    def dp_options(self):
+        """DP options"""
+        return {
+            'stack': {
+                'priority': 1
+            }
+        }
+
+    def _test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
         self.set_up(
             stack=True, n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, switch_to_switch_links=2)
@@ -248,11 +256,27 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
             for link, ports in self.link_port_maps.items():
                 if link == (index, index - 1):
                     root_port = ports[0]
-            labels = {}
-            labels.update({'dp_id': '0x%x' % int(dp_id), 'dp_name': dp_name})
+            labels = {'dp_id': '0x%x' % int(dp_id), 'dp_name': dp_name}
             self.assertEqual(self.scrape_prometheus_var(
                 var='dp_root_hop_port', labels=labels, default=0,
                 dpid=dp_id, verify_consistent=True), root_port)
+        # Stop switch 1
+        self.net.switches[0].stop()
+        dp_id = self.topo.dpids_by_id[2]
+        dp_name = self.topo.switches_by_id[2]
+        labels = {'dp_id': '0x%x' % int(dp_id), 'dp_name': dp_name}
+        if not self.wait_for_prometheus_var(
+                'is_dp_stack_root', 1,
+                labels=labels, dpid=dp_id, timeout=30):
+            self.fail('wanted is_dp_stack_root for %s to be %u' % (labels, 1))
+        dp_id = self.topo.dpids_by_id[1]
+        dp_name = self.topo.switches_by_id[1]
+        labels = {'dp_id': '0x%x' % int(dp_id), 'dp_name': dp_name}
+        sw2_root_port = min(self.link_port_maps[(1, 2)])
+        self.assertEqual(self.scrape_prometheus_var(
+            var='dp_root_hop_port', labels=labels, default=0,
+            dpid=dp_id, verify_consistent=True), sw2_root_port)
+        self.net.switches[0].start(self.net.controllers)
 
 
 class FaucetSingleStackStringOfDPTagged1Test(FaucetMultiDPTestBase):
