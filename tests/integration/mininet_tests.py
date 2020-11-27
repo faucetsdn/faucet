@@ -2669,8 +2669,6 @@ class FaucetTaggedAndUntaggedSameVlanEgressTest(FaucetTaggedAndUntaggedSameVlanT
 
 class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTest):
 
-    NUM_FAUCET_CONTROLLERS = 1
-
     CONFIG = """
         group_table: True
         interfaces:
@@ -7571,8 +7569,6 @@ vlans:
 
 
 class FaucetGroupTableTest(FaucetUntaggedTest):
-
-    NUM_FAUCET_CONTROLLERS = 1
 
     CONFIG = """
         group_table: True

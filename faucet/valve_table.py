@@ -240,17 +240,10 @@ class ValveGroupEntry:
     def add(self):
         """Return flows to add this entry to the group table."""
         ofmsgs = []
-        ofmsgs.append(self.delete())
-        ofmsgs.append(valve_of.groupadd(
+        ofmsgs.extend(valve_of.groupadd(
             group_id=self.group_id, buckets=self.buckets))
         self.table.entries[self.group_id] = self
         return ofmsgs
-
-    def modify(self):
-        """Return flow to modify an existing group entry."""
-        assert self.group_id in self.table.entries
-        self.table.entries[self.group_id] = self
-        return valve_of.groupmod(group_id=self.group_id, buckets=self.buckets)
 
     def delete(self):
         """Return flow to delete an existing group entry."""
