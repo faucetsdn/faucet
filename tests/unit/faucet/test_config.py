@@ -4445,7 +4445,36 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_dot1x_config_valid(self):
+    def test_dot1x_mab_config_invalid(self):
+        """Test invalid dot1x."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        dot1x:
+            nfv_intf: lo
+            nfv_sw_port: 3
+            radius_ip: ::1
+            radius_port: 123
+            radius_secret: SECRET
+        interfaces:
+            1:
+                native_vlan: office
+                dot1x: True
+            2:
+                native_vlan: office
+                dot1x: True
+                dot1x_mab: True
+                dot1x_dyn_acl: True
+            3:
+                output_only: True
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_dot1x_mab_config_valid(self):
         """Test valid dot1x."""
         config = """
 vlans:

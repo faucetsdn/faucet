@@ -276,7 +276,7 @@ class Valve:
                 self.pipeline, self.switch_manager, self.stack_manager, self.acl_manager,
                 self._lldp_manager, self._route_manager_by_ipv.get(4),
                 self._route_manager_by_ipv.get(6), self._coprocessor_manager,
-                self._output_only_manager) if manager is not None)
+                self._output_only_manager, self._dot1x_manager) if manager is not None)
 
 
     def notify(self, event_dict):
@@ -692,9 +692,6 @@ class Valve:
             for manager in self._managers:
                 ofmsgs.extend(manager.add_port(port))
 
-            if self._dot1x_manager:
-                ofmsgs.extend(self._dot1x_manager.add_port(port))
-
             if port.lacp:
                 ofmsgs.extend(self.lacp_update(port, False, cold_start=cold_start))
 
@@ -741,9 +738,6 @@ class Valve:
             # now is set to a time value only when ports_delete is called to flush
             if now:
                 self._set_port_status(port_num, False, now)
-
-            if self._dot1x_manager:
-                ofmsgs.extend(self._dot1x_manager.del_port(port))
 
             vlans_with_deleted_ports.update(set(port.vlans()))
 
@@ -1384,10 +1378,9 @@ class Valve:
         old_vlan = port.dyn_dot1x_native_vlan
         ofmsgs.extend(self.switch_manager.del_port(port))
         port.dyn_dot1x_native_vlan = new_dyn_dot1x_native_vlan
-        for vlan in (old_vlan,) + (port.dyn_dot1x_native_vlan, port.native_vlan):
-            if vlan is not None:
-                vlan.reset_ports(self.dp.ports.values())
-                ofmsgs.extend(self.switch_manager.update_vlan(vlan))
+        for vlan in {old_vlan, port.dyn_dot1x_native_vlan, port.native_vlan} - {None}:
+            vlan.reset_ports(self.dp.ports.values())
+            ofmsgs.extend(self.switch_manager.update_vlan(vlan))
         ofmsgs.extend(self.switch_manager.add_port(port))
         return ofmsgs
 
