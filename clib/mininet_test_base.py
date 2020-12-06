@@ -2228,7 +2228,6 @@ dbs:
         for i, controller in enumerate(self.faucet_controllers):
             cont_name = controller.name
             start_configure_count = start_configure_counts[i]
-            old_count = old_counts[i]
             for _ in range(timeout):
                 configure_count = self.get_configure_count(controller=cont_name)
                 if configure_count > start_configure_count:
@@ -2236,22 +2235,25 @@ dbs:
                 time.sleep(1)
             self.assertNotEqual(
                 start_configure_count, configure_count, 'FAUCET %s did not reconfigure' % cont_name)
-            if change_expected:
-                for _ in range(timeout):
+            if cold_start is not None:
+                old_count = old_counts[i]
+                if change_expected:
+                    old_count = old_counts[i]
+                    for _ in range(timeout):
+                        new_count = int(
+                            self.scrape_prometheus_var(var, controller=cont_name, dpid=dpid, default=0))
+                        if new_count > old_count:
+                            break
+                        time.sleep(1)
+                    self.assertTrue(
+                        new_count > old_count,
+                        msg='FAUCET %s %s did not increment: %u' % (cont_name, var, new_count))
+                else:
                     new_count = int(
                         self.scrape_prometheus_var(var, controller=cont_name, dpid=dpid, default=0))
-                    if new_count > old_count:
-                        break
-                    time.sleep(1)
-                self.assertTrue(
-                    new_count > old_count,
-                    msg='FAUCET %s %s did not increment: %u' % (cont_name, var, new_count))
-            else:
-                new_count = int(
-                    self.scrape_prometheus_var(var, controller=cont_name, dpid=dpid, default=0))
-                self.assertEqual(
-                    old_count, new_count,
-                    msg='FAUCET %s %s incremented: %u' % (cont_name, var, new_count))
+                    self.assertEqual(
+                        old_count, new_count,
+                        msg='FAUCET %s %s incremented: %u' % (cont_name, var, new_count))
             self.wait_for_prometheus_var('faucet_config_applied', 1, controller=cont_name, dpid=None, timeout=30)
             self.wait_dp_status(1, controller=cont_name)
 

@@ -491,16 +491,21 @@ class Port(Conf):
             return False
         return True
 
+    def tunnel_acls(self):
+        """Return any tunnel ACLs on this port."""
+        acls = []
+        if self.acls_in:
+            acls = [acl for acl in self.acls_in if acl.is_tunnel_acl()]
+        return acls
+
     def contains_tunnel_acl(self, tunnel_id=None):
         """Searches through acls_in for a tunnel ACL with a matching tunnel_id"""
-        if self.acls_in:
-            for acl in self.acls_in:
-                if acl.is_tunnel_acl():
-                    if tunnel_id:
-                        if acl.get_tunnel_rules(tunnel_id):
-                            return True
-                    else:
-                        return True
+        acls = self.tunnel_acls()
+        if tunnel_id is None:
+            return bool(acls)
+        for acl in self.tunnel_acls():
+            if acl.get_tunnel_rules(tunnel_id):
+                return True
         return False
 
     # LACP functions

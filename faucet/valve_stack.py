@@ -395,3 +395,9 @@ This includes port nominations and flood directionality."""
             for acl in self.tunnel_acls:
                 ofmsgs.extend(self.acl_update_tunnel(acl))
         return ofmsgs
+
+    def add_port(self, port):
+        """Need to add tunnel if port comes up with tunnel ACLs."""
+        if not port.stack and port.tunnel_acls():
+            return self.add_tunnel_acls()
+        return []

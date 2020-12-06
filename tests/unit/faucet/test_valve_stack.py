@@ -1730,6 +1730,11 @@ dps:
             self.DP_ID, self.DP_ID,
             1, 0, 4, self.SRC_ID, True,
             'Did not encapsulate and forward out re-calculated port')
+        self.flap_port(1)
+        self.validate_tunnel(
+            self.DP_ID, self.DP_ID,
+            1, 0, 4, self.SRC_ID, True,
+            'Did not encapsulate and forward after port flap')
 
     def test_update_same_tunnel(self):
         """Test tunnel rules when outputting to host on the same switch as the source"""

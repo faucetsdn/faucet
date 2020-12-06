@@ -461,6 +461,19 @@ configuration.
         # TODO: dynamically configure output attribute
         return table_config
 
+    def pipeline_str(self):
+        """Text description of pipeline."""
+        table_configs = sorted([
+            (table.table_id, str(table.table_config))
+            for table in self.tables.values()])
+        return '\n'.join([
+            'table ID %u %s' % (table_id, table_config)
+            for table_id, table_config in table_configs])
+
+    def pipeline_tableids(self):
+        """Return pipeline table IDs."""
+        return {table.table_id for table in self.tables.values()}
+
     def _configure_tables(self):
         """Configure FAUCET pipeline with tables."""
         valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
@@ -763,7 +776,6 @@ configuration.
                 if dp.stack and dp.has_externals:
                     self.has_externals = True
                     break
-        if self.tunnel_acls:
             self.finalize_tunnel_acls(dps)
 
     def finalize_tunnel_acls(self, dps):
@@ -1453,9 +1465,6 @@ configuration.
 
         return (all_meters_changed, deleted_meters, added_meters, changed_meters)
 
-    def _table_configs(self):
-        return frozenset([table.table_config for table in self.tables.values()])
-
     def get_config_changes(self, logger, new_dp):
         """Detect any config changes.
 
@@ -1477,9 +1486,7 @@ configuration.
                 added_meters (set): Added meter numbers
                 changed_meters (set): changed/added meter numbers
         """
-        if new_dp._table_configs() != self._table_configs():
-            logger.info('pipeline table config change - requires cold start')
-        elif new_dp.stack and self.stack and new_dp.stack.root_name != self.stack.root_name:
+        if new_dp.stack and self.stack and new_dp.stack.root_name != self.stack.root_name:
             logger.info('Stack root change - requires cold start')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
