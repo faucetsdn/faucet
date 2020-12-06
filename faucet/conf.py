@@ -27,7 +27,13 @@ class InvalidConfigError(Exception):
 
 
 def test_config_condition(cond, msg):
-    """Evaluate condition and raise InvalidConfigError if condition True."""
+    """
+    Evaluate condition and raise InvalidConfigError if condition True.
+
+    Args:
+        cond (bool): Condition on which to raise an error if it is true
+        msg (str): Message for the error if the condition is true
+    """
     if cond:
         raise InvalidConfigError(msg)
 

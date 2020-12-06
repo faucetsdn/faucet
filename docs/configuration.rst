@@ -1034,7 +1034,7 @@ Failover is an experimental option, but can be configured as follows:
       - None
       - The list of ports the packet can be output through.
 
-A tunnel ACL will encapsulate a packet before sending it through the stack topology
+A tunnel ACL will encapsulate a packet before sending it through the stack topology.
 
 .. note:: Currently tunnel ACLs only support VLAN encapsulation.
 
@@ -1062,6 +1062,22 @@ A tunnel ACL will encapsulate a packet before sending it through the stack topol
       - int/str
       - None
       - The name or port number of the interface on the remote DP to output the packet
+    * - exit_instructions
+      - list
+      - None
+      - An additional list of output actions to apply to the packet after decapsulating from the tunnel and before outputting to the destination. This is in the form of the ordered ACL output actions.
+    * - maintain_encapsulation
+      - bool
+      - False
+      - Forces the tunnel encapsulation to be kept on the packet upon exiting the tunnel
+    * - bi_directional
+      - bool
+      - False
+      - If true, configures a reverse path (from the destination to the source) indicated by a different VLAN_PCP using the same tunnel ID
+    * - reverse
+      - bool
+      - False
+      - If true, configures the tunnel to be solely a 'reverse' tunnel. Indicated by a different VLAN_PCP, potentially using a used tunnel ID. This provides a more general reverse tunnel output that can go to a different destination.
 
 .. _gauge-configuration:
 

@@ -44,6 +44,13 @@ ECTP_ETH_TYPE = 0x9000
 
 # https://en.wikipedia.org/wiki/IEEE_P802.1p
 # Avoid use of PCP 1 which is BK priority (lowest)
+
+TUNNEL_INDICATOR_FIELD = 'vlan_pcp'
+# Used to indicate traffic in a one-to-one bi-directional tunnel is heading in the reverse/return direction
+PCP_TUNNEL_REVERSE_DIRECTION_FLAG = 4
+# Used to indicate traffic belongs in a tunnel (for all cases not including the 1-1 reverse bi-directional tunnel)
+PCP_TUNNEL_FLAG = 3
+
 PCP_EXT_PORT_FLAG = 2
 PCP_NONEXT_PORT_FLAG = 0
 EXTERNAL_FORWARDING_FIELD = 'vlan_pcp'
@@ -404,6 +411,18 @@ def goto_table(table):
     return parser.OFPInstructionGotoTable(table.table_id)
 
 
+@functools.lru_cache()
+def goto_table_id(table_id):
+    """Return instruction to goto table by table ID.
+
+    Args:
+        table (int): table by ID to goto.
+    Returns:
+        ryu.ofproto.ofproto_v1_3_parser.OFPInstruction: goto instruction.
+    """
+    return parser.OFPInstructionGotoTable(table_id)
+
+
 def metadata_goto_table(metadata, mask, table):
     """Return instructions to write metadata and goto table.
 
@@ -683,6 +702,7 @@ MATCH_FIELDS = {
 
 
 def match_from_dict(match_dict):
+    """Parse a match dict into a OFPMatch object"""
     kwargs = {}
     for of_match, field in match_dict.items():
         of_match = OLD_MATCH_FIELDS.get(of_match, of_match)

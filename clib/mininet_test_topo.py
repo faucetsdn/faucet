@@ -91,7 +91,8 @@ class VLANHost(FaucetHost):
 
     def config(self, vlans=[100], **params):  # pylint: disable=arguments-differ
         """Configure VLANHost according to (optional) parameters:
-           vlans (list): List of VLAN IDs for default interface"""
+           vlans (list): List of VLAN IDs (for the VLANs the host is configured to have) for default interface
+           vlan_intfs (dict): Dictionary of interface IP addresses keyed by VLAN indices"""
         super_config = super().config(**params)
         self.vlans = vlans
         self.vlan_intfs = {}
@@ -101,13 +102,29 @@ class VLANHost(FaucetHost):
         if 'vlan_intfs' in params:
             vlan_intfs = params.get('vlan_intfs', {})
             for vlan_id, ip in vlan_intfs.items():
-                intf_name = '%s.%s' % (intf, vlans[vlan_id])
-                cmds.extend([
-                    'vconfig add %s %d' % (intf.name, vlans[vlan_id]),
-                    'ip -4 addr add %s dev %s' % (ip, intf_name),
-                    'ip link set dev %s up' % intf_name])
-                self.nameToIntf[intf_name] = intf
-                self.vlan_intfs[vlan_id] = intf_name
+                if isinstance(vlan_id, tuple):
+                    # Interface will take multiply VLAN tagged packets
+                    intf_name = '%s' % intf.name
+                    for vlan_i in vlan_id:
+                        prev_name = intf_name
+                        # Cannot have intf name tu0xy-eth0.VID1.VID2 as that takes up too many bytes
+                        intf_name += '.%s' % vlan_i
+                        cmds.extend([
+                            'ip link add link %s name %s type vlan id %s' % (prev_name, intf_name, vlans[vlan_i]),
+                            'ip link set dev %s up' % (intf_name)
+                        ])
+                        self.nameToIntf[intf_name] = intf
+                        self.vlan_intfs.setdefault(vlan_id, [])
+                        self.vlan_intfs[vlan_id].append(intf_name)
+                    cmds.append('ip -4 addr add %s dev %s' % (ip, intf_name))
+                else:
+                    intf_name = '%s.%s' % (intf, vlans[vlan_id])
+                    cmds.extend([
+                        'vconfig add %s %d' % (intf.name, vlans[vlan_id]),
+                        'ip -4 addr add %s dev %s' % (ip, intf_name),
+                        'ip link set dev %s up' % intf_name])
+                    self.nameToIntf[intf_name] = intf
+                    self.vlan_intfs[vlan_id] = intf_name
         else:
             vlan_intf_name = '%s.%s' % (intf, '.'.join(str(v) for v in vlans))
             cmds.extend([

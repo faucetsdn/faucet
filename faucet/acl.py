@@ -15,13 +15,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import copy
 import netaddr
+
 from faucet import valve_of
 from faucet import valve_acl
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
 from faucet.valve_table import wildcard_table
+
+from ryu.ofproto import ether
 
 
 class ACL(Conf):
@@ -100,7 +104,11 @@ The output action contains a dictionary with the following elements:
         'type': (str, None),
         'tunnel_id': (str, int, None),
         'dp': str,
-        'port': (str, int),
+        'port': (str, int, None),
+        'exit_instructions': (list, None),
+        'maintain_encapsulation': bool,
+        'bi_directional': bool,
+        'reverse': bool,
     }
 
     mutable_attrs = frozenset(['tunnel_sources'])
@@ -120,6 +128,7 @@ The output action contains a dictionary with the following elements:
         self.tunnel_sources = {}
         # Tunnel rules is the rules for each tunnel in the ACL for each source
         self.dyn_tunnel_rules = {}
+        self.dyn_reverse_tunnel_rules = {}
 
         for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
             self.rule_types.update({match: (str, int) for match in match_fields})
@@ -194,15 +203,14 @@ The output action contains a dictionary with the following elements:
                     2**16-1, meters, self.exact_match,
                     vlan_vid=vid, port_num=port_num)
             except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
-                raise InvalidConfigError(err)
+                raise InvalidConfigError from err
             test_config_condition(not ofmsgs, 'OF messages is empty')
             for ofmsg in ofmsgs:
                 try:
                     valve_of.verify_flowmod(ofmsg)
                 except (KeyError, ValueError) as err:
-                    raise InvalidConfigError(err)
+                    raise InvalidConfigError from err
                 except Exception as err:
-                    print(ofmsg)
                     raise err
                 if valve_of.is_flowmod(ofmsg):
                     apply_actions = []
@@ -218,6 +226,36 @@ The output action contains a dictionary with the following elements:
                         has_mask = isinstance(value, (tuple, list))
                         if has_mask or match not in self.matches:
                             self.matches[match] = has_mask
+        for tunnel_rules in self.tunnel_dests.values():
+            if 'exit_instructions' in tunnel_rules:
+                exit_inst = tunnel_rules['exit_instructions']
+                try:
+                    ofmsgs = valve_acl.build_tunnel_ofmsgs(
+                        exit_inst, wildcard_table, 1)
+                except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
+                    raise InvalidConfigError from err
+                test_config_condition(not ofmsgs, 'OF messages is empty')
+                for ofmsg in ofmsgs:
+                    try:
+                        valve_of.verify_flowmod(ofmsg)
+                    except (KeyError, ValueError) as err:
+                        raise InvalidConfigError from err
+                    except Exception as err:
+                        raise err
+                    if valve_of.is_flowmod(ofmsg):
+                        apply_actions = []
+                        for inst in ofmsg.instructions:
+                            if valve_of.is_apply_actions(inst):
+                                apply_actions.extend(inst.actions)
+                            elif valve_of.is_meter(inst):
+                                self.meter = True
+                        for action in apply_actions:
+                            if valve_of.is_set_field(action):
+                                self.set_fields.add(action.key)
+                        for match, value in ofmsg.match.items():
+                            has_mask = isinstance(value, (tuple, list))
+                            if has_mask or match not in self.matches:
+                                self.matches[match] = has_mask
         return (self.matches, self.set_fields, self.meter)
 
     def get_meters(self):
@@ -246,12 +284,17 @@ The output action contains a dictionary with the following elements:
                         'dp' not in tunnel,
                         'ACL (%s) tunnel DP not defined' % self._id)
                     tunnel_dp = tunnel['dp']
-                    test_config_condition(
-                        'port' not in tunnel,
-                        'ACL (%s) tunnel port not defined' % self._id)
-                    tunnel_port = tunnel['port']
+                    tunnel_port = tunnel.get('port', None)
                     tunnel_id = tunnel.get('tunnel_id', None)
                     tunnel_type = tunnel.get('type', 'vlan')
+                    tunnel_exit_instructions = tunnel.get('exit_instructions', [])
+                    tunnel_direction = tunnel.get('bi_directional', False)
+                    tunnel_maintain = tunnel.get('maintain_encapsulation', False)
+                    tunnel_reverse = tunnel.get('reverse', False)
+                    test_config_condition(
+                        tunnel_reverse and tunnel_direction,
+                        ('Tunnel ACL %s cannot contain values for the fields'
+                         '`bi_directional` and `reverse` at the same time' % self._id))
                     # Resolve the tunnel items
                     dst_dp, dst_port, tunnel_id = resolve_tunnel_objects(
                         tunnel_dp, tunnel_port, tunnel_id)
@@ -260,7 +303,11 @@ The output action contains a dictionary with the following elements:
                         'dst_dp': dst_dp,
                         'dst_port': dst_port,
                         'tunnel_id': tunnel_id,
-                        'type': tunnel_type
+                        'type': tunnel_type,
+                        'exit_instructions': tunnel_exit_instructions,
+                        'bi_directional': tunnel_direction,
+                        'maintain_encapsulation': tunnel_maintain,
+                        'reverse': tunnel_reverse,
                     }
                     self.tunnel_dests[tunnel_id] = tunnel_dict
                     result.append({key: tunnel_id})
@@ -319,12 +366,17 @@ The output action contains a dictionary with the following elements:
                     'dp' not in tunnel,
                     'ACL (%s) tunnel DP not defined' % self._id)
                 tunnel_dp = tunnel['dp']
-                test_config_condition(
-                    'port' not in tunnel,
-                    'ACL (%s) tunnel port not defined' % self._id)
-                tunnel_port = tunnel['port']
+                tunnel_port = tunnel.get('port', None)
                 tunnel_id = tunnel.get('tunnel_id', None)
                 tunnel_type = tunnel.get('type', 'vlan')
+                tunnel_exit_instructions = tunnel.get('exit_instructions', [])
+                tunnel_direction = tunnel.get('bi_directional', False)
+                tunnel_maintain = tunnel.get('maintain_encapsulation', False)
+                tunnel_reverse = tunnel.get('reverse', False)
+                test_config_condition(
+                    tunnel_reverse and tunnel_direction,
+                    ('Tunnel ACL %s cannot contain values for the fields'
+                     '`bi_directional` and `reverse` at the same time' % self._id))
                 # Resolve the tunnel items
                 dst_dp, dst_port, tunnel_id = resolve_tunnel_objects(
                     tunnel_dp, tunnel_port, tunnel_id)
@@ -333,7 +385,11 @@ The output action contains a dictionary with the following elements:
                     'dst_dp': dst_dp,
                     'dst_port': dst_port,
                     'tunnel_id': tunnel_id,
-                    'type': tunnel_type
+                    'type': tunnel_type,
+                    'exit_instructions': tunnel_exit_instructions,
+                    'bi_directional': tunnel_direction,
+                    'maintain_encapsulation': tunnel_maintain,
+                    'reverse': tunnel_reverse,
                 }
                 self.tunnel_dests[tunnel_id] = tunnel_dict
                 result[output_action] = tunnel_id
@@ -404,6 +460,10 @@ The output action contains a dictionary with the following elements:
                 rule_conf['actions'] = resolved_actions
         self._ports_resolved = True
 
+    def requires_reverse_tunnel(self, tunnel_id):
+        """Returns true if the tunnel requires a reverse pathway"""
+        return self.tunnel_dests[tunnel_id]['bi_directional']
+
     def get_num_tunnels(self):
         """Returns the number of tunnels specified in the ACL"""
         num_tunnels = 0
@@ -465,37 +525,129 @@ The output action contains a dictionary with the following elements:
         """Return ID for a tunnel source."""
         return tuple(sorted(source.items()))
 
-    def add_tunnel_source(self, dp, port):
+    def add_tunnel_source(self, dp, port, reverse=False, bi_directional=False):
         """Add a source dp/port pair for the tunnel ACL"""
-        source = {'dp': dp, 'port': port}
+        source = {'dp': dp, 'port': port, 'reverse': reverse, 'bi_directional': bi_directional}
         source_id = self._tunnel_source_id(source)
         self.tunnel_sources[source_id] = source
         for _id in self.tunnel_dests:
             self.dyn_tunnel_rules.setdefault(_id, {})
+            self.dyn_reverse_tunnel_rules.setdefault(_id, {})
 
     def verify_tunnel_rules(self):
         """Make sure that matches & set fields are configured correctly to handle tunnels"""
+        if 'eth_type' not in self.matches:
+            self.matches['eth_type'] = False
         if 'in_port' not in self.matches:
             self.matches['in_port'] = False
         if 'vlan_vid' not in self.matches:
             self.matches['vlan_vid'] = False
         if 'vlan_vid' not in self.set_fields:
             self.set_fields.add('vlan_vid')
+        if 'vlan_pcp' not in self.matches:
+            self.matches['vlan_pcp'] = False
+        if 'vlan_pcp' not in self.set_fields:
+            self.set_fields.add('vlan_pcp')
 
-    def update_source_tunnel_rules(self, curr_dp, source_id, tunnel_id, out_port):
+    def update_reverse_tunnel_rules(self, curr_dp, source_id, tunnel_id, out_port, output_table):
+        """Update the tunnel rulelist for when the output port has changed (reverse direction)"""
+        if not self.requires_reverse_tunnel(tunnel_id):
+            return False
+        dst_dp = self.tunnel_sources[source_id]['dp']
+        src_dp = self.tunnel_dests[tunnel_id]['dst_dp']
+        prev_list = self.dyn_reverse_tunnel_rules[tunnel_id].get(source_id, [])
+        new_list = []
+        if curr_dp == src_dp and curr_dp != dst_dp:
+            # SRC DP: vlan_vid, vlan_pcp, actions=[out_port]
+            # NOTE: For the bi_directional reverse tunnel, we assume that
+            #       the packet already has the required encapsulation
+            new_list = [{'port': out_port}]
+        elif curr_dp == dst_dp and curr_dp != src_dp:
+            # DST DP: vlan_vid, vlan_pcp, actions=[pop_vlans, output]
+            new_list = [{'pop_vlans': 1}]
+            if out_port is None:
+                # DP dest tunnel, so we fall through into the eth_dst output table
+                new_list.append({'goto': output_table.table_id})
+            else:
+                # Tunnel has port specified, so output to destination
+                new_list.append({'port': out_port})
+        elif curr_dp == src_dp and curr_dp == dst_dp:
+            # SINGLE DP: actions=[pop_vlans, out_port]
+            new_list = [{'pop_vlans': 1}]
+            if out_port is None:
+                # DP dest tunnel, so we fall through into the eth_dst output table
+                new_list.extend([{'goto': output_table.table_id}])
+            else:
+                # Tunnel has port specified, so output to destination
+                new_list.extend([{'port': out_port}])
+        else:
+            # TRANSIT DP: vlan_vid, vlan_pcp, actions=[output]
+            new_list = [{'port': out_port}]
+        if new_list != prev_list:
+            self.dyn_reverse_tunnel_rules[tunnel_id][source_id] = new_list
+            return True
+        return True
+
+    def update_source_tunnel_rules(self, curr_dp, source_id, tunnel_id, out_port, output_table):
         """Update the tunnel rulelist for when the output port has changed"""
         src_dp = self.tunnel_sources[source_id]['dp']
         dst_dp = self.tunnel_dests[tunnel_id]['dst_dp']
         prev_list = self.dyn_tunnel_rules[tunnel_id].get(source_id, [])
         new_list = []
+        pcp_flag = valve_of.PCP_TUNNEL_FLAG
+        if self.tunnel_dests[tunnel_id]['reverse']:
+            pcp_flag = valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG
         if curr_dp == src_dp and curr_dp != dst_dp:
             # SRC DP: in_port, actions=[push_vlan, output, pop_vlans]
-            new_list = [{'vlan_vid': tunnel_id}, {'port': out_port}, {'pop_vlans': 1}]
+            # Ideally, we would be able to detect if the tunnel has an `allow` action clause.
+            #   However, this is difficult as a single ACL can have multiple rules using the same
+            #   tunnel, but with one instance requiring the `allow` clause and another, not.
+            # This means it is easier to always append the `pop_vlans` in assumption that the
+            #   `allow` action does exist, and then optimize/reduce the redundant rules before
+            #   outputting the flowrule.
+            # We also set the tunnel VLAN header with a PCP value indicating that we are in
+            #   the tunnel, which will save the VLANs from being reserved.
+            new_list = [
+                {'vlan_vids': [{'vid': tunnel_id, 'eth_type': ether.ETH_TYPE_8021Q}]},
+                {'set_fields': [{'vlan_pcp': pcp_flag}]},
+                {'port': out_port},
+                {'pop_vlans': 1}]
         elif curr_dp == dst_dp and curr_dp != src_dp:
-            # DST DP: in_port, vlan_vid, actions=[pop_vlan, output]
-            new_list = [{'pop_vlans': 1}, {'port': out_port}]
+            # DST DP: in_port, vlan_vid, actions=[pop_vlan, additional_instructions, output]
+            # If exit_instructions are applied, then we want to pop off the tunnel
+            #   VLAN header, then apply the additional instructions, then output
+            if self.tunnel_dests[tunnel_id]['maintain_encapsulation']:
+                # We wish to maintain tunnel encapsulation before outputting
+                #   So do not add the pop_vlans rule
+                new_list = []
+            else:
+                new_list = [{'pop_vlans': 1}]
+            exit_instructions = self.tunnel_dests[tunnel_id].get('exit_instructions', [])
+            new_list.extend(copy.copy(list(exit_instructions)))
+            if out_port is None:
+                # DP dest tunnel, so we fall through into the eth_dst output table
+                new_list.append({'goto': output_table.table_id})
+            else:
+                # Tunnel has port specified, so output to destination
+                new_list.append({'port': out_port})
+        elif curr_dp == src_dp and curr_dp == dst_dp:
+            # SINGLE DP: in_port, actions=[additional_instructions, out_port]
+            exit_instructions = self.tunnel_dests[tunnel_id].get('exit_instructions', [])
+            new_list.extend(copy.copy(list(exit_instructions)))
+            if self.tunnel_dests[tunnel_id].get('maintain_encapsulation', False):
+                # Maintain encapsulation implies we want the tunnel VID on the packet,
+                #   so ensure it is purposefully put onto the packet, even when
+                #   there would originally be no need to push on a tunnel VID
+                new_list.extend([
+                    {'vlan_vids': [{'vid': tunnel_id, 'eth_type': ether.ETH_TYPE_8021Q}]},
+                    {'set_fields': [{'vlan_pcp': pcp_flag}]}])
+            if out_port is None:
+                # DP dest tunnel, so we fall through into the eth_dst output table
+                new_list.extend([{'goto': output_table.table_id}])
+            else:
+                # Tunnel has port specified, so output to destination
+                new_list.extend([{'port': out_port}])
         else:
-            # SINGLE DP: in_port, actions=[out_port]
             # TRANSIT DP: in_port, vlan_vid, actions=[output]
             new_list = [{'port': out_port}]
         if new_list != prev_list:

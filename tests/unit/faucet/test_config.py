@@ -1668,6 +1668,281 @@ dps:
             }
         self._check_table_names_numbers(dp, tables)
 
+    def test_tunnel_dp_acl_accepted(self):
+        """Test config is accepted when a tunnel is configured as a DP acl"""
+        config = """
+acls:
+    tunnel-acl:
+        - rule:
+            actions:
+                output:
+                    tunnel: {type: 'vlan', tunnel_id: 200, dp: sw3, port: 2}
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        dp_acls: [tunnel-acl]
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack:
+                    dp: sw2
+                    port: 2
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack:
+                    dp: sw1
+                    port: 2
+            3:
+                stack:
+                    dp: sw3
+                    port: 1
+    sw3:
+        dp_id: 0x3
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 3
+            2:
+                native_vlan: vlan100
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_tunnel_acl_destination_dp_accepted(self):
+        """Test config is accepted when a tunnel is configured to have a DP as the destination"""
+        config = """
+acls:
+    tunnel_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {dp: s2}
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        dp_acls: [tunnel_acl]
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                native_vlan: vlan100
+            3:
+                stack: {dp: s2, port: 3}
+            4:
+                stack: {dp: s2, port: 4}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel_acl]
+            3:
+                stack: {dp: s1, port: 3}
+            4:
+                stack: {dp: s1, port: 4}
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_tunnel_acl_exit_instructions_accepted(self):
+        """Test config is accepted when a tunnel is configured to have exit instructions"""
+        config = """
+acls:
+    tunnel_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {
+                        dp: s2,
+                        port: 1,
+                        exit_instructions: [{'vlan_vid': 101}]
+                    }
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel_acl]
+            2:
+                native_vlan: vlan100
+            3:
+                stack: {dp: s2, port: 3}
+            4:
+                stack: {dp: s2, port: 4}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            3:
+                stack: {dp: s1, port: 3}
+            4:
+                stack: {dp: s1, port: 4}
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_tunnel_acl_bi_directional_accepted(self):
+        """Test config is accepted when a tunnel is configured to be bi_directional"""
+        config = """
+acls:
+    tunnel_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {
+                        dp: s2,
+                        port: 1,
+                        bi_directional: True
+                    }
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel_acl]
+            2:
+                native_vlan: vlan100
+            3:
+                stack: {dp: s2, port: 3}
+            4:
+                stack: {dp: s2, port: 4}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            3:
+                stack: {dp: s1, port: 3}
+            4:
+                stack: {dp: s1, port: 4}
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_tunnel_reverse_accepted(self):
+        """Test config is accepted when a tunnel is configured to be `reverse`"""
+        config = """
+acls:
+    reverse_acl:
+        - rule:
+            in_port: 1
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {
+                        dp: s1,
+                        port: 1,
+                        tunnel_id: 3,
+                        reverse: True,
+                    }
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+            3:
+                stack: {dp: s2, port: 3}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [reverse_acl]
+            3:
+                stack: {dp: s1, port: 3}
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_tunnel_reverse_and_bi_directional_rejected(self):
+        """Test config is rejected when a tunnel is configured to be `reverse` and `bi_directional`"""
+        config = """
+acls:
+    forward_acl:
+        - rule:
+            in_port: 1
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - tunnel: {
+                        dp: s1,
+                        port: 1,
+                        tunnel_id: 3,
+                        reverse: True,
+                        bi_directional: True
+                    }
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+            3:
+                stack: {dp: s2, port: 3}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [forward_acl]
+            3:
+                stack: {dp: s1, port: 3}
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
     def test_tunnel_config_valid_accepted(self):
         """Test config is accepted when tunnel acl is valid"""
         config = """

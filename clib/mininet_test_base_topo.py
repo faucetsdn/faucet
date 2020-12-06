@@ -177,11 +177,12 @@ class FaucetTopoTestBase(FaucetTestBase):
             'routers': routers,
             'router_options': router_options,
             'include': include,
-            'include_optional': include_optional
+            'include_optional': include_optional,
+            'ignored_switches': self.IGNORED_SWITCHES
         }
         self.CONFIG = self.topo.get_config(
             n_vlans,
-            **self.configuration_options
+            **self.configuration_options,
         )
         self.mininet_host_options = mininet_host_options
         self.n_vlans = n_vlans
@@ -361,6 +362,8 @@ class FaucetTopoTestBase(FaucetTestBase):
             links = 0
             links_up = 0
             for link, ports in self.link_port_maps.items():
+                if link[0] in self.IGNORED_SWITCHES or link[1] in self.IGNORED_SWITCHES:
+                    continue
                 for port in ports:
                     dpid = self.topo.dpids_by_id[link[0]]
                     name = self.topo.switches_by_id[link[0]]
@@ -456,10 +459,11 @@ class FaucetTopoTestBase(FaucetTestBase):
             self.verify_stack_has_no_loop()
             self.flap_all_switch_ports()
 
-    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3):
+    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3, dpid=None):
         """Verify ICMP packets tunnelled from src to dst."""
         icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1}
-        self.wait_until_matching_flow(icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False)
+        self.wait_until_matching_flow(
+            icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False, dpid=dpid)
         tcpdump_text = self.tcpdump_helper(
             dst_host, 'icmp[icmptype] == 8', [
                 # need to set static ARP as only ICMP is tunnelled.
@@ -469,7 +473,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             packets=1, timeout=(packets + 1),
         )
         self.wait_nonzero_packet_count_flow(
-            icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False)
+            icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False, dpid=dpid)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % other_host.IP(), tcpdump_text
         ), 'Tunnel was not established')
