@@ -705,6 +705,86 @@ class ValveL2LearnTestCase(ValveTestBases.ValveTestNetwork):
             0, self.get_prom('learned_l2_port', labels=learn_labels))
 
 
+class SoftPipelineTestCase(ValveTestBases.ValveTestNetwork):
+    """Test warm starting match changes with soft pipeline."""
+
+    REQUIRE_TFM = False
+
+    CONFIG = """
+acls:
+    acl1:
+        - rule:
+            nw_dst: '224.0.0.5'
+            dl_type: 0x800
+            actions:
+                allow: 0
+    acl2:
+        - rule:
+            nw_dst: '224.0.0.5'
+            dl_type: 0x800
+            ip_proto: 6
+            actions:
+                allow: 0
+dps:
+    s1:
+        hardware: Open vSwitch
+        dp_id: 0x1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 100
+                acls_in: [acl1]
+"""
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_soft(self):
+        config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+        config['dps']['s1']['interfaces']['p1']['acls_in'] = ['acl2']
+        # We changed match conditions only, so this can be a warm start.
+        self.update_config(yaml.dump(config), reload_type='warm')
+
+
+class HardPipelineTestCase(ValveTestBases.ValveTestNetwork):
+    """Test cold starting match conditions with hard pipeline."""
+
+    CONFIG = """
+acls:
+    acl1:
+        - rule:
+            nw_dst: '224.0.0.5'
+            dl_type: 0x800
+            actions:
+                allow: 0
+    acl2:
+        - rule:
+            nw_dst: '224.0.0.5'
+            dl_type: 0x800
+            ip_proto: 6
+            actions:
+                allow: 0
+dps:
+    s1:
+        hardware: GenericTFM
+        dp_id: 0x1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 100
+                acls_in: [acl1]
+"""
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_hard(self):
+        config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+        config['dps']['s1']['interfaces']['p1']['acls_in'] = ['acl2']
+        # Changed match conditions require restart.
+        self.update_config(yaml.dump(config), reload_type='cold')
+
+
 class ValveMirrorTestCase(ValveTestBases.ValveTestBig):
     """Test ACL and interface mirroring."""
     # TODO: check mirror packets are present/correct

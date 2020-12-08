@@ -18,6 +18,7 @@
 # limitations under the License.
 
 import copy
+import difflib
 import logging
 
 from collections import defaultdict, deque
@@ -109,7 +110,6 @@ class Valve:
         '_last_fast_advertise_sec',
         '_last_lldp_advertise_sec',
         '_last_packet_in_sec',
-        '_last_pipeline_flows',
         '_packet_in_count_sec',
         '_port_highwater',
         '_route_manager_by_eth_type',
@@ -148,7 +148,6 @@ class Valve:
         self.logger = None
         self.recent_ofmsgs = deque(maxlen=32)
         self.stale_root = False
-        self._last_pipeline_flows = []
         self._packet_in_count_sec = None
         self._last_packet_in_sec = None
         self._last_advertise_sec = None
@@ -274,7 +273,7 @@ class Valve:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         self._managers = tuple(
             manager for manager in (
-                self.pipeline, self.switch_manager, self.stack_manager, self.acl_manager,
+                self.pipeline, self.switch_manager, self.acl_manager, self.stack_manager,
                 self._lldp_manager, self._route_manager_by_ipv.get(4),
                 self._route_manager_by_ipv.get(6), self._coprocessor_manager,
                 self._output_only_manager, self._dot1x_manager) if manager is not None)
@@ -637,10 +636,7 @@ class Valve:
         self.dp.cold_start(now)
         self._inc_var('of_dp_connections')
         self._reset_dp_status()
-        table_configs = sorted([
-            (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
-        for table_id, table_config in table_configs:
-            self.logger.info('table ID %u %s' % (table_id, table_config))
+        self.logger.info(self.dp.pipeline_str())
         return ofmsgs
 
     def datapath_disconnect(self, now):
@@ -1229,16 +1225,22 @@ class Valve:
                 'vid': vlan.vid,
                 'eth_src': entry.eth_src}})
 
-    def _pipeline_change(self):
-        def table_msgs(tfm_flow):
-            return {str(x) for x in tfm_flow.body}
+    def _pipeline_diff(self, new_dp):
+        old_pipeline = self.dp.pipeline_str().splitlines()
+        new_pipeline = new_dp.pipeline_str().splitlines()
+        differ = difflib.Differ()
+        diff = '\n'.join(differ.compare(old_pipeline, new_pipeline))
+        self.logger.info('pipeline change: %s' % diff)
 
-        if self._last_pipeline_flows:
-            _last_pipeline_flows = table_msgs(self._last_pipeline_flows[0])
-            _pipeline_flows = table_msgs(self._pipeline_flows()[0])
-            if _last_pipeline_flows != _pipeline_flows:
-                self.logger.info('pipeline change: %s' % str(
-                    _last_pipeline_flows.difference(_pipeline_flows)))
+    def _pipeline_change(self, new_dp):
+        if new_dp:
+            # With OVS/soft pipelines, only a change in allocated tables is significant.
+            if self.dp.hardware != new_dp.hardware:
+                return True
+            old_table_ids = self.dp.pipeline_tableids()
+            new_table_ids = new_dp.pipeline_tableids()
+            if old_table_ids != new_table_ids:
+                self.logger.info('table IDs changed, old %s new %s' % (old_table_ids, new_table_ids))
                 return True
         return False
 
@@ -1272,8 +1274,7 @@ class Valve:
         ofmsgs = []
 
         # If pipeline or all ports changed, default to cold start.
-        if self._pipeline_change():
-            self.logger.info('pipeline change')
+        if self._pipeline_change(new_dp):
             self.dp_init(new_dp, valves)
             return restart_type, ofmsgs
 
@@ -1521,9 +1522,18 @@ class TfmValve(Valve):
                 self.dp, self, self.MAX_TABLE_ID, self.MIN_MAX_FLOWS,
                 self.USE_OXM_IDS, self.FILL_REQ))]
 
+    def _pipeline_change(self, new_dp):
+        if new_dp:
+            old_pipeline = self.dp.pipeline_str()
+            new_pipeline = new_dp.pipeline_str()
+            # TFM based pipelines, any pipeline change is significant.
+            if old_pipeline != new_pipeline:
+                self._pipeline_diff(new_dp)
+                return True
+        return False
+
     def _add_default_flows(self):
         ofmsgs = self._pipeline_flows()
-        self._last_pipeline_flows = copy.deepcopy(ofmsgs)
         ofmsgs.extend(super(TfmValve, self)._add_default_flows())
         return ofmsgs
 

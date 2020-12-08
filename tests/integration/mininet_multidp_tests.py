@@ -452,7 +452,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
         interfaces_conf[end_port]['lacp'] = 2
 
         self.reload_conf(conf, self.faucet_config_path, restart=True,
-                         cold_start=True, change_expected=True)
+                         cold_start=None, change_expected=True)
 
         self.wait_for_all_lacp_up()
         self.verify_stack_hosts()
@@ -2273,7 +2273,7 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         del interfaces_conf[self.host_port_maps[0][0][0]]
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
-            cold_start=True, change_expected=True, dpid=self.topo.dpids_by_id[0])
+            cold_start=None, change_expected=True, dpid=self.topo.dpids_by_id[0])
         self.verify_stack_up()
         del self.host_information[0]
         self.verify_intervlan_routing()
