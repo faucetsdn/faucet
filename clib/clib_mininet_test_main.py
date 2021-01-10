@@ -255,7 +255,7 @@ def pipeline_superset_report(decoded_pcap_logs):
                     else:
                         return
                 continue
-            elif depth > 1:
+            if depth > 1:
                 section_name = section_stack[-1]
                 if table_id is not None:
                     if 'Match' in section_stack:
@@ -432,6 +432,7 @@ class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-att
 
     root_tmpdir = None
     test_duration_secs = {}
+    unexpected_success = False
 
     def _test_tmpdir(self, test):
         return os.path.join(
@@ -449,7 +450,11 @@ class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-att
 
     def stopTest(self, test):
         self._set_test_duration_secs(test)
-        super(FaucetResult, self).stopTest(test)
+        super().stopTest(test)
+
+    def addUnexpectedSuccess(self, test):
+        self.unexpected_success = True
+        super().addUnexpectedSuccess(test)
 
 
 class FaucetCleanupResult(FaucetResult):
@@ -460,7 +465,7 @@ class FaucetCleanupResult(FaucetResult):
         self._set_test_duration_secs(test)
         shutil.rmtree(self._test_tmpdir(test))
         self.successes.append((test, ''))
-        super(FaucetCleanupResult, self).addSuccess(test)
+        super().addSuccess(test)
 
 
 def debug_exception_handler(etype, value, trace):
@@ -563,7 +568,7 @@ def run_test_suites(debug, report_json_filename, hw_config, root_tmpdir,
     results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
     results.extend(run_single_test_suites(debug, root_tmpdir, resultclass, single_tests))
     report_results(results, hw_config, report_json_filename)
-    successful_results = [result for result in results if result.wasSuccessful()]
+    successful_results = [result for result in results if result.wasSuccessful() or result.unexpected_success]
     return len(results) == len(successful_results)
 
 
