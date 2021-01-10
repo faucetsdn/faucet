@@ -1244,7 +1244,7 @@ configuration.
         ignore_keys = frozenset(ignore_keys)
         curr_confs = frozenset(subconf.keys())
         new_confs = frozenset(new_subconf.keys())
-        deleted_confs = curr_confs - new_confs
+        deleted_confs = set(curr_confs - new_confs)
         added_confs = set()
         changed_confs = set()
         same_confs = set()
