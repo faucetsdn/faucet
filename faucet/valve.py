@@ -1448,13 +1448,19 @@ class Valve:
             error_code = error_tuple[1][msg.code]
         except KeyError:
             pass
-        if (self.dp.group_table and
-                msg.type == valve_of.ofp.OFPET_GROUP_MOD_FAILED and
-                msg.code == valve_of.ofp.OFPGMFC_GROUP_EXISTS):
+        if self.dp.group_table:
             # Unlike flows, adding an overwriting group (same group_id) is considered an error.
             # This "error" is expected with groups and redundant controllers, as one controller
             # may delete another's groups while they synchronize with new network state.
-            return
+            if (msg.type == valve_of.ofp.OFPET_GROUP_MOD_FAILED and
+                    msg.code == valve_of.ofp.OFPGMFC_GROUP_EXISTS):
+                return
+
+            # We output a flow referencing a group, that a redundant
+            # controller deleted before sending its own copy of this flow.
+            if (msg.type == valve_of.ofp.OFPET_BAD_ACTION and
+                    msg.code == valve_of.ofp.OFPBAC_BAD_OUT_GROUP):
+                return
         if (msg.type == valve_of.ofp.OFPET_METER_MOD_FAILED and
                 msg.code == valve_of.ofp.OFPMMFC_METER_EXISTS):
             # Same scenario as groups.
