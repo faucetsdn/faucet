@@ -6,7 +6,7 @@ INTEGRATIONTESTS=1
 UNITTESTS=1
 DEPCHECK=1
 GEN_UNIT=0
-GEN_INT=0
+GEN_TOLERANCE=0
 SKIP_PIP=0
 HELP=0
 HWTESTS=${HWTESTS:-0}
@@ -50,8 +50,8 @@ for opt in ${FAUCET_TESTS_SHORTENED}; do
       INTEGRATIONTESTS=0
       PARAMS+=" ${opt}"
       ;;
-    --generative_integration)
-      GEN_INT=1
+    --generative_tolerance)
+      GEN_TOLERANCE=1
       UNITTESTS=0
       DEPCHECK=0
       INTEGRATIONTESTS=0
@@ -187,10 +187,10 @@ if [ "$INTEGRATIONTESTS" == 1 ] ; then
   echo "========== Running faucet integration tests =========="
   cd /faucet-src/tests/integration
   ./mininet_main.py -c
-elif [ "$GEN_INT" == 1 ] ; then
-  echo "========== Running faucet generative integration tests =========="
+elif [ "$GEN_TOLERANCE" == 1 ] ; then
+  echo "========== Running faucet generative integration fault-tolerance tests =========="
   cd /faucet-src/tests/generative/integration/
-  ./mininet_main.py -c
+  ./fault_tolerance_main.py -c
 fi
 
 if [ "$HWTESTS" == 1 ] ; then
@@ -233,10 +233,12 @@ EOL
   ovs-ofctl dump-ports hwbr
 fi
 
-if [ "$INTEGRATIONTESTS" == 1 ] || [ "$GEN_INT" == 1 ] ; then
+if [ "$INTEGRATIONTESTS" == 1 ]; then
   time ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
   cd /faucet-src/clib
   time ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
+elif [ "$GEN_TOLERANCE" == 1 ] ; then
+  time ./fault_tolerance_main.py $FAUCET_TESTS || test_failures+=" tolerance_main"
 fi
 
 if [ -n "${test_failures}" ]; then

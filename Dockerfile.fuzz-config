@@ -14,7 +14,12 @@ RUN \
   $PIP3 pip setuptools && \
   $PIP3 -r requirements.txt && \
   $PIP3 -r fuzz-requirements.txt && \
-  $PIP3 .
+  $PIP3 . && \
+  git clone https://github.com/mininet/mininet && \
+  cd mininet && \
+  pip3 install -q .
+
+
 
 VOLUME ["/var/log/afl/"]
 

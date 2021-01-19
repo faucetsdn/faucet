@@ -617,7 +617,10 @@ class FaucetTestBase(unittest.TestCase):
         self.reset_all_ipv4_prefix(prefix=24)
 
     def _get_controller(self):
-        """Return first controller."""
+        """Return first available controller."""
+        for controller in self.net.controllers:
+            if isinstance(controller, mininet_test_topo.FAUCET):
+                return controller
         return self.net.controllers[0]
 
     @staticmethod

@@ -15,7 +15,7 @@ from networkx.generators.atlas import graph_atlas_g
 
 from clib.clib_mininet_test_main import test_main
 
-import mininet_tests
+import fault_tolerance_tests
 
 
 def test_generator(func_graph, stack_roots):
@@ -31,16 +31,16 @@ if __name__ == '__main__':
     GRAPH_ATLAS = graph_atlas_g()
     for graph in GRAPH_ATLAS:
         if (not graph or
-                graph.number_of_nodes() > mininet_tests.MAX_NODES or
-                graph.number_of_nodes() < mininet_tests.MIN_NODES):
+                graph.number_of_nodes() > fault_tolerance_tests.MAX_NODES or
+                graph.number_of_nodes() < fault_tolerance_tests.MIN_NODES):
             continue
         if networkx.is_connected(graph):
             GRAPHS.setdefault(graph.number_of_nodes(), [])
             GRAPHS[graph.number_of_nodes()].append(graph)
-    for i, test_class in enumerate(mininet_tests.TEST_CLASS_LIST):
+    for i, test_class in enumerate(fault_tolerance_tests.TEST_CLASS_LIST):
         for test_graph in GRAPHS[test_class.NUM_DPS]:
             test_name = 'test_%s' % test_graph.name
             test_func = test_generator(test_graph, test_class.STACK_ROOTS)
             setattr(test_class, test_name, test_func)
 
-    test_main([mininet_tests.__name__])
+    test_main([fault_tolerance_tests.__name__])
