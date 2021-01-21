@@ -1308,10 +1308,9 @@ class Valve:
             for meter_key in changed_meters:
                 old_meter = self.dp.meters.get(meter_key, None)
                 new_meter = new_dp.meters.get(meter_key, None)
-                if old_meter and new_meter and old_meter.meter_id != new_meter.meter_id:
+                if old_meter and new_meter:
                     deleted_meters.add(meter_key)
                     added_meters.add(meter_key)
-            changed_meters -= added_meters
         if self.acl_manager:
             if deleted_meters:
                 ofmsgs.extend(self.acl_manager.del_meters(deleted_meters))
@@ -1319,8 +1318,6 @@ class Valve:
         self.dp_init(new_dp, valves)
 
         if self.acl_manager:
-            if changed_meters:
-                ofmsgs.extend(self.acl_manager.change_meters(changed_meters))
             if added_meters:
                 ofmsgs.extend(self.acl_manager.add_meters(added_meters))
         if added_ports:
@@ -1451,12 +1448,22 @@ class Valve:
             error_code = error_tuple[1][msg.code]
         except KeyError:
             pass
-        if (self.dp.group_table and
-                msg.type == valve_of.ofp.OFPET_GROUP_MOD_FAILED and
-                msg.code == valve_of.ofp.OFPGMFC_GROUP_EXISTS):
+        if self.dp.group_table:
             # Unlike flows, adding an overwriting group (same group_id) is considered an error.
             # This "error" is expected with groups and redundant controllers, as one controller
             # may delete another's groups while they synchronize with new network state.
+            if (msg.type == valve_of.ofp.OFPET_GROUP_MOD_FAILED and
+                    msg.code == valve_of.ofp.OFPGMFC_GROUP_EXISTS):
+                return
+
+            # We output a flow referencing a group, that a redundant
+            # controller deleted before sending its own copy of this flow.
+            if (msg.type == valve_of.ofp.OFPET_BAD_ACTION and
+                    msg.code == valve_of.ofp.OFPBAC_BAD_OUT_GROUP):
+                return
+        if (msg.type == valve_of.ofp.OFPET_METER_MOD_FAILED and
+                msg.code == valve_of.ofp.OFPMMFC_METER_EXISTS):
+            # Same scenario as groups.
             return
         self._inc_var('of_errors')
         self.logger.error('OFError type: %s code: %s %s' % (error_type, error_code, error_txt))
