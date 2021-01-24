@@ -83,12 +83,16 @@ def read_config(config_file, logname):
     return conf, conf_txt
 
 
+def config_hash_content(content):
+    """Return hash of config file content."""
+    config_hash = getattr(hashlib, CONFIG_HASH_FUNC)
+    return config_hash(content.encode('utf-8')).hexdigest()
+
+
 def config_file_hash(config_file_name):
     """Return hash of YAML config file contents."""
-    config_hash = getattr(hashlib, CONFIG_HASH_FUNC)
     with open(config_file_name) as config_file:
-        config_file = config_file.read()
-    return config_hash(config_file.encode('utf-8')).hexdigest()
+        return config_hash_content(config_file.read())
 
 
 def dp_config_path(config_file, parent_file=None):
@@ -120,7 +124,7 @@ def dp_include(config_hashes, config_contents, config_file, logname,  # pylint: 
     # whether or not this configuration file should be reloaded upon receiving
     # a HUP signal.
     new_config_hashes = config_hashes.copy()
-    new_config_hashes[config_file] = config_file_hash(config_file)
+    new_config_hashes[config_file] = config_hash_content(config_content)
     new_config_contents = config_contents.copy()
     new_config_contents[config_file] = config_content
 
