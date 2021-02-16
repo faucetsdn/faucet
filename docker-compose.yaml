@@ -45,7 +45,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.gauge
-        image: 'faucet/gauge:latest'
+        image: 'c65sdn/gauge:latest'
         environment:
             GAUGE_CONFIG: '/etc/faucet/gauge.yaml'
         volumes:
@@ -62,7 +62,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.faucet
-        image: 'faucet/faucet:latest'
+        image: 'c65sdn/faucet:latest'
         volumes:
             - '${FAUCET_PREFIX}/var/log/faucet:/var/log/faucet'
             - '${FAUCET_PREFIX}/etc/faucet:/etc/faucet'

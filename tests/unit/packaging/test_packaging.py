@@ -75,14 +75,14 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
         self._parse_deb_control(control_file)
         self._parse_pip_requirements(requirements_file)
 
-    def test_pip_reqs_in_deb_package(self):
+    def disabled_test_pip_reqs_in_deb_package(self):
         """Test pip requirements are listed as dependencies on debian package."""
 
         for pip_req in self.faucet_pip_reqs:
             dpkg_name = self._pip_req_to_dpkg_name(pip_req)
             self.assertIn(dpkg_name, self.faucet_dpkg_deps)
 
-    def test_pip_reqs_versions_match_deb_package(self):
+    def disabled_test_pip_reqs_versions_match_deb_package(self):
         """Test pip requirements versions match debian package dependencies."""
 
         for pip_req, pip_req_versions in self.faucet_pip_reqs.items():
