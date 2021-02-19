@@ -10,9 +10,10 @@ FROOT="/faucet-src"
 
 dir=$(dirname "$0")
 
-${APK} add -U git ${BUILDDEPS}
+${APK} update
+${APK} add -U git ${BUILDDEPS} py3-pip
 "${dir}/retrycmd.sh" "${PIP3} pip"
-"${dir}/retrycmd.sh" "${PIP3} setuptools ${TESTDEPS}"
+"${dir}/retrycmd.sh" "${PIP3} --ignore-installed setuptools ${TESTDEPS}"
 "${dir}/retrycmd.sh" "${PIP3} -r ${FROOT}/requirements.txt"
 ${PIP3} ${FROOT}
 
