@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""Create/verify environment and check python version."""
 
 from __future__ import print_function
 
@@ -59,7 +60,7 @@ def install_configs():
             alt_src = os.path.join(old_faucet_conf_dir, file_name)
             if os.path.isfile(dst_file):
                 continue
-            elif os.path.isfile(alt_src):
+            if os.path.isfile(alt_src):
                 print("Migrating %s to %s" % (alt_src, dst_file))
                 shutil.copy(alt_src, dst_file)
             elif os.path.isfile(src_file):
