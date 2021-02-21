@@ -13,15 +13,15 @@ from setuptools import setup
 if sys.version_info < (3,):
     print("""You are trying to install faucet on python {py}
 
-Faucet is not compatible with python 2, please upgrade to python 3.5 or newer."""
+Faucet is not compatible with python 2, please upgrade to python 3.6 or newer."""
           .format(py='.'.join([str(v) for v in sys.version_info[:3]])), file=sys.stderr)
     sys.exit(1)
-elif sys.version_info < (3, 5):
+elif sys.version_info < (3, 6):
     print("""You are trying to install faucet on python {py}
 
 Faucet 1.9.0 and above are no longer compatible with older versions of python 3.
 
-Please upgrade to python 3.5 or newer."""
+Please upgrade to python 3.6 or newer."""
           .format(py='.'.join([str(v) for v in sys.version_info[:3]])))
     sys.exit(1)
 
@@ -78,7 +78,7 @@ def install_configs():
 setup(
     name='faucet',
     setup_requires=['pbr>=1.9', 'setuptools>=17.1'],
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     pbr=True
 )
 

@@ -25,14 +25,14 @@ import sys
 if sys.version_info < (3,):
     raise ImportError("""You are trying to run faucet on python {py}
 
-Faucet is not compatible with python 2, please upgrade to python 3.5 or newer."""
+Faucet is not compatible with python 2, please upgrade to python 3.6 or newer."""
                       .format(py='.'.join([str(v) for v in sys.version_info[:3]])))
-elif sys.version_info < (3, 5):
+elif sys.version_info < (3, 6):
     raise ImportError("""You are trying to run faucet on python {py}
 
 Faucet 1.9.0 and above are no longer compatible with older versions of python 3.
 
-Please upgrade to python 3.5 or newer."""
+Please upgrade to python 3.6 or newer."""
                       .format(py='.'.join([str(v) for v in sys.version_info[:3]])))
 
 RYU_OPTIONAL_ARGS = [
