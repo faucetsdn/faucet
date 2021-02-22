@@ -269,16 +269,16 @@ class VLAN(Conf):
     def reset_ports(self, ports):
         """Reset tagged and untagged port lists."""
         sorted_ports = sorted(ports, key=lambda i: i.number)
-        self.tagged = tuple([
+        self.tagged = tuple([  # pylint: disable=consider-using-generator
             port for port in sorted_ports
-            if self in port.tagged_vlans])  # pylint: disable=consider-using-generator
-        self.untagged = tuple([
+            if self in port.tagged_vlans])
+        self.untagged = tuple([  # pylint: disable=consider-using-generator
             port for port in sorted_ports
             if (self == port.native_vlan and
-                port.dyn_dot1x_native_vlan is None)])  # pylint: disable=consider-using-generator
-        self.dot1x_untagged = tuple([
+                port.dyn_dot1x_native_vlan is None)])
+        self.dot1x_untagged = tuple([  # pylint: disable=consider-using-generator
             port for port in sorted_ports
-            if self == port.dyn_dot1x_native_vlan])  # pylint: disable=consider-using-generator
+            if self == port.dyn_dot1x_native_vlan])
 
     def add_cache_host(self, eth_src, port, cache_time):
         """Add/update a host to the cache on a port at at time."""
@@ -453,31 +453,37 @@ class VLAN(Conf):
 
     def restricted_bcast_arpnd_ports(self):
         """Return all ports with restricted broadcast enabled."""
-        return tuple([port for port in self.get_ports() if port.restricted_bcast_arpnd])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.get_ports() if port.restricted_bcast_arpnd])
 
     def hairpin_ports(self):
         """Return all ports with hairpin enabled."""
-        return tuple([port for port in self.get_ports() if port.hairpin])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.get_ports() if port.hairpin])
 
     def mirrored_ports(self):
         """Return ports that are mirrored on this VLAN."""
-        return tuple([port for port in self.get_ports() if port.mirror])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.get_ports() if port.mirror])
 
     def loop_protect_external_ports(self):
         """Return ports wth external loop protection set."""
-        return tuple([port for port in self.get_ports() if port.loop_protect_external])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.get_ports() if port.loop_protect_external])
 
     def loop_protect_external_ports_up(self):
         """Return up ports with external loop protection set."""
-        return tuple([port for port in self.loop_protect_external_ports() if port.dyn_phys_up])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.loop_protect_external_ports() if port.dyn_phys_up])
 
     def lacp_ports(self):
         """Return ports that have LACP on this VLAN."""
-        return tuple([port for port in self.get_ports() if port.lacp])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.get_ports() if port.lacp])
 
     def lacp_up_selected_ports(self):
         """Return LACP ports that have been SELECTED and are UP"""
-        return tuple([
+        return tuple([  # pylint: disable=consider-using-generator
             port for port in self.lacp_ports() if port.is_port_selected() and port.is_actor_up()])
 
     def lags(self):
