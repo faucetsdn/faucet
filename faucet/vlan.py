@@ -275,7 +275,7 @@ class VLAN(Conf):
         self.untagged = tuple([
             port for port in sorted_ports
             if (self == port.native_vlan and
-                port.dyn_dot1x_native_vlan is None])  # pylint: disable=consider-using-generator
+                port.dyn_dot1x_native_vlan is None)])  # pylint: disable=consider-using-generator
         self.dot1x_untagged = tuple([
             port for port in sorted_ports
             if self == port.dyn_dot1x_native_vlan])  # pylint: disable=consider-using-generator
@@ -536,7 +536,7 @@ class VLAN(Conf):
         return self.flood_ports(self.untagged + self.dot1x_untagged, exclude_unicast)
 
     def output_port(self, port, hairpin=False, output_table=None,
-                    external_forwarding_requested=None):
+                        external_forwarding_requested=None):
         actions = []
         if self.port_is_untagged(port):
             actions.append(valve_of.pop_vlan())
