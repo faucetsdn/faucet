@@ -274,9 +274,10 @@ class VLAN(Conf):
             if self in port.tagged_vlans])  # pylint: disable=consider-using-generator
         self.untagged = tuple([
             port for port in sorted_ports
-            if self == port.native_vlan and port.dyn_dot1x_native_vlan is None])  # pylint: disable=consider-using-generator
-        self.dot1x_untagged = tuple(
-            [port for port in sorted_ports
+            if (self == port.native_vlan and
+                port.dyn_dot1x_native_vlan is None])  # pylint: disable=consider-using-generator
+        self.dot1x_untagged = tuple([
+            port for port in sorted_ports
             if self == port.dyn_dot1x_native_vlan])  # pylint: disable=consider-using-generator
 
     def add_cache_host(self, eth_src, port, cache_time):
