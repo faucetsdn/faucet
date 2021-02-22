@@ -536,7 +536,7 @@ class VLAN(Conf):
         return self.flood_ports(self.untagged + self.dot1x_untagged, exclude_unicast)
 
     def output_port(self, port, hairpin=False, output_table=None,
-                        external_forwarding_requested=None):
+                    external_forwarding_requested=None):
         actions = []
         if self.port_is_untagged(port):
             actions.append(valve_of.pop_vlan())
