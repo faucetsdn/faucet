@@ -269,11 +269,15 @@ class VLAN(Conf):
     def reset_ports(self, ports):
         """Reset tagged and untagged port lists."""
         sorted_ports = sorted(ports, key=lambda i: i.number)
-        self.tagged = tuple([port for port in sorted_ports if self in port.tagged_vlans])  # pylint: disable=consider-using-generator,disable=line-too-long
-        self.untagged = tuple([port for port in sorted_ports
-                               if self == port.native_vlan and port.dyn_dot1x_native_vlan is None])  # pylint: disable=consider-using-generator,disable=line-too-line
-        self.dot1x_untagged = tuple([port for port in sorted_ports
-                                     if self == port.dyn_dot1x_native_vlan])  # pylint: disable=consider-using-generator
+        self.tagged = tuple([
+            port for port in sorted_ports
+            if self in port.tagged_vlans])  # pylint: disable=consider-using-generator
+        self.untagged = tuple([
+            port for port in sorted_ports
+            if self == port.native_vlan and port.dyn_dot1x_native_vlan is None])  # pylint: disable=consider-using-generator
+        self.dot1x_untagged = tuple(
+            [port for port in sorted_ports
+            if self == port.dyn_dot1x_native_vlan])  # pylint: disable=consider-using-generator
 
     def add_cache_host(self, eth_src, port, cache_time):
         """Add/update a host to the cache on a port at at time."""
