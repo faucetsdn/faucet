@@ -27,6 +27,7 @@ from faucet.valve_packet import FAUCET_MAC
 
 
 class OFVLAN:
+    """OpenFlow VLAN."""
 
     def __init__(self, name, vid):
         self.name = name
@@ -184,16 +185,16 @@ class VLAN(Conf):
         self.dyn_host_gws_by_ipv = collections.defaultdict(set)
         self.dyn_route_gws_by_ipv = collections.defaultdict(set)
         self.reset_caches()
-        super(VLAN, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
     def set_defaults(self):
-        super(VLAN, self).set_defaults()
+        super().set_defaults()
         self._set_default('vid', self._id)
         self._set_default('name', str(self._id))
         self._set_default('faucet_vips', [])
 
     def check_config(self):
-        super(VLAN, self).check_config()
+        super().check_config()
         test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
         test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
             'invalid MAC address %s' % self.faucet_mac))
@@ -268,11 +269,11 @@ class VLAN(Conf):
     def reset_ports(self, ports):
         """Reset tagged and untagged port lists."""
         sorted_ports = sorted(ports, key=lambda i: i.number)
-        self.tagged = tuple([port for port in sorted_ports if self in port.tagged_vlans])
+        self.tagged = tuple([port for port in sorted_ports if self in port.tagged_vlans])  # pylint: disable=consider-using-generator
         self.untagged = tuple([port for port in sorted_ports
-                               if self == port.native_vlan and port.dyn_dot1x_native_vlan is None])
+                               if self == port.native_vlan and port.dyn_dot1x_native_vlan is None])  # pylint: disable=consider-using-generator
         self.dot1x_untagged = tuple([port for port in sorted_ports
-                                     if self == port.dyn_dot1x_native_vlan])
+                                     if self == port.dyn_dot1x_native_vlan])  # pylint: disable=consider-using-generator
 
     def add_cache_host(self, eth_src, port, cache_time):
         """Add/update a host to the cache on a port at at time."""
@@ -529,7 +530,8 @@ class VLAN(Conf):
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged + self.dot1x_untagged, exclude_unicast)
 
-    def output_port(self, port, hairpin=False, output_table=None, external_forwarding_requested=None):
+    def output_port(self, port, hairpin=False, output_table=None,
+                    external_forwarding_requested=None):
         actions = []
         if self.port_is_untagged(port):
             actions.append(valve_of.pop_vlan())
