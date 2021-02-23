@@ -27,6 +27,7 @@ from faucet.valve_packet import FAUCET_MAC
 
 
 class OFVLAN:
+    """OpenFlow VLAN."""
 
     def __init__(self, name, vid):
         self.name = name
@@ -184,16 +185,16 @@ class VLAN(Conf):
         self.dyn_host_gws_by_ipv = collections.defaultdict(set)
         self.dyn_route_gws_by_ipv = collections.defaultdict(set)
         self.reset_caches()
-        super(VLAN, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
     def set_defaults(self):
-        super(VLAN, self).set_defaults()
+        super().set_defaults()
         self._set_default('vid', self._id)
         self._set_default('name', str(self._id))
         self._set_default('faucet_vips', [])
 
     def check_config(self):
-        super(VLAN, self).check_config()
+        super().check_config()
         test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
         test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
             'invalid MAC address %s' % self.faucet_mac))
@@ -268,11 +269,16 @@ class VLAN(Conf):
     def reset_ports(self, ports):
         """Reset tagged and untagged port lists."""
         sorted_ports = sorted(ports, key=lambda i: i.number)
-        self.tagged = tuple([port for port in sorted_ports if self in port.tagged_vlans])
-        self.untagged = tuple([port for port in sorted_ports
-                               if self == port.native_vlan and port.dyn_dot1x_native_vlan is None])
-        self.dot1x_untagged = tuple([port for port in sorted_ports
-                                     if self == port.dyn_dot1x_native_vlan])
+        self.tagged = tuple([  # pylint: disable=consider-using-generator
+            port for port in sorted_ports
+            if self in port.tagged_vlans])
+        self.untagged = tuple([  # pylint: disable=consider-using-generator
+            port for port in sorted_ports
+            if (self == port.native_vlan and
+                port.dyn_dot1x_native_vlan is None)])
+        self.dot1x_untagged = tuple([  # pylint: disable=consider-using-generator
+            port for port in sorted_ports
+            if self == port.dyn_dot1x_native_vlan])
 
     def add_cache_host(self, eth_src, port, cache_time):
         """Add/update a host to the cache on a port at at time."""
@@ -447,31 +453,37 @@ class VLAN(Conf):
 
     def restricted_bcast_arpnd_ports(self):
         """Return all ports with restricted broadcast enabled."""
-        return tuple([port for port in self.get_ports() if port.restricted_bcast_arpnd])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.get_ports() if port.restricted_bcast_arpnd])
 
     def hairpin_ports(self):
         """Return all ports with hairpin enabled."""
-        return tuple([port for port in self.get_ports() if port.hairpin])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.get_ports() if port.hairpin])
 
     def mirrored_ports(self):
         """Return ports that are mirrored on this VLAN."""
-        return tuple([port for port in self.get_ports() if port.mirror])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.get_ports() if port.mirror])
 
     def loop_protect_external_ports(self):
         """Return ports wth external loop protection set."""
-        return tuple([port for port in self.get_ports() if port.loop_protect_external])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.get_ports() if port.loop_protect_external])
 
     def loop_protect_external_ports_up(self):
         """Return up ports with external loop protection set."""
-        return tuple([port for port in self.loop_protect_external_ports() if port.dyn_phys_up])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.loop_protect_external_ports() if port.dyn_phys_up])
 
     def lacp_ports(self):
         """Return ports that have LACP on this VLAN."""
-        return tuple([port for port in self.get_ports() if port.lacp])
+        return tuple([  # pylint: disable=consider-using-generator
+            port for port in self.get_ports() if port.lacp])
 
     def lacp_up_selected_ports(self):
         """Return LACP ports that have been SELECTED and are UP"""
-        return tuple([
+        return tuple([  # pylint: disable=consider-using-generator
             port for port in self.lacp_ports() if port.is_port_selected() and port.is_actor_up()])
 
     def lags(self):
@@ -529,7 +541,8 @@ class VLAN(Conf):
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged + self.dot1x_untagged, exclude_unicast)
 
-    def output_port(self, port, hairpin=False, output_table=None, external_forwarding_requested=None):
+    def output_port(self, port, hairpin=False, output_table=None,
+                    external_forwarding_requested=None):
         actions = []
         if self.port_is_untagged(port):
             actions.append(valve_of.pop_vlan())
