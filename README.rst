@@ -57,8 +57,8 @@ Support
 
 We run a number of mailing lists for communication between users and developers of Faucet, as well as a low traffic mailing list for announcements of new versions:
 
-- https://list.waikato.ac.nz/mailman/listinfo/faucet-announce
-- https://list.waikato.ac.nz/mailman/listinfo/faucet-dev
+- https://list.waikato.ac.nz/postorius/lists/faucet-announce.list.waikato.ac.nz/
+- https://list.waikato.ac.nz/postorius/lists/faucet-dev.list.waikato.ac.nz/
 - https://lists.geant.org/sympa/info/faucet-users
 
 Faucet dev blog by Josh Bailey available at https://www.vandervecken.com/faucet.
