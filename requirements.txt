@@ -1,6 +1,6 @@
 git+https://github.com/c65sdn/chewie.git@master
 influxdb
-msgpack>=0.4.6,<1.0.0
+msgpack==1.0.2
 networkx
 pbr==5.5.1
 prometheus_client==0.9.0
