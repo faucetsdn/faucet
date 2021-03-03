@@ -1,6 +1,6 @@
 ## Image name: faucet/event-adapter-rabbitmq
 
-FROM c65sdn/base:1.0.0
+FROM c65sdn/base:1.0.1
 LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 
 ENV PYTHONUNBUFFERED=0
@@ -16,7 +16,7 @@ RUN apk add --update \
       python3 \
       python3-dev \
       gcc \
-      musl-dev \
+      musl-dev py3-pip \
     && pip3 install --no-cache-dir -r pip-requirements.txt \
     && pip3 install --no-cache-dir --upgrade wheel setuptools  \
     && pip3 install --no-cache-dir -r requirements.txt \
