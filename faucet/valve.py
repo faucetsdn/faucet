@@ -172,6 +172,9 @@ class Valve:
     def _set_port_var(self, var, val, port):
         self._set_var(var, val, labels=self.dp.port_labels(port.number))
 
+    def _inc_port_var(self, var, port, val=1):
+        self._inc_var(var, labels=self.dp.port_labels(port.number), val=val)
+
     def _remove_var(self, var, labels=None):
         if labels is None:
             labels = self.dp.base_prom_labels()
@@ -758,6 +761,7 @@ class Valve:
         lacp_state = port.actor_state()
         lacp_role = port.lacp_port_state()
         self._set_port_var('port_lacp_state', lacp_state, port)
+        self._inc_port_var('port_lacp_state_change_count', port)
         self._set_port_var('lacp_port_id', port.lacp_port_id, port)
         self._set_port_var('port_lacp_role', lacp_role, port)
         self.notify(

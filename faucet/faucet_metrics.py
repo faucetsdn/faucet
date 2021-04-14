@@ -204,6 +204,17 @@ class FaucetMetrics(PromClient):
             'lacp_port_id',
             'lacp port ID for for port',
             self.PORT_REQUIRED_LABELS)
+        self.port_stack_state_change_count = self._counter(
+            'port_stack_state_change_count',
+            'number of changes in port stack state',
+            self.PORT_REQUIRED_LABELS)
+        self.port_lacp_state_change_count = self._counter(
+            'port_lacp_state_change_count',
+            'number of changes in port lacp state',
+            self.PORT_REQUIRED_LABELS)
+        self.stack_root_change_count = self._counter(
+            'stack_root_change_count',
+            'number of changes in stack root', [])
 
     def _counter(self, var, var_help, labels):
         return Counter(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
