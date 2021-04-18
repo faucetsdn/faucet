@@ -133,6 +133,8 @@ class ValveLLDPManager(ValveManagerBase):
             after_state, reason = port.stack_port_update(now)
             if before_state != after_state:
                 self._set_port_var('port_stack_state', after_state, port)
+                self._inc_var(
+                    'port_stack_state_change_count', labels=valve.dp.port_labels(port.number))
                 self.notify({'STACK_STATE': {
                     'port': port.number,
                     'state': after_state}})

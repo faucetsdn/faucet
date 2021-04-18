@@ -492,6 +492,8 @@ vlans:
             5, int(self.get_prom('port_lacp_state', labels=labels)))
         self.assertFalse(
             valve.dp.ports[1].non_stack_forwarding())
+        self.assertEqual(
+            4, int(self.get_prom('port_lacp_state_change_count_total', labels=labels)))
 
     def test_lacp_timeout(self):
         """Test LACP comes up and then times out."""

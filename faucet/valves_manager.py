@@ -177,6 +177,7 @@ class ValvesManager:
                     self.metrics.is_dp_stack_root.labels(**labels).set(0)
                 self.meta_dp_state.stack_root_name = new_root_name
                 self.metrics.faucet_stack_root_dpid.set(new_root_valve.dp.dp_id)
+                self.metrics.stack_root_change_count.inc(1)
                 self.reload_stack_root_config(now)
                 if prev_root_name:
                     stack_change = True
