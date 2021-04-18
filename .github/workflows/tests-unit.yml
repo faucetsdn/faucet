@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 env:
   FILES_CHANGED: "all"
+  CODECOV_PY_VER: 3.6
 
 jobs:
   unit-tests:
@@ -62,7 +63,7 @@ jobs:
       - name: Running unit tests
         run: |
           ./tests/run_unit_tests.sh
-      - if: ${{ matrix.python-version == env.CODECHECK_PY_VER }}
+      - if: ${{ matrix.python-version == env.CODECOV_PY_VER }}
         name: Upload codecov
         uses: codecov/codecov-action@v1
       - if: ${{ matrix.python-version != 3.5 && (env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED) }}
