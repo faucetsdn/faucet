@@ -67,7 +67,7 @@ EXTERNAL_DEPENDENCIES = (
     ('nc', ['-h'], 'OpenBSD netcat', '', 0),
     ('vconfig', [], 'the VLAN you are talking about', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
-     r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
+     r'fuser \(PSmisc\) (\d+\.\d+|UNKNOWN)\n', "22.0"),
     ('lsof', ['-v'], r'lsof version',
      r'revision: (\d+\.\d+)\n', "4.86"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
@@ -204,6 +204,9 @@ def check_dependencies():
                 print('cannot parse version %s for %s' % (
                     version_match, required_binary))
                 return False
+            if binary == 'fuser' and binary_version == 'UNKNOWN':
+                # Workaround for psmisc 23.3
+                return True
             if version.parse(binary_version) < version.parse(binary_minversion):
                 print('%s version %s is less than required version %s' % (
                     required_binary, binary_version, binary_minversion))
