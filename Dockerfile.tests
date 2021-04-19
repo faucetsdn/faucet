@@ -1,6 +1,6 @@
 ## Image name: faucet/tests
 
-FROM c65sdn/test-base:1.0.0
+FROM faucet/test-base:9.0.0
 
 COPY ./ /faucet-src/
 WORKDIR /faucet-src/
