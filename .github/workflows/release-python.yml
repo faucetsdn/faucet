@@ -9,6 +9,8 @@ jobs:
   python-package:
     name: "Build and publish python packages"
     runs-on: ubuntu-latest
+    environment:
+      name: "release"
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2

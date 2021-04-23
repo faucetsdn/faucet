@@ -12,6 +12,8 @@ jobs:
   debian-package:
     name: "Build debian packages"
     runs-on: ubuntu-latest
+    environment:
+      name: "release"
     container:
       image: "ubuntu:bionic"
     steps:
