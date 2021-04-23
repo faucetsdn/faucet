@@ -331,7 +331,6 @@ This yaml file also contains the interfaces that need to be seen by Faucet as op
 The device type (hardware) should be set to ``Allied-Telesis`` in the configuration file.
 
 .. code-block:: yaml
-
   :caption: /etc/faucet/faucet.yaml
   :name: allied-telesis/faucet.yaml
 

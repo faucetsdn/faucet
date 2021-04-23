@@ -108,7 +108,6 @@ Faucet
 On the FAUCET configuration file (``/etc/faucet/faucet.yaml``), add the datapath of the switch you wish to be managed by FAUCET. The device type (hardware) should be set to ``CiscoC9K`` in the configuration file.
 
 .. code-block:: yaml
-
   :caption: /etc/faucet/faucet.yaml
   :name: cisco/faucet.yaml
 
