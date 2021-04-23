@@ -54,6 +54,8 @@ jobs:
       image: "ubuntu:focal"
       options: --privileged
     needs: debian-package
+    permissions:
+      contents: write
     steps:
       - name: Install dependencies
         run: |
@@ -68,15 +70,13 @@ jobs:
           cd images/vm/
           ./build-faucet-vm.sh
       - name: Upload release asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: svenstaro/upload-release-action@v2
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./images/vm/faucet-amd64-${{ github.event.release.tag_name }}.qcow2
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          overwrite: true
+          file: ./images/vm/faucet-amd64-${{ github.event.release.tag_name }}.qcow2
           asset_name: faucet-amd64-${{ github.event.release.tag_name }}.qcow2
-          asset_content_type: application/octet-stream
 
   rpi-image:
     name: "Build raspberry pi image"
@@ -85,6 +85,8 @@ jobs:
       image: "ubuntu:bionic"
       options: --privileged
     needs: debian-package
+    permissions:
+      contents: write
     steps:
       - name: Install dependencies
         run: |
@@ -110,12 +112,10 @@ jobs:
           ./build.sh
           mv ./deploy/image_*_raspbian-lite.zip ./deploy/faucet_${{ github.event.release.tag_name }}_raspbian-lite.zip
       - name: Upload release asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: svenstaro/upload-release-action@v2
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./images/raspbian/pi-gen/deploy/faucet_${{ github.event.release.tag_name }}_raspbian-lite.zip
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          overwrite: true
+          file: ./images/raspbian/pi-gen/deploy/faucet_${{ github.event.release.tag_name }}_raspbian-lite.zip
           asset_name: faucet_${{ github.event.release.tag_name }}_raspbian-lite.zip
-          asset_content_type: application/zip
