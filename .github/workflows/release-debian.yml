@@ -83,35 +83,35 @@ jobs:
   rpi-image:
     name: "Build raspberry pi image"
     runs-on: ubuntu-latest
-    container:
-      image: "ubuntu:bionic"
-      options: --privileged
     needs: debian-package
     permissions:
       contents: write
     steps:
       - name: Install dependencies
         run: |
-          dpkg --add-architecture i386
-          apt-get update
-          apt-get -y upgrade
-          apt-get install -y coreutils quilt parted qemu-user-static:i386 debootstrap zerofree zip dosfstools libarchive-tools libcap2-bin grep rsync xz-utils file git curl bc xxd kmod binfmt-support
-          /usr/sbin/update-binfmts --enable
+          sudo apt-get update
+          sudo apt-get -y upgrade
+          sudo apt-get install -y binfmt-support
+      - name: Prepare build environment
+        run: |
+          sudo /usr/sbin/update-binfmts --enable
+          sudo modprobe nbd
       - name: Checkout repo
         uses: actions/checkout@v2
       - name: Install pi-gen
         run: |
           cd images/raspbian/
           git clone https://github.com/RPi-Distro/pi-gen.git
-          cd pi-gen
-          mv ../install-faucet.sh ./stage2/01-sys-tweaks/02-install-faucet.sh
       - name: Build image
         run: |
           cd images/raspbian/pi-gen/
           echo "IMG_NAME='faucet_${{ github.event.release.tag_name }}_raspbian'" > config
+          mkdir ./stage2/04-install-faucet/
+          mv ../install-faucet.sh ./stage2/04-install-faucet/02-run.sh
+          rm ./stage2/EXPORT_NOOBS
           touch ./stage3/SKIP ./stage4/SKIP ./stage5/SKIP
           touch ./stage4/SKIP_IMAGES ./stage5/SKIP_IMAGES
-          ./build.sh
+          ./build-docker.sh
           mv ./deploy/image_*_raspbian-lite.zip ./deploy/faucet_${{ github.event.release.tag_name }}_raspbian-lite.zip
       - name: Upload release asset
         uses: svenstaro/upload-release-action@v2
