@@ -130,12 +130,6 @@ cd /faucet-src/tests
 
 ./sysctls_for_tests.sh || true
 
-# TODO: need to force UTF-8 as POSIX causes python3/pytype errors.
-locale-gen en_US.UTF-8
-export LANG=en_US.UTF-8
-export LANGUAGE=en_US.en
-export LC_ALL=en_US.UTF-8
-
 export PYTHONPATH=/faucet-src:/faucet-src/faucet:/faucet-src/clib
 
 if [ "$HELP" == 1 ] ; then

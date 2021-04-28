@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 env:
   FILES_CHANGED: "all"
+  CODECOV_PY_VER: 3.6
 
 jobs:
   unit-tests:
@@ -11,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.5, 3.6, 3.7, 3.8]
+        python-version: [3.5, 3.6, 3.7, 3.8, 3.9]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -62,10 +63,11 @@ jobs:
       - name: Running unit tests
         run: |
           ./tests/run_unit_tests.sh
-      - if: ${{ matrix.python-version == env.CODECHECK_PY_VER }}
+      - if: ${{ matrix.python-version == env.CODECOV_PY_VER }}
         name: Upload codecov
         uses: codecov/codecov-action@v1
-      - if: ${{ matrix.python-version != 3.5 && (env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED) }}
+        # TODO: pytype support for 3.9 coming soon: https://github.com/google/pytype/issues/749
+      - if: ${{ matrix.python-version != 3.5 && matrix.python-version != 3.9 && (env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED) }}
         name: Pytype
         run: |
           ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt"

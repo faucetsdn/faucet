@@ -1,3 +1,3 @@
 -r docs/requirements.txt
-pylint==2.7.2
-pytype==2021.3.22
+pylint==2.8.2
+pytype==2021.4.26

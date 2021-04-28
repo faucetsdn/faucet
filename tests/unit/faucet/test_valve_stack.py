@@ -978,6 +978,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=1))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=2))
+        self.assertEqual(1, self.get_prom('stack_root_change_count_total', bare=True))
         now += (self.STACK_ROOT_DOWN_TIME * 2)
         # Time passes, still no change, s1 is still the root.
         self.assertFalse(
@@ -986,6 +987,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=1))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=2))
+        self.assertEqual(1, self.get_prom('stack_root_change_count_total', bare=True))
         # s2 has come up, but has all stack ports down and s1 is still down.
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
         now += (self.STACK_ROOT_STATE_UPDATE_TIME * 2)
@@ -999,6 +1001,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=1))
         self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=2))
+        self.assertEqual(2, self.get_prom('stack_root_change_count_total', bare=True))
         # More time passes, s1 is still down, s2 is still the root.
         now += (self.STACK_ROOT_DOWN_TIME * 2)
         # s2 recently said something, s2 still the root.
@@ -1010,6 +1013,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=1))
         self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=2))
+        self.assertEqual(2, self.get_prom('stack_root_change_count_total', bare=True))
         # now s1 came up too, but we stay on s2 because it's healthy.
         self.valves_manager.meta_dp_state.dp_last_live_time['s1'] = now + 1
         now += self.STACK_ROOT_STATE_UPDATE_TIME
@@ -1019,6 +1023,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=1))
         self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=2))
+        self.assertEqual(2, self.get_prom('stack_root_change_count_total', bare=True))
 
 
 class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
@@ -1186,6 +1191,19 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
         valve.fast_state_expire(self.mock_time(300), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
+        port_labels = {
+            'port': stack_port.name,
+            'port_description': stack_port.description,
+            'dp_name': valve.dp.name,
+            'dp_id': '0x%x' % valve.dp.dp_id
+        }
+        stack_change_count = self.get_prom(
+            'port_stack_state_change_count_total', labels=port_labels, bare=True)
+        self.assertEqual(
+            4, stack_change_count,
+            'Port %s DP %s expected stack change count %s differs from varz value %s'
+            % (stack_port, valve.dp.name, 4, stack_change_count)
+        )
 
 
 class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestNetwork):
