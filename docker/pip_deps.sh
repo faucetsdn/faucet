@@ -22,9 +22,7 @@ done
 
 pip3="pip3 install -q --upgrade ${pip_args}"
 
-# Install pip pre-dependencies.
-"${BASEDIR}/docker/retrycmd.sh" "${pip3} -r pip-requirements.txt"
-"${BASEDIR}/docker/retrycmd.sh" "${pip3} wheel cython setuptools"
+"${BASEDIR}/docker/retrycmd.sh" "${pip3} wheel"
 
 for req in ${reqs}; do
   "${BASEDIR}/docker/retrycmd.sh" "${pip3} -r ${BASEDIR}/${req}"

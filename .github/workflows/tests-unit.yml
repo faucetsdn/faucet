@@ -55,6 +55,10 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+      - if: matrix.python-version == 3.5
+        name: Upgrade setuptools for python-3.5
+        run: |
+          pip3 install --upgrade setuptools
       - name: Install dependencies
         run: |
           ./docker/pip_deps.sh
