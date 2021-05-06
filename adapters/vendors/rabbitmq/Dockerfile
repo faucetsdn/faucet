@@ -12,7 +12,7 @@ COPY pip-requirements.txt pip-requirements.txt
 COPY rabbit.py rabbit.py
 COPY test_rabbit.py test_rabbit.py
 
-RUN apk add --update \
+RUN apk add --no-cache --update \
       python3 \
       python3-dev \
       gcc \
