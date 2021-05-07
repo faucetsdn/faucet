@@ -70,8 +70,7 @@ jobs:
       - if: ${{ matrix.python-version == env.CODECOV_PY_VER }}
         name: Upload codecov
         uses: codecov/codecov-action@v1
-        # TODO: pytype support for 3.9 coming soon: https://github.com/google/pytype/issues/749
-      - if: ${{ matrix.python-version != 3.5 && matrix.python-version != 3.9 && (env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED) }}
+      - if: ${{ matrix.python-version != 3.5 && (env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED) }}
         name: Pytype
         run: |
           ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt"

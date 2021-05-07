@@ -393,6 +393,8 @@ class GaugeInfluxShipperTest(unittest.TestCase): # pytype: disable=module-attr
         """Checks that the shipper successsfully connects
         to a HTTP server when the points are shipped"""
 
+        server = None
+
         try:
             server = start_server(PretendInflux)
             shipper = gauge_influx.InfluxShipper()
@@ -402,8 +404,9 @@ class GaugeInfluxShipperTest(unittest.TestCase): # pytype: disable=module-attr
         except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
         finally:
-            server.socket.close()
-            server.shutdown()
+            if server:
+                server.socket.close()
+                server.shutdown()
 
     def test_ship_connection_err(self):
         """Checks that even when there is a connection error,
