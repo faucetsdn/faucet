@@ -11,8 +11,7 @@ FROOT="/faucet-src"
 dir=$(dirname "$0")
 
 ${APK} add -U git ${BUILDDEPS}
-"${dir}/retrycmd.sh" "${PIP3} -r ${FROOT}/pip-requirements.txt"
-"${dir}/retrycmd.sh" "${PIP3} setuptools ${TESTDEPS}"
+"${dir}/retrycmd.sh" "${PIP3} ${TESTDEPS}"
 "${dir}/retrycmd.sh" "${PIP3} -r ${FROOT}/requirements.txt"
 ${PIP3} ${FROOT}
 

@@ -23,14 +23,12 @@ ENV GOPATH /go
 ENV PATH /go/bin:$PATH
 
 COPY requirements.txt /src/requirements.txt
-COPY pip-requirements.txt /src/pip-requirements.txt
 
 RUN for module in gnmi_capabilities gnmi_get gnmi_set gnmi_subscribe gnmi_target; do \
     go get github.com/google/gnxi/${module} \
     ; go install github.com/google/gnxi/${module} \
     ; done \
     && cd /src \
-    && pip3 install --no-cache-dir -r pip-requirements.txt \
     && pip3 install --no-cache-dir -r requirements.txt \
     && git clone https://github.com/faucetsdn/faucetagent \
     && cd faucetagent \

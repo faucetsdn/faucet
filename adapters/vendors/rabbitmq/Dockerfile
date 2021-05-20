@@ -8,7 +8,6 @@ ENV PYTHONUNBUFFERED=0
 WORKDIR /src
 
 COPY requirements.txt requirements.txt
-COPY pip-requirements.txt pip-requirements.txt
 COPY rabbit.py rabbit.py
 COPY test_rabbit.py test_rabbit.py
 
@@ -17,8 +16,6 @@ RUN apk add --update \
       python3-dev \
       gcc \
       musl-dev \
-    && pip3 install --no-cache-dir -r pip-requirements.txt \
-    && pip3 install --no-cache-dir --upgrade wheel setuptools  \
     && pip3 install --no-cache-dir -r requirements.txt \
 # run tests
     && apk add --update pytest \

@@ -58,7 +58,6 @@ jobs:
           modprobe openvswitch
           modprobe ebtables
           ln -s "$(pwd)" /faucet-src
-          cd /faucet-src/
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Run sanity tests
         run: |
@@ -127,7 +126,6 @@ jobs:
           modprobe openvswitch
           modprobe ebtables
           ln -s "$(pwd)" /faucet-src
-          cd /faucet-src/
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Shard tests
         run: |
