@@ -3451,12 +3451,13 @@ dps:
         self.assertEqual(valve.dp.ports[3].native_vlan.vid, 200)
         self.assertTrue(valve.dp.ports[3].dyn_update_time)
 
+        # DPID 1 Port 3 changes vlan from 200, to 100, back to 200
         self.update_and_revert_config(
-            self.CONFIG, self.NEW_VLAN_CONFIG, 'warm')
+            self.CONFIG, self.NEW_VLAN_CONFIG, 'warm',
+            verify_func=lambda: self.assertEqual(valve.dp.ports[3].native_vlan.vid, 100))
 
-        # DPID 1 Port 3 changes vlan from 100 to 200
-        self.assertEqual(valve.dp.ports[3].native_vlan.vid, 100)
         self.assertTrue(valve.dp.ports[3].dyn_update_time)
+        self.assertEqual(valve.dp.ports[3].native_vlan.vid, 200)
 
     def test_reload_vlan_change(self):
         """Test reload with topology change, stack ports stay up"""
