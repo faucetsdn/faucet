@@ -3448,14 +3448,14 @@ dps:
     def test_reload_vlan_change_warmstart(self):
         """Test reload with topology change, only do a warm start"""
         valve = self.valves_manager.valves[1]
-        self.assertEqual(valve.dp.ports[3].vlan, 100)
+        self.assertEqual(valve.dp.ports[3].native_vlan, 100)
         self.assertTrue(valve.dp.ports[3].dyn_update_time)
 
         self.update_and_revert_config(
             self.CONFIG, self.NEW_VLAN_CONFIG, 'warm')
 
         # DPID 1 Port 3 changes vlan from 100 to 200
-        self.assertEqual(valve.dp.ports[3].vlan, 200)
+        self.assertEqual(valve.dp.ports[3].native_vlan, 200)
         self.assertTrue(valve.dp.ports[3].dyn_update_time)
 
     def test_reload_vlan_change(self):
