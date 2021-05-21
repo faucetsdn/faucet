@@ -3427,8 +3427,11 @@ dps:
 
     def test_reload_topology_change_warmstart(self):
         """Test reload with topology change forces stack ports down, only warm starts"""
+        valve = self.valves_manager.valves[self.DP_ID]
+        self.assertTrue(valve.dp.ports[2].dyn_update_time)
         self.update_and_revert_config(
             self.CONFIG, self.NEW_PORT_CONFIG, 'warm')
+        self.assertTrue(valve.dp.ports[2].dyn_update_time)
 
     def test_reload_topology_change(self):
         """Test reload with topology change forces stack ports down"""
