@@ -9,6 +9,8 @@ jobs:
   python-package:
     name: "Build and publish python packages"
     runs-on: ubuntu-latest
+    environment:
+      name: "release"
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -22,4 +24,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@v1.4.2
         with:
           user: __token__
-          password: ${{ secrets.PYPI_PASSWORD }}
+          password: ${{ secrets.PYPI_TOKEN }}
