@@ -301,6 +301,7 @@ class Port(Conf):
             self.dyn_last_lldp_beacon_time = prev_port.dyn_last_lldp_beacon_time
             self.dyn_phys_up = prev_port.dyn_phys_up
             self.dyn_stack_probe_info = prev_port.dyn_stack_probe_info
+            self.dyn_update_time = prev_port.dyn_update_time
 
     def stack_descr(self):
         """"Return stacking annotation if this is a stacking port."""
