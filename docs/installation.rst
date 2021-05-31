@@ -256,13 +256,11 @@ You can install the latest pip package, or you can install directly from git via
 Installing faucet
 ~~~~~~~~~~~~~~~~~
 
-First, install some python dependencies:
+First, ensure python3 is installed:
 
 .. code:: console
 
-  apt-get install python3-dev python3-pip
-  pip3 install setuptools
-  pip3 install wheel
+  apt-get install python3 python3-pip
 
 Then install the latest stable release of faucet from pypi, via pip:
 
@@ -274,6 +272,7 @@ Or, install the latest development code from git, via pip:
 
 .. code:: console
 
+  apt-get install git
   pip3 install git+https://github.com/faucetsdn/faucet.git
 
 Starting faucet manually

@@ -9,6 +9,8 @@ jobs:
   faucet-docker-image:
     name: "Build faucet docker image"
     runs-on: ubuntu-latest
+    environment:
+      name: "release"
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -37,6 +39,8 @@ jobs:
   gauge-docker-image:
     name: "Build gauge docker image"
     runs-on: ubuntu-latest
+    environment:
+      name: "release"
     needs: faucet-docker-image
     steps:
       - name: Checkout repo
@@ -66,6 +70,8 @@ jobs:
   rabbitmq-adapter-docker-image:
     name: "Build rabbitmq adapter docker image"
     runs-on: ubuntu-latest
+    environment:
+      name: "release"
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -95,6 +101,8 @@ jobs:
   faucetagent-adapter-docker-image:
     name: "Build faucetagent adapter docker image"
     runs-on: ubuntu-latest
+    environment:
+      name: "release"
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2

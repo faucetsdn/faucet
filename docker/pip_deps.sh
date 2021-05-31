@@ -22,9 +22,7 @@ done
 
 pip3="pip3 install -q --upgrade ${pip_args}"
 
-# Install pip pre-dependencies.
-"${BASEDIR}/docker/retrycmd.sh" "${pip3} -r pip-requirements.txt"
-"${BASEDIR}/docker/retrycmd.sh" "${pip3} wheel cython setuptools"
+"${BASEDIR}/docker/retrycmd.sh" "${pip3} wheel"
 
 for req in ${reqs}; do
   "${BASEDIR}/docker/retrycmd.sh" "${pip3} -r ${BASEDIR}/${req}"
@@ -32,9 +30,5 @@ done
 
 # Topo unit test needs mininet in user python environment
 if ! python -c 'import mininet.net' 2> /dev/null; then
-  TMPDIR=$(mktemp -d) && pushd "${TMPDIR}"
-  git clone https://github.com/mininet/mininet
-  cd mininet
-  pip3 install -q .
-  popd && rm -rf "${TMPDIR}"
+  pip3 install -q git+https://github.com/mininet/mininet
 fi
