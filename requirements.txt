@@ -1,4 +1,5 @@
 git+https://github.com/c65sdn/chewie.git@master
+eventlet
 influxdb>=2.12.0
 msgpack==1.0.2
 networkx>=1.9
