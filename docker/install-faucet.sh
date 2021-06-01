@@ -11,7 +11,6 @@ FROOT="/faucet-src"
 dir=$(dirname "$0")
 
 ${APK} add -U git ${BUILDDEPS} py3-pip
-"${dir}/retrycmd.sh" "${PIP3} pip==20.3.4"
 "${dir}/retrycmd.sh" "${PIP3} --ignore-installed distlib -U setuptools"
 "${dir}/retrycmd.sh" "${PIP3} ${TESTDEPS}"
 "${dir}/retrycmd.sh" "${PIP3} -r ${FROOT}/requirements.txt"
