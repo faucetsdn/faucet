@@ -52,15 +52,27 @@ Development and testing
 
 Please see the `developer guide <http://docs.faucet.nz/en/latest/developer_guide.html>`_.
 
-Support
--------
+Getting Help
+------------
 
-We run a number of mailing lists for communication between users and developers of Faucet, as well as a low traffic mailing list for announcements of new versions:
+We use maintain a number of mailing lists for communicating with users and
+developers:
 
-- https://list.waikato.ac.nz/postorius/lists/faucet-announce.list.waikato.ac.nz/
-- https://list.waikato.ac.nz/postorius/lists/faucet-dev.list.waikato.ac.nz/
-- https://lists.geant.org/sympa/info/faucet-users
+ * `faucet-announce <https://list.waikato.ac.nz/mailman/listinfo/faucet-announce>`_
+ * `faucet-dev <https://list.waikato.ac.nz/mailman/listinfo/faucet-dev>`_
+ * `faucet-users <https://lists.geant.org/sympa/info/faucet-users>`_
 
-Faucet dev blog by Josh Bailey available at https://www.vandervecken.com/faucet.
+We also have the #faucet IRC channel on
+`libera <https://web.libera.chat/?channels=#faucet>`_.
 
-To create a issue, use `GitHub Issues <https://github.com/faucetsdn/faucet/issues>`_.
+A few tutorial videos are available on our
+`YouTube channel <https://www.youtube.com/channel/UChRZ5O2diT7QREazfQX0stQ>`_.
+
+The
+`faucet dev blog <https://www.vandervecken.com/faucet>`_
+and
+`faucetsdn twitter <https://twitter.com/faucetsdn>`_
+are good places to keep up with the latest news about faucet.
+
+If you find bugs, or if have feature requests, please create an issue on our
+`bug tracker <https://github.com/faucetsdn/faucet/issues>`_.
