@@ -15,7 +15,8 @@ RUN apk add --no-cache --update \
       python3 \
       python3-dev \
       gcc \
-      musl-dev \
+      musl-dev py3-pip \
+    && pip3 install --no-cache-dir --upgrade wheel setuptools \
     && pip3 install --no-cache-dir -r requirements.txt \
 # run tests
     && apk add --update pytest \
