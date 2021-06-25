@@ -304,7 +304,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Setup network & create config file"""
-        super(FaucetStringOfDPLACPUntaggedTest, self).set_up(
+        super().set_up(
             stack=False,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
@@ -502,7 +502,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTestBase):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Setup network & configuration file"""
-        super(FaucetSingleStackStringOfDPExtLoopProtUntaggedTest, self).set_up(
+        super().set_up(
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
@@ -1155,7 +1155,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTestBase):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Start the network"""
-        super(FaucetSingleTunnelTest, self).set_up(
+        super().set_up(
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
@@ -1360,7 +1360,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTestBase):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Start the network"""
-        super(FaucetSingleTunnelOrderedTest, self).set_up(
+        super().set_up(
             stack=True,
             n_dps=self.NUM_DPS,
             n_tagged=self.NUM_HOSTS,
@@ -1928,7 +1928,7 @@ class FaucetSingleLAGOnUniqueVLANTest(FaucetSingleLAGTest):
             lacp_host_links: List of dpid indices the LACP host will be connected to
         """
         host_vlans = {0: 0, 1: 1, self.LACP_HOST: 2, 3: 0, 4: 1}
-        super(FaucetSingleLAGOnUniqueVLANTest, self).set_up(lacp_host_links, host_vlans)
+        super().set_up(lacp_host_links, host_vlans)
 
 
 class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):

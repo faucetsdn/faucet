@@ -232,7 +232,8 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
 
     prom_client = gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
 
-    def parse_prom_output(self, output):
+    @staticmethod
+    def parse_prom_output(output):
         """Parses the port stats from prometheus into a dictionary"""
 
         parsed_output = {}
@@ -265,7 +266,8 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
 
         return parsed_output
 
-    def get_prometheus_stats(self, addr, port):
+    @staticmethod
+    def get_prometheus_stats(addr, port):
         """Attempts to contact the prometheus server
         at the address to grab port stats."""
 
@@ -366,7 +368,8 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
 class GaugeInfluxShipperTest(unittest.TestCase): # pytype: disable=module-attr
     """Tests the InfluxShipper"""
 
-    def create_config_obj(self, port=12345):
+    @staticmethod
+    def create_config_obj(port=12345):
         """Create a mock config object that contains the necessary InfluxDB config"""
 
         conf = mock.Mock(influx_host='localhost',
@@ -644,7 +647,8 @@ class GaugeThreadPollerTest(unittest.TestCase): # pytype: disable=module-attr
         GaugeThreadPoller class, which just throws an error"""
         self.send_called = True
 
-    def fake_no_response(self):
+    @staticmethod
+    def fake_no_response():
         """This should be called instead of the no_response method in the
         GaugeThreadPoller class, which just throws an error"""
         return
@@ -902,7 +906,8 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
         event.dp = msg.datapath
         return event
 
-    def _write_config(self, config_file_name, config):
+    @staticmethod
+    def _write_config(config_file_name, config):
         with open(config_file_name, 'w') as config_file:
             config_file.write(config)
 

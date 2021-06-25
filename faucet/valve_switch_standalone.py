@@ -364,7 +364,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             self.vlan_table.match(in_port=port.number, vlan=match_vlan),
             priority=self.low_priority, inst=inst)
 
-    def _native_vlan(self, port):
+    @staticmethod
+    def _native_vlan(port):
         for native_vlan in (port.dyn_dot1x_native_vlan, port.native_vlan):
             if native_vlan is not None:
                 return native_vlan

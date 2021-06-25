@@ -286,7 +286,7 @@ class DockerHost(Host):
         # from the owning process through the pty.
         if 'preexec_fn' not in params:
             params['preexec_fn'] = os.setpgrp
-        pipe = super(DockerHost, self)._popen(cmd, **params)
+        pipe = super()._popen(cmd, **params)
         if pipe:
             stdout = pipe.stdout
             out_fd = pipe.stdout.fileno() if stdout else None

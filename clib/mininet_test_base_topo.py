@@ -295,7 +295,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     def debug(self):
         """Print additional information when debugging"""
         try:
-            super(FaucetTopoTestBase, self).debug()
+            super().debug()
         except Exception:
             pprint.pprint(self.host_information)
             raise

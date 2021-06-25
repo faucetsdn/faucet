@@ -133,7 +133,7 @@ vlans:
 
 
     def setUp(self):  # pylint: disable=invalid-name
-        super(FaucetUntaggedTest, self).setUp()
+        super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
@@ -279,10 +279,10 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
 
         self.CONFIG = self.CONFIG.replace('NFV_INTF', str(nfv_intf))
         self.CONFIG = self.CONFIG.replace('RADIUS_PORT', str(self.RADIUS_PORT))
-        super(Faucet8021XBase, self)._init_faucet_config()
+        super()._init_faucet_config()
 
     def setUp(self):
-        super(Faucet8021XBase, self).setUp()
+        super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
@@ -318,7 +318,7 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
     def tearDown(self, ignore_oferrors=False):
         for pid in self.nfv_pids:
             self.nfv_host.cmd('kill %u' % pid)
-        super(Faucet8021XBase, self).tearDown(ignore_oferrors=ignore_oferrors)
+        super().tearDown(ignore_oferrors=ignore_oferrors)
 
     def post_test_checks(self):
         self.assertGreater(os.path.getsize(self.event_log), 0)
@@ -969,7 +969,7 @@ class Faucet8021XMABTest(Faucet8021XSuccessTest):
         self.freeradius_user_conf += '\n{0}  Cleartext-Password := "{0}"'.format(
             str(self.eapol1_host.MAC()).replace(':', '')
         )
-        return super(Faucet8021XMABTest, self).start_freeradius()
+        return super().start_freeradius()
 
     @staticmethod
     def dhclient_callback(host, timeout):
@@ -1391,10 +1391,10 @@ class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
         last_host_switch_link = switch.connectionsTo(last_host)[0]
         self.last_host_switch_intf = [intf for intf in last_host_switch_link if intf in switch.intfList()][0]
         # Now that interface is known, FAUCET config can be written to include it.
-        super(FaucetUntaggedControllerNfvTest, self)._init_faucet_config()
+        super()._init_faucet_config()
 
     def test_untagged(self):
-        super(FaucetUntaggedControllerNfvTest, self).test_untagged()
+        super().test_untagged()
         # Confirm controller can see switch interface with traffic.
         ifconfig_output = self.net.controllers[0].cmd('ifconfig %s' % self.last_host_switch_intf)
         self.assertTrue(
@@ -1405,7 +1405,7 @@ class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
 class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
 
     def test_untagged(self):
-        super(FaucetUntaggedBroadcastTest, self).test_untagged()
+        super().test_untagged()
         self.verify_broadcast()
         self.verify_no_bcast_to_self()
         self.verify_unicast_not_looped()
@@ -1718,7 +1718,7 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
 """
 
     def test_untagged(self):
-        super(FaucetUntaggedApplyMeterTest, self).test_untagged()
+        super().test_untagged()
         first_host, second_host = self.hosts_name_ordered()[:2]
         error('metered ping flood: %s' % first_host.cmd(
             'ping -c 1000 -f %s' % second_host.IP()))
@@ -1741,7 +1741,7 @@ class FaucetUntaggedMeterAddTest(FaucetUntaggedMeterParseTest):
     NUM_FAUCET_CONTROLLERS = 1
 
     def test_untagged(self):
-        super(FaucetUntaggedMeterAddTest, self).test_untagged()
+        super().test_untagged()
         conf = self._get_faucet_conf()
         conf['meters']['lossymeter2'] = {
             'meter_id': 2,
@@ -1778,7 +1778,7 @@ class FaucetUntaggedMeterAddTest(FaucetUntaggedMeterParseTest):
 class FaucetUntaggedMeterModTest(FaucetUntaggedMeterParseTest):
 
     def test_untagged(self):
-        super(FaucetUntaggedMeterModTest, self).test_untagged()
+        super().test_untagged()
         conf = self._get_faucet_conf()
         conf['dps'][self.DP_NAME]['interfaces'][self.port_map['port_1']]['acls_in'] = ['lossyacl']
         self.reload_conf(
@@ -2100,14 +2100,14 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
     def setUp(self): # pylint: disable=invalid-name
         self.handler = InfluxPostHandler
-        super(FaucetUntaggedInfluxTest, self).setUp()
+        super().setUp()
         self.setup_influx()
 
     def tearDown(self, ignore_oferrors=False):  # pylint: disable=invalid-name
         if self.server:
             self.server.shutdown()
             self.server.socket.close()
-        super(FaucetUntaggedInfluxTest, self).tearDown(ignore_oferrors=ignore_oferrors)
+        super().tearDown(ignore_oferrors=ignore_oferrors)
 
     def _wait_error_shipping(self, timeout=None):
         if timeout is None:
@@ -2647,7 +2647,7 @@ vlans:
 """
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetTaggedAndUntaggedSameVlanTest, self).setUp()
+        super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=1, n_untagged=3, links_per_host=self.LINKS_PER_HOST,
@@ -3067,7 +3067,7 @@ acls:
 """
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetIPv4TupleTest, self).setUp()
+        super().setUp()
         self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
         self.CONFIG = '\n'.join(
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
@@ -3253,7 +3253,7 @@ acls:
     ACL_COOKIE = None
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetConfigReloadTestBase, self).setUp()
+        super().setUp()
         self.ACL_COOKIE = random.randint(1, 2**16-1)
         self.ACL = self.ACL.replace('COOKIE', str(self.ACL_COOKIE))
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
@@ -4068,7 +4068,7 @@ vlans:
 """
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetUntaggedLoopTest, self).setUp()
+        super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
@@ -4163,7 +4163,7 @@ vlans:
 """
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetUntaggedIPv4LACPTest, self).setUp()
+        super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
@@ -4617,7 +4617,7 @@ vlans:
 """
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetTaggedAndUntaggedDiffVlanTest, self).setUp()
+        super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=2, n_untagged=2, links_per_host=self.LINKS_PER_HOST,
@@ -5589,7 +5589,7 @@ vlans:
     CONFIG = CONFIG_TAGGED_BOILER
 
     def setUp(self): # pylint: disable=invalid-name
-        super(FaucetTaggedTest, self).setUp()
+        super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=4, links_per_host=self.LINKS_PER_HOST,
@@ -5614,7 +5614,7 @@ class FaucetTaggedDTPTest(FaucetTaggedTest):
                 ('python3 -c \"import sys ; from scapy.contrib.dtp import * ;'
                  'negotiate_trunk(iface=\'%s\')\"' % host.intf_root_name))
             self.assertTrue(re.search('Sent 1 packets', scapy_txt), msg=scapy_txt)
-        super(FaucetTaggedDTPTest, self).test_tagged()
+        super().test_tagged()
 
 
 class FaucetTaggedMirrorTest(FaucetTaggedTest):
@@ -6084,7 +6084,7 @@ vlans:
 class FaucetTaggedBroadcastTest(FaucetTaggedTest):
 
     def test_tagged(self):
-        super(FaucetTaggedBroadcastTest, self).test_tagged()
+        super().test_tagged()
         self.verify_broadcast()
         self.verify_no_bcast_to_self()
 

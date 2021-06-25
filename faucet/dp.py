@@ -808,6 +808,7 @@ configuration.
 
     @staticmethod
     def canonical_port_order(ports):
+        """Return iterable of ports in consistent order."""
         return sorted(ports, key=lambda x: x.number)
 
     def reset_refs(self, vlans=None):
@@ -935,12 +936,11 @@ configuration.
                     if not mirror_port.coprocessor:
                         mirror_port.output_only = True
 
-        def resolve_acl(acl_in, dp=None, vid=None, port_num=None): #pylint: disable=invalid-name
+        def resolve_acl(acl_in, vid=None, port_num=None):  # pylint: disable=invalid-name
             """
             Resolve an individual ACL
             Args:
                 acl_in (str): ACL name to find reference in the acl list
-                dp (DP): DP the ACL is being applied to
                 vid (int): VID of the VLAN the ACL is being applied to
                 port_num (int): The number of the port the ACl is being applied to
             Returns:
@@ -965,7 +965,7 @@ configuration.
                 If the VLAN does not exist, then create one.
 
                 Args:
-                    tunnel_id_name (str/int/None): Reference to the VLAN object that the tunnel will use
+                    tunnel_id_name (str/int/None): Reference to VLAN object that the tunnel will use
                     resolved_dst (tuple): DP, port destination tuple
                 Returns:
                     VLAN: VLAN object used by the tunnel
@@ -1110,7 +1110,7 @@ configuration.
             if self.dp_acls:
                 acls = []
                 for acl in self.dp_acls:
-                    resolve_acl(acl, dp=self)
+                    resolve_acl(acl)
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
             # Build unbuilt tunnel ACL rules (DP is not the source of the tunnel)
