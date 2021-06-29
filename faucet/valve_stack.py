@@ -10,7 +10,7 @@ class ValveStackManager(ValveManagerBase):
     """Implement stack manager, this handles the more higher-order stack functions.
 This includes port nominations and flood directionality."""
 
-    def __init__(self, logger, dp, stack, tunnel_acls, acl_manager, output_table, **kwargs):
+    def __init__(self, logger, dp, stack, tunnel_acls, acl_manager, output_table, **_kwargs):
         """
         Initialize variables and set up peer distances
 
@@ -20,7 +20,7 @@ This includes port nominations and flood directionality."""
         # Logger for logging
         self.logger = logger
         # DP instance for stack healthyness
-        self.dp = dp
+        self.dp = dp  # pylint: disable=invalid-name
         # Stack instance
         self.stack = stack
 
@@ -231,7 +231,8 @@ This includes port nominations and flood directionality."""
             self.logger.info('Stack node %s %s (%s)' % (self.stack.name, health, reason))
         return new_health
 
-    def nominate_stack_root(self, root_valve, other_valves, now, last_live_times, update_time):
+    @staticmethod
+    def nominate_stack_root(root_valve, other_valves, now, last_live_times, update_time):
         """
         Nominate a new stack root
 
@@ -299,7 +300,8 @@ This includes port nominations and flood directionality."""
         for port in self.stack.ports:
             yield port
 
-    def is_stack_port(self, port):
+    @staticmethod
+    def is_stack_port(port):
         """Return whether the port is a stack port"""
         return bool(port.stack)
 
@@ -347,8 +349,8 @@ This includes port nominations and flood directionality."""
                     src_dp, dst_dp, dst_port)
                 updated = False
                 if out_port is None and dst_port is None and dst_dp == self.dp.name:
-                    # Will need to update at most once, to ensure the correct rules get populated in the
-                    #   destination DP for a tunnel that outputs to just a DP
+                    # Will need to update at most once, to ensure the correct rules get
+                    # populated in the destination DP for a tunnel that outputs to just a DP
                     updated = acl.update_source_tunnel_rules(
                         self.stack.name, source_id, _id, out_port, self.output_table)
                 elif out_port:

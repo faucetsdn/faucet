@@ -571,7 +571,8 @@ def run_test_suites(debug, report_json_filename, hw_config, root_tmpdir,
     results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
     results.extend(run_single_test_suites(debug, root_tmpdir, resultclass, single_tests))
     report_results(results, hw_config, report_json_filename)
-    successful_results = [result for result in results if result.wasSuccessful() or result.unexpected_success]
+    successful_results = [result for result in results
+                          if result.wasSuccessful() or result.unexpected_success]
     return len(results) == len(successful_results)
 
 
@@ -673,7 +674,10 @@ def run_tests(modules, hw_config, requested_test_classes, regex_test_classes, du
         modules, requested_test_classes, regex_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial, port_order, start_port)
 
-    if sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases():
+    testCount = (sanity_tests.countTestCases() + single_tests.countTestCases() +
+                 parallel_tests.countTestCases())
+
+    if testCount:
         no_tests = False
         sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
         if sanity_result.wasSuccessful():
@@ -822,7 +826,8 @@ def test_main(modules):
     hw_config = import_hw_config()
 
     if profile:
-        pr = cProfile.Profile(time.time)  # use wall clock time
+        # use wall clock time
+        pr = cProfile.Profile(time.time)  # pylint: disable=invalid-name
         pr.enable()
 
     run_tests(
@@ -832,5 +837,5 @@ def test_main(modules):
 
     if profile:
         pr.disable()
-        ps = pstats.Stats(pr).sort_stats('cumulative')
+        ps = pstats.Stats(pr).sort_stats('cumulative')  # pylint: disable=invalid-name
         ps.print_stats()

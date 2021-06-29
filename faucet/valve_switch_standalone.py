@@ -112,7 +112,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 priority=self._mask_flood_priority(eth_dst_mask)))
         return ofmsgs
 
-    def floods_to_root(self, _dp_obj):
+    @staticmethod
+    def floods_to_root(_dp_obj):
         """Return True if the given dp floods (only) to root switch"""
         return False
 
@@ -364,7 +365,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             self.vlan_table.match(in_port=port.number, vlan=match_vlan),
             priority=self.low_priority, inst=inst)
 
-    def _native_vlan(self, port):
+    @staticmethod
+    def _native_vlan(port):
         for native_vlan in (port.dyn_dot1x_native_vlan, port.native_vlan):
             if native_vlan is not None:
                 return native_vlan
@@ -748,7 +750,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
 
         return (ofmsgs, cache_port, update_cache)
 
-    def flow_timeout(self, _now, _table_id, _match):
+    @staticmethod
+    def flow_timeout(_now, _table_id, _match):
         """Handle a flow timed out message from dataplane."""
         return []
 
@@ -838,7 +841,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         self.logger.debug('Sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
         return [valve_of.packetout(port.number, bytes(pkt.data))]
 
-    def get_lacp_dpid_nomination(self, lacp_id, valve, other_valves):  # pylint: disable=unused-argument
+    @staticmethod
+    def get_lacp_dpid_nomination(lacp_id, valve, other_valves):  # pylint: disable=unused-argument
         """Chooses the DP for a given LAG.
 
         The DP will be nominated by the following conditions in order:
@@ -925,7 +929,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                                 other_lag_port, other_actor_system))
         return ofmsgs_by_valve
 
-    def learn_host_from_pkt(self, valve, now, pkt_meta, other_valves):
+    @staticmethod
+    def learn_host_from_pkt(valve, now, pkt_meta, other_valves):
         """Learn host from packet."""
         ofmsgs = []
         ofmsgs.extend(valve.learn_host(now, pkt_meta, other_valves))

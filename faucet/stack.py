@@ -222,7 +222,8 @@ is technically a fixed allocation for this DP Stack instance."""
             self.dyn_healthy = False
         return self.dyn_healthy, reason
 
-    def nominate_stack_root(self, stacks):
+    @staticmethod
+    def nominate_stack_root(stacks):
         """Return stack names in priority order and the chosen root"""
         def health_priority(stack):
             # Invert the health priority info so it is sorted correctly
@@ -337,7 +338,7 @@ is technically a fixed allocation for this DP Stack instance."""
 
         return edge_name
 
-    def modify_link(self, dp, port, add=True):
+    def modify_link(self, dp, port, add=True):  # pylint: disable=invalid-name
         """Update the stack topology according to the event"""
         return Stack.modify_topology(self.graph, dp, port, add)
 

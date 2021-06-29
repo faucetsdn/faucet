@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-MINRATING=9.44
+MINRATING=9.50
 
 SCRIPTPATH=$(readlink -f "$0")
 TESTDIR=$(dirname "${SCRIPTPATH}")

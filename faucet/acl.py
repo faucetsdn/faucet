@@ -19,13 +19,13 @@
 import copy
 import netaddr
 
+from ryu.ofproto import ether
+
 from faucet import valve_of
 from faucet import valve_acl
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
 from faucet.valve_table import wildcard_table
-
-from ryu.ofproto import ether
 
 
 class ACL(Conf):
@@ -151,11 +151,11 @@ The output action contains a dictionary with the following elements:
             test_config_condition(not isinstance(normalized_rule, dict), (
                 'ACL rule is %s not %s (%s)' % (type(normalized_rule), dict, rules)))
             conf['rules'].append(normalized_rule)
-        super(ACL, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
     def finalize(self):
         self._ports_resolved = True
-        super(ACL, self).finalize()
+        super().finalize()
 
     def check_config(self):
         test_config_condition(
