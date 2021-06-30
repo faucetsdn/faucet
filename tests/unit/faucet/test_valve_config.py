@@ -902,9 +902,11 @@ dps:
                 partial(self.update_config, self.CONFIG, reload_type='cold'))
             cache_info = valve_of.output_non_output_actions.cache_info()
             self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
-            total_tt_prop = pstats_out.total_tt / self.baseline_total_tt  # pytype: disable=attribute-error
+            total_tt_prop = (
+                pstats_out.total_tt / self.baseline_total_tt)  # pytype: disable=attribute-error
             # must not be 20x slower, to ingest config for 100 interfaces than 1.
-            # TODO: marginal on GitHub actions due to parallel test runs. This test might have to be run separately.
+            # TODO: This test might have to be run separately,
+            # since it is marginal on GitHub actions due to parallel test runs.
             if total_tt_prop < 20:
                 for valve in self.valves_manager.valves.values():
                     for table in valve.dp.tables.values():

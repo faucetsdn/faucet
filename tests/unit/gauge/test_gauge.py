@@ -232,7 +232,8 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
 
     prom_client = gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
 
-    def parse_prom_output(self, output):
+    @staticmethod
+    def parse_prom_output(output):
         """Parses the port stats from prometheus into a dictionary"""
 
         parsed_output = {}
@@ -265,7 +266,8 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
 
         return parsed_output
 
-    def get_prometheus_stats(self, addr, port):
+    @staticmethod
+    def get_prometheus_stats(addr, port):
         """Attempts to contact the prometheus server
         at the address to grab port stats."""
 
@@ -902,7 +904,8 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
         event.dp = msg.datapath
         return event
 
-    def _write_config(self, config_file_name, config):
+    @staticmethod
+    def _write_config(config_file_name, config):
         with open(config_file_name, 'w') as config_file:
             config_file.write(config)
 
@@ -1007,3 +1010,5 @@ dbs:
 
 if __name__ == "__main__":
     unittest.main() # pytype: disable=module-attr
+
+# pylint: disable=too-many-lines
