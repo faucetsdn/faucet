@@ -771,12 +771,13 @@ configuration.
         """Resolve inter-DP config for stacking"""
         if self.stack:
             self.stack.resolve_topology(dps, meta_dp_state)
-            for dp in dps:
+            for dp in dps:  # pylint: disable=invalid-name
                 # Must set externals flag for entire stack.
                 if dp.stack and dp.has_externals:
                     self.has_externals = True
                     break
             self.finalize_tunnel_acls(dps)
+
 
     def finalize_tunnel_acls(self, dps):
         """Resolve each tunnels sources"""
@@ -785,7 +786,7 @@ configuration.
             # TODO: A Tunnel ACL can contain multiple different tunnel IDs
             tunnel_ids = {tunnel_acl._id: tunnel_acl for tunnel_acl in self.tunnel_acls}
             referenced_acls = set()
-            for dp in dps:
+            for dp in dps:  # pylint: disable=invalid-name
                 if dp.dp_acls:
                     for acl in dp.dp_acls:
                         tunnel_acl = tunnel_ids.get(acl._id)
@@ -1519,3 +1520,5 @@ configuration.
             'dps': {self.name: self.to_conf()},
             'vlans': {vlan.name: vlan.to_conf() for vlan in self.vlans.values()},
             'acls': {acl_id: acl.to_conf() for acl_id, acl in self.acls.items()}}
+
+    # pylint: disable=too-many-lines

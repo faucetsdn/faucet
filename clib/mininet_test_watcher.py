@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+"""Manage a model of the Mininet topology for fault tolerance testing"""
+
 import os
 import networkx
 
@@ -139,7 +141,8 @@ class OptimizedTopologyWatcher:
                     path = networkx.shortest_paths.shortest_path(
                         self.switch_graph, node, list(connection_graph.nodes())[0])
                     for i in range(0, len(path)-1):
-                        # Add path until we have reached a point that is completely inside the original simple graph
+                        # Add path until we have reached a point that is completely inside
+                        # the original simple graph
                         if path[i] in connection_graph and path[i+1] in connection_graph:
                             break
                     connection_graph.add_edge(path[i], path[i+1])

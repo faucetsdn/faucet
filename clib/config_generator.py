@@ -345,7 +345,8 @@ class FaucetTopoGenerator(Topo):
               host_links, host_vlans, switch_links, link_vlans,
               hw_dpid=None, hw_ports=None,
               port_order=None, start_port=5,
-              get_serialno=mininet_test_util.get_serialno, host_options=None):
+              get_serialno=mininet_test_util.get_serialno,
+              host_options=None):  # pylint: disable=arguments-differ
         """
         Creates a Faucet mininet topology
 

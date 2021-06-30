@@ -10,7 +10,7 @@ class ValveStackManager(ValveManagerBase):
     """Implement stack manager, this handles the more higher-order stack functions.
 This includes port nominations and flood directionality."""
 
-    def __init__(self, logger, dp, stack, tunnel_acls, acl_manager, output_table, **kwargs):
+    def __init__(self, logger, dp, stack, tunnel_acls, acl_manager, output_table, **_kwargs):
         """
         Initialize variables and set up peer distances
 
@@ -20,7 +20,7 @@ This includes port nominations and flood directionality."""
         # Logger for logging
         self.logger = logger
         # DP instance for stack healthyness
-        self.dp = dp
+        self.dp = dp  # pylint: disable=invalid-name
         # Stack instance
         self.stack = stack
 
