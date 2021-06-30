@@ -153,14 +153,16 @@ class FaucetTopoGenerator(Topo):
         self.switches_by_id = {}
         self.dpids_by_id = {}
         self.hosts_by_id = {}
+        self.num_dps = None
+        self.descending_dpids = None
         super().__init__(*args, **kwargs)
 
     @staticmethod
     def _get_sid_prefix(ports_served):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
-        id_chars = ''.join(
-            sorted(string.ascii_letters + string.digits))  # pytype: disable=module-attr
+        id_chars = ''.join(sorted(  # pytype: disable=module-attr
+            string.ascii_letters + string.digits))
         id_a = int(ports_served / len(id_chars))
         id_b = ports_served - (id_a * len(id_chars))
         return '%s%s' % (
@@ -580,7 +582,6 @@ class FaucetFakeOFTopoGenerator(FaucetTopoGenerator):
 
     # NOTE: For now, we dont actually create the objects for the unittests
     #   so we can leave them as they are in the FaucetTopoGenerator function
-
     @staticmethod
     def dp_dpid(i):
         """DP DPID"""

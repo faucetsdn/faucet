@@ -349,8 +349,9 @@ This includes port nominations and flood directionality."""
                     src_dp, dst_dp, dst_port)
                 updated = False
                 if out_port is None and dst_port is None and dst_dp == self.dp.name:
-                    # Will need to update at most once, to ensure the correct rules get
-                    # populated in the destination DP for a tunnel that outputs to just a DP
+                    # Will need to update at most once, to ensure the correct rules
+                    # get populated in the destination DP for a tunnel that outputs
+                    # to just a DP
                     updated = acl.update_source_tunnel_rules(
                         self.stack.name, source_id, _id, out_port, self.output_table)
                 elif out_port:

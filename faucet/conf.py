@@ -132,8 +132,9 @@ class Conf:
     def _conf_keys(self, conf, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
         conf_keys = []
-        for key, value in sorted(((key, value) for key, value in conf.orig_conf.items()
-                                  if key in self.defaults)):
+        for key, value in sorted(
+                ((key, value) for key, value in conf.orig_conf.items()
+                    if key in self.defaults)):
             if ignore_keys and key in ignore_keys:
                 continue
             if not subconf and value:

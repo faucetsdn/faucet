@@ -243,7 +243,7 @@ class Valve:
             self.notify, self._inc_var, self._set_var, self._set_port_var, self.stack_manager)
 
         self.switch_manager = valve_switch.valve_switch_factory(
-            self.logger, self.dp, self.pipeline, self.acl_manager, self.stack_manager)
+            self.logger, self.dp, self.pipeline, self.stack_manager)
         self._coprocessor_manager = None
         copro_table = self.dp.tables.get('copro', None)
         if copro_table:

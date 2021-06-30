@@ -324,7 +324,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         """Make sure to dump the watcher information too"""
         if self.topo_watcher:
             self.topo_watcher.dump_info(self.tmpdir)
-        super(FaucetFaultToleranceBaseTest, self).tearDown(ignore_oferrors=ignore_oferrors)
+        super().tearDown(ignore_oferrors=ignore_oferrors)
 
 
 class FaucetFaultTolerance2DPTest(FaucetFaultToleranceBaseTest):

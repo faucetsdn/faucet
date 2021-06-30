@@ -18,6 +18,7 @@
 
 import copy
 import netaddr
+from ryu.ofproto import ether
 
 from ryu.ofproto import ether
 
@@ -497,7 +498,8 @@ The output action contains a dictionary with the following elements:
                         rules.append(rule_conf)
         return rules
 
-    def does_rule_contain_tunnel(self, rule_conf):
+    @staticmethod
+    def does_rule_contain_tunnel(rule_conf):
         """Return true if the ACL rule contains a tunnel"""
         if 'actions' in rule_conf:
             if 'output' in rule_conf['actions']:
@@ -521,7 +523,8 @@ The output action contains a dictionary with the following elements:
                 return True
         return False
 
-    def _tunnel_source_id(self, source):
+    @staticmethod
+    def _tunnel_source_id(source):
         """Return ID for a tunnel source."""
         return tuple(sorted(source.items()))
 

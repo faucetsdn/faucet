@@ -52,7 +52,7 @@ class RabbitAdapter:
     """
 
     def __init__(self):
-        super(RabbitAdapter, self).__init__()
+        super().__init__()
 
         # setup socket
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
