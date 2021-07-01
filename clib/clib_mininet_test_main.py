@@ -171,16 +171,16 @@ def check_dependencies():
         required_binary = 'required binary/library %s' % (
             ' '.join(binary_args))
         try:
-            proc = subprocess.Popen(
-                binary_args,
-                stdin=mininet_test_util.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                close_fds=True)
-            proc_out, proc_err = proc.communicate()
-            binary_output = proc_out.decode()
-            if proc_err is not None:
-                binary_output += proc_err.decode()
+            with subprocess.Popen(
+                    binary_args,
+                    stdin=mininet_test_util.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    close_fds=True) as proc:
+                proc_out, proc_err = proc.communicate()
+                binary_output = proc_out.decode()
+                if proc_err is not None:
+                    binary_output += proc_err.decode()
         except subprocess.CalledProcessError:
             # Might have run successfully, need to parse output
             pass
@@ -303,7 +303,8 @@ def pipeline_superset_report(decoded_pcap_logs):
     table_actions_max = collections.defaultdict(lambda: 0)
 
     for log in decoded_pcap_logs:
-        packets = re.compile(r'\n{2,}').split(open(log).read())
+        with open(log) as log_file:
+            packets = re.compile(r'\n{2,}').split(log_file.read())
         for packet in packets:
             last_packet_line = None
             indent_count = 0
@@ -605,7 +606,8 @@ def dump_failed_test_file(test_file, only_exts):
 
     if dump_file:
         try:
-            test_file_content = open(test_file).read()
+            with open(test_file) as test_file_h:
+                test_file_content = test_file_h.read()
             if test_file_content:
                 print(test_file)
                 print('=' * len(test_file))
