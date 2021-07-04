@@ -91,7 +91,8 @@ class FaucetTopoTestBase(FaucetTestBase):
         port_name = 'b%u' % port_no
         return {'port': port_name, 'port_description': r'.+'}
 
-    def acls(self):
+    @staticmethod
+    def acls():
         """Defined configuration ACLs"""
         return {}
 
@@ -99,7 +100,8 @@ class FaucetTopoTestBase(FaucetTestBase):
         """Faucet VLAN VIP"""
         return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
 
-    def faucet_mac(self, i):
+    @staticmethod
+    def faucet_mac(i):
         """Faucet VLAN MAC"""
         return '00:00:00:00:00:%u%u' % (i+1, i+1)
 
@@ -277,15 +279,15 @@ class FaucetTopoTestBase(FaucetTestBase):
     def setup_intervlan_host_routes(self):
         """Configure host routes between hosts that belong on routed VLANs"""
         if self.configuration_options['routers']:
-            for src in self.host_information:
-                src_host = self.host_information[src]['host']
-                src_vlan = self.host_information[src]['vlan']
-                src_ip = self.host_information[src]['ip']
-                for dst in self.host_information:
-                    if src != dst:
-                        dst_host = self.host_information[dst]['host']
-                        dst_vlan = self.host_information[dst]['vlan']
-                        dst_ip = self.host_information[dst]['ip']
+            for src_name, src in self.host_information.items():
+                src_host = src['host']
+                src_vlan = src['vlan']
+                src_ip = src['ip']
+                for dst_name, dst in self.host_information.items():
+                    if src_name != dst_name:
+                        dst_host = dst['host']
+                        dst_vlan = dst['vlan']
+                        dst_ip = dst['ip']
                         if src_vlan != dst_vlan and self.is_routed_vlans(src_vlan, dst_vlan):
                             src_faucet_vip = self.faucet_vips[src_vlan]
                             dst_faucet_vip = self.faucet_vips[dst_vlan]
@@ -295,7 +297,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     def debug(self):
         """Print additional information when debugging"""
         try:
-            super(FaucetTopoTestBase, self).debug()
+            super().debug()
         except Exception:
             pprint.pprint(self.host_information)
             raise

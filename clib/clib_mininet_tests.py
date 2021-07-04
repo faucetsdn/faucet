@@ -42,7 +42,7 @@ vlans:
 """
 
     def setUp(self):
-        super(FaucetSimpleTest, self).setUp()
+        super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,

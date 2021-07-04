@@ -939,7 +939,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 now, pkt_meta, ipv4_pkt)
             if icmp_replies:
                 return icmp_replies
-        return super(ValveIPv4RouteManager, self).control_plane_handler(now, pkt_meta)
+        return super().control_plane_handler(now, pkt_meta)
 
 
 class ValveIPv6RouteManager(ValveRouteManager):
@@ -1019,7 +1019,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         return ofmsgs
 
     def _add_faucet_fib_to_vip(self, vlan, priority, faucet_vip, faucet_vip_host):
-        ofmsgs = super(ValveIPv6RouteManager, self)._add_faucet_fib_to_vip(
+        ofmsgs = super()._add_faucet_fib_to_vip(
             vlan, priority, faucet_vip, faucet_vip_host)
         faucet_vip_broadcast = ipaddress.IPv6Interface(faucet_vip.network.broadcast_address)
         if self.global_routing:
@@ -1125,7 +1125,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     now, pkt_meta, ipv6_pkt)
                 if icmp_replies:
                     return icmp_replies
-        return super(ValveIPv6RouteManager, self).control_plane_handler(now, pkt_meta)
+        return super().control_plane_handler(now, pkt_meta)
 
     def advertise(self, vlan):
         ofmsgs = []

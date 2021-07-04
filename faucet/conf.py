@@ -66,7 +66,7 @@ class Conf:
 
     def __setattr__(self, name, value):
         if not self.dyn_finalized or name.startswith('dyn') or name in self.mutable_attrs:
-            super(Conf, self).__setattr__(name, value)
+            super().__setattr__(name, value)
         else:
             raise ValueError('cannot update %s on finalized Conf object' % name)
 
@@ -132,7 +132,9 @@ class Conf:
     def _conf_keys(self, conf, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
         conf_keys = []
-        for key, value in sorted(((key, value) for key, value in conf.orig_conf.items() if key in self.defaults)):
+        for key, value in sorted(
+                ((key, value) for key, value in conf.orig_conf.items()
+                    if key in self.defaults)):
             if ignore_keys and key in ignore_keys:
                 continue
             if not subconf and value:
@@ -149,7 +151,7 @@ class Conf:
 
     def merge_dyn(self, other_conf):
         """Merge dynamic state from other conf object."""
-        self.__dict__.update({k: v for k, v in self._conf_dyn_keys(other_conf)})
+        self.__dict__.update(self._conf_dyn_keys(other_conf))
 
     def _str_conf(self, conf_v):
         if isinstance(conf_v, (bool, str, int)):

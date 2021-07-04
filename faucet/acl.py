@@ -18,14 +18,15 @@
 
 import copy
 import netaddr
+from ryu.ofproto import ether
+
+from ryu.ofproto import ether
 
 from faucet import valve_of
 from faucet import valve_acl
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
 from faucet.valve_table import wildcard_table
-
-from ryu.ofproto import ether
 
 
 class ACL(Conf):
@@ -151,11 +152,11 @@ The output action contains a dictionary with the following elements:
             test_config_condition(not isinstance(normalized_rule, dict), (
                 'ACL rule is %s not %s (%s)' % (type(normalized_rule), dict, rules)))
             conf['rules'].append(normalized_rule)
-        super(ACL, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
     def finalize(self):
         self._ports_resolved = True
-        super(ACL, self).finalize()
+        super().finalize()
 
     def check_config(self):
         test_config_condition(
@@ -497,7 +498,8 @@ The output action contains a dictionary with the following elements:
                         rules.append(rule_conf)
         return rules
 
-    def does_rule_contain_tunnel(self, rule_conf):
+    @staticmethod
+    def does_rule_contain_tunnel(rule_conf):
         """Return true if the ACL rule contains a tunnel"""
         if 'actions' in rule_conf:
             if 'output' in rule_conf['actions']:
@@ -521,7 +523,8 @@ The output action contains a dictionary with the following elements:
                 return True
         return False
 
-    def _tunnel_source_id(self, source):
+    @staticmethod
+    def _tunnel_source_id(source):
         """Return ID for a tunnel source."""
         return tuple(sorted(source.items()))
 

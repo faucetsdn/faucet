@@ -56,7 +56,7 @@ class Router(Conf):
         self.bgp = {}
         self.vlans = []
         self.vip_map_by_ipv = {}
-        super(Router, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
     def _sub_conf_val(self, sub_conf, key):
         try:
@@ -71,10 +71,10 @@ class Router(Conf):
         return str(self._id)
 
     def set_defaults(self, defaults=None, conf=None):
-        super(Router, self).set_defaults(defaults=defaults, conf=conf)
+        super().set_defaults(defaults=defaults, conf=conf)
 
     def check_config(self):
-        super(Router, self).check_config()
+        super().check_config()
         if self.bgp:
             self._check_conf_types(self.bgp, self.bgp_defaults_types)
             self.bgp = self._set_unknown_conf(self.bgp, self.bgp_defaults_types)
@@ -125,7 +125,7 @@ class Router(Conf):
                         faucet_vip.ip.max_prefixlen)
                 self.vip_map_by_ipv[ipv][faucet_vip.network] = (
                     vlan, faucet_vip)
-        super(Router, self).finalize()
+        super().finalize()
 
     def bgp_as(self):
         """Return BGP AS."""
