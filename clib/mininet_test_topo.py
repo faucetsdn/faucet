@@ -594,7 +594,7 @@ socket_timeout=15
                 os.kill(self.ryu_pid(), 2)
             else:
                 os.kill(self.ryu_pid(), 15)
-        except ProcessLookupError:
+        except (ProcessLookupError, TypeError):
             pass
         self._stop_cap()
         super().stop()
