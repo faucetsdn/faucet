@@ -1,4 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
+"""Faucet setup script"""
 
 from __future__ import print_function
 
@@ -25,9 +27,9 @@ Please upgrade to python 3.5 or newer."""
           .format(py='.'.join([str(v) for v in sys.version_info[:3]])))
     sys.exit(1)
 
+
 def install_configs():
     """ Install configuration files to /etc """
-
 
     dst_ryu_conf_dir = '/etc/faucet/'
     dst_ryu_conf = os.path.join(dst_ryu_conf_dir, 'ryu.conf')
@@ -59,7 +61,7 @@ def install_configs():
             alt_src = os.path.join(old_faucet_conf_dir, file_name)
             if os.path.isfile(dst_file):
                 continue
-            elif os.path.isfile(alt_src):
+            if os.path.isfile(alt_src):
                 print("Migrating %s to %s" % (alt_src, dst_file))
                 shutil.copy(alt_src, dst_file)
             elif os.path.isfile(src_file):
@@ -74,6 +76,7 @@ def install_configs():
                   % exception.filename)
         else:
             raise
+
 
 setup(
     name='faucet',

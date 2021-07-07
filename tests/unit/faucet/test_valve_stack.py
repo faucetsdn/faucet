@@ -109,7 +109,7 @@ dps:
                 native_vlan: 100
     """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(self.CONFIG1)
         self.activate_stack()
 
@@ -186,7 +186,7 @@ dps:
                 lacp: 1
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -414,7 +414,7 @@ dps:
                 lacp: 1
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -487,7 +487,7 @@ dps:
                 lacp: 1
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -562,7 +562,7 @@ dps:
                 loop_protect_external: True
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(self.CONFIG)
         self.set_stack_port_up(1)
 
@@ -594,7 +594,7 @@ class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
     DP = 's2'
     DP_ID = 2
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -669,7 +669,7 @@ class ValveStackLoopTest(ValveTestBases.ValveTestNetwork):
 
     CONFIG = STACK_LOOP_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -856,7 +856,7 @@ dps:
                 native_vlan: 100
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(self.CONFIG)
         self.set_stack_port_up(1)
 
@@ -923,7 +923,7 @@ dps:
                 native_vlan: 0x100
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(self.CONFIG)
 
     def test_nonstack_dp_port(self):
@@ -939,7 +939,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
     STACK_ROOT_STATE_UPDATE_TIME = 10
     STACK_ROOT_DOWN_TIME = STACK_ROOT_STATE_UPDATE_TIME * 3
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(self.CONFIG)
 
     def dp_by_name(self, dp_name):
@@ -951,7 +951,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
 
     def set_stack_all_ports_status(self, dp_name, status):
         """Set all stack ports to status on dp"""
-        dp = self.dp_by_name(dp_name)
+        dp = self.dp_by_name(dp_name)  # pylint: disable=invalid-name
         for port in dp.stack_ports():
             port.dyn_stack_current_state = status
 
@@ -961,7 +961,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         self.trigger_stack_ports()
         # All switches are down to start with.
         for dpid in self.valves_manager.valves:
-            dp = self.valves_manager.valves[dpid].dp
+            dp = self.valves_manager.valves[dpid].dp  # pylint: disable=invalid-name
             dp.dyn_running = False
             self.set_stack_all_ports_status(dp.name, STACK_STATE_INIT)
         for valve in self.valves_manager.valves.values():
@@ -1032,7 +1032,7 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
     DP = 's3'
     DP_ID = 0x3
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(CONFIG)
         self.set_stack_port_up(5)
 
@@ -1068,16 +1068,16 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
                         native_vlan: 100
         """
         self.update_config(SIMPLE_DP_CONFIG, reload_expected=True)
-        dp = self.valves_manager.valves[self.DP_ID].dp
+        dp = self.valves_manager.valves[self.DP_ID].dp  # pylint: disable=invalid-name
         self.assertFalse(dp.stack)
         self.update_config(CONFIG, reload_expected=True)
         self.set_stack_port_up(5)
-        dp = self.valves_manager.valves[self.DP_ID].dp
+        dp = self.valves_manager.valves[self.DP_ID].dp  # pylint: disable=invalid-name
         self.assertTrue(dp.stack.is_root())
 
     def test_topo(self):
         """Test DP is assigned appropriate edge/root states"""
-        dp = self.valves_manager.valves[self.DP_ID].dp
+        dp = self.valves_manager.valves[self.DP_ID].dp  # pylint: disable=invalid-name
         self.assertTrue(dp.stack.is_root())
         self.assertFalse(dp.stack.is_edge())
 
@@ -1088,7 +1088,7 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
     DP = 's4'
     DP_ID = 0x4
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(CONFIG)
         self.set_stack_port_up(5)
 
@@ -1128,7 +1128,7 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
 
     def test_topo(self):
         """Test DP is assigned appropriate edge/root states"""
-        dp = self.valves_manager.valves[self.DP_ID].dp
+        dp = self.valves_manager.valves[self.DP_ID].dp  # pylint: disable=invalid-name
         self.assertFalse(dp.stack.is_root())
         self.assertTrue(dp.stack.is_edge())
 
@@ -1138,7 +1138,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
 
     CONFIG = STACK_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(self.CONFIG)
 
     def test_stack_probe(self):
@@ -1211,7 +1211,7 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestNetwork):
 
     CONFIG = STACK_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(self.CONFIG)
 
     def test_update_stack_graph(self):
@@ -1274,7 +1274,7 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
     def _set_max_lldp_lost(self, new_value):
         """Set the interface config option max_lldp_lost"""
         config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
-        for dp in config['dps'].values():
+        for dp in config['dps'].values():  # pylint: disable=invalid-name
             for interface in dp['interfaces'].values():
                 if 'stack' in interface:
                     interface['max_lldp_lost'] = new_value
@@ -1320,7 +1320,7 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
         self.validate_flooding(portup=False)
 
 
-class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):
+class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):  # pylint: disable=too-few-public-methods
     """Test inter-vlan routing with stacking capabilities in an IPV4 network"""
 
     VLAN100_FAUCET_VIPS = '10.0.1.254'
@@ -1328,7 +1328,7 @@ class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):
     VLAN200_FAUCET_VIPS = '10.0.2.254'
     VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_stack_routing()
 
 
@@ -1372,7 +1372,7 @@ class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRoutin
                     stack: {dp: s1, port: 3}
     """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_stack_routing()
 
 
@@ -1451,7 +1451,7 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
                     stack: {dp: s3, port: 4}
     """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_stack_routing()
 
 
@@ -1463,7 +1463,7 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
     VLAN100_FAUCET_VIP_SPACE = 'fc80::1:254/64'
     VLAN200_FAUCET_VIP_SPACE = 'fc80::1:254/64'
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_stack_routing()
 
     @staticmethod
@@ -1569,7 +1569,7 @@ vlans:
                self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
                self.base_config())
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Create a stacking config file."""
         self.create_config()
         self.setup_valves(self.CONFIG)
@@ -1799,7 +1799,7 @@ dps:
             'Should not output a packet')
 
 
-class ValveTestTransitTunnel(ValveTestBases.ValveTestTunnel):
+class ValveTestTransitTunnel(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel ACL implementation"""
 
     TRANSIT_ID = 2
@@ -2132,7 +2132,7 @@ dps:
             'Should not output a packet')
 
 
-class ValveTestTransitOrderedTunnel(ValveTestBases.ValveTestTunnel):
+class ValveTestTransitOrderedTunnel(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel ACL implementation"""
 
     TRANSIT_ID = 2
@@ -2223,7 +2223,7 @@ dps:
             pcp=valve_of.PCP_TUNNEL_FLAG)
 
 
-class ValveTestMultipleOrderedTunnel(ValveTestBases.ValveTestTunnel):
+class ValveTestMultipleOrderedTunnel(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel ACL implementation with multiple hosts containing tunnel ACL"""
 
     TUNNEL_ID = 2
@@ -2300,7 +2300,7 @@ dps:
             'Did not encapsulate and forward out re-calculated port')
 
 
-class ValveTestMultipleOrderedDPTunnelACL(ValveTestBases.ValveTestTunnel):
+class ValveTestMultipleOrderedDPTunnelACL(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with multiple hosts/DP containing tunnel ACL"""
 
     TUNNEL_ID = 2
@@ -2377,7 +2377,9 @@ dps:
             'Did not encapsulate and forward out re-calculated port')
 
 
-class ValveTestMultipleOrderedTunnelDestinationDPACL(ValveTestBases.ValveTestTunnel):
+class ValveTestMultipleOrderedTunnelDestinationDPACL(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with a tunnel ACL with a DP destination"""
 
     TUNNEL_ID = 2
@@ -2423,7 +2425,7 @@ dps:
                 stack: {dp: s1, port: 4}
 """
 
-    def test_tunnel_update_multiple_DP_dest_tunnels(self):
+    def test_tunnel_update_multiple_dp_dest_tunnels(self):
         """Test having multiple hosts with the same tunnel"""
         valve = self.valves_manager.valves[0x1]
         port = valve.dp.ports[3]
@@ -2454,7 +2456,7 @@ dps:
             'Did not encapsulate and forward out re-calculated port')
 
 
-class ValveTestOrderedTunnelExitInstructions(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedTunnelExitInstructions(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with a tunnel ACL with exit instructions"""
 
     TUNNEL_ID = 2
@@ -2508,7 +2510,7 @@ dps:
             pcp=valve_of.PCP_TUNNEL_FLAG)
 
 
-class ValveTestRemoteDHCPCoprocessorTunnelACL(ValveTestBases.ValveTestTunnel):
+class ValveTestRemoteDHCPCoprocessorTunnelACL(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test bi_directional tunnel implementation to a remote coprocessor port with a DHCP server"""
 
     SW1_TUNNEL_ID = 101
@@ -2630,27 +2632,29 @@ vlans:
             'udp_src': 68}
         self.validate_tunnel(
             self.DP_ID, self.DP_ID,
-            3, 0, 4, self.SW1_TUNNEL_ID, True, 'Did not encapsulate and output to coprocessor on same switch',
+            3, 0, 4, self.SW1_TUNNEL_ID, True,
+            'Did not encapsulate and output to coprocessor on same switch',
             packet_match=dhcp_options)
         self.validate_tunnel(
             self.DP_ID, self.DP_ID,
-            4, [self.SW1_TUNNEL_ID, 100], 3, 0,
-            True, 'Did not output reverse, return DHCP packet to host on the same switch',
+            4, [self.SW1_TUNNEL_ID, 100], 3, 0, True,
+            'Did not output reverse, return DHCP packet to host on the same switch',
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
             packet_match=dhcp_options)
         self.validate_tunnel(
             2, self.DP_ID,
-            3, 0, 4, self.SW2_TUNNEL_ID, True, 'Did not encapsulate and output to coprocessor on remote switch',
+            3, 0, 4, self.SW2_TUNNEL_ID, True,
+            'Did not encapsulate and output to coprocessor on remote switch',
             packet_match=dhcp_options)
         self.validate_tunnel(
             self.DP_ID, 2,
-            4, [self.SW2_TUNNEL_ID, 100], 3, 0,
-            True, 'Did not output reverse, return DHCP packet to host on the remote switch',
+            4, [self.SW2_TUNNEL_ID, 100], 3, 0, True,
+            'Did not output reverse, return DHCP packet to host on the remote switch',
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
             packet_match=dhcp_options)
 
 
-class ValveTestOrderedBiDirectionalTunnelACL(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedBiDirectionalTunnelACL(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with a tunnel ACL with bidirectionality"""
 
     TUNNEL_ID = 2
@@ -2699,15 +2703,19 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         self.validate_tunnel(
             int(0x2), int(0x2),
-            1, self.TUNNEL_ID, 3, self.TUNNEL_ID, True, 'Did not accept reverse tunnel packet',
+            1, self.TUNNEL_ID, 3, self.TUNNEL_ID, True,
+            'Did not accept reverse tunnel packet',
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
         self.validate_tunnel(
             self.DP_ID, self.DP_ID,
-            3, self.TUNNEL_ID, 1, 0, True, 'Did not output to original source, the reverse tunnelled packet',
+            3, self.TUNNEL_ID, 1, 0, True,
+            'Did not output to original source, the reverse tunnelled packet',
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
 
 
-class ValveTestOrderedMaintainTunnelEncapsulationACL(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedMaintainTunnelEncapsulationACL(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel maintains encapsulation with maintain_encapsulation option"""
 
     TUNNEL_ID = 2
@@ -2764,7 +2772,9 @@ dps:
             pcp=valve_of.PCP_TUNNEL_FLAG)
 
 
-class ValveTestOrderedBiDirectionalDPTunnelACL(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedBiDirectionalDPTunnelACL(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with a tunnel DP ACL with bidirectionality"""
 
     TUNNEL_ID = 2
@@ -2824,7 +2834,9 @@ dps:
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
 
 
-class ValveTestOrderedBidirectionalTunnelACLwithExitInstructions(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedBidirectionalTunnelACLwithExitInstructions(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel implementation with bi-directionality and exit instructions"""
 
     TUNNEL_ID = 2
@@ -2892,7 +2904,7 @@ dps:
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
 
 
-class ValveTestOrderedReverseTunnelOption(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedReverseTunnelOption(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel implementation with reverse tunnel option"""
 
     TUNNEL_ID = 3
@@ -2963,7 +2975,9 @@ dps:
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
 
 
-class ValveTestOrderedBiDirectionalDPACLTunnelDPDestination(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedBiDirectionalDPACLTunnelDPDestination(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel configured as a DP ACL with bi-directionality and destination as a DP"""
 
     TUNNEL_ID = 2
@@ -3100,12 +3114,12 @@ dps:
                     port: 2
     """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(self.CONFIG)
 
     def test_topo(self):
         """Test topology functions."""
-        dp = self.valves_manager.valves[self.DP_ID].dp
+        dp = self.valves_manager.valves[self.DP_ID].dp  # pylint: disable=invalid-name
         self.assertTrue(dp.stack.is_root())
         self.assertFalse(dp.stack.is_edge())
 
@@ -3170,7 +3184,7 @@ dps:
                     port: 2
     """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(self.CONFIG)
 
     def test_topo(self):
@@ -3213,7 +3227,7 @@ dps:
                 native_vlan: vlan100
 """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(self.CONFIG)
 
     def check_groupmods_exist(self, ofmsgs, groupdel_exists=True):
@@ -3421,7 +3435,7 @@ dps:
                 native_vlan: vlan200
 """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Setup network and start stack ports"""
         self.setup_valves(self.CONFIG)
 
@@ -3540,14 +3554,14 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
     def test_timeout(self):
         """Test stack health on health timeouts"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3571,7 +3585,7 @@ dps:
     def test_lacp_down(self):
         """Test stack health on LACP ports being DOWN"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3599,7 +3613,7 @@ dps:
     def test_stack_port_down(self):
         """Test stack health on stack ports being DOWN"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3696,7 +3710,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -3706,7 +3720,7 @@ dps:
     def test_sw3_lacp(self):
         """Test LACP health metrics with SW3"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3723,7 +3737,7 @@ dps:
     def test_sw1_lacp_down(self):
         """Test LACP health metrics with SW1"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3753,7 +3767,7 @@ dps:
     def test_sw2_lacp_down(self):
         """Test LACP health metrics with SW2"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3784,7 +3798,7 @@ dps:
     def test_sw1_stack_down(self):
         """Test stack health metrics with SW1"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3811,7 +3825,7 @@ dps:
     def test_sw2_stack_down(self):
         """Test stack health metrics with SW2"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3902,7 +3916,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -3912,7 +3926,7 @@ dps:
     def test_lacp_root_nomination(self):
         """Test root selection health"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3961,7 +3975,7 @@ dps:
     def test_stack_root_nomination(self):
         """Test root selection health"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -4060,7 +4074,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -4071,7 +4085,7 @@ dps:
     def test_root_nomination(self):
         """Test root selection health"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:
+        for dp in dps:  # pylint: disable=invalid-name
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -4181,13 +4195,13 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
     def test_stack(self):
         """Test getting config for stack with correct config"""
-        dp = self.valves_manager.valves[1].dp
+        dp = self.valves_manager.valves[1].dp  # pylint: disable=invalid-name
         stack_conf = yaml.safe_load(dp.stack.to_conf())
         self.assertIsInstance(stack_conf, dict)
         self.assertIn('priority', stack_conf)
@@ -4200,7 +4214,7 @@ dps:
 
     def test_dp_stack(self):
         """Test getting config for DP with correct subconfig stack"""
-        dp = self.valves_manager.valves[1].dp
+        dp = self.valves_manager.valves[1].dp  # pylint: disable=invalid-name
         dp_conf = yaml.safe_load(dp.to_conf())
         stack_conf = yaml.safe_load(dp.stack.to_conf())
         self.assertIn('stack', dp_conf)
@@ -4242,7 +4256,7 @@ dps:
                 native_vlan: 100
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 

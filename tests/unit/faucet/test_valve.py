@@ -20,6 +20,7 @@
 
 import copy
 import unittest
+import yaml
 
 from ryu.lib import mac
 from ryu.lib.packet import slow
@@ -30,8 +31,6 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 from faucet import valve_of
 from faucet import valve_packet
 
-import yaml
-
 from clib.valve_test_lib import (
     CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
     ValveTestBases)
@@ -39,7 +38,7 @@ from clib.valve_test_lib import (
 from clib.fakeoftable import CONTROLLER_PORT
 
 
-class ValveTestCase(ValveTestBases.ValveTestBig):
+class ValveTestCase(ValveTestBases.ValveTestBig):  # pylint: disable=too-few-public-methods
     """Run complete set of basic tests."""
 
 
@@ -56,7 +55,8 @@ dps:
                 native_vlan: 0x100
 """ % DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_fuzz_vlan(self):
@@ -115,7 +115,8 @@ acls:
                 allow: 1
 """ % DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup basic coprocessor config"""
         self.setup_valves(self.CONFIG)
 
     def test_output(self):
@@ -148,6 +149,7 @@ acls:
 
 
 class ValveRestBcastTestCase(ValveTestBases.ValveTestNetwork):
+    """Test restricted broadcast."""
 
     CONFIG = """
 dps:
@@ -167,7 +169,8 @@ dps:
                 restricted_bcast_arpnd: true
 """ % DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup basic port and vlan config with restricted broadcast enabled"""
         self.setup_valves(self.CONFIG)
 
     def test_rest_bcast(self):
@@ -227,7 +230,8 @@ dps:
                 acls_in: [meteracl]
 """ % DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup meter and ACL config"""
         self.setup_valves(self.CONFIG)
 
     def test_usedmeter(self):
@@ -238,7 +242,7 @@ dps:
 class ValveOFErrorTestCase(ValveTestBases.ValveTestNetwork):
     """Test decoding of OFErrors."""
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(CONFIG)
 
     def test_oferror_parser(self):
@@ -290,7 +294,8 @@ vlans:
         vid: 0x200
 """ % GROUP_DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_unknown_eth_dst_rule(self):
@@ -357,7 +362,8 @@ vlans:
         vid: 0x200
 """ % IDLE_DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup basic port and vlan config with mirroring"""
         self.setup_valves(self.CONFIG)
 
     def test_known_eth_src_rule(self):
@@ -435,7 +441,8 @@ vlans:
         vid: 0x300
 """ % DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup lacp config and activate ports"""
         self.setup_valves(self.CONFIG)
         self.activate_all_ports()
 
@@ -559,7 +566,8 @@ vlans:
         vid: 0x100
 """ % DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup basic port and vlan config with overriden TFM sizing"""
         self.setup_valves(self.CONFIG)
 
     def test_size(self):
@@ -612,7 +620,8 @@ vlans:
         vid: 0x300
 """ % DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_size(self):
@@ -660,7 +669,8 @@ vlans:
         vid: 0x300
 """ % DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup basic lacp config and activate ports"""
         self.setup_valves(self.CONFIG)
         self.activate_all_ports()
 
@@ -689,7 +699,7 @@ vlans:
 class ValveL2LearnTestCase(ValveTestBases.ValveTestNetwork):
     """Test L2 Learning"""
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(CONFIG)
 
     def test_expiry(self):
@@ -738,7 +748,8 @@ dps:
                 acls_in: [acl1]
 """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup basic port and vlan config with ACLs"""
         self.setup_valves(self.CONFIG)
 
     def test_soft(self):
@@ -777,7 +788,8 @@ dps:
                 acls_in: [acl1]
 """
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup basic port and vlan config with ACLs"""
         self.setup_valves(self.CONFIG)
 
     def test_hard(self):
@@ -867,7 +879,8 @@ routers:
             vlan: v100
 """ % DP1_CONFIG
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
+        """Setup complex config with routing, bgp, mirroring and ACLs"""
         self.setup_valves(self.CONFIG)
 
     def test_unmirror(self):
@@ -877,4 +890,4 @@ routers:
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr
