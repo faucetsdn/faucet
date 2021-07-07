@@ -1,4 +1,4 @@
-chewie==0.0.21
+chewie==0.0.22
 eventlet==0.25.1
 influxdb>=2.12.0
 msgpack>=0.4.6,<1.0.0
@@ -7,5 +7,5 @@ pbr>=1.9
 prometheus_client==0.9.0
 pyyaml==5.3.1
 ryu==4.32
-beka==0.3.4
+beka==0.3.5
 pytricia>=1.0.0
