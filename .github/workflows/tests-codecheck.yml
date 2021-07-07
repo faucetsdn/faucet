@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 env:
   FILES_CHANGED: "all"
-  CODECHECK_PY_VER: 3.6
+  CODECHECK_PY_VER: 3.8
 
 jobs:
   codecheck:
@@ -63,7 +63,7 @@ jobs:
           make html
           rm -rf _build
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED }}
-        name: Pylint
+        name: Run pylint
         run: |
           cd ./tests/codecheck
           ./pylint.sh ${{ env.PY_FILES_CHANGED }}
