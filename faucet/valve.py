@@ -667,7 +667,7 @@ class Valve:
                 vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
 
-    def ports_add(self, port_nums, cold_start=False, log_msg='up'):
+    def ports_add(self, port_nums, cold_start=False, phys_up=True, log_msg='up'):
         """Handle the addition of ports.
 
         Args:
@@ -685,8 +685,9 @@ class Valve:
                     'Ignoring port:%u not present in configuration file' % port_num)
                 continue
             port = self.dp.ports[port_num]
-            port.dyn_phys_up = True
-            self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
+            if phys_up is not None:
+                port.dyn_phys_up = phys_up
+                self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
 
             if not port.running():
                 continue
@@ -1325,7 +1326,7 @@ class Valve:
             if added_meters:
                 ofmsgs.extend(self.acl_manager.add_meters(added_meters))
         if added_ports:
-            ofmsgs.extend(self.ports_add(added_ports))
+            ofmsgs.extend(self.ports_add(added_ports, phys_up=None))
         if changed_ports:
             all_up_port_nos = [
                 port for port in changed_ports
