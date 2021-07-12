@@ -1325,7 +1325,10 @@ class Valve:
             if added_meters:
                 ofmsgs.extend(self.acl_manager.add_meters(added_meters))
         if added_ports:
-            ofmsgs.extend(self.ports_add(added_ports))
+            all_up_port_nos = [
+                port for port in added_ports
+                if port in self.dp.dyn_up_port_nos]
+            ofmsgs.extend(self.ports_add(all_up_port_nos))
         if changed_ports:
             all_up_port_nos = [
                 port for port in changed_ports
