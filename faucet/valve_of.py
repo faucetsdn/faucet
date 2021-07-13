@@ -46,9 +46,11 @@ ECTP_ETH_TYPE = 0x9000
 # Avoid use of PCP 1 which is BK priority (lowest)
 
 TUNNEL_INDICATOR_FIELD = 'vlan_pcp'
-# Used to indicate traffic in a one-to-one bi-directional tunnel is heading in the reverse/return direction
+# Used to indicate traffic in a one-to-one bi-directional tunnel is heading
+# in the reverse/return direction
 PCP_TUNNEL_REVERSE_DIRECTION_FLAG = 4
-# Used to indicate traffic belongs in a tunnel (for all cases not including the 1-1 reverse bi-directional tunnel)
+# Used to indicate traffic belongs in a tunnel (for all cases not including
+# the 1-1 reverse bi-directional tunnel)
 PCP_TUNNEL_FLAG = 3
 
 PCP_EXT_PORT_FLAG = 2

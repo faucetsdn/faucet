@@ -25,7 +25,7 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 from clib.valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
 
-class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):
+class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):  # pylint: disable=too-few-public-methods
     """Run complete set of basic tests."""
 
     DP1_CONFIG = """
@@ -36,7 +36,7 @@ class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):
 class ValveEgressACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test ACL drop/allow and reloading."""
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         self.setup_valves(CONFIG)
 
     def test_vlan_acl_deny(self):
