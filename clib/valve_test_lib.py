@@ -1057,9 +1057,24 @@ class ValveTestBases:
             """Return other running valves"""
             return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
 
-        def set_port_down(self, port_no, dp_id=None):
+        def add_port(self, port_no, link_up=True, dp_id=None):
             """
-            Set port status of port to down
+            Add a port
+            Args:
+                port_no (int): Port number to set to UP
+                link_up (bool): Port initially link up ?
+                dp_id (int): DP ID containing the port number
+            """
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
+            self.apply_ofmsgs(valve.port_status_handler(
+                port_no, ofp.OFPPR_ADD, 0 if link_up else ofp.OFPPS_LINK_DOWN, [], self.mock_time(0)).get(valve, []))
+            self.port_expected_status(port_no, 1 if link_up else 0)
+
+        def delete_port(self, port_no, dp_id=None):
+            """
+            Delete a port
             Args:
                 port_no (int): Port number to set to UP
                 dp_id (int): DP ID containing the port number
@@ -1071,19 +1086,46 @@ class ValveTestBases:
                 port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN, [], self.mock_time(0)).get(valve, []))
             self.port_expected_status(port_no, 0)
 
-        def set_port_up(self, port_no, dp_id=None):
+        def set_port_state(self, port_no, link_up, dp_id=None):
             """
-            Set port status of port to up
+            Set the link up/down state of a port
             Args:
                 port_no (int): Port number to set to UP
+                link_up (bool): Port now link up ?
                 dp_id (int): DP ID containing the port number
             """
             if dp_id is None:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
             self.apply_ofmsgs(valve.port_status_handler(
-                port_no, ofp.OFPPR_ADD, 0, [], self.mock_time(0)).get(valve, []))
-            self.port_expected_status(port_no, 1)
+                port_no, ofp.OFPPR_MODIFY, 0 if link_up else ofp.OFPPS_LINK_DOWN, [], self.mock_time(0)).get(valve, []))
+            self.port_expected_status(port_no, 1 if link_up else 0)
+
+        def set_port_link_up(self, port_no, dp_id=None):
+            """
+            Set a port link up
+            """
+            self.set_port_state(port_no, True, dp_id=dp_id)
+
+        def set_port_link_down(self, port_no, dp_id=None):
+            """
+            Set a port link down
+            """
+            self.set_port_state(port_no, False, dp_id=dp_id)
+
+        def set_port_down(self, port_no, dp_id=None):
+            """
+            Set port status of port to down
+            Deprecated: use port_delete / port_link_state
+            """
+            self.delete_port(port_no, dp_id)
+
+        def set_port_up(self, port_no, dp_id=None):
+            """
+            Set port status of port to up
+            Deprecated: use port_add / port_link_state
+            """
+            self.add_port(port_no, True, dp_id)
 
         def trigger_stack_ports(self, ignore_ports=None):
             """
