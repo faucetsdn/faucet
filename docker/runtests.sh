@@ -114,22 +114,6 @@ else
   echo "Skipping pip install script"
 fi
 
-echo "========== checking IPv4/v6 localhost is up ====="
-ping6 -c 1 ::1
-ping -c 1 127.0.0.1
-
-echo "========== Starting OVS ========================="
-export OVS_LOGDIR=/usr/local/var/log/openvswitch
-/usr/local/share/openvswitch/scripts/ovs-ctl start
-ovs-vsctl show
-ovs-vsctl --no-wait set Open_vSwitch . other_config:max-idle=50000
-# Needed to support double tagging.
-ovs-vsctl --no-wait set Open_vSwitch . other_config:vlan-limit=2
-
-cd /faucet-src/tests
-
-./sysctls_for_tests.sh || true
-
 export PYTHONPATH=/faucet-src:/faucet-src/faucet:/faucet-src/clib
 
 if [ "$HELP" == 1 ] ; then
@@ -145,8 +129,7 @@ if [ "$UNITTESTS" == 1 ] ; then
 elif [ "$GEN_UNIT" == 1 ] ; then
   echo "========== Running faucet generative unit tests =========="
   cd /faucet-src/tests/generative/unit/
-  ./test_topology.py
-  cd /faucet-src/tests
+  time ./test_topology.py
 fi
 
 if [ "$DEPCHECK" == 1 ] ; then
@@ -161,6 +144,26 @@ if [ "$DEPCHECK" == 1 ] ; then
   echo "============ Running pytype analyzer ============"
   time ./pytype.sh $PY_FILES_CHANGED
 fi
+
+if [ $INTEGRATIONTESTS -eq 0 -a $GEN_TOLERANCE -eq 0 ] ; then
+  echo "========== Skipping integration tests =========="
+  echo Done with faucet system tests.
+  exit 0
+fi
+
+echo "========== checking IPv4/v6 localhost is up ====="
+ping6 -c 1 ::1
+ping -c 1 127.0.0.1
+
+echo "========== Starting OVS ========================="
+export OVS_LOGDIR=/usr/local/var/log/openvswitch
+/usr/local/share/openvswitch/scripts/ovs-ctl start
+ovs-vsctl show
+ovs-vsctl --no-wait set Open_vSwitch . other_config:max-idle=50000
+# Needed to support double tagging.
+ovs-vsctl --no-wait set Open_vSwitch . other_config:vlan-limit=2
+
+/faucet-src/tests/sysctls_for_tests.sh || true
 
 echo "========== Starting docker container =========="
 mkdir -p /var/local/run/
