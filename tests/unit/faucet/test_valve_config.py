@@ -29,6 +29,7 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 from faucet import config_parser_util
 from faucet import valve_of
 
+from clib.fakeoftable import CONTROLLER_PORT
 from clib.valve_test_lib import BASE_DP1_CONFIG, CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
 
@@ -290,6 +291,101 @@ dps:
         """Test port can be added."""
         reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='cold')[self.DP_ID]
         self.assertTrue(self._inport_flows(3, reload_ofmsgs))
+
+
+class ValveAddPortTrafficTestCase(ValveTestBases.ValveTestNetwork):
+    """Test addition of a port with traffic."""
+
+    # NOTE: This needs to use 'Generic' hardware,
+    #  as GenericTFM does not support 'warm' start
+    REQUIRE_TFM = False
+
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 1
+        hardware: Generic
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+"""
+
+    MORE_CONFIG = """
+dps:
+    s1:
+        dp_id: 1
+        hardware: Generic
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+            p3:
+                number: 3
+                tagged_vlans: [0x100]
+"""
+
+    @staticmethod
+    def _inport_flows(in_port, ofmsgs):
+        return [
+            ofmsg for ofmsg in ValveTestBases.flowmods_from_flows(ofmsgs)
+            if ofmsg.match.get('in_port') == in_port]
+
+    def _learn(self, in_port):
+        ucast_pkt = self.pkt_match(in_port, 1)
+        ucast_pkt['in_port'] = in_port
+        ucast_pkt['vlan_vid'] = self.V100
+
+        table = self.network.tables[self.DP_ID]
+        self.assertTrue(table.is_output(ucast_pkt, port=CONTROLLER_PORT))
+        self.rcv_packet(in_port, self.V100, ucast_pkt)
+
+    def _unicast_between(self, in_port, out_port, not_out=1):
+        ucast_match = self.pkt_match(in_port, out_port)
+        ucast_match['in_port'] = in_port
+        ucast_match['vlan_vid'] = self.V100
+
+        table = self.network.tables[self.DP_ID]
+        self.assertTrue(table.is_output(ucast_match, port=out_port))
+        self.assertFalse(table.is_output(ucast_match, port=not_out))
+
+    def setUp(self):
+        initial_ofmsgs = self.setup_valves(self.CONFIG)[self.DP_ID]
+        self.assertFalse(self._inport_flows(3, initial_ofmsgs))
+
+    def test_port_add_no_ofmsgs(self):
+        """New config does not generate new flows."""
+        update_ofmsgs = self.update_config(self.MORE_CONFIG,
+                                           reload_type='warm')[self.DP_ID]
+        self.assertFalse(self._inport_flows(3, update_ofmsgs))
+
+    def test_port_add_link_state(self):
+        """New port can be added in link-down state."""
+        self.update_config(self.MORE_CONFIG, reload_type='warm')
+
+        self.add_port(3, link_up=False)
+        self.port_expected_status(3, 0)
+
+        self.set_port_link_up(3)
+        self.port_expected_status(3, 1)
+
+    def test_port_add_traffic(self):
+        """New port can be added, and pass traffic."""
+        self.update_config(self.MORE_CONFIG, reload_type='warm')
+
+        self.add_port(3)
+
+        self._learn(2)
+        self._learn(3)
+
+        self._unicast_between(2, 3)
+        self._unicast_between(3, 2)
 
 
 class ValveWarmStartVLANTestCase(ValveTestBases.ValveTestNetwork):
