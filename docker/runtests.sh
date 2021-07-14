@@ -18,27 +18,11 @@ if [ -z "${FAUCET_TESTS:-}" ]; then
   FAUCET_TESTS="$*"
 fi
 
-# Shorten long form arguments to make parsing easier
-FAUCET_TESTS_SHORTENED=""
-for opt in ${FAUCET_TESTS}; do
-  case "${opt}" in
-    --integration)
-      FAUCET_TESTS_SHORTENED+=" -i"
-      ;;
-    --nocheck)
-      FAUCET_TESTS_SHORTENED+=" -n"
-      ;;
-    *)
-      FAUCET_TESTS_SHORTENED+=" ${opt}"
-      ;;
-  esac
-done
-
 PARAMS=""
 
 # Parse options, some are used by this script, some are
 # passed onto mininet_main.py & clib_mininet_main.py
-for opt in ${FAUCET_TESTS_SHORTENED}; do
+for opt in ${FAUCET_TESTS}; do
   case "${opt}" in
     --help)
       HELP=1
@@ -52,6 +36,7 @@ for opt in ${FAUCET_TESTS_SHORTENED}; do
       INTEGRATIONTESTS=1
       UNITTESTS=0
       DEPCHECK=0
+      PARAMS+=" -i"		# Is this still needed ?
       ;;
     --unit)
       INTEGRATIONTESTS=0
@@ -60,6 +45,7 @@ for opt in ${FAUCET_TESTS_SHORTENED}; do
       ;;
     --nocheck)
       DEPCHECK=0
+      PARAMS+=" -n"		# Is this still needed ?
       ;;
     --nointegration)
       INTEGRATIONTESTS=0
