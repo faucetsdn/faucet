@@ -43,6 +43,30 @@ for opt in ${FAUCET_TESTS_SHORTENED}; do
     --help)
       HELP=1
       ;;
+    --check)
+      INTEGRATIONTESTS=0
+      UNITTESTS=0
+      DEPCHECK=1
+      ;;
+    --integration)
+      INTEGRATIONTESTS=1
+      UNITTESTS=0
+      DEPCHECK=0
+      ;;
+    --unit)
+      INTEGRATIONTESTS=0
+      UNITTESTS=1
+      DEPCHECK=0
+      ;;
+    --nocheck)
+      DEPCHECK=0
+      ;;
+    --nointegration)
+      INTEGRATIONTESTS=0
+      ;;
+    --nounit)
+      UNITTESTS=0
+      ;;
     --generative_unit)
       GEN_UNIT=1
       UNITTESTS=0
@@ -130,6 +154,8 @@ elif [ "$GEN_UNIT" == 1 ] ; then
   echo "========== Running faucet generative unit tests =========="
   cd /faucet-src/tests/generative/unit/
   time ./test_topology.py
+else
+  echo "========== Skipping unit tests =========="
 fi
 
 if [ "$DEPCHECK" == 1 ] ; then
@@ -143,6 +169,8 @@ if [ "$DEPCHECK" == 1 ] ; then
   time ./pylint.sh $PY_FILES_CHANGED
   echo "============ Running pytype analyzer ============"
   time ./pytype.sh $PY_FILES_CHANGED
+else
+  echo "========== Skipping code checks =========="
 fi
 
 if [ $INTEGRATIONTESTS -eq 0 -a $GEN_TOLERANCE -eq 0 ] ; then
