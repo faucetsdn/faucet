@@ -7,15 +7,17 @@
 #FAUCET_TESTS=
 #
 # Run (all) integration tests.
-FAUCET_TESTS="-i -n"
+: ${FAUCET_TESTS="-i -n"}
 #
 # Run a specific test, keeping results.
 #FAUCET_TESTS="-i -n -k FaucetUntaggedLLDPTest"
 
-CMD=bash
-
 ROOT=$(realpath $(dirname $0)/..)
 cd $ROOT
+
+: ${CMD:=bash}
+: ${TEST_RESULTS:=$ROOT/test_results}
+: ${PIP_CACHE:=/tmp/faucet-pip-cache}
 
 IMAGE_TAG=faucet/tests
 
@@ -37,21 +39,23 @@ if [ -z "$image_exists" -o -n "$FORCE_BUILD" ]; then
 fi
 
 echo
-echo "environment set:"
-echo "  FAUCET_TESTS=\"$FAUCET_TESTS\""
+if [ -n "$FAUCET_TESTS" ]; then
+    echo "environment set:"
+    echo "  FAUCET_TESTS=\"$FAUCET_TESTS\""
+fi
 echo "try:"
 echo "  docker/runtests.sh"
 echo
 
-mkdir -p test_results
-mkdir -p /tmp/faucet-pip-cache
+mkdir -p $PIP_CACHE $TEST_RESULTS
+sudo chown root:root $PIP_CACHE
 
 sudo docker run \
      --rm -ti \
      --privileged \
      --sysctl net.ipv6.conf.all.disable_ipv6=0 \
-     -v $PWD:/faucet-src \
-     -v $PWD/test_results:/var/tmp \
-     -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
-     -e FAUCET_TESTS="$FAUCET_TESTS" \
+     -v $ROOT:/faucet-src \
+     -v $TEST_RESULTS:/var/tmp \
+     -v $PIP_CACHE:/var/tmp/pip-cache \
+     ${FAUCET_TESTS:+-e FAUCET_TESTS="$FAUCET_TESTS"} \
      $IMAGE_TAG $CMD
