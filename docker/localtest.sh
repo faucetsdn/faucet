@@ -17,6 +17,8 @@ CMD=bash
 ROOT=$(realpath $(dirname $0)/..)
 cd $ROOT
 
+IMAGE_TAG=faucet/tests
+
 sudo modprobe openvswitch
 sudo modprobe ebtables
 
@@ -26,7 +28,13 @@ if which apparmor_status >&/dev/null ; then
     fi
 fi
 
-sudo docker build --pull -t faucet/tests -f Dockerfile.tests  .
+image_exists=$(sudo docker image ls -q $IMAGE_TAG)
+if [ -z "$image_exists" -o -n "$FORCE_BUILD" ]; then
+    sudo docker build \
+      --pull \
+      -t $IMAGE_TAG \
+      -f Dockerfile.tests  .
+fi
 
 echo
 echo "environment set:"
@@ -38,11 +46,12 @@ echo
 mkdir -p test_results
 mkdir -p /tmp/faucet-pip-cache
 
-sudo docker run -ti \
+sudo docker run \
+     --rm -ti \
      --privileged \
      --sysctl net.ipv6.conf.all.disable_ipv6=0 \
      -v $PWD:/faucet-src \
      -v $PWD/test_results:/var/tmp \
      -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
      -e FAUCET_TESTS="$FAUCET_TESTS" \
-     faucet/tests $CMD
+     $IMAGE_TAG $CMD
