@@ -639,7 +639,7 @@ class ValveTestBases:
             self.mock_now_sec += increment_sec
             return self.mock_now_sec
 
-        def setup_valves(self, config, error_expected=0, log_stdout=False):
+        def setup_valves(self, config, error_expected=0, log_stdout=False, ports_up=None):
             """
             Set up test with config
             Args:
@@ -667,7 +667,7 @@ class ValveTestBases:
                 error_expected=error_expected, configure_network=True)
             if not error_expected:
                 for dp_id in self.valves_manager.valves:
-                    self.connect_dp(dp_id)
+                    self.connect_dp(dp_id, ports_up)
             return initial_ofmsgs
 
         def teardown_valves(self):
@@ -876,18 +876,22 @@ class ValveTestBases:
                 before_hash, before_str = states
                 self._check_table_difference(before_hash, before_str, dp_id)
 
-        def connect_dp(self, dp_id=None):
+        def connect_dp(self, dp_id=None, ports_up=None):
             """
-            Call to connect DP with all ports up
+            Call to connect DP with all (or selected) ports link-up
             Args:
                 dp_id: ID for the DP that will be connected
+                ports_up: List of ports that are initially present and link up
             Returns:
                 ofmsgs from connecting the DP
             """
             if dp_id is None:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
-            discovered_up_ports = set(valve.dp.ports.keys())
+            if ports_up:
+                discovered_up_ports = set(ports_up)
+            else:
+                discovered_up_ports = set(valve.dp.ports.keys())
             connect_msgs = (
                 valve.switch_features(None) +
                 valve.datapath_connect(self.mock_time(10), discovered_up_ports))
