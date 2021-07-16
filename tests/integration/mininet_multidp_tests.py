@@ -2,10 +2,10 @@
 
 """Mininet multi-switch integration tests for Faucet"""
 
+import ipaddress
 import json
 import os
 import networkx
-import ipaddress
 
 from mininet.log import error
 
@@ -29,7 +29,8 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
         """Additional optional-include files"""
         return []
 
-    def dp_options(self):
+    @staticmethod
+    def dp_options():
         """Additional DP options"""
         return {}
 
@@ -228,7 +229,8 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
 
     NUM_DPS = 3
 
-    def dp_options(self):
+    @staticmethod
+    def dp_options():
         """DP options"""
         return {
             'stack': {
@@ -658,7 +660,9 @@ class FaucetSingleStack3RingOfDPReversePortOrderTest(FaucetMultiDPTestBase):
                     self.one_ipv4_ping(src, dst.IP())
 
 
-class FaucetSingleStack4RingOfDPReversePortOrderTest(FaucetSingleStack3RingOfDPReversePortOrderTest):
+class FaucetSingleStack4RingOfDPReversePortOrderTest(
+    FaucetSingleStack3RingOfDPReversePortOrderTest
+):
     """Test different port orders maintain consistent stack behaviour with size 4 ring topology"""
 
     NUM_DPS = 4
@@ -1546,7 +1550,8 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    def dp_options(self):
+    @staticmethod
+    def dp_options():
         """Return DP config options"""
         return {
             'arp_neighbor_timeout': 2,
@@ -1594,14 +1599,17 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
         self.verify_intervlan_routing()
 
 
-class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4RoutingWithStackingTest):
+class FaucetSingleUntaggedIPV6RoutingWithStackingTest(
+    FaucetSingleUntaggedIPV4RoutingWithStackingTest
+):
     """IPV6 intervlan routing with stacking tests"""
 
     IPV = 6
     NETPREFIX = 64
     ETH_TYPE = IPV6_ETH
 
-    def dp_options(self):
+    @staticmethod
+    def dp_options():
         """Return DP config options"""
         return {
             'nd_neighbor_timeout': 2,
@@ -1679,7 +1687,8 @@ class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    def dp_options(self):
+    @staticmethod
+    def dp_options():
         """Return DP config options"""
         return {
             'arp_neighbor_timeout': 2,
@@ -1793,7 +1802,8 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
 
     LACP_HOST = 2
 
-    def dp_options(self):
+    @staticmethod
+    def dp_options():
         """Return DP config options"""
         return {
             'arp_neighbor_timeout': 2,
@@ -1941,7 +1951,8 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
 
     LACP_HOST = 3
 
-    def dp_options(self):
+    @staticmethod
+    def dp_options():
         """Return config DP options"""
         return {
             'arp_neighbor_timeout': 2,
@@ -2353,7 +2364,8 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
 
 
 class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
-    """Test Faucet in a single DP network with DHCP allocating IP addresses to hosts on a single VLAN"""
+    """Test Faucet in a single DP network with DHCP allocating IP addresses to
+    hosts on a single VLAN"""
 
     NUM_DPS = 1
     NUM_HOSTS = 3
@@ -2429,7 +2441,8 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
 
 
 class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
-    """Test Faucet in a multi DP network with DHCP allocating IP addresses to hosts on a single VLAN"""
+    """Test Faucet in a multi DP network with DHCP allocating IP addresses to
+    hosts on a single VLAN"""
 
     NUM_DPS = 2
     NUM_HOSTS = 5
@@ -2448,7 +2461,6 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
         """Ignore to allow for setting up network in each test"""
 
     def set_up(self):
-        """Set up network"""
         """Set up network"""
         super().setUp()
         network_graph = networkx.path_graph(self.NUM_DPS)
@@ -2551,7 +2563,10 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 1, 4: [0, 1]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
         mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
-        mininet_host_options[4] = {'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'}, 'ip': '0.0.0.0'}
+        mininet_host_options[4] = {
+            'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'},
+            'ip': '0.0.0.0'
+        }
         vlan_options = {
             v_i: {'faucet_vips': [self.faucet_vip(v_i)], 'faucet_mac': self.faucet_mac(v_i)}
             for v_i in range(self.NUM_VLANS)}
@@ -2639,7 +2654,10 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         host_vlans = {0: 0, 1: 1, 2: 0, 3: 1, 4: [0, 1]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
         mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
-        mininet_host_options[4] = {'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'}, 'ip': '0.0.0.0'}
+        mininet_host_options[4] = {
+            'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'},
+            'ip': '0.0.0.0'
+        }
         vlan_options = {
             v_i: {'faucet_vips': [self.faucet_vip(v_i)], 'faucet_mac': self.faucet_mac(v_i)}
             for v_i in range(self.NUM_VLANS)}
@@ -2713,7 +2731,7 @@ class FaucetBipartiteGraphPortDownTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
                 'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
             })
-            if dp_i == 0 or dp_i == 1:
+            if dp_i in [0, 1]:
                 dp_options[dp_i]['stack'] = {'priority': 1}
                 dp_options[dp_i]['lacp_timeout'] = 5
         switch_links = list(network_graph.edges())
@@ -2799,7 +2817,10 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
         host_vlans = {0: [0], 1: [1], 2: [0], 3: [1], 4: [0, 1]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
         mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
-        mininet_host_options[4] = {'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'}, 'ip': '0.0.0.0'}
+        mininet_host_options[4] = {
+            'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'},
+            'ip': '0.0.0.0'
+        }
         vlan_options = {
             v_i: {'faucet_vips': [self.faucet_vip(v_i)], 'faucet_mac': self.faucet_mac(v_i)}
             for v_i in range(self.NUM_VLANS)}
@@ -3287,7 +3308,10 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         host_vlans = {0: 0, 1: 0, 2: [0, 1, 2]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
         mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
-        mininet_host_options[2] = {'vlan_intfs': {(1, 0): '10.1.0.20/24', (2, 0): '10.1.0.30/24'}, 'ip': '0.0.0.0'}
+        mininet_host_options[2] = {
+            'vlan_intfs': {(1, 0): '10.1.0.20/24', (2, 0): '10.1.0.30/24'},
+            'ip': '0.0.0.0'
+        }
         vlan_options = {0: {'faucet_vips': [self.faucet_vip(0)], 'faucet_mac': self.faucet_mac(0)}}
         vlan_options[1] = {'reserved_internal_vlan': True}
         vlan_options[2] = {'reserved_internal_vlan': True}
@@ -3313,20 +3337,20 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         switch.cmd(
             ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=200,'
              'actions=set_field:4-\\>vlan_pcp,output:%s') % (
-                switch.name, self.host_port_maps[2][2][0], self.link_port_maps[(2, 0)][0]))
+                 switch.name, self.host_port_maps[2][2][0], self.link_port_maps[(2, 0)][0]))
         switch.cmd(
             ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=300,'
              'actions=set_field:4-\\>vlan_pcp,output:%s') % (
-                switch.name, self.host_port_maps[2][2][0], self.link_port_maps[(2, 0)][0]))
+                 switch.name, self.host_port_maps[2][2][0], self.link_port_maps[(2, 0)][0]))
         # Forward tunneled DHCP packets to the DNSMASQ server
         switch.cmd(
             ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=200,'
              'vlan_pcp=3,actions=output:%s') % (
-                switch.name, self.link_port_maps[(2, 0)][0], self.host_port_maps[2][2][0]))
+                 switch.name, self.link_port_maps[(2, 0)][0], self.host_port_maps[2][2][0]))
         switch.cmd(
             ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=300,'
              'vlan_pcp=3,actions=output:%s') % (
-                switch.name, self.link_port_maps[(2, 0)][0], self.host_port_maps[2][2][0]))
+                 switch.name, self.link_port_maps[(2, 0)][0], self.host_port_maps[2][2][0]))
         # Drop all other (non-DHCP tunnelled) traffic
         switch.cmd('ovs-ofctl add-flow %s priority=0,actions=drop' % (switch.name))
         # Setup DHCP server
@@ -3631,7 +3655,9 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         """Create the DNSMASQ interface link"""
         host = self.net.get(self.topo.hosts_by_id[6])
         tunnel_ip = tunnel_id - 1
-        iprange = '10.%u.0.%u,10.%u.0.%u' % (host_id+1, (tunnel_ip*10) + 1, host_id+1, (tunnel_ip+1)*10)
+        iprange = '10.%u.0.%u,10.%u.0.%u' % (
+            host_id+1, (tunnel_ip*10) + 1, host_id+1, (tunnel_ip+1)*10
+        )
         router = '10.%u.0.254' % (host_id+1)
         vlan = host.vlans[host_id]
         intf = host.vlan_intfs[(tunnel_id, host_id)][-1]
@@ -3647,13 +3673,13 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
             switch.cmd(
                 ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=%s,'
                  'actions=set_field:4-\\>vlan_pcp,output:%s') % (
-                    switch.name, self.host_port_maps[6][3][0], i, self.link_port_maps[(3, 0)][0]))
+                     switch.name, self.host_port_maps[6][3][0], i, self.link_port_maps[(3, 0)][0]))
         # Forward tunneled DHCP packets to the DNSMASQ server
         for i in [300, 400, 500]:
             switch.cmd(
                 ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=%s,'
                  'vlan_pcp=3,actions=output:%s') % (
-                    switch.name, self.link_port_maps[(3, 0)][0], i, self.host_port_maps[6][3][0]))
+                     switch.name, self.link_port_maps[(3, 0)][0], i, self.host_port_maps[6][3][0]))
         # Drop all other (non-DHCP tunnelled) traffic
         switch.cmd('ovs-ofctl add-flow %s priority=0,actions=drop' % (switch.name))
         # Setup DHCP server

@@ -73,6 +73,10 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
     # Dictionary of roots to stack priority value
     stack_roots = None
 
+    host_links = None
+    switch_links = None
+    routers = None
+
     def setUp(self):
         pass
 
