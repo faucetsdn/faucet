@@ -18,9 +18,9 @@ Faucet configuration file
 
   # Faucet Configuration file: /etc/faucet/hw_switch_config.yaml
   #
-  # If hw_switch value set to True, map a hardware OpenFlow switch to ports on this machine.
+  # If hw_switch value set to true, map a hardware OpenFlow switch to ports on this machine.
   # Otherwise, run tests against OVS locally.
-  hw_switch: True
+  hw_switch: true
   hardware: 'Open vSwitch'
   dp_ports:
     1: eth0
@@ -200,7 +200,7 @@ Running the tests
 -----------------
 
 Edit the :ref:`ovs/hw_switch_config.yaml` file as shown earlier in this document
-setting ``hw_switch=False`` initially for testing.
+setting ``hw_switch=false`` initially for testing.
 
 .. code:: console
 
@@ -210,7 +210,7 @@ setting ``hw_switch=False`` initially for testing.
 
 Install docker by following the :ref:`docker-install` section and then run the hardware based tests by following the :ref:`docker-hw-testing-running` section.
 
-Once the above minitest version is successful with ``hw_switch=False``, then edit the :ref:`ovs/hw_switch_config.yaml` file and set ``hw_switch=True``.
+Once the above minitest version is successful with ``hw_switch=false``, then edit the :ref:`ovs/hw_switch_config.yaml` file and set ``hw_switch=true``.
 
 Run tests again, verify they all pass.
 
