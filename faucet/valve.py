@@ -481,6 +481,11 @@ class Valve:
         self._set_port_var('port_status', port_status, port)
         port.dyn_update_time = now
 
+    def port_desc_stats_reply_handler(self, port_desc_stats, _other_valves, now):
+        ofmsgs = []
+        ofmsgs_by_valve = {self: ofmsgs}
+        return ofmsgs_by_valve
+
     def port_status_handler(self, port_no, reason, state, _other_valves, now):
         """Return OpenFlow messages responding to port operational status change."""
 

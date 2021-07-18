@@ -314,6 +314,19 @@ class Faucet(RyuAppBase):
             return
         valve.ofdescstats_handler(msg.body)
 
+    @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, CONFIG_DISPATCHER)  # pylint: disable=no-member
+    @kill_on_exception(exc_logname)
+    def port_desc_stats_reply_handler(self, ryu_event):
+        """Handle OFPPortDescStatsReply from datapath.
+
+        Args:
+            ryu_event (ryu.controller.ofp_event.EventOFPPortDescStatsReply): trigger.
+        """
+        valve, _, msg = self._get_valve(ryu_event)
+        if valve is None:
+            return
+        self.valves_manager.port_desc_stats_reply_handler(valve, msg, time.time())
+
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)  # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ryu_event):
