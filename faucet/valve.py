@@ -483,6 +483,66 @@ class Valve:
 
     def port_desc_stats_reply_handler(self, port_desc_stats, _other_valves, now):
         ofmsgs = []
+
+        self.logger.info('port desc stats')
+
+        # There are 4 cases to handle
+        #
+        # For the phys ports we have no config for
+        #  if the phys state is different, fabricate MODIFY port
+        # For the ports that we have config for
+        #  if the state has not changed, skip
+        #  otherwise if the phys port is present
+        #    if the port was phys down, fabricate ADD port
+        #    else fabricate MODIFY port to phys state
+        #  else the phys port is not present
+        #    if the port was phys up, fabricate DELETE port
+        #
+
+        def _fabricate(port_no, reason, status):
+            _ofmsgs_by_valve = self.port_status_handler(
+                port_no, reason, 0 if status else valve_of.ofp.OFPPS_LINK_DOWN,
+                _other_valves, now)
+            if self in _ofmsgs_by_valve:
+                ofmsgs.extend(_ofmsgs_by_valve[self])
+
+        curr_dyn_port_nos = set(
+            desc.port_no for desc in port_desc_stats)
+        curr_dyn_port_nos -= set([valve_of.ofp.OFPP_LOCAL])
+
+        prev_dyn_up_port_nos = set(self.dp.dyn_up_port_nos)
+        curr_dyn_up_port_nos = set(
+            desc.port_no for desc in port_desc_stats
+            if valve_of.port_status_from_state(desc.state))
+
+        conf_port_nos = set(self.dp.ports.keys())
+
+        no_conf_port_nos = curr_dyn_port_nos - conf_port_nos
+
+        # Ports we have no config for
+        for port_no in no_conf_port_nos:
+            prev_up = port_no in prev_dyn_up_port_nos
+            curr_up = port_no in curr_dyn_up_port_nos
+            if prev_up != curr_up:
+                _fabricate(port_no, valve_of.ofp.OFPPR_MODIFY, curr_up)
+
+        # Ports we have config for
+        for port_no in conf_port_nos:
+            prev_up = port_no in prev_dyn_up_port_nos
+            curr_up = port_no in curr_dyn_up_port_nos
+
+            # Skip ports that have not changed
+            if prev_up == curr_up:
+                continue
+
+            if port_no in curr_dyn_port_nos:
+                if not prev_up:
+                    _fabricate(port_no, valve_of.ofp.OFPPR_ADD, True)
+                else:
+                    _fabricate(port_no, valve_of.ofp.OFPPR_MODIFY, curr_up)
+            else:
+                _fabricate(port_no, valve_of.ofp.OFPPR_DELETE, False)
+
         ofmsgs_by_valve = {self: ofmsgs}
         return ofmsgs_by_valve
 
