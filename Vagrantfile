@@ -32,7 +32,8 @@ $python = <<SCRIPT
     python3-pip python3-venv
 SCRIPT
 
-$dockerce = <<SCRIPT
+$docker_ce = <<SCRIPT
+  set -e
   apt -y install \
     apt-transport-https \
     ca-certificates \
@@ -48,6 +49,14 @@ $dockerce = <<SCRIPT
     containerd.io \
     docker-ce \
     docker-ce-cli
+SCRIPT
+
+$docker_compose = <<SCRIPT
+  set -e
+  curl \
+    -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" \
+    -o /usr/local/bin/docker-compose
+  chmod +x /usr/local/bin/docker-compose
 SCRIPT
 
 $mininet = <<SCRIPT
@@ -73,7 +82,6 @@ $faucet_dev = <<SCRIPT
   ln -sfT /vagrant ~/faucet
 
   python3 -m pip install --upgrade pip
-  python3 -m pip install docker-compose
 
   python3 -m venv .venv
   . .venv/bin/activate
@@ -120,7 +128,8 @@ Vagrant.configure("2") do |config|
 
     dev.vm.provision :shell, :env => prov_env, :inline => $init
     dev.vm.provision :shell, :env => prov_env, :inline => $python
-    dev.vm.provision :shell, :env => prov_env, :inline => $dockerce
+    dev.vm.provision :shell, :env => prov_env, :inline => $docker_ce
+    dev.vm.provision :shell, :env => prov_env, :inline => $docker_compose
     dev.vm.provision :shell, :env => prov_env, :inline => $mininet
     # dev.vm.provision :shell, :env => prov_env, :inline => $wand_ovs
     dev.vm.provision :shell, :env => prov_env, :inline => $cleanup
