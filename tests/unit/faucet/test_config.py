@@ -4625,6 +4625,25 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_vlan_mac(self):
+        """Test normalization of FAUCET MAC."""
+        config = """
+vlans:
+    office:
+        vid: 100
+        faucet_mac: E:0:0:F:2:3
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dp = self._get_dps_as_dict(config)[0x1]
+        vlan = dp.vlans[100]
+        self.assertEqual('0e:00:00:0f:02:03', vlan.faucet_mac)
+
     def test_dupe_dpid(self):
         """Test duplicate DPID."""
         config = """
