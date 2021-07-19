@@ -231,7 +231,7 @@ class Faucet(RyuAppBase):
             time.time(),
             self._VALVE_SERVICES[type(ryu_event)][0])
 
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)  # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def packet_in_handler(self, ryu_event):
         """Handle a packet in event from the dataplane.
@@ -244,7 +244,7 @@ class Faucet(RyuAppBase):
             return
         self.valves_manager.valve_packet_in(ryu_event.timestamp, valve, msg)
 
-    @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)  # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def error_handler(self, ryu_event):
         """Handle an OFPError from a datapath.
@@ -257,7 +257,7 @@ class Faucet(RyuAppBase):
             return
         valve.oferror(msg)
 
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)  # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def features_handler(self, ryu_event):
         """Handle receiving a switch features message from a datapath.
@@ -301,7 +301,7 @@ class Faucet(RyuAppBase):
             return
         valve.datapath_disconnect(time.time())
 
-    @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER)  # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def desc_stats_reply_handler(self, ryu_event):
         """Handle OFPDescStatsReply from datapath.
@@ -314,7 +314,7 @@ class Faucet(RyuAppBase):
             return
         valve.ofdescstats_handler(msg.body)
 
-    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)  # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ryu_event):
         """Handle a port status change event.
@@ -327,7 +327,7 @@ class Faucet(RyuAppBase):
             return
         self.valves_manager.port_status_handler(valve, msg, time.time())
 
-    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)  # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def flowremoved_handler(self, ryu_event):
         """Handle a flow removed event.
