@@ -481,6 +481,18 @@ class Valve:
         self._set_port_var('port_status', port_status, port)
         port.dyn_update_time = now
 
+    _port_status_codes = {
+        valve_of.ofp.OFPPR_ADD: 'ADD',
+        valve_of.ofp.OFPPR_DELETE: 'DELETE',
+        valve_of.ofp.OFPPR_MODIFY: 'MODIFY'
+    }
+
+    @classmethod
+    def _decode_port_status(cls, reason):
+        """Humanize the port status reason code."""
+
+        return cls._port_status_codes.get(reason, 'UNKNOWN')
+
     def port_desc_stats_reply_handler(self, port_desc_stats, _other_valves, now):
         ofmsgs = []
 
@@ -500,6 +512,10 @@ class Valve:
         #
 
         def _fabricate(port_no, reason, status):
+            self.logger.info(
+                'Port %s fabricating %s status %s' %
+                (port_no, Valve._decode_port_status(reason), status))
+
             _ofmsgs_by_valve = self.port_status_handler(
                 port_no, reason, 0 if status else valve_of.ofp.OFPPS_LINK_DOWN,
                 _other_valves, now)
@@ -518,6 +534,15 @@ class Valve:
         conf_port_nos = set(self.dp.ports.keys())
 
         no_conf_port_nos = curr_dyn_port_nos - conf_port_nos
+
+        if conf_port_nos != curr_dyn_port_nos:
+            self.logger.info(
+                'delta in known ports: conf %s dyn %s' %
+                (conf_port_nos, curr_dyn_port_nos))
+        if prev_dyn_up_port_nos != curr_dyn_up_port_nos:
+            self.logger.info(
+                'delta in up state: %s => %s' %
+                (prev_dyn_up_port_nos, curr_dyn_up_port_nos))
 
         # Ports we have no config for
         for port_no in no_conf_port_nos:
@@ -549,21 +574,11 @@ class Valve:
     def port_status_handler(self, port_no, reason, state, _other_valves, now):
         """Return OpenFlow messages responding to port operational status change."""
 
-        port_status_codes = {
-            valve_of.ofp.OFPPR_ADD: 'ADD',
-            valve_of.ofp.OFPPR_DELETE: 'DELETE',
-            valve_of.ofp.OFPPR_MODIFY: 'MODIFY'
-        }
-
-        def _decode_port_status(reason):
-            """Humanize the port status reason code."""
-            return port_status_codes.get(reason, 'UNKNOWN')
-
         port_status = valve_of.port_status_from_state(state)
         self.notify(
             {'PORT_CHANGE': {
                 'port_no': port_no,
-                'reason': _decode_port_status(reason),
+                'reason': Valve._decode_port_status(reason),
                 'state': state,
                 'status': port_status}})
         self._set_port_status(port_no, port_status, now)
@@ -573,7 +588,7 @@ class Valve:
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
             return {}
-        if not reason in port_status_codes:
+        if reason not in Valve._port_status_codes:
             self.logger.warning('Unhandled port status %s/state %s for %s' % (
                 reason, state, port))
             return {}
@@ -585,7 +600,7 @@ class Valve:
         blocked_down_state = (
             (state & valve_of.ofp.OFPPS_BLOCKED) or (state & valve_of.ofp.OFPPS_LINK_DOWN))
         live_state = state & valve_of.ofp.OFPPS_LIVE
-        decoded_reason = _decode_port_status(reason)
+        decoded_reason = Valve._decode_port_status(reason)
         state_description = '%s up status %s reason %s state %s' % (
             port, port_status, decoded_reason, state)
         ofmsgs = []
