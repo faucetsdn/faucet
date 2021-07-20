@@ -410,12 +410,12 @@ class Port(Conf):
                     if not isinstance(org_tlv['info'], bytearray):
                         try:
                             org_tlv['info'] = bytearray.fromhex(
-                                org_tlv['info']) # pytype: disable=missing-parameter
+                                org_tlv['info'])  # pytype: disable=missing-parameter
                         except ValueError:
                             org_tlv['info'] = org_tlv['info'].encode('utf-8')
                     if not isinstance(org_tlv['oui'], bytearray):
                         org_tlv['oui'] = bytearray.fromhex(
-                            '%6.6x' % org_tlv['oui']) # pytype: disable=missing-parameter
+                            '%6.6x' % org_tlv['oui'])  # pytype: disable=missing-parameter
                     org_tlvs.append(org_tlv)
                 self.lldp_beacon['org_tlvs'] = org_tlvs
         test_config_condition(
@@ -692,7 +692,7 @@ class Port(Conf):
                 reason = 'new'
         else:
             # Not a new stack port, so progess through state machine
-            peer_dp = self.stack['dp']  # pytype: disable=key-error
+            peer_dp = self.stack['dp']  # pytype: disable=attribute-error
             stack_correct = self.dyn_stack_probe_info.get(
                 'stack_correct', None)
             send_interval = peer_dp.lldp_beacon.get(

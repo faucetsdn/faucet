@@ -198,6 +198,8 @@ class VLAN(Conf):
         test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
         test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
             'invalid MAC address %s' % self.faucet_mac))
+        self.faucet_mac = str(netaddr.EUI(
+            self.faucet_mac, dialect=netaddr.strategy.eui48.mac_unix_expanded))
 
         test_config_condition(
             self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
