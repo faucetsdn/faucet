@@ -55,6 +55,7 @@ class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
                 ryu_app.features_handler,
                 ryu_app.packet_in_handler,
                 ryu_app.desc_stats_reply_handler,
+                ryu_app.port_desc_stats_reply_handler,
                 ryu_app.port_status_handler,
                 ryu_app.flowremoved_handler,
                 ryu_app.reconnect_handler,

@@ -888,10 +888,10 @@ class ValveTestBases:
             if dp_id is None:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
-            if ports_up:
-                discovered_up_ports = set(ports_up)
-            else:
+            if ports_up is None:
                 discovered_up_ports = set(valve.dp.ports.keys())
+            else:
+                discovered_up_ports = set(ports_up)
             connect_msgs = (
                 valve.switch_features(None) +
                 valve.datapath_connect(self.mock_time(10), discovered_up_ports))
