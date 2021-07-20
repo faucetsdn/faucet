@@ -1,3 +1,4 @@
+---
 include:
     - acls.yaml
 
@@ -7,16 +8,22 @@ vlans:
         description: "office network"
         acls_in: [office-vlan-protect]
         faucet_mac: "0e:00:00:00:10:01"
-        faucet_vips: ['10.0.100.254/24', '2001:100::1/64', 'fe80::c00:00ff:fe00:1001/64']
+        faucet_vips:
+            - '10.0.100.254/24'
+            - '2001:100::1/64'
+            - 'fe80::c00:00ff:fe00:1001/64'
         routes:
             - route:
-                ip_dst: '192.168.0.0/24'
-                ip_gw: '10.0.100.2'
+                  ip_dst: '192.168.0.0/24'
+                  ip_gw: '10.0.100.2'
     guest:
         vid: 200
         description: "guest network"
         faucet_mac: "0e:00:00:00:20:01"
-        faucet_vips: ['10.0.200.254/24', '2001:200::1/64', 'fe80::c00:00ff:fe00:2001/64']
+        faucet_vips:
+            - '10.0.200.254/24'
+            - '2001:200::1/64'
+            - 'fe80::c00:00ff:fe00:2001/64'
 
 routers:
     router-office-guest:

@@ -134,7 +134,7 @@ switch:
 
 .. code:: yaml
 
-  hw_switch: True
+  hw_switch: true
   hardware: 'Open vSwitch'
   # Map ports on the hardware switch, to physical ports on this machine.
   dp_ports:
