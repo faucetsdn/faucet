@@ -117,7 +117,7 @@ class ValveRouteManager(ValveManagerBase):
     IPV = 0
     ETH_TYPE = None
     ICMP_TYPE = None
-    ICMP_SIZE = None
+    ICMP_SIZE = 0
     MAX_PACKET_IN_SIZE = valve_of.MAX_PACKET_IN_BYTES
     CONTROL_ETH_TYPES = () # type: ignore
     IP_PKT = None

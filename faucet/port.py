@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict
+
 from faucet.conf import Conf, InvalidConfigError, test_config_condition
 from faucet import valve_of
 import netaddr
@@ -77,7 +79,7 @@ LACP_PORT_DISPLAY_DICT = {
 class Port(Conf):
     """Stores state for ports, including the configuration."""
 
-    defaults = {
+    defaults: Dict[str, object] = {
         'number': None,
         'name': None,
         'description': None,

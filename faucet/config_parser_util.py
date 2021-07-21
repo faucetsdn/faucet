@@ -25,9 +25,9 @@ from yaml.constructor import ConstructorError
 
 # handle libyaml-dev not installed
 try:
-    from yaml import CLoader as Loader # type: ignore
+    from yaml import CLoader as Loader  # type: ignore
 except ImportError:
-    from yaml import Loader
+    from yaml import Loader  # type: ignore
 
 CONFIG_HASH_FUNC = 'sha256'
 

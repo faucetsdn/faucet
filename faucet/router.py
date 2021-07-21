@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict
+
 import pytricia
 
 from faucet.conf import Conf, test_config_condition
@@ -29,7 +31,7 @@ class _PyTricia(pytricia.PyTricia):
 class Router(Conf):
     """Implement FAUCET configuration for a router."""
 
-    defaults = {
+    defaults: Dict[str, object] = {
         'bgp': {},
         'vlans': None,
     }

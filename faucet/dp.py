@@ -18,6 +18,7 @@
 
 from collections import defaultdict
 from collections.abc import Iterable
+from typing import Dict
 import copy
 import random
 import math
@@ -49,7 +50,7 @@ configuration.
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
-    defaults = {
+    defaults: Dict[str, object] = {
         'dp_id': None,
         # Name for this dp, used for stats reporting and configuration
         'name': None,
