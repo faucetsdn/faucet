@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Unit tests run as PYTHONPATH=../../.. python3 ./test_valve.py."""
 
