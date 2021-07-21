@@ -32,7 +32,7 @@ class FaucetMetrics(PromClient):
 
     def __init__(self, reg=None):
         super().__init__(reg=reg)
-        self.PORT_REQUIRED_LABELS = self.REQUIRED_LABELS + ['port', 'port_description']
+        self.port_required_labels = self.REQUIRED_LABELS + ['port', 'port_description']
         self._dpid_counters = {}
         self._dpid_gauges = {}
         self.ryu_config = self._gauge(
@@ -99,7 +99,7 @@ class FaucetMetrics(PromClient):
         self.port_vlan_hosts_learned = self._gauge(
             'port_vlan_hosts_learned',
             'number of hosts learned on a port and VLAN',
-            self.PORT_REQUIRED_LABELS + ['vlan'])
+            self.port_required_labels + ['vlan'])
         self.vlan_neighbors = self._gauge(
             'vlan_neighbors',
             'number of L3 neighbors on a VLAN (whether resolved to L2 addresses, or not)',
@@ -134,19 +134,19 @@ class FaucetMetrics(PromClient):
             'learned_macs',
             ('MAC address stored as 64bit number to DP ID, port, VLAN, '
              'and n (discrete index)'),
-            self.PORT_REQUIRED_LABELS + ['vlan', 'n'])
+            self.port_required_labels + ['vlan', 'n'])
         self.port_status = self._gauge(
             'port_status',
             'status of switch ports',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.port_stack_state = self._gauge(
             'port_stack_state',
             'state of stacking on a port',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.port_learn_bans = self._gauge(
             'port_learn_bans',
             'number of times learning was banned on a port',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.learned_l2_port = self._gauge(
             'learned_l2_port',
             'learned port of l2 entries',
@@ -154,11 +154,11 @@ class FaucetMetrics(PromClient):
         self.port_lacp_role = self._gauge(
             'port_lacp_role',
             'LACP role of a port',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.port_lacp_state = self._gauge(
             'port_lacp_state',
             'state of LACP on a port',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.dp_status = self._dpid_gauge(
             'dp_status',
             'status of datapaths')
@@ -191,27 +191,27 @@ class FaucetMetrics(PromClient):
         self.port_dot1x_success = self._counter(
             'port_dot1x_success',
             'number of successful authentications on port',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.port_dot1x_failure = self._counter(
             'port_dot1x_failure',
             'number of authentications attempts failed on port',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.port_dot1x_logoff = self._counter(
             'port_dot1x_logoff',
             'number of eap-logoff events on port',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.lacp_port_id = self._gauge(
             'lacp_port_id',
             'lacp port ID for for port',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.port_stack_state_change_count = self._counter(
             'port_stack_state_change_count',
             'number of changes in port stack state',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.port_lacp_state_change_count = self._counter(
             'port_lacp_state_change_count',
             'number of changes in port lacp state',
-            self.PORT_REQUIRED_LABELS)
+            self.port_required_labels)
         self.stack_root_change_count = self._counter(
             'stack_root_change_count',
             'number of changes in stack root', [])

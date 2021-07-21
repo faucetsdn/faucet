@@ -2708,7 +2708,7 @@ vlans:
     CONFIG = CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
-        self.pingAll()
+        self.ping_all()
         learned_hosts = [
             host for host in self.hosts_name_ordered() if self.host_learned(host)]
         self.assertEqual(2, len(learned_hosts))
@@ -3459,7 +3459,7 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
 """
 
     def _verify_hosts_learned(self, hosts):
-        self.pingAll()
+        self.ping_all()
         for host in hosts:
             self.require_host_learned(host)
         self.assertEqual(len(hosts), self.scrape_prometheus_var(

@@ -21,12 +21,12 @@ import functools
 import ipaddress
 import random
 
-from ryu.lib import mac
+from ryu.lib import mac  # pylint: disable=unused-import
 from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.lib.ofctl_utils import (
     str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil)
 from ryu.ofproto import ether
-from ryu.ofproto import inet
+from ryu.ofproto import inet  # pylint: disable=unused-import
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
@@ -711,8 +711,9 @@ def match_from_dict(match_dict):
         test_config_condition(of_match not in MATCH_FIELDS, 'Unknown match field: %s' % of_match)
         try:
             encoded_field = MATCH_FIELDS[of_match](field)
-        except TypeError:
-            raise InvalidConfigError('%s cannot be type %s' % (of_match, type(field)))
+        except TypeError as type_error:
+            raise InvalidConfigError('%s cannot be type %s' %
+                                     (of_match, type(field))) from type_error
         kwargs[of_match] = encoded_field
 
     return parser.OFPMatch(**kwargs)

@@ -143,7 +143,9 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
         set_fields = {action.key for action in new_actions if valve_of.is_set_field(action)}
         if self.table_id != valve_of.ofp.OFPTT_ALL and set_fields:
             assert set_fields.issubset(self.set_fields), (
-                'unexpected set fields %s configured %s in %s' % (set_fields, self.set_fields, self.name))
+                'unexpected set fields %s configured %s in %s' % (set_fields,
+                                                                  self.set_fields,
+                                                                  self.name))
         return new_actions
 
     @functools.lru_cache()
