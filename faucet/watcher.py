@@ -43,7 +43,7 @@ def watcher_factory(conf):
         conf (GaugeConf): object with the configuration for this valve.
     """
 
-    WATCHER_TYPES = {
+    watcher_types = {
         'port_state': {
             'text': GaugePortStateLogger,
             'influx': GaugePortStateInfluxDBLogger,
@@ -68,9 +68,9 @@ def watcher_factory(conf):
     w_type = conf.type
     db_type = conf.db_type
     try:
-        return WATCHER_TYPES[w_type][db_type]
-    except KeyError:
-        raise InvalidConfigError('invalid water config')
+        return watcher_types[w_type][db_type]
+    except KeyError as key_error:
+        raise InvalidConfigError('invalid water config') from key_error
 
 
 class GaugePortStateLogger(GaugePortStatePoller):

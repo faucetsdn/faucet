@@ -28,16 +28,18 @@ class Stack(Conf):
 is technically a fixed allocation for this DP Stack instance."""
 
     defaults = {
-        'priority': None,
         # Sets the root priority value of the current DP with stacking
-        'route_learning': False,
+        'priority': None,
         # Use the stack route algorithms, will be forced true if routing is enabled
-        'down_time_multiple': 3,
+        'route_learning': False,
         # Number of update time intervals for a down stack node to still be considered healthy
+        'down_time_multiple': 3,
+        # Minimum percentage value of required UP stack ports for this stack
+        # node to be considered healthy
         'min_stack_health': 1.0,
-        # Minimum percentage value of required UP stack ports for this stack node to be considered healthy
+        # Minimum percentage value of required UP LACP ports for this stack
+        # node to be considered healthy
         'min_lacp_health': 1.0,
-        # Minimum percentage value of required UP LACP ports for this stack node to be considered healthy
     }
 
     defaults_types = {
@@ -91,7 +93,7 @@ is technically a fixed allocation for this DP Stack instance."""
         self.dyn_healthy_info = (False, 0.0, 0.0)
         self.dyn_healthy = False
 
-        super(Stack, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
     def clone_dyn_state(self, prev_stack, dps=None):
         """Copy dyn state from the old stack instance when warm/cold starting"""

@@ -72,7 +72,9 @@ class EventFaucetFastAdvertise(event.EventBase):  # pylint: disable=too-few-publ
 
 
 class EventFaucetEventSockHeartbeat(event.EventBase):  # pylint: disable=too-few-public-methods
-    """Event used to trigger periodic events on event sock, causing it to raise an exception if conn is broken."""
+    """Event used to trigger periodic events on event sock,
+    causing it to raise an exception if conn is broken.
+    """
 
 
 class Faucet(RyuAppBase):
@@ -217,7 +219,7 @@ class Faucet(RyuAppBase):
     @set_ev_cls(EventFaucetEventSockHeartbeat, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _event_socket_heartbeat(self, _):
-        self.valves_manager.event_socket_heartbeat(time.time())
+        self.valves_manager.event_socket_heartbeat()
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)

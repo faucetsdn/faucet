@@ -155,20 +155,20 @@ class GaugeThreadPoller(GaugePoller):
     """
 
     def __init__(self, conf, logname, prom_client):
-        super(GaugeThreadPoller, self).__init__(conf, logname, prom_client)
+        super().__init__(conf, logname, prom_client)
         self.thread = None
         self.interval = self.conf.interval
         self.ryudp = None
 
     def start(self, ryudp, active):
         self.stop()
-        super(GaugeThreadPoller, self).start(ryudp, active)
+        super().start(ryudp, active)
         if active:
             self.thread = hub.spawn(self)
             self.thread.name = 'GaugeThreadPoller'
 
     def stop(self):
-        super(GaugeThreadPoller, self).stop()
+        super().stop()
         if self.is_active():
             hub.kill(self.thread)
             hub.joinall([self.thread])

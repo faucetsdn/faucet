@@ -16,9 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from faucet.conf import Conf, InvalidConfigError, test_config_condition
-from faucet import valve_of
 import netaddr
+
+from faucet.conf import Conf, test_config_condition
+from faucet import valve_of
 
 # Forced port DOWN
 STACK_STATE_ADMIN_DOWN = 0
@@ -460,7 +461,7 @@ class Port(Conf):
             vlans = self.vlans()
         hosts = []
         for vlan in vlans:
-            hosts.extend([entry for entry in list(vlan.cached_hosts_on_port(self))])
+            hosts.extend(list(list(vlan.cached_hosts_on_port(self))))
         return hosts
 
     def hosts_count(self, vlans=None):
