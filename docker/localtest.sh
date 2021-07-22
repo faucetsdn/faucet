@@ -20,6 +20,7 @@ cd $ROOT
 : ${PIP_CACHE:=/tmp/faucet-pip-cache}
 
 IMAGE_TAG=faucet/tests
+: ${CONTAINER_NAME=local-test}
 
 sudo modprobe openvswitch
 sudo modprobe ebtables
@@ -52,10 +53,12 @@ sudo chown root:root $PIP_CACHE
 
 sudo docker run \
      --rm -ti \
+     ${CONTAINER_NAME:+--name=$CONTAINER_NAME} \
      --privileged \
      --sysctl net.ipv6.conf.all.disable_ipv6=0 \
      -v $ROOT:/faucet-src \
      -v $TEST_RESULTS:/var/tmp \
      -v $PIP_CACHE:/var/tmp/pip-cache \
+     -e DOCKER_HOST=unix:///var/local/run/docker.sock \
      ${FAUCET_TESTS:+-e FAUCET_TESTS="$FAUCET_TESTS"} \
      $IMAGE_TAG $CMD
