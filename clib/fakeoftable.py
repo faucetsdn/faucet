@@ -1195,10 +1195,10 @@ def parse_args():
 
 def _print(filename):
     """Prints the JSON flow table from a file in a human readable format"""
-    with open(filename, 'r') as f:
-        msg = json.load(f)
-    dp = FakeRyuDp()
-    ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
+    with open(filename, 'r') as file_handle:
+        msg = json.load(file_handle)
+    datapath = FakeRyuDp()
+    ofmsg = ofp_parser.ofp_msg_from_jsondict(datapath, msg)
     table = FakeOFTable(1)
     table.apply_ofmsgs([ofmsg])
     print(table)
@@ -1206,10 +1206,10 @@ def _print(filename):
 
 def probe(filename, packet):
     """Prints the actions applied to packet by the table from the file"""
-    with open(filename, 'r') as f:
-        msg = json.load(f)
-    dp = FakeRyuDp()
-    ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
+    with open(filename, 'r') as file_handle:
+        msg = json.load(file_handle)
+    datapath = FakeRyuDp()
+    ofmsg = ofp_parser.ofp_msg_from_jsondict(datapath, msg)
     table = FakeOFTable(1)
     table.apply_ofmsgs([ofmsg])
     instructions, out_packet = table.lookup(packet)

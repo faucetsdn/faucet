@@ -22,6 +22,7 @@ import inspect
 import os
 import sys
 import multiprocessing
+import pdb
 import pstats
 import random
 import re
@@ -30,6 +31,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import traceback
 import unittest
 
 import yaml
@@ -473,8 +475,6 @@ class FaucetCleanupResult(FaucetResult):
 
 
 def debug_exception_handler(etype, value, trace):
-    import traceback
-    import pdb
     traceback.print_exception(etype, value, trace)
     print()
     pdb.pm()

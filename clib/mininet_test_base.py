@@ -531,8 +531,8 @@ class FaucetTestBase(unittest.TestCase):
     def _block_non_faucet_packets(self):
 
         def _cmd(cmd):
-            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, stderr = p.communicate()
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = proc.communicate()
             self.assertFalse(stdout, msg='%s: %s' % (stdout, cmd))
             self.assertFalse(stderr, msg='%s: %s' % (stderr, cmd))
 
@@ -729,7 +729,7 @@ class FaucetTestBase(unittest.TestCase):
                     if controller != self.faucet_controllers[0]:
                         self.net.addController(controller)
                         for switch in self.net.switches:
-                            switch.addController(controller)
+                            switch.add_controller(controller)
                 # Add remaining faucet controllers & ensure remaining controllers are connected
                 for controller in self.faucet_controllers:
                     if controller != self.faucet_controllers[0]:
@@ -1170,9 +1170,11 @@ dbs:
                             continue
                 if not ofa_match and match is not None:
                     flow_match_set = frozenset(flow_dict['match'].items())
-                    if not (match_set.issubset(flow_match_set)  # pytype: disable=attribute-error
-                            or exact_mask_match_set.issubset(flow_match_set)):  # pytype: disable=attribute-error
+                    # pytype: disable=attribute-error
+                    if not (match_set.issubset(flow_match_set)
+                            or exact_mask_match_set.issubset(flow_match_set)):
                         continue
+                    # pytype: enable=attribute-error
                 flow_dicts.append(flow_dict)
             if flow_dicts:
                 return flow_dicts
@@ -1524,8 +1526,7 @@ dbs:
         return False
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
-                              dpid=True, multiple=False, controller=None, retries=3,
-                              verify_consistent=False):
+                              dpid=True, multiple=False, controller=None, retries=3):
         """
         Return parsed, prometheus variable
 
@@ -1538,7 +1539,6 @@ dbs:
             multiple (bool): Return multiple instances of found matching variables
             controller (str): Name of the controller owned variable to search for
             retries (int): Number of attempts to scrape a variable
-            verify_consistent (bool): Verifies that all controllers have consistent variables
         """
         if controller is None:
             controller = self.faucet_controllers[0].name
@@ -1775,8 +1775,7 @@ dbs:
 
         if received_expected is None:
             return received_packets
-        else:
-            self.assertEqual(received_expected, received_packets, msg=msg)
+        self.assertEqual(received_expected, received_packets, msg=msg)
         return None
 
     def verify_broadcast(self, hosts=None, broadcast_expected=True, packets=3):
@@ -1806,7 +1805,8 @@ dbs:
              'IP(src=\'%s\', dst=\'%s\') / UDP(dport=67,sport=68)') % (
                  host_a.MAC(), host_b.MAC(), IPV4_ETH,
                  host_a.IP(), host_b.IP()), host_a.defaultIntf(), count=packets)
-        return self._verify_xcast(unicast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
+        return self._verify_xcast(unicast_expected, packets, tcpdump_filter,
+                                  scapy_cmd, host_a, host_b)
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
@@ -2344,7 +2344,8 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
-    def port_labels(self, port_no):
+    @staticmethod
+    def port_labels(port_no):
         port_name = 'b%u' % port_no
         return {'port': port_name, 'port_description': port_name}
 
@@ -2382,7 +2383,8 @@ dbs:
         if controller is None:
             controller = self.faucet_controllers[0].name
         return self.wait_for_prometheus_var(
-            'dp_status', expected_status, any_labels=True, controller=controller, default=None, timeout=timeout)
+            'dp_status', expected_status, any_labels=True, controller=controller,
+            default=None, timeout=timeout)
 
     def _get_tableid(self, name, retries, default):
         return self.scrape_prometheus_var(
@@ -2508,7 +2510,8 @@ dbs:
             require_host_learned=require_host_learned,
             expected_result=expected_result)
 
-    def flush_arp_cache(self, host):
+    @staticmethod
+    def flush_arp_cache(host):
         """Flush the ARP cache for a host."""
         host.cmd("ip -s neigh flush all")
 
@@ -2531,7 +2534,8 @@ dbs:
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
         self.one_ipv6_ping(host, self.FAUCET_VIPV6.ip)
-        # TODO: VIP might not be in neighbor table if still tentative/ND used non VIP source address.
+        # TODO: VIP might not be in neighbor table if still tentative/ND used
+        #       non VIP source address.
         # Make test host source addresses consistent.
         # self.verify_ipv6_host_learned_mac(
         #    host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
@@ -2601,7 +2605,8 @@ dbs:
                 return
             time.sleep(1)
         if flow:
-            self.fail('DPID %s flow %s matching %s table ID %s had zero packet count' % (dpid, flow, match, table_id))
+            self.fail('DPID %s flow %s matching %s table ID %s had zero packet count' %
+                      (dpid, flow, match, table_id))
         else:
             self.fail('no flow matching %s table ID %s' % (match, table_id))
 

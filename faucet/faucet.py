@@ -116,10 +116,13 @@ class Faucet(RyuAppBase):
         self.thread_managers = (self.bgp, self.dot1x, self.prom_client, self.notifier)
         self.event_sock_hrtbeat_time = int(self.get_setting('EVENT_SOCK_HEARTBEAT') or 0)
         if self.event_sock_hrtbeat_time > 0:
-            self._VALVE_SERVICES[EventFaucetEventSockHeartbeat] = ('event_sock_heartbeat', self.event_sock_hrtbeat_time)
-        self.stack_root_state_update_time = int(self.get_setting('STACK_ROOT_STATE_UPDATE_TIME') or 0)
+            self._VALVE_SERVICES[EventFaucetEventSockHeartbeat] = ('event_sock_heartbeat',
+                                                                   self.event_sock_hrtbeat_time)
+        self.stack_root_state_update_time = int(
+            self.get_setting('STACK_ROOT_STATE_UPDATE_TIME') or 0)
         if self.stack_root_state_update_time:
-            self._VALVE_SERVICES[EventFaucetMaintainStackRoot] = (None, self.stack_root_state_update_time)
+            self._VALVE_SERVICES[EventFaucetMaintainStackRoot] = (None,
+                                                                  self.stack_root_state_update_time)
 
     @kill_on_exception(exc_logname)
     def _check_thread_exception(self):

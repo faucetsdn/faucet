@@ -17,15 +17,18 @@ from clib import mininet_test_util
 class FaucetMultiDPTestBase(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a generalized test topology & config builder"""
 
-    def mininet_host_options(self):
+    @staticmethod
+    def mininet_host_options():
         """Additional mininet host options"""
         return {}
 
-    def include(self):
+    @staticmethod
+    def include():
         """Additional include files"""
         return []
 
-    def include_optional(self):
+    @staticmethod
+    def include_optional():
         """Additional optional-include files"""
         return []
 
@@ -34,30 +37,37 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
         """Additional DP options"""
         return {}
 
-    def host_options(self):
+    @staticmethod
+    def host_options():
         """Additional host options"""
         return {}
 
-    def link_options(self):
+    @staticmethod
+    def link_options():
         """Additional link options"""
         return {}
 
-    def vlan_options(self):
+    @staticmethod
+    def vlan_options():
         """Additional VLAN options"""
         return {}
 
-    def router_options(self):
+    @staticmethod
+    def router_options():
         """Additional router options"""
         return {}
 
-    def link_acls(self):
+    @staticmethod
+    def link_acls():
         """Host index or (switch index, switch index) link to acls_in mapping"""
         return {}
 
-    def output_only(self):
+    @staticmethod
+    def output_only():
         return set()
 
-    def setUp(self):
+    @staticmethod
+    def setUp():
         pass
 
     def set_up(self, stack=False, n_dps=1, n_tagged=0, n_untagged=0,
@@ -261,7 +271,7 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
             labels = {'dp_id': '0x%x' % int(dp_id), 'dp_name': dp_name}
             self.assertEqual(self.scrape_prometheus_var(
                 var='dp_root_hop_port', labels=labels, default=0,
-                dpid=dp_id, verify_consistent=True), root_port)
+                dpid=dp_id), root_port)
         # Stop switch 1
         self.net.switches[0].stop()
         dp_id = self.topo.dpids_by_id[2]
@@ -277,7 +287,7 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
         sw2_root_port = min(self.link_port_maps[(1, 2)])
         self.assertEqual(self.scrape_prometheus_var(
             var='dp_root_hop_port', labels=labels, default=0,
-            dpid=dp_id, verify_consistent=True), sw2_root_port)
+            dpid=dp_id), sw2_root_port)
         self.net.switches[0].start(self.net.controllers)
 
 
@@ -772,7 +782,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTestBase):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Setup network & create configuration file"""
-        super(FaucetSingleStackAclControlTest, self).set_up(
+        super().set_up(
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
@@ -909,7 +919,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTestBase):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Setup network & create configuration file"""
-        super(FaucetSingleStackOrderedAclControlTest, self).set_up(
+        super().set_up(
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
@@ -952,7 +962,8 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTestBase):
     SOFTWARE_ONLY = True
 
     # ACL rules which will get overridden.
-    def acls(self):
+    @staticmethod
+    def acls():
         """Return config ACLs"""
         return {
             1: [
@@ -1029,7 +1040,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTestBase):
         """Setup network & create configuration file"""
         self.acls_config = None
         self.missing_config = None
-        super(FaucetStringOfDPACLOverrideTest, self).set_up(
+        super().set_up(
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS)
 
@@ -1190,7 +1201,7 @@ class FaucetTunnelLoopTest(FaucetSingleTunnelTest):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Start a loop topology network"""
-        super(FaucetSingleTunnelTest, self).set_up(
+        super().set_up(
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
@@ -1398,7 +1409,7 @@ class FaucetTunnelLoopOrderedTest(FaucetSingleTunnelOrderedTest):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Start a loop topology network"""
-        super(FaucetSingleTunnelOrderedTest, self).set_up(
+        super().set_up(
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
@@ -1625,7 +1636,8 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(
         """Override to setup host ipv6 ip address"""
         self.add_host_ipv6_address(host, host_ip)
 
-    def faucet_vip(self, i):
+    @staticmethod
+    def faucet_vip(i):
         """Get the IPV6 faucet vip"""
         return 'fc0%u::1:254/112' % (i+1)
 
@@ -2376,7 +2388,8 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
 
     SOFTWARE_ONLY = True
 
-    def host_ip_address(self, host_index, vlan_index):
+    @staticmethod
+    def host_ip_address(host_index, vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -2453,7 +2466,8 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
 
     SOFTWARE_ONLY = True
 
-    def host_ip_address(self, host_index, vlan_index):
+    @staticmethod
+    def host_ip_address(host_index, vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -2538,7 +2552,8 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
 
     SOFTWARE_ONLY = True
 
-    def host_ip_address(self, host_index, vlan_index):
+    @staticmethod
+    def host_ip_address(host_index, vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -2627,7 +2642,8 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
 
     SOFTWARE_ONLY = True
 
-    def host_ip_address(self, host_index, vlan_index):
+    @staticmethod
+    def host_ip_address(host_index, vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -2790,7 +2806,8 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
 
     SOFTWARE_ONLY = True
 
-    def host_ip_address(self, host_index, vlan_index):
+    @staticmethod
+    def host_ip_address(host_index, vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -3281,7 +3298,8 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
             host.name, host.name, host.defaultIntf())
         return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
 
-    def host_ip_address(self, host_index, vlan_index):
+    @staticmethod
+    def host_ip_address(host_index, vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -3596,7 +3614,8 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
             host.name, host.name, host.defaultIntf())
         return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
 
-    def host_ip_address(self, host_index, vlan_index):
+    @staticmethod
+    def host_ip_address(host_index, vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 

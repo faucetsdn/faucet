@@ -192,8 +192,7 @@ is technically a fixed allocation for this DP Stack instance."""
             self.dyn_healthy_info = (False, 0.0, 0.0)
             self.dyn_healthy = False
             return self.dyn_healthy, reason
-        else:
-            reason += 'running %us ago' % (now - last_live_time)
+        reason += 'running %us ago' % (now - last_live_time)
         if reason:
             reason += ', '
         stack_ports_healthy, stack_percentage = self.stack_port_healthy()

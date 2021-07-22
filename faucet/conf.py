@@ -234,7 +234,7 @@ class Conf:
                 return ip_method(ip_str)
             raise InvalidConfigError('Invalid IP address %s: IP address of type bool' % (ip_str))
         except (ValueError, AttributeError, TypeError) as err:
-            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
+            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err)) from err
 
     @staticmethod
     def _ipvs(ipas):
