@@ -172,12 +172,12 @@ class DockerHost(Host):
                 pid_pipe.poll()
             raise
 
-    def open_log(self, log_name='activate.log'):
+    def open_log(self):
         """Open a log file for writing and return it."""
-        return open(os.path.join(self.tmpdir, log_name), 'w')
+        return open(os.path.join(self.tmpdir, 'activate.log'), 'w')
 
-    def activate(self, log_name='activate.log'):
-        """Active a container and return STDOUT to it."""
+    def activate(self):
+        """Activate a container and return STDOUT to it."""
         assert not self.active_pipe, 'container %s already activated' % self.container
         debug('activating container %s.' % self.container)
         inspect_cmd = ["docker", "inspect", "--format={{json .Config}}", self.image]
@@ -192,13 +192,9 @@ class DockerHost(Host):
             entrypoint = entryconfig if entryconfig else ['/usr/bin/env']
             cmd = config['Cmd'] if 'Cmd' in config else []
             docker_cmd = entrypoint + (cmd if cmd else [])
-            debug('logging to %s for %s' % (log_name, docker_cmd))
-            if log_name:
-                stdout = self.open_log(log_name)
-                self.active_log = stdout
-            else:
-                stdout = PIPE
-                self.active_log = None
+            debug('logging to activate.log for %s' % docker_cmd)
+            stdout = self.open_log()
+            self.active_log = stdout
         except:
             if inspect_pipe:
                 inspect_pipe.poll()
@@ -313,6 +309,6 @@ def make_docker_host(image, prefix=DEFAULT_PREFIX, network=DEFAULT_NETWORK,
                 env_val = os.environ['DOCKER_STARTUP_TIMEOUT_MS']
                 if env_val:
                     kwargs['startup_timeout_ms'] = int(env_val)
-            super(_ImageHost, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
     return _ImageHost
