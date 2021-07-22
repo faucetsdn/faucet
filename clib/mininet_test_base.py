@@ -51,8 +51,6 @@ class FaucetTestBase(unittest.TestCase):
 
     # Number of Faucet controllers to create
     NUM_FAUCET_CONTROLLERS = 2
-    # Delay between Faucet controllers starting
-    FAUCET_CONTROLLER_START_DELAY = 10
     # Number of Gauge controllers to create
     NUM_GAUGE_CONTROLLERS = 1
 
@@ -385,10 +383,10 @@ class FaucetTestBase(unittest.TestCase):
         os.mkdir(tmpdir)
         return tmpdir
 
-    def _wait_load(self, load_retries=120):
+    def _wait_load(self, load_retries=10):
         for _ in range(load_retries):
+            time.sleep(random.randint(1, 5))
             load = os.getloadavg()[0]
-            time.sleep(random.randint(1, 7))
             if load < self.max_test_load:
                 return
             output('load average too high %f, waiting' % load)
@@ -632,8 +630,7 @@ class FaucetTestBase(unittest.TestCase):
         return None
 
     def _start_check(self):
-        if not self._wait_controllers_healthy():
-            return 'not all controllers healthy'
+        # '_wait_controllers_connected' also checks the 'healthy' state
         if not self._wait_controllers_connected():
             return 'not all controllers connected to switch'
         if not self._wait_ofctl_up():
@@ -730,17 +727,16 @@ class FaucetTestBase(unittest.TestCase):
                         self.net.addController(controller)
                         for switch in self.net.switches:
                             switch.add_controller(controller)
-                # Add remaining faucet controllers & ensure remaining controllers are connected
+                # Start remaining Faucet controllers
                 for controller in self.faucet_controllers:
                     if controller != self.faucet_controllers[0]:
-                        time.sleep(self.FAUCET_CONTROLLER_START_DELAY)
+                        self._wait_load()
                         controller.start()
-                time.sleep(self.FAUCET_CONTROLLER_START_DELAY)
+                self._wait_load()
+                # If we have multiple controllers,
+                # make sure that they are all now connected
                 if self.NUM_FAUCET_CONTROLLERS > 1:
-                    # If we add controllers, want to make sure that they are now connected
-                    self._wait_load()
                     last_error_txt = self._start_check()
-                    time.sleep(self.FAUCET_CONTROLLER_START_DELAY)
                 if last_error_txt is None:
                     self._config_tableids()
                     self._wait_load()
