@@ -4,13 +4,8 @@
 # Simulate ActiveModel::Type::Boolean.new.cast(value)
 $FALSE_VALUES = [false, 0, "0", "f", "F", "false", "FALSE", "off", "OFF"]
 
-# Should Vagrant will not modify your /etc/exports automatically ?
-$env_nfs_export = ENV['VAGRANT_NFS_EXPORT']
-if $env_nfs_export
-    $nfs_export = $FALSE_VALUES.none? $env_nfs_export
-else
-    $nfs_export = true
-end
+# Should Vagrant modify /etc/exports automatically?
+$nfs_export = $FALSE_VALUES.none? ENV['VAGRANT_NFS_EXPORT']
 
 prov_env = {
   "DEBIAN_FRONTEND" => "noninteractive",
