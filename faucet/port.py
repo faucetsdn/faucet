@@ -628,7 +628,8 @@ class Port(Conf):
         """Set the LACP actor state to NOSYNC"""
         self.dyn_lacp_actor_state = LACP_ACTOR_NOSYNC
 
-    def actor_state_name(self, state):
+    @staticmethod
+    def actor_state_name(state):
         """Return the string of the actor state"""
         return LACP_ACTOR_DISPLAY_DICT[state]
 
@@ -665,7 +666,8 @@ class Port(Conf):
         """Set LACP port state to NOTCONFIGURED"""
         self.dyn_lacp_port_selected = LACP_PORT_NOTCONFIGURED
 
-    def port_role_name(self, state):
+    @staticmethod
+    def port_role_name(state):
         """Return the LACP port role state name"""
         return LACP_PORT_DISPLAY_DICT[state]
 
@@ -770,6 +772,7 @@ class Port(Conf):
         """Change the current stack state to GONE."""
         self.dyn_stack_current_state = STACK_STATE_GONE
 
-    def stack_state_name(self, state):
+    @staticmethod
+    def stack_state_name(state):
         """Return stack state name"""
         return STACK_DISPLAY_DICT[state]

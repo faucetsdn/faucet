@@ -526,9 +526,9 @@ The output action contains a dictionary with the following elements:
         """Return ID for a tunnel source."""
         return tuple(sorted(source.items()))
 
-    def add_tunnel_source(self, dp, port, reverse=False, bi_directional=False):
+    def add_tunnel_source(self, dp_name, port, reverse=False, bi_directional=False):
         """Add a source dp/port pair for the tunnel ACL"""
-        source = {'dp': dp, 'port': port, 'reverse': reverse, 'bi_directional': bi_directional}
+        source = {'dp': dp_name, 'port': port, 'reverse': reverse, 'bi_directional': bi_directional}
         source_id = self._tunnel_source_id(source)
         self.tunnel_sources[source_id] = source
         for _id in self.tunnel_dests:

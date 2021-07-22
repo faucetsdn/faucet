@@ -42,10 +42,10 @@ class FaucetLink(Link):
     """Link using FaucetIntfs"""
 
     def __init__(self, node1, node2, port1=None, port2=None,
-                 intfName1=None, intfName2=None,
+                 intf_name1=None, intf_name2=None,
                  addr1=None, addr2=None, **params):
         Link.__init__(self, node1, node2, port1=port1, port2=port2,
-                      intfName1=intfName1, intfName2=intfName2,
+                      intfName1=intf_name1, intfName2=intf_name2,
                       cls1=FaucetIntf, cls2=FaucetIntf,
                       addr1=addr1, addr2=addr2,
                       params1=params, params2=params)
@@ -91,8 +91,11 @@ class VLANHost(FaucetHost):
 
     def config(self, vlans=[100], **params):  # pylint: disable=arguments-differ
         """Configure VLANHost according to (optional) parameters:
-           vlans (list): List of VLAN IDs (for the VLANs the host is configured to have) for default interface
-           vlan_intfs (dict): Dictionary of interface IP addresses keyed by VLAN indices"""
+
+        vlans (list): List of VLAN IDs (for the VLANs the host is configured to have)
+            for default interface
+        vlan_intfs (dict): Dictionary of interface IP addresses keyed by VLAN indices
+        """
         super_config = super().config(**params)
         self.vlans = vlans
         self.vlan_intfs = {}
@@ -101,7 +104,7 @@ class VLANHost(FaucetHost):
         self.intf_root_name = intf.name
         if 'vlan_intfs' in params:
             vlan_intfs = params.get('vlan_intfs', {})
-            for vlan_id, ip in vlan_intfs.items():
+            for vlan_id, ip_addr in vlan_intfs.items():
                 if isinstance(vlan_id, tuple):
                     # Interface will take multiply VLAN tagged packets
                     intf_name = '%s' % intf.name
@@ -110,18 +113,19 @@ class VLANHost(FaucetHost):
                         # Cannot have intf name tu0xy-eth0.VID1.VID2 as that takes up too many bytes
                         intf_name += '.%s' % vlan_i
                         cmds.extend([
-                            'ip link add link %s name %s type vlan id %s' % (prev_name, intf_name, vlans[vlan_i]),
+                            'ip link add link %s name %s type vlan id %s' %
+                            (prev_name, intf_name, vlans[vlan_i]),
                             'ip link set dev %s up' % (intf_name)
                         ])
                         self.nameToIntf[intf_name] = intf
                         self.vlan_intfs.setdefault(vlan_id, [])
                         self.vlan_intfs[vlan_id].append(intf_name)
-                    cmds.append('ip -4 addr add %s dev %s' % (ip, intf_name))
+                    cmds.append('ip -4 addr add %s dev %s' % (ip_addr, intf_name))
                 else:
                     intf_name = '%s.%s' % (intf, vlans[vlan_id])
                     cmds.extend([
                         'vconfig add %s %d' % (intf.name, vlans[vlan_id]),
-                        'ip -4 addr add %s dev %s' % (ip, intf_name),
+                        'ip -4 addr add %s dev %s' % (ip_addr, intf_name),
                         'ip link set dev %s up' % intf_name])
                     self.nameToIntf[intf_name] = intf
                     self.vlan_intfs[vlan_id] = intf_name
@@ -130,8 +134,8 @@ class VLANHost(FaucetHost):
             cmds.extend([
                 'ip link set dev %s up' % vlan_intf_name,
                 'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)])
-            for v in vlans:
-                cmds.append('vconfig add %s %d' % (intf, v))
+            for vlan in vlans:
+                cmds.append('vconfig add %s %d' % (intf, vlan))
             intf.name = vlan_intf_name
             self.nameToIntf[vlan_intf_name] = intf
         cmds.extend([
@@ -191,7 +195,7 @@ class FaucetSwitch(OVSSwitch):
         port = self.ports[intf]
         self.cmd('ovs-vsctl set Interface', intf, 'ofport_request=%s' % port)
 
-    def addController(self, controller):
+    def add_controller(self, controller):
         self.clist.append((
             self.name + controller.name, '%s:%s:%d' % (
                 controller.protocol, controller.IP(), controller.port)))
@@ -292,10 +296,10 @@ class FaucetSwitchTopo(Topo):
         return self.addHost(
             name=host_name, cls=VLANHost, vlans=tagged_vids, cpu=self.CPUF)
 
-    def _add_untagged_host(self, sid_prefix, host_n, inNamespace=True): # pylint: disable=invalid-name
+    def _add_untagged_host(self, sid_prefix, host_n, in_namespace=True):
         """Add a single untagged test host."""
         host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(name=host_name, cls=FaucetHost, cpu=self.CPUF, inNamespace=inNamespace)
+        return self.addHost(name=host_name, cls=FaucetHost, cpu=self.CPUF, inNamespace=in_namespace)
 
     def _add_extended_host(self, sid_prefix, host_n, e_cls, tmpdir):
         """Add a single extended test host."""

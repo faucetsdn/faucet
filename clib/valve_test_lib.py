@@ -28,7 +28,6 @@ import logging
 import os
 import pstats
 import shutil
-import socket
 import tempfile
 
 import unittest
@@ -136,7 +135,8 @@ def build_dict(pkt):
     if eth_pkt:
         pkt_dict['eth_src'] = eth_pkt.src
         if 'eth_dst' in pkt_dict and pkt_dict['eth_dst'] != eth_pkt.dst:
-            raise NotImplementedError('Previous allocation of eth_dst does not match ethernet dst\n')
+            raise NotImplementedError(
+                'Previous allocation of eth_dst does not match ethernet dst\n')
         pkt_dict['eth_dst'] = eth_pkt.dst
     return pkt_dict
 
@@ -621,7 +621,7 @@ class ValveTestBases:
             self.tmpdir = None
 
             self.mock_now_sec = 100
-            self.maxDiff = None
+            self.max_diff = None
 
             # Used for a legacy port mechanism
             self.up_ports = {}
@@ -739,15 +739,7 @@ class ValveTestBases:
             if dp_id is None:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
-            before_flow_count = len(ofmsgs)
             final_ofmsgs = valve.prepare_send_flows(ofmsgs)
-            after_flow_count = len(final_ofmsgs)
-            reorder_ratio = before_flow_count / after_flow_count
-            if before_flow_count < before_flow_count:
-                self.assertGreater(
-                    reorder_ratio, 0.90,
-                    'inefficient duplicate flow generation (before %u, after %u)' % (
-                        before_flow_count, after_flow_count))
             self.network.apply_ofmsgs(int(dp_id), final_ofmsgs)
             if all_offsets:
                 for offset_iter in range(len(ofmsgs)):
@@ -825,8 +817,12 @@ class ValveTestBases:
                     self.configure_network()
                 for dp_id in self.valves_manager.valves:
                     reload_ofmsgs = self.last_flows_to_dp.get(dp_id, [])
-                    # When cold starting, we must either request a disconnect from the switch or have flows to send.
-                    if dp_id == self.DP_ID and before_dp_status and reload_type == 'cold' and reload_expected:
+                    # When cold starting, we must either request a disconnect
+                    # from the switch or have flows to send.
+                    if (dp_id == self.DP_ID
+                            and before_dp_status
+                            and reload_type == 'cold'
+                            and reload_expected):
                         self.assertTrue(reload_ofmsgs is None or reload_ofmsgs, reload_ofmsgs)
                     if reload_ofmsgs is None:
                         reload_ofmsgs = self.connect_dp(dp_id)
@@ -856,14 +852,16 @@ class ValveTestBases:
                                      verify_func=None, before_table_states=None,
                                      table_dpid=None):
             """
-            Updates to the new config then reverts back to the original config to ensure
-                restarting properly dismantles/keep appropriate flow rules
+            Updates to the new config then reverts back to the original config to
+                ensure restarting properly dismantles/keep appropriate flow rules
             Args:
                 orig_config (str): The original configuration file
                 new_config (str): The new configuration file
-                cold_starts (dict): Dictionary of dp_id that is expecting cold starts or warm starts
+                cold_starts (dict): Dictionary of dp_id that is expecting cold
+                    starts or warm starts
                 verify_func (func): Function to verify state changes
-                before_table_states (dict): Dict of string state by dp_id of the table before reloading
+                before_table_states (dict): Dict of string state by dp_id of the
+                    table before reloading
             """
             if before_table_states is None:
                 before_table_states = {
@@ -964,7 +962,8 @@ class ValveTestBases:
             Args:
                 port (int): The port receiving the packet
                 vid (int): The VLAN receiving the packet
-                match (dict): A dictionary keyed by header field names with values representing a packet
+                match (dict): A dictionary keyed by header field names with
+                    values representing a packet
                 dp_id: The DP ID of the DP receiving the packet
             Returns:
                 ofmsgs from receiving the packet
@@ -1073,7 +1072,8 @@ class ValveTestBases:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
             self.apply_ofmsgs(valve.port_status_handler(
-                port_no, ofp.OFPPR_ADD, 0 if link_up else ofp.OFPPS_LINK_DOWN, [], self.mock_time(0)).get(valve, []))
+                port_no, ofp.OFPPR_ADD, 0 if link_up else ofp.OFPPS_LINK_DOWN,
+                [], self.mock_time(0)).get(valve, []))
             self.port_expected_status(port_no, 1 if link_up else 0)
 
         def delete_port(self, port_no, dp_id=None):
@@ -1087,7 +1087,8 @@ class ValveTestBases:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
             self.apply_ofmsgs(valve.port_status_handler(
-                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN, [], self.mock_time(0)).get(valve, []))
+                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN, [],
+                self.mock_time(0)).get(valve, []))
             self.port_expected_status(port_no, 0)
 
         def set_port_state(self, port_no, link_up, dp_id=None):
@@ -1102,7 +1103,8 @@ class ValveTestBases:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
             self.apply_ofmsgs(valve.port_status_handler(
-                port_no, ofp.OFPPR_MODIFY, 0 if link_up else ofp.OFPPS_LINK_DOWN, [], self.mock_time(0)).get(valve, []))
+                port_no, ofp.OFPPR_MODIFY, 0 if link_up else ofp.OFPPS_LINK_DOWN,
+                [], self.mock_time(0)).get(valve, []))
             self.port_expected_status(port_no, 1 if link_up else 0)
 
         def set_port_link_up(self, port_no, dp_id=None):
@@ -1358,18 +1360,18 @@ class ValveTestBases:
                 resolve_gws = valve.resolve_gateways(now, None)
                 return state_expire, resolve_gws
 
-            state_expire, resolve_gws = {}, {}
+            state_expire, _ = {}, {}
             # Expire resolution attempts
             for _ in range(valve.dp.max_host_fib_retry_count):
-                state_expire, resolve_gws = expire()
+                state_expire, _ = expire()
             # If there are still more state_expire msgs, make sure they are flowdels
-            state_expire, resolve_gw = expire()
+            state_expire, _ = expire()
             for pkts in state_expire.values():
                 if pkts:
                     for pkt in pkts:
                         self.assertTrue(valve_of.is_flowdel(pkt))
             # Final check to make sure there are now absolutely no state expire msgs
-            state_expire, resolve_gws = expire()
+            state_expire, _ = expire()
             for pkts in state_expire.values():
                 self.assertFalse(pkts)
 
@@ -1510,7 +1512,8 @@ class ValveTestBases:
             """Test disconnection of DP from controller."""
             valve = self.valves_manager.valves[self.DP_ID]
             self.assertEqual(1, int(self.get_prom('dp_status')))
-            self.prom_inc(partial(valve.datapath_disconnect, self.mock_time()), 'of_dp_disconnections_total')
+            self.prom_inc(partial(valve.datapath_disconnect, self.mock_time()),
+                          'of_dp_disconnections_total')
             self.assertEqual(0, int(self.get_prom('dp_status')))
 
         def test_unexpected_port(self):
@@ -1548,7 +1551,7 @@ class ValveTestBases:
                 flow for flow in flows if isinstance(
                     flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
             self.assertTrue(tfm_flows)
-            for table_name, table in valve.dp.tables.items():
+            for _, table in valve.dp.tables.items():
                 # Ensure the TFM generated for each table has the correct values
                 table_id = table.table_id
                 self.assertIn(table_id, network_table.tfm)
@@ -2132,7 +2135,7 @@ class ValveTestBases:
 
         def test_port_add_input(self):
             """Test that when a port is enabled packets are input correctly."""
-            valve = self.valves_manager.valves[self.DP_ID]
+            _ = self.valves_manager.valves[self.DP_ID]
 
             match = {'in_port': 1, 'vlan_vid': 0}
             orig_config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
@@ -2468,11 +2471,13 @@ meters:
                     if port.stack:
                         self.set_stack_port_up(port.number, valve)
 
-        def validate_tunnel(self, src_dpid, dst_dpid, in_port, in_vid, out_port, out_vid, expected, msg,
-                            pcp=False, packet_match=None, eth_type=0x0800, ip_proto=1, trace=False):
+        def validate_tunnel(self, src_dpid, dst_dpid, in_port, in_vid, out_port,
+                            out_vid, expected, msg, pcp=False, packet_match=None,
+                            eth_type=0x0800, ip_proto=1, trace=False):
             """
-            Validate correct tunnel output by constructing a test packet and inputting it into the network
-                and measure for the state of the packet and where it is output
+            Validate correct tunnel output by constructing a test packet and
+                inputting it into the network and measure for the state of the
+                packet and where it is output
 
             Args:
                 src_dpid (int): DPID for the source of the test packet
@@ -2487,7 +2492,8 @@ meters:
                 packet_match (dict): Additional packet headers
                 eth_type (int): Eth type for the test packet
                 ip_proto (int): IP proto for the test packet
-                trace (bool): Whether to print the trace of the packet through the network (for debugging)
+                trace (bool): Whether to print the trace of the packet through
+                    the network (for debugging)
             """
             bcast_match = {
                 'in_port': in_port,
@@ -2512,10 +2518,12 @@ meters:
                     out_vid = out_vid | ofp.OFPVID_PRESENT
             if expected:
                 self.assertTrue(self.network.is_output(
-                    bcast_match, src_dpid, dst_dpid, port=out_port, vid=out_vid, trace=trace), msg=msg)
+                    bcast_match, src_dpid, dst_dpid, port=out_port, vid=out_vid,
+                    trace=trace), msg=msg)
             else:
                 self.assertFalse(self.network.is_output(
-                    bcast_match, src_dpid, dst_dpid, port=out_port, vid=out_vid, trace=trace), msg=msg)
+                    bcast_match, src_dpid, dst_dpid, port=out_port, vid=out_vid,
+                    trace=trace), msg=msg)
 
 
     class ValveTestStackedRouting(ValveTestNetwork):

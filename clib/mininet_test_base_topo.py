@@ -208,13 +208,13 @@ class FaucetTopoTestBase(FaucetTestBase):
                 if isinstance(vlan, list):
                     vlan = tuple(vlan)
                 ips_for_vlans.setdefault(vlan, 0)
-                ip = self.host_ip_address(ips_for_vlans[vlan], vlan)
+                ip_addr = self.host_ip_address(ips_for_vlans[vlan], vlan)
                 ips_for_vlans[vlan] += 1
                 if self.mininet_host_options and host_id in self.mininet_host_options:
                     mininet_ip = self.mininet_host_options[host_id].get('ip', None)
                     if mininet_ip:
-                        ip = mininet_ip
-                ip_interface = ipaddress.ip_interface(ip)
+                        ip_addr = mininet_ip
+                ip_interface = ipaddress.ip_interface(ip_addr)
                 self.set_host_ip(host, ip_interface)
             self.host_information[host_id] = {
                 'host': host,
@@ -309,10 +309,10 @@ class FaucetTopoTestBase(FaucetTestBase):
             labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': name}
             self.assertEqual(
                 0, self.scrape_prometheus_var(
-                    var='stack_cabling_errors_total', labels=labels, default=None, verify_consistent=True))
+                    var='stack_cabling_errors_total', labels=labels, default=None))
             self.assertGreater(
                 self.scrape_prometheus_var(
-                    var='stack_probes_received_total', labels=labels, verify_consistent=True), 0)
+                    var='stack_probes_received_total', labels=labels), 0)
 
     def verify_stack_hosts(self, verify_bridge_local_rule=True, retries=3):
         """Verify hosts with stack LLDP messages"""
@@ -341,7 +341,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         return self.scrape_prometheus_var(
             'port_stack_state', labels=labels,
-            default=None, dpid=dpid, verify_consistent=True)
+            default=None, dpid=dpid)
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         """Wait until prometheus detects a stack port has a certain status"""
@@ -674,12 +674,13 @@ details partner lacp pdu:
                                 # Obtain up LACP ports for that dpid
                                 port_labels = self.port_labels(port)
                                 lacp_state = self.scrape_prometheus_var(
-                                    'port_lacp_state', port_labels, default=0, dpid=dpid, verify_consistent=True)
+                                    'port_lacp_state', port_labels, default=0, dpid=dpid)
                                 lacp_up_ports += 1 if lacp_state == 3 else 0
         return lacp_up_ports
 
     def verify_num_lag_up_ports(self, expected_up_ports, dpid):
-        """Checks to see if Prometheus has the expected number of up LAG ports on the specified DP"""
+        """Checks to see if Prometheus has the expected number of up LAG ports
+        on the specified DP"""
         for _ in range(self.LACP_TIMEOUT*10):
             if self.prom_lacp_up_ports(dpid) == expected_up_ports:
                 return

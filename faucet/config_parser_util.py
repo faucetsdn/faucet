@@ -43,14 +43,14 @@ class UniqueKeyLoader(Loader):  # pylint: disable=too-many-ancestors
                  self.construct_object(value_node, deep=deep))
                 for key_node, value_node in node.value]
         except TypeError as err:
-            raise ConstructorError('invalid key type: %s' % err)
+            raise ConstructorError('invalid key type: %s' % err) from err
         mapping = {}
         for key, value in key_value_pairs:
             try:
                 if key in mapping:
                     raise ConstructorError('duplicate key: %s' % key)
-            except TypeError:
-                raise ConstructorError('unhashable key: %s' % key)
+            except TypeError as type_error:
+                raise ConstructorError('unhashable key: %s' % key) from type_error
             mapping[key] = value
         return mapping
 
