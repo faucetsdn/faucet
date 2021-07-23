@@ -1,14 +1,18 @@
 """Example RabbitMQ consumer for testing and development purposes"""
 import datetime
+import logging
 
 import pika
 
 
 def callback(chan, method, properties, body):
     """Callback that has the message that was received"""
-    print(" [X] %s UTC %r:%r" % (str(datetime.datetime.utcnow()),
-                                 method.routing_key,
-                                 body))
+    logging.info(" [X] %s UTC %r:%r:%r:%r",
+                 str(datetime.datetime.utcnow()),
+                 chan,
+                 method.routing_key,
+                 properties,
+                 body)
 
 
 def main():
@@ -20,7 +24,7 @@ def main():
     channel = connection.channel()
 
     channel.exchange_declare(exchange='topic_recs', exchange_type='topic')
-    result = channel.queue_declare()
+    result = channel.queue_declare('faucet')
     queue_name = result.method.queue
 
     binding_key = "FAUCET.Event"
@@ -33,5 +37,5 @@ def main():
 
 if __name__ == "__main__":
     CHANNEL, QUEUE = main()
-    CHANNEL.basic_consume(callback, queue=QUEUE, no_ack=True)
+    CHANNEL.basic_consume(queue=QUEUE, on_message_callback=callback)
     CHANNEL.start_consuming()
