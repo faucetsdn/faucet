@@ -237,11 +237,11 @@ dps:
 
     def setUp(self):  # pylint: disable=invalid-name
         """Setup basic port and vlan config"""
-        self.setup_valves(self.CONFIG)[self.DP_ID]
+        _ = self.setup_valves(self.CONFIG)[self.DP_ID]
 
     def test_port_mirror(self):
         """Test addition of port mirroring is a warm start."""
-        self.update_config(self.MORE_CONFIG, reload_type='warm')[self.DP_ID]
+        _ = self.update_config(self.MORE_CONFIG, reload_type='warm')[self.DP_ID]
 
 
 class ValveAddPortTestCase(ValveTestBases.ValveTestNetwork):

@@ -44,7 +44,7 @@ class TestConfig(unittest.TestCase): # pytype: disable=module-attr
     def run_function_with_config(self, config, function, before_function=None):
         """Return False with error if provided function raises InvalidConfigError."""
         # TODO: Check acls_in work now acl_in is deprecated
-        if isinstance(config, str) and 'acl_in' in config and not 'acls_in':
+        if isinstance(config, str) and 'acl_in' in config and 'acls_in' not in config:
             config = re.sub('(acl_in: )(.*)', 'acls_in: [\\2]', config)
         conf_file = self.create_config_file(config)
         if before_function:
@@ -203,8 +203,16 @@ dps:
                     dpid_b,
                     'remote stack dp configured incorrectly')
                 self.assertEqual(
+                    port_b.stack['dp'].dp_id,  # pytype: disable=attribute-error
+                    dpid_a,
+                    'remote stack dp configured incorrectly')
+                self.assertEqual(
                     port_a.stack['port'].number,  # pytype: disable=attribute-error
                     port_b.number,  # pytype: disable=attribute-error
+                    'remote stack dp configured incorrectly')
+                self.assertEqual(
+                    port_b.stack['port'].number,  # pytype: disable=attribute-error
+                    port_a.number,  # pytype: disable=attribute-error
                     'remote stack dp configured incorrectly')
 
     def test_config_route_learning_override(self):
@@ -1414,10 +1422,10 @@ dps:
                 )
 
     def _check_next_tables(self, table, next_tables):
-        for nt in table.next_tables:
-            self.assertIn(nt, next_tables, 'incorrect next table configured')
-        for nt in next_tables:
-            self.assertIn(nt, table.next_tables, 'missing next table')
+        for next_table in table.next_tables:
+            self.assertIn(next_table, next_tables, 'incorrect next table configured')
+        for next_table in next_tables:
+            self.assertIn(next_table, table.next_tables, 'missing next table')
 
     def test_pipeline_config_no_acl(self):
         """Test pipelines are generated correctly with different configs"""
@@ -4530,7 +4538,7 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_share_bgp_routing_VLAN(self):
+    def test_share_bgp_routing_vlan(self):
         """Test cannot share VLAN with BGP across DPs."""
         config = """
 routers:

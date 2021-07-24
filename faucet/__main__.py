@@ -22,6 +22,8 @@ import argparse
 import os
 import sys
 
+from pbr.version import VersionInfo
+
 if sys.version_info < (3,):
     raise ImportError("""You are trying to run faucet on python {py}
 
@@ -107,7 +109,6 @@ def parse_args(sys_args):
 
 def print_version():
     """Print version number and exit."""
-    from pbr.version import VersionInfo
     version = VersionInfo('faucet').semantic_version().release_string()
     message = 'Faucet %s' % version
     print(message)

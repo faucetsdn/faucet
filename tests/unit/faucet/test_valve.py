@@ -17,13 +17,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple
 
 import copy
 import time
 import unittest
 import yaml
-
-from collections import namedtuple
 
 from ryu.lib import mac
 from ryu.lib.packet import slow

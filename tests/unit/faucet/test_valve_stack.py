@@ -1498,7 +1498,8 @@ class ValveInterVLANStackFlood(ValveTestBases.ValveTestNetwork):
     VLAN200_FAUCET_VIP_SPACE = '10.2.0.254/24'
     DST_ADDRESS = ipaddress.IPv4Address('10.1.0.1')
 
-    def base_config(self):
+    @staticmethod
+    def base_config():
         """Create the base config"""
         return """
 routers:
@@ -1575,7 +1576,8 @@ vlans:
         self.setup_valves(self.CONFIG)
         self.trigger_stack_ports()
 
-    def stack_manager_flood_ports(self, stack_manager):
+    @staticmethod
+    def stack_manager_flood_ports(stack_manager):
         """Return list of port numbers that will be flooded to"""
         stack_manager.reset_peer_distances()
         ports = list()

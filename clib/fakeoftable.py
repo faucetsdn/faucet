@@ -141,8 +141,7 @@ class FakeOFNetwork:
             return 1
         elif src_valve.dp.stack and dst_valve.dp.stack:
             return len(src_valve.dp.stack.shortest_path(dst_valve.dp.name))
-        else:
-            return 2
+        return 2
 
     def is_output(self, match, src_dpid, dst_dpid, port=None, vid=None, trace=False):
         """
@@ -560,11 +559,13 @@ class FakeOFTable:
                     metadata = packet_dict.get('metadata', 0)
                     mask = instruction.metadata_mask
                     mask_compl = mask ^ 0xFFFFFFFFFFFFFFFF
-                    packet_dict['metadata'] = (metadata & mask_compl) | (instruction.metadata & mask)
+                    packet_dict['metadata'] = (metadata & mask_compl)\
+                        | (instruction.metadata & mask)
         if next_table:
             pending_actions = []
         if pending_actions:
-            raise FakeOFTableException('flow performs actions on packet after output with no goto: %s' % matching_fte)
+            raise FakeOFTableException('flow performs actions on packet after \
+                                       output with no goto: %s' % matching_fte)
         return outputs, packet_dict, next_table
 
     def get_output(self, match, trace=False):
@@ -806,7 +807,7 @@ class FakeOFTable:
                                     if output_result != full_output:
                                         raise FakeOFTableException('Output functions do not match')
                                     return output_result
-        if full_output != False:
+        if full_output is not False:
             raise FakeOFTableException('Output functions do not match')
         return False
 
@@ -1194,10 +1195,10 @@ def parse_args():
 
 def _print(filename):
     """Prints the JSON flow table from a file in a human readable format"""
-    with open(filename, 'r') as f:
-        msg = json.load(f)
-    dp = FakeRyuDp()
-    ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
+    with open(filename, 'r') as file_handle:
+        msg = json.load(file_handle)
+    datapath = FakeRyuDp()
+    ofmsg = ofp_parser.ofp_msg_from_jsondict(datapath, msg)
     table = FakeOFTable(1)
     table.apply_ofmsgs([ofmsg])
     print(table)
@@ -1205,10 +1206,10 @@ def _print(filename):
 
 def probe(filename, packet):
     """Prints the actions applied to packet by the table from the file"""
-    with open(filename, 'r') as f:
-        msg = json.load(f)
-    dp = FakeRyuDp()
-    ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
+    with open(filename, 'r') as file_handle:
+        msg = json.load(file_handle)
+    datapath = FakeRyuDp()
+    ofmsg = ofp_parser.ofp_msg_from_jsondict(datapath, msg)
     table = FakeOFTable(1)
     table.apply_ofmsgs([ofmsg])
     instructions, out_packet = table.lookup(packet)

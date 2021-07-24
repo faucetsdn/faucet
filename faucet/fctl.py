@@ -36,7 +36,7 @@ def decode_value(metric_name, value):
     result = value
     if metric_name == 'learned_macs':
         result = ':'.join(
-            format(octet, '02x') for octet in int(value).to_bytes( # pytype: disable=attribute-error
+            format(octet, '02x') for octet in int(value).to_bytes(  # pytype: disable=attribute-error
                 6, byteorder='big')
             )
     return result
@@ -51,12 +51,12 @@ def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
             try:
                 if endpoint.startswith('http'):
                     response = requests.get(endpoint)
-                    if response.status_code == requests.status_codes.codes.ok: # pylint: disable=no-member
+                    if response.status_code == requests.status_codes.codes.ok:  # pylint: disable=no-member
                         content = response.content.decode('utf-8', 'strict')
                         break
                 else:
-                    response = urllib.request.urlopen(endpoint) # pytype: disable=module-attr
-                    content = response.read().decode('utf-8', 'strict')
+                    with urllib.request.urlopen(endpoint) as response:  # pytype: disable=module-attr
+                        content = response.read().decode('utf-8', 'strict')
                     break
             except (requests.exceptions.ConnectionError, ValueError) as exception:
                 err = exception
