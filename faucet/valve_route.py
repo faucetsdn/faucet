@@ -83,7 +83,7 @@ class NextHop:
         return False
 
     def __str__(self):
-        return '%s' % [self.eth_src, self.port]
+        return '%s %s' % (self.eth_src, self.port)
 
     def __repr__(self):
         return self.__str__()
