@@ -246,8 +246,8 @@ def pipeline_superset_report(decoded_pcap_logs):
         for flow_line, depth, section_stack in flow_lines:
             if depth == 1:
                 if flow_line.startswith('Type: OFPT_'):
-                    if not (flow_line.startswith('Type: OFPT_FLOW_MOD') or
-                            flow_line.startswith('Type: OFPT_GROUP_MOD')):
+                    if not (flow_line.startswith('Type: OFPT_FLOW_MOD')
+                            or flow_line.startswith('Type: OFPT_GROUP_MOD')):
                         return
                 if flow_line.startswith('Table ID'):
                     if not flow_line.startswith('Table ID: OFPTT_ALL'):

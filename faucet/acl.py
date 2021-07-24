@@ -397,7 +397,7 @@ The output action contains a dictionary with the following elements:
                 port = resolve_port_cb(port_name)
                 test_config_condition(
                     not port,
-                    ('ACL (%s) output port undefined in DP: %s'\
+                    ('ACL (%s) output port undefined in DP: %s'
                      % (self._id, self.dp_id))
                 )
                 result[output_action] = port
@@ -406,7 +406,7 @@ The output action contains a dictionary with the following elements:
                     resolve_port_cb(p) for p in output_action_values]
                 test_config_condition(
                     None in resolved_ports,
-                    ('ACL (%s) output port(s) not defined in DP: %s'\
+                    ('ACL (%s) output port(s) not defined in DP: %s'
                      % (self._id, self.dp_id))
                 )
                 result[output_action] = resolved_ports
@@ -421,7 +421,7 @@ The output action contains a dictionary with the following elements:
                             resolve_port_cb(p) for p in failover_values]
                         test_config_condition(
                             None in resolved_ports,
-                            ('ACL (%s) failover port(s) not defined in DP: %s'\
+                            ('ACL (%s) failover port(s) not defined in DP: %s'
                              % (self._id, self.dp_id))
                         )
                         result[output_action][failover_name] = resolved_ports
@@ -446,7 +446,7 @@ The output action contains a dictionary with the following elements:
                         resolved_port = resolve_port_cb(action_conf)
                         test_config_condition(
                             resolved_port is None,
-                            ('ACL (%s) mirror port is not defined in DP: %s'\
+                            ('ACL (%s) mirror port is not defined in DP: %s'
                              % (self._id, self.dp_id))
                         )
                         resolved_actions[action_name] = resolved_port

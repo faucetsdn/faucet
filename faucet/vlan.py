@@ -277,8 +277,8 @@ class VLAN(Conf):
             if self in port.tagged_vlans])
         self.untagged = tuple([  # pylint: disable=consider-using-generator
             port for port in sorted_ports
-            if (self == port.native_vlan and
-                port.dyn_dot1x_native_vlan is None)])
+            if (self == port.native_vlan
+                and port.dyn_dot1x_native_vlan is None)])
         self.dot1x_untagged = tuple([  # pylint: disable=consider-using-generator
             port for port in sorted_ports
             if self == port.dyn_dot1x_native_vlan])
@@ -383,9 +383,9 @@ class VLAN(Conf):
             True if a host FIB route (and not used as a gateway).
         """
         ip_dsts = self.ip_dsts_for_ip_gw(host_ip)
-        if (len(ip_dsts) == 1 and
-                ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen and
-                ip_dsts[0].network_address == host_ip):
+        if (len(ip_dsts) == 1
+                and ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen
+                and ip_dsts[0].network_address == host_ip):
             return True
         return False
 
