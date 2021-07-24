@@ -924,8 +924,8 @@ vlans:
     def _inport_flows(in_port, ofmsgs, table_id=0):
         return [
             ofmsg for ofmsg in ValveTestBases.flowmods_from_flows(ofmsgs)
-            if ofmsg.match.get('in_port') == in_port and
-            ofmsg.table_id == table_id]
+            if ofmsg.match.get('in_port') == in_port
+            and ofmsg.table_id == table_id]
 
     @staticmethod
     def _build_port_descs(port_nos, port_nos_up=None):

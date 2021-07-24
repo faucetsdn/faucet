@@ -757,8 +757,8 @@ configuration.
             nonpriority_ports = {
                 port for port in self.lldp_beacon_ports
                 if port.running() and (
-                    port.dyn_last_lldp_beacon_time is None or
-                    port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
+                    port.dyn_last_lldp_beacon_time is None
+                    or port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
             nonpriority_ports -= priority_ports
             send_ports.extend(list(priority_ports))
             nonpriority_ports = list(nonpriority_ports)
@@ -830,8 +830,8 @@ configuration.
         else:
             new_vlans = []
             for vlan in vlans.values():
-                if (vlan_ports[vlan] or vlan.reserved_internal_vlan or
-                        vlan.dot1x_assigned or vlan._id in router_vlans):
+                if (vlan_ports[vlan] or vlan.reserved_internal_vlan
+                        or vlan.dot1x_assigned or vlan._id in router_vlans):
                     new_vlans.append(vlan)
 
         self.vlans = {}
@@ -1351,8 +1351,8 @@ configuration.
             # Topology changed so restart stack ports just to be safe
             stack_ports = [
                 port.number for port in new_dp.stack_ports()
-                if port.number not in deleted_ports and
-                port.number not in added_ports]
+                if port.number not in deleted_ports
+                and port.number not in added_ports]
             changed_ports.update(set(stack_ports))
             logger.info('Stack topology change detected, restarting stack ports')
             same_ports -= changed_ports

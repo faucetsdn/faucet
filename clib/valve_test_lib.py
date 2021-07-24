@@ -830,8 +830,8 @@ class ValveTestBases:
                         self._verify_wildcard_deletes(reload_type, reload_ofmsgs)
                         self.apply_ofmsgs(reload_ofmsgs, dp_id)
                     all_ofmsgs[dp_id] = reload_ofmsgs
-                    if (not reload_expected and no_reload_no_table_change and
-                            before_table_states is not None and dp_id in before_table_states):
+                    if (not reload_expected and no_reload_no_table_change
+                            and before_table_states is not None and dp_id in before_table_states):
                         before_hash, before_str = before_table_states[dp_id]
                         self._check_table_difference(before_hash, before_str, dp_id)
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
@@ -891,8 +891,8 @@ class ValveTestBases:
             else:
                 discovered_up_ports = set(ports_up)
             connect_msgs = (
-                valve.switch_features(None) +
-                valve.datapath_connect(self.mock_time(10), discovered_up_ports))
+                valve.switch_features(None)
+                + valve.datapath_connect(self.mock_time(10), discovered_up_ports))
             connect_msgs = self.apply_ofmsgs(connect_msgs, dp_id)
             self.valves_manager.update_config_applied(sent={dp_id: True})
             self.assertEqual(1, int(self.get_prom('dp_status', dp_id=dp_id)))
@@ -1394,8 +1394,8 @@ class ValveTestBases:
                 in_port_number = match['in_port']
                 in_port = valve.dp.ports[in_port_number]
 
-                if ('vlan_vid' in match and
-                        match['vlan_vid'] & ofp.OFPVID_PRESENT != 0):
+                if ('vlan_vid' in match
+                        and match['vlan_vid'] & ofp.OFPVID_PRESENT != 0):
                     valve_vlan = valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
                 else:
                     valve_vlan = in_port.native_vlan

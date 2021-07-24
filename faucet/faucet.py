@@ -288,8 +288,8 @@ class Faucet(RyuAppBase):
             return
         discovered_up_ports = {
             port.port_no for port in list(ryu_dp.ports.values())
-            if (valve_of.port_status_from_state(port.state) and
-                not valve_of.ignore_port(port.port_no))}
+            if (valve_of.port_status_from_state(port.state)
+                and not valve_of.ignore_port(port.port_no))}
         self._send_flow_msgs(
             valve, self.valves_manager.datapath_connect(now, valve, discovered_up_ports))
         self.valves_manager.update_config_applied({valve.dp.dp_id: True})

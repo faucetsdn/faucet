@@ -305,8 +305,8 @@ def is_groupdel(ofmsg):
     Returns:
         bool: True if is a GroupMod delete
     """
-    if (is_groupmod(ofmsg) and
-            (ofmsg.command == ofp.OFPGC_DELETE)):
+    if (is_groupmod(ofmsg)
+            and (ofmsg.command == ofp.OFPGC_DELETE)):
         return True
     return False
 
@@ -319,8 +319,8 @@ def is_meterdel(ofmsg):
     Returns:
         bool: True if is a MeterMod delete
     """
-    if (is_metermod(ofmsg) and
-            (ofmsg.command == ofp.OFPMC_DELETE)):
+    if (is_metermod(ofmsg)
+            and (ofmsg.command == ofp.OFPMC_DELETE)):
         return True
     return False
 
@@ -333,8 +333,8 @@ def is_groupadd(ofmsg):
     Returns:
         bool: True if is a GroupMod add
     """
-    if (is_groupmod(ofmsg) and
-            (ofmsg.command == ofp.OFPGC_ADD)):
+    if (is_groupmod(ofmsg)
+            and (ofmsg.command == ofp.OFPGC_ADD)):
         return True
     return False
 
@@ -347,8 +347,8 @@ def is_meteradd(ofmsg):
     Returns:
         bool: True if is a MeterMod add
     """
-    if (is_metermod(ofmsg) and
-            (ofmsg.command == ofp.OFPMC_ADD)):
+    if (is_metermod(ofmsg)
+            and (ofmsg.command == ofp.OFPMC_ADD)):
         return True
     return False
 
@@ -361,8 +361,8 @@ def is_apply_actions(instruction):
     Returns:
         bool: True if an apply action.
     """
-    return (isinstance(instruction, parser.OFPInstructionActions) and
-            instruction.type == ofp.OFPIT_APPLY_ACTIONS)
+    return (isinstance(instruction, parser.OFPInstructionActions)
+            and instruction.type == ofp.OFPIT_APPLY_ACTIONS)
 
 
 def is_meter(instruction):
@@ -1151,8 +1151,8 @@ def flood_untagged_port_outputs(ports, in_port=None, exclude_ports=None):
 def flood_port_outputs(tagged_ports, untagged_ports, in_port=None, exclude_ports=None):
     """Return actions for both tagged and untagged ports."""
     return (
-        flood_tagged_port_outputs(tagged_ports, in_port, exclude_ports) +
-        flood_untagged_port_outputs(untagged_ports, in_port, exclude_ports))
+        flood_tagged_port_outputs(tagged_ports, in_port, exclude_ports)
+        + flood_untagged_port_outputs(untagged_ports, in_port, exclude_ports))
 
 
 def faucet_config(datapath=None):

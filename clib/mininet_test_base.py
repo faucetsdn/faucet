@@ -883,8 +883,8 @@ class FaucetTestBase(unittest.TestCase):
         ofchannel_logs = self._get_ofchannel_logs()
         for _, debug_log in ofchannel_logs:
             for _ in range(60):
-                if (os.path.exists(debug_log) and
-                        os.path.getsize(debug_log) > 0):
+                if (os.path.exists(debug_log)
+                        and os.path.getsize(debug_log) > 0):
                     return True
                 time.sleep(1)
         return False
@@ -1151,8 +1151,8 @@ dbs:
             with open(flowdump, 'w') as flowdump_file:
                 flowdump_file.write(str(flow_dump))
             for flow_dict in flow_dump:
-                if (cookie is not None and
-                        cookie != flow_dict['cookie']):
+                if (cookie is not None
+                        and cookie != flow_dict['cookie']):
                     continue
                 if hard_timeout:
                     if not 'hard_timeout' in flow_dict:
@@ -1890,8 +1890,8 @@ dbs:
                     'port_vlan_hosts_learned', labels, default=0)
                 prom_macs_learned += len(self.prom_macs_learned(
                     vlan=vlan, port=port_no))
-            if (vlan_hosts_learned == port_vlan_hosts_learned and
-                    vlan_hosts_learned == prom_macs_learned):
+            if (vlan_hosts_learned == port_vlan_hosts_learned
+                    and vlan_hosts_learned == prom_macs_learned):
                 break
             time.sleep(1)
         self.assertEqual(vlan_hosts_learned, port_vlan_hosts_learned)
@@ -2336,8 +2336,8 @@ dbs:
                 msg = 'iperf: %fmbps, of: %fmbps (%f)' % (
                     iperf_mbps, max_of_mbps, iperf_to_max)
                 error(msg)
-                if ((iperf_to_max < (1.0 - prop)) or
-                        (iperf_to_max > (1.0 + prop))):
+                if ((iperf_to_max < (1.0 - prop))
+                        or (iperf_to_max > (1.0 + prop))):
                     approx_match = False
             if approx_match:
                 return

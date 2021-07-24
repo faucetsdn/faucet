@@ -161,8 +161,8 @@ class ValveRouteManager(ValveManagerBase):
     def _unicast_to_vip(pkt_meta):
         """Return true if packet is from a src in the connected network and dst ip is
             a faucet vip. I.e: Packet is traffic bound for a VIP"""
-        return (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac and
-                pkt_meta.vlan.from_connected_to_vip(pkt_meta.l3_src, pkt_meta.l3_dst))
+        return (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac
+                and pkt_meta.vlan.from_connected_to_vip(pkt_meta.l3_src, pkt_meta.l3_dst))
 
     @staticmethod
     def _gw_resolve_pkt():
@@ -178,9 +178,9 @@ class ValveRouteManager(ValveManagerBase):
         if self.stack_manager:
             ports = []
             if self.stack_manager.stack.is_root():
-                ports = list(self.stack_manager.away_ports -
-                             self.stack_manager.inactive_away_ports -
-                             self.stack_manager.pruned_away_ports)
+                ports = list(self.stack_manager.away_ports
+                             - self.stack_manager.inactive_away_ports
+                             - self.stack_manager.pruned_away_ports)
             else:
                 if self.stack_manager.chosen_towards_port is not None:
                     ports = [self.stack_manager.chosen_towards_port]
@@ -227,8 +227,8 @@ class ValveRouteManager(ValveManagerBase):
         """Learn host requesting for router, and return packet-out ofmsgs router response"""
         ofmsgs = []
         vlan = pkt_meta.vlan
-        if (pkt_meta.vlan.is_faucet_vip(solicited_ip) and
-                pkt_meta.vlan.ip_in_vip_subnet(pkt_meta.l3_src)):
+        if (pkt_meta.vlan.is_faucet_vip(solicited_ip)
+                and pkt_meta.vlan.ip_in_vip_subnet(pkt_meta.l3_src)):
             src_ip = pkt_meta.l3_src
             eth_src = pkt_meta.eth_src
             port = pkt_meta.port
@@ -278,8 +278,8 @@ class ValveRouteManager(ValveManagerBase):
             nexthop_cache = self._vlan_nexthop_cache(vlan)
             dead_nexthops = [
                 (ip_gw, nexthop_cache_entry) for ip_gw, nexthop_cache_entry in nexthop_cache.items()
-                if nexthop_cache_entry and nexthop_cache_entry.port and
-                port.number == nexthop_cache_entry.port.number]
+                if nexthop_cache_entry and nexthop_cache_entry.port
+                and port.number == nexthop_cache_entry.port.number]
             for ip_gw, nexthop_cache_entry in dead_nexthops:
                 self.logger.info('marking %s as a dead nexthop' % nexthop_cache_entry.eth_src)
                 ofmsgs.extend(self._expire_gateway_flows(ip_gw, nexthop_cache_entry, vlan, now))
@@ -522,8 +522,8 @@ class ValveRouteManager(ValveManagerBase):
         resolve_flows = []
         last_retry_time = nexthop_cache_entry.last_retry_time
         nexthop_cache_entry.next_retry(now, self.max_resolve_backoff_time)
-        if (vlan.targeted_gw_resolution and
-                last_retry_time is None and nexthop_cache_entry.port is not None):
+        if (vlan.targeted_gw_resolution
+                and last_retry_time is None and nexthop_cache_entry.port is not None):
             port = nexthop_cache_entry.port
             eth_dst = nexthop_cache_entry.eth_src
             resolve_flows = [self._resolve_gw_on_port(
@@ -657,8 +657,8 @@ class ValveRouteManager(ValveManagerBase):
                 faucet_vip = vlan.vip_map(dst_ip)
             else:
                 vlan, faucet_vip = router.vip_map(dst_ip)
-            if (vlan and vlan.ip_in_vip_subnet(dst_ip, faucet_vip) and
-                    faucet_vip.ip != dst_ip and self._stateful_gw(vlan, dst_ip)):
+            if (vlan and vlan.ip_in_vip_subnet(dst_ip, faucet_vip)
+                    and faucet_vip.ip != dst_ip and self._stateful_gw(vlan, dst_ip)):
                 limit = self._vlan_nexthop_cache_limit(vlan)
                 if limit is None or len(self._vlan_nexthop_cache(vlan)) < limit:
                     # TODO: avoid relearning L3 source if same L3 source tries
@@ -740,8 +740,8 @@ class ValveRouteManager(ValveManagerBase):
             priority = self._route_priority(host_ip)
             host_int = self._host_ip_to_host_int(host_ip)
             timeout = (
-                self.max_resolve_backoff_time * self.max_host_fib_retry_count +
-                random.randint(0, self.max_resolve_backoff_time * 2))
+                self.max_resolve_backoff_time * self.max_host_fib_retry_count
+                + random.randint(0, self.max_resolve_backoff_time * 2))
             routed_vlans = self._routed_vlans(vlan)
             for routed_vlan in routed_vlans:
                 in_match = self._route_match(routed_vlan, host_int)
@@ -784,8 +784,8 @@ class ValveRouteManager(ValveManagerBase):
         """
         src_ip = pkt_meta.l3_src
         ofmsgs = []
-        if (src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip) and
-                self._stateful_gw(pkt_meta.vlan, src_ip)):
+        if (src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip)
+                and self._stateful_gw(pkt_meta.vlan, src_ip)):
             ip_pkt = self._ip_pkt(pkt_meta.pkt)
             if ip_pkt:
                 ofmsgs.extend(
@@ -1101,14 +1101,14 @@ class ValveIPv6RouteManager(ValveRouteManager):
         if icmpv6_pkt is None:
             return ofmsgs
         icmpv6_type = icmpv6_pkt.type_
-        if (ipv6_pkt.hop_limit != valve_packet.IPV6_MAX_HOP_LIM and
-                icmpv6_type != icmpv6.ICMPV6_ECHO_REQUEST):
+        if (ipv6_pkt.hop_limit != valve_packet.IPV6_MAX_HOP_LIM
+                and icmpv6_type != icmpv6.ICMPV6_ECHO_REQUEST):
             return ofmsgs
         handler, payload_type, type_reparse_size = self._icmpv6_handlers.get(
             icmpv6_type, (None, None, None))
         if handler is not None and (
-                payload_type is None or
-                isinstance(icmpv6_pkt.data, payload_type)):
+                payload_type is None
+                or isinstance(icmpv6_pkt.data, payload_type)):
             if type_reparse_size != reparse_size:
                 pkt_meta.reparse_ip(payload=type_reparse_size)
                 icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)

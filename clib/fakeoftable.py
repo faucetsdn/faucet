@@ -659,8 +659,8 @@ class FakeOFTable:
                         # Matching port, so check matching VID
                         if vid & ofp.OFPVID_PRESENT == 0:
                             # If OFPVID_PRESENT bit is 0 then packet should not have a VLAN tag
-                            return ('vlan_vid' not in out_pkt or
-                                    out_pkt['vlan_vid'] & ofp.OFPVID_PRESENT == 0)
+                            return ('vlan_vid' not in out_pkt
+                                    or out_pkt['vlan_vid'] & ofp.OFPVID_PRESENT == 0)
                         # VID specified, check if matching expected
                         return 'vlan_vid' in out_pkt and vid == out_pkt['vlan_vid']
         return False
@@ -916,9 +916,9 @@ class FlowMod:
         return True
 
     def _matches_match(self, other):
-        return (self.priority == other.priority and
-                self.match_values == other.match_values and
-                self.match_masks == other.match_masks)
+        return (self.priority == other.priority
+                and self.match_values == other.match_values
+                and self.match_masks == other.match_masks)
 
     def fte_matches(self, other, strict=False):
         """returns True if the flow table entry other matches this flowmod.
@@ -996,9 +996,9 @@ class FlowMod:
         return self.priority < other.priority
 
     def __eq__(self, other):
-        return (self._matches_match(other) and
-                self.out_port == other.out_port and
-                self.instructions == other.instructions)
+        return (self._matches_match(other)
+                and self.out_port == other.out_port
+                and self.instructions == other.instructions)
 
     def _pretty_field_str(self, key, value, mask=None):
         mask_str = ""

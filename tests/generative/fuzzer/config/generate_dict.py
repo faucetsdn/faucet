@@ -37,9 +37,9 @@ class ConfigDictGenerator:
                 for bogus in bogus_values:
                     to_write = r'%s%s' % (value, bogus)
                     rev_to_write = r'%s%s' % (bogus, value)
-                    if (to_write in bogus_values or
-                            rev_to_write in bogus_values or
-                            value in bogus_values):
+                    if (to_write in bogus_values
+                            or rev_to_write in bogus_values
+                            or value in bogus_values):
                         continue
                     config_file.write('\n"%s"' % to_write)
                     config_file.write('\n"%s"' % rev_to_write)
@@ -49,9 +49,9 @@ class ConfigDictGenerator:
                     for bogus in bogus_values:
                         to_write = r'%s%s' % (value, bogus)
                         rev_to_write = r'%s%s' % (bogus, value)
-                        if (to_write in bogus_values or
-                                rev_to_write in bogus_values or
-                                value in bogus_values):
+                        if (to_write in bogus_values
+                                or rev_to_write in bogus_values
+                                or value in bogus_values):
                             continue
                         config_file.write('\n"%s"' % to_write)
                         config_file.write('\n"%s"' % rev_to_write)

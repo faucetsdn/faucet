@@ -2908,8 +2908,7 @@ vlans:
             eth_src: %u
             eth_dst: %u
             ipv4_fib: %u
-""" % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) +
-        """
+""" % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) + """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2955,8 +2954,7 @@ vlans:
         table_sizes:
             eth_src: %u
             eth_dst: %u
-""" % (_max_hosts() + 64, _max_hosts() + 64) +
-        """
+""" % (_max_hosts() + 64, _max_hosts() + 64) + """
         interfaces:
             %(port_1)d:
                 native_vlan: 100

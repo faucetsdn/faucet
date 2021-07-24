@@ -168,8 +168,8 @@ class FaucetSwitch(OVSSwitch):
         # Workaround: ignore ethtool errors on tap interfaces
         # This allows us to use tap tunnels as cables to switch ports,
         # for example to test against OvS in a VM.
-        if (len(args) > 1 and args[0] == 'ethtool -K' and
-                getattr(args[1], 'name', '').startswith('tap')):
+        if (len(args) > 1 and args[0] == 'ethtool -K'
+                and getattr(args[1], 'name', '').startswith('tap')):
             return True
         return False
 
@@ -212,8 +212,8 @@ class FaucetSwitch(OVSSwitch):
         # Controller ID list
         cids = ','.join('@%s' % name for name, _target in self.clist)
         # One ovs-vsctl command to rule them all!
-        self.vsctl(cargs +
-                   ' -- set bridge %s controller=[%s]' % (self, cids))
+        self.vsctl(cargs
+                   + ' -- set bridge %s controller=[%s]' % (self, cids))
 
     def start(self, controllers):
         # Transcluded from Mininet source, since need to insert
@@ -221,8 +221,8 @@ class FaucetSwitch(OVSSwitch):
         int(self.dpid, 16)  # DPID must be a hex string
         switch_intfs = [intf for intf in self.intfList() if self.ports[intf] and not intf.IP()]
         # Command to add interfaces
-        intfs = ' '.join(' -- add-port %s %s' % (self, intf) +
-                         self.intfOpts(intf)
+        intfs = ' '.join(' -- add-port %s %s' % (self, intf)
+                         + self.intfOpts(intf)
                          for intf in switch_intfs)
         # Command to create controller entries
         self.clist = [(self.name + c.name, '%s:%s:%d' %
@@ -244,11 +244,11 @@ class FaucetSwitch(OVSSwitch):
         if not self.isOldOVS():
             cargs += ' -- --if-exists del-br %s' % self
         # One ovs-vsctl command to rule them all!
-        self.vsctl(cargs +
-                   ' -- add-br %s' % self +
-                   ' -- set bridge %s controller=[%s]' % (self, cids) +
-                   self.bridgeOpts() +
-                   intfs)
+        self.vsctl(cargs
+                   + ' -- add-br %s' % self
+                   + ' -- set bridge %s controller=[%s]' % (self, cids)
+                   + self.bridgeOpts()
+                   + intfs)
         # switch interfaces on mininet host, must have no IP config.
         for intf in switch_intfs:
             for ipv in (4, 6):
@@ -562,9 +562,9 @@ socket_timeout=15
 
     def healthy(self):
         """Return True if controller logging and listening on required ports."""
-        if (os.path.exists(self.logname()) and
-                os.path.getsize(self.logname()) and
-                self.listening()):
+        if (os.path.exists(self.logname())
+                and os.path.getsize(self.logname())
+                and self.listening()):
             return True
         return False
 
@@ -638,9 +638,9 @@ class FAUCET(BaseFAUCET):
 
     def listening(self):
         return (
-            self.listen_port(self.ofctl_port) and
-            self.listen_port(self.prom_port) and
-            super().listening())
+            self.listen_port(self.ofctl_port)
+            and self.listen_port(self.prom_port)
+            and super().listening())
 
 
 class Gauge(BaseFAUCET):
