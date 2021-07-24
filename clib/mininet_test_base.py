@@ -915,7 +915,7 @@ class FaucetTestBase(unittest.TestCase):
         return self.scapy_template(
             ('Ether(dst=\'%s\', src=\'%s\', type=%u) / '
              'IP(src=\'%s\', dst=\'%s\') / UDP(dport=%s,sport=%s) ' % (
-                dst, mac, IPV4_ETH, src_ip, dst_ip, dport, sport)),
+                 dst, mac, IPV4_ETH, src_ip, dst_ip, dport, sport)),
             iface, count)
 
     def scapy_dhcp(self, mac, iface, count=1, dst=None):

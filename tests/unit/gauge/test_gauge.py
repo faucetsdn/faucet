@@ -83,7 +83,7 @@ def port_state_msg(datapath, port_num, reason, status=0):
     """ Create an OFPPortStatus message with random values. """
 
     port = parser.OFPPort(port_num,
-                          '00:00:00:d0:00:0'+ str(port_num),
+                          '00:00:00:d0:00:0' + str(port_num),
                           datapath.ports[port_num].name,
                           0,
                           status,
@@ -632,7 +632,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
                 elif stat_name in other_fields:
                     self.assertEqual(other_fields[stat_name], stat_val)
 
-                elif stat_name in  msg.body[0].match:
+                elif stat_name in msg.body[0].match:
                     self.assertEqual(msg.body[0].match.get(stat_name), stat_val)
 
                 else:

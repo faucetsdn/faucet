@@ -149,7 +149,7 @@ ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     ETH_DST_HAIRPIN_DEFAULT_CONFIG.table_id + 1,
     exact_match=True,
     miss_goto='flood',  # Note: when using egress acls the miss goto will be
-                       # egress acl table
+    # egress acl table
     match_types=(('eth_dst', False), ('vlan_vid', False)),
     next_tables=('egress', 'egress_acl'),
     vlan_port_scale=4.1,

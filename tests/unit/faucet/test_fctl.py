@@ -94,7 +94,7 @@ class FctlTestCase(FctlTestCaseBase):
         with open(self.prom_input_file_name, 'w') as prom_input_file:
             prom_input_file.write(prom_input)
         fctl_cli = ' '.join(
-            ['python3', self.FCTL]  + self.fctl_args(extra_args))
+            ['python3', self.FCTL] + self.fctl_args(extra_args))
         retcode, output = subprocess.getstatusoutput(fctl_cli)  # pytype: disable=module-attr
         self.assertEqual(0, retcode, msg='%s returned %d' % (
             fctl_cli, retcode))
