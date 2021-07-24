@@ -251,10 +251,10 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
                 continue
 
             index = line.find('{')
-            #get the stat name e.g. of_port_rx_bytes and strip 'of_port_'
+            # get the stat name e.g. of_port_rx_bytes and strip 'of_port_'
             prefix = gauge_prom.PROM_PORT_PREFIX + gauge_prom.PROM_PREFIX_DELIM
             stat_name = line[0:index].replace(prefix, '')
-            #get the labels within {}
+            # get the labels within {}
             labels = line[index + 1:line.find('}')].split(',')
 
             for label in labels:
@@ -451,7 +451,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
         port_name = 'port1.0.1'
         rcv_time = int(time.time())
         stat_name = 'test_stat_name'
-        #max uint64 number
+        # max uint64 number
         stat_val = 2**64 - 1
 
         port_point = shipper.make_port_point(dp_name, port_name, rcv_time, stat_name, stat_val)
@@ -792,7 +792,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
                    'down': ofproto.OFPPR_MODIFY
                   }
 
-        #add an ofproto attribute to the datapath
+        # add an ofproto attribute to the datapath
         datapath = create_mock_datapath(1)
         ofp_attr = {'ofproto': ofproto}
         datapath.configure_mock(**ofp_attr)
@@ -819,12 +819,12 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
     def test_port_stats(self):
         """Check the update method in the GaugePortStatsLogger class"""
 
-        #add an ofproto attribute to the datapath
+        # add an ofproto attribute to the datapath
         datapath = create_mock_datapath(2)
         ofp_attr = {'ofproto': ofproto}
         datapath.configure_mock(**ofp_attr)
 
-        #add the datapath as an attribute to the config
+        # add the datapath as an attribute to the config
         dp_attr = {'dp': datapath}
         self.conf.configure_mock(**dp_attr)
 
@@ -841,13 +841,13 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
         log_str = self.get_file_contents()
         for stat_name in original_stats[0]:
             stat_name = stat_name.split("_")
-            #grab any lines that mention the stat_name
+            # grab any lines that mention the stat_name
             pattern = r'^.*{}.{}.*$'.format(stat_name[0], stat_name[1])
             stats_list = re.findall(pattern, log_str, re.MULTILINE)
 
             for line in stats_list:
                 self.assertTrue(datapath.name in line)
-                #grab the port number (only works for single digit port nums)
+                # grab the port number (only works for single digit port nums)
                 index = line.find('port')
                 port_num = int(line[index + 4])
                 # grab the number at the end of the line
@@ -861,12 +861,12 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
     def test_flow_stats(self):
         """Check the update method in the GaugeFlowStatsLogger class"""
 
-        #add an ofproto attribute to the datapath
+        # add an ofproto attribute to the datapath
         datapath = create_mock_datapath(0)
         ofp_attr = {'ofproto': ofproto}
         datapath.configure_mock(**ofp_attr)
 
-        #add the datapath as an attribute to the config
+        # add the datapath as an attribute to the config
         dp_attr = {'dp': datapath}
         self.conf.configure_mock(**dp_attr)
 

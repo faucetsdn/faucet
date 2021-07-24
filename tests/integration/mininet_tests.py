@@ -2909,7 +2909,7 @@ vlans:
             eth_dst: %u
             ipv4_fib: %u
 """ % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) +
-              """
+        """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2956,7 +2956,7 @@ vlans:
             eth_src: %u
             eth_dst: %u
 """ % (_max_hosts() + 64, _max_hosts() + 64) +
-              """
+        """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -5805,11 +5805,11 @@ routers:
 vlans:
 %s
 """ % (
-    ','.join(STR_VIDS),
-    '\n'.join(['\n'.join(
-        ('    %u:',
-         '        description: "tagged"',
-         '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
+        ','.join(STR_VIDS),
+        '\n'.join(['\n'.join(
+            ('    %u:',
+             '        description: "tagged"',
+             '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: %u
         proactive_learn_v4: True
@@ -5987,11 +5987,11 @@ routers:
 vlans:
 %s
 """ % (
-    ','.join(STR_VIDS),
-    '\n'.join(['\n'.join(
-        ('    %u:',
-         '        description: "tagged"',
-         '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
+        ','.join(STR_VIDS),
+        '\n'.join(['\n'.join(
+            ('    %u:',
+             '        description: "tagged"',
+             '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: %u
         proactive_learn_v6: True
@@ -6027,8 +6027,8 @@ class FaucetTaggedScaleTest(FaucetTaggedTest):
     CONFIG_GLOBAL = """
 vlans:
 """ + '\n'.join(['\n'.join(
-    ('    %u:',
-     '        description: "tagged"')) % i for i in VIDS])
+        ('    %u:',
+         '        description: "tagged"')) % i for i in VIDS])
     CONFIG = """
         interfaces:
             %s:

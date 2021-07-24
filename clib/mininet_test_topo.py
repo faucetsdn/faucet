@@ -226,11 +226,11 @@ class FaucetSwitch(OVSSwitch):
                          for intf in switch_intfs)
         # Command to create controller entries
         self.clist = [(self.name + c.name, '%s:%s:%d' %
-                  (c.protocol, c.IP(), c.port))
-                 for c in controllers]
+                       (c.protocol, c.IP(), c.port))
+                      for c in controllers]
         if self.listenPort:
             self.clist.append((self.name + '-listen',
-                          'ptcp:%s' % self.listenPort))
+                               'ptcp:%s' % self.listenPort))
         ccmd = '-- --id=@%s create Controller target=\\"%s\\"'
         if self.reconnectms:
             ccmd += ' max_backoff=%d' % self.reconnectms
@@ -396,7 +396,7 @@ class FaucetSwitchTopo(Topo):
                       for host_n in range(n_tagged)]
             untagged = [self._add_untagged_host(
                 sid_prefix, host_n, host_namespace.get(host_n, True))
-                        for host_n in range(n_untagged)]
+                for host_n in range(n_untagged)]
             extended = [self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
                         for host_n in range(n_extended)]
             switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
