@@ -21,9 +21,9 @@ import eventlet
 eventlet.monkey_patch()
 
 # pylint: disable=wrong-import-position
-from ryu.lib import hub  # noqa
-from chewie import chewie  # noqa
-from faucet.valve_util import kill_on_exception  # noqa
+from ryu.lib import hub
+from chewie import chewie
+from faucet.valve_util import kill_on_exception
 
 
 def get_mac_str(valve_index, port_num):
