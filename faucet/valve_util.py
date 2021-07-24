@@ -149,7 +149,7 @@ def get_logger(logname, logfile, loglevel, propagate):
             logger_handler = logging.StreamHandler(stream_handlers[logfile])
         else:
             logger_handler = WatchedFileHandler(logfile)
-    except (PermissionError, FileNotFoundError) as err: # pytype: disable=name-error
+    except (PermissionError, FileNotFoundError) as err:  # pytype: disable=name-error
         print(err)
         sys.exit(-1)
 

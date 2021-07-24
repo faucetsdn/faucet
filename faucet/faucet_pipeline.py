@@ -19,10 +19,10 @@
 from faucet.faucet_metadata import EGRESS_METADATA_MASK
 
 
-class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instance-attributes
+class ValveTableConfig:  # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Configuration for a single table."""
 
-    def __init__(self, name, table_id, # pylint: disable=too-many-arguments
+    def __init__(self, name, table_id,  # pylint: disable=too-many-arguments
                  exact_match=None, meter=None, output=True, miss_goto=None,
                  size=None, match_types=None, set_fields=None, dec_ttl=None,
                  vlan_scale=None, vlan_port_scale=None,
@@ -147,7 +147,7 @@ ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
     ETH_DST_HAIRPIN_DEFAULT_CONFIG.table_id + 1,
     exact_match=True,
-    miss_goto='flood', # Note: when using egress acls the miss goto will be
+    miss_goto='flood',  # Note: when using egress acls the miss goto will be
                        # egress acl table
     match_types=(('eth_dst', False), ('vlan_vid', False)),
     next_tables=('egress', 'egress_acl'),

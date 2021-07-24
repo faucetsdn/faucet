@@ -32,7 +32,7 @@ class DockerHost(Host):
     pollOut = None
     stdout = None
     execed = None
-    lastCmd = None # pylint: disable=invalid-name
+    lastCmd = None  # pylint: disable=invalid-name
     readbuf = None
     lastPid = None
     pid = None
@@ -69,7 +69,7 @@ class DockerHost(Host):
         self.pullImage()
         Host.__init__(self, name, **kwargs)
 
-    def pullImage(self): # pylint: disable=invalid-name
+    def pullImage(self):  # pylint: disable=invalid-name
         "Pull docker image if necessary"
         if self.image not in quietRun('docker images'):
             error('%s: docker image' % self.name, self.image,
@@ -110,15 +110,15 @@ class DockerHost(Host):
             self.shell = self._popen(cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave)
             self.stdin = os.fdopen(self.master, 'r')
             self.stdout = self.stdin
-            self.pollOut = select.poll() # pylint: disable=invalid-name
-            self.pollOut.register(self.stdout) # pylint: disable=no-member
-            self.outToNode[self.stdout.fileno()] = self # pylint: disable=no-member
-            self.pollIn = select.poll() # pylint: disable=invalid-name
-            self.pollIn.register(self.stdout, select.POLLIN) # pylint: disable=no-member
-            self.inToNode[self.stdin.fileno()] = self # pylint: disable=no-member
+            self.pollOut = select.poll()  # pylint: disable=invalid-name
+            self.pollOut.register(self.stdout)  # pylint: disable=no-member
+            self.outToNode[self.stdout.fileno()] = self  # pylint: disable=no-member
+            self.pollIn = select.poll()  # pylint: disable=invalid-name
+            self.pollIn.register(self.stdout, select.POLLIN)  # pylint: disable=no-member
+            self.inToNode[self.stdin.fileno()] = self  # pylint: disable=no-member
             self.execed = False
-            self.lastCmd = None # pylint: disable=invalid-name
-            self.lastPid = None # pylint: disable=invalid-name
+            self.lastCmd = None  # pylint: disable=invalid-name
+            self.lastPid = None  # pylint: disable=invalid-name
             self.readbuf = ''
             self.waiting = True
             data = ''
@@ -139,7 +139,7 @@ class DockerHost(Host):
         self.pid = self.inspect_pid()
         debug("Container %s created pid %s/%s." % (self.container, self.pid, self.shell.pid))
 
-        self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member
+        self.cmd('unset HISTFILE; stty -echo; set +m')  # pylint: disable=no-member
 
     def kill(self, purge=False):
         """Kill a container."""
@@ -259,7 +259,7 @@ class DockerHost(Host):
             if self.active_log:
                 self.active_log.close()
                 self.active_log = None
-        self.cleanup() # pylint: disable=no-member
+        self.cleanup()  # pylint: disable=no-member
         return self.active_pipe_returncode
 
     def popen(self, *args, **kwargs):

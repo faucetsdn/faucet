@@ -32,7 +32,7 @@ class GaugePoller:
     """Abstraction for a poller for statistics."""
 
     def __init__(self, conf, logname, prom_client):
-        self.dp = conf.dp # pylint: disable=invalid-name
+        self.dp = conf.dp  # pylint: disable=invalid-name
         self.conf = conf
         self.prom_client = prom_client
         self.reply_pending = False
@@ -47,7 +47,7 @@ class GaugePoller:
     def report_dp_status(self, dp_status):
         """Report DP status."""
         self.prom_client.dp_status.labels(
-            **dict(dp_id=hex(self.dp.dp_id), dp_name=self.dp.name)).set(dp_status) # pylint: disable=no-member
+            **dict(dp_id=hex(self.dp.dp_id), dp_name=self.dp.name)).set(dp_status)  # pylint: disable=no-member
 
     def start(self, ryudp, active):
         """Start the poller."""
@@ -72,7 +72,7 @@ class GaugePoller:
 
     def send_req(self):
         """Send a stats request to a datapath."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
@@ -194,7 +194,7 @@ class GaugeThreadPoller(GaugePoller):
 
     def send_req(self):
         """Send a stats request to a datapath."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
 
 class GaugeMeterStatsPoller(GaugeThreadPoller):
@@ -280,8 +280,8 @@ class GaugePortStatePoller(GaugePoller):
 
     def send_req(self):
         """Send a stats request to a datapath."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover

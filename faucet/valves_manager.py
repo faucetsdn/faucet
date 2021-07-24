@@ -320,7 +320,7 @@ class ValvesManager:
         else:
             self.logger.info('configuration is unchanged, not reloading')
             self.metrics.faucet_config_load_error.set(0)
-        self.metrics.faucet_config_reload_requests.inc() # pylint: disable=no-member
+        self.metrics.faucet_config_reload_requests.inc()  # pylint: disable=no-member
 
     def update_metrics(self, now):
         """Update metrics in all Valves."""
@@ -335,7 +335,7 @@ class ValvesManager:
             other_valves = self._other_running_valves(valve)
             valve_service_labels = dict(valve.dp.base_prom_labels(), valve_service=valve_service)
             valve_service_func = getattr(valve, valve_service)
-            with self.metrics.faucet_valve_service_secs.labels( # pylint: disable=no-member
+            with self.metrics.faucet_valve_service_secs.labels(  # pylint: disable=no-member
                     **valve_service_labels).time():
                 for service_valve, ofmsgs in valve_service_func(now, other_valves).items():
                     # Since we are calling all Valves, keep only the ofmsgs
@@ -363,16 +363,16 @@ class ValvesManager:
 
     def valve_packet_in(self, now, valve, msg):
         """Time a call to Valve packet in handler."""
-        self.metrics.of_packet_ins.labels( # pylint: disable=no-member
+        self.metrics.of_packet_ins.labels(  # pylint: disable=no-member
             **valve.dp.base_prom_labels()).inc()
         if valve.rate_limit_packet_ins(now):
             return
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
-            self.metrics.of_unexpected_packet_ins.labels( # pylint: disable=no-member
+            self.metrics.of_unexpected_packet_ins.labels(  # pylint: disable=no-member
                 **valve.dp.base_prom_labels()).inc()
             return
-        with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
+        with self.metrics.faucet_packet_in_secs.labels(  # pylint: disable=no-member
                 **valve.dp.base_prom_labels()).time():
             ofmsgs_by_valve = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
         if ofmsgs_by_valve:

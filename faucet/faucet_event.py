@@ -26,8 +26,8 @@ from contextlib import contextmanager
 import eventlet
 eventlet.monkey_patch()
 
-from ryu.lib import hub # pylint: disable=wrong-import-position
-from ryu.lib.hub import StreamServer # pylint: disable=wrong-import-position
+from ryu.lib import hub  # pylint: disable=wrong-import-position
+from ryu.lib.hub import StreamServer  # pylint: disable=wrong-import-position
 
 
 class NonBlockLock:
@@ -123,7 +123,7 @@ class FaucetEventNotifier:
         if not os.path.exists(socket_dir):
             try:
                 os.makedirs(socket_dir)
-            except (PermissionError) as err: # pytype: disable=name-error
+            except (PermissionError) as err:  # pytype: disable=name-error
                 self.logger.error('Unable to create event socket directory: %s', err)
                 return None
         # Check directory permissions.
@@ -134,7 +134,7 @@ class FaucetEventNotifier:
         if os.path.exists(socket_path):
             try:
                 os.remove(socket_path)
-            except (PermissionError) as err: # pytype: disable=name-error
+            except (PermissionError) as err:  # pytype: disable=name-error
                 self.logger.error('Unable to remove old socket: %s', err)
                 return None
         return socket_path

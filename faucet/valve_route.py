@@ -118,7 +118,7 @@ class ValveRouteManager(ValveManagerBase):
     ICMP_TYPE = None
     ICMP_SIZE = None
     MAX_PACKET_IN_SIZE = valve_of.MAX_PACKET_IN_BYTES
-    CONTROL_ETH_TYPES = () # type: ignore
+    CONTROL_ETH_TYPES = ()  # type: ignore
     IP_PKT = None
 
     def __init__(self, logger, notify, global_vlan, neighbor_timeout,
@@ -407,7 +407,7 @@ class ValveRouteManager(ValveManagerBase):
         return ofmsgs
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def add_vlan(self, vlan, cold_start):
         """Add a VLAN."""
@@ -511,7 +511,7 @@ class ValveRouteManager(ValveManagerBase):
         return unresolved_nexthops
 
     def advertise(self, vlan):
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def _resolve_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
         """Return packet-out ofmsgs using ARP/ND to resolve for nexthop"""
@@ -644,7 +644,7 @@ class ValveRouteManager(ValveManagerBase):
         return self._host_ip_to_host_int(faucet_vip.ip)
 
     def _vlan_nexthop_cache_limit(self, vlan):
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def _proactive_resolve_neighbor(self, now, pkt_meta):
         """Packet not directly destined for router but we can learn from the packet anyway"""
@@ -835,7 +835,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
     ETH_TYPE = valve_of.ether.ETH_TYPE_IP
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMP
     ICMP_SIZE = valve_packet.VLAN_ICMP_ECHO_REQ_SIZE
-    CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP) # type: ignore
+    CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP)  # type: ignore
     IP_PKT = ipv4.ipv4
 
 
@@ -949,7 +949,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
     ETH_TYPE = valve_of.ether.ETH_TYPE_IPV6
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
     ICMP_SIZE = valve_packet.VLAN_ICMP6_ECHO_REQ_SIZE
-    CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,) # type: ignore
+    CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,)  # type: ignore
     IP_PKT = ipv6.ipv6
 
     @staticmethod

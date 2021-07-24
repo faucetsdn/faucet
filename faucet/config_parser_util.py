@@ -25,7 +25,7 @@ from yaml.constructor import ConstructorError
 
 # handle libyaml-dev not installed
 try:
-    from yaml import CLoader as Loader # type: ignore
+    from yaml import CLoader as Loader  # type: ignore
 except ImportError:
     from yaml import Loader
 
@@ -76,9 +76,9 @@ def read_config(config_file, logname):
             conf_txt = stream.read()
         conf = yaml.safe_load(conf_txt)
     except (yaml.YAMLError, UnicodeDecodeError,
-            PermissionError, ValueError) as err: # pytype: disable=name-error
+            PermissionError, ValueError) as err:  # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
-    except FileNotFoundError as err: # pytype: disable=name-error
+    except FileNotFoundError as err:  # pytype: disable=name-error
         logger.error('Could not find requested file: %s', config_file)
     return conf, conf_txt
 

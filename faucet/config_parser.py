@@ -96,7 +96,7 @@ def _dp_parse_port(dp_id, port_key, port_conf, vlans):
     return port
 
 
-def _dp_add_ports(dp, dp_conf, dp_id, vlans): # pylint: disable=invalid-name
+def _dp_add_ports(dp, dp_conf, dp_id, vlans):  # pylint: disable=invalid-name
     ports_conf = dp_conf.get('interfaces', {})
     port_ranges_conf = dp_conf.get('interface_ranges', {})
     # as users can config port VLAN by using VLAN name, we store vid in
@@ -154,19 +154,19 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans): # pylint: disable=invalid-name
         dp.add_port(port)
 
 
-def _parse_acls(dp, acls_conf): # pylint: disable=invalid-name
+def _parse_acls(dp, acls_conf):  # pylint: disable=invalid-name
     for acl_key, acl_conf in acls_conf.items():
         acl = ACL(acl_key, dp.dp_id, acl_conf)
         dp.add_acl(acl_key, acl)
 
 
-def _parse_routers(dp, routers_conf): # pylint: disable=invalid-name
+def _parse_routers(dp, routers_conf):  # pylint: disable=invalid-name
     for router_key, router_conf in routers_conf.items():
         router = Router(router_key, dp.dp_id, router_conf)
         dp.add_router(router_key, router)
 
 
-def _parse_meters(dp, meters_conf): # pylint: disable=invalid-name
+def _parse_meters(dp, meters_conf):  # pylint: disable=invalid-name
     for meter_key, meter_conf in meters_conf.items():
         meter = Meter(meter_key, dp.dp_id, meter_conf)
         dp.meters[meter_key] = meter

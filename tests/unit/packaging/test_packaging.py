@@ -27,7 +27,7 @@ from deb_pkg_tools.deps import VersionedRelationship
 import requirements
 
 
-class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-attr
+class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-attr
     """Test debian packaging."""
 
     def _parse_deb_control(self, control_file):
@@ -121,4 +121,4 @@ class CheckDebianPackageTestCase(unittest.TestCase): # pytype: disable=module-at
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr

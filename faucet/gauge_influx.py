@@ -18,7 +18,7 @@
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
-import requests # pytype: disable=pyi-error
+import requests  # pytype: disable=pyi-error
 from faucet.gauge_pollers import GaugePortStatePoller, GaugeFlowTablePoller, GaugePortStatsPoller
 
 

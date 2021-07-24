@@ -41,7 +41,7 @@ def test_config_condition(cond, msg):
 class Conf:
     """Base class for FAUCET configuration."""
 
-    mutable_attrs = frozenset() # type: frozenset
+    mutable_attrs = frozenset()  # type: frozenset
     defaults = {}  # type: dict
     defaults_types = {}  # type: dict
     dyn_finalized = False
@@ -106,7 +106,7 @@ class Conf:
                 test_config_condition(
                     not isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
                         conf_key, conf_value,
-                        conf_type, type(conf_value))) # pytype: disable=invalid-typevar
+                        conf_type, type(conf_value)))  # pytype: disable=invalid-typevar
 
     @staticmethod
     def _set_unknown_conf(conf, conf_types):

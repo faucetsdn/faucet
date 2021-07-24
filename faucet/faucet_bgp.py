@@ -240,7 +240,7 @@ class FaucetBgp:
             for neighbor, neighbor_state in neighbor_states:
                 neighbor_labels = dict(
                     valve.dp.base_prom_labels(), vlan=vlan.vid, neighbor=neighbor)
-                self.metrics.bgp_neighbor_uptime_seconds.labels( # pylint: disable=no-member
+                self.metrics.bgp_neighbor_uptime_seconds.labels(  # pylint: disable=no-member
                     **neighbor_labels).set(neighbor_state['info']['uptime'])
-                self.metrics.bgp_neighbor_routes.labels( # pylint: disable=no-member
+                self.metrics.bgp_neighbor_routes.labels(  # pylint: disable=no-member
                     **dict(neighbor_labels, ipv=ipv)).set(vlan.route_count_by_ipv(ipv))

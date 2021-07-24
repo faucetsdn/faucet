@@ -434,7 +434,7 @@ def expand_tests(modules, requested_test_classes, regex_test_classes, excluded_t
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-attr
+class FaucetResult(unittest.runner.TextTestResult):  # pytype: disable=module-attr
 
     root_tmpdir = None
     test_duration_secs = {}

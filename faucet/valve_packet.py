@@ -34,7 +34,7 @@ from ryu.lib.packet.stream_parser import StreamParser
 from faucet import valve_util
 from faucet import valve_of
 
-FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
+FAUCET_MAC = '0e:00:00:00:00:01'  # Default FAUCET MAC address
 
 ETH_HEADER_SIZE = 14
 ETH_VLAN_HEADER_SIZE = ETH_HEADER_SIZE + 4  # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format

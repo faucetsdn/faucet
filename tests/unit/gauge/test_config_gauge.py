@@ -14,7 +14,7 @@ LOGNAME = '/dev/null'
 
 
 # pylint: disable=invalid-name
-class TestGaugeConfig(unittest.TestCase): # pytype: disable=module-attr
+class TestGaugeConfig(unittest.TestCase):  # pytype: disable=module-attr
     """Test gauge.yaml config parsing."""
 
     DEFAULT_FAUCET_CONFIG = """
@@ -190,4 +190,4 @@ dbs:
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr

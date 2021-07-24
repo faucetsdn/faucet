@@ -444,7 +444,7 @@ socket_timeout=15
             socket_type = socket.AF_INET
             if self.controller_ipv6:
                 socket_type = socket.AF_INET6
-            self.controller_ip = netifaces.ifaddresses( # pylint: disable=c-extension-no-member
+            self.controller_ip = netifaces.ifaddresses(  # pylint: disable=c-extension-no-member
                 self.controller_intf)[socket_type][0]['addr']
             ofp_listen_host_arg = '--ryu-ofp-listen-host=%s' % self.controller_ip
         self.pid_file = os.path.join(self.tmpdir, name + '.pid')
@@ -470,7 +470,7 @@ socket_timeout=15
             '-n',
             '-U',
             '-q',
-            '-W 1', # max files 1
+            '-W 1',  # max files 1
             '-G %u' % (self.MAX_CTL_TIME - 1),
             '-c %u' % (self.MAX_OF_PKTS),
             '-i %s' % self.controller_intf,
