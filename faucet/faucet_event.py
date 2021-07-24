@@ -26,8 +26,9 @@ from contextlib import contextmanager
 import eventlet
 eventlet.monkey_patch()
 
-from ryu.lib import hub  # pylint: disable=wrong-import-position
-from ryu.lib.hub import StreamServer  # pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-position
+from ryu.lib import hub  # noqa: E402
+from ryu.lib.hub import StreamServer  # noqa: E402
 
 
 class NonBlockLock:

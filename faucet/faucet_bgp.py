@@ -23,11 +23,10 @@ import ipaddress
 import eventlet
 eventlet.monkey_patch()
 
-from ryu.lib import hub  # pylint: disable=wrong-import-position
-
-from beka.beka import Beka  # pylint: disable=wrong-import-position
-
-from faucet.valve_util import kill_on_exception  # pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-position
+from ryu.lib import hub  # noqa: E402
+from beka.beka import Beka  # noqa: E402
+from faucet.valve_util import kill_on_exception  # noqa: E402
 
 
 class BgpSpeakerKey:

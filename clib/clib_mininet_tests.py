@@ -4,8 +4,9 @@
 import os
 import re
 
-# Required to prevent circular import cycle.  pylint: disable=unused-import
-from mininet.net import Mininet
+# Required to prevent circular import cycle.
+# pylint: disable=unused-import
+from mininet.net import Mininet  # noqa: F401
 
 from clib import mininet_test_base
 
