@@ -5,6 +5,7 @@ PORT_METADATA_MASK = 0xFFF
 VLAN_METADATA_MASK = 0xFFF000
 EGRESS_METADATA_MASK = PORT_METADATA_MASK | VLAN_METADATA_MASK
 
+
 def get_egress_metadata(port_num, vid):
     """Return the metadata value to output a packet to port port_num on vlan
     vid"""

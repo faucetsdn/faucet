@@ -27,6 +27,7 @@ import unittest
 
 from faucet import fctl
 
+
 class FctlTestCaseBase(unittest.TestCase):  # pytype: disable=module-attr
     """Base class for fctl tests."""
 
@@ -83,6 +84,7 @@ class FctlTestCaseBase(unittest.TestCase):  # pytype: disable=module-attr
 {metrics}\t[('dp_id', '{dp_id}'), ('n', '{n}'), ('port', '{port}'), ('vlan', '{vlan}')]\t{mac_addr}
 """
         return result.format(**labels).strip()
+
 
 class FctlTestCase(FctlTestCaseBase):
     """Drive fctl from shell."""

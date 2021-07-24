@@ -59,7 +59,6 @@ vlans:
 class FaucetTcpdumpHelperTest(FaucetSimpleTest):
     """Test for TcpdumpHelper class"""
 
-
     def _terminate_with_zero(self, tcpdump_helper):
         term_returns = tcpdump_helper.terminate()
         self.assertEqual(

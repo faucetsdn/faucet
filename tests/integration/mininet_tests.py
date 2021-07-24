@@ -130,7 +130,6 @@ vlans:
     # pylint: disable=invalid-name
     CONFIG = CONFIG_BOILER_UNTAGGED
 
-
     def setUp(self):  # pylint: disable=invalid-name
         super().setUp()
         self.topo = self.topo_class(
@@ -8032,6 +8031,7 @@ acls:
 
     def test_untagged(self):
         pass
+
 
 class FaucetDscpMatchTest(FaucetUntaggedTest):
     # Match all packets with this IP_DSP and eth_type, based on the ryu API def

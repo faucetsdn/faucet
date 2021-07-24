@@ -1385,7 +1385,6 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-
     def test_single_range_valid_config(self):
         """Test if port range with single port config applied correctly"""
         config = """
@@ -4886,7 +4885,6 @@ dps:
                 output_only: False
     """
         self.check_config_failure(config, cp.dp_parser)
-
 
     def test_rule_acl_parse(self):
         """Test simple allow ACL."""

@@ -838,7 +838,6 @@ class ValveIPv4RouteManager(ValveRouteManager):
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP)  # type: ignore
     IP_PKT = ipv4.ipv4
 
-
     def advertise(self, _vlan):
         return []
 

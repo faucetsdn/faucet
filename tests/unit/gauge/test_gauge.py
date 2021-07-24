@@ -78,6 +78,7 @@ def start_server(handler):
     server_thread.start()
     return server
 
+
 def port_state_msg(datapath, port_num, reason, status=0):
     """ Create an OFPPortStatus message with random values. """
 
@@ -95,6 +96,7 @@ def port_state_msg(datapath, port_num, reason, status=0):
                          )
 
     return parser.OFPPortStatus(datapath, reason, port)
+
 
 def port_stats_msg(datapath):
     """ Create an OFPPortStatsReply with random values. """
@@ -122,6 +124,7 @@ def port_stats_msg(datapath):
         stats.append(port_stats)
     return parser.OFPPortStatsReply(datapath, body=stats)
 
+
 def flow_stats_msg(datapath, instructions):
     """ Create an OFPFlowStatsReply with random values. """
 
@@ -141,6 +144,7 @@ def flow_stats_msg(datapath, instructions):
                                     )
 
     return parser.OFPFlowStatsReply(datapath, body=[flow_stats])
+
 
 def generate_all_matches():
     """
@@ -166,6 +170,7 @@ def generate_all_matches():
 
     return parser.OFPMatch(**matches)
 
+
 def logger_to_ofp(port_stats):
     """ Translates between the logger stat name and the OpenFlow stat name"""
 
@@ -179,9 +184,11 @@ def logger_to_ofp(port_stats):
             'errors_in': port_stats.rx_errors
            }
 
+
 def get_matches(match_dict):
     """Create a set of match name and value tuples"""
     return {(entry['OXMTlv']['field'], entry['OXMTlv']['value']) for entry in match_dict}
+
 
 def check_instructions(original_inst, logger_inst, test):
     """
@@ -193,6 +200,7 @@ def check_instructions(original_inst, logger_inst, test):
         for attr_name, attr_val in inst.items():
             original_val = getattr(original_inst[0], attr_name)
             test.assertEqual(original_val, attr_val)
+
 
 def compare_flow_msg(flow_msg, flow_dict, test):
     """
@@ -513,7 +521,6 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
                     pass
 
                 dictionary[key] = val
-
 
     def parse_influx_output(self, output_to_parse):
         """

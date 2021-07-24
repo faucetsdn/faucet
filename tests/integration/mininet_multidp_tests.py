@@ -14,6 +14,7 @@ from clib.mininet_test_base_topo import FaucetTopoTestBase
 
 from clib import mininet_test_util
 
+
 class FaucetMultiDPTestBase(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a generalized test topology & config builder"""
 
@@ -1244,8 +1245,6 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
             ]
         }
 
-
-
     def setUp(self):  # pylint: disable=invalid-name
         """Start the network"""
         super().setUp()
@@ -1508,7 +1507,6 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
     NUM_HOSTS = 8
     NUM_VLANS = 3
     SOFTWARE_ONLY = True
-
 
     def set_up(self, n_dps, host_links=None, host_vlans=None):
         """

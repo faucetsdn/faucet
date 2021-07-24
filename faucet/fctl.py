@@ -41,6 +41,7 @@ def decode_value(metric_name, value):
             )
     return result
 
+
 def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
     """Scrape a list of Prometheus/FAUCET/Gauge endpoints and aggregate results."""
     metrics = []
@@ -73,6 +74,7 @@ def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
             return None
     return metrics
 
+
 def _get_samples_from_metrics(metrics, metric_name, label_matches,
                               nonzero_only=False):
     result = []
@@ -87,6 +89,7 @@ def _get_samples_from_metrics(metrics, metric_name, label_matches,
                         continue
                     result.append(sample)
     return result
+
 
 def get_samples(endpoints, metric_name, label_matches, nonzero_only=False,
                 retries=3):
@@ -108,6 +111,7 @@ def get_samples(endpoints, metric_name, label_matches, nonzero_only=False,
         return None
     return _get_samples_from_metrics(
         metrics, metric_name, label_matches, nonzero_only)
+
 
 def report_label_match_metrics(report_metrics, metrics, display_labels=None,
                                nonzero_only=False, delim='\t',

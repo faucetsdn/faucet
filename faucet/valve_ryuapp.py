@@ -32,7 +32,6 @@ from faucet import valve_of
 from faucet.valve_util import dpid_log, get_logger, get_setting
 
 
-
 class ValveDeadThreadException(Exception):
     """Exception raised when a dead thread is detected."""
 

@@ -1491,7 +1491,6 @@ class ValveTestBases:
             self.assertEqual(
                 before_table_state, after_table_state, msg='\n'.join(diff))
 
-
     class ValveTestBig(ValveTestNetwork):
         """Test basic switching/L2/L3 functions."""
 
@@ -2524,7 +2523,6 @@ meters:
                 self.assertFalse(self.network.is_output(
                     bcast_match, src_dpid, dst_dpid, port=out_port, vid=out_vid,
                     trace=trace), msg=msg)
-
 
     class ValveTestStackedRouting(ValveTestNetwork):
         """Test inter-vlan routing with stacking capabilities in an IPV4 network"""

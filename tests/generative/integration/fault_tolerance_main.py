@@ -26,6 +26,7 @@ def test_generator(func_graph, stack_roots):
         self.network_function()
     return test
 
+
 if __name__ == '__main__':
     GRAPHS = {}
     GRAPH_ATLAS = graph_atlas_g()
