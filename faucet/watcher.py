@@ -48,21 +48,21 @@ def watcher_factory(conf):
             'text': GaugePortStateLogger,
             'influx': GaugePortStateInfluxDBLogger,
             'prometheus': GaugePortStatePrometheusPoller,
-            },
+        },
         'port_stats': {
             'text': GaugePortStatsLogger,
             'influx': GaugePortStatsInfluxDBLogger,
             'prometheus': GaugePortStatsPrometheusPoller,
-            },
+        },
         'flow_table': {
             'text': GaugeFlowTableLogger,
             'influx': GaugeFlowTableInfluxDBLogger,
             'prometheus': GaugeFlowTablePrometheusPoller,
-            },
+        },
         'meter_stats': {
             'text': GaugeMeterStatsLogger,
             'prometheus': GaugeMeterStatsPrometheusPoller,
-            },
+        },
     }
 
     w_type = conf.type
@@ -155,7 +155,7 @@ class GaugeFlowTableLogger(GaugeFlowTablePoller):
         filename = os.path.join(
             path,
             "{}--flowtable--{}.json".format(self.dp.name, rcv_time_str)
-            )
+        )
         if os.path.isfile(filename):
             # If this filename already exists, add an increment to the filename
             # (for dealing with parts of a multipart message arriving at the same time)

@@ -150,7 +150,7 @@ configuration.
         # Have OFA copy packet outs to multiple ports.
         'idle_dst': True,
         # If False, workaround for flow idle timer not reset on flow refresh.
-        }
+    }
 
     defaults_types = {
         'dp_id': int,
@@ -595,7 +595,7 @@ configuration.
                 table_name, table_config, self.cookie,
                 notify_flow_removed=self.use_idle_timeout,
                 next_tables=next_table_ids
-                )
+            )
         self.tables = tables
 
     def set_defaults(self):

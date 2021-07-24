@@ -1911,21 +1911,21 @@ class ValveTestBases:
                     'in_port': 1,
                     'vlan_vid': 0,
                     'eth_src': self.P2_V200_MAC
-                    },
+                },
                 {'in_port': 2, 'vlan_vid': 0, 'eth_dst': self.UNKNOWN_MAC},
                 {'in_port': 2, 'vlan_vid': 0},
                 {
                     'in_port': 2,
                     'vlan_vid': self.V100,
                     'eth_src': self.P2_V200_MAC
-                    },
+                },
                 {
                     'in_port': 2,
                     'vlan_vid': self.V100,
                     'eth_src': self.UNKNOWN_MAC,
                     'eth_dst': self.P1_V100_MAC
-                    },
-                ]
+                },
+            ]
             for match in matches:
                 if match['vlan_vid'] != 0:
                     vid = match['vlan_vid']
@@ -1976,19 +1976,19 @@ class ValveTestBases:
                     'in_port': 1,
                     'vlan_vid': 0,
                     'eth_src': self.P1_V100_MAC
-                    },
+                },
                 {
                     'in_port': 2,
                     'vlan_vid': self.V200,
                     'eth_src': self.P2_V200_MAC
-                    },
+                },
                 {
                     'in_port': 3,
                     'vlan_vid': self.V200,
                     'eth_src': self.P3_V200_MAC,
                     'eth_dst': self.P2_V200_MAC
-                    }
-                ]
+                }
+            ]
             for match in matches:
                 self.assertFalse(
                     self.network.tables[self.DP_ID].is_output(match, port=ofp.OFPP_CONTROLLER),
@@ -2024,20 +2024,20 @@ class ValveTestBases:
                     'in_port': 2,
                     'vlan_vid': self.V100,
                     'eth_dst': self.P1_V100_MAC
-                    }, {
-                        'out_port': 1,
-                        'vlan_vid': 0
-                    }),
+                }, {
+                    'out_port': 1,
+                    'vlan_vid': 0
+                }),
                 ({
                     'in_port': 3,
                     'vlan_vid': self.V200,
                     'eth_dst': self.P2_V200_MAC,
                     'eth_src': self.P3_V200_MAC
-                    }, {
-                        'out_port': 2,
-                        'vlan_vid': 0,
-                    })
-                ]
+                }, {
+                    'out_port': 2,
+                    'vlan_vid': 0,
+                })
+            ]
             for match, result in match_results:
                 self.assertTrue(
                     self.network.tables[self.DP_ID].is_output(

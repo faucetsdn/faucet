@@ -38,7 +38,7 @@ def decode_value(metric_name, value):
         result = ':'.join(
             format(octet, '02x') for octet in int(value).to_bytes(  # pytype: disable=attribute-error
                 6, byteorder='big')
-            )
+        )
     return result
 
 
@@ -196,7 +196,7 @@ def main():
         label_matches,
         nonzero_only,
         display_labels
-        ) = parse_args(sys.argv[1:])
+    ) = parse_args(sys.argv[1:])
     metrics = scrape_prometheus(endpoints)
     if metrics is None:
         sys.exit(1)
@@ -206,7 +206,7 @@ def main():
         nonzero_only=nonzero_only,
         label_matches=label_matches,
         display_labels=display_labels
-        )
+    )
     print(report)
 
 

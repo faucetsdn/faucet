@@ -302,8 +302,8 @@ class FakeOFTable:
                 raise FakeOFTableException(
                     'got %s before TFM that defines table %u' % (
                         ofmsg, table_id
-                        )
                     )
+                )
 
         def _add(table, flowmod):
             # From the 1.3 spec, section 6.4:
@@ -843,7 +843,7 @@ class FlowMod:
     MAC_MATCH_FIELDS = (
         'eth_src', 'eth_dst', 'arp_sha', 'arp_tha', 'ipv6_nd_sll',
         'ipv6_nd_tll'
-        )
+    )
     IPV4_MATCH_FIELDS = ('ipv4_src', 'ipv4_dst', 'arp_spa', 'arp_tpa')
     IPV6_MATCH_FIELDS = ('ipv6_src', 'ipv6_dst', 'ipv6_nd_target')
     HEX_FIELDS = ('eth_type')
@@ -1122,12 +1122,12 @@ def parse_print_args():
     Print a flow table in a human readable format
     {argv0} print -f FILE
 """.format(argv0=sys.argv[0])
-        )
+    )
     arg_parser.add_argument(
         '-f',
         '--file',
         help='file containing an OFPFlowStatsReply message in JSON format'
-        )
+    )
     args = arg_parser.parse_args(sys.argv[2:])
     return {'filename': args.file}
 
@@ -1141,7 +1141,7 @@ def parse_probe_args():
     Find the flow table entries in a given flow table that match a given packet
     {argv0} probe -f FILE -p PACKET_STRING
 """.format(argv0=sys.argv[0])
-        )
+    )
     arg_parser.add_argument(
         '-p',
         '--packet',
@@ -1150,13 +1150,13 @@ def parse_probe_args():
             '''string representation of a packet dictionary eg. '''
             '''"{'in_port': 1, 'eth_dst': '01:80:c2:00:00:02', 'eth_type': '''
             '''34825}"''')
-        )
+    )
     arg_parser.add_argument(
         '-f',
         '--file',
         metavar='FILE',
         help='file containing an OFPFlowStatsReply message in JSON format'
-        )
+    )
     args = arg_parser.parse_args(sys.argv[2:])
     packet = args.packet
     packet = ast.literal_eval(args.packet)
@@ -1175,11 +1175,11 @@ def parse_args():
     {argv0} <command> <args>
 
 """.format(argv0=sys.argv[0])
-        )
+    )
     arg_parser.add_argument(
         'command',
         help='Subcommand, either "print" or "probe"'
-        )
+    )
     args = arg_parser.parse_args(sys.argv[1:2])
     try:
         if args.command == 'probe':

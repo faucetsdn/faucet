@@ -399,7 +399,7 @@ The output action contains a dictionary with the following elements:
                     not port,
                     ('ACL (%s) output port undefined in DP: %s'
                      % (self._id, self.dp_id))
-                    )
+                )
                 result[output_action] = port
             elif output_action == 'ports':
                 resolved_ports = [
@@ -408,7 +408,7 @@ The output action contains a dictionary with the following elements:
                     None in resolved_ports,
                     ('ACL (%s) output port(s) not defined in DP: %s'
                      % (self._id, self.dp_id))
-                    )
+                )
                 result[output_action] = resolved_ports
             elif output_action == 'failover':
                 failover = output_action_values
@@ -423,7 +423,7 @@ The output action contains a dictionary with the following elements:
                             None in resolved_ports,
                             ('ACL (%s) failover port(s) not defined in DP: %s'
                              % (self._id, self.dp_id))
-                            )
+                        )
                         result[output_action][failover_name] = resolved_ports
                     else:
                         result[output_action][failover_name] = failover_values
@@ -448,7 +448,7 @@ The output action contains a dictionary with the following elements:
                             resolved_port is None,
                             ('ACL (%s) mirror port is not defined in DP: %s'
                              % (self._id, self.dp_id))
-                            )
+                        )
                         resolved_actions[action_name] = resolved_port
                     elif action_name == 'output':
                         resolved_action = self._resolve_output_ports(

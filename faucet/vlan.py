@@ -117,7 +117,7 @@ class VLAN(Conf):
         # If True, this VLAN may be dynamically added withTunnel-Private-Group-ID radius attribute.
         'edge_learn_stack_root': True,
         # If True, this VLAN will learn flows through the stack root, following forwarding path.
-        }
+    }
 
     defaults_types = {
         'name': str,

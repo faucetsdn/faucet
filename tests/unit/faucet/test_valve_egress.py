@@ -117,7 +117,7 @@ acls:
         self.assertTrue(
             table.is_output(v100_accept_match, port=3),
             msg='Packet not output when on vlan with no ACL'
-            )
+        )
         self.assertFalse(
             table.is_output(l2_drop_match, port=3),
             msg='Packet not blocked by ACL')
@@ -133,7 +133,7 @@ acls:
             'ipv6_src': ALLOW_HOST_V6,
             'ipv6_dst': DENY_HOST_V6,
             'neighbor_advert_ip': ALLOW_HOST_V6,
-            })
+        })
         self.rcv_packet(3, 0x200, {
             'eth_src': self.P3_V200_MAC,
             'eth_dst': self.P2_V200_MAC,
@@ -141,7 +141,7 @@ acls:
             'ipv6_src': DENY_HOST_V6,
             'ipv6_dst': ALLOW_HOST_V6,
             'neighbor_advert_ip': DENY_HOST_V6,
-            })
+        })
 
         self.assertTrue(
             table.is_output(l2_accept_match, port=2),

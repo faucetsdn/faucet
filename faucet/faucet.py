@@ -85,7 +85,7 @@ class Faucet(RyuAppBase):
     """
     _CONTEXTS = {
         'dpset': dpset.DPSet,
-        }
+    }
     _VALVE_SERVICES = {
         EventFaucetMetricUpdate: (None, 5),
         EventFaucetResolveGateways: ('resolve_gateways', 2),

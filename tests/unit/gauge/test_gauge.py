@@ -93,7 +93,7 @@ def port_state_msg(datapath, port_num, reason, status=0):
                           random.randint(1, 10000),
                           random.randint(1, 10000),
                           random.randint(1, 10000)
-                         )
+                          )
 
     return parser.OFPPortStatus(datapath, reason, port)
 
@@ -120,7 +120,7 @@ def port_stats_msg(datapath):
                                          random.randint(0, 10000),
                                          sec,
                                          nsec
-                                        )
+                                         )
         stats.append(port_stats)
     return parser.OFPPortStatsReply(datapath, body=stats)
 
@@ -141,7 +141,7 @@ def flow_stats_msg(datapath, instructions):
                                      random.randint(1, 10000),
                                      matches,
                                      instructions
-                                    )
+                                     )
 
     return parser.OFPFlowStatsReply(datapath, body=[flow_stats])
 
@@ -182,7 +182,7 @@ def logger_to_ofp(port_stats):
             'dropped_in': port_stats.rx_dropped,
             'errors_out': port_stats.tx_errors,
             'errors_in': port_stats.rx_errors
-           }
+            }
 
 
 def get_matches(match_dict):
@@ -296,7 +296,7 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
                          prometheus_port=9303,
                          prometheus_addr='localhost',
                          use_test_thread=True
-                        )
+                         )
 
         prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', self.prom_client)
         prom_poller._running = True
@@ -328,7 +328,7 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
                          prometheus_port=9303,
                          prometheus_addr='localhost',
                          use_test_thread=True
-                        )
+                         )
 
         prom_poller = gauge_prom.GaugePortStatePrometheusPoller(conf, '__name__', self.prom_client)
         prom_poller._running = True
@@ -364,7 +364,7 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
                          prometheus_port=9303,
                          prometheus_addr='localhost',
                          use_test_thread=True
-                        )
+                         )
 
         prom_poller = gauge_prom.GaugeFlowTablePrometheusPoller(conf, '__name__', self.prom_client)
         rcv_time = int(time.time())
@@ -386,7 +386,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
                          influx_pwd='',
                          influx_db='gauge',
                          influx_timeout=10
-                        )
+                         )
         return conf
 
     def get_values(self, dict_to_unpack):
@@ -500,7 +500,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
                          influx_timeout=10,
                          interval=5,
                          dp=datapath
-                        )
+                         )
         return conf
 
     @staticmethod
@@ -612,7 +612,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
                         'inst_count': len(msg.body[0].instructions),
                         'vlan': msg.body[0].match.get('vlan_vid') ^ ofproto.OFPVID_PRESENT,
                         'cookie': msg.body[0].cookie,
-                       }
+                        }
 
         with open(self.server.output_file, 'r') as log:
             output = log.readlines()
@@ -767,7 +767,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
             file=os.path.join(self.temp_path, self.tmp_filename),
             path=self.temp_path,
             compress=False
-            )
+        )
 
     def tearDown(self):
         """Removes the temporary directory and its contents"""
@@ -790,7 +790,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
                    'delete': ofproto.OFPPR_DELETE,
                    'up': ofproto.OFPPR_MODIFY,
                    'down': ofproto.OFPPR_MODIFY
-                  }
+                   }
 
         # add an ofproto attribute to the datapath
         datapath = create_mock_datapath(1)
@@ -880,7 +880,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
         logger.update(rcv_time, msg)
         log_str = self.get_file_contents(
             "{}--flowtable--{}.json".format(datapath.name, rcv_time_str)
-            )
+        )
 
         yaml_dict = yaml.safe_load(log_str)['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
 

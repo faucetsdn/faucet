@@ -1586,7 +1586,7 @@ dbs:
         watcher_files = set([
             self.monitor_stats_file,
             self.monitor_state_file,
-            ])
+        ])
         found_watcher_files = set()
         for _ in range(60):
             for watcher_file in watcher_files:

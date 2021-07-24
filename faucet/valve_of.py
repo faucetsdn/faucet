@@ -437,7 +437,7 @@ def metadata_goto_table(metadata, mask, table):
     return [
         parser.OFPInstructionWriteMetadata(metadata, mask),
         parser.OFPInstructionGotoTable(table.table_id)
-        ]
+    ]
 
 
 @functools.lru_cache()
