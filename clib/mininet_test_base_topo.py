@@ -98,18 +98,18 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def faucet_vip(self, i):
         """Faucet VLAN VIP"""
-        return '10.%u.0.254/%u' % (i +1, self.NETPREFIX)
+        return '10.%u.0.254/%u' % (i + 1, self.NETPREFIX)
 
     @staticmethod
     def faucet_mac(i):
         """Faucet VLAN MAC"""
-        return '00:00:00:00:00:%u%u' % (i +1, i +1)
+        return '00:00:00:00:00:%u%u' % (i + 1, i + 1)
 
     def host_ip_address(self, host_index, vlan_index):
         """Create a string of the host IP address"""
         if isinstance(vlan_index, (list, tuple)):
             vlan_index = vlan_index[0]
-        return '10.%u.0.%u/%u' % (vlan_index +1, host_index +1, self.NETPREFIX)
+        return '10.%u.0.%u/%u' % (vlan_index + 1, host_index + 1, self.NETPREFIX)
 
     def host_ping(self, src_host, dst_ip, intf=None):
         """Default method to ping from one host to an IP address"""
@@ -440,7 +440,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             tcpdump_host, tcpdump_filter, [
                 lambda: ping_host.cmd('arp -d %s' % tcpdump_host.IP()),
                 lambda: ping_host.cmd('ping -c1 %s' % tcpdump_host.IP())],
-            packets=(num_arp_expected +1))
+            packets=(num_arp_expected + 1))
         num_arp_received = len(re.findall(
             'who-has %s tell %s' % (tcpdump_host.IP(), ping_host.IP()), tcpdump_txt))
         self.assertTrue(num_arp_received)
@@ -681,7 +681,7 @@ details partner lacp pdu:
     def verify_num_lag_up_ports(self, expected_up_ports, dpid):
         """Checks to see if Prometheus has the expected number of up LAG ports
         on the specified DP"""
-        for _ in range(self.LACP_TIMEOUT *10):
+        for _ in range(self.LACP_TIMEOUT * 10):
             if self.prom_lacp_up_ports(dpid) == expected_up_ports:
                 return
             time.sleep(1)
@@ -692,7 +692,7 @@ details partner lacp pdu:
         synced_state_list = self.get_expected_synced_states(host_id)
         host = self.host_information[host_id]['host']
         bond_name = self.host_information[host_id]['bond']
-        for _ in range(self.LACP_TIMEOUT *2):
+        for _ in range(self.LACP_TIMEOUT * 2):
             result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond_name)
             result = '\n'.join([line.rstrip() for line in result.splitlines()])
             with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
@@ -741,7 +741,7 @@ details partner lacp pdu:
         self.verify_lag_host_connectivity()
         # Tear down first port
         self.set_port_down(up_port, up_dpid)
-        self.verify_num_lag_up_ports(len(lacp_ports[up_dp]) -1, up_dpid)
+        self.verify_num_lag_up_ports(len(lacp_ports[up_dp]) - 1, up_dpid)
         # Ensure connectivity with new ports only
         self.verify_lag_host_connectivity()
 

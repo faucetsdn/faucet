@@ -601,7 +601,7 @@ class ValveTestBases:
         NUM_PORTS = 5
 
         LOGNAME = 'faucet'
-        ICMP_PAYLOAD = bytes('A' *64, encoding='UTF-8')
+        ICMP_PAYLOAD = bytes('A' * 64, encoding='UTF-8')
         REQUIRE_TFM = True
         CONFIG_AUTO_REVERT = False
         CONFIG = None
@@ -715,7 +715,7 @@ class ValveTestBases:
             if offset:
                 before_hash, before_str = self.network.table_state(int(dp_id))
                 offset_ofmsgs = []
-                for i in range(0 -offset, len(ofmsgs)):
+                for i in range(0 - offset, len(ofmsgs)):
                     if i >= 0 and i < len(ofmsgs):
                         offset_ofmsgs.append(ofmsgs[i])
                     j = i + offset
@@ -1799,7 +1799,7 @@ class ValveTestBases:
                 'ipv4_src': '10.0.0.2',
                 'ipv4_dst': '10.0.0.4',
                 'echo_request_data': bytes(
-                    'A' *8, encoding='UTF-8')})  # pytype: disable=wrong-keyword-args
+                    'A' * 8, encoding='UTF-8')})  # pytype: disable=wrong-keyword-args
             fib_route_replies = fib_route_replies[self.DP_ID]
             self.assertTrue(fib_route_replies)
             self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))

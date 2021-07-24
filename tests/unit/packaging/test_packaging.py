@@ -60,7 +60,7 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
     def _pip_req_to_dpkg_name(self, pip_req):
         if pip_req in self.dpkg_name:
             return self.dpkg_name[pip_req]
-        return "python3-" +pip_req
+        return "python3-" + pip_req
 
     def setUp(self):
         src_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../')
@@ -90,7 +90,7 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
 
             if pip_req_versions:
                 debian_package_dependencies = [
-                    dpkg_name +x for x in self.faucet_dpkg_deps[dpkg_name]
+                    dpkg_name + x for x in self.faucet_dpkg_deps[dpkg_name]
                 ]
                 for pip_req_specifier, pip_req_version in pip_req_versions:
                     if pip_req_specifier == '==':
@@ -98,25 +98,25 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
                         # versions, calculate the debian equivalent of the
                         # pip requirements match and compare that
                         lower_version = pip_req_version
-                        lower_match = '>=' +lower_version
+                        lower_match = '>=' + lower_version
 
                         upper_version = pip_req_version.split('.')
                         upper_version[-1] = str(int(upper_version[-1]) + 1)
                         upper_version = '.'.join(upper_version)
-                        upper_match = '<<' +upper_version
+                        upper_match = '<<' + upper_version
 
-                        self.assertIn(dpkg_name +lower_match, debian_package_dependencies)
-                        self.assertIn(dpkg_name +upper_match, debian_package_dependencies)
+                        self.assertIn(dpkg_name + lower_match, debian_package_dependencies)
+                        self.assertIn(dpkg_name + upper_match, debian_package_dependencies)
                     elif pip_req_specifier == '<':
                         # debian/control uses << instead of <
-                        match = dpkg_name +'<<' +pip_req_version
+                        match = dpkg_name + '<<' + pip_req_version
                         self.assertIn(match, debian_package_dependencies)
                     elif pip_req_specifier == '>':
                         # debian/control uses >> instead of >
-                        match = dpkg_name +'>>' +pip_req_version
+                        match = dpkg_name + '>>' + pip_req_version
                         self.assertIn(match, debian_package_dependencies)
                     else:
-                        match = dpkg_name +pip_req_specifier +pip_req_version
+                        match = dpkg_name + pip_req_specifier + pip_req_version
                         self.assertIn(match, debian_package_dependencies)
 
 

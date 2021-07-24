@@ -285,7 +285,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 match=self.vlan_table.match(
                     in_port=port.number,
                     vlan=NullVLAN()),
-                priority=self.low_priority +1))
+                priority=self.low_priority + 1))
             ofmsgs.append(self.vlan_table.flowmod(
                 match=self.vlan_table.match(in_port=port.number),
                 priority=self.low_priority,

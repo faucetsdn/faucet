@@ -335,7 +335,7 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
         reasons = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
         for i in range(1, len(conf.dp.ports) + 1):
 
-            msg = port_state_msg(conf.dp, i, reasons[i -1])
+            msg = port_state_msg(conf.dp, i, reasons[i - 1])
             port_name = conf.dp.ports[i].name
             rcv_time = int(time.time())
             prom_poller.update(rcv_time, msg)
@@ -555,7 +555,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
         reasons = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
         for i in range(1, len(conf.dp.ports) + 1):
 
-            msg = port_state_msg(conf.dp, i, reasons[i -1])
+            msg = port_state_msg(conf.dp, i, reasons[i - 1])
             rcv_time = int(time.time())
             db_logger.update(rcv_time, msg)
 
@@ -563,7 +563,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
                 output = log.read()
 
             influx_data = self.parse_influx_output(output)[1]
-            data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, reasons[i -1]}
+            data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, reasons[i - 1]}
             self.assertEqual(data, set(influx_data.values()))
 
     def test_port_stats(self):

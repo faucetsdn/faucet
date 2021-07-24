@@ -389,7 +389,7 @@ class ValvesManager:
         count = float(len(self.valves))
         configured = sum((1 if self.config_applied[dp_id] else 0)
                          for dp_id in self.valves)
-        fraction = configured /count if count > 0 else 0
+        fraction = configured / count if count > 0 else 0
         self.metrics.faucet_config_applied.set(fraction)
 
     def datapath_connect(self, now, valve, discovered_up_ports):
