@@ -220,7 +220,7 @@ def compare_flow_msg(flow_msg, flow_dict, test):
 class PretendInflux(QuietHandler):
     """An HTTP Handler that receives InfluxDB messages."""
 
-    def do_POST(self): # pylint: disable=invalid-name
+    def do_POST(self):  # pylint: disable=invalid-name
         """ Write request contents to the HTTP server,
         if there is an output file to write to. """
 
@@ -235,7 +235,7 @@ class PretendInflux(QuietHandler):
         self.end_headers()
 
 
-class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
+class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
     """Tests the GaugePortStatsPrometheusPoller update method"""
 
     prom_client = gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
@@ -373,7 +373,7 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
         prom_poller.update(rcv_time, msg)
 
 
-class GaugeInfluxShipperTest(unittest.TestCase): # pytype: disable=module-attr
+class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
     """Tests the InfluxShipper"""
 
     @staticmethod
@@ -469,7 +469,7 @@ class GaugeInfluxShipperTest(unittest.TestCase): # pytype: disable=module-attr
         self.assertAlmostEqual(point_vals_stat.pop(), stat_val)
 
 
-class GaugeInfluxUpdateTest(unittest.TestCase): # pytype: disable=module-attr
+class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
     """Test the Influx loggers update methods"""
 
     server = None
@@ -583,10 +583,10 @@ class GaugeInfluxUpdateTest(unittest.TestCase): # pytype: disable=module-attr
             measurement, influx_data = self.parse_influx_output(line)
 
             # get the number at the end of the port_name
-            port_num = influx_data['port_name'] # pytype: disable=unsupported-operands
+            port_num = influx_data['port_name']  # pytype: disable=unsupported-operands
             # get the original port stat value
             port_stat_val = logger_to_ofp(
-                msg.body[port_num - 1])[measurement] # pytype: disable=unsupported-operands
+                msg.body[port_num - 1])[measurement]  # pytype: disable=unsupported-operands
 
             self.assertEqual(port_stat_val, influx_data['value'])
             self.assertEqual(conf.dp.name, influx_data['dp_name'])
@@ -639,7 +639,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase): # pytype: disable=module-attr
                     self.fail("Unknown key: {} and value: {}".format(stat_name, stat_val))
 
 
-class GaugeThreadPollerTest(unittest.TestCase): # pytype: disable=module-attr
+class GaugeThreadPollerTest(unittest.TestCase):  # pytype: disable=module-attr
     """Tests the methods in the GaugeThreadPoller class"""
 
     def setUp(self):
@@ -702,7 +702,7 @@ class GaugeThreadPollerTest(unittest.TestCase): # pytype: disable=module-attr
         self.assertFalse(self.poller.running())
 
 
-class GaugePollerTest(unittest.TestCase): # pytype: disable=module-attr
+class GaugePollerTest(unittest.TestCase):  # pytype: disable=module-attr
     """Checks the send_req and no_response methods in a Gauge Poller"""
 
     def check_send_req(self, poller, msg_class):
@@ -753,7 +753,7 @@ class GaugeFlowTablePollerTest(GaugePollerTest):
         self.check_no_response(poller)
 
 
-class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
+class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
     """Checks the loggers in watcher.py."""
 
     conf = None
@@ -887,7 +887,7 @@ class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
         compare_flow_msg(msg, yaml_dict, self)
 
 
-class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
+class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
     """Test Gauge Ryu app."""
 
     def setUp(self):
@@ -1018,6 +1018,6 @@ dbs:
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr
 
 # pylint: disable=too-many-lines

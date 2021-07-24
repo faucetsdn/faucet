@@ -44,7 +44,7 @@ def make_wsgi_app(registry):
     return prometheus_app
 
 
-class PromClient: # pylint: disable=too-few-public-methods
+class PromClient:  # pylint: disable=too-few-public-methods
     """Prometheus client."""
 
     REQUIRED_LABELS = ['dp_id', 'dp_name']
@@ -54,7 +54,7 @@ class PromClient: # pylint: disable=too-few-public-methods
         if reg is not None:
             self._reg = reg
         self.version = VersionInfo('faucet').semantic_version().release_string()
-        self.faucet_version = PromGauge( # pylint: disable=unexpected-keyword-arg
+        self.faucet_version = PromGauge(  # pylint: disable=unexpected-keyword-arg
             'faucet_pbr_version',
             'Faucet PBR version',
             ['version'],
@@ -76,7 +76,7 @@ class PromClient: # pylint: disable=too-few-public-methods
                 class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
                     """Don't log requests."""
 
-                    def log_message(self, *_args): # pylint: disable=arguments-differ
+                    def log_message(self, *_args):  # pylint: disable=arguments-differ
                         pass
 
                 self.server = make_server(

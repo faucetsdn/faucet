@@ -23,7 +23,7 @@ from faucet import valve_of
 from faucet.faucet_pipeline import ValveTableConfig
 
 
-class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attributes
+class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attributes
     """Wrapper for an OpenFlow table."""
 
     def __init__(self, name, table_config,
@@ -92,7 +92,7 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
     # TODO: verify actions
     @staticmethod
     @functools.lru_cache(maxsize=1024)
-    def match(in_port=None, vlan=None, # pylint: disable=too-many-arguments,too-many-locals
+    def match(in_port=None, vlan=None,  # pylint: disable=too-many-arguments,too-many-locals
               eth_type=None, eth_src=None, eth_dst=None, eth_dst_mask=None,
               icmpv6_type=None, nw_proto=None, nw_dst=None, metadata=None,
               metadata_mask=None, vlan_pcp=None, udp_src=None, udp_dst=None):
@@ -167,12 +167,12 @@ class ValveTable: # pylint: disable=too-many-arguments,too-many-instance-attribu
             return tuple(new_inst)
         return inst
 
-    def flowmod(self, match=None, priority=None, # pylint: disable=too-many-arguments
+    def flowmod(self, match=None, priority=None,  # pylint: disable=too-many-arguments
                 inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,
                 out_group=0, hard_timeout=0, idle_timeout=0, cookie=None):
         """Helper function to construct a flow mod message with cookie."""
         if priority is None:
-            priority = 0 # self.dp.lowest_priority
+            priority = 0  # self.dp.lowest_priority
         if not match:
             match = self.match()
         if inst is None:
@@ -257,7 +257,7 @@ class ValveGroupEntry:
 class ValveGroupTable:
     """Wrap access to group table."""
 
-    entries = None # type: dict
+    entries = None  # type: dict
 
     def __init__(self):
         """Constructs a new object"""

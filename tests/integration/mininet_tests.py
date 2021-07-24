@@ -27,7 +27,7 @@ from http.server import HTTPServer
 
 import scapy.all
 
-import yaml # pytype: disable=pyi-error
+import yaml  # pytype: disable=pyi-error
 
 from mininet.log import error
 from mininet.util import pmonitor
@@ -95,14 +95,14 @@ class PostHandler(SimpleHTTPRequestHandler):
 
 class InfluxPostHandler(PostHandler):
 
-    def do_POST(self): # pylint: disable=invalid-name
+    def do_POST(self):  # pylint: disable=invalid-name
         self._log_post()
         return self.send_response(204)
 
 
 class SlowInfluxPostHandler(PostHandler):
 
-    def do_POST(self): # pylint: disable=invalid-name
+    def do_POST(self):  # pylint: disable=invalid-name
         self._log_post()
         time.sleep(self.server.timeout * 3)
         return self.send_response(500)
@@ -2108,7 +2108,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             self.server.influx_log = self.influx_log
             self.server.timeout = self.DB_TIMEOUT
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         self.handler = InfluxPostHandler
         super().setUp()
         self.setup_influx()
@@ -2173,7 +2173,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         try:
             self.server = QuietHTTPServer(
                 (mininet_test_util.LOCALHOST, influx_port),
-                self.handler) # pytype: disable=attribute-error
+                self.handler)  # pytype: disable=attribute-error
             self.server.timeout = self.DB_TIMEOUT
             self.server_thread = threading.Thread(
                 target=self.server.serve_forever)
@@ -2283,7 +2283,7 @@ class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
 
 class FaucetSingleUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         self.handler = SlowInfluxPostHandler
         super().setUp()
         self.setup_influx()
@@ -2656,7 +2656,7 @@ vlans:
                 native_vlan: 100
 """
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -2902,7 +2902,7 @@ class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
     MAX_HOSTS = _max_hosts()
     TEST_IPV4_NET = '10.0.0.0'
-    TEST_IPV4_PREFIX = 16 # must hold more than MAX_HOSTS + 4
+    TEST_IPV4_PREFIX = 16  # must hold more than MAX_HOSTS + 4
     LEARN_IPV4 = '10.0.254.254'
     CONFIG_GLOBAL = """
 vlans:
@@ -2951,7 +2951,7 @@ class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 
     MAX_HOSTS = _max_hosts()
     TEST_IPV4_NET = '10.0.0.0'
-    TEST_IPV4_PREFIX = 16 # must hold more than MAX_HOSTS + 4
+    TEST_IPV4_PREFIX = 16  # must hold more than MAX_HOSTS + 4
     LEARN_IPV4 = '10.0.0.1'
     CONFIG_GLOBAL = """
 vlans:
@@ -3076,7 +3076,7 @@ acls:
         tcp_src: 65535
 """
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super().setUp()
         self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
         self.CONFIG = '\n'.join(
@@ -3111,7 +3111,7 @@ acls:
             tuple_txt = '%u IPv%u tuples\n' % (len(rules_yaml), host_ip.version)
             error('pushing %s' % tuple_txt)
             self.reload_conf(
-                yaml_acl_conf, self.acl_config_file, # pytype: disable=attribute-error
+                yaml_acl_conf, self.acl_config_file,  # pytype: disable=attribute-error
                 restart=True, cold_start=False)
             error('pushed %s' % tuple_txt)
             self.wait_until_matching_flow(
@@ -3261,7 +3261,7 @@ acls:
 """
     ACL_COOKIE = None
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super().setUp()
         self.ACL_COOKIE = random.randint(1, 2**16 - 1)
         self.ACL = self.ACL.replace('COOKIE', str(self.ACL_COOKIE))
@@ -4076,7 +4076,7 @@ vlans:
                 loop_protect: True
 """
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -4171,7 +4171,7 @@ vlans:
                 native_vlan: 100
 """
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -4552,7 +4552,7 @@ vlans:
                 fuzz_cmd = ("from scapy.all import * ;"
                             "scapy.all.send(IPv6(dst='%s')/fuzz(%s()),count=%u)" %
                             (self.FAUCET_VIPV6.ip, fuzz_class, packets))
-                out, start, too_long = '', time.time(), 30 # seconds
+                out, start, too_long = '', time.time(), 30  # seconds
                 popen = first_host.popen('python3', '-c', fuzz_cmd)
                 for _, line in pmonitor({first_host: popen}):
                     out += line
@@ -4625,7 +4625,7 @@ vlans:
                 native_vlan: 101
 """
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -5597,7 +5597,7 @@ vlans:
 
     CONFIG = CONFIG_TAGGED_BOILER
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):  # pylint: disable=invalid-name
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -5841,9 +5841,9 @@ vlans:
                 tagged_vlans: [%s]
                 hairpin_unicast: True
 """ % (global_vid(),
-       len(STR_VIDS) * 3, # VLAN
-       len(STR_VIDS) * 2, # VIP
-       len(STR_VIDS) * 12, # Flood
+       len(STR_VIDS) * 3,   # VLAN
+       len(STR_VIDS) * 2,   # VIP
+       len(STR_VIDS) * 12,  # Flood
        '%(port_3)d', '%(port_1)d', '%(port_1)d',
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 

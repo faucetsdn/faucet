@@ -162,7 +162,7 @@ class FctlClassTestCase(FctlTestCaseBase):
             _
             ) = fctl.parse_args(self.fctl_args())
         metrics = fctl.scrape_prometheus(endpoints)
-        report_out = fctl.report_label_match_metrics( # pylint: disable=assignment-from-no-return
+        report_out = fctl.report_label_match_metrics(  # pylint: disable=assignment-from-no-return
             report_metrics=report_metrics,
             metrics=metrics,
             label_matches=label_matches,
@@ -178,4 +178,4 @@ class FctlClassTestCase(FctlTestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr
