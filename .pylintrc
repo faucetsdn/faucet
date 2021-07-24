@@ -1,0 +1,5 @@
+[MASTER]
+# enable=all
+
+[FORMAT]
+max-line-length=120
