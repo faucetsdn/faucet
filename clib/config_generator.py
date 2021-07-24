@@ -137,17 +137,17 @@ class FaucetTopoGenerator(Topo):
     @staticmethod
     def vlan_name(i):
         """VLAN name"""
-        return 'vlan-%i' % (i+1)
+        return 'vlan-%i' % (i +1)
 
     @staticmethod
     def vlan_vid(i):
         """VLAN VID value"""
-        return (i+1) * 100
+        return (i +1) * 100
 
     @staticmethod
     def router_name(i):
         """Router name"""
-        return 'router-%s' % (i+1)
+        return 'router-%s' % (i +1)
 
     def __init__(self, *args, **kwargs):
         self.switches_by_id = {}
@@ -585,4 +585,4 @@ class FaucetFakeOFTopoGenerator(FaucetTopoGenerator):
     @staticmethod
     def dp_dpid(i):
         """DP DPID"""
-        return '%u' % (i+1)
+        return '%u' % (i +1)

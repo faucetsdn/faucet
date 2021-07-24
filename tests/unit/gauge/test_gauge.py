@@ -335,7 +335,7 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
         reasons = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
         for i in range(1, len(conf.dp.ports) + 1):
 
-            msg = port_state_msg(conf.dp, i, reasons[i-1])
+            msg = port_state_msg(conf.dp, i, reasons[i -1])
             port_name = conf.dp.ports[i].name
             rcv_time = int(time.time())
             prom_poller.update(rcv_time, msg)
@@ -410,7 +410,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
             server = start_server(PretendInflux)
             shipper = gauge_influx.InfluxShipper()
             shipper.conf = self.create_config_obj(server.server_port)
-            points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
+            points = [{'measurement': 'test_stat_name', 'fields': {'value': 1}}, ]
             shipper.ship_points(points)
         except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
@@ -427,7 +427,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
             shipper = gauge_influx.InfluxShipper()
             shipper.conf = self.create_config_obj()
             shipper.logger = mock.Mock()
-            points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
+            points = [{'measurement': 'test_stat_name', 'fields': {'value': 1}}, ]
             shipper.ship_points(points)
         except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
@@ -438,7 +438,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
 
         try:
             shipper = gauge_influx.InfluxShipper()
-            points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
+            points = [{'measurement': 'test_stat_name', 'fields': {'value': 1}}, ]
             shipper.ship_points(points)
         except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
@@ -555,7 +555,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
         reasons = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
         for i in range(1, len(conf.dp.ports) + 1):
 
-            msg = port_state_msg(conf.dp, i, reasons[i-1])
+            msg = port_state_msg(conf.dp, i, reasons[i -1])
             rcv_time = int(time.time())
             db_logger.update(rcv_time, msg)
 
@@ -563,7 +563,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
                 output = log.read()
 
             influx_data = self.parse_influx_output(output)[1]
-            data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, reasons[i-1]}
+            data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, reasons[i -1]}
             self.assertEqual(data, set(influx_data.values()))
 
     def test_port_stats(self):
@@ -785,11 +785,11 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
     def test_port_state(self):
         """Check the update method in the GaugePortStateLogger class"""
 
-        reasons = {'unknown' : 5,
-                   'add' : ofproto.OFPPR_ADD,
-                   'delete' : ofproto.OFPPR_DELETE,
-                   'up' : ofproto.OFPPR_MODIFY,
-                   'down' : ofproto.OFPPR_MODIFY
+        reasons = {'unknown': 5,
+                   'add': ofproto.OFPPR_ADD,
+                   'delete': ofproto.OFPPR_DELETE,
+                   'up': ofproto.OFPPR_MODIFY,
+                   'down': ofproto.OFPPR_MODIFY
                   }
 
         #add an ofproto attribute to the datapath
@@ -825,7 +825,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
         datapath.configure_mock(**ofp_attr)
 
         #add the datapath as an attribute to the config
-        dp_attr = {'dp' : datapath}
+        dp_attr = {'dp': datapath}
         self.conf.configure_mock(**dp_attr)
 
         logger = watcher.GaugePortStatsLogger(self.conf, '__name__', mock.Mock())
@@ -867,7 +867,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
         datapath.configure_mock(**ofp_attr)
 
         #add the datapath as an attribute to the config
-        dp_attr = {'dp' : datapath}
+        dp_attr = {'dp': datapath}
         self.conf.configure_mock(**dp_attr)
 
         logger = watcher.GaugeFlowTableLogger(self.conf, '__name__', mock.Mock())

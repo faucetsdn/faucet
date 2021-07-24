@@ -192,7 +192,7 @@ dps:
         t2_dpid = 0x3
         for root_dpid in (1, 2):
             root_stack_port = dps[root_dpid].stack_ports()[0]
-            t2_stack_port = dps[t2_dpid].stack_ports()[root_dpid-1]
+            t2_stack_port = dps[t2_dpid].stack_ports()[root_dpid -1]
             stack_link_a = (root_dpid, root_stack_port)
             stack_link_b = (t2_dpid, t2_stack_port)
             for dpid_a, port_a, dpid_b, port_b in (

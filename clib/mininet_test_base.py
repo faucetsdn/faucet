@@ -965,7 +965,7 @@ dps:
         hardware: "%s"
         cookie: %u
 """ % (config_global, self.DP_NAME, debug_log,
-       int(dpid), hardware, random.randint(1, 2**64-1))
+       int(dpid), hardware, random.randint(1, 2**64 -1))
 
     def get_gauge_watcher_config(self):
         return """
@@ -1119,7 +1119,7 @@ dbs:
             # Different OFAs handle matches with an exact mask, different.
             # Most (including OVS) drop the redundant exact mask. But others
             # include an exact mask. So we must handle both.
-            mac_exact = str(netaddr.EUI(2**48-1)).replace('-', ':').lower()
+            mac_exact = str(netaddr.EUI(2**48 -1)).replace('-', ':').lower()
             match_set = frozenset(match.items())
             exact_mask_match = {}
             for field, value in match.items():
@@ -1134,7 +1134,7 @@ dbs:
                     if value_mac:
                         value = '/'.join((value, mac_exact))
                     elif value_ip:
-                        ip_exact = str(ipaddress.ip_address(2**value_ip.max_prefixlen-1))
+                        ip_exact = str(ipaddress.ip_address(2**value_ip.max_prefixlen -1))
                         value = '/'.join((value, ip_exact))
                 exact_mask_match[field] = value
             exact_mask_match_set = frozenset(exact_mask_match.items())
@@ -1338,7 +1338,7 @@ dbs:
     @staticmethod
     def mac_from_int(mac_int):
         mac_int_str = '%012x' % int(mac_int)
-        return ':'.join(mac_int_str[i:i+2] for i in range(0, len(mac_int_str), 2))
+        return ':'.join(mac_int_str[i:i +2] for i in range(0, len(mac_int_str), 2))
 
     def prom_macs_learned(self, port=None, vlan=None):
         labels = {
@@ -1921,7 +1921,7 @@ dbs:
                 if str(ipa).endswith('.255'):
                     continue
                 test_ipas.append(ipa)
-                if len(test_ipas) == max_hosts+len(self.hosts_name_ordered()):
+                if len(test_ipas) == max_hosts +len(self.hosts_name_ordered()):
                     break
             base_ipas = test_ipas[-len(self.hosts_name_ordered()):]
             return (base_ipas, test_ipas)
@@ -2043,7 +2043,7 @@ dbs:
             max_expected_pings *= 2
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
-                partial(first_host.cmd, first_ping_second)], packets=(max_expected_pings+1))
+                partial(first_host.cmd, first_ping_second)], packets=(max_expected_pings +1))
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
@@ -2121,7 +2121,7 @@ dbs:
             ping_commands.append(
                 lambda hosts=hosts: hosts[0].cmd(' '.join((self.FPINGS_ARGS_ONE, hosts[1].IP()))))
         tcpdump_txt = self.tcpdump_helper(
-            mirror_host, tcpdump_filter, ping_commands, packets=(max_expected_pings+1))
+            mirror_host, tcpdump_filter, ping_commands, packets=(max_expected_pings +1))
 
         for hosts in ping_pairs:
             self.assertTrue(re.search(
@@ -2207,7 +2207,7 @@ dbs:
                 send_cmd % other_host.defaultIntf(), repeats=3, timeout=timeout)))
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, other_host_cmds,
-            timeout=(timeout*repeats*len(hosts)), packets=1)
+            timeout=(timeout *repeats *len(hosts)), packets=1)
         self.verify_no_packets(tcpdump_txt)
 
     def verify_lldp_blocked(self, hosts=None, timeout=3):
@@ -2312,7 +2312,7 @@ dbs:
         """Verify minimum performance and OF counters match iperf approximately."""
         # Attempt loose counter sync before starting.
         self.wait_host_stats_updated(
-            hosts_switch_ports, timeout=seconds*2, sync_counters_func=sync_counters_func)
+            hosts_switch_ports, timeout=seconds *2, sync_counters_func=sync_counters_func)
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
         hosts = [host for host, _ in hosts_switch_ports]
         client_host, server_host = hosts

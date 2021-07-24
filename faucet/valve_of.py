@@ -832,7 +832,7 @@ def build_group_flood_buckets(vlan_flood_acts):
     non_outputs = []
     for act in vlan_flood_acts:
         if is_output(act):
-            buckets.append(bucket(actions=non_outputs+[act]))
+            buckets.append(bucket(actions=non_outputs +[act]))
         else:
             non_outputs.append(act)
     return buckets
@@ -1008,7 +1008,7 @@ def sort_flows(input_ofmsgs):
         input_ofmsgs,
         key=lambda ofmsg: (
             getattr(ofmsg, 'table_id', ofp.OFPTT_ALL),
-            getattr(ofmsg, 'priority', 2**16+1)), reverse=True)
+            getattr(ofmsg, 'priority', 2**16 +1)), reverse=True)
 
 
 def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):

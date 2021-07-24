@@ -131,7 +131,7 @@ def load_tables(dp, valve_cl, max_table_id, min_max_flows, use_oxm_ids, fill_req
         table_array.append(new_table)
 
     tfm_table_ids = {table.table_id for table in table_array}
-    for missing_table_id in set(range(max_table_id+1)) - tfm_table_ids:
+    for missing_table_id in set(range(max_table_id +1)) - tfm_table_ids:
         new_table = init_table(
             missing_table_id, str(missing_table_id), min_max_flows, 0, 0)
         if fill_req:
