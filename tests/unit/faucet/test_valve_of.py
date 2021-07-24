@@ -23,8 +23,7 @@ import unittest
 from faucet import valve_of
 
 
-
-class ValveOfTestCase(unittest.TestCase): # pytype: disable=module-attr
+class ValveOfTestCase(unittest.TestCase):  # pytype: disable=module-attr
     """Test valve_of functions."""
 
     def test_reorder_dupe(self):

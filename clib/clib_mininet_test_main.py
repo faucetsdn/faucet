@@ -333,7 +333,6 @@ def pipeline_superset_report(decoded_pcap_logs):
                 flow_lines.append((packet_line, depth, copy.copy(section_stack)))
             parse_flow(flow_lines)
 
-
     for table in sorted(table_matches):
         print('table: %u' % table)
         print('  matches: %s (max %u)' % (

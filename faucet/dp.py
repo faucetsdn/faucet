@@ -778,7 +778,6 @@ configuration.
                     break
             self.finalize_tunnel_acls(dps)
 
-
     def finalize_tunnel_acls(self, dps):
         """Resolve each tunnels sources"""
         # Find all tunnel ACLs that are in `self.tunnel_acls` that are have a configured source

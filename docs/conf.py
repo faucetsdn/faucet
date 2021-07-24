@@ -179,11 +179,13 @@ texinfo_documents = [
 # See https://github.com/rtfd/readthedocs.org/issues/1139
 # on which this is based.
 
+
 def run_apidoc(_):
     """Call sphinx-apidoc on faucet module"""
 
     from sphinx.ext.apidoc import main as apidoc_main
     apidoc_main(['-e', '-o', 'source/apidoc', '../faucet'])
+
 
 def generate_prometheus_metric_table(_):
     """Autogen prometheus metrics documentation"""
@@ -229,6 +231,7 @@ def generate_prometheus_metric_table(_):
 
         with open(output_path[module], 'w') as output_file:
             output_file.write(block_text[module])
+
 
 def setup(app):
     """ Add hooks into Sphinx to change behaviour and autogen documentation """

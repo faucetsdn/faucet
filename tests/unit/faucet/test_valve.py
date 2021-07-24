@@ -994,5 +994,6 @@ vlans:
         self.assertTrue(self._inport_flows(1, ofmsgs))
         self.assertTrue(self._inport_flows(2, ofmsgs))
 
+
 if __name__ == "__main__":
     unittest.main()  # pytype: disable=module-attr

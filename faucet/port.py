@@ -75,6 +75,7 @@ LACP_PORT_DISPLAY_DICT = {
     LACP_PORT_STANDBY: 'STANDBY'
 }
 
+
 class Port(Conf):
     """Stores state for ports, including the configuration."""
 
