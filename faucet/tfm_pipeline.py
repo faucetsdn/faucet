@@ -47,7 +47,6 @@ def init_table(table_id, name, max_entries, metadata_match, metadata_write):
     return valve_of.parser.OFPTableFeaturesStats(**table_attr)
 
 
-# pylint: disable=invalid-name
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-locals
 def load_tables(dp, valve_cl, max_table_id, min_max_flows, use_oxm_ids, fill_req):

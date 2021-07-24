@@ -23,7 +23,7 @@ from faucet.valve_switch_stack import (
     ValveSwitchStackManagerNoReflection, ValveSwitchStackManagerReflection)
 
 
-def valve_switch_factory(logger, dp, pipeline, stack_manager):  # pylint: disable=invalid-name
+def valve_switch_factory(logger, dp, pipeline, stack_manager):
     """Return switch flood/learning manager based on datapath configuration.
 
         Args:

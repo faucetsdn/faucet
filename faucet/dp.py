@@ -771,7 +771,7 @@ configuration.
         """Resolve inter-DP config for stacking"""
         if self.stack:
             self.stack.resolve_topology(dps, meta_dp_state)
-            for dp in dps:  # pylint: disable=invalid-name
+            for dp in dps:
                 # Must set externals flag for entire stack.
                 if dp.stack and dp.has_externals:
                     self.has_externals = True
@@ -785,7 +785,7 @@ configuration.
             # TODO: A Tunnel ACL can contain multiple different tunnel IDs
             tunnel_ids = {tunnel_acl._id: tunnel_acl for tunnel_acl in self.tunnel_acls}
             referenced_acls = set()
-            for dp in dps:  # pylint: disable=invalid-name
+            for dp in dps:
                 if dp.dp_acls:
                     for acl in dp.dp_acls:
                         tunnel_acl = tunnel_ids.get(acl._id)
@@ -909,7 +909,7 @@ configuration.
                     test_config_condition(stack_dp not in dp_by_name, (
                         'stack DP %s not defined' % stack_dp))
                     port_stack_dp[port] = dp_by_name[stack_dp]
-                for port, dp in port_stack_dp.items():  # pylint: disable=invalid-name
+                for port, dp in port_stack_dp.items():
                     port.stack['dp'] = dp
                     stack_port = dp.resolve_port(port.stack['port'])
                     test_config_condition(stack_port is None, (
@@ -936,7 +936,7 @@ configuration.
                     if not mirror_port.coprocessor:
                         mirror_port.output_only = True
 
-        def resolve_acl(acl_in, vid=None, port_num=None):  # pylint: disable=invalid-name
+        def resolve_acl(acl_in, vid=None, port_num=None):
             """
             Resolve an individual ACL
             Args:
