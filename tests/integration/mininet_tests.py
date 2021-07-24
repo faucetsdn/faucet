@@ -782,7 +782,7 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XBase):
         for req_str in (
                 'Identity: %s' % username,  # supplicant replies with username
                 'Success',  # supplicant success
-                ):
+        ):
             self.assertTrue(req_str in tcpdump_txt, msg='%s not in %s' % (req_str, tcpdump_txt))
 
         self.one_ipv4_ping(
@@ -4736,7 +4736,7 @@ acls:
         egress_acl_table = self.scrape_prometheus_var(
             'faucet_config_table_names',
             labels={'table_name': 'egress_acl'}
-            )
+        )
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(
             5001, first_host, second_host, table_id=egress_acl_table)
@@ -4748,7 +4748,7 @@ acls:
         egress_acl_table = self.scrape_prometheus_var(
             'faucet_config_table_names',
             labels={'table_name': 'egress_acl'}
-            )
+        )
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(

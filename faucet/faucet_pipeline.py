@@ -80,7 +80,7 @@ def _fib_table(ipv, table_id):
         dec_ttl=True,
         vlan_port_scale=3.1,
         next_tables=_NEXT_VIP
-        )
+    )
 
 
 PORT_ACL_DEFAULT_CONFIG = ValveTableConfig(
@@ -88,7 +88,7 @@ PORT_ACL_DEFAULT_CONFIG = ValveTableConfig(
     0,
     match_types=(('in_port', False),),
     next_tables=(('vlan',) + _NEXT_VIP)
-    )
+)
 VLAN_DEFAULT_CONFIG = ValveTableConfig(
     'vlan',
     PORT_ACL_DEFAULT_CONFIG.table_id + 1,
@@ -97,7 +97,7 @@ VLAN_DEFAULT_CONFIG = ValveTableConfig(
     set_fields=('vlan_vid',),
     vlan_port_scale=3,
     next_tables=('copro', 'vlan_acl', 'classification', 'eth_src')
-    )
+)
 COPRO_DEFAULT_CONFIG = ValveTableConfig(
     'copro',
     VLAN_DEFAULT_CONFIG.table_id + 1,
@@ -105,7 +105,7 @@ COPRO_DEFAULT_CONFIG = ValveTableConfig(
     vlan_port_scale=1.5,
     miss_goto='eth_dst',
     next_tables=(('eth_dst',)),
-    )
+)
 VLAN_ACL_DEFAULT_CONFIG = ValveTableConfig(
     'vlan_acl',
     VLAN_DEFAULT_CONFIG.table_id + 1,
@@ -115,7 +115,7 @@ CLASSIFICATION_DEFAULT_CONFIG = ValveTableConfig(
     VLAN_ACL_DEFAULT_CONFIG.table_id + 1,
     miss_goto='eth_src',
     next_tables=(('eth_src', 'ipv4_fib', 'ipv6_fib') + _NEXT_VIP)
-    )
+)
 ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
     'eth_src',
     CLASSIFICATION_DEFAULT_CONFIG.table_id + 1,
@@ -125,7 +125,7 @@ ETH_SRC_DEFAULT_CONFIG = ValveTableConfig(
                  ('in_port', False), ('vlan_vid', False)),
     set_fields=('vlan_vid', 'eth_dst'),
     vlan_port_scale=4.1,
-    )
+)
 IPV4_FIB_DEFAULT_CONFIG = _fib_table(4, ETH_SRC_DEFAULT_CONFIG.table_id + 1)
 IPV6_FIB_DEFAULT_CONFIG = _fib_table(6, IPV4_FIB_DEFAULT_CONFIG.table_id + 1)
 VIP_DEFAULT_CONFIG = ValveTableConfig(
@@ -135,7 +135,7 @@ VIP_DEFAULT_CONFIG = ValveTableConfig(
                  ('icmpv6_type', False), ('ip_proto', False)),
     next_tables=_NEXT_ETH,
     vlan_scale=8,
-    )
+)
 ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst_hairpin',
     VIP_DEFAULT_CONFIG.table_id + 1,
@@ -143,7 +143,7 @@ ETH_DST_HAIRPIN_DEFAULT_CONFIG = ValveTableConfig(
     miss_goto='eth_dst',
     exact_match=True,
     vlan_port_scale=4.1,
-    )
+)
 ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     'eth_dst',
     ETH_DST_HAIRPIN_DEFAULT_CONFIG.table_id + 1,
@@ -154,12 +154,12 @@ ETH_DST_DEFAULT_CONFIG = ValveTableConfig(
     next_tables=('egress', 'egress_acl'),
     vlan_port_scale=4.1,
     metadata_write=EGRESS_METADATA_MASK
-    )
+)
 EGRESS_ACL_DEFAULT_CONFIG = ValveTableConfig(
     'egress_acl',
     ETH_DST_DEFAULT_CONFIG.table_id + 1,
     next_tables=('egress',)
-    )
+)
 EGRESS_DEFAULT_CONFIG = ValveTableConfig(
     'egress',
     EGRESS_ACL_DEFAULT_CONFIG.table_id + 1,
@@ -168,13 +168,13 @@ EGRESS_DEFAULT_CONFIG = ValveTableConfig(
     next_tables=('flood',),
     miss_goto='flood',
     metadata_match=EGRESS_METADATA_MASK
-    )
+)
 FLOOD_DEFAULT_CONFIG = ValveTableConfig(
     'flood',
     EGRESS_DEFAULT_CONFIG.table_id + 1,
     match_types=(('eth_dst', True), ('in_port', False), ('vlan_vid', False)),
     vlan_port_scale=8.0,
-    )
+)
 MINIMUM_FAUCET_PIPELINE_TABLES = {
     'vlan', 'eth_src', 'eth_dst', 'flood'}
 

@@ -177,6 +177,6 @@ class ValveLLDPManager(ValveManagerBase):
                             'stack_root': stack_valve.dp.stack.root_name,
                             'graph': stack_valve.dp.stack.get_node_link_data(),
                             'dps': notify_dps
-                            }})
+                        }})
                     break
         return ofmsgs_by_valve

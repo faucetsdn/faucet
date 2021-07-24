@@ -39,7 +39,7 @@ class GaugePoller:
         self.ryudp = None
         self.logger = logging.getLogger(
             logname + '.{0}'.format(self.conf.type)
-            )
+        )
         # _running indicates that the watcher is receiving data
         self._running = False
         self.req = None

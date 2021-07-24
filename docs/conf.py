@@ -50,7 +50,7 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'sphinx.ext.viewcode',
               'sphinxcontrib.rsvgconverter'
-             ]
+              ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -198,12 +198,12 @@ def generate_prometheus_metric_table(_):
     output_path = {
         'faucet': 'autogen/faucet_prometheus_metric_table.rst',
         'gauge': 'autogen/gauge_prometheus_metric_table.rst'
-        }
+    }
 
     metrics = {
         'faucet': faucet.faucet_metrics.FaucetMetrics(reg=CollectorRegistry()),
         'gauge': faucet.gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
-        }
+    }
 
     for module in ["faucet", "gauge"]:
         block_text[module] = """\
