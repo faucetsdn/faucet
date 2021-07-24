@@ -54,7 +54,7 @@ class CheckConfigTestCase(unittest.TestCase):  # pytype: disable=module-attr
 
     def _deprecated_acl_check(self, config, success):
         # TODO: Check acls_in work now acl_in is deprecated, remove in future
-        if config and 'acl_in' in config and not 'acls_in' in config:
+        if config and 'acl_in' in config and 'acls_in' not in config:
             acls_cfg = re.sub('(acl_in: )(.*)', 'acls_in: [\\2]', config)
             self.assertTrue(self.run_check_config(acls_cfg, success))
 
