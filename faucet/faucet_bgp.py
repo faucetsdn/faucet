@@ -155,7 +155,6 @@ class FaucetBgp:
         Returns:
             ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
         """
-        route_handler = lambda x: self._bgp_route_handler(x, bgp_speaker_key)
         server_address = sorted(bgp_router.bgp_server_addresses_by_ipv(bgp_speaker_key.ipv))[0]
         beka = Beka(
             local_address=str(server_address),
@@ -164,7 +163,7 @@ class FaucetBgp:
             router_id=bgp_router.bgp_routerid(),
             peer_up_handler=self._bgp_up_handler,
             peer_down_handler=self._bgp_down_handler,
-            route_handler=route_handler,
+            route_handler=lambda x: self._bgp_route_handler(x, bgp_speaker_key),
             error_handler=self.logger.warning)
         for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(bgp_router.bgp_vlan(), bgp_speaker_key.ipv):
             beka.add_route(prefix=str(ip_dst), next_hop=str(ip_gw))
