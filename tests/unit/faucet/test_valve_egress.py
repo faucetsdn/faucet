@@ -36,7 +36,7 @@ class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):  # pylint: disable=t
 class ValveEgressACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test ACL drop/allow and reloading."""
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(CONFIG)
 
     def test_vlan_acl_deny(self):

@@ -47,7 +47,7 @@ dps:
                 native_vlan: 0x100
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup config with non-existent optional include file"""
         self.setup_valves(self.CONFIG)
 
@@ -86,7 +86,7 @@ dps:
 dps: {}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup invalid config"""
         self.setup_valves(self.CONFIG)
 
@@ -139,7 +139,7 @@ dps:
                 permanent_learn: False
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -190,7 +190,7 @@ dps:
                 tagged_vlans: [0x100]
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -235,7 +235,7 @@ dps:
                 mirror: [1]
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         _ = self.setup_valves(self.CONFIG)[self.DP_ID]
 
@@ -282,7 +282,7 @@ dps:
             ofmsg for ofmsg in ValveTestBases.flowmods_from_flows(ofmsgs)
             if ofmsg.match.get('in_port') == in_port]
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         initial_ofmsgs = self.setup_valves(self.CONFIG)[self.DP_ID]
         self.assertFalse(self._inport_flows(3, initial_ofmsgs))
@@ -429,7 +429,7 @@ dps:
                 native_vlan: 0x300
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -485,7 +485,7 @@ dps:
                 native_vlan: 0x200
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -525,7 +525,7 @@ dps:
                 native_vlan: 0x100
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config with priority offset"""
         self.setup_valves(self.CONFIG)
 
@@ -563,7 +563,7 @@ dps:
                 tagged_vlans: [0x100, 0x300]
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -656,7 +656,7 @@ dps:
                 native_vlan: 0x200
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic ACL config"""
         self.setup_valves(self.CONFIG)
 
@@ -720,7 +720,7 @@ dps:
                 native_vlan: 0x200
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -756,7 +756,7 @@ dps:
 class ValveACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test ACL drop/allow and reloading."""
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(CONFIG)
 
     def test_vlan_acl_deny(self):
@@ -836,7 +836,7 @@ acls:
 class ValveEgressACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test ACL drop/allow and reloading."""
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(CONFIG)
 
     def test_vlan_acl_deny(self):
@@ -987,7 +987,7 @@ dps:
 
     baseline_total_tt = None
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(CONFIG)
 
@@ -1048,7 +1048,7 @@ vlans:
         vid: 333
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -1073,7 +1073,7 @@ dps:
                 native_vlan: 0x100
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -1162,7 +1162,7 @@ dps:
 
     CONFIG_AUTO_REVERT = True
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config with hardware type set"""
         self.setup_valves(self.CONFIG)
 
@@ -1202,7 +1202,7 @@ dps:
 
     CONFIG_AUTO_REVERT = True
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup invalid config"""
         self.setup_valves(self.BAD_CONFIG, error_expected=1)
 
@@ -1239,7 +1239,7 @@ dps:
                 native_vlan: 0x100
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config with hardware type set"""
         self.setup_valves(self.CONFIG)
 
@@ -1274,7 +1274,7 @@ dps:
 class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):  # pylint: disable=too-few-public-methods
     """Repeats the tests after a config reload."""
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.flap_port(1)
         self.update_config(CONFIG, reload_type='warm', reload_expected=False)

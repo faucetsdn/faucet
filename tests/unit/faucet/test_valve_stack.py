@@ -109,7 +109,7 @@ dps:
                 native_vlan: 100
     """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG1)
         self.activate_stack()
 
@@ -186,7 +186,7 @@ dps:
                 lacp: 1
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -414,7 +414,7 @@ dps:
                 lacp: 1
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -487,7 +487,7 @@ dps:
                 lacp: 1
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -562,7 +562,7 @@ dps:
                 loop_protect_external: True
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
         self.set_stack_port_up(1)
 
@@ -594,7 +594,7 @@ class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
     DP = 's2'
     DP_ID = 2
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -669,7 +669,7 @@ class ValveStackLoopTest(ValveTestBases.ValveTestNetwork):
 
     CONFIG = STACK_LOOP_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -856,7 +856,7 @@ dps:
                 native_vlan: 100
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
         self.set_stack_port_up(1)
 
@@ -923,7 +923,7 @@ dps:
                 native_vlan: 0x100
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_nonstack_dp_port(self):
@@ -939,7 +939,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
     STACK_ROOT_STATE_UPDATE_TIME = 10
     STACK_ROOT_DOWN_TIME = STACK_ROOT_STATE_UPDATE_TIME * 3
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def dp_by_name(self, dp_name):
@@ -1032,7 +1032,7 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
     DP = 's3'
     DP_ID = 0x3
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(CONFIG)
         self.set_stack_port_up(5)
 
@@ -1088,7 +1088,7 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
     DP = 's4'
     DP_ID = 0x4
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(CONFIG)
         self.set_stack_port_up(5)
 
@@ -1138,7 +1138,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
 
     CONFIG = STACK_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_stack_probe(self):
@@ -1211,7 +1211,7 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestNetwork):
 
     CONFIG = STACK_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_update_stack_graph(self):
@@ -1328,7 +1328,7 @@ class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):  # py
     VLAN200_FAUCET_VIPS = '10.0.2.254'
     VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_stack_routing()
 
 
@@ -1372,7 +1372,7 @@ class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRoutin
                     stack: {dp: s1, port: 3}
     """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_stack_routing()
 
 
@@ -1451,7 +1451,7 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
                     stack: {dp: s3, port: 4}
     """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_stack_routing()
 
 
@@ -1463,7 +1463,7 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
     VLAN100_FAUCET_VIP_SPACE = 'fc80::1:254/64'
     VLAN200_FAUCET_VIP_SPACE = 'fc80::1:254/64'
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_stack_routing()
 
     @staticmethod
@@ -1570,7 +1570,7 @@ vlans:
                self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
                self.base_config())
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Create a stacking config file."""
         self.create_config()
         self.setup_valves(self.CONFIG)
@@ -3116,7 +3116,7 @@ dps:
                     port: 2
     """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_topo(self):
@@ -3186,7 +3186,7 @@ dps:
                     port: 2
     """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_topo(self):
@@ -3229,7 +3229,7 @@ dps:
                 native_vlan: vlan100
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def check_groupmods_exist(self, ofmsgs, groupdel_exists=True):
@@ -3437,7 +3437,7 @@ dps:
                 native_vlan: vlan200
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup network and start stack ports"""
         self.setup_valves(self.CONFIG)
 
@@ -3556,7 +3556,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -3712,7 +3712,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -3918,7 +3918,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -4076,7 +4076,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -4197,7 +4197,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -4258,7 +4258,7 @@ dps:
                 native_vlan: 100
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
