@@ -479,7 +479,7 @@ configuration.
         valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
         test_config_condition(
             not valve_cl, 'hardware %s must be in %s' % (
-                self.hardware, SUPPORTED_HARDWARE.keys()))
+                self.hardware, list(SUPPORTED_HARDWARE)))
         if valve_cl is None:
             return
 
