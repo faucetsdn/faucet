@@ -1899,6 +1899,17 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
+    def test_scapy_fuzz(self):
+        # Scapy 2.4.5 has issues with 'fuzz' generation
+        #  so black-list that version with a test
+        exception = False
+        try:
+            scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))
+        except Exception as e:
+            error('%s:' % self._test_name(), e)
+            exception = True
+        self.assertFalse(exception, 'Scapy threw an exception in send(fuzz())')
+
     def test_ryu_config(self):
         varstr = ', '.join(self.scrape_prometheus(var='ryu_config'))
         self.assertTrue('echo_request_interval"} 10.0' in varstr)
