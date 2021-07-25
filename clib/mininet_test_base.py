@@ -75,7 +75,7 @@ class FaucetTestBase(unittest.TestCase):
     OVS_TYPE = 'kernel'
     BOGUS_MAC = '01:02:03:04:05:06'
     FAUCET_MAC = '0e:00:00:00:00:01'
-    LADVD = 'ladvd -e lo -f'
+    LADVD = 'ladvd -e lo -t -f'
     ONEMBPS = (1024 * 1024)
     DB_TIMEOUT = 5
     STAT_RELOAD = ''
