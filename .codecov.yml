@@ -1,3 +1,4 @@
+---
 coverage:
   precision: 2
   round: nearest
@@ -8,4 +9,4 @@ coverage:
         threshold: 0.5
 
 comment:
-  require_changes: yes
+  require_changes: true

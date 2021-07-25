@@ -132,7 +132,8 @@ class Gauge(RyuAppBase):
         super().reload_config(ryu_event)
         self._load_config()
 
-    def _start_watchers(self, ryu_dp, watchers, timestamp):
+    @staticmethod
+    def _start_watchers(ryu_dp, watchers, timestamp):
         """Start watchers for DP if active."""
         for watchers_by_name in watchers.values():
             for i, watcher in enumerate(watchers_by_name):
@@ -160,7 +161,8 @@ class Gauge(RyuAppBase):
         ryu_dp.send_msg(valve_of.faucet_async(datapath=ryu_dp, packet_in=False))
         self._start_watchers(ryu_dp, watchers, time.time())
 
-    def _stop_watchers(self, watchers):
+    @staticmethod
+    def _stop_watchers(watchers):
         """Stop watchers for DP."""
         for watchers_by_name in watchers.values():
             for watcher in watchers_by_name:

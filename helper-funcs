@@ -3,5 +3,7 @@ TOPDIR=$(dirname $BASH_SOURCE)
 
 . $TOPDIR/docs/_static/tutorial/as_ns
 . $TOPDIR/docs/_static/tutorial/create_ns
+. $TOPDIR/docs/_static/tutorial/destroy_ns
 . $TOPDIR/docs/_static/tutorial/add_tagged_interface
+. $TOPDIR/docs/_static/tutorial/inter_switch_link
 . $TOPDIR/docs/_static/tutorial/cleanup

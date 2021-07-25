@@ -239,8 +239,9 @@ class VLAN(Conf):
             test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
             try:
                 self.routes = [route['route'] for route in self.routes]
-            except TypeError:
-                raise InvalidConfigError('%s is not a valid routes value' % self.routes)
+            except TypeError as type_error:
+                raise InvalidConfigError('%s is not a valid routes value' %
+                                         self.routes) from type_error
             except KeyError:
                 pass
             for route in self.routes:

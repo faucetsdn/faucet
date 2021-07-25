@@ -22,6 +22,7 @@ import inspect
 import os
 import sys
 import multiprocessing
+import pdb
 import pstats
 import random
 import re
@@ -30,6 +31,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import traceback
 import unittest
 
 import yaml
@@ -473,8 +475,6 @@ class FaucetCleanupResult(FaucetResult):
 
 
 def debug_exception_handler(etype, value, trace):
-    import traceback
-    import pdb
     traceback.print_exception(etype, value, trace)
     print()
     pdb.pm()
@@ -676,10 +676,9 @@ def run_tests(modules, hw_config, requested_test_classes, regex_test_classes, du
         modules, requested_test_classes, regex_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial, port_order, start_port)
 
-    testCount = (sanity_tests.countTestCases() + single_tests.countTestCases() +
-                 parallel_tests.countTestCases())
+    test_count = (sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases())
 
-    if testCount:
+    if test_count:
         no_tests = False
         sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
         if sanity_result.wasSuccessful():

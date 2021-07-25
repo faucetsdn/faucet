@@ -1,0 +1,7 @@
+# Destroy network namespace
+destroy_ns () {
+    NAME=$1
+    NETNS=faucet-${NAME}
+    sudo ip link delete veth-${NAME}
+    sudo ip netns delete ${NETNS}
+}

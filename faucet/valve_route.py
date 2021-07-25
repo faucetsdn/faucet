@@ -27,7 +27,6 @@ from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 
 from faucet import valve_of
 from faucet import valve_packet
-from faucet.valve_switch_stack import ValveSwitchStackManagerBase
 from faucet.valve_manager_base import ValveManagerBase
 
 
@@ -194,7 +193,8 @@ class ValveRouteManager(ValveManagerBase):
                         ofmsgs.append(valve_of.packetouts(running_port_nos, bytes(pkt.data)))
                     else:
                         ofmsgs.extend(
-                            [valve_of.packetout(port_no, bytes(pkt.data)) for port_no in running_port_nos])
+                            [valve_of.packetout(port_no, bytes(pkt.data)) for
+                             port_no in running_port_nos])
         return ofmsgs
 
     def _resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):

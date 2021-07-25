@@ -51,8 +51,6 @@ class FaucetTestBase(unittest.TestCase):
 
     # Number of Faucet controllers to create
     NUM_FAUCET_CONTROLLERS = 2
-    # Delay between Faucet controllers starting
-    FAUCET_CONTROLLER_START_DELAY = 10
     # Number of Gauge controllers to create
     NUM_GAUGE_CONTROLLERS = 1
 
@@ -75,7 +73,7 @@ class FaucetTestBase(unittest.TestCase):
     OVS_TYPE = 'kernel'
     BOGUS_MAC = '01:02:03:04:05:06'
     FAUCET_MAC = '0e:00:00:00:00:01'
-    LADVD = 'ladvd -e lo -f'
+    LADVD = 'ladvd -e lo -t -f'
     ONEMBPS = (1024 * 1024)
     DB_TIMEOUT = 5
     STAT_RELOAD = ''
@@ -162,7 +160,7 @@ class FaucetTestBase(unittest.TestCase):
 
     def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load,
                  port_order=None, start_port=None):
-        super(FaucetTestBase, self).__init__(name)
+        super().__init__(name)
         self.env = collections.defaultdict(dict)
         self.faucet_controllers = []
         self.faucet_of_ports = []
@@ -211,7 +209,8 @@ class FaucetTestBase(unittest.TestCase):
         """Set controller additional variables"""
         for c_index in range(self.NUM_FAUCET_CONTROLLERS):
             self._set_var('faucet-%s' % c_index, 'FAUCET_PROMETHEUS_PORT', str(self.prom_port))
-            self._set_var('faucet-%s' % c_index, 'FAUCET_PROMETHEUS_ADDR', mininet_test_util.LOCALHOSTV6)
+            self._set_var('faucet-%s' % c_index, 'FAUCET_PROMETHEUS_ADDR',
+                          mininet_test_util.LOCALHOSTV6)
         for c_index in range(self.NUM_FAUCET_CONTROLLERS):
             self._set_var('faucet-%s' % c_index, 'FAUCET_LOG_LEVEL', str(self.LOG_LEVEL))
 
@@ -227,14 +226,17 @@ class FaucetTestBase(unittest.TestCase):
         for c_index in range(self.NUM_FAUCET_CONTROLLERS):
             self._set_var('faucet-%s' % c_index, 'FAUCET_EVENT_SOCK', self.event_sock)
             self._set_var('faucet-%s' % c_index, 'FAUCET_CONFIG_STAT_RELOAD', self.STAT_RELOAD)
-            self._set_var('faucet-%s' % c_index, 'FAUCET_EVENT_SOCK_HEARTBEAT', self.EVENT_SOCK_HEARTBEAT)
+            self._set_var('faucet-%s' % c_index, 'FAUCET_EVENT_SOCK_HEARTBEAT',
+                          self.EVENT_SOCK_HEARTBEAT)
             self._set_var_path('faucet-%s' % c_index, 'FAUCET_CONFIG', 'faucet.yaml')
             self._set_var_path('faucet-%s' % c_index, 'FAUCET_LOG', 'faucet-%s.log' % c_index)
-            self._set_var_path('faucet-%s' % c_index, 'FAUCET_EXCEPTION_LOG', 'faucet-%s-exception.log' % c_index)
+            self._set_var_path('faucet-%s' % c_index, 'FAUCET_EXCEPTION_LOG',
+                               'faucet-%s-exception.log' % c_index)
         for c_index in range(self.NUM_GAUGE_CONTROLLERS):
             self._set_var_path('gauge-%s' % c_index, 'GAUGE_CONFIG', 'gauge.yaml')
             self._set_var_path('gauge-%s' % c_index, 'GAUGE_LOG', 'gauge-%s.log' % c_index)
-            self._set_var_path('gauge-%s' % c_index, 'GAUGE_EXCEPTION_LOG', 'gauge-%s-exception.log' % c_index)
+            self._set_var_path('gauge-%s' % c_index, 'GAUGE_EXCEPTION_LOG',
+                               'gauge-%s-exception.log' % c_index)
         self.faucet_config_path = self.env['faucet-0']['FAUCET_CONFIG']
         self.gauge_config_path = self.env['gauge-0']['GAUGE_CONFIG']
         self.debug_log_path = os.path.join(
@@ -381,10 +383,10 @@ class FaucetTestBase(unittest.TestCase):
         os.mkdir(tmpdir)
         return tmpdir
 
-    def _wait_load(self, load_retries=120):
+    def _wait_load(self, load_retries=10):
         for _ in range(load_retries):
+            time.sleep(random.randint(1, 5))
             load = os.getloadavg()[0]
-            time.sleep(random.randint(1, 7))
             if load < self.max_test_load:
                 return
             output('load average too high %f, waiting' % load)
@@ -527,8 +529,8 @@ class FaucetTestBase(unittest.TestCase):
     def _block_non_faucet_packets(self):
 
         def _cmd(cmd):
-            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, stderr = p.communicate()
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = proc.communicate()
             self.assertFalse(stdout, msg='%s: %s' % (stdout, cmd))
             self.assertFalse(stderr, msg='%s: %s' % (stderr, cmd))
 
@@ -628,8 +630,7 @@ class FaucetTestBase(unittest.TestCase):
         return None
 
     def _start_check(self):
-        if not self._wait_controllers_healthy():
-            return 'not all controllers healthy'
+        # '_wait_controllers_connected' also checks the 'healthy' state
         if not self._wait_controllers_connected():
             return 'not all controllers connected to switch'
         if not self._wait_ofctl_up():
@@ -697,7 +698,9 @@ class FaucetTestBase(unittest.TestCase):
                 os.remove(log)
             # Create all the controller instances here, but only add the first one to the net
             for c_index in range(self.NUM_FAUCET_CONTROLLERS):
-                controller = self._create_faucet_controller(c_index, controller_intf, controller_ipv6)
+                controller = self._create_faucet_controller(c_index,
+                                                            controller_intf,
+                                                            controller_ipv6)
             self.net = Mininet(
                 self.topo,
                 link=FaucetLink,
@@ -707,7 +710,9 @@ class FaucetTestBase(unittest.TestCase):
                 self._allocate_gauge_ports()
                 self._init_gauge_config()
                 for c_index in range(self.NUM_GAUGE_CONTROLLERS):
-                    controller = self._create_gauge_controller(c_index, controller_intf, controller_ipv6)
+                    controller = self._create_gauge_controller(c_index,
+                                                               controller_intf,
+                                                               controller_ipv6)
                     self.net.addController(controller)
                 self.gauge_controller = self.gauge_controllers[0]
             self._init_faucet_config()
@@ -721,18 +726,17 @@ class FaucetTestBase(unittest.TestCase):
                     if controller != self.faucet_controllers[0]:
                         self.net.addController(controller)
                         for switch in self.net.switches:
-                            switch.addController(controller)
-                # Add remaining faucet controllers & ensure remaining controllers are connected
+                            switch.add_controller(controller)
+                # Start remaining Faucet controllers
                 for controller in self.faucet_controllers:
                     if controller != self.faucet_controllers[0]:
-                        time.sleep(self.FAUCET_CONTROLLER_START_DELAY)
+                        self._wait_load()
                         controller.start()
-                time.sleep(self.FAUCET_CONTROLLER_START_DELAY)
+                self._wait_load()
+                # If we have multiple controllers,
+                # make sure that they are all now connected
                 if self.NUM_FAUCET_CONTROLLERS > 1:
-                    # If we add controllers, want to make sure that they are now connected
-                    self._wait_load()
                     last_error_txt = self._start_check()
-                    time.sleep(self.FAUCET_CONTROLLER_START_DELAY)
                 if last_error_txt is None:
                     self._config_tableids()
                     self._wait_load()
@@ -1154,7 +1158,7 @@ dbs:
                 if actions is not None:
                     flow_actions_set = frozenset(flow_dict['actions'])
                     if actions:
-                        if not actions_set.issubset( # pytype: disable=attribute-error
+                        if not actions_set.issubset(  # pytype: disable=attribute-error
                                 flow_actions_set):
                             continue
                     else:
@@ -1162,8 +1166,11 @@ dbs:
                             continue
                 if not ofa_match and match is not None:
                     flow_match_set = frozenset(flow_dict['match'].items())
-                    if not (match_set.issubset(flow_match_set) or exact_mask_match_set.issubset(flow_match_set)): # pytype: disable=attribute-error
+                    # pytype: disable=attribute-error
+                    if not (match_set.issubset(flow_match_set)
+                            or exact_mask_match_set.issubset(flow_match_set)):
                         continue
+                    # pytype: enable=attribute-error
                 flow_dicts.append(flow_dict)
             if flow_dicts:
                 return flow_dicts
@@ -1273,16 +1280,19 @@ dbs:
             port_labels = self.port_labels(self.port_map[port])
             for port_var in port_vars:
                 val = self.scrape_prometheus_var(
-                    port_var, labels=port_labels, controller=self.gauge_controller.name, dpid=True, retries=3)
+                    port_var, labels=port_labels,
+                    controller=self.gauge_controller.name, dpid=True, retries=3)
                 self.assertIsNotNone(val, '%s missing for port %s' % (port_var, port))
                 port_counters[port][port_var] = val
             # Require port to be up and reporting non-zero speed.
             speed = self.scrape_prometheus_var(
-                'of_port_curr_speed', labels=port_labels, controller=self.gauge_controller.name, retries=3)
+                'of_port_curr_speed', labels=port_labels,
+                controller=self.gauge_controller.name, retries=3)
             self.assertTrue(speed and speed > 0, msg='%s %s: %s' % (
                 'of_port_curr_speed', port_labels, speed))
             state = self.scrape_prometheus_var(
-                'of_port_state', labels=port_labels, controller=self.gauge_controller.name, retries=3)
+                'of_port_state', labels=port_labels,
+                controller=self.gauge_controller.name, retries=3)
             self.assertFalse(state & ofp.OFPPS_LINK_DOWN, msg='%s %s: %s' % (
                 'of_port_state', port_labels, state))
         return port_counters
@@ -1305,8 +1315,7 @@ dbs:
                 not_updated = [var for var, val in now.items() if val <= first[var]]
                 if not_updated:
                     break
-                else:
-                    updated_ports.add(port)
+                updated_ports.add(port)
             ports_not_updated -= updated_ports
             if ports_not_updated:
                 time.sleep(1)
@@ -1482,7 +1491,8 @@ dbs:
                     self.assertEqual(var_a, var_b)
                     val_a = int(float(match_a.group(2)))
                     val_b = int(float(match_b.group(2)))
-                    self.assertEqual(val_a, val_b, msg='%s %s inconsistent' % (prom_line_a, prom_line_b))
+                    self.assertEqual(val_a, val_b, msg='%s %s inconsistent' %
+                                     (prom_line_a, prom_line_b))
 
     def parse_prom_var(self, prom_line):
         """Parse prometheus variable, return tuple of variable name, variable value"""
@@ -1494,8 +1504,9 @@ dbs:
         prom_val = int(float(prom_line_match.group(2)))
         return (prom_var, prom_val)
 
-    def wait_for_prometheus_var(self, var, result_wanted, labels=None, any_labels=False, default=None,
-                                dpid=True, multiple=False, controller=None, retries=3,
+    def wait_for_prometheus_var(self, var, result_wanted, labels=None,
+                                any_labels=False, default=None, dpid=True,
+                                multiple=False, controller=None, retries=3,
                                 timeout=5, orgreater=False):
         if controller is None:
             controller = self.faucet_controllers[0].name
@@ -1511,8 +1522,7 @@ dbs:
         return False
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
-                              dpid=True, multiple=False, controller=None, retries=3,
-                              verify_consistent=False):
+                              dpid=True, multiple=False, controller=None, retries=3):
         """
         Return parsed, prometheus variable
 
@@ -1525,7 +1535,6 @@ dbs:
             multiple (bool): Return multiple instances of found matching variables
             controller (str): Name of the controller owned variable to search for
             retries (int): Number of attempts to scrape a variable
-            verify_consistent (bool): Verifies that all controllers have consistent variables
         """
         if controller is None:
             controller = self.faucet_controllers[0].name
@@ -1762,8 +1771,7 @@ dbs:
 
         if received_expected is None:
             return received_packets
-        else:
-            self.assertEqual(received_expected, received_packets, msg=msg)
+        self.assertEqual(received_expected, received_packets, msg=msg)
         return None
 
     def verify_broadcast(self, hosts=None, broadcast_expected=True, packets=3):
@@ -1776,7 +1784,8 @@ dbs:
             'ether src host %s' % host_a.MAC(),
             'udp'))
         scapy_cmd = self.scapy_bcast(host_a, count=packets)
-        return self._verify_xcast(broadcast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
+        return self._verify_xcast(broadcast_expected, packets, tcpdump_filter,
+                                  scapy_cmd, host_a, host_b)
 
     def verify_unicast(self, hosts, unicast_expected=True, packets=3):
         host_a = self.hosts_name_ordered()[0]
@@ -1792,7 +1801,8 @@ dbs:
              'IP(src=\'%s\', dst=\'%s\') / UDP(dport=67,sport=68)') % (
                  host_a.MAC(), host_b.MAC(), IPV4_ETH,
                  host_a.IP(), host_b.IP()), host_a.defaultIntf(), count=packets)
-        return self._verify_xcast(unicast_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b)
+        return self._verify_xcast(unicast_expected, packets, tcpdump_filter,
+                                  scapy_cmd, host_a, host_b)
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
@@ -1850,7 +1860,8 @@ dbs:
         if faucet_vip.version == 6:
             fping_bin = 'fping6'
         fping_cli = '%s %s -b %u -c %u -i %u %s' % (
-            fping_bin, self.FPING_ARGS_SHORT, size, total_packets, packet_interval_ms, faucet_vip.ip)
+            fping_bin, self.FPING_ARGS_SHORT, size, total_packets,
+            packet_interval_ms, faucet_vip.ip)
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(mininet_test_util.timeout_cmd(
             fping_cli, timeout))
@@ -2039,7 +2050,8 @@ dbs:
         self.assertGreaterEqual(received_pings, expected_pings)
         self.assertLessEqual(received_pings, max_expected_pings)
 
-    def verify_bcast_ping_mirrored(self, first_host, second_host, mirror_host, tagged=False, require_learned=True):
+    def verify_bcast_ping_mirrored(self, first_host, second_host, mirror_host,
+                                   tagged=False, require_learned=True):
         """Verify that broadcast to a mirrored port, is mirrored."""
         if require_learned:
             self.ping((first_host, second_host))
@@ -2244,7 +2256,8 @@ dbs:
                     old_count = old_counts[i]
                     for _ in range(timeout):
                         new_count = int(
-                            self.scrape_prometheus_var(var, controller=cont_name, dpid=dpid, default=0))
+                            self.scrape_prometheus_var(var, controller=cont_name,
+                                                       dpid=dpid, default=0))
                         if new_count > old_count:
                             break
                         time.sleep(1)
@@ -2253,11 +2266,13 @@ dbs:
                         msg='FAUCET %s %s did not increment: %u' % (cont_name, var, new_count))
                 else:
                     new_count = int(
-                        self.scrape_prometheus_var(var, controller=cont_name, dpid=dpid, default=0))
+                        self.scrape_prometheus_var(var, controller=cont_name,
+                                                   dpid=dpid, default=0))
                     self.assertEqual(
                         old_count, new_count,
                         msg='FAUCET %s %s incremented: %u' % (cont_name, var, new_count))
-            self.wait_for_prometheus_var('faucet_config_applied', 1, controller=cont_name, dpid=None, timeout=30)
+            self.wait_for_prometheus_var('faucet_config_applied', 1,
+                                         controller=cont_name, dpid=None, timeout=30)
             self.wait_dp_status(1, controller=cont_name)
 
     def force_faucet_reload(self, new_config):
@@ -2325,7 +2340,8 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
-    def port_labels(self, port_no):
+    @staticmethod
+    def port_labels(port_no):
         port_name = 'b%u' % port_no
         return {'port': port_name, 'port_description': port_name}
 
@@ -2363,7 +2379,8 @@ dbs:
         if controller is None:
             controller = self.faucet_controllers[0].name
         return self.wait_for_prometheus_var(
-            'dp_status', expected_status, any_labels=True, controller=controller, default=None, timeout=timeout)
+            'dp_status', expected_status, any_labels=True, controller=controller,
+            default=None, timeout=timeout)
 
     def _get_tableid(self, name, retries, default):
         return self.scrape_prometheus_var(
@@ -2489,7 +2506,8 @@ dbs:
             require_host_learned=require_host_learned,
             expected_result=expected_result)
 
-    def flush_arp_cache(self, host):
+    @staticmethod
+    def flush_arp_cache(host):
         """Flush the ARP cache for a host."""
         host.cmd("ip -s neigh flush all")
 
@@ -2512,12 +2530,13 @@ dbs:
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
         self.one_ipv6_ping(host, self.FAUCET_VIPV6.ip)
-        # TODO: VIP might not be in neighbor table if still tentative/ND used non VIP source address.
+        # TODO: VIP might not be in neighbor table if still tentative/ND used
+        #       non VIP source address.
         # Make test host source addresses consistent.
         # self.verify_ipv6_host_learned_mac(
         #    host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
-    def pingAll(self, timeout=3):
+    def ping_all(self, timeout=3):
         """Provide reasonable timeout default to Mininet's pingAll()."""
         return self.net.pingAll(timeout=timeout)
 
@@ -2529,7 +2548,7 @@ dbs:
         loss = None
         for _ in range(retries):
             if hosts is None:
-                loss = self.pingAll(timeout=timeout)
+                loss = self.ping_all(timeout=timeout)
             else:
                 loss = self.net.ping(hosts, timeout=timeout)
             if loss <= required_loss:
@@ -2582,7 +2601,8 @@ dbs:
                 return
             time.sleep(1)
         if flow:
-            self.fail('DPID %s flow %s matching %s table ID %s had zero packet count' % (dpid, flow, match, table_id))
+            self.fail('DPID %s flow %s matching %s table ID %s had zero packet count' %
+                      (dpid, flow, match, table_id))
         else:
             self.fail('no flow matching %s table ID %s' % (match, table_id))
 
@@ -2791,7 +2811,7 @@ dbs:
         """Verify all hosts can ping each other once FAUCET has learned them all."""
         # Cause hosts to send traffic that FAUCET can use to learn them.
         for _ in range(retries):
-            loss = self.pingAll()
+            loss = self.ping_all()
             # we should have learned all hosts now, so should have no loss.
             for host in self.hosts_name_ordered():
                 self.require_host_learned(host, hard_timeout=hard_timeout)
@@ -3070,4 +3090,5 @@ dbs:
             if 'FAUCET_LOG' in cont_env:
                 lines = self.matching_lines_from_file(
                     pattern, cont_env['FAUCET_LOG'])
-                self.assertGreater(len(lines), 0, msg='%s not found in %s' % (pattern, cont_env['FAUCET_LOG']))
+                self.assertGreater(len(lines), 0, msg='%s not found in %s' %
+                                   (pattern, cont_env['FAUCET_LOG']))

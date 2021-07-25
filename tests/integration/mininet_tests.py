@@ -34,7 +34,6 @@ from mininet.util import pmonitor
 
 from clib import mininet_test_base
 from clib import mininet_test_util
-from clib import mininet_test_topo
 
 from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
 
@@ -365,7 +364,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
                                 msg='expected event: {} not in events_that_happened {}'.format(
                                     expected_event, events_that_happened))
 
-    def _eapol_filter(self, fields):
+    @staticmethod
+    def _eapol_filter(fields):
         return '(' + ' and '.join(('ether proto 0x888e',) + fields) + ')'
 
     def _success_eapol_filter(self, expect_success):
@@ -1900,6 +1900,17 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
+    def test_scapy_fuzz(self):
+        # Scapy 2.4.5 has issues with 'fuzz' generation
+        #  so black-list that version with a test
+        exception = False
+        try:
+            scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))
+        except Exception as e:
+            error('%s:' % self._test_name(), e)
+            exception = True
+        self.assertFalse(exception, 'Scapy threw an exception in send(fuzz())')
+
     def test_ryu_config(self):
         varstr = ', '.join(self.scrape_prometheus(var='ryu_config'))
         self.assertTrue('echo_request_interval"} 10.0' in varstr)
@@ -2708,7 +2719,7 @@ vlans:
     CONFIG = CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
-        self.pingAll()
+        self.ping_all()
         learned_hosts = [
             host for host in self.hosts_name_ordered() if self.host_learned(host)]
         self.assertEqual(2, len(learned_hosts))
@@ -3109,8 +3120,7 @@ acls:
             rules *= 2
 
     def test_tuples(self):
-        host_ips = [host_ip for host_ip in itertools.islice(
-            self.NET_BASE.hosts(), self.MAX_RULES)]
+        host_ips = list(itertools.islice(self.NET_BASE.hosts(), self.MAX_RULES))
         self._push_tuples(self.ETH_TYPE, host_ips)
 
 
@@ -3459,7 +3469,7 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
 """
 
     def _verify_hosts_learned(self, hosts):
-        self.pingAll()
+        self.ping_all()
         for host in hosts:
             self.require_host_learned(host)
         self.assertEqual(len(hosts), self.scrape_prometheus_var(

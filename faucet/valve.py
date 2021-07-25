@@ -17,7 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import difflib
 import logging
 
@@ -403,8 +402,7 @@ class Valve:
         ofmsgs = []
         for manager in self._managers:
             ofmsgs.extend(manager.del_vlan(vlan))
-        expired_hosts = [
-            entry for entry in vlan.dyn_host_cache.values()]
+        expired_hosts = list(vlan.dyn_host_cache.values())
         for entry in expired_hosts:
             self._update_expired_host(entry, vlan)
         vlan.reset_caches()
@@ -1324,7 +1322,8 @@ class Valve:
             old_table_ids = self.dp.pipeline_tableids()
             new_table_ids = new_dp.pipeline_tableids()
             if old_table_ids != new_table_ids:
-                self.logger.info('table IDs changed, old %s new %s' % (old_table_ids, new_table_ids))
+                self.logger.info('table IDs changed, old %s new %s' %
+                                 (old_table_ids, new_table_ids))
                 return True
         return False
 
@@ -1628,7 +1627,7 @@ class TfmValve(Valve):
 
     def _add_default_flows(self):
         ofmsgs = self._pipeline_flows()
-        ofmsgs.extend(super(TfmValve, self)._add_default_flows())
+        ofmsgs.extend(super()._add_default_flows())
         return ofmsgs
 
 
@@ -1657,7 +1656,7 @@ class ArubaValve(TfmValve):
     FILL_REQ = False
 
     def _delete_all_valve_flows(self):
-        ofmsgs = super(ArubaValve, self)._delete_all_valve_flows()
+        ofmsgs = super()._delete_all_valve_flows()
         # Unreferenced group(s) from a previous config that used them,
         # can steal resources from regular flowmods. Unconditionally
         # delete all groups even if groups are not enabled to avoid this.

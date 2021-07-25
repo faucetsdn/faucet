@@ -165,7 +165,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
     def _build_mask_flood_rules_flood_acts(self, vlan, eth_type, eth_dst, eth_dst_mask,
                                            exclude_unicast, exclude_restricted_bcast_arpnd,
-                                           command, cold_start, prune, port):
+                                           command, cold_start, prune, port):  # pylint: disable=unused-argument
         """Builds the flood rules for the flood table to forward packets along the stack topology"""
         ofmsgs = []
         flood_acts = []
@@ -326,9 +326,9 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             if lacp_id in all_lags:
                 ports[stack_valve.dp.dp_id] = len(all_lags[lacp_id])
             nosync_lags = stack_valve.dp.lags_nosync()
-            for lacp_id in nosync_lags:
+            for l_id in nosync_lags:
                 ports.setdefault(stack_valve.dp.dp_id, 0)
-                no_sync_ports[stack_valve.dp.dp_id] = len(nosync_lags.get(lacp_id, 0))
+                no_sync_ports[stack_valve.dp.dp_id] = len(nosync_lags.get(l_id, 0))
             if stack_valve.dp.stack.is_root():
                 root_dpid = stack_valve.dp.dp_id
         # Order by number of ports

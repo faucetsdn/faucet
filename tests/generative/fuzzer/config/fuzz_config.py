@@ -33,11 +33,10 @@ def main():
     while afl.loop(ROUNDS):  # pylint: disable=c-extension-no-member
         config = sys.stdin.read()
         file_name = create_config_file(config)
-        with open(file_name, 'r') as conf_file:
-            try:
-                cp.dp_parser(file_name, LOGNAME)
-            except InvalidConfigError:
-                pass
+        try:
+            cp.dp_parser(file_name, LOGNAME)
+        except InvalidConfigError:
+            pass
 
 
 if __name__ == "__main__":

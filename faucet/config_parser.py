@@ -64,7 +64,7 @@ def _get_vlan_by_key(dp_id, vlan_key, vlans):
         if vlan_key in vlans:
             return vlans[vlan_key]
     except TypeError as err:
-        raise InvalidConfigError(err)
+        raise InvalidConfigError(err) from err
     for vlan in vlans.values():
         if vlan_key == vlan.vid:
             return vlan
@@ -113,8 +113,8 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans): # pylint: disable=invalid-name
             port_num = port_conf.get('number', port_key)
             try:
                 port_num_to_port_conf[port_num] = (port_key, port_conf)
-            except TypeError:
-                raise InvalidConfigError('Invalid syntax in port config')
+            except TypeError as type_error:
+                raise InvalidConfigError('Invalid syntax in port config') from type_error
         return port_num_to_port_conf
 
     def _parse_port_ranges(port_ranges_conf, port_num_to_port_conf):
@@ -206,7 +206,7 @@ def _dp_parser_v2(dps_conf, acls_conf, meters_conf,
                 dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
             dp_vlans.append((dp, vlans))
         except InvalidConfigError as err:
-            raise InvalidConfigError('DP %s: %s' % (dp_key, err))
+            raise InvalidConfigError('DP %s: %s' % (dp_key, err)) from err
 
     # Some VLANs are created implicitly just by referencing them in tagged/native,
     # so we must make them available to all DPs.
