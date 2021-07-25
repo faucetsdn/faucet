@@ -178,7 +178,7 @@ dps:
         tab_conf = """
 vlans:
     100:
-        	description: "100"
+        	description: "100"  # noqa: E101,W191
 dps:
     switch1:
         dp_id: 0xcafef00d

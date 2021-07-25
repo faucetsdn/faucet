@@ -2,12 +2,10 @@
 linters:
   flake8:
     python: 3
-    max-line-length: 120
-    ignore: E402, F401, W503
+    config: .codecheck
   pep8:
     python: 3
-    max-line-length: 120
-    ignore: E402, W503
+    config: .codecheck
   py3k:
     ignore:
       - 'W503'
