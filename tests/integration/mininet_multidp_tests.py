@@ -3224,7 +3224,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
                     'udp_src': 68,
                     'udp_dst': 67,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3233,7 +3233,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
                     'udp_src': 67,
                     'udp_dst': 68,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3268,7 +3268,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
                     'udp_src': 68,
                     'udp_dst': 67,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3277,7 +3277,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
                     'udp_src': 67,
                     'udp_dst': 68,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3458,7 +3458,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 68,
                     'udp_dst': 67,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3467,7 +3467,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 67,
                     'udp_dst': 68,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3521,7 +3521,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 68,
                     'udp_dst': 67,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3530,7 +3530,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 67,
                     'udp_dst': 68,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3584,7 +3584,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 68,
                     'udp_dst': 67,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3593,7 +3593,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 67,
                     'udp_dst': 68,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
