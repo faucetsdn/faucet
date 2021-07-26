@@ -16,6 +16,7 @@ Integrations
 ------------
 
  * `doveSnap <https://github.com/iqtlabs/dovesnap>`_ : Docker OVS Network Plugin
+ * `pipette <https://github.com/IQTLabs/pipette>`_ : SDN/NFV coprocessor controller
  * `Poseidon <https://github.com/IQTLabs/poseidon>`_ : SDN enabled traffic collection, feeding machine learning algorithms
  * `DAQ <https://github.com/faucetsdn/daq>`_ : Device Automated Qualification framework for IoT devices based on Faucet
  * `Forch <https://github.com/faucetsdn/forch>`_ : Faucet Orchestrator for controlling and monitoring a faucet-based network
