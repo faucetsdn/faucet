@@ -352,7 +352,8 @@ production-grade software switch with very good OpenFlow support.
     1. Add WAND Open vSwitch repo
 
        The bundled version of Open vSwitch in Ubuntu 16.04 is quite old so we
-       will use `WAND's package repo <https://packages.wand.net.nz>`_ to
+       will use
+       `WAND's package repo <https://cloudsmith.io/~wand/repos/openvswitch>`_ to
        install a newer version (if you're using a more recent debian or ubuntu
        release you can skip this step).
 
@@ -362,9 +363,9 @@ production-grade software switch with very good OpenFlow support.
 
        .. code:: console
 
-           sudo apt-get install apt-transport-https
-           echo "deb https://packages.wand.net.nz $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/wand.list
-           sudo curl https://packages.wand.net.nz/keyring.gpg -o /etc/apt/trusted.gpg.d/wand.gpg
+           sudo apt-get install apt-transport-https curl lsb-release
+           sudo curl -1sLf https://dl.cloudsmith.io/public/wand/openvswitch/gpg.2E801E8CCE233F26.key -o /etc/apt/trusted.gpg.d/wand-openvswitch.asc
+           curl -1sLf "https://dl.cloudsmith.io/public/wand/openvswitch/config.deb.txt?distro=$(lsb_release -is)&codename=$(lsb_release -sc)" | sudo tee /etc/apt/sources.list.d/wand-openvswitch.list
            sudo apt-get update
 
     2. Install Open vSwitch
