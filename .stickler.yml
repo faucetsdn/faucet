@@ -3,9 +3,6 @@ linters:
   flake8:
     python: 3
     config: .codecheck
-  pep8:
-    python: 3
-    config: .codecheck
   py3k:
     ignore:
       - 'W503'
