@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Report state based on FAUCET/Gauge/Prometheus variables."""
 

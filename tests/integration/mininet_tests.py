@@ -3829,7 +3829,7 @@ routers:
                 '10.0.0.0/24 next-hop 10.0.0.254',
                 '10.0.1.0/24 next-hop 10.0.0.1',
                 '10.0.2.0/24 next-hop 10.0.0.2',
-                '10.0.2.0/24 next-hop 10.0.0.2'):
+                '10.0.3.0/24 next-hop 10.0.0.2'):
             self.assertTrue(re.search(route_string, updates), msg=updates)
         # test nexthop expired when port goes down
         first_host = self.hosts_name_ordered()[0]

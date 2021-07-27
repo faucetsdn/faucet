@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """Library for test_valve.py."""
 
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
