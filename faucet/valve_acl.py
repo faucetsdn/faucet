@@ -397,13 +397,13 @@ class ValveAclManager(ValveManagerBase):
                     vlan.acls_out, self.egress_acl_table, egress_acl_allow_inst,
                     egress_acl_allow_inst, self.acl_priority, self.meters,
                     vlan.acls_out[0].exact_match, vlan_vid=vlan.vid
-                    ))
+                ))
             else:
                 ofmsgs.append(self.egress_acl_table.flowmod(
                     self.egress_acl_table.match(vlan=vlan),
                     priority=self.acl_priority,
                     inst=tuple(egress_acl_allow_inst),
-                    ))
+                ))
         return ofmsgs
 
     def add_authed_mac(self, port_num, mac):
@@ -491,14 +491,14 @@ class ValveAclManager(ValveManagerBase):
                     eth_type=valve_packet.ETH_EAPOL,
                     eth_src=mac),
                 priority=self.override_priority,
-                ),
+            ),
             self.port_acl_table.flowdel(
                 match=self.port_acl_table.match(
                     in_port=port_num,
                     eth_type=valve_packet.ETH_EAPOL),
                 priority=self.override_priority,
-                )
-            ]
+            )
+        ]
         return ofmsgs
 
     def create_mab_flow(self, port_num, nfv_sw_port_num, mac):

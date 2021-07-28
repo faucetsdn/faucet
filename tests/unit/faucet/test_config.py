@@ -97,13 +97,13 @@ dps:
             len(dp.ports),
             1,
             'unexpected interface configured in datapath'
-            )
+        )
         self.assertTrue(100 in dp.vlans, 'vlan not configured in datapath')
         self.assertEqual(
             len(dp.vlans),
             1,
             'unexpected vlan configured in datapath'
-            )
+        )
         port = dp.ports[1]
         self.assertEqual(port.number, 1, 'port number configured incorrectly')
         self.assertEqual(
@@ -116,7 +116,7 @@ dps:
             port.native_vlan,
             vlan,
             'native vlan configured incorrectly in port'
-            )
+        )
 
     def test_config_stack(self):
         """Test valid stacking config."""
@@ -184,7 +184,7 @@ dps:
                 len(dp.stack.graph.nodes),
                 3,
                 'stack graph has incorrect nodes'
-                )
+            )
             self.assertTrue(
                 dp.has_externals,
                 'All DPs must have external flag set if one DP has it')
@@ -515,7 +515,7 @@ dps:
             dp.vlans[100].faucet_mac,
             '11:22:33:44:55:66',
             'faucet mac configured incorrectly'
-            )
+        )
 
     def test_novlans(self):
         """Test DP with no VLANs."""
@@ -550,11 +550,11 @@ dps:
         self.assertTrue(
             sw1.ports[2].output_only,
             'mirror port not set to output only'
-            )
+        )
         self.assertTrue(
             sw1.ports[1].mirror_actions() is not None,
             'mirror port has no mirror actions'
-            )
+        )
 
     def test_acl_dictionary_valid(self):
         """test acl config is valid when not using 'rule' key"""
@@ -1254,7 +1254,7 @@ dps:
         outputs = {
             's1': 2,
             's2': 3
-            }
+        }
         for dp in dps:
             v100 = dp.vlans[100]
             for acl in v100.acls_in:
@@ -1264,7 +1264,7 @@ dps:
                         outputs[dp.name],
                         port,
                         msg='acl output port resolved incorrectly'
-                        )
+                    )
 
     def test_acl_multi_dp_output_rule_ordered(self):
         """Verify that an acl can output to different ports with the same name
@@ -1307,7 +1307,7 @@ dps:
         outputs = {
             's1': 2,
             's2': 3
-            }
+        }
         for dp in dps:
             v100 = dp.vlans[100]
             for acl in v100.acls_in:
@@ -1317,7 +1317,7 @@ dps:
                         outputs[dp.name],
                         port,
                         msg='acl output port resolved incorrectly'
-                        )
+                    )
 
     def test_port_range_valid_config(self):
         """Test if port range config applied correctly"""
@@ -1408,17 +1408,17 @@ dps:
             self.assertTrue(
                 table_name in tables,
                 'Incorrect table configured in dp'
-                )
+            )
             self.assertEqual(
                 tables[table_name],
                 table.table_id,
                 'Table configured with wrong table_id'
-                )
+            )
         for table_name in tables:
             self.assertTrue(
                 table_name in dp.tables,
                 'Table not configured in dp'
-                )
+            )
 
     def _check_next_tables(self, table, next_tables):
         for next_table in table.next_tables:
@@ -1446,7 +1446,7 @@ dps:
             'eth_src': 1,
             'eth_dst': 2,
             'flood': 3
-            }
+        }
         self._check_table_names_numbers(dp, tables)
         self._check_next_tables(dp.tables['vlan'], [1])
         self._check_next_tables(dp.tables['eth_src'], [2, 3])
@@ -1475,7 +1475,7 @@ dps:
             'eth_src': 4,
             'eth_dst': 9,
             'flood': 12
-            }
+        }
         self._check_table_names_numbers(dp, tables)
 
     def test_pipeline_config_ipv4_no_acl(self):
@@ -1501,7 +1501,7 @@ dps:
             'vip': 3,
             'eth_dst': 4,
             'flood': 5
-            }
+        }
         self._check_table_names_numbers(dp, tables)
 
     def test_pipeline_config_ipv6_4_no_acl(self):
@@ -1528,7 +1528,7 @@ dps:
             'vip': 4,
             'eth_dst': 5,
             'flood': 6
-            }
+        }
         self._check_table_names_numbers(dp, tables)
 
     def test_pipeline_config_ipv6_4_vlan_acl(self):
@@ -1563,7 +1563,7 @@ dps:
             'vip': 5,
             'eth_dst': 6,
             'flood': 7
-            }
+        }
         self._check_table_names_numbers(dp, tables)
 
     def test_pipeline_full(self):
@@ -1604,7 +1604,7 @@ dps:
             'eth_dst': 8,
             'egress': 9,
             'flood': 10,
-            }
+        }
         self._check_table_names_numbers(dp, tables)
         self._check_next_tables(dp.tables['port_acl'], [1, 7, 8, 10])
         self._check_next_tables(dp.tables['vlan'], [2, 3, 4])
@@ -1640,7 +1640,7 @@ dps:
             'eth_dst': 2,
             'egress': 3,
             'flood': 4,
-            }
+        }
         self._check_table_names_numbers(dp, tables)
 
     def test_pipeline_config_egress_acl(self):
@@ -1672,7 +1672,7 @@ dps:
             'egress_acl': 3,
             'egress': 4,
             'flood': 5,
-            }
+        }
         self._check_table_names_numbers(dp, tables)
 
     def test_tunnel_dp_acl_accepted(self):

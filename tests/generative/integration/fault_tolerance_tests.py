@@ -436,6 +436,6 @@ TEST_CLASS_LIST = [
     FaucetFaultTolerance5DPTest,
     FaucetFaultTolerance6DPTest,
     FaucetFaultTolerance7DPTest
-    ]
+]
 MIN_NODES = min([c.NUM_DPS for c in TEST_CLASS_LIST])
 MAX_NODES = max([c.NUM_DPS for c in TEST_CLASS_LIST])

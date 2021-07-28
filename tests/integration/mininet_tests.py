@@ -782,7 +782,7 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XBase):
         for req_str in (
                 'Identity: %s' % username,  # supplicant replies with username
                 'Success',  # supplicant success
-                ):
+        ):
             self.assertTrue(req_str in tcpdump_txt, msg='%s not in %s' % (req_str, tcpdump_txt))
 
         self.one_ipv4_ping(
@@ -2919,8 +2919,7 @@ vlans:
             eth_src: %u
             eth_dst: %u
             ipv4_fib: %u
-""" % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) +
-              """
+""" % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) + """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2966,8 +2965,7 @@ vlans:
         table_sizes:
             eth_src: %u
             eth_dst: %u
-""" % (_max_hosts() + 64, _max_hosts() + 64) +
-              """
+""" % (_max_hosts() + 64, _max_hosts() + 64) + """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -4738,7 +4736,7 @@ acls:
         egress_acl_table = self.scrape_prometheus_var(
             'faucet_config_table_names',
             labels={'table_name': 'egress_acl'}
-            )
+        )
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(
             5001, first_host, second_host, table_id=egress_acl_table)
@@ -4750,7 +4748,7 @@ acls:
         egress_acl_table = self.scrape_prometheus_var(
             'faucet_config_table_names',
             labels={'table_name': 'egress_acl'}
-            )
+        )
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(
@@ -5816,11 +5814,11 @@ routers:
 vlans:
 %s
 """ % (
-    ','.join(STR_VIDS),
-    '\n'.join(['\n'.join(
-        ('    %u:',
-         '        description: "tagged"',
-         '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
+        ','.join(STR_VIDS),
+        '\n'.join(['\n'.join(
+            ('    %u:',
+             '        description: "tagged"',
+             '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: %u
         proactive_learn_v4: True
@@ -5998,11 +5996,11 @@ routers:
 vlans:
 %s
 """ % (
-    ','.join(STR_VIDS),
-    '\n'.join(['\n'.join(
-        ('    %u:',
-         '        description: "tagged"',
-         '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
+        ','.join(STR_VIDS),
+        '\n'.join(['\n'.join(
+            ('    %u:',
+             '        description: "tagged"',
+             '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: %u
         proactive_learn_v6: True
@@ -6038,8 +6036,8 @@ class FaucetTaggedScaleTest(FaucetTaggedTest):
     CONFIG_GLOBAL = """
 vlans:
 """ + '\n'.join(['\n'.join(
-    ('    %u:',
-     '        description: "tagged"')) % i for i in VIDS])
+        ('    %u:',
+         '        description: "tagged"')) % i for i in VIDS])
     CONFIG = """
         interfaces:
             %s:

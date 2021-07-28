@@ -46,7 +46,7 @@ class FctlTestCaseBase(unittest.TestCase):  # pytype: disable=module-attr
     FCTL_BASE_ARGS = [
         '--metrics={metrics}'.format(**DEFAULT_VALUES),
         '--labels=dp_id:{dp_id}'.format(**DEFAULT_VALUES)
-        ]
+    ]
     FCTL = os.path.join(SRC_DIR, 'fctl.py')
     tmpdir = None
     prom_input_file_name = None
@@ -160,7 +160,7 @@ class FctlClassTestCase(FctlTestCaseBase):
             label_matches,
             nonzero_only,
             _
-            ) = fctl.parse_args(self.fctl_args())
+        ) = fctl.parse_args(self.fctl_args())
         metrics = fctl.scrape_prometheus(endpoints)
         report_out = fctl.report_label_match_metrics(  # pylint: disable=assignment-from-no-return
             report_metrics=report_metrics,

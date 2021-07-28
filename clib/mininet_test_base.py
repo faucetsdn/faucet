@@ -1582,7 +1582,7 @@ dbs:
         watcher_files = set([
             self.monitor_stats_file,
             self.monitor_state_file,
-            ])
+        ])
         found_watcher_files = set()
         for _ in range(60):
             for watcher_file in watcher_files:
@@ -2042,10 +2042,10 @@ dbs:
                 partial(first_host.cmd, first_ping_second)], packets=(max_expected_pings + 1))
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt),
-                        msg=tcpdump_txt)
+            msg=tcpdump_txt)
         self.assertTrue(re.search(
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
-                        msg=tcpdump_txt)
+            msg=tcpdump_txt)
         received_pings = self.match_tcpdump_rx_packets(tcpdump_txt)
         self.assertGreaterEqual(received_pings, expected_pings)
         self.assertLessEqual(received_pings, max_expected_pings)
@@ -2072,7 +2072,7 @@ dbs:
             packets=1)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt),
-                        msg=tcpdump_txt)
+            msg=tcpdump_txt)
 
     def verify_ping_mirrored_multi(self, ping_pairs, mirror_host, both_mirrored=False):
         """ Verify that mirroring of multiple switchs works. Method
@@ -2122,10 +2122,10 @@ dbs:
         for hosts in ping_pairs:
             self.assertTrue(re.search(
                 '%s > %s: ICMP echo request' % (hosts[0].IP(), hosts[1].IP()), tcpdump_txt),
-                            msg=tcpdump_txt)
+                msg=tcpdump_txt)
             self.assertTrue(re.search(
                 '%s > %s: ICMP echo reply' % (hosts[1].IP(), hosts[0].IP()), tcpdump_txt),
-                            msg=tcpdump_txt)
+                msg=tcpdump_txt)
 
         received_pings = self.match_tcpdump_rx_packets(tcpdump_txt)
         self.assertGreaterEqual(received_pings, expected_pings)

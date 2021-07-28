@@ -353,12 +353,12 @@ class ValveRouteManager(ValveManagerBase):
             actions = [
                 self.fib_table.set_field(eth_dst=vlan_mac),
                 self.fib_table.set_vlan_vid(self.global_vlan.vid)
-                ]
+            ]
         ofmsgs.extend(self.pipeline.select_packets(
             self.fib_table,
             {'eth_type': self.ETH_TYPE, 'eth_dst': faucet_mac, 'vlan': vlan},
             actions
-            ))
+        ))
         if self.global_routing:
             vlan = self.global_vlan
         ofmsgs.append(self.fib_table.flowmod(
@@ -858,7 +858,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
         ofmsgs.extend(self.pipeline.select_packets(
             self.vip_table,
             {'eth_type': valve_of.ether.ETH_TYPE_ARP, 'vlan': vlan}
-            ))
+        ))
         # ARP for FAUCET VIP
         ofmsgs.append(self.vip_table.flowcontroller(
             self.vip_table.match(
@@ -972,7 +972,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 'eth_type': self.ETH_TYPE,
                 'eth_dst': valve_packet.IPV6_ALL_ROUTERS_MCAST,
                 'vlan': vlan
-                }
+            }
             ofmsgs.extend(self.pipeline.select_packets(self.vip_table, match))
             ofmsgs.append(self.vip_table.flowmod(
                 self.vip_table.match(
@@ -1005,7 +1005,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             'eth_type': self.ETH_TYPE,
             'eth_dst': faucet_vip_host_nd_mcast,
             'vlan': vlan
-            }
+        }
         ofmsgs.extend(self.pipeline.select_packets(self.vip_table, match))
         ofmsgs.append(self.vip_table.flowmod(
             self.vip_table.match(

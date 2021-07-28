@@ -346,7 +346,7 @@ def faucet_tlvs(lldp_pkt, faucet_dp_mac):
     """Return list of TLVs with FAUCET OUI."""
     return [tlv for tlv in tlvs_by_type(
         lldp_pkt.tlvs, lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC)
-            if tlv.oui == faucet_oui(faucet_dp_mac)]
+        if tlv.oui == faucet_oui(faucet_dp_mac)]
 
 
 def parse_faucet_lldp(lldp_pkt, faucet_dp_mac):
