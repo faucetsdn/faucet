@@ -62,7 +62,7 @@ class GaugePrometheusClient(PromClient):
         super().__init__(reg=reg)
         self.table_tags = collections.defaultdict(set)
         self.metrics = {}
-        self.dp_status = Gauge( # pylint: disable=unexpected-keyword-arg
+        self.dp_status = Gauge(  # pylint: disable=unexpected-keyword-arg
             'dp_status',
             'status of datapaths',
             self.REQUIRED_LABELS,
@@ -203,7 +203,7 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                         table_tags.update(unreg_tags)
                         self.prom_client.reregister_flow_vars(
                             table_name, table_tags)
-                        self.logger.info( # pylint: disable=logging-not-lazy
+                        self.logger.info(  # pylint: disable=logging-not-lazy
                             'Adding tags %s to %s for table %s' % (
                                 unreg_tags, table_tags, table_name))
                     # Add blank tags for any tags not present.
@@ -214,6 +214,6 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                 try:
                     self.prom_client.metrics[table_prom_var].labels(**tags).set(count)
                 except ValueError:
-                    self.logger.error( # pylint: disable=logging-not-lazy
+                    self.logger.error(  # pylint: disable=logging-not-lazy
                         'labels %s versus %s incorrect on %s' % (
                             tags, table_tags, table_prom_var))

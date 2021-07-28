@@ -144,9 +144,9 @@ For Prometheus:
     }
 
     def __init__(self, _id, dp_id, conf, prom_client):
-        self.db = None # pylint: disable=invalid-name
+        self.db = None  # pylint: disable=invalid-name
         self.dbs = None
-        self.dp = None # pylint: disable=invalid-name
+        self.dp = None  # pylint: disable=invalid-name
         self.all_dps = None
         self.type = None
         self.interval = None
@@ -187,9 +187,9 @@ For Prometheus:
             self.path is not None and not os.access(self.path, os.W_OK),
             '%s is not writable' % self.file)
 
-    def add_dp(self, dp): # pylint: disable=invalid-name
+    def add_dp(self, dp):  # pylint: disable=invalid-name
         """Add a datapath to this watcher."""
-        self.dp = dp # pylint: disable=invalid-name
+        self.dp = dp  # pylint: disable=invalid-name
 
     def check_config(self):
         super().check_config()

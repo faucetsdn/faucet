@@ -232,4 +232,4 @@ class FaucetVLANMethodTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr

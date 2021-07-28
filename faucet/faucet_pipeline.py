@@ -19,10 +19,10 @@
 from faucet.faucet_metadata import EGRESS_METADATA_MASK
 
 
-class ValveTableConfig: # pylint: disable=too-few-public-methods,too-many-instance-attributes
+class ValveTableConfig:  # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Configuration for a single table."""
 
-    def __init__(self, name, table_id, # pylint: disable=too-many-arguments
+    def __init__(self, name, table_id,  # pylint: disable=too-many-arguments
                  exact_match=None, meter=None, output=True, miss_goto=None,
                  size=None, match_types=None, set_fields=None, dec_ttl=None,
                  vlan_scale=None, vlan_port_scale=None,
