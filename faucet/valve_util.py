@@ -32,9 +32,8 @@ def kill_on_exception(logname):
         def __koe(*args, **kwargs):
             try:
                 func(*args, **kwargs)
-            except:
-                logging.getLogger(logname).exception(
-                    'Unhandled exception, killing RYU')
+            except Exception:
+                logging.getLogger(logname).exception('Unhandled exception, killing RYU')
                 logging.shutdown()
                 os.kill(os.getpid(), signal.SIGTERM)
         return __koe

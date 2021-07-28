@@ -16,6 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Some docstring examples are too long, and can't be ignored on
+# a line by line basis, as they are in docstrings.
+# flake8: noqa
+
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 import requests  # pytype: disable=pyi-error

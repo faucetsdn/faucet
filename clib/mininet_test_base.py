@@ -1119,7 +1119,7 @@ dbs:
             match_set = frozenset(match.items())
             exact_mask_match = {}
             for field, value in match.items():
-                if isinstance(value, str) and not '/' in value:
+                if isinstance(value, str) and '/' not in value:
                     value_mac = None
                     value_ip = None
                     try:
@@ -1151,7 +1151,7 @@ dbs:
                         and cookie != flow_dict['cookie']):
                     continue
                 if hard_timeout:
-                    if not 'hard_timeout' in flow_dict:
+                    if 'hard_timeout' not in flow_dict:
                         continue
                     if flow_dict['hard_timeout'] < hard_timeout:
                         continue

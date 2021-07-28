@@ -130,7 +130,7 @@ class DockerHost(Host):
                     break
             self.readbuf = ''
             self.waiting = False
-        except:
+        except Exception:
             error('docker cmd: %s' % ' '.join(cmd))
             if self.shell.returncode:
                 error('returncode: %d' % self.shell.returncode)
@@ -155,7 +155,7 @@ class DockerHost(Host):
             kill_pipe = self._popen(kill_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
             kill_pipe.stdout.readlines()
             kill_pipe.stdout.close()
-        except:
+        except Exception:
             if kill_pipe:
                 kill_pipe.poll()
             raise
@@ -169,7 +169,7 @@ class DockerHost(Host):
             ps_out = pid_pipe.stdout.readlines()
             pid_pipe.stdout.close()
             return int(ps_out[0])
-        except:
+        except Exception:
             if pid_pipe is not None:
                 pid_pipe.poll()
             raise
@@ -197,7 +197,7 @@ class DockerHost(Host):
             debug('logging to activate.log for %s' % docker_cmd)
             stdout = self.open_log()
             self.active_log = stdout
-        except:
+        except Exception:
             if inspect_pipe:
                 inspect_pipe.poll()
             raise

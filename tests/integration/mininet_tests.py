@@ -661,7 +661,9 @@ class Faucet8021XFailureTest(Faucet8021XBase):
     def test_untagged(self):
         self.assertFalse(
             self.try_8021x(
-                self.eapol1_host, self.port_map['port_1'], self.wpasupplicant_conf_1, and_logoff=False, expect_success=False))
+                self.eapol1_host, self.port_map['port_1'],
+                self.wpasupplicant_conf_1, and_logoff=False,
+                expect_success=False))
         self.post_test_checks()
 
 
