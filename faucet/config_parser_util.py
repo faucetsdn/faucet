@@ -79,7 +79,7 @@ def read_config(config_file, logname):
             PermissionError, ValueError) as err:  # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
     except FileNotFoundError as err:  # pytype: disable=name-error
-        logger.error('Could not find requested file: %s', config_file)
+        logger.error('Could not find requested file: %s (%s)', config_file, str(err))
     return conf, conf_txt
 
 

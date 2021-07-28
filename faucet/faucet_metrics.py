@@ -226,7 +226,8 @@ class FaucetMetrics(PromClient):
         return Info(var, var_help, registry=self._reg)  # pylint: disable=unexpected-keyword-arg
 
     def _histogram(self, var, var_help, labels, buckets):
-        return Histogram(var, var_help, labels, buckets=buckets, registry=self._reg)  # pylint: disable=unexpected-keyword-arg
+        # pylint: disable=unexpected-keyword-arg
+        return Histogram(var, var_help, labels, buckets=buckets, registry=self._reg)
 
     def _dpid_counter(self, var, var_help):
         counter = self._counter(var, var_help, self.REQUIRED_LABELS)
