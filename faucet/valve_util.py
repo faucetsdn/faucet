@@ -56,8 +56,8 @@ def get_sys_prefix():
     # different from sys.prefix, then we are most likely running in a
     # virtualenv. Also check for Py3.3+ pyvenv.
     sysprefix = ''
-    if (getattr(sys, 'real_prefix', sys.prefix) != sys.prefix or
-            getattr(sys, 'base_prefix', sys.prefix) != sys.prefix):
+    if (getattr(sys, 'real_prefix', sys.prefix) != sys.prefix
+            or getattr(sys, 'base_prefix', sys.prefix) != sys.prefix):
         sysprefix = sys.prefix
 
     return sysprefix
@@ -109,9 +109,9 @@ def get_setting(name, path_eval=False):
     default_value = DEFAULTS[name]
     result = os.getenv(name, default_value)
     # split on ':' and find the first suitable path
-    if (path_eval and
-            isinstance(result, str) and
-            isinstance(default_value, str) and not
+    if (path_eval
+            and isinstance(result, str)
+            and isinstance(default_value, str) and not
             isinstance(default_value, bool)):
         locations = result.split(":")
         result = None

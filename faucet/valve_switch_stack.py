@@ -42,8 +42,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             self.logger.info('external ports present, using loop protection')
             self._set_ext_port_flag = (self.flood_table.set_external_forwarding_requested(),)
             self._set_nonext_port_flag = (self.flood_table.set_no_external_forwarding_requested(),)
-            if (not self.stack_manager.stack.is_root() and
-                    self.stack_manager.stack.is_root_candidate()):
+            if (not self.stack_manager.stack.is_root()
+                    and self.stack_manager.stack.is_root_candidate()):
                 self.logger.info('external flooding on root only')
                 self.external_root_only = True
 
@@ -150,8 +150,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             ofmsgs.extend(self.pipeline.remove_filter(
                 match, priority_offset=priority_offset))
             # Control learning from multicast/broadcast on non-root DPs.
-            if (not self.stack_manager.stack.is_root() and
-                    eth_dst is not None and self._USES_REFLECTION):
+            if (not self.stack_manager.stack.is_root()
+                    and eth_dst is not None and self._USES_REFLECTION):
                 # If this is an edge DP, we don't have to learn from
                 # hosts that only broadcast.  If we're an intermediate
                 # DP, only learn from broadcasts further away from

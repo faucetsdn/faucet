@@ -39,8 +39,8 @@ def get_sys_prefix():
     # different from sys.prefix, then we are most likely running in a
     # virtualenv. Also check for Py3.3+ pyvenv.
     sysprefix = ''
-    if (getattr(sys, 'real_prefix', sys.prefix) != sys.prefix or
-            getattr(sys, 'base_prefix', sys.prefix) != sys.prefix):
+    if (getattr(sys, 'real_prefix', sys.prefix) != sys.prefix
+            or getattr(sys, 'base_prefix', sys.prefix) != sys.prefix):
         sysprefix = sys.prefix
 
     return sysprefix

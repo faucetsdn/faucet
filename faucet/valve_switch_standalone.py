@@ -245,8 +245,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                      exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
                 if not flood_acts:
                     continue
-                if (vlan_output_ports - set([port.number]) == port_output_ports and
-                        vlan_non_output_acts == port_non_output_acts):
+                if (vlan_output_ports - set([port.number]) == port_output_ports
+                        and vlan_non_output_acts == port_non_output_acts):
                     # Delete a potentially existing port specific flow
                     # TODO: optimize, avoid generating delete for port if no existing flow.
                     if not cold_start:
@@ -730,9 +730,9 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         # Host not cached, and no hosts expired since we cold started
         # Enable faster learning by assuming there's no previous host to delete
         if entry is None:
-            if (last_dp_coldstart_time and
-                    (vlan.dyn_last_time_hosts_expired is None or
-                     vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
+            if (last_dp_coldstart_time
+                    and (vlan.dyn_last_time_hosts_expired is None
+                         or vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
                 delete_existing = False
         else:
             cache_age = now - entry.cache_time
@@ -890,9 +890,9 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             dict: OpenFlow messages, if any by Valve
         """
         ofmsgs_by_valve = defaultdict(list)
-        if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
-                pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW and
-                pkt_meta.port.lacp):
+        if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST
+                and pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW
+                and pkt_meta.port.lacp):
             # LACP packet so reparse
             pkt_meta.data = pkt_meta.data[:valve_packet.LACP_SIZE]
             pkt_meta.reparse_all()
@@ -904,8 +904,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 if pkt_meta.port.dyn_lacp_last_resp_time:
                     age = now - pkt_meta.port.dyn_lacp_last_resp_time
                 lacp_pkt_change = (
-                    pkt_meta.port.dyn_last_lacp_pkt is None or
-                    str(lacp_pkt) != str(pkt_meta.port.dyn_last_lacp_pkt))
+                    pkt_meta.port.dyn_last_lacp_pkt is None
+                    or str(lacp_pkt) != str(pkt_meta.port.dyn_last_lacp_pkt))
                 lacp_resp_interval = pkt_meta.port.lacp_resp_interval
                 if lacp_pkt_change or (age is not None and age > lacp_resp_interval):
                     ofmsgs_by_valve[valve].extend(

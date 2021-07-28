@@ -87,9 +87,9 @@ class ValveLLDPManager(ValveManagerBase):
         remote_port = port.stack['port']
         stack_correct = True
         self._inc_var('stack_probes_received')
-        if (remote_dp_id != remote_dp.dp_id or
-                remote_dp_name != remote_dp.name or
-                remote_port_id != remote_port.number):
+        if (remote_dp_id != remote_dp.dp_id
+                or remote_dp_name != remote_dp.name
+                or remote_port_id != remote_port.number):
             self.logger.error(
                 'Stack %s cabling incorrect, expected %s:%s:%u, actual %s:%s:%u' % (
                     port,

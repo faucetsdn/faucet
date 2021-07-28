@@ -1582,8 +1582,8 @@ vlans:
         stack_manager.reset_peer_distances()
         ports = list()
         if stack_manager.stack.is_root():
-            ports = (stack_manager.away_ports - stack_manager.inactive_away_ports -
-                     stack_manager.pruned_away_ports)
+            ports = (stack_manager.away_ports - stack_manager.inactive_away_ports
+                     - stack_manager.pruned_away_ports)
         else:
             ports = [stack_manager.chosen_towards_port]
         return sorted([port.number for port in ports])

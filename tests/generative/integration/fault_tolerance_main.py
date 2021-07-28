@@ -31,9 +31,9 @@ if __name__ == '__main__':
     GRAPHS = {}
     GRAPH_ATLAS = graph_atlas_g()
     for graph in GRAPH_ATLAS:
-        if (not graph or
-                graph.number_of_nodes() > fault_tolerance_tests.MAX_NODES or
-                graph.number_of_nodes() < fault_tolerance_tests.MIN_NODES):
+        if (not graph
+                or graph.number_of_nodes() > fault_tolerance_tests.MAX_NODES
+                or graph.number_of_nodes() < fault_tolerance_tests.MIN_NODES):
             continue
         if networkx.is_connected(graph):
             GRAPHS.setdefault(graph.number_of_nodes(), [])

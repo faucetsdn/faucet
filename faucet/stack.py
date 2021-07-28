@@ -397,8 +397,8 @@ is technically a fixed allocation for this DP Stack instance."""
 
     def is_edge(self):
         """Return True if this DP is a stack edge."""
-        return (not self.is_root() and
-                self.longest_path_to_root_len() == len(self.shortest_path_to_root()))
+        return (not self.is_root()
+                and self.longest_path_to_root_len() == len(self.shortest_path_to_root()))
 
     def shortest_path_port(self, dest_dp):
         """Return first port on our DP, that is the shortest path towards dest DP."""
