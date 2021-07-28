@@ -136,7 +136,6 @@ class Valve:
     STATIC_TABLE_IDS = False
     GROUPS = True
 
-
     def __init__(self, dp, logname, metrics, notifier, dot1x):
         self.dot1x = dot1x
         self.dp = dp
@@ -279,7 +278,6 @@ class Valve:
                 self._lldp_manager, self._route_manager_by_ipv.get(4),
                 self._route_manager_by_ipv.get(6), self._coprocessor_manager,
                 self._output_only_manager, self._dot1x_manager) if manager is not None)
-
 
     def notify(self, event_dict):
         """Send an event notification."""
@@ -640,7 +638,7 @@ class Valve:
         chassis_id = str(self.dp.faucet_dp_mac)
         ttl = min(
             self.dp.lldp_beacon.get('send_interval', self.dp.DEFAULT_LLDP_SEND_INTERVAL) * 3,
-            2**16-1)
+            2**16 - 1)
         org_tlvs = [
             (tlv['oui'], tlv['subtype'], tlv['info'])
             for tlv in port.lldp_beacon['org_tlvs']]

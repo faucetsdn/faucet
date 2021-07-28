@@ -130,7 +130,6 @@ vlans:
     # pylint: disable=invalid-name
     CONFIG = CONFIG_BOILER_UNTAGGED
 
-
     def setUp(self):  # pylint: disable=invalid-name
         super().setUp()
         self.topo = self.topo_class(
@@ -579,7 +578,7 @@ listen {
                 default_config = re.sub(
                     listen_match, '', default_config)
                 default_config = re.sub(
-                    r'server default {', 'server default {\n'+listen_config, default_config)
+                    r'server default {', 'server default {\n' + listen_config, default_config)
                 default_site.seek(0)
                 default_site.write(default_config)
                 default_site.truncate()
@@ -2755,7 +2754,7 @@ vlans:
     def test_untagged(self):
         first_host, second_host = self.hosts_name_ordered()[:2]
         self.ping_all_when_learned()
-        for i in range(10, 10+(self.MAX_HOSTS*2)):
+        for i in range(10, 10 + (self.MAX_HOSTS * 2)):
             mac_intf = 'mac%u' % i
             mac_ipv4 = '10.0.0.%u' % i
             self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
@@ -3019,12 +3018,12 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
         for var in reload_type_vars:
             reload_vals[var] = self.scrape_prometheus_var(
                 var, dpid=True, default=None)
-        for i in range(init_config_count, init_config_count+3):
+        for i in range(init_config_count, init_config_count + 3):
             self._configure_count_with_retry(i)
             with open(self.faucet_config_path, 'a') as config_file:
                 config_file.write('\n')
             self.verify_faucet_reconf(change_expected=False)
-            self._configure_count_with_retry(i+1)
+            self._configure_count_with_retry(i + 1)
             self.assertEqual(
                 self.scrape_prometheus_var(
                     'of_dp_disconnections_total', dpid=True, default=None),
@@ -3264,7 +3263,7 @@ acls:
 
     def setUp(self): # pylint: disable=invalid-name
         super().setUp()
-        self.ACL_COOKIE = random.randint(1, 2**16-1)
+        self.ACL_COOKIE = random.randint(1, 2**16 - 1)
         self.ACL = self.ACL.replace('COOKIE', str(self.ACL_COOKIE))
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         with open(self.acl_config_file, 'w') as config_file:
@@ -4281,14 +4280,14 @@ details partner lacp pdu:
             return lacp_up_ports
 
         def require_lag_up_ports(expected_up_ports):
-            for _ in range(lacp_timeout*10):
+            for _ in range(lacp_timeout * 10):
                 if prom_lacp_up_ports() == expected_up_ports:
                     break
                 time.sleep(1)
             self.assertEqual(prom_lacp_up_ports(), expected_up_ports)
 
         def require_linux_bond_up():
-            for _retries in range(lacp_timeout*2):
+            for _retries in range(lacp_timeout * 2):
                 result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
                 result = '\n'.join([line.rstrip() for line in result.splitlines()])
                 with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
@@ -4366,7 +4365,7 @@ class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
                 'ip link set %s down' % bond_member,
                 'ip address flush dev %s' % bond_member,
                 ('ip link add %s address 0e:00:00:00:00:%2.2x '
-                 'type bond mode 802.3ad lacp_rate fast miimon 100') % (bond, i*2+i),
+                 'type bond mode 802.3ad lacp_rate fast miimon 100') % (bond, i * 2 + i),
                 'ip add add %s/24 dev %s' % (orig_ip, bond),
                 'ip link set %s up' % bond,
                 'ip link set dev %s master %s' % (bond_member, bond)))
@@ -8044,6 +8043,7 @@ acls:
     def test_untagged(self):
         pass
 
+
 class FaucetDscpMatchTest(FaucetUntaggedTest):
     # Match all packets with this IP_DSP and eth_type, based on the ryu API def
     # e.g {"ip_dscp": 3, "eth_type": 2048}
@@ -8279,7 +8279,7 @@ class FaucetDisconnectTest(FaucetUntaggedTest):
         # 'unknown datapath' messages, indicating switch connections that
         # FAUCET has rejected. The switch should see them as
         # 'connection reset by peer'.
-        mask = int(16*'f', 16)
+        mask = int(16 * 'f', 16)
         bad_dpid = (int(self.dpid) + 0xdeadbeef) & mask
         self.update_config(dpid=bad_dpid)
         self.wait_until_matching_lines_from_faucet_log_files(
@@ -8311,7 +8311,7 @@ class FaucetBadFlowModTest(FaucetUntaggedTest):
 
     def bad_dpid(self):
         """Return a random, bad dpid parameter"""
-        mask = int(16*'f', 16)
+        mask = int(16 * 'f', 16)
         dpid = (int(self.dpid) + random.randint(0, 1 << 63)) & mask
         return {'dpid': dpid}
 

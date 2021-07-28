@@ -134,7 +134,7 @@ class GaugePoller:
         for stat_name_list, stat_val in stat_pairs:
             stat_name = delim.join(stat_name_list)
             # OVS reports unsupported statistics as all-1-bits (UINT64_MAX)
-            if stat_val == 2**64-1:
+            if stat_val == 2**64 - 1:
                 stat_val = 0
             formatted_stats.append((stat_name, stat_val))
         return formatted_stats

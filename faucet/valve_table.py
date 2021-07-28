@@ -259,7 +259,6 @@ class ValveGroupTable:
 
     entries = None # type: dict
 
-
     def __init__(self):
         """Constructs a new object"""
         self.entries = {}

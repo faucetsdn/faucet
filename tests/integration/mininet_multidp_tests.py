@@ -14,6 +14,7 @@ from clib.mininet_test_base_topo import FaucetTopoTestBase
 
 from clib import mininet_test_util
 
+
 class FaucetMultiDPTestBase(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a generalized test topology & config builder"""
 
@@ -1244,8 +1245,6 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
             ]
         }
 
-
-
     def setUp(self):  # pylint: disable=invalid-name
         """Start the network"""
         super().setUp()
@@ -1509,7 +1508,6 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
     NUM_VLANS = 3
     SOFTWARE_ONLY = True
 
-
     def set_up(self, n_dps, host_links=None, host_vlans=None):
         """
         Args:
@@ -1639,11 +1637,11 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(
     @staticmethod
     def faucet_vip(i):
         """Get the IPV6 faucet vip"""
-        return 'fc0%u::1:254/112' % (i+1)
+        return 'fc0%u::1:254/112' % (i + 1)
 
     def host_ip_address(self, host_index, vlan_index):
         """Get the IPV6 host ip"""
-        return 'fc0%u::1:%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
+        return 'fc0%u::1:%u/%u' % (vlan_index + 1, host_index + 1, self.NETPREFIX)
 
 
 class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
@@ -3226,7 +3224,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
                     'udp_src': 68,
                     'udp_dst': 67,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3235,7 +3233,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
                     'udp_src': 67,
                     'udp_dst': 68,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3270,7 +3268,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
                     'udp_src': 68,
                     'udp_dst': 67,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3279,7 +3277,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
                     'udp_src': 67,
                     'udp_dst': 68,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3460,7 +3458,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 68,
                     'udp_dst': 67,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3469,7 +3467,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 67,
                     'udp_dst': 68,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3523,7 +3521,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 68,
                     'udp_dst': 67,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3532,7 +3530,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 67,
                     'udp_dst': 68,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3586,7 +3584,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 68,
                     'udp_dst': 67,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3595,7 +3593,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                     'udp_src': 67,
                     'udp_dst': 68,
                     'dl_type': 0x0800,
-                    'actions':  {
+                    'actions': {
                         'allow': 0,
                     }
                 }},
@@ -3675,9 +3673,9 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         host = self.net.get(self.topo.hosts_by_id[6])
         tunnel_ip = tunnel_id - 1
         iprange = '10.%u.0.%u,10.%u.0.%u' % (
-            host_id+1, (tunnel_ip*10) + 1, host_id+1, (tunnel_ip+1)*10
+            host_id + 1, (tunnel_ip * 10) + 1, host_id + 1, (tunnel_ip + 1) * 10
         )
-        router = '10.%u.0.254' % (host_id+1)
+        router = '10.%u.0.254' % (host_id + 1)
         vlan = host.vlans[host_id]
         intf = host.vlan_intfs[(tunnel_id, host_id)][-1]
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, intf)

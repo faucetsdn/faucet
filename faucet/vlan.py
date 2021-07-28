@@ -206,10 +206,10 @@ class VLAN(Conf):
         test_config_condition(
             self.acl_out and self.acls_out, 'found both acl_out and acls_out, use only acls_out')
         if self.acl_in and not isinstance(self.acl_in, list):
-            self.acls_in = [self.acl_in,]
+            self.acls_in = [self.acl_in, ]
             self.acl_in = None
         if self.acl_out and not isinstance(self.acl_out, list):
-            self.acls_out = [self.acl_out,]
+            self.acls_out = [self.acl_out, ]
             self.acl_out = None
         all_acls = []
         if self.acls_in:

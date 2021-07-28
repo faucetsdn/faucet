@@ -78,11 +78,12 @@ def start_server(handler):
     server_thread.start()
     return server
 
+
 def port_state_msg(datapath, port_num, reason, status=0):
     """ Create an OFPPortStatus message with random values. """
 
     port = parser.OFPPort(port_num,
-                          '00:00:00:d0:00:0'+ str(port_num),
+                          '00:00:00:d0:00:0' + str(port_num),
                           datapath.ports[port_num].name,
                           0,
                           status,
@@ -95,6 +96,7 @@ def port_state_msg(datapath, port_num, reason, status=0):
                          )
 
     return parser.OFPPortStatus(datapath, reason, port)
+
 
 def port_stats_msg(datapath):
     """ Create an OFPPortStatsReply with random values. """
@@ -122,6 +124,7 @@ def port_stats_msg(datapath):
         stats.append(port_stats)
     return parser.OFPPortStatsReply(datapath, body=stats)
 
+
 def flow_stats_msg(datapath, instructions):
     """ Create an OFPFlowStatsReply with random values. """
 
@@ -141,6 +144,7 @@ def flow_stats_msg(datapath, instructions):
                                     )
 
     return parser.OFPFlowStatsReply(datapath, body=[flow_stats])
+
 
 def generate_all_matches():
     """
@@ -166,6 +170,7 @@ def generate_all_matches():
 
     return parser.OFPMatch(**matches)
 
+
 def logger_to_ofp(port_stats):
     """ Translates between the logger stat name and the OpenFlow stat name"""
 
@@ -179,9 +184,11 @@ def logger_to_ofp(port_stats):
             'errors_in': port_stats.rx_errors
            }
 
+
 def get_matches(match_dict):
     """Create a set of match name and value tuples"""
     return {(entry['OXMTlv']['field'], entry['OXMTlv']['value']) for entry in match_dict}
+
 
 def check_instructions(original_inst, logger_inst, test):
     """
@@ -193,6 +200,7 @@ def check_instructions(original_inst, logger_inst, test):
         for attr_name, attr_val in inst.items():
             original_val = getattr(original_inst[0], attr_name)
             test.assertEqual(original_val, attr_val)
+
 
 def compare_flow_msg(flow_msg, flow_dict, test):
     """
@@ -327,7 +335,7 @@ class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
         reasons = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
         for i in range(1, len(conf.dp.ports) + 1):
 
-            msg = port_state_msg(conf.dp, i, reasons[i-1])
+            msg = port_state_msg(conf.dp, i, reasons[i - 1])
             port_name = conf.dp.ports[i].name
             rcv_time = int(time.time())
             prom_poller.update(rcv_time, msg)
@@ -402,7 +410,7 @@ class GaugeInfluxShipperTest(unittest.TestCase): # pytype: disable=module-attr
             server = start_server(PretendInflux)
             shipper = gauge_influx.InfluxShipper()
             shipper.conf = self.create_config_obj(server.server_port)
-            points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
+            points = [{'measurement': 'test_stat_name', 'fields': {'value': 1}}, ]
             shipper.ship_points(points)
         except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
@@ -419,7 +427,7 @@ class GaugeInfluxShipperTest(unittest.TestCase): # pytype: disable=module-attr
             shipper = gauge_influx.InfluxShipper()
             shipper.conf = self.create_config_obj()
             shipper.logger = mock.Mock()
-            points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
+            points = [{'measurement': 'test_stat_name', 'fields': {'value': 1}}, ]
             shipper.ship_points(points)
         except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
@@ -430,7 +438,7 @@ class GaugeInfluxShipperTest(unittest.TestCase): # pytype: disable=module-attr
 
         try:
             shipper = gauge_influx.InfluxShipper()
-            points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
+            points = [{'measurement': 'test_stat_name', 'fields': {'value': 1}}, ]
             shipper.ship_points(points)
         except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
@@ -514,7 +522,6 @@ class GaugeInfluxUpdateTest(unittest.TestCase): # pytype: disable=module-attr
 
                 dictionary[key] = val
 
-
     def parse_influx_output(self, output_to_parse):
         """
         Parse the output from the mock InfluxDB server
@@ -548,7 +555,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase): # pytype: disable=module-attr
         reasons = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
         for i in range(1, len(conf.dp.ports) + 1):
 
-            msg = port_state_msg(conf.dp, i, reasons[i-1])
+            msg = port_state_msg(conf.dp, i, reasons[i - 1])
             rcv_time = int(time.time())
             db_logger.update(rcv_time, msg)
 
@@ -556,7 +563,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase): # pytype: disable=module-attr
                 output = log.read()
 
             influx_data = self.parse_influx_output(output)[1]
-            data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, reasons[i-1]}
+            data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, reasons[i - 1]}
             self.assertEqual(data, set(influx_data.values()))
 
     def test_port_stats(self):
@@ -625,7 +632,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase): # pytype: disable=module-attr
                 elif stat_name in other_fields:
                     self.assertEqual(other_fields[stat_name], stat_val)
 
-                elif stat_name in  msg.body[0].match:
+                elif stat_name in msg.body[0].match:
                     self.assertEqual(msg.body[0].match.get(stat_name), stat_val)
 
                 else:
@@ -778,11 +785,11 @@ class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
     def test_port_state(self):
         """Check the update method in the GaugePortStateLogger class"""
 
-        reasons = {'unknown' : 5,
-                   'add' : ofproto.OFPPR_ADD,
-                   'delete' : ofproto.OFPPR_DELETE,
-                   'up' : ofproto.OFPPR_MODIFY,
-                   'down' : ofproto.OFPPR_MODIFY
+        reasons = {'unknown': 5,
+                   'add': ofproto.OFPPR_ADD,
+                   'delete': ofproto.OFPPR_DELETE,
+                   'up': ofproto.OFPPR_MODIFY,
+                   'down': ofproto.OFPPR_MODIFY
                   }
 
         #add an ofproto attribute to the datapath
@@ -818,7 +825,7 @@ class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
         datapath.configure_mock(**ofp_attr)
 
         #add the datapath as an attribute to the config
-        dp_attr = {'dp' : datapath}
+        dp_attr = {'dp': datapath}
         self.conf.configure_mock(**dp_attr)
 
         logger = watcher.GaugePortStatsLogger(self.conf, '__name__', mock.Mock())
@@ -860,7 +867,7 @@ class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
         datapath.configure_mock(**ofp_attr)
 
         #add the datapath as an attribute to the config
-        dp_attr = {'dp' : datapath}
+        dp_attr = {'dp': datapath}
         self.conf.configure_mock(**dp_attr)
 
         logger = watcher.GaugeFlowTableLogger(self.conf, '__name__', mock.Mock())

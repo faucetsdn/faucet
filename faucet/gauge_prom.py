@@ -54,6 +54,7 @@ PROM_METER_VARS = (
     'packet_band_count'
 )
 
+
 class GaugePrometheusClient(PromClient):
     """Wrapper for Prometheus client that is shared between all pollers."""
 

@@ -599,7 +599,7 @@ class ValveTestBases:
         NUM_PORTS = 5
 
         LOGNAME = 'faucet'
-        ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8')
+        ICMP_PAYLOAD = bytes('A' * 64, encoding='UTF-8')
         REQUIRE_TFM = True
         CONFIG_AUTO_REVERT = False
         CONFIG = None
@@ -713,7 +713,7 @@ class ValveTestBases:
             if offset:
                 before_hash, before_str = self.network.table_state(int(dp_id))
                 offset_ofmsgs = []
-                for i in range(0-offset, len(ofmsgs)):
+                for i in range(0 - offset, len(ofmsgs)):
                     if i >= 0 and i < len(ofmsgs):
                         offset_ofmsgs.append(ofmsgs[i])
                     j = i + offset
@@ -1489,7 +1489,6 @@ class ValveTestBases:
             self.assertEqual(
                 before_table_state, after_table_state, msg='\n'.join(diff))
 
-
     class ValveTestBig(ValveTestNetwork):
         """Test basic switching/L2/L3 functions."""
 
@@ -1798,7 +1797,7 @@ class ValveTestBases:
                 'ipv4_src': '10.0.0.2',
                 'ipv4_dst': '10.0.0.4',
                 'echo_request_data': bytes(
-                    'A'*8, encoding='UTF-8')})  # pytype: disable=wrong-keyword-args
+                    'A' * 8, encoding='UTF-8')})  # pytype: disable=wrong-keyword-args
             fib_route_replies = fib_route_replies[self.DP_ID]
             self.assertTrue(fib_route_replies)
             self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
@@ -2522,7 +2521,6 @@ meters:
                 self.assertFalse(self.network.is_output(
                     bcast_match, src_dpid, dst_dpid, port=out_port, vid=out_vid,
                     trace=trace), msg=msg)
-
 
     class ValveTestStackedRouting(ValveTestNetwork):
         """Test inter-vlan routing with stacking capabilities in an IPV4 network"""
