@@ -1000,6 +1000,15 @@ class FlowMod:
                 and self.out_port == other.out_port
                 and self.instructions == other.instructions)
 
+    def __hash__(self):
+        return hash((
+            self.priority,
+            self.match_values,
+            self.match_masks,
+            self.out_port,
+            self.instructions,
+        ))
+
     def _pretty_field_str(self, key, value, mask=None):
         mask_str = ""
         value_int = value
