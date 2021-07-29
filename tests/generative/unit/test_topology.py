@@ -25,7 +25,8 @@ import yaml
 from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
 
-from mininet.topo import Topo  # pylint: disable=unused-import
+# pylint: disable=unused-import
+from mininet.topo import Topo  # noqa: F401
 
 import networkx
 from networkx.generators.atlas import graph_atlas_g

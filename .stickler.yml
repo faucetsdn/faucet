@@ -5,7 +5,5 @@ linters:
     config: .codecheck
   py3k:
     ignore:
-      - 'W503'
       - 'W1618'
       - 'W1619'
-      - 'E402'
