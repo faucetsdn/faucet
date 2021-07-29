@@ -17,9 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import eventlet
-eventlet.monkey_patch()
-
 # pylint: disable=wrong-import-position
 from ryu.lib import hub  # noqa: E402
 from chewie import chewie  # noqa: E402

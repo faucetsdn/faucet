@@ -20,9 +20,6 @@
 
 import ipaddress
 
-import eventlet
-eventlet.monkey_patch()
-
 # pylint: disable=wrong-import-position
 from ryu.lib import hub  # noqa: E402
 from beka.beka import Beka  # noqa: E402
