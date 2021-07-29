@@ -130,7 +130,7 @@ vlans:
     # pylint: disable=invalid-name
     CONFIG = CONFIG_BOILER_UNTAGGED
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -2110,12 +2110,12 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             self.server.influx_log = self.influx_log
             self.server.timeout = self.DB_TIMEOUT
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.handler = InfluxPostHandler
         super().setUp()
         self.setup_influx()
 
-    def tearDown(self, ignore_oferrors=False):  # pylint: disable=invalid-name
+    def tearDown(self, ignore_oferrors=False):
         if self.server:
             self.server.shutdown()
             self.server.socket.close()
@@ -2285,7 +2285,7 @@ class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
 
 class FaucetSingleUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.handler = SlowInfluxPostHandler
         super().setUp()
         self.setup_influx()
@@ -2658,7 +2658,7 @@ vlans:
                 native_vlan: 100
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -3076,7 +3076,7 @@ acls:
         tcp_src: 65535
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
         self.CONFIG = '\n'.join(
@@ -3261,7 +3261,7 @@ acls:
 """
     ACL_COOKIE = None
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.ACL_COOKIE = random.randint(1, 2**16 - 1)
         self.ACL = self.ACL.replace('COOKIE', str(self.ACL_COOKIE))
@@ -4076,7 +4076,7 @@ vlans:
                 loop_protect: True
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -4171,7 +4171,7 @@ vlans:
                 native_vlan: 100
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -4625,7 +4625,7 @@ vlans:
                 native_vlan: 101
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -5597,7 +5597,7 @@ vlans:
 
     CONFIG = CONFIG_TAGGED_BOILER
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],

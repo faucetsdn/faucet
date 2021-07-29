@@ -187,9 +187,9 @@ For Prometheus:
             self.path is not None and not os.access(self.path, os.W_OK),
             '%s is not writable' % self.file)
 
-    def add_dp(self, dp):  # pylint: disable=invalid-name
+    def add_dp(self, dp):
         """Add a datapath to this watcher."""
-        self.dp = dp  # pylint: disable=invalid-name
+        self.dp = dp
 
     def check_config(self):
         super().check_config()

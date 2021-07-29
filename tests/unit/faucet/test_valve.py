@@ -57,7 +57,7 @@ dps:
                 native_vlan: 0x100
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -117,7 +117,7 @@ acls:
                 allow: 1
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic coprocessor config"""
         self.setup_valves(self.CONFIG)
 
@@ -171,7 +171,7 @@ dps:
                 restricted_bcast_arpnd: true
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config with restricted broadcast enabled"""
         self.setup_valves(self.CONFIG)
 
@@ -232,7 +232,7 @@ dps:
                 acls_in: [meteracl]
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup meter and ACL config"""
         self.setup_valves(self.CONFIG)
 
@@ -244,7 +244,7 @@ dps:
 class ValveOFErrorTestCase(ValveTestBases.ValveTestNetwork):
     """Test decoding of OFErrors."""
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(CONFIG)
 
     def test_oferror_parser(self):
@@ -296,7 +296,7 @@ vlans:
         vid: 0x200
 """ % GROUP_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -364,7 +364,7 @@ vlans:
         vid: 0x200
 """ % IDLE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config with mirroring"""
         self.setup_valves(self.CONFIG)
 
@@ -443,7 +443,7 @@ vlans:
         vid: 0x300
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup lacp config and activate ports"""
         self.setup_valves(self.CONFIG)
         self.activate_all_ports()
@@ -568,7 +568,7 @@ vlans:
         vid: 0x100
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config with overriden TFM sizing"""
         self.setup_valves(self.CONFIG)
 
@@ -622,7 +622,7 @@ vlans:
         vid: 0x300
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
@@ -671,7 +671,7 @@ vlans:
         vid: 0x300
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic lacp config and activate ports"""
         self.setup_valves(self.CONFIG)
         self.activate_all_ports()
@@ -701,7 +701,7 @@ vlans:
 class ValveL2LearnTestCase(ValveTestBases.ValveTestNetwork):
     """Test L2 Learning"""
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(CONFIG)
 
     def test_expiry(self):
@@ -750,7 +750,7 @@ dps:
                 acls_in: [acl1]
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config with ACLs"""
         self.setup_valves(self.CONFIG)
 
@@ -790,7 +790,7 @@ dps:
                 acls_in: [acl1]
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic port and vlan config with ACLs"""
         self.setup_valves(self.CONFIG)
 
@@ -881,7 +881,7 @@ routers:
             vlan: v100
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup complex config with routing, bgp, mirroring and ACLs"""
         self.setup_valves(self.CONFIG)
 
@@ -912,7 +912,7 @@ vlans:
         vid: 0x200
 """ % DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup simple configuration with no ports up"""
         ofmsgs = self.setup_valves(self.CONFIG, ports_up=[])[self.DP_ID]
         self.valve = self.valves_manager.valves[self.DP_ID]
