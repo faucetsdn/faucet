@@ -46,5 +46,6 @@ sudo docker run -ti \
      -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
      -v /lib/modules:/lib/modules \
      -v /var/local/lib/docker:/var/lib/docker \
+     -e DOCKER_HOST=unix:///var/local/run/docker.sock \
      -e FAUCET_TESTS="$FAUCET_TESTS" \
      faucet/tests $CMD
