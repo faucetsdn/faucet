@@ -44,5 +44,7 @@ sudo docker run -ti \
      -v $PWD:/faucet-src \
      -v $PWD/test_results:/var/tmp \
      -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
+     -v /lib/modules:/lib/modules \
+     -v /var/local/lib/docker:/var/lib/docker \
      -e FAUCET_TESTS="$FAUCET_TESTS" \
      faucet/tests $CMD
