@@ -2,7 +2,7 @@
 linters:
   flake8:
     python: 3
-    config: .codecheck
+    config: .flake8
   py3k:
     ignore:
       - 'W1618'
