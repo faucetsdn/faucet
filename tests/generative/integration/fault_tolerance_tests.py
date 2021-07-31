@@ -4,9 +4,6 @@ import random
 import unittest
 import networkx
 
-# pylint: disable=unused-import
-from mininet.topo import Topo  # noqa: F401
-
 from clib.mininet_test_watcher import OptimizedTopologyWatcher
 from clib.mininet_test_base_topo import FaucetTopoTestBase
 from clib.mininet_test_topo import FAUCET

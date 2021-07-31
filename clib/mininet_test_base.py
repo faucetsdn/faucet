@@ -29,7 +29,7 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 
 from mininet.link import Intf as HWIntf  # pylint: disable=import-error
 from mininet.log import error, output  # pylint: disable=import-error
-from mininet.net import Mininet  # pylint: disable=import-error
+from mininet.net import Mininet
 from mininet.util import dumpNodeConnections, pmonitor  # pylint: disable=import-error
 
 from clib import mininet_test_util
