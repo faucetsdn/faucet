@@ -2,6 +2,8 @@
 
 """Unit tests run as PYTHONPATH=../../.. python3 ./test_valve_stack.py."""
 
+# pylint: disable=protected-access
+
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
 #
@@ -1147,7 +1149,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
         stack_port = valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        other_valves = self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+        other_valves = self.valves_manager._other_running_valves(valve)
         self.assertTrue(stack_port.is_stack_none())
         valve.fast_state_expire(self.mock_time(), other_valves)
         self.assertTrue(stack_port.is_stack_init())
@@ -1165,7 +1167,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
         other_port = other_dp.ports[1]
         wrong_port = other_dp.ports[2]
         wrong_dp = self.valves_manager.valves[3].dp
-        other_valves = self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+        other_valves = self.valves_manager._other_running_valves(valve)
         valve.fast_state_expire(self.mock_time(), other_valves)
         for remote_dp, remote_port in [
                 (wrong_dp, other_port),
@@ -1181,7 +1183,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
         stack_port = valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        other_valves = self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+        other_valves = self.valves_manager._other_running_valves(valve)
         valve.fast_state_expire(self.mock_time(), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
@@ -1591,8 +1593,8 @@ vlans:
     def route_manager_ofmsgs(self, route_manager, vlan):
         """Return ofmsgs for route stack link flooding"""
         faucet_vip = list(vlan.faucet_vips_by_ipv(4))[0].ip
-        ofmsgs = route_manager._flood_stack_links(  # pylint: disable=protected-access
-            route_manager._gw_resolve_pkt(), vlan, route_manager.multi_out,  # pylint: disable=protected-access
+        ofmsgs = route_manager._flood_stack_links(
+            route_manager._gw_resolve_pkt(), vlan, route_manager.multi_out,
             vlan.faucet_mac, valve_of.mac.BROADCAST_STR,
             faucet_vip, self.DST_ADDRESS)
         return ofmsgs

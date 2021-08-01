@@ -1,5 +1,7 @@
 """Unit tests for gauge"""
 
+# pylint: disable=protected-access
+
 from collections import namedtuple
 import random
 import re

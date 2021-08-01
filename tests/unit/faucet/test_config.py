@@ -2,6 +2,8 @@
 
 """Test config parsing"""
 
+# pylint: disable=protected-access
+
 import logging
 import re
 import shutil

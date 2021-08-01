@@ -1,5 +1,7 @@
 """Configuration for a datapath."""
 
+# pylint: disable=protected-access
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors

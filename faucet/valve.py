@@ -177,7 +177,7 @@ class Valve:
         if labels is None:
             labels = self.dp.base_prom_labels()
         metrics_var = getattr(self.metrics, var)
-        label_values = [labels[key] for key in metrics_var._labelnames]
+        label_values = [labels[key] for key in metrics_var._labelnames]  # pylint: disable=protected-access
         metrics_var.remove(*label_values)
 
     def close_logs(self):
@@ -915,7 +915,7 @@ class Valve:
         if remote_dp_id and remote_port_id:
             self.logger.debug('FAUCET LLDP on %s from %s (remote %s, port %u)' % (
                 port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id), remote_port_id))
-            ofmsgs_by_valve.update(self._lldp_manager._verify_lldp(
+            ofmsgs_by_valve.update(self._lldp_manager.verify_lldp(
                 port, now, self, other_valves,
                 remote_dp_id, remote_dp_name,
                 remote_port_id, remote_port_state))
