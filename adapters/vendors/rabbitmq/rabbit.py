@@ -46,6 +46,7 @@ def get_sys_prefix():
     return sysprefix
 
 
+# pylint: disable=too-many-instance-attributes
 class RabbitAdapter:
     """A RabbitMQ adapter to get events from the FAUCET Unix socket and send
     them as messages to a RabbitMQ server
