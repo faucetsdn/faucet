@@ -1893,7 +1893,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
         exception = False
         try:
             scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))  # pylint: disable=no-member
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             error('%s:' % self._test_name(), e)
             exception = True
         self.assertFalse(exception, 'Scapy threw an exception in send(fuzz())')
