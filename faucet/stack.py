@@ -28,16 +28,18 @@ class Stack(Conf):
 is technically a fixed allocation for this DP Stack instance."""
 
     defaults = {
-        'priority': None,
         # Sets the root priority value of the current DP with stacking
-        'route_learning': False,
+        'priority': None,
         # Use the stack route algorithms, will be forced true if routing is enabled
-        'down_time_multiple': 3,
+        'route_learning': False,
         # Number of update time intervals for a down stack node to still be considered healthy
+        'down_time_multiple': 3,
+        # Minimum percentage value of required UP stack ports for this stack
+        # node to be considered healthy
         'min_stack_health': 1.0,
-        # Minimum percentage value of required UP stack ports for this stack node to be considered healthy
+        # Minimum percentage value of required UP LACP ports for this stack
+        # node to be considered healthy
         'min_lacp_health': 1.0,
-        # Minimum percentage value of required UP LACP ports for this stack node to be considered healthy
     }
 
     defaults_types = {
@@ -91,7 +93,7 @@ is technically a fixed allocation for this DP Stack instance."""
         self.dyn_healthy_info = (False, 0.0, 0.0)
         self.dyn_healthy = False
 
-        super(Stack, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
     def clone_dyn_state(self, prev_stack, dps=None):
         """Copy dyn state from the old stack instance when warm/cold starting"""
@@ -190,8 +192,7 @@ is technically a fixed allocation for this DP Stack instance."""
             self.dyn_healthy_info = (False, 0.0, 0.0)
             self.dyn_healthy = False
             return self.dyn_healthy, reason
-        else:
-            reason += 'running %us ago' % (now - last_live_time)
+        reason += 'running %us ago' % (now - last_live_time)
         if reason:
             reason += ', '
         stack_ports_healthy, stack_percentage = self.stack_port_healthy()
@@ -255,7 +256,7 @@ is technically a fixed allocation for this DP Stack instance."""
         if not self.ports:
             return
 
-        for dp in stack_priority_dps:  # pylint: disable=invalid-name
+        for dp in stack_priority_dps:
             test_config_condition(not isinstance(dp.stack.priority, int), (
                 'stack priority must be type %s not %s' % (
                     int, type(dp.stack.priority))))
@@ -271,14 +272,14 @@ is technically a fixed allocation for this DP Stack instance."""
             if meta_dp_state.stack_root_name in self.roots_names:
                 self.root_name = meta_dp_state.stack_root_name
 
-        for dp in stack_port_dps:  # pylint: disable=invalid-name
+        for dp in stack_port_dps:
             for vlan in dp.vlans.values():
                 if vlan.faucet_vips:
                     self.route_learning = True
 
         edge_count = Counter()
         graph = networkx.MultiGraph()
-        for dp in stack_port_dps:  # pylint: disable=invalid-name
+        for dp in stack_port_dps:
             graph.add_node(dp.name)
             for port in dp.stack_ports():
                 edge_name = Stack.modify_topology(graph, dp, port)
@@ -287,7 +288,7 @@ is technically a fixed allocation for this DP Stack instance."""
             test_config_condition(count != 2, '%s defined only in one direction' % edge_name)
         if graph.size() and self.name in graph:
             self.graph = graph
-            for dp in graph.nodes():  # pylint: disable=invalid-name
+            for dp in graph.nodes():
                 path_to_root_len = len(self.shortest_path(self.root_name, src_dp=dp))
                 test_config_condition(
                     path_to_root_len == 0, '%s not connected to stack' % dp)
@@ -295,10 +296,10 @@ is technically a fixed allocation for this DP Stack instance."""
                 self.root_flood_reflection = True
 
     @staticmethod
-    def modify_topology(graph, dp, port, add=True):  # pylint: disable=invalid-name
+    def modify_topology(graph, dp, port, add=True):
         """Add/remove an edge to the stack graph which originates from this dp and port."""
 
-        def canonical_edge(dp, port):  # pylint: disable=invalid-name
+        def canonical_edge(dp, port):
             peer_dp = port.stack['dp']
             peer_port = port.stack['port']
             sort_edge_a = (
@@ -338,7 +339,7 @@ is technically a fixed allocation for this DP Stack instance."""
 
         return edge_name
 
-    def modify_link(self, dp, port, add=True):  # pylint: disable=invalid-name
+    def modify_link(self, dp, port, add=True):
         """Update the stack topology according to the event"""
         return Stack.modify_topology(self.graph, dp, port, add)
 
@@ -396,8 +397,8 @@ is technically a fixed allocation for this DP Stack instance."""
 
     def is_edge(self):
         """Return True if this DP is a stack edge."""
-        return (not self.is_root() and
-                self.longest_path_to_root_len() == len(self.shortest_path_to_root()))
+        return (not self.is_root()
+                and self.longest_path_to_root_len() == len(self.shortest_path_to_root()))
 
     def shortest_path_port(self, dest_dp):
         """Return first port on our DP, that is the shortest path towards dest DP."""

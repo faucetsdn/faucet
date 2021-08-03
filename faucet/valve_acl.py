@@ -75,7 +75,8 @@ def build_ordered_output_actions(acl_table, output_list, tunnel_rules=None, sour
                 output_actions.append(valve_of.group_act(group_id=group_id))
             if key == 'tunnel' and tunnel_rules and source_id is not None:
                 source_rule = tunnel_rules[value][source_id]
-                _, tunnel_actions, tunnel_ofmsgs, tunnel_inst = build_output_actions(acl_table, source_rule)
+                _, tunnel_actions, tunnel_ofmsgs, tunnel_inst = build_output_actions(acl_table,
+                                                                                     source_rule)
                 output_actions.extend(tunnel_actions)
                 output_ofmsgs.extend(tunnel_ofmsgs)
                 output_inst.extend(tunnel_inst)
@@ -207,8 +208,8 @@ def build_acl_entry(  # pylint: disable=too-many-arguments,too-many-branches,too
         acl_match_dict['vlan_vid'] = valve_of.vid_present(vlan_vid)
     try:
         acl_match = valve_of.match_from_dict(acl_match_dict)
-    except TypeError:
-        raise InvalidConfigError('invalid match type in ACL')
+    except TypeError as type_error:
+        raise InvalidConfigError('invalid match type in ACL') from type_error
     if acl_act:
         acl_inst.append(valve_of.apply_actions(acl_act))
     return (acl_match, acl_inst, acl_cookie, acl_ofmsgs)
@@ -236,8 +237,8 @@ def build_tunnel_ofmsgs(rule_conf, acl_table, priority,
         acl_match_dict['vlan_pcp'] = valve_of.PCP_TUNNEL_FLAG
     try:
         acl_match = valve_of.match_from_dict(acl_match_dict)
-    except TypeError:
-        raise InvalidConfigError('invalid match type in ACL')
+    except TypeError as type_error:
+        raise InvalidConfigError('invalid match type in ACL') from type_error
     flowmod = acl_table.flowmod(acl_match, priority=priority, inst=tuple(acl_inst))
     if flowdel:
         ofmsgs.append(acl_table.flowdel(match=acl_match, priority=priority, strict=False))
@@ -396,13 +397,13 @@ class ValveAclManager(ValveManagerBase):
                     vlan.acls_out, self.egress_acl_table, egress_acl_allow_inst,
                     egress_acl_allow_inst, self.acl_priority, self.meters,
                     vlan.acls_out[0].exact_match, vlan_vid=vlan.vid
-                    ))
+                ))
             else:
                 ofmsgs.append(self.egress_acl_table.flowmod(
                     self.egress_acl_table.match(vlan=vlan),
                     priority=self.acl_priority,
                     inst=tuple(egress_acl_allow_inst),
-                    ))
+                ))
         return ofmsgs
 
     def add_authed_mac(self, port_num, mac):
@@ -490,14 +491,14 @@ class ValveAclManager(ValveManagerBase):
                     eth_type=valve_packet.ETH_EAPOL,
                     eth_src=mac),
                 priority=self.override_priority,
-                ),
+            ),
             self.port_acl_table.flowdel(
                 match=self.port_acl_table.match(
                     in_port=port_num,
                     eth_type=valve_packet.ETH_EAPOL),
                 priority=self.override_priority,
-                )
-            ]
+            )
+        ]
         return ofmsgs
 
     def create_mab_flow(self, port_num, nfv_sw_port_num, mac):

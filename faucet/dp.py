@@ -150,7 +150,7 @@ configuration.
         # Have OFA copy packet outs to multiple ports.
         'idle_dst': True,
         # If False, workaround for flow idle timer not reset on flow refresh.
-        }
+    }
 
     defaults_types = {
         'dp_id': int,
@@ -350,7 +350,7 @@ configuration.
         super().check_config()
         test_config_condition(not isinstance(self.dp_id, int), (
             'dp_id must be %s not %s' % (int, type(self.dp_id))))
-        test_config_condition(self.dp_id < 0 or self.dp_id > 2**64-1, (
+        test_config_condition(self.dp_id < 0 or self.dp_id > 2**64 - 1, (
             'DP ID %s not in valid range' % self.dp_id))
         test_config_condition(not netaddr.valid_mac(self.faucet_dp_mac), (
             'invalid MAC address %s' % self.faucet_dp_mac))
@@ -479,7 +479,7 @@ configuration.
         valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
         test_config_condition(
             not valve_cl, 'hardware %s must be in %s' % (
-                self.hardware, SUPPORTED_HARDWARE.keys()))
+                self.hardware, list(SUPPORTED_HARDWARE)))
         if valve_cl is None:
             return
 
@@ -587,15 +587,15 @@ configuration.
 
             table_config.size = size
             table_config.next_tables = [
-                table_name for table_name in table_config.next_tables
-                if table_name in table_configs]
+                tbl_name for tbl_name in table_config.next_tables
+                if tbl_name in table_configs]
             next_table_ids = [
-                table_configs[table_name].table_id for table_name in table_config.next_tables]
+                table_configs[tbl_name].table_id for tbl_name in table_config.next_tables]
             tables[table_name] = ValveTable(
                 table_name, table_config, self.cookie,
                 notify_flow_removed=self.use_idle_timeout,
                 next_tables=next_table_ids
-                )
+            )
         self.tables = tables
 
     def set_defaults(self):
@@ -757,8 +757,8 @@ configuration.
             nonpriority_ports = {
                 port for port in self.lldp_beacon_ports
                 if port.running() and (
-                    port.dyn_last_lldp_beacon_time is None or
-                    port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
+                    port.dyn_last_lldp_beacon_time is None
+                    or port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
             nonpriority_ports -= priority_ports
             send_ports.extend(list(priority_ports))
             nonpriority_ports = list(nonpriority_ports)
@@ -771,13 +771,12 @@ configuration.
         """Resolve inter-DP config for stacking"""
         if self.stack:
             self.stack.resolve_topology(dps, meta_dp_state)
-            for dp in dps:  # pylint: disable=invalid-name
+            for dp in dps:
                 # Must set externals flag for entire stack.
                 if dp.stack and dp.has_externals:
                     self.has_externals = True
                     break
             self.finalize_tunnel_acls(dps)
-
 
     def finalize_tunnel_acls(self, dps):
         """Resolve each tunnels sources"""
@@ -786,7 +785,7 @@ configuration.
             # TODO: A Tunnel ACL can contain multiple different tunnel IDs
             tunnel_ids = {tunnel_acl._id: tunnel_acl for tunnel_acl in self.tunnel_acls}
             referenced_acls = set()
-            for dp in dps:  # pylint: disable=invalid-name
+            for dp in dps:
                 if dp.dp_acls:
                     for acl in dp.dp_acls:
                         tunnel_acl = tunnel_ids.get(acl._id)
@@ -831,8 +830,8 @@ configuration.
         else:
             new_vlans = []
             for vlan in vlans.values():
-                if (vlan_ports[vlan] or vlan.reserved_internal_vlan or
-                        vlan.dot1x_assigned or vlan._id in router_vlans):
+                if (vlan_ports[vlan] or vlan.reserved_internal_vlan
+                        or vlan.dot1x_assigned or vlan._id in router_vlans):
                     new_vlans.append(vlan)
 
         self.vlans = {}
@@ -910,7 +909,7 @@ configuration.
                     test_config_condition(stack_dp not in dp_by_name, (
                         'stack DP %s not defined' % stack_dp))
                     port_stack_dp[port] = dp_by_name[stack_dp]
-                for port, dp in port_stack_dp.items():  # pylint: disable=invalid-name
+                for port, dp in port_stack_dp.items():
                     port.stack['dp'] = dp
                     stack_port = dp.resolve_port(port.stack['port'])
                     test_config_condition(stack_port is None, (
@@ -937,7 +936,7 @@ configuration.
                     if not mirror_port.coprocessor:
                         mirror_port.output_only = True
 
-        def resolve_acl(acl_in, vid=None, port_num=None):  # pylint: disable=invalid-name
+        def resolve_acl(acl_in, vid=None, port_num=None):
             """
             Resolve an individual ACL
             Args:
@@ -1352,8 +1351,8 @@ configuration.
             # Topology changed so restart stack ports just to be safe
             stack_ports = [
                 port.number for port in new_dp.stack_ports()
-                if port.number not in deleted_ports and
-                port.number not in added_ports]
+                if port.number not in deleted_ports
+                and port.number not in added_ports]
             changed_ports.update(set(stack_ports))
             logger.info('Stack topology change detected, restarting stack ports')
             same_ports -= changed_ports

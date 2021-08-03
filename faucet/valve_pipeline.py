@@ -139,7 +139,7 @@ class ValvePipeline(ValveManagerBase):
         if self.dp.drop_broadcast_source_address:
             ofmsgs.extend(self.filter_packets(
                 {'eth_src': valve_of.mac.BROADCAST_STR}
-                ))
+            ))
 
         ofmsgs.extend(self.filter_packets(
             {'eth_type': valve_of.ECTP_ETH_TYPE}, priority_offset=10))
@@ -159,10 +159,10 @@ class ValvePipeline(ValveManagerBase):
                 vlan=vlan,
                 metadata=metadata,
                 metadata_mask=metadata_mask
-                ),
+            ),
             priority=self.dp.high_priority,
             inst=inst
-            )
+        )
 
     def add_port(self, port):
         ofmsgs = []
@@ -183,7 +183,7 @@ class ValvePipeline(ValveManagerBase):
             ofmsgs.append(self.egress_table.flowdel(self.egress_table.match(
                 metadata=port.number & mask,
                 metadata_mask=mask
-                )))
+            )))
         return ofmsgs
 
     def filter_packets(self, match_dict, priority_offset=0):

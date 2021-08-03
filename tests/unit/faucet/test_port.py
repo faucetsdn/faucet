@@ -9,7 +9,7 @@ from faucet.port import (
     LACP_PORT_UNSELECTED, LACP_PORT_SELECTED, LACP_PORT_STANDBY)
 
 
-class MockVLAN(object):  # pylint: disable=too-few-public-methods
+class MockVLAN():  # pylint: disable=too-few-public-methods
     """Mock class for VLAN so we can inject into Port"""
 
     def __init__(self, name):
@@ -129,4 +129,4 @@ class FaucetLACPPortFunctions(unittest.TestCase):  # pytype: disable=module-attr
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr

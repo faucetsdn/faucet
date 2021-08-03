@@ -4,6 +4,12 @@ set -euo pipefail
 
 MINRATING=9.50
 
+SCRIPTPATH=$(readlink -f "$0")
+TESTDIR=$(dirname "${SCRIPTPATH}")
+BASEDIR=$(readlink -f "${TESTDIR}/../..")
+
+export PYLINTRC=$(readlink -f "$BASEDIR/.pylintrc")
+
 for file in "$@" ; do
     echo ""
     echo "------------------------------------------------------------------"

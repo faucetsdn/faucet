@@ -41,7 +41,7 @@ def test_config_condition(cond, msg):
 class Conf:
     """Base class for FAUCET configuration."""
 
-    mutable_attrs = frozenset() # type: frozenset
+    mutable_attrs = frozenset()  # type: frozenset
     defaults = {}  # type: dict
     defaults_types = {}  # type: dict
     dyn_finalized = False
@@ -106,7 +106,7 @@ class Conf:
                 test_config_condition(
                     not isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
                         conf_key, conf_value,
-                        conf_type, type(conf_value))) # pytype: disable=invalid-typevar
+                        conf_type, type(conf_value)))  # pytype: disable=invalid-typevar
 
     @staticmethod
     def _set_unknown_conf(conf, conf_types):
@@ -234,7 +234,7 @@ class Conf:
                 return ip_method(ip_str)
             raise InvalidConfigError('Invalid IP address %s: IP address of type bool' % (ip_str))
         except (ValueError, AttributeError, TypeError) as err:
-            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
+            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err)) from err
 
     @staticmethod
     def _ipvs(ipas):

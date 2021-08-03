@@ -18,14 +18,12 @@
 # limitations under the License.
 
 
+import random
 import unittest
 import yaml
-import random
 
 from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
-
-from mininet.topo import Topo  # pylint: disable=unused-import
 
 import networkx
 from networkx.generators.atlas import graph_atlas_g

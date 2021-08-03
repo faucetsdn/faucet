@@ -184,7 +184,8 @@ class ValvesManager:
             else:
                 # Current stack root does not change, however ensure that the current stack root
                 #   is known for all DPs
-                new_other_valves = [valve for valve in self.valves.values() if valve != new_root_valve]
+                new_other_valves = [valve for valve in self.valves.values()
+                                    if valve != new_root_valve]
                 inconsistent_dps = not new_root_valve.stack_manager.consistent_roots(
                     prev_root_name, new_root_valve, new_other_valves)
                 if inconsistent_dps:
@@ -203,7 +204,7 @@ class ValvesManager:
                 valve.stale_root = True
         return stack_change
 
-    def event_socket_heartbeat(self, now):
+    def event_socket_heartbeat(self):
         """raises event for event sock heartbeat"""
         self._notify({'EVENT_SOCK_HEARTBEAT': None})
 
@@ -265,7 +266,7 @@ class ValvesManager:
         self.update_config_applied(reset=True)
         if new_dps is None:
             return False
-        deleted_dpids = {v for v in self.valves} - {dp.dp_id for dp in new_dps}
+        deleted_dpids = set(self.valves) - {dp.dp_id for dp in new_dps}
         sent = {}
         for new_dp in new_dps:
             dp_id = new_dp.dp_id
@@ -319,7 +320,7 @@ class ValvesManager:
         else:
             self.logger.info('configuration is unchanged, not reloading')
             self.metrics.faucet_config_load_error.set(0)
-        self.metrics.faucet_config_reload_requests.inc() # pylint: disable=no-member
+        self.metrics.faucet_config_reload_requests.inc()  # pylint: disable=no-member
 
     def update_metrics(self, now):
         """Update metrics in all Valves."""
@@ -334,7 +335,7 @@ class ValvesManager:
             other_valves = self._other_running_valves(valve)
             valve_service_labels = dict(valve.dp.base_prom_labels(), valve_service=valve_service)
             valve_service_func = getattr(valve, valve_service)
-            with self.metrics.faucet_valve_service_secs.labels( # pylint: disable=no-member
+            with self.metrics.faucet_valve_service_secs.labels(  # pylint: disable=no-member
                     **valve_service_labels).time():
                 for service_valve, ofmsgs in valve_service_func(now, other_valves).items():
                     # Since we are calling all Valves, keep only the ofmsgs
@@ -362,16 +363,16 @@ class ValvesManager:
 
     def valve_packet_in(self, now, valve, msg):
         """Time a call to Valve packet in handler."""
-        self.metrics.of_packet_ins.labels( # pylint: disable=no-member
+        self.metrics.of_packet_ins.labels(  # pylint: disable=no-member
             **valve.dp.base_prom_labels()).inc()
         if valve.rate_limit_packet_ins(now):
             return
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
-            self.metrics.of_unexpected_packet_ins.labels( # pylint: disable=no-member
+            self.metrics.of_unexpected_packet_ins.labels(  # pylint: disable=no-member
                 **valve.dp.base_prom_labels()).inc()
             return
-        with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
+        with self.metrics.faucet_packet_in_secs.labels(  # pylint: disable=no-member
                 **valve.dp.base_prom_labels()).time():
             ofmsgs_by_valve = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
         if ofmsgs_by_valve:
@@ -388,7 +389,7 @@ class ValvesManager:
         count = float(len(self.valves))
         configured = sum((1 if self.config_applied[dp_id] else 0)
                          for dp_id in self.valves)
-        fraction = configured/count if count > 0 else 0
+        fraction = configured / count if count > 0 else 0
         self.metrics.faucet_config_applied.set(fraction)
 
     def datapath_connect(self, now, valve, discovered_up_ports):

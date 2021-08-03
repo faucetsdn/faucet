@@ -27,14 +27,13 @@ from http.server import HTTPServer
 
 import scapy.all
 
-import yaml # pytype: disable=pyi-error
+import yaml  # pytype: disable=pyi-error
 
 from mininet.log import error
 from mininet.util import pmonitor
 
 from clib import mininet_test_base
 from clib import mininet_test_util
-from clib import mininet_test_topo
 
 from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
 
@@ -96,14 +95,14 @@ class PostHandler(SimpleHTTPRequestHandler):
 
 class InfluxPostHandler(PostHandler):
 
-    def do_POST(self): # pylint: disable=invalid-name
+    def do_POST(self):  # pylint: disable=invalid-name
         self._log_post()
         return self.send_response(204)
 
 
 class SlowInfluxPostHandler(PostHandler):
 
-    def do_POST(self): # pylint: disable=invalid-name
+    def do_POST(self):  # pylint: disable=invalid-name
         self._log_post()
         time.sleep(self.server.timeout * 3)
         return self.send_response(500)
@@ -131,8 +130,7 @@ vlans:
     # pylint: disable=invalid-name
     CONFIG = CONFIG_BOILER_UNTAGGED
 
-
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -365,7 +363,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
                                 msg='expected event: {} not in events_that_happened {}'.format(
                                     expected_event, events_that_happened))
 
-    def _eapol_filter(self, fields):
+    @staticmethod
+    def _eapol_filter(fields):
         return '(' + ' and '.join(('ether proto 0x888e',) + fields) + ')'
 
     def _success_eapol_filter(self, expect_success):
@@ -579,7 +578,7 @@ listen {
                 default_config = re.sub(
                     listen_match, '', default_config)
                 default_config = re.sub(
-                    r'server default {', 'server default {\n'+listen_config, default_config)
+                    r'server default {', 'server default {\n' + listen_config, default_config)
                 default_site.seek(0)
                 default_site.write(default_config)
                 default_site.truncate()
@@ -662,7 +661,9 @@ class Faucet8021XFailureTest(Faucet8021XBase):
     def test_untagged(self):
         self.assertFalse(
             self.try_8021x(
-                self.eapol1_host, self.port_map['port_1'], self.wpasupplicant_conf_1, and_logoff=False, expect_success=False))
+                self.eapol1_host, self.port_map['port_1'],
+                self.wpasupplicant_conf_1, and_logoff=False,
+                expect_success=False))
         self.post_test_checks()
 
 
@@ -783,7 +784,7 @@ class Faucet8021XIdentityOnPortUpTest(Faucet8021XBase):
         for req_str in (
                 'Identity: %s' % username,  # supplicant replies with username
                 'Success',  # supplicant success
-                ):
+        ):
             self.assertTrue(req_str in tcpdump_txt, msg='%s not in %s' % (req_str, tcpdump_txt))
 
         self.one_ipv4_ping(
@@ -1900,6 +1901,17 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
+    def test_scapy_fuzz(self):
+        # Scapy 2.4.5 has issues with 'fuzz' generation
+        #  so black-list that version with a test
+        exception = False
+        try:
+            scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))
+        except Exception as e:
+            error('%s:' % self._test_name(), e)
+            exception = True
+        self.assertFalse(exception, 'Scapy threw an exception in send(fuzz())')
+
     def test_ryu_config(self):
         varstr = ', '.join(self.scrape_prometheus(var='ryu_config'))
         self.assertTrue('echo_request_interval"} 10.0' in varstr)
@@ -2098,12 +2110,12 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             self.server.influx_log = self.influx_log
             self.server.timeout = self.DB_TIMEOUT
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):
         self.handler = InfluxPostHandler
         super().setUp()
         self.setup_influx()
 
-    def tearDown(self, ignore_oferrors=False):  # pylint: disable=invalid-name
+    def tearDown(self, ignore_oferrors=False):
         if self.server:
             self.server.shutdown()
             self.server.socket.close()
@@ -2163,7 +2175,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         try:
             self.server = QuietHTTPServer(
                 (mininet_test_util.LOCALHOST, influx_port),
-                self.handler) # pytype: disable=attribute-error
+                self.handler)  # pytype: disable=attribute-error
             self.server.timeout = self.DB_TIMEOUT
             self.server_thread = threading.Thread(
                 target=self.server.serve_forever)
@@ -2273,7 +2285,7 @@ class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
 
 class FaucetSingleUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):
         self.handler = SlowInfluxPostHandler
         super().setUp()
         self.setup_influx()
@@ -2646,7 +2658,7 @@ vlans:
                 native_vlan: 100
 """
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -2708,7 +2720,7 @@ vlans:
     CONFIG = CONFIG_BOILER_UNTAGGED
 
     def test_untagged(self):
-        self.pingAll()
+        self.ping_all()
         learned_hosts = [
             host for host in self.hosts_name_ordered() if self.host_learned(host)]
         self.assertEqual(2, len(learned_hosts))
@@ -2744,7 +2756,7 @@ vlans:
     def test_untagged(self):
         first_host, second_host = self.hosts_name_ordered()[:2]
         self.ping_all_when_learned()
-        for i in range(10, 10+(self.MAX_HOSTS*2)):
+        for i in range(10, 10 + (self.MAX_HOSTS * 2)):
             mac_intf = 'mac%u' % i
             mac_ipv4 = '10.0.0.%u' % i
             self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
@@ -2892,7 +2904,7 @@ class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
     MAX_HOSTS = _max_hosts()
     TEST_IPV4_NET = '10.0.0.0'
-    TEST_IPV4_PREFIX = 16 # must hold more than MAX_HOSTS + 4
+    TEST_IPV4_PREFIX = 16  # must hold more than MAX_HOSTS + 4
     LEARN_IPV4 = '10.0.254.254'
     CONFIG_GLOBAL = """
 vlans:
@@ -2909,8 +2921,7 @@ vlans:
             eth_src: %u
             eth_dst: %u
             ipv4_fib: %u
-""" % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) +
-              """
+""" % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) + """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2941,7 +2952,7 @@ class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 
     MAX_HOSTS = _max_hosts()
     TEST_IPV4_NET = '10.0.0.0'
-    TEST_IPV4_PREFIX = 16 # must hold more than MAX_HOSTS + 4
+    TEST_IPV4_PREFIX = 16  # must hold more than MAX_HOSTS + 4
     LEARN_IPV4 = '10.0.0.1'
     CONFIG_GLOBAL = """
 vlans:
@@ -2956,8 +2967,7 @@ vlans:
         table_sizes:
             eth_src: %u
             eth_dst: %u
-""" % (_max_hosts() + 64, _max_hosts() + 64) +
-              """
+""" % (_max_hosts() + 64, _max_hosts() + 64) + """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -3008,12 +3018,12 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
         for var in reload_type_vars:
             reload_vals[var] = self.scrape_prometheus_var(
                 var, dpid=True, default=None)
-        for i in range(init_config_count, init_config_count+3):
+        for i in range(init_config_count, init_config_count + 3):
             self._configure_count_with_retry(i)
             with open(self.faucet_config_path, 'a') as config_file:
                 config_file.write('\n')
             self.verify_faucet_reconf(change_expected=False)
-            self._configure_count_with_retry(i+1)
+            self._configure_count_with_retry(i + 1)
             self.assertEqual(
                 self.scrape_prometheus_var(
                     'of_dp_disconnections_total', dpid=True, default=None),
@@ -3066,7 +3076,7 @@ acls:
         tcp_src: 65535
 """
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
         self.CONFIG = '\n'.join(
@@ -3101,7 +3111,7 @@ acls:
             tuple_txt = '%u IPv%u tuples\n' % (len(rules_yaml), host_ip.version)
             error('pushing %s' % tuple_txt)
             self.reload_conf(
-                yaml_acl_conf, self.acl_config_file, # pytype: disable=attribute-error
+                yaml_acl_conf, self.acl_config_file,  # pytype: disable=attribute-error
                 restart=True, cold_start=False)
             error('pushed %s' % tuple_txt)
             self.wait_until_matching_flow(
@@ -3109,8 +3119,7 @@ acls:
             rules *= 2
 
     def test_tuples(self):
-        host_ips = [host_ip for host_ip in itertools.islice(
-            self.NET_BASE.hosts(), self.MAX_RULES)]
+        host_ips = list(itertools.islice(self.NET_BASE.hosts(), self.MAX_RULES))
         self._push_tuples(self.ETH_TYPE, host_ips)
 
 
@@ -3252,9 +3261,9 @@ acls:
 """
     ACL_COOKIE = None
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
-        self.ACL_COOKIE = random.randint(1, 2**16-1)
+        self.ACL_COOKIE = random.randint(1, 2**16 - 1)
         self.ACL = self.ACL.replace('COOKIE', str(self.ACL_COOKIE))
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         with open(self.acl_config_file, 'w') as config_file:
@@ -3459,7 +3468,7 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
 """
 
     def _verify_hosts_learned(self, hosts):
-        self.pingAll()
+        self.ping_all()
         for host in hosts:
             self.require_host_learned(host)
         self.assertEqual(len(hosts), self.scrape_prometheus_var(
@@ -3819,7 +3828,7 @@ routers:
                 '10.0.0.0/24 next-hop 10.0.0.254',
                 '10.0.1.0/24 next-hop 10.0.0.1',
                 '10.0.2.0/24 next-hop 10.0.0.2',
-                '10.0.2.0/24 next-hop 10.0.0.2'):
+                '10.0.3.0/24 next-hop 10.0.0.2'):
             self.assertTrue(re.search(route_string, updates), msg=updates)
         # test nexthop expired when port goes down
         first_host = self.hosts_name_ordered()[0]
@@ -4067,7 +4076,7 @@ vlans:
                 loop_protect: True
 """
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -4162,7 +4171,7 @@ vlans:
                 native_vlan: 100
 """
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -4271,14 +4280,14 @@ details partner lacp pdu:
             return lacp_up_ports
 
         def require_lag_up_ports(expected_up_ports):
-            for _ in range(lacp_timeout*10):
+            for _ in range(lacp_timeout * 10):
                 if prom_lacp_up_ports() == expected_up_ports:
                     break
                 time.sleep(1)
             self.assertEqual(prom_lacp_up_ports(), expected_up_ports)
 
         def require_linux_bond_up():
-            for _retries in range(lacp_timeout*2):
+            for _retries in range(lacp_timeout * 2):
                 result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
                 result = '\n'.join([line.rstrip() for line in result.splitlines()])
                 with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
@@ -4356,7 +4365,7 @@ class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
                 'ip link set %s down' % bond_member,
                 'ip address flush dev %s' % bond_member,
                 ('ip link add %s address 0e:00:00:00:00:%2.2x '
-                 'type bond mode 802.3ad lacp_rate fast miimon 100') % (bond, i*2+i),
+                 'type bond mode 802.3ad lacp_rate fast miimon 100') % (bond, i * 2 + i),
                 'ip add add %s/24 dev %s' % (orig_ip, bond),
                 'ip link set %s up' % bond,
                 'ip link set dev %s master %s' % (bond_member, bond)))
@@ -4543,7 +4552,7 @@ vlans:
                 fuzz_cmd = ("from scapy.all import * ;"
                             "scapy.all.send(IPv6(dst='%s')/fuzz(%s()),count=%u)" %
                             (self.FAUCET_VIPV6.ip, fuzz_class, packets))
-                out, start, too_long = '', time.time(), 30 # seconds
+                out, start, too_long = '', time.time(), 30  # seconds
                 popen = first_host.popen('python3', '-c', fuzz_cmd)
                 for _, line in pmonitor({first_host: popen}):
                     out += line
@@ -4616,7 +4625,7 @@ vlans:
                 native_vlan: 101
 """
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -4729,7 +4738,7 @@ acls:
         egress_acl_table = self.scrape_prometheus_var(
             'faucet_config_table_names',
             labels={'table_name': 'egress_acl'}
-            )
+        )
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(
             5001, first_host, second_host, table_id=egress_acl_table)
@@ -4741,7 +4750,7 @@ acls:
         egress_acl_table = self.scrape_prometheus_var(
             'faucet_config_table_names',
             labels={'table_name': 'egress_acl'}
-            )
+        )
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(
@@ -5588,7 +5597,7 @@ vlans:
 
     CONFIG = CONFIG_TAGGED_BOILER
 
-    def setUp(self): # pylint: disable=invalid-name
+    def setUp(self):
         super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -5807,11 +5816,11 @@ routers:
 vlans:
 %s
 """ % (
-    ','.join(STR_VIDS),
-    '\n'.join(['\n'.join(
-        ('    %u:',
-         '        description: "tagged"',
-         '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
+        ','.join(STR_VIDS),
+        '\n'.join(['\n'.join(
+            ('    %u:',
+             '        description: "tagged"',
+             '        faucet_vips: ["192.168.%u.254/24"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: %u
         proactive_learn_v4: True
@@ -5832,9 +5841,9 @@ vlans:
                 tagged_vlans: [%s]
                 hairpin_unicast: True
 """ % (global_vid(),
-       len(STR_VIDS) * 3, # VLAN
-       len(STR_VIDS) * 2, # VIP
-       len(STR_VIDS) * 12, # Flood
+       len(STR_VIDS) * 3,   # VLAN
+       len(STR_VIDS) * 2,   # VIP
+       len(STR_VIDS) * 12,  # Flood
        '%(port_3)d', '%(port_1)d', '%(port_1)d',
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
@@ -5989,11 +5998,11 @@ routers:
 vlans:
 %s
 """ % (
-    ','.join(STR_VIDS),
-    '\n'.join(['\n'.join(
-        ('    %u:',
-         '        description: "tagged"',
-         '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
+        ','.join(STR_VIDS),
+        '\n'.join(['\n'.join(
+            ('    %u:',
+             '        description: "tagged"',
+             '        faucet_vips: ["fc00::%u:254/112"]')) % (i, i) for i in VIDS]))
     CONFIG = """
         global_vlan: %u
         proactive_learn_v6: True
@@ -6029,8 +6038,8 @@ class FaucetTaggedScaleTest(FaucetTaggedTest):
     CONFIG_GLOBAL = """
 vlans:
 """ + '\n'.join(['\n'.join(
-    ('    %u:',
-     '        description: "tagged"')) % i for i in VIDS])
+        ('    %u:',
+         '        description: "tagged"')) % i for i in VIDS])
     CONFIG = """
         interfaces:
             %s:
@@ -8034,6 +8043,7 @@ acls:
     def test_untagged(self):
         pass
 
+
 class FaucetDscpMatchTest(FaucetUntaggedTest):
     # Match all packets with this IP_DSP and eth_type, based on the ryu API def
     # e.g {"ip_dscp": 3, "eth_type": 2048}
@@ -8269,7 +8279,7 @@ class FaucetDisconnectTest(FaucetUntaggedTest):
         # 'unknown datapath' messages, indicating switch connections that
         # FAUCET has rejected. The switch should see them as
         # 'connection reset by peer'.
-        mask = int(16*'f', 16)
+        mask = int(16 * 'f', 16)
         bad_dpid = (int(self.dpid) + 0xdeadbeef) & mask
         self.update_config(dpid=bad_dpid)
         self.wait_until_matching_lines_from_faucet_log_files(
@@ -8301,7 +8311,7 @@ class FaucetBadFlowModTest(FaucetUntaggedTest):
 
     def bad_dpid(self):
         """Return a random, bad dpid parameter"""
-        mask = int(16*'f', 16)
+        mask = int(16 * 'f', 16)
         dpid = (int(self.dpid) + random.randint(0, 1 << 63)) & mask
         return {'dpid': dpid}
 

@@ -32,7 +32,6 @@ from faucet import valve_of
 from faucet.valve_util import dpid_log, get_logger, get_setting
 
 
-
 class ValveDeadThreadException(Exception):
     """Exception raised when a dead thread is detected."""
 
@@ -126,7 +125,7 @@ class RyuAppBase(app_manager.RyuApp):
     @staticmethod
     def _config_files_changed():
         """Return True if config files changed."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def _config_file_stat(self):
         """Periodically stat config files for any changes."""
@@ -179,11 +178,11 @@ class RyuAppBase(app_manager.RyuApp):
 
     @staticmethod
     def _datapath_connect(_ryu_event):
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @staticmethod
     def _datapath_disconnect(_ryu_event):
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     def connect_or_disconnect_handler(self, ryu_event):

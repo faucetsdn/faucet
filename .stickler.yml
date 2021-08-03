@@ -2,10 +2,7 @@
 linters:
   flake8:
     python: 3
-    max-line-length: 120
-  pep8:
-    python: 3
-    max-line-length: 120
+    config: .flake8
   py3k:
     ignore:
       - 'W1618'

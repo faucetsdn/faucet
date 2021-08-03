@@ -42,8 +42,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             self.logger.info('external ports present, using loop protection')
             self._set_ext_port_flag = (self.flood_table.set_external_forwarding_requested(),)
             self._set_nonext_port_flag = (self.flood_table.set_no_external_forwarding_requested(),)
-            if (not self.stack_manager.stack.is_root() and
-                    self.stack_manager.stack.is_root_candidate()):
+            if (not self.stack_manager.stack.is_root()
+                    and self.stack_manager.stack.is_root_candidate()):
                 self.logger.info('external flooding on root only')
                 self.external_root_only = True
 
@@ -150,8 +150,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             ofmsgs.extend(self.pipeline.remove_filter(
                 match, priority_offset=priority_offset))
             # Control learning from multicast/broadcast on non-root DPs.
-            if (not self.stack_manager.stack.is_root() and
-                    eth_dst is not None and self._USES_REFLECTION):
+            if (not self.stack_manager.stack.is_root()
+                    and eth_dst is not None and self._USES_REFLECTION):
                 # If this is an edge DP, we don't have to learn from
                 # hosts that only broadcast.  If we're an intermediate
                 # DP, only learn from broadcasts further away from
@@ -165,7 +165,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
     def _build_mask_flood_rules_flood_acts(self, vlan, eth_type, eth_dst, eth_dst_mask,
                                            exclude_unicast, exclude_restricted_bcast_arpnd,
-                                           command, cold_start, prune, port):
+                                           command, cold_start, prune, port):  # pylint: disable=unused-argument
         """Builds the flood rules for the flood table to forward packets along the stack topology"""
         ofmsgs = []
         flood_acts = []
@@ -285,7 +285,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 match=self.vlan_table.match(
                     in_port=port.number,
                     vlan=NullVLAN()),
-                priority=self.low_priority+1))
+                priority=self.low_priority + 1))
             ofmsgs.append(self.vlan_table.flowmod(
                 match=self.vlan_table.match(in_port=port.number),
                 priority=self.low_priority,
@@ -326,9 +326,9 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             if lacp_id in all_lags:
                 ports[stack_valve.dp.dp_id] = len(all_lags[lacp_id])
             nosync_lags = stack_valve.dp.lags_nosync()
-            for lacp_id in nosync_lags:
+            for l_id in nosync_lags:
                 ports.setdefault(stack_valve.dp.dp_id, 0)
-                no_sync_ports[stack_valve.dp.dp_id] = len(nosync_lags.get(lacp_id, 0))
+                no_sync_ports[stack_valve.dp.dp_id] = len(nosync_lags.get(l_id, 0))
             if stack_valve.dp.stack.is_root():
                 root_dpid = stack_valve.dp.dp_id
         # Order by number of ports

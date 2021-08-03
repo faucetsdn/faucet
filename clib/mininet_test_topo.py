@@ -42,10 +42,10 @@ class FaucetLink(Link):
     """Link using FaucetIntfs"""
 
     def __init__(self, node1, node2, port1=None, port2=None,
-                 intfName1=None, intfName2=None,
+                 intf_name1=None, intf_name2=None,
                  addr1=None, addr2=None, **params):
         Link.__init__(self, node1, node2, port1=port1, port2=port2,
-                      intfName1=intfName1, intfName2=intfName2,
+                      intfName1=intf_name1, intfName2=intf_name2,
                       cls1=FaucetIntf, cls2=FaucetIntf,
                       addr1=addr1, addr2=addr2,
                       params1=params, params2=params)
@@ -91,8 +91,11 @@ class VLANHost(FaucetHost):
 
     def config(self, vlans=[100], **params):  # pylint: disable=arguments-differ
         """Configure VLANHost according to (optional) parameters:
-           vlans (list): List of VLAN IDs (for the VLANs the host is configured to have) for default interface
-           vlan_intfs (dict): Dictionary of interface IP addresses keyed by VLAN indices"""
+
+        vlans (list): List of VLAN IDs (for the VLANs the host is configured to have)
+            for default interface
+        vlan_intfs (dict): Dictionary of interface IP addresses keyed by VLAN indices
+        """
         super_config = super().config(**params)
         self.vlans = vlans
         self.vlan_intfs = {}
@@ -101,7 +104,7 @@ class VLANHost(FaucetHost):
         self.intf_root_name = intf.name
         if 'vlan_intfs' in params:
             vlan_intfs = params.get('vlan_intfs', {})
-            for vlan_id, ip in vlan_intfs.items():
+            for vlan_id, ip_addr in vlan_intfs.items():
                 if isinstance(vlan_id, tuple):
                     # Interface will take multiply VLAN tagged packets
                     intf_name = '%s' % intf.name
@@ -110,18 +113,19 @@ class VLANHost(FaucetHost):
                         # Cannot have intf name tu0xy-eth0.VID1.VID2 as that takes up too many bytes
                         intf_name += '.%s' % vlan_i
                         cmds.extend([
-                            'ip link add link %s name %s type vlan id %s' % (prev_name, intf_name, vlans[vlan_i]),
+                            'ip link add link %s name %s type vlan id %s' %
+                            (prev_name, intf_name, vlans[vlan_i]),
                             'ip link set dev %s up' % (intf_name)
                         ])
                         self.nameToIntf[intf_name] = intf
                         self.vlan_intfs.setdefault(vlan_id, [])
                         self.vlan_intfs[vlan_id].append(intf_name)
-                    cmds.append('ip -4 addr add %s dev %s' % (ip, intf_name))
+                    cmds.append('ip -4 addr add %s dev %s' % (ip_addr, intf_name))
                 else:
                     intf_name = '%s.%s' % (intf, vlans[vlan_id])
                     cmds.extend([
                         'vconfig add %s %d' % (intf.name, vlans[vlan_id]),
-                        'ip -4 addr add %s dev %s' % (ip, intf_name),
+                        'ip -4 addr add %s dev %s' % (ip_addr, intf_name),
                         'ip link set dev %s up' % intf_name])
                     self.nameToIntf[intf_name] = intf
                     self.vlan_intfs[vlan_id] = intf_name
@@ -130,8 +134,8 @@ class VLANHost(FaucetHost):
             cmds.extend([
                 'ip link set dev %s up' % vlan_intf_name,
                 'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)])
-            for v in vlans:
-                cmds.append('vconfig add %s %d' % (intf, v))
+            for vlan in vlans:
+                cmds.append('vconfig add %s %d' % (intf, vlan))
             intf.name = vlan_intf_name
             self.nameToIntf[vlan_intf_name] = intf
         cmds.extend([
@@ -164,8 +168,8 @@ class FaucetSwitch(OVSSwitch):
         # Workaround: ignore ethtool errors on tap interfaces
         # This allows us to use tap tunnels as cables to switch ports,
         # for example to test against OvS in a VM.
-        if (len(args) > 1 and args[0] == 'ethtool -K' and
-                getattr(args[1], 'name', '').startswith('tap')):
+        if (len(args) > 1 and args[0] == 'ethtool -K'
+                and getattr(args[1], 'name', '').startswith('tap')):
             return True
         return False
 
@@ -191,7 +195,7 @@ class FaucetSwitch(OVSSwitch):
         port = self.ports[intf]
         self.cmd('ovs-vsctl set Interface', intf, 'ofport_request=%s' % port)
 
-    def addController(self, controller):
+    def add_controller(self, controller):
         self.clist.append((
             self.name + controller.name, '%s:%s:%d' % (
                 controller.protocol, controller.IP(), controller.port)))
@@ -208,8 +212,8 @@ class FaucetSwitch(OVSSwitch):
         # Controller ID list
         cids = ','.join('@%s' % name for name, _target in self.clist)
         # One ovs-vsctl command to rule them all!
-        self.vsctl(cargs +
-                   ' -- set bridge %s controller=[%s]' % (self, cids))
+        self.vsctl(cargs
+                   + ' -- set bridge %s controller=[%s]' % (self, cids))
 
     def start(self, controllers):
         # Transcluded from Mininet source, since need to insert
@@ -217,16 +221,16 @@ class FaucetSwitch(OVSSwitch):
         int(self.dpid, 16)  # DPID must be a hex string
         switch_intfs = [intf for intf in self.intfList() if self.ports[intf] and not intf.IP()]
         # Command to add interfaces
-        intfs = ' '.join(' -- add-port %s %s' % (self, intf) +
-                         self.intfOpts(intf)
+        intfs = ' '.join(' -- add-port %s %s' % (self, intf)
+                         + self.intfOpts(intf)
                          for intf in switch_intfs)
         # Command to create controller entries
         self.clist = [(self.name + c.name, '%s:%s:%d' %
-                  (c.protocol, c.IP(), c.port))
-                 for c in controllers]
+                       (c.protocol, c.IP(), c.port))
+                      for c in controllers]
         if self.listenPort:
             self.clist.append((self.name + '-listen',
-                          'ptcp:%s' % self.listenPort))
+                               'ptcp:%s' % self.listenPort))
         ccmd = '-- --id=@%s create Controller target=\\"%s\\"'
         if self.reconnectms:
             ccmd += ' max_backoff=%d' % self.reconnectms
@@ -240,11 +244,11 @@ class FaucetSwitch(OVSSwitch):
         if not self.isOldOVS():
             cargs += ' -- --if-exists del-br %s' % self
         # One ovs-vsctl command to rule them all!
-        self.vsctl(cargs +
-                   ' -- add-br %s' % self +
-                   ' -- set bridge %s controller=[%s]' % (self, cids) +
-                   self.bridgeOpts() +
-                   intfs)
+        self.vsctl(cargs
+                   + ' -- add-br %s' % self
+                   + ' -- set bridge %s controller=[%s]' % (self, cids)
+                   + self.bridgeOpts()
+                   + intfs)
         # switch interfaces on mininet host, must have no IP config.
         for intf in switch_intfs:
             for ipv in (4, 6):
@@ -292,10 +296,10 @@ class FaucetSwitchTopo(Topo):
         return self.addHost(
             name=host_name, cls=VLANHost, vlans=tagged_vids, cpu=self.CPUF)
 
-    def _add_untagged_host(self, sid_prefix, host_n, inNamespace=True): # pylint: disable=invalid-name
+    def _add_untagged_host(self, sid_prefix, host_n, in_namespace=True):
         """Add a single untagged test host."""
         host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(name=host_name, cls=FaucetHost, cpu=self.CPUF, inNamespace=inNamespace)
+        return self.addHost(name=host_name, cls=FaucetHost, cpu=self.CPUF, inNamespace=in_namespace)
 
     def _add_extended_host(self, sid_prefix, host_n, e_cls, tmpdir):
         """Add a single extended test host."""
@@ -392,7 +396,7 @@ class FaucetSwitchTopo(Topo):
                       for host_n in range(n_tagged)]
             untagged = [self._add_untagged_host(
                 sid_prefix, host_n, host_namespace.get(host_n, True))
-                        for host_n in range(n_untagged)]
+                for host_n in range(n_untagged)]
             extended = [self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
                         for host_n in range(n_extended)]
             switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
@@ -440,7 +444,7 @@ socket_timeout=15
             socket_type = socket.AF_INET
             if self.controller_ipv6:
                 socket_type = socket.AF_INET6
-            self.controller_ip = netifaces.ifaddresses( # pylint: disable=c-extension-no-member
+            self.controller_ip = netifaces.ifaddresses(  # pylint: disable=c-extension-no-member
                 self.controller_intf)[socket_type][0]['addr']
             ofp_listen_host_arg = '--ryu-ofp-listen-host=%s' % self.controller_ip
         self.pid_file = os.path.join(self.tmpdir, name + '.pid')
@@ -466,7 +470,7 @@ socket_timeout=15
             '-n',
             '-U',
             '-q',
-            '-W 1', # max files 1
+            '-W 1',  # max files 1
             '-G %u' % (self.MAX_CTL_TIME - 1),
             '-c %u' % (self.MAX_OF_PKTS),
             '-i %s' % self.controller_intf,
@@ -558,9 +562,9 @@ socket_timeout=15
 
     def healthy(self):
         """Return True if controller logging and listening on required ports."""
-        if (os.path.exists(self.logname()) and
-                os.path.getsize(self.logname()) and
-                self.listening()):
+        if (os.path.exists(self.logname())
+                and os.path.getsize(self.logname())
+                and self.listening()):
             return True
         return False
 
@@ -634,9 +638,9 @@ class FAUCET(BaseFAUCET):
 
     def listening(self):
         return (
-            self.listen_port(self.ofctl_port) and
-            self.listen_port(self.prom_port) and
-            super().listening())
+            self.listen_port(self.ofctl_port)
+            and self.listen_port(self.prom_port)
+            and super().listening())
 
 
 class Gauge(BaseFAUCET):

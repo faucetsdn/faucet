@@ -22,6 +22,7 @@ import inspect
 import os
 import sys
 import multiprocessing
+import pdb
 import pstats
 import random
 import re
@@ -30,6 +31,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import traceback
 import unittest
 
 import yaml
@@ -244,8 +246,8 @@ def pipeline_superset_report(decoded_pcap_logs):
         for flow_line, depth, section_stack in flow_lines:
             if depth == 1:
                 if flow_line.startswith('Type: OFPT_'):
-                    if not (flow_line.startswith('Type: OFPT_FLOW_MOD') or
-                            flow_line.startswith('Type: OFPT_GROUP_MOD')):
+                    if not (flow_line.startswith('Type: OFPT_FLOW_MOD')
+                            or flow_line.startswith('Type: OFPT_GROUP_MOD')):
                         return
                 if flow_line.startswith('Table ID'):
                     if not flow_line.startswith('Table ID: OFPTT_ALL'):
@@ -330,7 +332,6 @@ def pipeline_superset_report(decoded_pcap_logs):
                 last_packet_line = packet_line
                 flow_lines.append((packet_line, depth, copy.copy(section_stack)))
             parse_flow(flow_lines)
-
 
     for table in sorted(table_matches):
         print('table: %u' % table)
@@ -432,7 +433,7 @@ def expand_tests(modules, requested_test_classes, regex_test_classes, excluded_t
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-attr
+class FaucetResult(unittest.runner.TextTestResult):  # pytype: disable=module-attr
 
     root_tmpdir = None
     test_duration_secs = {}
@@ -473,8 +474,6 @@ class FaucetCleanupResult(FaucetResult):
 
 
 def debug_exception_handler(etype, value, trace):
-    import traceback
-    import pdb
     traceback.print_exception(etype, value, trace)
     print()
     pdb.pm()
@@ -530,7 +529,7 @@ def report_tests(test_status, test_list, result):
                 'status': test_status,
                 'output': test_text,
                 'test_duration_secs': test_duration_secs
-                }})
+            }})
     return tests_json
 
 
@@ -676,10 +675,9 @@ def run_tests(modules, hw_config, requested_test_classes, regex_test_classes, du
         modules, requested_test_classes, regex_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial, port_order, start_port)
 
-    testCount = (sanity_tests.countTestCases() + single_tests.countTestCases() +
-                 parallel_tests.countTestCases())
+    test_count = (sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases())
 
-    if testCount:
+    if test_count:
         no_tests = False
         sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
         if sanity_result.wasSuccessful():

@@ -117,7 +117,7 @@ class VLAN(Conf):
         # If True, this VLAN may be dynamically added withTunnel-Private-Group-ID radius attribute.
         'edge_learn_stack_root': True,
         # If True, this VLAN will learn flows through the stack root, following forwarding path.
-        }
+    }
 
     defaults_types = {
         'name': str,
@@ -206,10 +206,10 @@ class VLAN(Conf):
         test_config_condition(
             self.acl_out and self.acls_out, 'found both acl_out and acls_out, use only acls_out')
         if self.acl_in and not isinstance(self.acl_in, list):
-            self.acls_in = [self.acl_in,]
+            self.acls_in = [self.acl_in, ]
             self.acl_in = None
         if self.acl_out and not isinstance(self.acl_out, list):
-            self.acls_out = [self.acl_out,]
+            self.acls_out = [self.acl_out, ]
             self.acl_out = None
         all_acls = []
         if self.acls_in:
@@ -239,8 +239,9 @@ class VLAN(Conf):
             test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
             try:
                 self.routes = [route['route'] for route in self.routes]
-            except TypeError:
-                raise InvalidConfigError('%s is not a valid routes value' % self.routes)
+            except TypeError as type_error:
+                raise InvalidConfigError('%s is not a valid routes value' %
+                                         self.routes) from type_error
             except KeyError:
                 pass
             for route in self.routes:
@@ -276,8 +277,8 @@ class VLAN(Conf):
             if self in port.tagged_vlans])
         self.untagged = tuple([  # pylint: disable=consider-using-generator
             port for port in sorted_ports
-            if (self == port.native_vlan and
-                port.dyn_dot1x_native_vlan is None)])
+            if (self == port.native_vlan
+                and port.dyn_dot1x_native_vlan is None)])
         self.dot1x_untagged = tuple([  # pylint: disable=consider-using-generator
             port for port in sorted_ports
             if self == port.dyn_dot1x_native_vlan])
@@ -382,9 +383,9 @@ class VLAN(Conf):
             True if a host FIB route (and not used as a gateway).
         """
         ip_dsts = self.ip_dsts_for_ip_gw(host_ip)
-        if (len(ip_dsts) == 1 and
-                ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen and
-                ip_dsts[0].network_address == host_ip):
+        if (len(ip_dsts) == 1
+                and ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen
+                and ip_dsts[0].network_address == host_ip):
             return True
         return False
 

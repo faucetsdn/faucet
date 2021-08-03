@@ -20,8 +20,6 @@ import copy
 import netaddr
 from ryu.ofproto import ether
 
-from ryu.ofproto import ether
-
 from faucet import valve_of
 from faucet import valve_acl
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
@@ -201,7 +199,7 @@ The output action contains a dictionary with the following elements:
                     [self], wildcard_table,
                     [valve_of.goto_table(wildcard_table)],
                     [valve_of.goto_table(wildcard_table)],
-                    2**16-1, meters, self.exact_match,
+                    2**16 - 1, meters, self.exact_match,
                     vlan_vid=vid, port_num=port_num)
             except (netaddr.core.AddrFormatError, KeyError, ValueError) as err:
                 raise InvalidConfigError from err
@@ -399,18 +397,18 @@ The output action contains a dictionary with the following elements:
                 port = resolve_port_cb(port_name)
                 test_config_condition(
                     not port,
-                    ('ACL (%s) output port undefined in DP: %s'\
-                    % (self._id, self.dp_id))
-                    )
+                    ('ACL (%s) output port undefined in DP: %s'
+                     % (self._id, self.dp_id))
+                )
                 result[output_action] = port
             elif output_action == 'ports':
                 resolved_ports = [
                     resolve_port_cb(p) for p in output_action_values]
                 test_config_condition(
                     None in resolved_ports,
-                    ('ACL (%s) output port(s) not defined in DP: %s'\
-                    % (self._id, self.dp_id))
-                    )
+                    ('ACL (%s) output port(s) not defined in DP: %s'
+                     % (self._id, self.dp_id))
+                )
                 result[output_action] = resolved_ports
             elif output_action == 'failover':
                 failover = output_action_values
@@ -423,9 +421,9 @@ The output action contains a dictionary with the following elements:
                             resolve_port_cb(p) for p in failover_values]
                         test_config_condition(
                             None in resolved_ports,
-                            ('ACL (%s) failover port(s) not defined in DP: %s'\
-                            % (self._id, self.dp_id))
-                            )
+                            ('ACL (%s) failover port(s) not defined in DP: %s'
+                             % (self._id, self.dp_id))
+                        )
                         result[output_action][failover_name] = resolved_ports
                     else:
                         result[output_action][failover_name] = failover_values
@@ -448,9 +446,9 @@ The output action contains a dictionary with the following elements:
                         resolved_port = resolve_port_cb(action_conf)
                         test_config_condition(
                             resolved_port is None,
-                            ('ACL (%s) mirror port is not defined in DP: %s'\
-                            % (self._id, self.dp_id))
-                            )
+                            ('ACL (%s) mirror port is not defined in DP: %s'
+                             % (self._id, self.dp_id))
+                        )
                         resolved_actions[action_name] = resolved_port
                     elif action_name == 'output':
                         resolved_action = self._resolve_output_ports(
@@ -528,9 +526,9 @@ The output action contains a dictionary with the following elements:
         """Return ID for a tunnel source."""
         return tuple(sorted(source.items()))
 
-    def add_tunnel_source(self, dp, port, reverse=False, bi_directional=False):
+    def add_tunnel_source(self, dp_name, port, reverse=False, bi_directional=False):
         """Add a source dp/port pair for the tunnel ACL"""
-        source = {'dp': dp, 'port': port, 'reverse': reverse, 'bi_directional': bi_directional}
+        source = {'dp': dp_name, 'port': port, 'reverse': reverse, 'bi_directional': bi_directional}
         source_id = self._tunnel_source_id(source)
         self.tunnel_sources[source_id] = source
         for _id in self.tunnel_dests:

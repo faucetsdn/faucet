@@ -18,6 +18,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=wrong-import-order,wrong-import-position
+import eventlet
+if True:                # A trick to satisfy linting for E402
+    eventlet.monkey_patch()
+
 import time
 
 from functools import partial
@@ -72,7 +77,9 @@ class EventFaucetFastAdvertise(event.EventBase):  # pylint: disable=too-few-publ
 
 
 class EventFaucetEventSockHeartbeat(event.EventBase):  # pylint: disable=too-few-public-methods
-    """Event used to trigger periodic events on event sock, causing it to raise an exception if conn is broken."""
+    """Event used to trigger periodic events on event sock,
+    causing it to raise an exception if conn is broken.
+    """
 
 
 class Faucet(RyuAppBase):
@@ -83,7 +90,7 @@ class Faucet(RyuAppBase):
     """
     _CONTEXTS = {
         'dpset': dpset.DPSet,
-        }
+    }
     _VALVE_SERVICES = {
         EventFaucetMetricUpdate: (None, 5),
         EventFaucetResolveGateways: ('resolve_gateways', 2),
@@ -114,10 +121,13 @@ class Faucet(RyuAppBase):
         self.thread_managers = (self.bgp, self.dot1x, self.prom_client, self.notifier)
         self.event_sock_hrtbeat_time = int(self.get_setting('EVENT_SOCK_HEARTBEAT') or 0)
         if self.event_sock_hrtbeat_time > 0:
-            self._VALVE_SERVICES[EventFaucetEventSockHeartbeat] = ('event_sock_heartbeat', self.event_sock_hrtbeat_time)
-        self.stack_root_state_update_time = int(self.get_setting('STACK_ROOT_STATE_UPDATE_TIME') or 0)
+            self._VALVE_SERVICES[EventFaucetEventSockHeartbeat] = ('event_sock_heartbeat',
+                                                                   self.event_sock_hrtbeat_time)
+        self.stack_root_state_update_time = int(
+            self.get_setting('STACK_ROOT_STATE_UPDATE_TIME') or 0)
         if self.stack_root_state_update_time:
-            self._VALVE_SERVICES[EventFaucetMaintainStackRoot] = (None, self.stack_root_state_update_time)
+            self._VALVE_SERVICES[EventFaucetMaintainStackRoot] = (None,
+                                                                  self.stack_root_state_update_time)
 
     @kill_on_exception(exc_logname)
     def _check_thread_exception(self):
@@ -217,7 +227,7 @@ class Faucet(RyuAppBase):
     @set_ev_cls(EventFaucetEventSockHeartbeat, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _event_socket_heartbeat(self, _):
-        self.valves_manager.event_socket_heartbeat(time.time())
+        self.valves_manager.event_socket_heartbeat()
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
@@ -283,8 +293,8 @@ class Faucet(RyuAppBase):
             return
         discovered_up_ports = {
             port.port_no for port in list(ryu_dp.ports.values())
-            if (valve_of.port_status_from_state(port.state) and
-                not valve_of.ignore_port(port.port_no))}
+            if (valve_of.port_status_from_state(port.state)
+                and not valve_of.ignore_port(port.port_no))}
         self._send_flow_msgs(
             valve, self.valves_manager.datapath_connect(now, valve, discovered_up_ports))
         self.valves_manager.update_config_applied({valve.dp.dp_id: True})

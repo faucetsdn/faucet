@@ -18,7 +18,7 @@
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
-import requests # pytype: disable=pyi-error
+import requests  # pytype: disable=pyi-error
 from faucet.gauge_pollers import GaugePortStatePoller, GaugeFlowTablePoller, GaugePortStatsPoller
 
 
@@ -192,7 +192,7 @@ Example:
      1501154977000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      12164
      1501155037000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      12239
 
-"""
+"""  # noqa: E501
 
     def _update(self, rcv_time, msg):
         points = []

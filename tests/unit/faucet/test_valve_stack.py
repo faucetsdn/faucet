@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Unit tests run as PYTHONPATH=../../.. python3 ./test_valve_stack.py."""
 
@@ -109,7 +109,7 @@ dps:
                 native_vlan: 100
     """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG1)
         self.activate_stack()
 
@@ -186,7 +186,7 @@ dps:
                 lacp: 1
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -414,7 +414,7 @@ dps:
                 lacp: 1
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -487,7 +487,7 @@ dps:
                 lacp: 1
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -562,7 +562,7 @@ dps:
                 loop_protect_external: True
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
         self.set_stack_port_up(1)
 
@@ -594,7 +594,7 @@ class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
     DP = 's2'
     DP_ID = 2
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -669,7 +669,7 @@ class ValveStackLoopTest(ValveTestBases.ValveTestNetwork):
 
     CONFIG = STACK_LOOP_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
@@ -856,7 +856,7 @@ dps:
                 native_vlan: 100
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
         self.set_stack_port_up(1)
 
@@ -923,7 +923,7 @@ dps:
                 native_vlan: 0x100
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_nonstack_dp_port(self):
@@ -939,7 +939,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
     STACK_ROOT_STATE_UPDATE_TIME = 10
     STACK_ROOT_DOWN_TIME = STACK_ROOT_STATE_UPDATE_TIME * 3
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def dp_by_name(self, dp_name):
@@ -951,7 +951,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
 
     def set_stack_all_ports_status(self, dp_name, status):
         """Set all stack ports to status on dp"""
-        dp = self.dp_by_name(dp_name)  # pylint: disable=invalid-name
+        dp = self.dp_by_name(dp_name)
         for port in dp.stack_ports():
             port.dyn_stack_current_state = status
 
@@ -961,7 +961,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         self.trigger_stack_ports()
         # All switches are down to start with.
         for dpid in self.valves_manager.valves:
-            dp = self.valves_manager.valves[dpid].dp  # pylint: disable=invalid-name
+            dp = self.valves_manager.valves[dpid].dp
             dp.dyn_running = False
             self.set_stack_all_ports_status(dp.name, STACK_STATE_INIT)
         for valve in self.valves_manager.valves.values():
@@ -1032,7 +1032,7 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
     DP = 's3'
     DP_ID = 0x3
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(CONFIG)
         self.set_stack_port_up(5)
 
@@ -1068,16 +1068,16 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
                         native_vlan: 100
         """
         self.update_config(SIMPLE_DP_CONFIG, reload_expected=True)
-        dp = self.valves_manager.valves[self.DP_ID].dp  # pylint: disable=invalid-name
+        dp = self.valves_manager.valves[self.DP_ID].dp
         self.assertFalse(dp.stack)
         self.update_config(CONFIG, reload_expected=True)
         self.set_stack_port_up(5)
-        dp = self.valves_manager.valves[self.DP_ID].dp  # pylint: disable=invalid-name
+        dp = self.valves_manager.valves[self.DP_ID].dp
         self.assertTrue(dp.stack.is_root())
 
     def test_topo(self):
         """Test DP is assigned appropriate edge/root states"""
-        dp = self.valves_manager.valves[self.DP_ID].dp  # pylint: disable=invalid-name
+        dp = self.valves_manager.valves[self.DP_ID].dp
         self.assertTrue(dp.stack.is_root())
         self.assertFalse(dp.stack.is_edge())
 
@@ -1088,7 +1088,7 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
     DP = 's4'
     DP_ID = 0x4
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(CONFIG)
         self.set_stack_port_up(5)
 
@@ -1128,7 +1128,7 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
 
     def test_topo(self):
         """Test DP is assigned appropriate edge/root states"""
-        dp = self.valves_manager.valves[self.DP_ID].dp  # pylint: disable=invalid-name
+        dp = self.valves_manager.valves[self.DP_ID].dp
         self.assertFalse(dp.stack.is_root())
         self.assertTrue(dp.stack.is_edge())
 
@@ -1138,7 +1138,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
 
     CONFIG = STACK_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_stack_probe(self):
@@ -1211,7 +1211,7 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestNetwork):
 
     CONFIG = STACK_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_update_stack_graph(self):
@@ -1274,7 +1274,7 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
     def _set_max_lldp_lost(self, new_value):
         """Set the interface config option max_lldp_lost"""
         config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
-        for dp in config['dps'].values():  # pylint: disable=invalid-name
+        for dp in config['dps'].values():
             for interface in dp['interfaces'].values():
                 if 'stack' in interface:
                     interface['max_lldp_lost'] = new_value
@@ -1328,7 +1328,7 @@ class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):  # py
     VLAN200_FAUCET_VIPS = '10.0.2.254'
     VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_stack_routing()
 
 
@@ -1372,7 +1372,7 @@ class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRoutin
                     stack: {dp: s1, port: 3}
     """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_stack_routing()
 
 
@@ -1451,7 +1451,7 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
                     stack: {dp: s3, port: 4}
     """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_stack_routing()
 
 
@@ -1463,7 +1463,7 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
     VLAN100_FAUCET_VIP_SPACE = 'fc80::1:254/64'
     VLAN200_FAUCET_VIP_SPACE = 'fc80::1:254/64'
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_stack_routing()
 
     @staticmethod
@@ -1498,7 +1498,8 @@ class ValveInterVLANStackFlood(ValveTestBases.ValveTestNetwork):
     VLAN200_FAUCET_VIP_SPACE = '10.2.0.254/24'
     DST_ADDRESS = ipaddress.IPv4Address('10.1.0.1')
 
-    def base_config(self):
+    @staticmethod
+    def base_config():
         """Create the base config"""
         return """
 routers:
@@ -1569,19 +1570,20 @@ vlans:
                self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
                self.base_config())
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Create a stacking config file."""
         self.create_config()
         self.setup_valves(self.CONFIG)
         self.trigger_stack_ports()
 
-    def stack_manager_flood_ports(self, stack_manager):
+    @staticmethod
+    def stack_manager_flood_ports(stack_manager):
         """Return list of port numbers that will be flooded to"""
         stack_manager.reset_peer_distances()
         ports = list()
         if stack_manager.stack.is_root():
-            ports = (stack_manager.away_ports - stack_manager.inactive_away_ports -
-                     stack_manager.pruned_away_ports)
+            ports = (stack_manager.away_ports - stack_manager.inactive_away_ports
+                     - stack_manager.pruned_away_ports)
         else:
             ports = [stack_manager.chosen_towards_port]
         return sorted([port.number for port in ports])
@@ -3114,12 +3116,12 @@ dps:
                     port: 2
     """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_topo(self):
         """Test topology functions."""
-        dp = self.valves_manager.valves[self.DP_ID].dp  # pylint: disable=invalid-name
+        dp = self.valves_manager.valves[self.DP_ID].dp
         self.assertTrue(dp.stack.is_root())
         self.assertFalse(dp.stack.is_edge())
 
@@ -3184,7 +3186,7 @@ dps:
                     port: 2
     """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def test_topo(self):
@@ -3227,7 +3229,7 @@ dps:
                 native_vlan: vlan100
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         self.setup_valves(self.CONFIG)
 
     def check_groupmods_exist(self, ofmsgs, groupdel_exists=True):
@@ -3435,7 +3437,7 @@ dps:
                 native_vlan: vlan200
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup network and start stack ports"""
         self.setup_valves(self.CONFIG)
 
@@ -3554,14 +3556,14 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
     def test_timeout(self):
         """Test stack health on health timeouts"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3585,7 +3587,7 @@ dps:
     def test_lacp_down(self):
         """Test stack health on LACP ports being DOWN"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3613,7 +3615,7 @@ dps:
     def test_stack_port_down(self):
         """Test stack health on stack ports being DOWN"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3710,7 +3712,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -3720,7 +3722,7 @@ dps:
     def test_sw3_lacp(self):
         """Test LACP health metrics with SW3"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3737,7 +3739,7 @@ dps:
     def test_sw1_lacp_down(self):
         """Test LACP health metrics with SW1"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3767,7 +3769,7 @@ dps:
     def test_sw2_lacp_down(self):
         """Test LACP health metrics with SW2"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3798,7 +3800,7 @@ dps:
     def test_sw1_stack_down(self):
         """Test stack health metrics with SW1"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3825,7 +3827,7 @@ dps:
     def test_sw2_stack_down(self):
         """Test stack health metrics with SW2"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3916,7 +3918,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -3926,7 +3928,7 @@ dps:
     def test_lacp_root_nomination(self):
         """Test root selection health"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -3975,7 +3977,7 @@ dps:
     def test_stack_root_nomination(self):
         """Test root selection health"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -4074,7 +4076,7 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
@@ -4085,7 +4087,7 @@ dps:
     def test_root_nomination(self):
         """Test root selection health"""
         dps = [valve.dp for valve in self.valves_manager.valves.values()]
-        for dp in dps:  # pylint: disable=invalid-name
+        for dp in dps:
             for port in dp.ports.values():
                 if port.lacp:
                     port.actor_up()
@@ -4195,13 +4197,13 @@ dps:
                 stack: {dp: sw1, port: 7}
 """
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Start network for test"""
         self.setup_valves(self.CONFIG)
 
     def test_stack(self):
         """Test getting config for stack with correct config"""
-        dp = self.valves_manager.valves[1].dp  # pylint: disable=invalid-name
+        dp = self.valves_manager.valves[1].dp
         stack_conf = yaml.safe_load(dp.stack.to_conf())
         self.assertIsInstance(stack_conf, dict)
         self.assertIn('priority', stack_conf)
@@ -4214,7 +4216,7 @@ dps:
 
     def test_dp_stack(self):
         """Test getting config for DP with correct subconfig stack"""
-        dp = self.valves_manager.valves[1].dp  # pylint: disable=invalid-name
+        dp = self.valves_manager.valves[1].dp
         dp_conf = yaml.safe_load(dp.to_conf())
         stack_conf = yaml.safe_load(dp.stack.to_conf())
         self.assertIn('stack', dp_conf)
@@ -4256,7 +4258,7 @@ dps:
                 native_vlan: 100
 """ % BASE_DP1_CONFIG
 
-    def setUp(self):  # pylint: disable=invalid-name
+    def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 

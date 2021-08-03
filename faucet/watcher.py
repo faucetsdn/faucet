@@ -43,34 +43,34 @@ def watcher_factory(conf):
         conf (GaugeConf): object with the configuration for this valve.
     """
 
-    WATCHER_TYPES = {
+    watcher_types = {
         'port_state': {
             'text': GaugePortStateLogger,
             'influx': GaugePortStateInfluxDBLogger,
             'prometheus': GaugePortStatePrometheusPoller,
-            },
+        },
         'port_stats': {
             'text': GaugePortStatsLogger,
             'influx': GaugePortStatsInfluxDBLogger,
             'prometheus': GaugePortStatsPrometheusPoller,
-            },
+        },
         'flow_table': {
             'text': GaugeFlowTableLogger,
             'influx': GaugeFlowTableInfluxDBLogger,
             'prometheus': GaugeFlowTablePrometheusPoller,
-            },
+        },
         'meter_stats': {
             'text': GaugeMeterStatsLogger,
             'prometheus': GaugeMeterStatsPrometheusPoller,
-            },
+        },
     }
 
     w_type = conf.type
     db_type = conf.db_type
     try:
-        return WATCHER_TYPES[w_type][db_type]
-    except KeyError:
-        raise InvalidConfigError('invalid water config')
+        return watcher_types[w_type][db_type]
+    except KeyError as key_error:
+        raise InvalidConfigError('invalid water config') from key_error
 
 
 class GaugePortStateLogger(GaugePortStatePoller):
@@ -100,12 +100,12 @@ class GaugePortStateLogger(GaugePortStatePoller):
     @staticmethod
     def send_req():
         """Send a stats request to a datapath."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @staticmethod
     def no_response():
         """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
 
 class GaugePortStatsLogger(GaugePortStatsPoller):
@@ -155,7 +155,7 @@ class GaugeFlowTableLogger(GaugeFlowTablePoller):
         filename = os.path.join(
             path,
             "{}--flowtable--{}.json".format(self.dp.name, rcv_time_str)
-            )
+        )
         if os.path.isfile(filename):
             # If this filename already exists, add an increment to the filename
             # (for dealing with parts of a multipart message arriving at the same time)

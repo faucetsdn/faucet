@@ -4,8 +4,6 @@ import random
 import unittest
 import networkx
 
-from mininet.topo import Topo  # pylint: disable=unused-import
-
 from clib.mininet_test_watcher import OptimizedTopologyWatcher
 from clib.mininet_test_base_topo import FaucetTopoTestBase
 from clib.mininet_test_topo import FAUCET
@@ -364,7 +362,7 @@ class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
     def test_ftp2_all_random_switch_failures(self):
         """Test fat-tree-pod-2 randomly tearing down only switches"""
         fault_events = [(self.random_switch_fault, (None,)) for _ in range(self.NUM_DPS)]
-        stack_roots = {2*i: 1 for i in range(self.NUM_DPS//2)}
+        stack_roots = {2 * i: 1 for i in range(self.NUM_DPS // 2)}
         self.set_up(networkx.cycle_graph(self.NUM_DPS), stack_roots)
         self.network_function(fault_events=fault_events)
 
@@ -373,14 +371,14 @@ class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
         network_graph = networkx.cycle_graph(self.NUM_DPS)
         fault_events = [
             (self.random_link_fault, (None,)) for _ in range(len(network_graph.edges()))]
-        stack_roots = {2*i: 1 for i in range(self.NUM_DPS//2)}
+        stack_roots = {2 * i: 1 for i in range(self.NUM_DPS // 2)}
         self.set_up(network_graph, stack_roots)
         self.network_function(fault_events=fault_events)
 
     def test_ftp2_edge_root_link_fault(self):
         """Test breaking a link between a edge switch to the root aggregation switch"""
         fault_events = [(self.dp_link_fault, (0, 3))]
-        stack_roots = {2*i: i+1 for i in range(self.NUM_DPS//2)}
+        stack_roots = {2 * i: i + 1 for i in range(self.NUM_DPS // 2)}
         self.set_up(networkx.cycle_graph(self.NUM_DPS), stack_roots)
         self.network_function(fault_events=fault_events)
 
@@ -389,10 +387,10 @@ class FaucetFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
         self.N_DP_LINKS = 2
         fault_events = []
         for i in range(self.NUM_DPS):
-            j = i+1 if i+1 < self.NUM_DPS else 0
+            j = i + 1 if i + 1 < self.NUM_DPS else 0
             fault_events.append((self.dp_link_fault, (i, j)))
         num_faults = len(fault_events)
-        stack_roots = {2*i: 1 for i in range(self.NUM_DPS//2)}
+        stack_roots = {2 * i: 1 for i in range(self.NUM_DPS // 2)}
         self.set_up(networkx.cycle_graph(self.NUM_DPS), stack_roots)
         self.network_function(fault_events=fault_events, num_faults=num_faults)
         self.N_DP_LINKS = 1
@@ -436,6 +434,6 @@ TEST_CLASS_LIST = [
     FaucetFaultTolerance5DPTest,
     FaucetFaultTolerance6DPTest,
     FaucetFaultTolerance7DPTest
-    ]
+]
 MIN_NODES = min([c.NUM_DPS for c in TEST_CLASS_LIST])
 MAX_NODES = max([c.NUM_DPS for c in TEST_CLASS_LIST])

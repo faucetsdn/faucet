@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Standalone script to check FAUCET configuration, return 0 if provided config OK."""
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Test FAUCET valve_of."""
 
@@ -23,8 +23,7 @@ import unittest
 from faucet import valve_of
 
 
-
-class ValveOfTestCase(unittest.TestCase): # pytype: disable=module-attr
+class ValveOfTestCase(unittest.TestCase):  # pytype: disable=module-attr
     """Test valve_of functions."""
 
     def test_reorder_dupe(self):
@@ -48,7 +47,7 @@ class ValveOfTestCase(unittest.TestCase): # pytype: disable=module-attr
         flow = valve_of.output_port(1)
         flows = [flowdel, flow, flow, flow, global_flowdel, global_groupdel]
         reordered = valve_of.valve_flowreorder(flows, use_barriers=True)
-        reordered_str = [str(flow) for flow in reordered]
+        reordered_str = [str(r) for r in reordered]
         # global deletes come first
         self.assertTrue(valve_of.is_global_groupdel(reordered[0]), msg=reordered)
         self.assertTrue(valve_of.is_global_flowdel(reordered[1]), msg=reordered)
@@ -61,4 +60,4 @@ class ValveOfTestCase(unittest.TestCase): # pytype: disable=module-attr
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr
