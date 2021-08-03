@@ -1893,7 +1893,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
         #  so black-list that version with a test
         exception = False
         try:
-            scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))
+            scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))  # pylint: disable=no-member
         except Exception as e:
             error('%s:' % self._test_name(), e)
             exception = True
