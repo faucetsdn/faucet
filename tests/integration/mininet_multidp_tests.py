@@ -19,7 +19,7 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a generalized test topology & config builder"""
 
     @staticmethod
-    def mininet_host_options():
+    def mininet_host_extra_options():
         """Additional mininet host options"""
         return {}
 
@@ -195,7 +195,7 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
             host_vlans=host_vlans,
             switch_links=switch_links,
             link_vlans=link_vlans,
-            mininet_host_options=self.mininet_host_options(),
+            mininet_host_options=self.mininet_host_extra_options(),
             n_vlans=n_vlans,
             dp_options=dp_options,
             host_options=host_options,
