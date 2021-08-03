@@ -17,13 +17,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import eventlet
-eventlet.monkey_patch()
-
-# pylint: disable=wrong-import-position
-from ryu.lib import hub  # noqa: E402
-from chewie import chewie  # noqa: E402
-from faucet.valve_util import kill_on_exception  # noqa: E402
+from ryu.lib import hub
+from chewie import chewie
+from faucet.valve_util import kill_on_exception
 
 
 def get_mac_str(valve_index, port_num):
