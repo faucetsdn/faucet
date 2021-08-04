@@ -284,6 +284,7 @@ class FaucetTestBase(unittest.TestCase):
         controller.cmd(mininet_test_util.timeout_cmd(
             'nc -U %s > %s &' % (sock, self.event_log), timeout))
 
+    # pylint: disable=inconsistent-return-statements
     def _wait_until_matching_event(self, match_func, timeout=30):
         """Return the next matching event from the event sock, else fail"""
         assert timeout >= 1
@@ -2729,6 +2730,7 @@ dbs:
         exp_re = re.compile(exp)
         with open(log_name) as log_file:
             return [log_line for log_line in log_file if exp_re.match(log_line)]
+        return []
 
     def wait_until_matching_lines_from_file(self, exp, log_name, timeout=30, count=1):
         """Require (count) matching lines to be present in file."""
