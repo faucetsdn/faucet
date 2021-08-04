@@ -89,7 +89,7 @@ class VLANHost(FaucetHost):
     vlans = None
     vlan_intfs = None
 
-    def config(self, vlans=[100], **params):  # pylint: disable=arguments-differ
+    def config(self, vlans=None, **params):  # pylint: disable=arguments-differ
         """Configure VLANHost according to (optional) parameters:
 
         vlans (list): List of VLAN IDs (for the VLANs the host is configured to have)
@@ -97,6 +97,8 @@ class VLANHost(FaucetHost):
         vlan_intfs (dict): Dictionary of interface IP addresses keyed by VLAN indices
         """
         super_config = super().config(**params)
+        if vlans is None:
+            vlans = [100]
         self.vlans = vlans
         self.vlan_intfs = {}
         cmds = []
