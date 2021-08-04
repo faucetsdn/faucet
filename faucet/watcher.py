@@ -97,13 +97,11 @@ class GaugePortStateLogger(GaugePortStatePoller):
             with open(self.conf.file, 'a') as logfile:
                 logfile.write('\t'.join((rcv_time_str, log_msg)) + '\n')
 
-    @staticmethod
-    def send_req():
+    def send_req(self):
         """Send a stats request to a datapath."""
         raise NotImplementedError  # pragma: no cover
 
-    @staticmethod
-    def no_response():
+    def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
         raise NotImplementedError  # pragma: no cover
 
