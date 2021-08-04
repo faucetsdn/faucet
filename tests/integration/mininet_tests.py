@@ -81,8 +81,7 @@ class QuietHTTPServer(HTTPServer):
 
 class PostHandler(SimpleHTTPRequestHandler):
 
-    @staticmethod
-    def log_message(_format, *_args):
+    def log_message(self, format, *args):  # pylint: disable=redefined-builtin
         return
 
     def _log_post(self):
