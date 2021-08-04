@@ -572,7 +572,7 @@ class VLAN(Conf):
         pkt = packet_builder(vid, *args)
         return valve_of.packetout(port.number, bytes(pkt.data))
 
-    def flood_pkt(self, packet_builder, multi_out=True, *args):
+    def flood_pkt(self, packet_builder, multi_out, *args):
         """Return Packet-out actions via flooding"""
         ofmsgs = []
         for vid, ports in (
