@@ -21,6 +21,7 @@ import pytricia
 from faucet.conf import Conf, test_config_condition
 
 
+# pylint: disable=c-extension-no-member
 class _PyTricia(pytricia.PyTricia):
     def __repr__(self):
         return str([(k, self[k]) for k in sorted(self.keys())])
