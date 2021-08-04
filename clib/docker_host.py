@@ -125,7 +125,7 @@ class DockerHost(Host):
             self.waiting = True
             data = ''
             while True:
-                data = self.read(maxbytes=1)
+                data = self.read(1)
                 if data[-1] == self.ps1:
                     break
             self.readbuf = ''
@@ -225,14 +225,14 @@ class DockerHost(Host):
             self.terminate()
             raise
 
-    def read(self, maxbytes=1024):
+    def read(self, size=1024):
         """Read from an activated container."""
         poll_results = self.pollIn.poll(self.startup_timeout_ms)
         data_ready = poll_results and (poll_results[0][1] & select.POLLIN)
         assert data_ready, (
             'Timeout waiting for read data on %d after %ds' %
             (self.stdout.fileno(), self.startup_timeout_ms / 1e3))
-        return Host.read(self, maxbytes)
+        return Host.read(self, size)
 
     def terminate(self):
         """Override Mininet terminate() to partially avoid pty leak."""

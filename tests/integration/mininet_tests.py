@@ -1649,11 +1649,11 @@ vlans:
 """
     config_ports = {'gauge_prom_port': None}
 
-    def get_gauge_config(self, faucet_config_file,
-                         monitor_stats_file,
-                         monitor_state_file,
-                         monitor_meter_stats_file):
-        """Build Gauge config."""
+    def _get_gauge_meter_config(self, faucet_config_file,
+                                monitor_stats_file,
+                                monitor_state_file,
+                                monitor_meter_stats_file):
+        """Build Gauge Meter config."""
         return """
 faucet_configs:
     - %s
@@ -1675,7 +1675,7 @@ dbs:
            self.GAUGE_CONFIG_DBS)
 
     def _init_gauge_config(self):
-        gauge_config = self.get_gauge_config(
+        gauge_config = self._get_gauge_meter_config(
             self.faucet_config_path,
             self.monitor_stats_file,
             self.monitor_state_file,
