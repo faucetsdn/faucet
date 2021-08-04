@@ -1202,7 +1202,7 @@ def parse_args():
     return (args.command, command_args)
 
 
-def _print(filename):
+def _print(filename, **_kwargs):
     """Prints the JSON flow table from a file in a human readable format"""
     with open(filename, 'r') as file_handle:
         msg = json.load(file_handle)
