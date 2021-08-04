@@ -341,12 +341,13 @@ class FaucetTopoGenerator(Topo):
                 switch_name = self.switches_by_id[dp_i]
                 self._add_link(switch_name, host_name, vlans)
 
+    # pylint: disable=arguments-differ
     def build(self, ovs_type, ports_sock, test_name, num_dps, descending_dpids,
               host_links, host_vlans, switch_links, link_vlans,
               hw_dpid=None, hw_ports=None,
               port_order=None, start_port=5,
               get_serialno=mininet_test_util.get_serialno,
-              host_options=None):  # pylint: disable=arguments-differ
+              host_options=None):
         """
         Creates a Faucet mininet topology
 

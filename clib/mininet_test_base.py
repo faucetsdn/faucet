@@ -471,6 +471,7 @@ class FaucetTestBase(unittest.TestCase):
             other_dump_name = os.path.join(self.tmpdir, '%s.log' % other_cmd.replace(' ', ''))
             switch.cmd('%s %s > %s' % (self.VSCTL, other_cmd, other_dump_name))
 
+    # pylint: disable=arguments-differ
     def tearDown(self, ignore_oferrors=False):
         """Clean up after a test.
            ignore_oferrors: return OF errors rather than failing"""
