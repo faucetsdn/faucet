@@ -1341,12 +1341,15 @@ class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRoutin
     VLAN100_FAUCET_VIP_SPACE = '10.0.1.254/24'
     VLAN200_FAUCET_VIPS = '10.0.2.254'
     VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
+
+    V100_HOSTS = [1]
+    V200_HOSTS = [2]
+
     NUM_PORTS = 64
 
-    def base_config(self):
+    @staticmethod
+    def base_config():
         """Create the base config"""
-        self.V100_HOSTS = [1]
-        self.V200_HOSTS = [2]
         return """
     routers:
         router1:
@@ -1386,8 +1389,12 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
     VLAN200_FAUCET_VIPS = '10.0.2.254'
     VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
 
+    V100_HOSTS = [1]
+    V200_HOSTS = [3]
+
     def create_config(self):
         """Create the config file"""
+        # pylint: disable=attribute-defined-outside-init
         self.CONFIG = """
     vlans:
         vlan100:
@@ -1405,10 +1412,9 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
                   self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
                   self.base_config())
 
-    def base_config(self):
+    @staticmethod
+    def base_config():
         """Create the base config"""
-        self.V100_HOSTS = [1]
-        self.V200_HOSTS = [3]
         return """
     routers:
         router1:

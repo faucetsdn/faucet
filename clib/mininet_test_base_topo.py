@@ -46,6 +46,9 @@ class FaucetTopoTestBase(FaucetTestBase):
     host_information = None
     faucet_vips = None
 
+    host_port_maps = {}
+    link_port_maps = {}
+
     def _init_faucet_config(self):
         """Initialize & normalize faucet configuration file"""
         config_vars = {}
@@ -162,8 +165,8 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.dpid = self.dpids[0]
         # host_port_maps = {host_n: {switch_n: [ports, ...], ...}, ...}
         # link_port_maps = {(switch_n, switch_m): [ports, ...], ...}
-        self.port_maps, self.host_port_maps, self.link_port_maps = self.topo.create_port_maps()
-        self.port_map = self.port_maps[self.dpid]
+        port_maps, self.host_port_maps, self.link_port_maps = self.topo.create_port_maps()
+        self.port_map = port_maps[self.dpid]
         dpid_names = {}
         # pylint: disable=consider-using-dict-items
         for i in self.topo.switches_by_id:
