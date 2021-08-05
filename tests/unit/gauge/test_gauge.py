@@ -803,12 +803,12 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
         logger = watcher.GaugePortStateLogger(self.conf, '__name__', mock.Mock())
         logger._running = True
 
-        for reason in reasons:
+        for reason, ofppr in reasons.items():
             state = 0
             if reason == 'down':
                 state = ofproto.OFPPS_LINK_DOWN
 
-            msg = port_state_msg(datapath, 1, reasons[reason], state)
+            msg = port_state_msg(datapath, 1, ofppr, state)
             logger.update(time.time(), msg)
 
             log_str = self.get_file_contents().lower()

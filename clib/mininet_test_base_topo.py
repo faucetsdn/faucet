@@ -165,6 +165,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.port_maps, self.host_port_maps, self.link_port_maps = self.topo.create_port_maps()
         self.port_map = self.port_maps[self.dpid]
         dpid_names = {}
+        # pylint: disable=consider-using-dict-items
         for i in self.topo.switches_by_id:
             dpid = self.topo.dpids_by_id[i]
             name = self.topo.switches_by_id[i]

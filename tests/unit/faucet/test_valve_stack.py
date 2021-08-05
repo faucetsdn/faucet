@@ -963,8 +963,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         now = 1
         self.trigger_stack_ports()
         # All switches are down to start with.
-        for dpid in self.valves_manager.valves:
-            dp = self.valves_manager.valves[dpid].dp
+        for dp in [valve.dp for valve in self.valves_manager.valves.values()]:
             dp.dyn_running = False
             self.set_stack_all_ports_status(dp.name, STACK_STATE_INIT)
         for valve in self.valves_manager.valves.values():

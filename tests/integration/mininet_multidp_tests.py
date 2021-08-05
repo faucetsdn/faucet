@@ -2117,8 +2117,7 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
         for intf in lacp_intfs:
             funcs = []
             # Delete all ARP records of the lacp host
-            for host_id in self.host_information:
-                host = self.host_information[host_id]['host']
+            for host in [info['host'] for info in self.host_information.values()]:
                 funcs.append(lambda host=host: host.cmd('arp -d %s' % lacp_host.IP()))
                 funcs.append(lambda host=host: host.cmd('arp -d %s' % dst_host.IP()))
                 funcs.append(lambda host=host: lacp_host.cmd('arp -d %s' % host.IP()))
