@@ -3,6 +3,7 @@
 """Mininet multi-switch integration tests for Faucet"""
 
 # pylint: disable=protected-access
+# pylint: disable=too-many-lines
 
 import ipaddress
 import json

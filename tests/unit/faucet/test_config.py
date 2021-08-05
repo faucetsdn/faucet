@@ -3,6 +3,7 @@
 """Test config parsing"""
 
 # pylint: disable=protected-access
+# pylint: disable=too-many-lines
 
 import logging
 import re

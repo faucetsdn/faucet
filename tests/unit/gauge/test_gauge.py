@@ -1,6 +1,7 @@
 """Unit tests for gauge"""
 
 # pylint: disable=protected-access
+# pylint: disable=too-many-lines
 
 from collections import namedtuple
 import random
@@ -1021,5 +1022,3 @@ dbs:
 
 if __name__ == "__main__":
     unittest.main()  # pytype: disable=module-attr
-
-# pylint: disable=too-many-lines

@@ -4,6 +4,7 @@
 
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-many-arguments
+# pylint: disable=too-many-lines
 
 from functools import partial
 import collections
