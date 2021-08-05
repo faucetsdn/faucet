@@ -3064,7 +3064,8 @@ acls:
         self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
         self.CONFIG = '\n'.join(
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
-        open(self.acl_config_file, 'w').write(self.START_ACL_CONFIG)
+        with open(self.acl_config_file, 'w') as acf:
+            acf.write(self.START_ACL_CONFIG)
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
