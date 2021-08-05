@@ -836,8 +836,8 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
         msg = port_stats_msg(datapath)
 
         original_stats = []
-        for i in range(0, len(msg.body)):
-            original_stats.append(logger_to_ofp(msg.body[i]))
+        for body in msg.body:
+            original_stats.append(logger_to_ofp(body))
 
         logger.update(time.time(), msg)
 

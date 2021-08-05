@@ -1507,6 +1507,7 @@ dbs:
         """
         for lines_a in all_prom_lines:
             for lines_b in all_prom_lines:
+                # pylint: disable=consider-using-enumerate
                 self.assertEqual(len(lines_a), len(lines_b))
                 for i in range(len(lines_a)):
                     prom_line_a = lines_a[i]
