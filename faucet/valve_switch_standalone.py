@@ -630,7 +630,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
 
         return ofmsgs
 
-    def _perm_learn_check(self, entry, vlan, now, eth_src, port, ofmsgs,  # pylint: disable=unused-argument
+    # pylint: disable=unused-argument
+    def _perm_learn_check(self, entry, vlan, now, eth_src, port, ofmsgs,
                           cache_port, cache_age,
                           delete_existing, refresh_rules):
         learn_exit = False
@@ -701,7 +702,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 learn_exit = True
         return (learn_exit, ofmsgs, cache_port, update_cache, delete_existing, refresh_rules)
 
-    def _learn_check(self, entry, vlan, now, eth_src, port, ofmsgs,  # pylint: disable=unused-argument
+    # pylint: disable=unused-argument
+    def _learn_check(self, entry, vlan, now, eth_src, port, ofmsgs,
                      cache_port, cache_age,
                      delete_existing, refresh_rules):
         learn_exit = True
