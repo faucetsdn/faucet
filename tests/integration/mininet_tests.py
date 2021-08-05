@@ -4250,7 +4250,7 @@ details partner lacp pdu:
     port priority: 2
     port number: %d
     port state: 62
-""".strip() % tuple([get_lacp_port_id(self.port_map['port_%u' % i]) for i in lag_ports])
+""".strip() % tuple(get_lacp_port_id(self.port_map['port_%u' % i]) for i in lag_ports)
 
         lacp_timeout = 5
 

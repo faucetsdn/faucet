@@ -679,27 +679,27 @@ configuration.
 
     def coprocessor_ports(self):
         """Return list of coprocessor ports."""
-        return tuple([port for port in self.ports.values() if port.coprocessor])
+        return tuple(port for port in self.ports.values() if port.coprocessor)
 
     def restricted_bcast_arpnd_ports(self):
         """Return ports that have restricted broadcast set."""
-        return tuple([port for port in self.ports.values() if port.restricted_bcast_arpnd])
+        return tuple(port for port in self.ports.values() if port.restricted_bcast_arpnd)
 
     def lacp_ports(self):
         """Return ports that have LACP."""
-        return tuple([port for port in self.ports.values() if port.lacp])
+        return tuple(port for port in self.ports.values() if port.lacp)
 
     def lacp_up_ports(self):
         """Return ports that have LACP up."""
-        return tuple([port for port in self.lacp_ports() if port.is_actor_up()])
+        return tuple(port for port in self.lacp_ports() if port.is_actor_up())
 
     def lacp_down_ports(self):
         """Return ports that have LACP not UP"""
-        return tuple([port for port in self.lacp_ports() if not port.is_actor_up()])
+        return tuple(port for port in self.lacp_ports() if not port.is_actor_up())
 
     def lacp_nosync_ports(self):
         """Return ports that have LACP status NO_SYNC."""
-        return tuple([port for port in self.lacp_ports() if port.is_actor_nosync()])
+        return tuple(port for port in self.lacp_ports() if port.is_actor_nosync())
 
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
@@ -1232,12 +1232,12 @@ configuration.
 
     def bgp_routers(self):
         """Return list of routers with BGP enabled."""
-        return tuple([
-            router for router in self.routers.values() if router.bgp_as() and router.bgp_vlan()])
+        return tuple(
+            router for router in self.routers.values() if router.bgp_as() and router.bgp_vlan())
 
     def dot1x_ports(self):
         """Return list of ports with 802.1x enabled."""
-        return tuple([port for port in self.ports.values() if port.dot1x])
+        return tuple(port for port in self.ports.values() if port.dot1x)
 
     @staticmethod
     def _get_conf_changes(logger, conf_name, subconf, new_subconf, diff=False, ignore_keys=None):

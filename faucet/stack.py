@@ -364,7 +364,7 @@ is technically a fixed allocation for this DP Stack instance."""
 
     def down_ports(self):
         """Return tuple of not running stack ports"""
-        return tuple([port for port in self.ports if not port.is_stack_up()])
+        return tuple(port for port in self.ports if not port.is_stack_up())
 
     def canonical_up_ports(self, ports=None):
         """Obtains list of UP stack ports in canonical order"""
