@@ -81,7 +81,7 @@ class Conf:
         for key, value in defaults.items():
             self._set_default(key, value, conf=conf)
 
-    def set_defaults(self, defaults=None, conf=None):
+    def set_defaults(self):
         """Set default values and run any basic sanity checks."""
         self._set_conf_defaults(self.defaults, self.__dict__)
 

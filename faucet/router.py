@@ -71,9 +71,6 @@ class Router(Conf):
     def __str__(self):
         return str(self._id)
 
-    def set_defaults(self, defaults=None, conf=None):
-        super().set_defaults(defaults=defaults, conf=conf)
-
     def check_config(self):
         super().check_config()
         if self.bgp:
