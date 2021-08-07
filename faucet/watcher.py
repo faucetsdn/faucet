@@ -109,7 +109,7 @@ class GaugePortStateLogger(GaugePortStatePoller):
 class GaugePortStatsLogger(GaugePortStatsPoller):
     """Abstraction for port statistics logger."""
 
-    def _dp_stat_name(self, stat, stat_name):  # pylint: disable=arguments-differ
+    def _dp_stat_name(self, stat, stat_name):
         port_name = self.dp.port_labels(stat.port_no)['port']
         return '-'.join((self.dp.name, port_name, stat_name))
 
@@ -127,7 +127,7 @@ class GaugeMeterStatsLogger(GaugeMeterStatsPoller):
             (('packet', 'band', 'count'), band_stats.packet_band_count))
         return self._format_stats(delim, stat_pairs)
 
-    def _dp_stat_name(self, stat, stat_name):  # pylint: disable=arguments-differ
+    def _dp_stat_name(self, stat, stat_name):
         return '-'.join((self.dp.name, str(stat.meter_id), stat_name))
 
 
