@@ -318,7 +318,6 @@ def _watcher_parser_v2(conf, logname, prom_client):
     dbs = conf.pop('dbs')
 
     result = []
-    # pylint: disable=fixme
     for watcher_name, watcher_conf in conf['watchers'].items():
         if watcher_conf.get('all_dps', False):
             watcher_dps = dps.keys()
