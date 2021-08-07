@@ -40,6 +40,7 @@ from clib.valve_test_lib import (
 
 
 class ValveEdgeVLANTestCase(ValveTestBases.ValveTestNetwork):
+    """Test edge VLAN operation"""
 
     CONFIG1 = """
 dps:
