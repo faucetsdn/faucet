@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+"""Base class for managing integration network topologies"""
 
 import os
 import random
