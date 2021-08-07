@@ -54,7 +54,7 @@ class PromClient:  # pylint: disable=too-few-public-methods
         if reg is not None:
             self._reg = reg
         self.version = VersionInfo('faucet').semantic_version().release_string()
-        self.faucet_version = PromGauge(  # pylint: disable=unexpected-keyword-arg
+        self.faucet_version = PromGauge(
             'faucet_pbr_version',
             'Faucet PBR version',
             ['version'],
