@@ -513,7 +513,7 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
     # Indicate to base class use of reflection required.
     _USES_REFLECTION = True
 
-    def _learn_cache_check(self, entry, vlan, now, eth_src, port, ofmsgs,  # pylint: disable=unused-argument
+    def _learn_cache_check(self, entry, vlan, now, eth_src, port, ofmsgs,
                            cache_port, cache_age,
                            delete_existing, refresh_rules):
         learn_exit = False
