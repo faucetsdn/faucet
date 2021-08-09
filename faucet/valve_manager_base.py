@@ -1,7 +1,7 @@
 """Valve Manager base class"""
 
-# pylint: disable=R0201
-# pylint: disable=W0613
+# pylint: disable=no-self-use
+# pylint: disable=unused-argument
 
 
 class ValveManagerBase:  # pylint: disable=too-few-public-methods

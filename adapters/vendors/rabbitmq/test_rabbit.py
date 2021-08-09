@@ -1,11 +1,9 @@
 """ Tests all of the RabbitMQ Adapter """
 
-# pylint: disable=missing-docstring
-# pylint: disable=too-many-arguments
-
 import os
 
 import pika
+
 import rabbit
 
 
@@ -13,6 +11,7 @@ class MockPikaChannel(pika.channel.Channel):
     """Mock class for testing pika calls"""
 
     def __init__(self):
+        # pylint: disable=super-init-not-called
         pass
 
     @staticmethod
@@ -28,6 +27,7 @@ class MockPikaBadAMQP(pika.channel.Channel):
     """Mock class for testing pika AMQP failures"""
 
     def __init__(self):
+        # pylint: disable=super-init-not-called
         pass
 
     @staticmethod

@@ -41,7 +41,7 @@ def install_configs():
     old_ryu_conf = '/etc/ryu/ryu.conf'
     old_faucet_conf_dir = '/etc/ryu/faucet/'
 
-    try:
+    def setup_ryu_conf():
         if not os.path.exists(dst_ryu_conf_dir):
             print("Creating %s" % dst_ryu_conf_dir)
             os.makedirs(dst_ryu_conf_dir)
@@ -52,6 +52,8 @@ def install_configs():
             else:
                 print("Copying %s to %s" % (src_ryu_conf, dst_ryu_conf))
                 shutil.copy(src_ryu_conf, dst_ryu_conf)
+
+    def setup_faucet_conf():
         if not os.path.exists(dst_faucet_conf_dir):
             print("Creating %s" % dst_faucet_conf_dir)
             os.makedirs(dst_faucet_conf_dir)
@@ -67,9 +69,16 @@ def install_configs():
             elif os.path.isfile(src_file):
                 print("Copying %s to %s" % (src_file, dst_file))
                 shutil.copy(src_file, dst_file)
+
+    def setup_faucet_log():
         if not os.path.exists(faucet_log_dir):
             print("Creating %s" % faucet_log_dir)
             os.makedirs(faucet_log_dir)
+
+    try:
+        setup_ryu_conf()
+        setup_faucet_conf()
+        setup_faucet_log()
     except OSError as exception:
         if exception.errno == errno.EACCES:
             print("Permission denied creating %s, skipping copying configs"

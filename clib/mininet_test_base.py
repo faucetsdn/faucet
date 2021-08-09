@@ -2,7 +2,7 @@
 
 """Base class for all FAUCET unit tests."""
 
-# pylint: disable=missing-docstring
+# pylint: disable=missing-function-docstring
 # pylint: disable=too-many-arguments
 
 from functools import partial

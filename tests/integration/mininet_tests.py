@@ -3,7 +3,7 @@
 """Mininet tests for FAUCET."""
 
 # pylint: disable=too-many-lines
-# pylint: disable=missing-docstring
+# pylint: disable=missing-class-docstring,missing-function-docstring
 # pylint: disable=too-many-arguments
 # pylint: disable=unbalanced-tuple-unpacking
 

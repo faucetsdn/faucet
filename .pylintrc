@@ -1,5 +1,7 @@
 [MASTER]
-# enable=all
+disable=
+    fixme,
+    import-error
 
 [FORMAT]
 max-line-length=120
