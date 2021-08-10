@@ -722,6 +722,7 @@ class FaucetTestBase(unittest.TestCase):
                     self.net.addController(controller)
                 self.gauge_controller = self.gauge_controllers[0]
             self._init_faucet_config()
+            self.pre_start_net()
             self.net.start()
             self._wait_load()
             last_error_txt = self._start_check()
@@ -950,6 +951,11 @@ class FaucetTestBase(unittest.TestCase):
 
     def scapy_bcast(self, host, count=1):
         return self.scapy_dhcp(host.MAC(), host.defaultIntf(), count)
+
+    @staticmethod
+    def pre_start_net():
+        """Hook called after Mininet initialization, before Mininet started."""
+        return
 
     @staticmethod
     def post_start_net():
