@@ -615,7 +615,7 @@ class FaucetTestBase(unittest.TestCase):
             self.port_map = self.create_port_map(self.dpid)
         self._block_non_faucet_packets()
         self._start_faucet(controller_intf, controller_ipv6)
-        self.pre_start_net()
+        self.post_start_net()
         if self.hw_switch:
             self._attach_physical_switch()
         self._wait_debug_log()
@@ -952,8 +952,8 @@ class FaucetTestBase(unittest.TestCase):
         return self.scapy_dhcp(host.MAC(), host.defaultIntf(), count)
 
     @staticmethod
-    def pre_start_net():
-        """Hook called after Mininet initializtion, before Mininet started."""
+    def post_start_net():
+        """Hook called after Mininet initialization, and after Mininet started."""
         return
 
     def get_config_header(self, config_global, debug_log, dpid, hardware):
