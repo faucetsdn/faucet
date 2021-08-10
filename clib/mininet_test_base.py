@@ -100,7 +100,6 @@ class FaucetTestBase(unittest.TestCase):
     FPING_ARGS_SHORT = ' '.join((FPING_ARGS, '-i10 -p100 -t100'))
     FPINGS_ARGS_ONE = ' '.join(('fping', FPING_ARGS, '-t100 -c 1'))
 
-    RUN_GAUGE = True
     REQUIRES_METERS = False
     REQUIRES_METADATA = False
 
@@ -620,7 +619,6 @@ class FaucetTestBase(unittest.TestCase):
             self.port_map = self.create_port_map(self.dpid)
         self._block_non_faucet_packets()
         self._start_faucet(controller_intf, controller_ipv6)
-        self.post_start_net()
         if self.hw_switch:
             self._attach_physical_switch()
         self._wait_debug_log()
@@ -674,7 +672,6 @@ class FaucetTestBase(unittest.TestCase):
             port=port,
             test_name=self._test_name())
         self.env[faucet_controller.name] = self.env.pop(name)
-        self.faucet_controllers.append(faucet_controller)
         return faucet_controller
 
     def _create_gauge_controller(self, index, intf, ipv6):
@@ -690,81 +687,93 @@ class FaucetTestBase(unittest.TestCase):
             ca_certs=self.ca_certs,
             port=port)
         self.env[gauge_controller.name] = self.env.pop(name)
-        self.gauge_controllers.append(gauge_controller)
         return gauge_controller
 
     def _start_faucet(self, controller_intf, controller_ipv6):
-        last_error_txt = ''
-        # Cannot multiply call _start_faucet()
-        self.assertIsNone(self.net, 'Cannot multiply call _start_faucet()')
+        self.assertIsNone(self.net, 'Cannot invoke _start_faucet() multilpe times')
+        self.assertTrue(self.NUM_FAUCET_CONTROLLERS > 0, 'Define at least 1 Faucet controller')
+        self.assertTrue(self.NUM_GAUGE_CONTROLLERS > 0, 'Define at least 1 Gauge controller')
+
+        for log in glob.glob(os.path.join(self.tmpdir, '*.log')):
+            os.remove(log)
+
+        # Setup all static configuration
+        self._allocate_config_ports()
+        self._allocate_faucet_ports()
+        self._allocate_gauge_ports()
+
+        self._set_vars()
+
+        self._init_faucet_config()
+        self._init_gauge_config()
+
+        # Create all the controller instances
+        self.faucet_controllers = []
+        for c_index in range(self.NUM_FAUCET_CONTROLLERS):
+            controller = self._create_faucet_controller(c_index,
+                                                        controller_intf,
+                                                        controller_ipv6)
+            self.faucet_controllers.append(controller)
+
+        self.gauge_controllers = []
+        for c_index in range(self.NUM_GAUGE_CONTROLLERS):
+            controller = self._create_gauge_controller(c_index,
+                                                       controller_intf,
+                                                       controller_ipv6)
+            self.gauge_controllers.append(controller)
+
+        # Use the first Gauge instance for Prometheus scraping
+        self.gauge_controller = self.gauge_controllers[0]
+
+        self._wait_load()
+
+        last_error_txt = None
         for _ in range(3):
-            self.faucet_controllers = []
-            self.gauge_controllers = []
-            mininet_test_util.return_free_ports(
-                self.ports_sock, self._test_name())
-            self._allocate_config_ports()
-            self._allocate_faucet_ports()
-            self._set_vars()
-            for log in glob.glob(os.path.join(self.tmpdir, '*.log')):
-                os.remove(log)
-            # Create all the controller instances here, but only add the first one to the net
-            for c_index in range(self.NUM_FAUCET_CONTROLLERS):
-                controller = self._create_faucet_controller(c_index,
-                                                            controller_intf,
-                                                            controller_ipv6)
+            # Start Mininet, connected to the first controller
             self.net = Mininet(
                 self.topo,
                 link=FaucetLink,
                 controller=self.faucet_controllers[0])
-            # Add all gauge controllers to the net
-            if self.RUN_GAUGE:
-                self._allocate_gauge_ports()
-                self._init_gauge_config()
-                for c_index in range(self.NUM_GAUGE_CONTROLLERS):
-                    controller = self._create_gauge_controller(c_index,
-                                                               controller_intf,
-                                                               controller_ipv6)
-                    self.net.addController(controller)
-                self.gauge_controller = self.gauge_controllers[0]
-            self._init_faucet_config()
+
+            # Add all the remaining Faucet controllers
+            #  and all the Gauge controllers to the network
+            for controller in self.faucet_controllers[1:]:
+                self.net.addController(controller)
+            for controller in self.gauge_controllers:
+                self.net.addController(controller)
+
+            # Now that all the controllers are running
+            #  and connected, start the Mininet network
             self.pre_start_net()
             self.net.start()
             self._wait_load()
+
             last_error_txt = self._start_check()
             if last_error_txt is None:
-                self._config_tableids()
-                self._wait_load()
-                for controller in self.faucet_controllers:
-                    if controller != self.faucet_controllers[0]:
-                        self.net.addController(controller)
-                        for switch in self.net.switches:
-                            switch.add_controller(controller)
-                # Start remaining Faucet controllers
-                for controller in self.faucet_controllers:
-                    if controller != self.faucet_controllers[0]:
-                        self._wait_load()
-                        controller.start()
-                self._wait_load()
-                # If we have multiple controllers,
-                # make sure that they are all now connected
-                if self.NUM_FAUCET_CONTROLLERS > 1:
-                    last_error_txt = self._start_check()
-                if last_error_txt is None:
-                    self._config_tableids()
-                    self._wait_load()
-                    if self.NETNS:
-                        # TODO: seemingly can't have more than one namespace.
-                        for host in self.hosts_name_ordered()[:1]:
-                            hostns = self.hostns(host)
-                            if self.get_host_netns(host):
-                                self.quiet_commands(host, ['ip netns del %s' % hostns])
-                            self.quiet_commands(host, ['ip netns add %s' % hostns])
-                    return
+                break
+
+            # Existing controllers will be reused on the next cycle
             self._stop_net()
             last_error_txt += '\n\n' + self._dump_controller_logs()
             error('%s: %s' % (self._test_name(), last_error_txt))
             time.sleep(mininet_test_util.MIN_PORT_AGE)
-        self.fail(last_error_txt)
+
+        if last_error_txt is not None:
+            self.fail(last_error_txt)
+
+        # All controllers are OK, so prepare to keep running the test
+        self._config_tableids()
+        self._wait_load()
+
+        if self.NETNS:
+            # TODO: seemingly can't have more than one namespace.
+            for host in self.hosts_name_ordered()[:1]:
+                hostns = self.hostns(host)
+                if self.get_host_netns(host):
+                    self.quiet_commands(host, ['ip netns del %s' % hostns])
+                self.quiet_commands(host, ['ip netns add %s' % hostns])
+
+        self.post_start_net()
 
     def _ofctl_rest_url(self, req):
         """Return control URL for Ryu ofctl module."""
