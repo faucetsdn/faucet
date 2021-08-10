@@ -1,5 +1,8 @@
 """Unit tests for gauge"""
 
+# pylint: disable=protected-access
+# pylint: disable=too-many-lines
+
 from collections import namedtuple
 import random
 import re
@@ -719,7 +722,7 @@ class GaugePollerTest(unittest.TestCase):  # pytype: disable=module-attr
         """Check that no exception occurs when the no_response method is called"""
         try:
             poller.no_response()
-        except Exception as err:
+        except Exception as err:  # pylint: disable=broad-except
             self.fail("Code threw an exception: {}".format(err))
 
 
@@ -1019,5 +1022,3 @@ dbs:
 
 if __name__ == "__main__":
     unittest.main()  # pytype: disable=module-attr
-
-# pylint: disable=too-many-lines

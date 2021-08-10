@@ -170,7 +170,7 @@ class FaucetTopoTest(TestCase):
             host_links, host_vlans, switch_links, link_vlans,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)
-        link_port_maps = topo._create_link_port_map()
+        link_port_maps = topo._create_link_port_map()  # pylint: disable=protected-access
         self.assertEqual(
             link_port_maps,
             {(0, 1): [5, 6], (1, 0): [5, 6], (1, 2): [7], (2, 1): [5]})
@@ -187,7 +187,7 @@ class FaucetTopoTest(TestCase):
             host_links, host_vlans, switch_links, link_vlans,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)
-        host_port_maps = topo._create_host_port_map()
+        host_port_maps = topo._create_host_port_map()  # pylint: disable=protected-access
         self.assertEqual(
             host_port_maps,
             {0: {0: [7], 2: [6]}, 1: {1: [8]}})

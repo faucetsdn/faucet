@@ -1,5 +1,8 @@
 """Library for test_valve.py."""
 
+# pylint: disable=protected-access
+# pylint: disable=too-many-lines
+
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
 #
@@ -1056,7 +1059,7 @@ class ValveTestBases:
 
         def get_other_valves(self, valve):
             """Return other running valves"""
-            return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+            return self.valves_manager._other_running_valves(valve)
 
         def add_port(self, port_no, link_up=True, dp_id=None):
             """
@@ -2412,14 +2415,14 @@ meters:
             del_event = RouteRemoval(
                 IPPrefix.from_string(prefix),
             )
-            self.bgp._bgp_route_handler(  # pylint: disable=protected-access
+            self.bgp._bgp_route_handler(
                 add_event,
                 faucet_bgp.BgpSpeakerKey(self.DP_ID, 0x100, 4))
-            self.bgp._bgp_route_handler(  # pylint: disable=protected-access
+            self.bgp._bgp_route_handler(
                 del_event,
                 faucet_bgp.BgpSpeakerKey(self.DP_ID, 0x100, 4))
-            self.bgp._bgp_up_handler(nexthop, 65001)  # pylint: disable=protected-access
-            self.bgp._bgp_down_handler(nexthop, 65001)  # pylint: disable=protected-access
+            self.bgp._bgp_up_handler(nexthop, 65001)
+            self.bgp._bgp_down_handler(nexthop, 65001)
 
         def test_packet_in_rate(self):
             """Test packet in rate limit triggers."""
@@ -2663,9 +2666,9 @@ meters:
             host_valve = self.valves_manager.valves[dp_id]
             for valve in self.valves_manager.valves.values():
                 valve_vlan = valve.dp.vlans[vid]
-                route_manager = valve._route_manager_by_eth_type.get(  # pylint: disable=protected-access
+                route_manager = valve._route_manager_by_eth_type.get(
                     self.get_eth_type(), None)
-                vlan_nexthop_cache = route_manager._vlan_nexthop_cache(valve_vlan)  # pylint: disable=protected-access
+                vlan_nexthop_cache = route_manager._vlan_nexthop_cache(valve_vlan)
                 self.assertTrue(vlan_nexthop_cache)
                 host_ip = ipaddress.ip_address(ip_match)
                 # Check IP address is properly cached

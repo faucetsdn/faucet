@@ -1,5 +1,8 @@
 """Configuration for a datapath."""
 
+# pylint: disable=protected-access
+# pylint: disable=too-many-lines
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
@@ -1519,5 +1522,3 @@ configuration.
             'dps': {self.name: self.to_conf()},
             'vlans': {vlan.name: vlan.to_conf() for vlan in self.vlans.values()},
             'acls': {acl_id: acl.to_conf() for acl_id, acl in self.acls.items()}}
-
-    # pylint: disable=too-many-lines

@@ -32,7 +32,7 @@ def kill_on_exception(logname):
         def __koe(*args, **kwargs):
             try:
                 func(*args, **kwargs)
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 logging.getLogger(logname).exception('Unhandled exception, killing RYU')
                 logging.shutdown()
                 os.kill(os.getpid(), signal.SIGTERM)

@@ -176,6 +176,7 @@ class DockerHost(Host):
 
     def open_log(self):
         """Open a log file for writing and return it."""
+        # pylint: disable=consider-using-with
         return open(os.path.join(self.tmpdir, 'activate.log'), 'w')
 
     def activate(self):
