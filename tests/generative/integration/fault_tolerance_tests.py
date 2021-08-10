@@ -183,7 +183,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         """Return list of Faucet controllers"""
         return [c for c in self.net.controllers if isinstance(c, FAUCET)]
 
-    def create_random_controller_fault(self, *args):
+    def create_random_controller_fault(self, *_args):
         """Randomly create a fault for a controller"""
         controllers = self.get_faucet_controllers()
         if len(controllers) == 1:
@@ -217,7 +217,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
                 'of_dp_disconnections_total', 1, dpid=dpid), 'DP %s not detected as DOWN' % dpid)
         self.net.switches.remove(switch)
 
-    def random_switch_fault(self, *args):
+    def random_switch_fault(self, *_args):
         """Randomly take out an available switch"""
         sw_list = self.topo_watcher.get_eligable_switch_events()
         index_list = []
@@ -261,7 +261,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
                 self.topo_watcher.add_link_fault(src_i, dst_i, name)
                 return
 
-    def random_link_fault(self, *args):
+    def random_link_fault(self, *_args):
         """Randomly create a fault for a DP link"""
         link_list = self.topo_watcher.get_eligable_link_events()
         if not link_list:

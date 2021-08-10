@@ -19,7 +19,7 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a generalized test topology & config builder"""
 
     @staticmethod
-    def mininet_host_options():
+    def mininet_host_extra_options():
         """Additional mininet host options"""
         return {}
 
@@ -195,7 +195,7 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
             host_vlans=host_vlans,
             switch_links=switch_links,
             link_vlans=link_vlans,
-            mininet_host_options=self.mininet_host_options(),
+            mininet_host_options=self.mininet_host_extra_options(),
             n_vlans=n_vlans,
             dp_options=dp_options,
             host_options=host_options,
@@ -1626,7 +1626,7 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(
             'proactive_learn_v6': True
         }
 
-    def host_ping(self, src_host, dst_ip, intf=None):
+    def host_ping(self, src_host, dst_ip, _intf=None):
         """Override to ping ipv6 addresses"""
         self.one_ipv6_ping(src_host, dst_ip, require_host_learned=False)
 
@@ -2387,7 +2387,7 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
     SOFTWARE_ONLY = True
 
     @staticmethod
-    def host_ip_address(host_index, vlan_index):
+    def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -2465,7 +2465,7 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
     SOFTWARE_ONLY = True
 
     @staticmethod
-    def host_ip_address(host_index, vlan_index):
+    def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -2551,7 +2551,7 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
     SOFTWARE_ONLY = True
 
     @staticmethod
-    def host_ip_address(host_index, vlan_index):
+    def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -2641,7 +2641,7 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
     SOFTWARE_ONLY = True
 
     @staticmethod
-    def host_ip_address(host_index, vlan_index):
+    def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -2805,7 +2805,7 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
     SOFTWARE_ONLY = True
 
     @staticmethod
-    def host_ip_address(host_index, vlan_index):
+    def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -3297,7 +3297,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
 
     @staticmethod
-    def host_ip_address(host_index, vlan_index):
+    def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 
@@ -3613,7 +3613,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
 
     @staticmethod
-    def host_ip_address(host_index, vlan_index):
+    def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
 

@@ -182,6 +182,14 @@ class GaugePortStatePrometheusPoller(GaugePortStatePoller):
             msg_value = msg.reason if prom_var == 'reason' else getattr(msg.desc, prom_var)
             self.prom_client.metrics[exported_prom_var].labels(**port_labels).set(msg_value)
 
+    def send_req(self):
+        """Send a stats request to a datapath."""
+        raise NotImplementedError  # pragma: no cover
+
+    def no_response(self):
+        """Called when a polling cycle passes without receiving a response."""
+        raise NotImplementedError  # pragma: no cover
+
 
 class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
     """Export flow table entries to Prometheus."""

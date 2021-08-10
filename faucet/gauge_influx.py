@@ -115,6 +115,14 @@ Example:
                     self.dp.name, port_name, rcv_time, 'port_state_reason', reason)]
             self.ship_points(points)
 
+    def send_req(self):
+        """Send a stats request to a datapath."""
+        raise NotImplementedError  # pragma: no cover
+
+    def no_response(self):
+        """Called when a polling cycle passes without receiving a response."""
+        raise NotImplementedError  # pragma: no cover
+
 
 class GaugePortStatsInfluxDBLogger(GaugePortStatsPoller, InfluxShipper):
     """Periodically sends a port stats request to the datapath and parses \

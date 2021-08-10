@@ -172,7 +172,7 @@ class ValveRouteManager(ValveManagerBase):
     def _gw_respond_pkt():
         return None
 
-    def _flood_stack_links(self, pkt_builder, vlan, multi_out=True, *args):
+    def _flood_stack_links(self, pkt_builder, vlan, multi_out, *args):
         """Return flood packet-out actions to stack ports for gw resolving"""
         ofmsgs = []
         if self.stack_manager:

@@ -81,8 +81,7 @@ class QuietHTTPServer(HTTPServer):
 
 class PostHandler(SimpleHTTPRequestHandler):
 
-    @staticmethod
-    def log_message(_format, *_args):
+    def log_message(self, format, *args):  # pylint: disable=redefined-builtin
         return
 
     def _log_post(self):
@@ -1649,11 +1648,11 @@ vlans:
 """
     config_ports = {'gauge_prom_port': None}
 
-    def get_gauge_config(self, faucet_config_file,
-                         monitor_stats_file,
-                         monitor_state_file,
-                         monitor_meter_stats_file):
-        """Build Gauge config."""
+    def _get_gauge_meter_config(self, faucet_config_file,
+                                monitor_stats_file,
+                                monitor_state_file,
+                                monitor_meter_stats_file):
+        """Build Gauge Meter config."""
         return """
 faucet_configs:
     - %s
@@ -1675,7 +1674,7 @@ dbs:
            self.GAUGE_CONFIG_DBS)
 
     def _init_gauge_config(self):
-        gauge_config = self.get_gauge_config(
+        gauge_config = self._get_gauge_meter_config(
             self.faucet_config_path,
             self.monitor_stats_file,
             self.monitor_state_file,
@@ -1893,7 +1892,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
         #  so black-list that version with a test
         exception = False
         try:
-            scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))
+            scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))  # pylint: disable=no-member
         except Exception as e:
             error('%s:' % self._test_name(), e)
             exception = True

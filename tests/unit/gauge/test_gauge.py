@@ -32,7 +32,7 @@ from faucet import gauge, gauge_prom, gauge_influx, gauge_pollers, watcher, valv
 class QuietHandler(BaseHTTPRequestHandler):
     """Don't log requests."""
 
-    def log_message(self, _format, *_args):  # pylint: disable=arguments-differ
+    def log_message(self, format, *args):  # pylint: disable=redefined-builtin
         pass
 
 
