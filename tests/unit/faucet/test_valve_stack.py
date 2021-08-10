@@ -1476,7 +1476,7 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
         """Returns IPV6 ether type"""
         return valve_of.ether.ETH_TYPE_IPV6
 
-    def create_match(self, vindex, host, faucet_mac, faucet_vip, code):
+    def create_match(self, vindex, host, faucet_mac, faucet_vip, _code):
         """Create an NA message"""
         return {
             'eth_src': self.create_mac(vindex, host),

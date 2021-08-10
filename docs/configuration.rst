@@ -522,7 +522,7 @@ OFP port number ranges (eg. 1-6).
       - The configuration key.
       - a name to reference this port by.
     * - native_vlan
-      - integer
+      - integer or string
       - None
       - The vlan associated with untagged packets arriving and leaving this
         interface.

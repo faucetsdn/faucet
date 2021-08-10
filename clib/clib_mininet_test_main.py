@@ -10,7 +10,7 @@ It is strongly recommended to run these tests via Docker, to ensure you have
 all dependencies correctly installed. See ../docs/.
 """
 
-# pylint: disable=missing-docstring
+# pylint: disable=missing-class-docstring,missing-function-docstring
 
 import argparse
 import collections

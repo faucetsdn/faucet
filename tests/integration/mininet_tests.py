@@ -3,7 +3,7 @@
 """Mininet tests for FAUCET."""
 
 # pylint: disable=too-many-lines
-# pylint: disable=missing-docstring
+# pylint: disable=missing-class-docstring,missing-function-docstring
 # pylint: disable=too-many-arguments
 # pylint: disable=unbalanced-tuple-unpacking
 
@@ -81,8 +81,7 @@ class QuietHTTPServer(HTTPServer):
 
 class PostHandler(SimpleHTTPRequestHandler):
 
-    @staticmethod
-    def log_message(_format, *_args):
+    def log_message(self, format, *args):  # pylint: disable=redefined-builtin
         return
 
     def _log_post(self):
@@ -628,7 +627,6 @@ class Faucet8021XSuccessTest(Faucet8021XBase):
         {'AUTHENTICATION': {'port': 'port_2', 'eth_src': 'HOST2_MAC', 'status': 'logoff'}}]
     SESSION_TIMEOUT = 3600
 
-    @unittest.expectedFailure
     def test_untagged(self):
         self.verify_host_success(
             self.eapol1_host, self.port_map['port_1'], self.wpasupplicant_conf_1, False)
@@ -657,7 +655,6 @@ class Faucet8021XFailureTest(Faucet8021XBase):
         {'PORT_UP': {'port': 'port_4', 'port_type': 'nfv'}},
         {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'failure'}}]
 
-    @unittest.expectedFailure
     def test_untagged(self):
         self.assertFalse(
             self.try_8021x(
@@ -684,7 +681,6 @@ class Faucet8021XPortStatusTest(Faucet8021XBase):
         {'PORT_DOWN': {'port': 'port_1', 'port_type': 'supplicant'}},
         {'PORT_UP': {'port': 'port_1', 'port_type': 'supplicant'}}]
 
-    @unittest.expectedFailure
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         port_no2 = self.port_map['port_2']
@@ -728,7 +724,6 @@ class Faucet8021XPortStatusTest(Faucet8021XBase):
 
 class Faucet8021XPortFlapTest(Faucet8021XBase):
 
-    @unittest.expectedFailure
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
 
@@ -755,7 +750,6 @@ class Faucet8021XPortFlapTest(Faucet8021XBase):
 
 class Faucet8021XIdentityOnPortUpTest(Faucet8021XBase):
 
-    @unittest.expectedFailure
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
 
@@ -798,7 +792,6 @@ class Faucet8021XPeriodicReauthTest(Faucet8021XBase):
 
     SESSION_TIMEOUT = 15
 
-    @unittest.expectedFailure
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         port_labels1 = self.port_labels(port_no1)
@@ -823,7 +816,6 @@ class Faucet8021XPeriodicReauthTest(Faucet8021XBase):
 
 class Faucet8021XConfigReloadTest(Faucet8021XBase):
 
-    @unittest.expectedFailure
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         port_no2 = self.port_map['port_2']
@@ -908,7 +900,6 @@ acls:
                 # "NFV host - interface used by controller."
     """
 
-    @unittest.expectedFailure
     def test_untagged(self):
         self.verify_host_success(
             self.eapol1_host, self.port_map['port_1'], self.wpasupplicant_conf_1, False)
@@ -918,7 +909,6 @@ acls:
 class Faucet8021XCustomACLLogoutTest(Faucet8021XCustomACLLoginTest):
     """Ensure that 8021X Port ACLs Work before and after Logout"""
 
-    @unittest.expectedFailure
     def test_untagged(self):
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
                            require_host_learned=False, expected_result=False)
@@ -977,7 +967,6 @@ class Faucet8021XMABTest(Faucet8021XSuccessTest):
         dhclient_cmd = 'dhclient -d -1 %s' % host.defaultIntf()
         return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
 
-    @unittest.expectedFailure
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         self.one_ipv4_ping(
@@ -1089,7 +1078,6 @@ acls:
                # "NFV host - interface used by controller."
            """
 
-    @unittest.expectedFailure
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         port_no2 = self.port_map['port_2']
@@ -1119,7 +1107,6 @@ class Faucet8021XDynACLLogoutTest(Faucet8021XDynACLLoginTest):
         {'AUTHENTICATION': {'port': 'port_1', 'eth_src': 'HOST1_MAC', 'status': 'logoff'}}
     ]
 
-    @unittest.expectedFailure
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         self.one_ipv4_ping(self.eapol1_host, self.ping_host.IP(),
@@ -1197,7 +1184,6 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
     }
     """
 
-    @unittest.expectedFailure
     def test_untagged(self):
         vid = 100 ^ mininet_test_base.OFPVID_PRESENT
         radius_vid1 = (mininet_test_base.MAX_TEST_VID - 1) ^ mininet_test_base.OFPVID_PRESENT
@@ -1662,11 +1648,11 @@ vlans:
 """
     config_ports = {'gauge_prom_port': None}
 
-    def get_gauge_config(self, faucet_config_file,
-                         monitor_stats_file,
-                         monitor_state_file,
-                         monitor_meter_stats_file):
-        """Build Gauge config."""
+    def _get_gauge_meter_config(self, faucet_config_file,
+                                monitor_stats_file,
+                                monitor_state_file,
+                                monitor_meter_stats_file):
+        """Build Gauge Meter config."""
         return """
 faucet_configs:
     - %s
@@ -1688,7 +1674,7 @@ dbs:
            self.GAUGE_CONFIG_DBS)
 
     def _init_gauge_config(self):
-        gauge_config = self.get_gauge_config(
+        gauge_config = self._get_gauge_meter_config(
             self.faucet_config_path,
             self.monitor_stats_file,
             self.monitor_state_file,
@@ -1906,7 +1892,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
         #  so black-list that version with a test
         exception = False
         try:
-            scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))
+            scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))  # pylint: disable=no-member
         except Exception as e:
             error('%s:' % self._test_name(), e)
             exception = True
@@ -2709,6 +2695,8 @@ class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTe
 
 
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
+
+    NUM_FAUCET_CONTROLLERS = 1
 
     CONFIG_GLOBAL = """
 vlans:

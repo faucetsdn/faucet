@@ -2,7 +2,7 @@
 
 """Base class for all FAUCET unit tests."""
 
-# pylint: disable=missing-docstring
+# pylint: disable=missing-function-docstring
 # pylint: disable=too-many-arguments
 
 from functools import partial
@@ -303,7 +303,8 @@ class FaucetTestBase(unittest.TestCase):
                 time.sleep(1)
         self.fail('matching event not found in event stream')
 
-    def _read_yaml(self, yaml_path):
+    @staticmethod
+    def _read_yaml(yaml_path):
         with open(yaml_path) as yaml_file:
             content = yaml.safe_load(yaml_file.read())
         return content
@@ -312,7 +313,8 @@ class FaucetTestBase(unittest.TestCase):
         """Return the yaml content from the config file"""
         return self._read_yaml(self.faucet_config_path)
 
-    def _annotate_interfaces_conf(self, yaml_conf):
+    @staticmethod
+    def _annotate_interfaces_conf(yaml_conf):
         """Consistently name interface names/descriptions."""
         if 'dps' not in yaml_conf:
             return yaml_conf
@@ -336,7 +338,8 @@ class FaucetTestBase(unittest.TestCase):
                 yaml_conf_remap['dps'][dp_key]['interfaces'] = remap_interfaces_yaml
         return yaml_conf_remap
 
-    def _write_yaml_conf(self, yaml_path, yaml_conf):
+    @staticmethod
+    def _write_yaml_conf(yaml_path, yaml_conf):
         assert isinstance(yaml_conf, dict)
         new_conf_str = yaml.dump(yaml_conf).encode()
         with tempfile.NamedTemporaryFile(
@@ -450,7 +453,8 @@ class FaucetTestBase(unittest.TestCase):
         else:
             self.dpid = self.rand_dpid()
 
-    def hostns(self, host):
+    @staticmethod
+    def hostns(host):
         return '%s' % host.name
 
     def dump_switch_flows(self, switch):

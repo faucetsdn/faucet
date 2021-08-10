@@ -76,7 +76,7 @@ class PromClient:  # pylint: disable=too-few-public-methods
                 class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
                     """Don't log requests."""
 
-                    def log_message(self, *_args):  # pylint: disable=arguments-differ
+                    def log_message(self, format, *args):  # pylint: disable=redefined-builtin
                         pass
 
                 self.server = make_server(
