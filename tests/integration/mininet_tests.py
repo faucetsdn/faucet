@@ -2696,8 +2696,6 @@ class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTe
 
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
 
-    NUM_FAUCET_CONTROLLERS = 1
-
     CONFIG_GLOBAL = """
 vlans:
     100:
