@@ -576,7 +576,7 @@ socket_timeout=15
     def _stop_cap(self):
         """Stop tcpdump for OF port and run tshark to decode it."""
         if os.path.exists(self.ofcap):
-            self.cmd(' '.join(['fuser', '-15', '-m', self.ofcap]))
+            self.cmd(' '.join(['fuser', '-15', '-k', self.ofcap]))
             text_ofcap_log = '%s.txt' % self.ofcap
             with open(text_ofcap_log, 'w') as text_ofcap:
                 subprocess.call(
