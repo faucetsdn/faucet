@@ -3581,7 +3581,7 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-    def pre_start_net(self):
+    def post_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
             mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
@@ -3647,7 +3647,7 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-    def pre_start_net(self):
+    def post_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
             mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
@@ -3721,7 +3721,7 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-    def pre_start_net(self):
+    def post_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
             mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
@@ -3795,7 +3795,7 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-    def pre_start_net(self):
+    def post_start_net(self):
         exabgp_conf = self.get_exabgp_conf(mininet_test_util.LOCALHOST)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
@@ -6786,7 +6786,7 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-    def pre_start_net(self):
+    def post_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
             mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
@@ -7319,7 +7319,7 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-    def pre_start_net(self):
+    def post_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
@@ -7386,7 +7386,7 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-    def pre_start_net(self):
+    def post_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
@@ -7493,7 +7493,7 @@ routers:
     exabgp_err = None
     config_ports = {'bgp_port': None}
 
-    def pre_start_net(self):
+    def post_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1')
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 

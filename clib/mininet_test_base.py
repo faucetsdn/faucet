@@ -615,7 +615,7 @@ class FaucetTestBase(unittest.TestCase):
             self.port_map = self.create_port_map(self.dpid)
         self._block_non_faucet_packets()
         self._start_faucet(controller_intf, controller_ipv6)
-        self.pre_start_net()
+        self.post_start_net()
         if self.hw_switch:
             self._attach_physical_switch()
         self._wait_debug_log()
@@ -722,6 +722,7 @@ class FaucetTestBase(unittest.TestCase):
                     self.net.addController(controller)
                 self.gauge_controller = self.gauge_controllers[0]
             self._init_faucet_config()
+            self.pre_start_net()
             self.net.start()
             self._wait_load()
             last_error_txt = self._start_check()
@@ -953,7 +954,12 @@ class FaucetTestBase(unittest.TestCase):
 
     @staticmethod
     def pre_start_net():
-        """Hook called after Mininet initializtion, before Mininet started."""
+        """Hook called after Mininet initialization, before Mininet started."""
+        return
+
+    @staticmethod
+    def post_start_net():
+        """Hook called after Mininet initialization, and after Mininet started."""
         return
 
     def get_config_header(self, config_global, debug_log, dpid, hardware):
