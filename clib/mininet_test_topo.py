@@ -89,6 +89,20 @@ class FaucetHost(CPULimitedHost):
         opts += ' --conf-file='
         return self.cmd(cmd + opts)
 
+    def run_dhclient(self, tmpdir, interface=None, timeout=10):
+        """Run DHCLIENT to obtain ip address via DHCP"""
+        if interface is None:
+            interface = self.defaultIntf()
+        cmd = 'dhclient'
+        opts = ''
+        opts += ' -1'
+        opts += ' -d'
+        opts += ' -pf %s/dhclient-%s.pid' % (tmpdir, self.name)
+        opts += ' -lf %s/dhclient-%s.leases' % (tmpdir, self.name)
+        opts += ' %s' % interface
+        dhclient_cmd = cmd + opts
+        return self.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
+
     def return_ip(self):
         """Return host IP as a string"""
         return self.cmd('hostname -I')

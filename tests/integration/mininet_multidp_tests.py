@@ -15,8 +15,6 @@ from mininet.log import error
 from clib.mininet_test_base import IPV4_ETH, IPV6_ETH
 from clib.mininet_test_base_topo import FaucetTopoTestBase
 
-from clib import mininet_test_util
-
 
 class FaucetMultiDPTestBase(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a generalized test topology & config builder"""
@@ -2431,13 +2429,6 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
@@ -2448,7 +2439,7 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[0])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.11')
         self.check_host_connectivity_by_id(0, 1)
@@ -2511,13 +2502,6 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
@@ -2528,7 +2512,7 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[0])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.12')
@@ -2598,13 +2582,6 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
@@ -2619,7 +2596,7 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[1])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.2.0.10')
@@ -2690,13 +2667,6 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
@@ -2711,7 +2681,7 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[1])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.10')
@@ -2854,13 +2824,6 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
@@ -2875,7 +2838,7 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[1])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.10')
@@ -3293,13 +3256,6 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         }
 
     @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
-    @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
@@ -3391,7 +3347,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         self.configure_coprocessor_network()
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.21')
         self.check_host_connectivity_by_id(0, 1)
@@ -3609,13 +3565,6 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         }
 
     @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
-    @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
@@ -3715,7 +3664,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         self.verify_stack_up()
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.21')

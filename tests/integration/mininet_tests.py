@@ -962,17 +962,12 @@ class Faucet8021XMABTest(Faucet8021XSuccessTest):
         )
         return super().start_freeradius()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        dhclient_cmd = 'dhclient -d -1 %s' % host.defaultIntf()
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_untagged(self):
         port_no1 = self.port_map['port_1']
         self.one_ipv4_ping(
             self.eapol1_host, self.ping_host.IP(),
             require_host_learned=False, expected_result=False)
-        self.dhclient_callback(self.eapol1_host, 10)
+        self.eapol1_host.run_dhclient(self.tmpdir)
         self.wait_until_matching_lines_from_faucet_log_files(r'.*AAA_SUCCESS.*')
         self.one_ipv4_ping(
             self.eapol1_host, self.ping_host.IP(),
