@@ -54,13 +54,26 @@ class FaucetLink(Link):
 class FaucetHost(CPULimitedHost):
     """Base Mininet Host class, for Mininet-based tests."""
 
+    def __init__(self, *args, **kwargs):
+        self.pid_files = []
+        super().__init__(*args, **kwargs)
+
+    def terminate(self):
+        # If any 'dnsmasq' processes were started, terminate them now
+        for pid_file in self.pid_files:
+            with open(pid_file, 'r') as pf:
+                for _, pid in enumerate(pf):
+                    os.kill(int(pid), 15)
+        super().terminate()
+
     def create_dnsmasq(self, tmpdir, iprange, router, vlan, interface=None):
         """Start dnsmasq instance inside dnsmasq namespace"""
         if interface is None:
             interface = self.defaultIntf()
-        dhcp_leasefile = os.path.join(tmpdir, 'nfv-dhcp-%s-vlan%u.leases' % (self.name, vlan))
-        log_facility = os.path.join(tmpdir, 'nfv-dhcp-%s-vlan%u.log' % (self.name, vlan))
-        pid_file = os.path.join(tmpdir, 'dnsmasq-%s-vlan%u.pid' % (self.name, vlan))
+        dhcp_leasefile = os.path.join(tmpdir, 'nfv-dhcp-%s-%s-vlan%u.leases' % (self.name, iprange, vlan))
+        log_facility = os.path.join(tmpdir, 'nfv-dhcp-%s-%s-vlan%u.log' % (self.name, iprange, vlan))
+        pid_file = os.path.join(tmpdir, 'dnsmasq-%s-%s-vlan%u.pid' % (self.name, iprange, vlan))
+        self.pid_files.append(pid_file)
         cmd = 'dnsmasq'
         opts = ''
         opts += ' --dhcp-range=%s,255.255.255.0' % iprange
@@ -69,12 +82,26 @@ class FaucetHost(CPULimitedHost):
         opts += ' --no-resolv --txt-record=does.it.work,yes'
         opts += ' --bind-interfaces'
         opts += ' --except-interface=lo'
-        opts += ' --interface=%s' % (interface)
+        opts += ' --interface=%s' % interface
         opts += ' --dhcp-leasefile=%s' % dhcp_leasefile
         opts += ' --log-facility=%s' % log_facility
         opts += ' --pid-file=%s' % pid_file
         opts += ' --conf-file='
         return self.cmd(cmd + opts)
+
+    def run_dhclient(self, tmpdir, interface=None, timeout=10):
+        """Run DHCLIENT to obtain ip address via DHCP"""
+        if interface is None:
+            interface = self.defaultIntf()
+        cmd = 'dhclient'
+        opts = ''
+        opts += ' -1'
+        opts += ' -d'
+        opts += ' -pf %s/dhclient-%s.pid' % (tmpdir, self.name)
+        opts += ' -lf %s/dhclient-%s.leases' % (tmpdir, self.name)
+        opts += ' %s' % interface
+        dhclient_cmd = cmd + opts
+        return self.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
 
     def return_ip(self):
         """Return host IP as a string"""
