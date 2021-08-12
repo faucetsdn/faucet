@@ -540,10 +540,10 @@ class FaucetTestBase(unittest.TestCase):
     def _block_non_faucet_packets(self):
 
         def _cmd(cmd):
-            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, stderr = proc.communicate()
-            self.assertFalse(stdout, msg='%s: %s' % (stdout, cmd))
-            self.assertFalse(stderr, msg='%s: %s' % (stderr, cmd))
+            with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as proc:
+                stdout, stderr = proc.communicate()
+                self.assertFalse(stdout, msg='%s: %s' % (stdout, cmd))
+                self.assertFalse(stderr, msg='%s: %s' % (stderr, cmd))
 
         _cmd('ebtables --f OUTPUT')
         for phys_port in self.switch_map.values():
@@ -1507,6 +1507,7 @@ dbs:
         """
         for lines_a in all_prom_lines:
             for lines_b in all_prom_lines:
+                # pylint: disable=consider-using-enumerate
                 self.assertEqual(len(lines_a), len(lines_b))
                 for i in range(len(lines_a)):
                     prom_line_a = lines_a[i]

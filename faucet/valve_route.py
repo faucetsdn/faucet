@@ -33,6 +33,7 @@ from faucet.valve_manager_base import ValveManagerBase
 
 
 class AnonVLAN:
+    """The anonymous VLAN for global routing"""
 
     def __init__(self, vid):
         self.vid = vid

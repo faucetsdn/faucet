@@ -620,6 +620,7 @@ class ValveTestBases:
             self.last_flows_to_dp = {}
 
             self.tmpdir = None
+            self.config_file = None
 
             self.mock_now_sec = 100
             self.max_diff = None
