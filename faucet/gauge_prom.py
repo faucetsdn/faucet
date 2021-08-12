@@ -62,7 +62,7 @@ class GaugePrometheusClient(PromClient):
         super().__init__(reg=reg)
         self.table_tags = collections.defaultdict(set)
         self.metrics = {}
-        self.dp_status = Gauge(  # pylint: disable=unexpected-keyword-arg
+        self.dp_status = Gauge(
             'dp_status',
             'status of datapaths',
             self.REQUIRED_LABELS,

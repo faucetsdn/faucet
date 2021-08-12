@@ -92,7 +92,7 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
     # TODO: verify actions
     @staticmethod
     @functools.lru_cache(maxsize=1024)
-    def match(in_port=None, vlan=None,  # pylint: disable=too-many-arguments,too-many-locals
+    def match(in_port=None, vlan=None,  # pylint: disable=too-many-arguments
               eth_type=None, eth_src=None, eth_dst=None, eth_dst_mask=None,
               icmpv6_type=None, nw_proto=None, nw_dst=None, metadata=None,
               metadata_mask=None, vlan_pcp=None, udp_src=None, udp_dst=None):

@@ -48,7 +48,7 @@ class CheckConfigTestCase(unittest.TestCase):  # pytype: disable=module-attr
                 conf_file.write(config)
             conf_files = [conf_file_name]
         with open(os.devnull, 'w') as check_output_file:
-            result_ok = check_config(  # pylint: disable=unexpected-keyword-arg
+            result_ok = check_config(
                 conf_files, logging.FATAL, check_output_file)
         return expected_ok == result_ok
 

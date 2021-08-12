@@ -217,19 +217,15 @@ class FaucetMetrics(PromClient):
             'number of changes in stack root', [])
 
     def _counter(self, var, var_help, labels):
-        # pylint: disable=unexpected-keyword-arg
         return Counter(var, var_help, labels, registry=self._reg)
 
     def _gauge(self, var, var_help, labels):
-        # pylint: disable=unexpected-keyword-arg
         return PromGauge(var, var_help, labels, registry=self._reg)
 
     def _info(self, var, var_help):
-        # pylint: disable=unexpected-keyword-arg
         return Info(var, var_help, registry=self._reg)
 
     def _histogram(self, var, var_help, labels, buckets):
-        # pylint: disable=unexpected-keyword-arg
         return Histogram(var, var_help, labels, buckets=buckets, registry=self._reg)
 
     def _dpid_counter(self, var, var_help):

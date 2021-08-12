@@ -644,7 +644,6 @@ class FAUCET(BaseFAUCET):
 
     START_ARGS = ['--ryu-app=ryu.app.ofctl_rest']
 
-    # pylint: disable=too-many-locals
     def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, prom_port, port, test_name, **kwargs):

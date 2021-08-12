@@ -68,7 +68,7 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
         Returns:
             Chewie
         """
-        _chewie = chewie.Chewie(  # pylint: disable=too-many-function-args
+        _chewie = chewie.Chewie(
             dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
             radius_ip, radius_port, radius_secret, chewie_id)
