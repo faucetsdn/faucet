@@ -2119,9 +2119,9 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
             # Delete all ARP records of the lacp host
             for host_id in self.host_information:
                 host = self.host_information[host_id]['host']
-                funcs.append(lambda: host.cmd('arp -d %s' % lacp_host.IP()))
-                funcs.append(lambda: host.cmd('arp -d %s' % dst_host.IP()))
-                funcs.append(lambda: lacp_host.cmd('arp -d %s' % host.IP()))
+                funcs.append(lambda host=host: host.cmd('arp -d %s' % lacp_host.IP()))
+                funcs.append(lambda host=host: host.cmd('arp -d %s' % dst_host.IP()))
+                funcs.append(lambda host=host: lacp_host.cmd('arp -d %s' % host.IP()))
             # Ping to cause broadcast ARP request
             funcs.append(lambda: lacp_host.cmd('ping -c5 %s' % dst_host.IP()))
             # Start tcpdump looking for broadcast ARP packets

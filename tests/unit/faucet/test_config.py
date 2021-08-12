@@ -1350,8 +1350,8 @@ dps:
         _, _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
         dp = dps[0]
         self.assertEqual(len(dp.ports), 8)
-        self.assertTrue(all([p.permanent_learn for p in dp.ports.values() if p.number < 9]))
-        self.assertTrue(all([p.max_hosts == 2 for p in dp.ports.values() if p.number > 1]))
+        self.assertTrue(all(p.permanent_learn for p in dp.ports.values() if p.number < 9))
+        self.assertTrue(all(p.max_hosts == 2 for p in dp.ports.values() if p.number > 1))
         self.assertTrue(dp.ports[1].max_hosts == 4)
         self.assertEqual(dp.ports[1].description, "video conf")
 

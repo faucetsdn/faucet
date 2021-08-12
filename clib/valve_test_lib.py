@@ -717,10 +717,10 @@ class ValveTestBases:
                 before_hash, before_str = self.network.table_state(int(dp_id))
                 offset_ofmsgs = []
                 for i in range(0 - offset, len(ofmsgs)):
-                    if i >= 0 and i < len(ofmsgs):
+                    if 0 <= i < len(ofmsgs):
                         offset_ofmsgs.append(ofmsgs[i])
                     j = i + offset
-                    if j >= 0 and j < len(ofmsgs):
+                    if 0 <= j < len(ofmsgs):
                         offset_ofmsgs.append(ofmsgs[j])
                 self.network.apply_ofmsgs(int(dp_id), offset_ofmsgs, ignore_errors=True)
                 self._check_table_difference(before_hash, before_str, dp_id)

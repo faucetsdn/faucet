@@ -258,7 +258,7 @@ class VLAN(Conf):
     @staticmethod
     def vid_valid(vid):
         """Return True if VID valid."""
-        return isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID
+        return isinstance(vid, int) and valve_of.MIN_VID <= vid <= valve_of.MAX_VID
 
     def reset_caches(self):
         """Reset dynamic caches."""
