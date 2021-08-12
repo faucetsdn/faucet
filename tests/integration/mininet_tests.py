@@ -263,7 +263,7 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         two_byte_port_num_formatted = ':'.join((two_byte_port_num[:2], two_byte_port_num[2:]))
         return '00:00:00:00:%s' % two_byte_port_num_formatted
 
-    def _init_faucet_config(self):
+    def pre_start_net(self):
         self.eapol1_host, self.eapol2_host, self.ping_host, self.nfv_host = self.hosts_name_ordered()
         switch = self.first_switch()
         last_host_switch_link = switch.connectionsTo(self.nfv_host)[0]
@@ -1369,21 +1369,18 @@ class FaucetUntaggedNoCombinatorialFloodTest(FaucetUntaggedTest):
 
 class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
 
-    # Name of switch interface connected to last host, accessible to controller.
-    last_host_switch_intf = None
-
-    def _init_faucet_config(self):
+    def test_untagged(self):
+        # Name of switch interface connected to last host,
+        #  accessible to controller
         last_host = self.hosts_name_ordered()[-1]
         switch = self.first_switch()
         last_host_switch_link = switch.connectionsTo(last_host)[0]
-        self.last_host_switch_intf = [intf for intf in last_host_switch_link if intf in switch.intfList()][0]
-        # Now that interface is known, FAUCET config can be written to include it.
-        super()._init_faucet_config()
+        last_host_switch_intf = [intf for intf in last_host_switch_link if intf in switch.intfList()][0]
 
-    def test_untagged(self):
         super().test_untagged()
+
         # Confirm controller can see switch interface with traffic.
-        ifconfig_output = self.net.controllers[0].cmd('ifconfig %s' % self.last_host_switch_intf)
+        ifconfig_output = self.net.controllers[0].cmd('ifconfig %s' % last_host_switch_intf)
         self.assertTrue(
             re.search('(R|T)X packets[: ][1-9]', ifconfig_output),
             msg=ifconfig_output)
@@ -2695,8 +2692,6 @@ class FaucetTaggedAndUntaggedSameVlanGroupTest(FaucetTaggedAndUntaggedSameVlanTe
 
 
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
-
-    NUM_FAUCET_CONTROLLERS = 1
 
     CONFIG_GLOBAL = """
 vlans:
@@ -8396,7 +8391,7 @@ class FaucetUntaggedMorePortsBase(FaucetUntaggedTest):
             {port}:
                 native_vlan: 100""" + "\n"
 
-    def _init_faucet_config(self):  # pylint: disable=invalid-name
+    def pre_start_net(self):
         """Extend config with more ports if needed"""
         self.assertTrue(self.CONFIG.endswith(CONFIG_BOILER_UNTAGGED))
         # We know how to extend the config for more ports
