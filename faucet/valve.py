@@ -1,5 +1,7 @@
 """Implementation of Valve learning layer 2/3 switch."""
 
+# pylint: disable=too-many-lines
+
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -17,7 +19,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import difflib
 import logging
 
@@ -137,7 +138,6 @@ class Valve:
     STATIC_TABLE_IDS = False
     GROUPS = True
 
-
     def __init__(self, dp, logname, metrics, notifier, dot1x):
         self.dot1x = dot1x
         self.dp = dp
@@ -179,7 +179,7 @@ class Valve:
         if labels is None:
             labels = self.dp.base_prom_labels()
         metrics_var = getattr(self.metrics, var)
-        label_values = [labels[key] for key in metrics_var._labelnames]
+        label_values = [labels[key] for key in metrics_var._labelnames]  # pylint: disable=protected-access
         metrics_var.remove(*label_values)
 
     def close_logs(self):
@@ -243,7 +243,7 @@ class Valve:
             self.notify, self._inc_var, self._set_var, self._set_port_var, self.stack_manager)
 
         self.switch_manager = valve_switch.valve_switch_factory(
-            self.logger, self.dp, self.pipeline, self.acl_manager, self.stack_manager)
+            self.logger, self.dp, self.pipeline, self.stack_manager)
         self._coprocessor_manager = None
         copro_table = self.dp.tables.get('copro', None)
         if copro_table:
@@ -280,7 +280,6 @@ class Valve:
                 self._lldp_manager, self._route_manager_by_ipv.get(4),
                 self._route_manager_by_ipv.get(6), self._coprocessor_manager,
                 self._output_only_manager, self._dot1x_manager) if manager is not None)
-
 
     def notify(self, event_dict):
         """Send an event notification."""
@@ -403,8 +402,7 @@ class Valve:
         ofmsgs = []
         for manager in self._managers:
             ofmsgs.extend(manager.del_vlan(vlan))
-        expired_hosts = [
-            entry for entry in vlan.dyn_host_cache.values()]
+        expired_hosts = list(vlan.dyn_host_cache.values())
         for entry in expired_hosts:
             self._update_expired_host(entry, vlan)
         vlan.reset_caches()
@@ -481,24 +479,104 @@ class Valve:
         self._set_port_var('port_status', port_status, port)
         port.dyn_update_time = now
 
+    _port_status_codes = {
+        valve_of.ofp.OFPPR_ADD: 'ADD',
+        valve_of.ofp.OFPPR_DELETE: 'DELETE',
+        valve_of.ofp.OFPPR_MODIFY: 'MODIFY'
+    }
+
+    @classmethod
+    def _decode_port_status(cls, reason):
+        """Humanize the port status reason code."""
+
+        return cls._port_status_codes.get(reason, 'UNKNOWN')
+
+    def port_desc_stats_reply_handler(self, port_desc_stats, _other_valves, now):
+        ofmsgs = []
+
+        self.logger.info('port desc stats')
+
+        # There are 4 cases to handle
+        #
+        # For the phys ports we have no config for
+        #  if the phys state is different, fabricate MODIFY port
+        # For the ports that we have config for
+        #  if the state has not changed, skip
+        #  otherwise if the phys port is present
+        #    if the port was phys down, fabricate ADD port
+        #    else fabricate MODIFY port to phys state
+        #  else the phys port is not present
+        #    if the port was phys up, fabricate DELETE port
+        #
+
+        def _fabricate(port_no, reason, status):
+            self.logger.info(
+                'Port %s fabricating %s status %s' %
+                (port_no, Valve._decode_port_status(reason), status))
+
+            _ofmsgs_by_valve = self.port_status_handler(
+                port_no, reason, 0 if status else valve_of.ofp.OFPPS_LINK_DOWN,
+                _other_valves, now)
+            if self in _ofmsgs_by_valve:
+                ofmsgs.extend(_ofmsgs_by_valve[self])
+
+        curr_dyn_port_nos = set(
+            desc.port_no for desc in port_desc_stats)
+        curr_dyn_port_nos -= set([valve_of.ofp.OFPP_LOCAL])
+
+        prev_dyn_up_port_nos = set(self.dp.dyn_up_port_nos)
+        curr_dyn_up_port_nos = set(
+            desc.port_no for desc in port_desc_stats
+            if valve_of.port_status_from_state(desc.state))
+
+        conf_port_nos = set(self.dp.ports.keys())
+
+        no_conf_port_nos = curr_dyn_port_nos - conf_port_nos
+
+        if conf_port_nos != curr_dyn_port_nos:
+            self.logger.info(
+                'delta in known ports: conf %s dyn %s' %
+                (conf_port_nos, curr_dyn_port_nos))
+        if prev_dyn_up_port_nos != curr_dyn_up_port_nos:
+            self.logger.info(
+                'delta in up state: %s => %s' %
+                (prev_dyn_up_port_nos, curr_dyn_up_port_nos))
+
+        # Ports we have no config for
+        for port_no in no_conf_port_nos:
+            prev_up = port_no in prev_dyn_up_port_nos
+            curr_up = port_no in curr_dyn_up_port_nos
+            if prev_up != curr_up:
+                _fabricate(port_no, valve_of.ofp.OFPPR_MODIFY, curr_up)
+
+        # Ports we have config for
+        for port_no in conf_port_nos:
+            prev_up = port_no in prev_dyn_up_port_nos
+            curr_up = port_no in curr_dyn_up_port_nos
+
+            # Skip ports that have not changed
+            if prev_up == curr_up:
+                continue
+
+            if port_no in curr_dyn_port_nos:
+                if not prev_up:
+                    _fabricate(port_no, valve_of.ofp.OFPPR_ADD, True)
+                else:
+                    _fabricate(port_no, valve_of.ofp.OFPPR_MODIFY, curr_up)
+            else:
+                _fabricate(port_no, valve_of.ofp.OFPPR_DELETE, False)
+
+        ofmsgs_by_valve = {self: ofmsgs}
+        return ofmsgs_by_valve
+
     def port_status_handler(self, port_no, reason, state, _other_valves, now):
         """Return OpenFlow messages responding to port operational status change."""
-
-        port_status_codes = {
-            valve_of.ofp.OFPPR_ADD: 'ADD',
-            valve_of.ofp.OFPPR_DELETE: 'DELETE',
-            valve_of.ofp.OFPPR_MODIFY: 'MODIFY'
-        }
-
-        def _decode_port_status(reason):
-            """Humanize the port status reason code."""
-            return port_status_codes.get(reason, 'UNKNOWN')
 
         port_status = valve_of.port_status_from_state(state)
         self.notify(
             {'PORT_CHANGE': {
                 'port_no': port_no,
-                'reason': _decode_port_status(reason),
+                'reason': Valve._decode_port_status(reason),
                 'state': state,
                 'status': port_status}})
         self._set_port_status(port_no, port_status, now)
@@ -508,19 +586,19 @@ class Valve:
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
             return {}
-        if not reason in port_status_codes:
+        if reason not in Valve._port_status_codes:
             self.logger.warning('Unhandled port status %s/state %s for %s' % (
                 reason, state, port))
             return {}
 
         ofmsgs_by_valve = {self: []}
         new_port_status = (
-            reason == valve_of.ofp.OFPPR_ADD or
-            (reason == valve_of.ofp.OFPPR_MODIFY and port_status))
+            reason == valve_of.ofp.OFPPR_ADD
+            or (reason == valve_of.ofp.OFPPR_MODIFY and port_status))
         blocked_down_state = (
             (state & valve_of.ofp.OFPPS_BLOCKED) or (state & valve_of.ofp.OFPPS_LINK_DOWN))
         live_state = state & valve_of.ofp.OFPPS_LIVE
-        decoded_reason = _decode_port_status(reason)
+        decoded_reason = Valve._decode_port_status(reason)
         state_description = '%s up status %s reason %s state %s' % (
             port, port_status, decoded_reason, state)
         ofmsgs = []
@@ -545,8 +623,8 @@ class Valve:
 
     def advertise(self, now, _other_values):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
-        if (not self.dp.advertise_interval or
-                now - self._last_advertise_sec < self.dp.advertise_interval):
+        if (not self.dp.advertise_interval
+                or now - self._last_advertise_sec < self.dp.advertise_interval):
             return {}
         self._last_advertise_sec = now
 
@@ -562,7 +640,7 @@ class Valve:
         chassis_id = str(self.dp.faucet_dp_mac)
         ttl = min(
             self.dp.lldp_beacon.get('send_interval', self.dp.DEFAULT_LLDP_SEND_INTERVAL) * 3,
-            2**16-1)
+            2**16 - 1)
         org_tlvs = [
             (tlv['oui'], tlv['subtype'], tlv['info'])
             for tlv in port.lldp_beacon['org_tlvs']]
@@ -588,8 +666,8 @@ class Valve:
         #   It is used also by stacking to verify stacking links.
         # TODO: In the stacking case, provide an authentication scheme for the probes
         #   so they cannot be forged.
-        if (not self.dp.fast_advertise_interval or
-                now - self._last_fast_advertise_sec < self.dp.fast_advertise_interval):
+        if (not self.dp.fast_advertise_interval
+                or now - self._last_fast_advertise_sec < self.dp.fast_advertise_interval):
             return {}
         self._last_fast_advertise_sec = now
 
@@ -839,7 +917,7 @@ class Valve:
         if remote_dp_id and remote_port_id:
             self.logger.debug('FAUCET LLDP on %s from %s (remote %s, port %u)' % (
                 port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id), remote_port_id))
-            ofmsgs_by_valve.update(self._lldp_manager._verify_lldp(
+            ofmsgs_by_valve.update(self._lldp_manager.verify_lldp(
                 port, now, self, other_valves,
                 remote_dp_id, remote_dp_name,
                 remote_port_id, remote_port_state))
@@ -859,8 +937,8 @@ class Valve:
         Returns:
             list: OpenFlow messages, if any.
         """
-        if (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac or
-                not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
+        if (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac
+                or not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             return route_manager.control_plane_handler(now, pkt_meta)
         return []
 
@@ -990,9 +1068,9 @@ class Valve:
             self.logger.info(
                 'unparseable packet from port %u' % in_port)
             return None
-        if (vlan_vid is not None and
-                vlan_vid not in self.dp.vlans and
-                vlan_vid != self.dp.global_vlan):
+        if (vlan_vid is not None
+                and vlan_vid not in self.dp.vlans
+                and vlan_vid != self.dp.global_vlan):
             self.logger.info(
                 'packet for unknown VLAN %u' % vlan_vid)
             return None
@@ -1009,10 +1087,10 @@ class Valve:
                     pkt_meta.eth_src, in_port))
             return None
         if self.dp.stack and self.dp.stack.graph:
-            if (not pkt_meta.port.stack and
-                    pkt_meta.vlan and
-                    pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
-                    pkt_meta.vlan != pkt_meta.port.native_vlan):
+            if (not pkt_meta.port.stack
+                    and pkt_meta.vlan
+                    and pkt_meta.vlan not in pkt_meta.port.tagged_vlans
+                    and pkt_meta.vlan != pkt_meta.port.native_vlan):
                 self.logger.warning(
                     ('packet from non-stack port number %u is not member of VLAN %u' % (
                         pkt_meta.port.number, pkt_meta.vlan.vid)))
@@ -1244,7 +1322,8 @@ class Valve:
             old_table_ids = self.dp.pipeline_tableids()
             new_table_ids = new_dp.pipeline_tableids()
             if old_table_ids != new_table_ids:
-                self.logger.info('table IDs changed, old %s new %s' % (old_table_ids, new_table_ids))
+                self.logger.info('table IDs changed, old %s new %s' %
+                                 (old_table_ids, new_table_ids))
                 return True
         return False
 
@@ -1325,7 +1404,10 @@ class Valve:
             if added_meters:
                 ofmsgs.extend(self.acl_manager.add_meters(added_meters))
         if added_ports:
-            ofmsgs.extend(self.ports_add(added_ports))
+            all_up_port_nos = [
+                port for port in added_ports
+                if port in self.dp.dyn_up_port_nos]
+            ofmsgs.extend(self.ports_add(all_up_port_nos))
         if changed_ports:
             all_up_port_nos = [
                 port for port in changed_ports
@@ -1456,17 +1538,17 @@ class Valve:
             # Unlike flows, adding an overwriting group (same group_id) is considered an error.
             # This "error" is expected with groups and redundant controllers, as one controller
             # may delete another's groups while they synchronize with new network state.
-            if (msg.type == valve_of.ofp.OFPET_GROUP_MOD_FAILED and
-                    msg.code == valve_of.ofp.OFPGMFC_GROUP_EXISTS):
+            if (msg.type == valve_of.ofp.OFPET_GROUP_MOD_FAILED
+                    and msg.code == valve_of.ofp.OFPGMFC_GROUP_EXISTS):
                 return
 
             # We output a flow referencing a group, that a redundant
             # controller deleted before sending its own copy of this flow.
-            if (msg.type == valve_of.ofp.OFPET_BAD_ACTION and
-                    msg.code == valve_of.ofp.OFPBAC_BAD_OUT_GROUP):
+            if (msg.type == valve_of.ofp.OFPET_BAD_ACTION
+                    and msg.code == valve_of.ofp.OFPBAC_BAD_OUT_GROUP):
                 return
-        if (msg.type == valve_of.ofp.OFPET_METER_MOD_FAILED and
-                msg.code == valve_of.ofp.OFPMMFC_METER_EXISTS):
+        if (msg.type == valve_of.ofp.OFPET_METER_MOD_FAILED
+                and msg.code == valve_of.ofp.OFPMMFC_METER_EXISTS):
             # Same scenario as groups.
             return
         self._inc_var('of_errors')
@@ -1545,7 +1627,7 @@ class TfmValve(Valve):
 
     def _add_default_flows(self):
         ofmsgs = self._pipeline_flows()
-        ofmsgs.extend(super(TfmValve, self)._add_default_flows())
+        ofmsgs.extend(super()._add_default_flows())
         return ofmsgs
 
 
@@ -1574,7 +1656,7 @@ class ArubaValve(TfmValve):
     FILL_REQ = False
 
     def _delete_all_valve_flows(self):
-        ofmsgs = super(ArubaValve, self)._delete_all_valve_flows()
+        ofmsgs = super()._delete_all_valve_flows()
         # Unreferenced group(s) from a previous config that used them,
         # can steal resources from regular flowmods. Unconditionally
         # delete all groups even if groups are not enabled to avoid this.

@@ -1,3 +1,7 @@
+"""Manage Fake OF tables for unit tests"""
+
+# pylint: disable=too-many-lines
+
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
 #
@@ -135,14 +139,13 @@ class FakeOFNetwork:
 
     def shortest_path_len(self, src_dpid, dst_dpid):
         """Returns the length of the shortest path from the source to the destination"""
+        if src_dpid == dst_dpid:
+            return 1
         src_valve = self.valves_manager.valves[src_dpid]
         dst_valve = self.valves_manager.valves[dst_dpid]
-        if src_valve == dst_valve:
-            return 1
-        elif src_valve.dp.stack and dst_valve.dp.stack:
+        if src_valve.dp.stack and dst_valve.dp.stack:
             return len(src_valve.dp.stack.shortest_path(dst_valve.dp.name))
-        else:
-            return 2
+        return 2
 
     def is_output(self, match, src_dpid, dst_dpid, port=None, vid=None, trace=False):
         """
@@ -303,8 +306,8 @@ class FakeOFTable:
                 raise FakeOFTableException(
                     'got %s before TFM that defines table %u' % (
                         ofmsg, table_id
-                        )
                     )
+                )
 
         def _add(table, flowmod):
             # From the 1.3 spec, section 6.4:
@@ -560,11 +563,13 @@ class FakeOFTable:
                     metadata = packet_dict.get('metadata', 0)
                     mask = instruction.metadata_mask
                     mask_compl = mask ^ 0xFFFFFFFFFFFFFFFF
-                    packet_dict['metadata'] = (metadata & mask_compl) | (instruction.metadata & mask)
+                    packet_dict['metadata'] = (metadata & mask_compl)\
+                        | (instruction.metadata & mask)
         if next_table:
             pending_actions = []
         if pending_actions:
-            raise FakeOFTableException('flow performs actions on packet after output with no goto: %s' % matching_fte)
+            raise FakeOFTableException('flow performs actions on packet after \
+                                       output with no goto: %s' % matching_fte)
         return outputs, packet_dict, next_table
 
     def get_output(self, match, trace=False):
@@ -658,8 +663,8 @@ class FakeOFTable:
                         # Matching port, so check matching VID
                         if vid & ofp.OFPVID_PRESENT == 0:
                             # If OFPVID_PRESENT bit is 0 then packet should not have a VLAN tag
-                            return ('vlan_vid' not in out_pkt or
-                                    out_pkt['vlan_vid'] & ofp.OFPVID_PRESENT == 0)
+                            return ('vlan_vid' not in out_pkt
+                                    or out_pkt['vlan_vid'] & ofp.OFPVID_PRESENT == 0)
                         # VID specified, check if matching expected
                         return 'vlan_vid' in out_pkt and vid == out_pkt['vlan_vid']
         return False
@@ -806,7 +811,7 @@ class FakeOFTable:
                                     if output_result != full_output:
                                         raise FakeOFTableException('Output functions do not match')
                                     return output_result
-        if full_output != False:
+        if full_output is not False:
             raise FakeOFTableException('Output functions do not match')
         return False
 
@@ -842,7 +847,7 @@ class FlowMod:
     MAC_MATCH_FIELDS = (
         'eth_src', 'eth_dst', 'arp_sha', 'arp_tha', 'ipv6_nd_sll',
         'ipv6_nd_tll'
-        )
+    )
     IPV4_MATCH_FIELDS = ('ipv4_src', 'ipv4_dst', 'arp_spa', 'arp_tpa')
     IPV6_MATCH_FIELDS = ('ipv6_src', 'ipv6_dst', 'ipv6_nd_target')
     HEX_FIELDS = ('eth_type')
@@ -915,9 +920,9 @@ class FlowMod:
         return True
 
     def _matches_match(self, other):
-        return (self.priority == other.priority and
-                self.match_values == other.match_values and
-                self.match_masks == other.match_masks)
+        return (self.priority == other.priority
+                and self.match_values == other.match_values
+                and self.match_masks == other.match_masks)
 
     def fte_matches(self, other, strict=False):
         """returns True if the flow table entry other matches this flowmod.
@@ -995,9 +1000,18 @@ class FlowMod:
         return self.priority < other.priority
 
     def __eq__(self, other):
-        return (self._matches_match(other) and
-                self.out_port == other.out_port and
-                self.instructions == other.instructions)
+        return (self._matches_match(other)
+                and self.out_port == other.out_port
+                and self.instructions == other.instructions)
+
+    def __hash__(self):
+        return hash((
+            self.priority,
+            self.match_values,
+            self.match_masks,
+            self.out_port,
+            self.instructions,
+        ))
 
     def _pretty_field_str(self, key, value, mask=None):
         mask_str = ""
@@ -1121,12 +1135,12 @@ def parse_print_args():
     Print a flow table in a human readable format
     {argv0} print -f FILE
 """.format(argv0=sys.argv[0])
-        )
+    )
     arg_parser.add_argument(
         '-f',
         '--file',
         help='file containing an OFPFlowStatsReply message in JSON format'
-        )
+    )
     args = arg_parser.parse_args(sys.argv[2:])
     return {'filename': args.file}
 
@@ -1140,7 +1154,7 @@ def parse_probe_args():
     Find the flow table entries in a given flow table that match a given packet
     {argv0} probe -f FILE -p PACKET_STRING
 """.format(argv0=sys.argv[0])
-        )
+    )
     arg_parser.add_argument(
         '-p',
         '--packet',
@@ -1149,13 +1163,13 @@ def parse_probe_args():
             '''string representation of a packet dictionary eg. '''
             '''"{'in_port': 1, 'eth_dst': '01:80:c2:00:00:02', 'eth_type': '''
             '''34825}"''')
-        )
+    )
     arg_parser.add_argument(
         '-f',
         '--file',
         metavar='FILE',
         help='file containing an OFPFlowStatsReply message in JSON format'
-        )
+    )
     args = arg_parser.parse_args(sys.argv[2:])
     packet = args.packet
     packet = ast.literal_eval(args.packet)
@@ -1174,11 +1188,11 @@ def parse_args():
     {argv0} <command> <args>
 
 """.format(argv0=sys.argv[0])
-        )
+    )
     arg_parser.add_argument(
         'command',
         help='Subcommand, either "print" or "probe"'
-        )
+    )
     args = arg_parser.parse_args(sys.argv[1:2])
     try:
         if args.command == 'probe':
@@ -1192,12 +1206,12 @@ def parse_args():
     return (args.command, command_args)
 
 
-def _print(filename):
+def _print(filename, **_kwargs):
     """Prints the JSON flow table from a file in a human readable format"""
-    with open(filename, 'r') as f:
-        msg = json.load(f)
-    dp = FakeRyuDp()
-    ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
+    with open(filename, 'r') as file_handle:
+        msg = json.load(file_handle)
+    datapath = FakeRyuDp()
+    ofmsg = ofp_parser.ofp_msg_from_jsondict(datapath, msg)
     table = FakeOFTable(1)
     table.apply_ofmsgs([ofmsg])
     print(table)
@@ -1205,10 +1219,10 @@ def _print(filename):
 
 def probe(filename, packet):
     """Prints the actions applied to packet by the table from the file"""
-    with open(filename, 'r') as f:
-        msg = json.load(f)
-    dp = FakeRyuDp()
-    ofmsg = ofp_parser.ofp_msg_from_jsondict(dp, msg)
+    with open(filename, 'r') as file_handle:
+        msg = json.load(file_handle)
+    datapath = FakeRyuDp()
+    ofmsg = ofp_parser.ofp_msg_from_jsondict(datapath, msg)
     table = FakeOFTable(1)
     table.apply_ofmsgs([ofmsg])
     instructions, out_packet = table.lookup(packet)

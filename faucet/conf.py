@@ -41,7 +41,7 @@ def test_config_condition(cond, msg):
 class Conf:
     """Base class for FAUCET configuration."""
 
-    mutable_attrs = frozenset() # type: frozenset
+    mutable_attrs = frozenset()  # type: frozenset
     defaults = {}  # type: dict
     defaults_types = {}  # type: dict
     dyn_finalized = False
@@ -66,7 +66,7 @@ class Conf:
 
     def __setattr__(self, name, value):
         if not self.dyn_finalized or name.startswith('dyn') or name in self.mutable_attrs:
-            super(Conf, self).__setattr__(name, value)
+            super().__setattr__(name, value)
         else:
             raise ValueError('cannot update %s on finalized Conf object' % name)
 
@@ -81,7 +81,7 @@ class Conf:
         for key, value in defaults.items():
             self._set_default(key, value, conf=conf)
 
-    def set_defaults(self, defaults=None, conf=None):
+    def set_defaults(self):
         """Set default values and run any basic sanity checks."""
         self._set_conf_defaults(self.defaults, self.__dict__)
 
@@ -106,7 +106,7 @@ class Conf:
                 test_config_condition(
                     not isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
                         conf_key, conf_value,
-                        conf_type, type(conf_value))) # pytype: disable=invalid-typevar
+                        conf_type, type(conf_value)))  # pytype: disable=invalid-typevar
 
     @staticmethod
     def _set_unknown_conf(conf, conf_types):
@@ -132,7 +132,9 @@ class Conf:
     def _conf_keys(self, conf, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
         conf_keys = []
-        for key, value in sorted(((key, value) for key, value in conf.orig_conf.items() if key in self.defaults)):
+        for key, value in sorted(
+                ((key, value) for key, value in conf.orig_conf.items()
+                    if key in self.defaults)):
             if ignore_keys and key in ignore_keys:
                 continue
             if not subconf and value:
@@ -149,7 +151,7 @@ class Conf:
 
     def merge_dyn(self, other_conf):
         """Merge dynamic state from other conf object."""
-        self.__dict__.update({k: v for k, v in self._conf_dyn_keys(other_conf)})
+        self.__dict__.update(self._conf_dyn_keys(other_conf))
 
     def _str_conf(self, conf_v):
         if isinstance(conf_v, (bool, str, int)):
@@ -161,7 +163,7 @@ class Conf:
         if isinstance(conf_v, (dict, OrderedDict)):
             return {str(i): self._str_conf(j) for i, j in conf_v.items() if j is not None}
         if isinstance(conf_v, (list, tuple, frozenset)):
-            return tuple([self._str_conf(i) for i in conf_v if i is not None])
+            return tuple(self._str_conf(i) for i in conf_v if i is not None)
         if isinstance(conf_v, Conf):
             for i in ('name', '_id'):
                 if hasattr(conf_v, i):
@@ -196,7 +198,7 @@ class Conf:
     def _finalize_val(self, val):
         if isinstance(val, list):
             return tuple(
-                [self._finalize_val(v) for v in val])
+                self._finalize_val(v) for v in val)
         if isinstance(val, set):
             return frozenset(
                 [self._finalize_val(v) for v in val])
@@ -232,7 +234,7 @@ class Conf:
                 return ip_method(ip_str)
             raise InvalidConfigError('Invalid IP address %s: IP address of type bool' % (ip_str))
         except (ValueError, AttributeError, TypeError) as err:
-            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
+            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err)) from err
 
     @staticmethod
     def _ipvs(ipas):

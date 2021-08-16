@@ -16,9 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from faucet.conf import Conf, InvalidConfigError, test_config_condition
-from faucet import valve_of
 import netaddr
+
+from faucet.conf import Conf, test_config_condition
+from faucet import valve_of
 
 # Forced port DOWN
 STACK_STATE_ADMIN_DOWN = 0
@@ -73,6 +74,7 @@ LACP_PORT_DISPLAY_DICT = {
     LACP_PORT_SELECTED: 'SELECTED',
     LACP_PORT_STANDBY: 'STANDBY'
 }
+
 
 class Port(Conf):
     """Stores state for ports, including the configuration."""
@@ -281,7 +283,7 @@ class Port(Conf):
 
         self.tagged_vlans = []
         self.lldp_beacon = {}
-        super(Port, self).__init__(_id, dp_id, conf)
+        super().__init__(_id, dp_id, conf)
 
         # If the port is mirrored convert single attributes to a array
         if self.mirror and not isinstance(self.mirror, list):
@@ -310,14 +312,14 @@ class Port(Conf):
         return ''
 
     def set_defaults(self):
-        super(Port, self).set_defaults()
+        super().set_defaults()
         self._set_default('number', self._id)
         self._set_default('name', str(self._id))
         self._set_default('description', self.name)
         self._set_default('tagged_vlans', [])
 
     def check_config(self):
-        super(Port, self).check_config()
+        super().check_config()
         test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
             not valve_of.ignore_port(self.number))), ('Port number invalid: %s' % self.number))
         non_vlan_options = {'stack', 'mirror', 'coprocessor', 'output_only'}
@@ -410,12 +412,12 @@ class Port(Conf):
                     if not isinstance(org_tlv['info'], bytearray):
                         try:
                             org_tlv['info'] = bytearray.fromhex(
-                                org_tlv['info']) # pytype: disable=missing-parameter
+                                org_tlv['info'])  # pytype: disable=missing-parameter
                         except ValueError:
                             org_tlv['info'] = org_tlv['info'].encode('utf-8')
                     if not isinstance(org_tlv['oui'], bytearray):
                         org_tlv['oui'] = bytearray.fromhex(
-                            '%6.6x' % org_tlv['oui']) # pytype: disable=missing-parameter
+                            '%6.6x' % org_tlv['oui'])  # pytype: disable=missing-parameter
                     org_tlvs.append(org_tlv)
                 self.lldp_beacon['org_tlvs'] = org_tlvs
         test_config_condition(
@@ -438,7 +440,7 @@ class Port(Conf):
             test_config_condition(self.native_vlan in self.tagged_vlans, (
                 'cannot have same native and tagged VLAN on same port'))
         self.tagged_vlans = tuple(self.tagged_vlans)
-        super(Port, self).finalize()
+        super().finalize()
 
     def running(self):
         """Return True if port enabled and up."""
@@ -460,7 +462,7 @@ class Port(Conf):
             vlans = self.vlans()
         hosts = []
         for vlan in vlans:
-            hosts.extend([entry for entry in list(vlan.cached_hosts_on_port(self))])
+            hosts.extend(list(list(vlan.cached_hosts_on_port(self))))
         return hosts
 
     def hosts_count(self, vlans=None):
@@ -627,7 +629,8 @@ class Port(Conf):
         """Set the LACP actor state to NOSYNC"""
         self.dyn_lacp_actor_state = LACP_ACTOR_NOSYNC
 
-    def actor_state_name(self, state):
+    @staticmethod
+    def actor_state_name(state):
         """Return the string of the actor state"""
         return LACP_ACTOR_DISPLAY_DICT[state]
 
@@ -664,7 +667,8 @@ class Port(Conf):
         """Set LACP port state to NOTCONFIGURED"""
         self.dyn_lacp_port_selected = LACP_PORT_NOTCONFIGURED
 
-    def port_role_name(self, state):
+    @staticmethod
+    def port_role_name(state):
         """Return the LACP port role state name"""
         return LACP_PORT_DISPLAY_DICT[state]
 
@@ -692,7 +696,7 @@ class Port(Conf):
                 reason = 'new'
         else:
             # Not a new stack port, so progess through state machine
-            peer_dp = self.stack['dp']  # pytype: disable=key-error
+            peer_dp = self.stack['dp']  # pytype: disable=attribute-error
             stack_correct = self.dyn_stack_probe_info.get(
                 'stack_correct', None)
             send_interval = peer_dp.lldp_beacon.get(
@@ -769,6 +773,7 @@ class Port(Conf):
         """Change the current stack state to GONE."""
         self.dyn_stack_current_state = STACK_STATE_GONE
 
-    def stack_state_name(self, state):
+    @staticmethod
+    def stack_state_name(state):
         """Return stack state name"""
         return STACK_DISPLAY_DICT[state]

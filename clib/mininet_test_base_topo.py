@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+"""Base class for managing integration network topologies"""
 
 import os
 import random
@@ -46,6 +46,9 @@ class FaucetTopoTestBase(FaucetTestBase):
     host_information = None
     faucet_vips = None
 
+    host_port_maps = {}
+    link_port_maps = {}
+
     def _init_faucet_config(self):
         """Initialize & normalize faucet configuration file"""
         config_vars = {}
@@ -91,23 +94,25 @@ class FaucetTopoTestBase(FaucetTestBase):
         port_name = 'b%u' % port_no
         return {'port': port_name, 'port_description': r'.+'}
 
-    def acls(self):
+    @staticmethod
+    def acls():
         """Defined configuration ACLs"""
         return {}
 
     def faucet_vip(self, i):
         """Faucet VLAN VIP"""
-        return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
+        return '10.%u.0.254/%u' % (i + 1, self.NETPREFIX)
 
-    def faucet_mac(self, i):
+    @staticmethod
+    def faucet_mac(i):
         """Faucet VLAN MAC"""
-        return '00:00:00:00:00:%u%u' % (i+1, i+1)
+        return '00:00:00:00:00:%u%u' % (i + 1, i + 1)
 
     def host_ip_address(self, host_index, vlan_index):
         """Create a string of the host IP address"""
         if isinstance(vlan_index, (list, tuple)):
             vlan_index = vlan_index[0]
-        return '10.%u.0.%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
+        return '10.%u.0.%u/%u' % (vlan_index + 1, host_index + 1, self.NETPREFIX)
 
     def host_ping(self, src_host, dst_ip, intf=None):
         """Default method to ping from one host to an IP address"""
@@ -160,9 +165,10 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.dpid = self.dpids[0]
         # host_port_maps = {host_n: {switch_n: [ports, ...], ...}, ...}
         # link_port_maps = {(switch_n, switch_m): [ports, ...], ...}
-        self.port_maps, self.host_port_maps, self.link_port_maps = self.topo.create_port_maps()
-        self.port_map = self.port_maps[self.dpid]
+        port_maps, self.host_port_maps, self.link_port_maps = self.topo.create_port_maps()
+        self.port_map = port_maps[self.dpid]
         dpid_names = {}
+        # pylint: disable=consider-using-dict-items
         for i in self.topo.switches_by_id:
             dpid = self.topo.dpids_by_id[i]
             name = self.topo.switches_by_id[i]
@@ -206,13 +212,13 @@ class FaucetTopoTestBase(FaucetTestBase):
                 if isinstance(vlan, list):
                     vlan = tuple(vlan)
                 ips_for_vlans.setdefault(vlan, 0)
-                ip = self.host_ip_address(ips_for_vlans[vlan], vlan)
+                ip_addr = self.host_ip_address(ips_for_vlans[vlan], vlan)
                 ips_for_vlans[vlan] += 1
                 if self.mininet_host_options and host_id in self.mininet_host_options:
                     mininet_ip = self.mininet_host_options[host_id].get('ip', None)
                     if mininet_ip:
-                        ip = mininet_ip
-                ip_interface = ipaddress.ip_interface(ip)
+                        ip_addr = mininet_ip
+                ip_interface = ipaddress.ip_interface(ip_addr)
                 self.set_host_ip(host, ip_interface)
             self.host_information[host_id] = {
                 'host': host,
@@ -277,15 +283,15 @@ class FaucetTopoTestBase(FaucetTestBase):
     def setup_intervlan_host_routes(self):
         """Configure host routes between hosts that belong on routed VLANs"""
         if self.configuration_options['routers']:
-            for src in self.host_information:
-                src_host = self.host_information[src]['host']
-                src_vlan = self.host_information[src]['vlan']
-                src_ip = self.host_information[src]['ip']
-                for dst in self.host_information:
-                    if src != dst:
-                        dst_host = self.host_information[dst]['host']
-                        dst_vlan = self.host_information[dst]['vlan']
-                        dst_ip = self.host_information[dst]['ip']
+            for src_name, src in self.host_information.items():
+                src_host = src['host']
+                src_vlan = src['vlan']
+                src_ip = src['ip']
+                for dst_name, dst in self.host_information.items():
+                    if src_name != dst_name:
+                        dst_host = dst['host']
+                        dst_vlan = dst['vlan']
+                        dst_ip = dst['ip']
                         if src_vlan != dst_vlan and self.is_routed_vlans(src_vlan, dst_vlan):
                             src_faucet_vip = self.faucet_vips[src_vlan]
                             dst_faucet_vip = self.faucet_vips[dst_vlan]
@@ -295,7 +301,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     def debug(self):
         """Print additional information when debugging"""
         try:
-            super(FaucetTopoTestBase, self).debug()
+            super().debug()
         except Exception:
             pprint.pprint(self.host_information)
             raise
@@ -307,10 +313,10 @@ class FaucetTopoTestBase(FaucetTestBase):
             labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': name}
             self.assertEqual(
                 0, self.scrape_prometheus_var(
-                    var='stack_cabling_errors_total', labels=labels, default=None, verify_consistent=True))
+                    var='stack_cabling_errors_total', labels=labels, default=None))
             self.assertGreater(
                 self.scrape_prometheus_var(
-                    var='stack_probes_received_total', labels=labels, verify_consistent=True), 0)
+                    var='stack_probes_received_total', labels=labels), 0)
 
     def verify_stack_hosts(self, verify_bridge_local_rule=True, retries=3):
         """Verify hosts with stack LLDP messages"""
@@ -339,7 +345,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
         return self.scrape_prometheus_var(
             'port_stack_state', labels=labels,
-            default=None, dpid=dpid, verify_consistent=True)
+            default=None, dpid=dpid)
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         """Wait until prometheus detects a stack port has a certain status"""
@@ -438,7 +444,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             tcpdump_host, tcpdump_filter, [
                 lambda: ping_host.cmd('arp -d %s' % tcpdump_host.IP()),
                 lambda: ping_host.cmd('ping -c1 %s' % tcpdump_host.IP())],
-            packets=(num_arp_expected+1))
+            packets=(num_arp_expected + 1))
         num_arp_received = len(re.findall(
             'who-has %s tell %s' % (tcpdump_host.IP(), ping_host.IP()), tcpdump_txt))
         self.assertTrue(num_arp_received)
@@ -672,13 +678,14 @@ details partner lacp pdu:
                                 # Obtain up LACP ports for that dpid
                                 port_labels = self.port_labels(port)
                                 lacp_state = self.scrape_prometheus_var(
-                                    'port_lacp_state', port_labels, default=0, dpid=dpid, verify_consistent=True)
+                                    'port_lacp_state', port_labels, default=0, dpid=dpid)
                                 lacp_up_ports += 1 if lacp_state == 3 else 0
         return lacp_up_ports
 
     def verify_num_lag_up_ports(self, expected_up_ports, dpid):
-        """Checks to see if Prometheus has the expected number of up LAG ports on the specified DP"""
-        for _ in range(self.LACP_TIMEOUT*10):
+        """Checks to see if Prometheus has the expected number of up LAG ports
+        on the specified DP"""
+        for _ in range(self.LACP_TIMEOUT * 10):
             if self.prom_lacp_up_ports(dpid) == expected_up_ports:
                 return
             time.sleep(1)
@@ -689,7 +696,7 @@ details partner lacp pdu:
         synced_state_list = self.get_expected_synced_states(host_id)
         host = self.host_information[host_id]['host']
         bond_name = self.host_information[host_id]['bond']
-        for _ in range(self.LACP_TIMEOUT*2):
+        for _ in range(self.LACP_TIMEOUT * 2):
             result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond_name)
             result = '\n'.join([line.rstrip() for line in result.splitlines()])
             with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
@@ -738,7 +745,7 @@ details partner lacp pdu:
         self.verify_lag_host_connectivity()
         # Tear down first port
         self.set_port_down(up_port, up_dpid)
-        self.verify_num_lag_up_ports(len(lacp_ports[up_dp])-1, up_dpid)
+        self.verify_num_lag_up_ports(len(lacp_ports[up_dp]) - 1, up_dpid)
         # Ensure connectivity with new ports only
         self.verify_lag_host_connectivity()
 

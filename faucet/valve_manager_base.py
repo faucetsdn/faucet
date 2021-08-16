@@ -1,8 +1,10 @@
 """Valve Manager base class"""
 
-# pylint: disable=R0201
-# pylint: disable=W0613
-class ValveManagerBase: # pylint: disable=too-few-public-methods
+# pylint: disable=no-self-use
+# pylint: disable=unused-argument
+
+
+class ValveManagerBase:
     """Base class for ValveManager objects.
 
     Expected to control the installation of flows into datapath tables.

@@ -1,0 +1,18 @@
+[MASTER]
+disable=
+    fixme,
+    import-error
+
+[FORMAT]
+max-line-length=120
+
+[BASIC]
+# Default: method-naming-style=snake_case (SnakeCaseStyle)
+# Override: add 'unittest' methods (setUp & tearDown)
+method-rgx=(([^\W\dA-Z][^\WA-Z]{2,}|_[^\WA-Z]*|__[^\WA-Z\d_][^\WA-Z]+__)|(setUp)|(tearDown))$
+
+# Default: argument-naming-style=snake_case (SnakeCaseStyle)
+# Default: variable-naming-style=snake_case (SnakeCaseStyle)
+# Override: add Faucet name (dp)
+argument-rgx=(([^\W\dA-Z][^\WA-Z]{2,}|_[^\WA-Z]*|__[^\WA-Z\d_][^\WA-Z]+__)|(dp))$
+variable-rgx=(([^\W\dA-Z][^\WA-Z]{2,}|_[^\WA-Z]*|__[^\WA-Z\d_][^\WA-Z]+__)|(dp))$

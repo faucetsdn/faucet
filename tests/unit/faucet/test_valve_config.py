@@ -1,6 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Unit tests run as PYTHONPATH=../../.. python3 ./test_valve.py."""
+
+# pylint: disable=too-many-lines
 
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
@@ -29,6 +31,7 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 from faucet import config_parser_util
 from faucet import valve_of
 
+from clib.fakeoftable import CONTROLLER_PORT
 from clib.valve_test_lib import BASE_DP1_CONFIG, CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
 
@@ -47,6 +50,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup config with non-existent optional include file"""
         self.setup_valves(self.CONFIG)
 
     def test_include_optional(self):
@@ -85,6 +89,7 @@ dps: {}
 """
 
     def setUp(self):
+        """Setup invalid config"""
         self.setup_valves(self.CONFIG)
 
     def test_bad_conf(self):
@@ -137,6 +142,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_delete_permanent_learn(self):
@@ -187,6 +193,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_port_delete(self):
@@ -231,11 +238,12 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valves(self.CONFIG)[self.DP_ID]
+        """Setup basic port and vlan config"""
+        _ = self.setup_valves(self.CONFIG)[self.DP_ID]
 
     def test_port_mirror(self):
         """Test addition of port mirroring is a warm start."""
-        self.update_config(self.MORE_CONFIG, reload_type='warm')[self.DP_ID]
+        _ = self.update_config(self.MORE_CONFIG, reload_type='warm')[self.DP_ID]
 
 
 class ValveAddPortTestCase(ValveTestBases.ValveTestNetwork):
@@ -277,6 +285,7 @@ dps:
             if ofmsg.match.get('in_port') == in_port]
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         initial_ofmsgs = self.setup_valves(self.CONFIG)[self.DP_ID]
         self.assertFalse(self._inport_flows(3, initial_ofmsgs))
 
@@ -284,6 +293,101 @@ dps:
         """Test port can be added."""
         reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type='cold')[self.DP_ID]
         self.assertTrue(self._inport_flows(3, reload_ofmsgs))
+
+
+class ValveAddPortTrafficTestCase(ValveTestBases.ValveTestNetwork):
+    """Test addition of a port with traffic."""
+
+    # NOTE: This needs to use 'Generic' hardware,
+    #  as GenericTFM does not support 'warm' start
+    REQUIRE_TFM = False
+
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 1
+        hardware: Generic
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+"""
+
+    MORE_CONFIG = """
+dps:
+    s1:
+        dp_id: 1
+        hardware: Generic
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100]
+            p2:
+                number: 2
+                tagged_vlans: [0x100]
+            p3:
+                number: 3
+                tagged_vlans: [0x100]
+"""
+
+    @staticmethod
+    def _inport_flows(in_port, ofmsgs):
+        return [
+            ofmsg for ofmsg in ValveTestBases.flowmods_from_flows(ofmsgs)
+            if ofmsg.match.get('in_port') == in_port]
+
+    def _learn(self, in_port):
+        ucast_pkt = self.pkt_match(in_port, 1)
+        ucast_pkt['in_port'] = in_port
+        ucast_pkt['vlan_vid'] = self.V100
+
+        table = self.network.tables[self.DP_ID]
+        self.assertTrue(table.is_output(ucast_pkt, port=CONTROLLER_PORT))
+        self.rcv_packet(in_port, self.V100, ucast_pkt)
+
+    def _unicast_between(self, in_port, out_port, not_out=1):
+        ucast_match = self.pkt_match(in_port, out_port)
+        ucast_match['in_port'] = in_port
+        ucast_match['vlan_vid'] = self.V100
+
+        table = self.network.tables[self.DP_ID]
+        self.assertTrue(table.is_output(ucast_match, port=out_port))
+        self.assertFalse(table.is_output(ucast_match, port=not_out))
+
+    def setUp(self):
+        initial_ofmsgs = self.setup_valves(self.CONFIG)[self.DP_ID]
+        self.assertFalse(self._inport_flows(3, initial_ofmsgs))
+
+    def test_port_add_no_ofmsgs(self):
+        """New config does not generate new flows."""
+        update_ofmsgs = self.update_config(self.MORE_CONFIG,
+                                           reload_type='warm')[self.DP_ID]
+        self.assertFalse(self._inport_flows(3, update_ofmsgs))
+
+    def test_port_add_link_state(self):
+        """New port can be added in link-down state."""
+        self.update_config(self.MORE_CONFIG, reload_type='warm')
+
+        self.add_port(3, link_up=False)
+        self.port_expected_status(3, 0)
+
+        self.set_port_link_up(3)
+        self.port_expected_status(3, 1)
+
+    def test_port_add_traffic(self):
+        """New port can be added, and pass traffic."""
+        self.update_config(self.MORE_CONFIG, reload_type='warm')
+
+        self.add_port(3)
+
+        self._learn(2)
+        self._learn(3)
+
+        self._unicast_between(2, 3)
+        self._unicast_between(3, 2)
 
 
 class ValveWarmStartVLANTestCase(ValveTestBases.ValveTestNetwork):
@@ -328,6 +432,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_warm_start(self):
@@ -383,6 +488,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_delete_vlan(self):
@@ -422,6 +528,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config with priority offset"""
         self.setup_valves(self.CONFIG)
 
     def test_change_dp(self):
@@ -459,6 +566,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_add_vlan(self):
@@ -551,6 +659,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic ACL config"""
         self.setup_valves(self.CONFIG)
 
     def test_change_port_acl(self):
@@ -614,6 +723,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_change_port_acl(self):
@@ -733,10 +843,10 @@ class ValveEgressACLTestCase(ValveTestBases.ValveTestNetwork):
 
     def test_vlan_acl_deny(self):
         """Test VLAN ACL denies a packet."""
-        ALLOW_HOST_V6 = 'fc00:200::1:1'
-        DENY_HOST_V6 = 'fc00:200::1:2'
-        FAUCET_V100_VIP = 'fc00:100::1'
-        FAUCET_V200_VIP = 'fc00:200::1'
+        allow_host_v6 = 'fc00:200::1:1'
+        deny_host_v6 = 'fc00:200::1:2'
+        faucet_v100_vip = 'fc00:100::1'
+        faucet_v200_vip = 'fc00:200::1'
         acl_config = """
 dps:
     s1:
@@ -780,21 +890,21 @@ acls:
             eth_type: 0x86DD
             actions:
                 allow: 0
-""".format(dp1_config=DP1_CONFIG, mac=FAUCET_MAC, v100_vip=FAUCET_V100_VIP,
-           v200_vip=FAUCET_V200_VIP, allow_host=ALLOW_HOST_V6)
+""".format(dp1_config=DP1_CONFIG, mac=FAUCET_MAC, v100_vip=faucet_v100_vip,
+           v200_vip=faucet_v200_vip, allow_host=allow_host_v6)
 
         l2_drop_match = {
             'in_port': 2,
             'eth_dst': self.P3_V200_MAC,
             'vlan_vid': 0,
             'eth_type': 0x86DD,
-            'ipv6_dst': DENY_HOST_V6}
+            'ipv6_dst': deny_host_v6}
         l2_accept_match = {
             'in_port': 3,
             'eth_dst': self.P2_V200_MAC,
             'vlan_vid': 0x200 | ofp.OFPVID_PRESENT,
             'eth_type': 0x86DD,
-            'ipv6_dst': ALLOW_HOST_V6}
+            'ipv6_dst': allow_host_v6}
         v100_accept_match = {'in_port': 1, 'vlan_vid': 0}
         table = self.network.tables[self.DP_ID]
 
@@ -820,16 +930,16 @@ acls:
                 'eth_src': self.P2_V200_MAC,
                 'eth_dst': self.P3_V200_MAC,
                 'vid': 0x200,
-                'ipv6_src': ALLOW_HOST_V6,
-                'ipv6_dst': DENY_HOST_V6,
-                'neighbor_advert_ip': ALLOW_HOST_V6})
+                'ipv6_src': allow_host_v6,
+                'ipv6_dst': deny_host_v6,
+                'neighbor_advert_ip': allow_host_v6})
             self.rcv_packet(3, 0x200, {
                 'eth_src': self.P3_V200_MAC,
                 'eth_dst': self.P2_V200_MAC,
                 'vid': 0x200,
-                'ipv6_src': DENY_HOST_V6,
-                'ipv6_dst': ALLOW_HOST_V6,
-                'neighbor_advert_ip': DENY_HOST_V6})
+                'ipv6_src': deny_host_v6,
+                'ipv6_dst': allow_host_v6,
+                'neighbor_advert_ip': deny_host_v6})
 
             self.assertTrue(
                 table.is_output(l2_accept_match, port=2),
@@ -844,13 +954,13 @@ acls:
                 'eth_dst': FAUCET_MAC,
                 'vlan_vid': 0,
                 'eth_type': 0x86DD,
-                'ipv6_dst': DENY_HOST_V6}
+                'ipv6_dst': deny_host_v6}
             l3_accept_match = {
                 'in_port': 1,
                 'eth_dst': FAUCET_MAC,
                 'vlan_vid': 0,
                 'eth_type': 0x86DD,
-                'ipv6_dst': ALLOW_HOST_V6}
+                'ipv6_dst': allow_host_v6}
 
             self.assertTrue(
                 table.is_output(l3_accept_match, port=2),
@@ -877,16 +987,19 @@ dps:
 """ % BASE_DP1_CONFIG
     NUM_PORTS = 100
 
+    baseline_total_tt = None
+
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(CONFIG)
 
     def test_profile_reload(self):
         """Test reload processing time."""
-        ORIG_CONFIG = copy.copy(self.CONFIG)
+        orig_config = copy.copy(self.CONFIG)
 
         def load_orig_config():
             pstats_out, _ = self.profile(
-                partial(self.update_config, ORIG_CONFIG))
+                partial(self.update_config, orig_config))
             self.baseline_total_tt = pstats_out.total_tt  # pytype: disable=attribute-error
 
         for i in range(2, 100):
@@ -902,13 +1015,15 @@ dps:
                 partial(self.update_config, self.CONFIG, reload_type='cold'))
             cache_info = valve_of.output_non_output_actions.cache_info()
             self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
-            total_tt_prop = pstats_out.total_tt / self.baseline_total_tt  # pytype: disable=attribute-error
+            total_tt_prop = (
+                pstats_out.total_tt / self.baseline_total_tt)  # pytype: disable=attribute-error
             # must not be 20x slower, to ingest config for 100 interfaces than 1.
-            # TODO: marginal on GitHub actions due to parallel test runs. This test might have to be run separately.
+            # TODO: This test might have to be run separately,
+            # since it is marginal on GitHub actions due to parallel test runs.
             if total_tt_prop < 20:
                 for valve in self.valves_manager.valves.values():
                     for table in valve.dp.tables.values():
-                        cache_info = table._trim_inst.cache_info()
+                        cache_info = table._trim_inst.cache_info()  # pylint: disable=protected-access
                         self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
                 return
             time.sleep(i)
@@ -936,6 +1051,7 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_vlan_refs(self):
@@ -960,6 +1076,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def _get_info(self, metric, name):
@@ -1048,6 +1165,7 @@ dps:
     CONFIG_AUTO_REVERT = True
 
     def setUp(self):
+        """Setup basic port and vlan config with hardware type set"""
         self.setup_valves(self.CONFIG)
 
     def test_config_revert(self):
@@ -1087,6 +1205,7 @@ dps:
     CONFIG_AUTO_REVERT = True
 
     def setUp(self):
+        """Setup invalid config"""
         self.setup_valves(self.BAD_CONFIG, error_expected=1)
 
     def test_config_revert(self):
@@ -1123,6 +1242,7 @@ dps:
 """
 
     def setUp(self):
+        """Setup basic port and vlan config with hardware type set"""
         self.setup_valves(self.CONFIG)
 
     def test_config_applied_update(self):
@@ -1153,14 +1273,13 @@ dps:
         self.update_config(self.NEW_DESCR_CONFIG, reload_expected=False)
 
 
-class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):
+class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):  # pylint: disable=too-few-public-methods
     """Repeats the tests after a config reload."""
 
     def setUp(self):
         super().setUp()
         self.flap_port(1)
         self.update_config(CONFIG, reload_type='warm', reload_expected=False)
-
 
 
 if __name__ == "__main__":

@@ -16,14 +16,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import eventlet
 
-eventlet.monkey_patch()
-
-# pylint: disable=wrong-import-position
-from ryu.lib import hub  # noqa
-from chewie import chewie  # noqa
-from faucet.valve_util import kill_on_exception  # noqa
+from ryu.lib import hub
+from chewie import chewie
+from faucet.valve_util import kill_on_exception
 
 
 def get_mac_str(valve_index, port_num):
@@ -72,7 +68,7 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
         Returns:
             Chewie
         """
-        _chewie = chewie.Chewie(  # pylint: disable=too-many-function-args
+        _chewie = chewie.Chewie(
             dot1x_intf, self.logger,
             self.auth_handler, self.failure_handler, self.logoff_handler,
             radius_ip, radius_port, radius_secret, chewie_id)

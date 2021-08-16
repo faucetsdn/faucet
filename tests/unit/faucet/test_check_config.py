@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Test that check config script handles various broken configs."""
 
@@ -28,7 +28,7 @@ import re
 from faucet.check_faucet_config import check_config
 
 
-class CheckConfigTestCase(unittest.TestCase): # pytype: disable=module-attr
+class CheckConfigTestCase(unittest.TestCase):  # pytype: disable=module-attr
     """Test that check config script handles various broken configs."""
 
     tmpdir = None
@@ -48,13 +48,13 @@ class CheckConfigTestCase(unittest.TestCase): # pytype: disable=module-attr
                 conf_file.write(config)
             conf_files = [conf_file_name]
         with open(os.devnull, 'w') as check_output_file:
-            result_ok = check_config( # pylint: disable=unexpected-keyword-arg
+            result_ok = check_config(
                 conf_files, logging.FATAL, check_output_file)
         return expected_ok == result_ok
 
     def _deprecated_acl_check(self, config, success):
         # TODO: Check acls_in work now acl_in is deprecated, remove in future
-        if config and 'acl_in' in config and not 'acls_in' in config:
+        if config and 'acl_in' in config and 'acls_in' not in config:
             acls_cfg = re.sub('(acl_in: )(.*)', 'acls_in: [\\2]', config)
             self.assertTrue(self.run_check_config(acls_cfg, success))
 
@@ -178,7 +178,7 @@ dps:
         tab_conf = """
 vlans:
     100:
-        	description: "100"
+        	description: "100"  # noqa: E101,W191
 dps:
     switch1:
         dp_id: 0xcafef00d
@@ -408,4 +408,4 @@ dps:
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr

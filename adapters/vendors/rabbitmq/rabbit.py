@@ -39,20 +39,21 @@ def get_sys_prefix():
     # different from sys.prefix, then we are most likely running in a
     # virtualenv. Also check for Py3.3+ pyvenv.
     sysprefix = ''
-    if (getattr(sys, 'real_prefix', sys.prefix) != sys.prefix or
-            getattr(sys, 'base_prefix', sys.prefix) != sys.prefix):
+    if (getattr(sys, 'real_prefix', sys.prefix) != sys.prefix
+            or getattr(sys, 'base_prefix', sys.prefix) != sys.prefix):
         sysprefix = sys.prefix
 
     return sysprefix
 
 
+# pylint: disable=too-many-instance-attributes
 class RabbitAdapter:
     """A RabbitMQ adapter to get events from the FAUCET Unix socket and send
     them as messages to a RabbitMQ server
     """
 
     def __init__(self):
-        super(RabbitAdapter, self).__init__()
+        super().__init__()
 
         # setup socket
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -83,7 +84,7 @@ class RabbitAdapter:
         """Make connection to rabbit to send events"""
         # check if a rabbit host was specified
         if not self.host:
-            print('Not connecting to any RabbitMQ, host is None.')  # pylint: disable=print-statement
+            print('Not connecting to any RabbitMQ, host is None.')
             return False
 
         # create connection to rabbit
@@ -97,16 +98,16 @@ class RabbitAdapter:
                                           exchange_type=self.exchange_type)
         except (pika.exceptions.AMQPError, socket.gaierror, OSError) as err:
             print("Unable to connect to RabbitMQ at %s:%s because: %s" %
-                  (self.host, self.port, err))  # pylint: disable=print-statement
+                  (self.host, self.port, err))
             return False
-        print("Connected to RabbitMQ at %s:%s" % (self.host, self.port))  # pylint: disable=print-statement
+        print("Connected to RabbitMQ at %s:%s" % (self.host, self.port))
         return True
 
     def socket_conn(self):
         """Make connection to sock to receive events"""
         # check if socket events are enabled
         if self.event_sock == '0':
-            print('Not connecting to any socket, FAUCET_EVENT_SOCK is none.')  # pylint: disable=print-statement
+            print('Not connecting to any socket, FAUCET_EVENT_SOCK is none.')
             return False
         if self.event_sock == '1':
             self.event_sock = get_sys_prefix() + '/var/run/faucet/faucet.sock'
@@ -117,9 +118,9 @@ class RabbitAdapter:
             self.sock.connect(self.event_sock)
             self.sock.setblocking(False)
         except socket.error as err:
-            print("Failed to connect to the socket because: %s" % err)  # pylint: disable=print-statement
+            print("Failed to connect to the socket because: %s" % err)
             return False
-        print("Connected to the socket at %s" % self.event_sock)  # pylint: disable=print-statement
+        print("Connected to the socket at %s" % self.event_sock)
         return True
 
     def poll_events(self):
@@ -159,7 +160,7 @@ class RabbitAdapter:
                             properties=pika.BasicProperties(delivery_mode=2,))
                     events = []
                 except pika.exceptions.AMQPError as err:
-                    print("Unable to send events %s to RabbitMQ: %s, retrying" % (  # pylint: disable=print-statement
+                    print("Unable to send events %s to RabbitMQ: %s, retrying" % (
                         events, err))
                     time.sleep(1)
                     self.rabbit_conn()

@@ -1,9 +1,12 @@
 name: Build python packages for release
 
 on:
-  release:
-    types:
-      - published
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  RELEASE_PY_VER: 3.8
 
 jobs:
   python-package:
@@ -14,10 +17,10 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
-      - name: Set up python-3.7
+      - name: Set up python-${{ env.RELEASE_PY_VER }}
         uses: actions/setup-python@v2
         with:
-          python-version: 3.7
+          python-version: ${{ env.RELEASE_PY_VER }}
       - name: Build python package
         run: python3 setup.py sdist
       - name: Publish python package to PyPI

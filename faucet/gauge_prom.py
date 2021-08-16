@@ -54,6 +54,7 @@ PROM_METER_VARS = (
     'packet_band_count'
 )
 
+
 class GaugePrometheusClient(PromClient):
     """Wrapper for Prometheus client that is shared between all pollers."""
 
@@ -61,7 +62,7 @@ class GaugePrometheusClient(PromClient):
         super().__init__(reg=reg)
         self.table_tags = collections.defaultdict(set)
         self.metrics = {}
-        self.dp_status = Gauge( # pylint: disable=unexpected-keyword-arg
+        self.dp_status = Gauge(
             'dp_status',
             'status of datapaths',
             self.REQUIRED_LABELS,
@@ -181,6 +182,14 @@ class GaugePortStatePrometheusPoller(GaugePortStatePoller):
             msg_value = msg.reason if prom_var == 'reason' else getattr(msg.desc, prom_var)
             self.prom_client.metrics[exported_prom_var].labels(**port_labels).set(msg_value)
 
+    def send_req(self):
+        """Send a stats request to a datapath."""
+        raise NotImplementedError  # pragma: no cover
+
+    def no_response(self):
+        """Called when a polling cycle passes without receiving a response."""
+        raise NotImplementedError  # pragma: no cover
+
 
 class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
     """Export flow table entries to Prometheus."""
@@ -202,7 +211,7 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                         table_tags.update(unreg_tags)
                         self.prom_client.reregister_flow_vars(
                             table_name, table_tags)
-                        self.logger.info( # pylint: disable=logging-not-lazy
+                        self.logger.info(  # pylint: disable=logging-not-lazy
                             'Adding tags %s to %s for table %s' % (
                                 unreg_tags, table_tags, table_name))
                     # Add blank tags for any tags not present.
@@ -213,6 +222,6 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                 try:
                     self.prom_client.metrics[table_prom_var].labels(**tags).set(count)
                 except ValueError:
-                    self.logger.error( # pylint: disable=logging-not-lazy
+                    self.logger.error(  # pylint: disable=logging-not-lazy
                         'labels %s versus %s incorrect on %s' % (
                             tags, table_tags, table_prom_var))

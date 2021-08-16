@@ -64,7 +64,7 @@ def _get_vlan_by_key(dp_id, vlan_key, vlans):
         if vlan_key in vlans:
             return vlans[vlan_key]
     except TypeError as err:
-        raise InvalidConfigError(err)
+        raise InvalidConfigError(err) from err
     for vlan in vlans.values():
         if vlan_key == vlan.vid:
             return vlan
@@ -96,7 +96,7 @@ def _dp_parse_port(dp_id, port_key, port_conf, vlans):
     return port
 
 
-def _dp_add_ports(dp, dp_conf, dp_id, vlans): # pylint: disable=invalid-name
+def _dp_add_ports(dp, dp_conf, dp_id, vlans):
     ports_conf = dp_conf.get('interfaces', {})
     port_ranges_conf = dp_conf.get('interface_ranges', {})
     # as users can config port VLAN by using VLAN name, we store vid in
@@ -113,8 +113,8 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans): # pylint: disable=invalid-name
             port_num = port_conf.get('number', port_key)
             try:
                 port_num_to_port_conf[port_num] = (port_key, port_conf)
-            except TypeError:
-                raise InvalidConfigError('Invalid syntax in port config')
+            except TypeError as type_error:
+                raise InvalidConfigError('Invalid syntax in port config') from type_error
         return port_num_to_port_conf
 
     def _parse_port_ranges(port_ranges_conf, port_num_to_port_conf):
@@ -154,19 +154,19 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans): # pylint: disable=invalid-name
         dp.add_port(port)
 
 
-def _parse_acls(dp, acls_conf): # pylint: disable=invalid-name
+def _parse_acls(dp, acls_conf):
     for acl_key, acl_conf in acls_conf.items():
         acl = ACL(acl_key, dp.dp_id, acl_conf)
         dp.add_acl(acl_key, acl)
 
 
-def _parse_routers(dp, routers_conf): # pylint: disable=invalid-name
+def _parse_routers(dp, routers_conf):
     for router_key, router_conf in routers_conf.items():
         router = Router(router_key, dp.dp_id, router_conf)
         dp.add_router(router_key, router)
 
 
-def _parse_meters(dp, meters_conf): # pylint: disable=invalid-name
+def _parse_meters(dp, meters_conf):
     for meter_key, meter_conf in meters_conf.items():
         meter = Meter(meter_key, dp.dp_id, meter_conf)
         dp.meters[meter_key] = meter
@@ -206,7 +206,7 @@ def _dp_parser_v2(dps_conf, acls_conf, meters_conf,
                 dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
             dp_vlans.append((dp, vlans))
         except InvalidConfigError as err:
-            raise InvalidConfigError('DP %s: %s' % (dp_key, err))
+            raise InvalidConfigError('DP %s: %s' % (dp_key, err)) from err
 
     # Some VLANs are created implicitly just by referencing them in tagged/native,
     # so we must make them available to all DPs.
@@ -318,7 +318,6 @@ def _watcher_parser_v2(conf, logname, prom_client):
     dbs = conf.pop('dbs')
 
     result = []
-    # pylint: disable=fixme
     for watcher_name, watcher_conf in conf['watchers'].items():
         if watcher_conf.get('all_dps', False):
             watcher_dps = dps.keys()

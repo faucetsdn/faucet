@@ -10,7 +10,7 @@ It is strongly recommended to run these tests via Docker, to ensure you have
 all dependencies correctly installed. See ../docs/.
 """
 
-# pylint: disable=missing-docstring
+# pylint: disable=missing-class-docstring,missing-function-docstring
 
 import argparse
 import collections
@@ -22,6 +22,7 @@ import inspect
 import os
 import sys
 import multiprocessing
+import pdb
 import pstats
 import random
 import re
@@ -30,6 +31,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import traceback
 import unittest
 
 import yaml
@@ -171,16 +173,16 @@ def check_dependencies():
         required_binary = 'required binary/library %s' % (
             ' '.join(binary_args))
         try:
-            proc = subprocess.Popen(
-                binary_args,
-                stdin=mininet_test_util.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                close_fds=True)
-            proc_out, proc_err = proc.communicate()
-            binary_output = proc_out.decode()
-            if proc_err is not None:
-                binary_output += proc_err.decode()
+            with subprocess.Popen(
+                    binary_args,
+                    stdin=mininet_test_util.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    close_fds=True) as proc:
+                proc_out, proc_err = proc.communicate()
+                binary_output = proc_out.decode()
+                if proc_err is not None:
+                    binary_output += proc_err.decode()
         except subprocess.CalledProcessError:
             # Might have run successfully, need to parse output
             pass
@@ -244,8 +246,8 @@ def pipeline_superset_report(decoded_pcap_logs):
         for flow_line, depth, section_stack in flow_lines:
             if depth == 1:
                 if flow_line.startswith('Type: OFPT_'):
-                    if not (flow_line.startswith('Type: OFPT_FLOW_MOD') or
-                            flow_line.startswith('Type: OFPT_GROUP_MOD')):
+                    if not (flow_line.startswith('Type: OFPT_FLOW_MOD')
+                            or flow_line.startswith('Type: OFPT_GROUP_MOD')):
                         return
                 if flow_line.startswith('Table ID'):
                     if not flow_line.startswith('Table ID: OFPTT_ALL'):
@@ -303,7 +305,8 @@ def pipeline_superset_report(decoded_pcap_logs):
     table_actions_max = collections.defaultdict(lambda: 0)
 
     for log in decoded_pcap_logs:
-        packets = re.compile(r'\n{2,}').split(open(log).read())
+        with open(log) as log_file:
+            packets = re.compile(r'\n{2,}').split(log_file.read())
         for packet in packets:
             last_packet_line = None
             indent_count = 0
@@ -329,7 +332,6 @@ def pipeline_superset_report(decoded_pcap_logs):
                 last_packet_line = packet_line
                 flow_lines.append((packet_line, depth, copy.copy(section_stack)))
             parse_flow(flow_lines)
-
 
     for table in sorted(table_matches):
         print('table: %u' % table)
@@ -431,7 +433,7 @@ def expand_tests(modules, requested_test_classes, regex_test_classes, excluded_t
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class FaucetResult(unittest.runner.TextTestResult): # pytype: disable=module-attr
+class FaucetResult(unittest.runner.TextTestResult):  # pytype: disable=module-attr
 
     root_tmpdir = None
     test_duration_secs = {}
@@ -472,8 +474,6 @@ class FaucetCleanupResult(FaucetResult):
 
 
 def debug_exception_handler(etype, value, trace):
-    import traceback
-    import pdb
     traceback.print_exception(etype, value, trace)
     print()
     pdb.pm()
@@ -529,7 +529,7 @@ def report_tests(test_status, test_list, result):
                 'status': test_status,
                 'output': test_text,
                 'test_duration_secs': test_duration_secs
-                }})
+            }})
     return tests_json
 
 
@@ -571,7 +571,8 @@ def run_test_suites(debug, report_json_filename, hw_config, root_tmpdir,
     results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
     results.extend(run_single_test_suites(debug, root_tmpdir, resultclass, single_tests))
     report_results(results, hw_config, report_json_filename)
-    successful_results = [result for result in results if result.wasSuccessful() or result.unexpected_success]
+    successful_results = [result for result in results
+                          if result.wasSuccessful() or result.unexpected_success]
     return len(results) == len(successful_results)
 
 
@@ -604,7 +605,8 @@ def dump_failed_test_file(test_file, only_exts):
 
     if dump_file:
         try:
-            test_file_content = open(test_file).read()
+            with open(test_file) as test_file_h:
+                test_file_content = test_file_h.read()
             if test_file_content:
                 print(test_file)
                 print('=' * len(test_file))
@@ -673,7 +675,9 @@ def run_tests(modules, hw_config, requested_test_classes, regex_test_classes, du
         modules, requested_test_classes, regex_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial, port_order, start_port)
 
-    if sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases():
+    test_count = (sanity_tests.countTestCases() + single_tests.countTestCases() + parallel_tests.countTestCases())
+
+    if test_count:
         no_tests = False
         sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
         if sanity_result.wasSuccessful():
@@ -822,7 +826,8 @@ def test_main(modules):
     hw_config = import_hw_config()
 
     if profile:
-        pr = cProfile.Profile(time.time)  # use wall clock time
+        # use wall clock time
+        pr = cProfile.Profile(time.time)  # pylint: disable=invalid-name
         pr.enable()
 
     run_tests(
@@ -832,5 +837,5 @@ def test_main(modules):
 
     if profile:
         pr.disable()
-        ps = pstats.Stats(pr).sort_stats('cumulative')
+        ps = pstats.Stats(pr).sort_stats('cumulative')  # pylint: disable=invalid-name
         ps.print_stats()

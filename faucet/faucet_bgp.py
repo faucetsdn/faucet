@@ -20,13 +20,8 @@
 
 import ipaddress
 
-import eventlet
-eventlet.monkey_patch()
-
-from ryu.lib import hub # pylint: disable=wrong-import-position
-
-from beka.beka import Beka # pylint: disable=wrong-import-position
-
+from ryu.lib import hub
+from beka.beka import Beka
 from faucet.valve_util import kill_on_exception
 
 
@@ -155,7 +150,6 @@ class FaucetBgp:
         Returns:
             ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
         """
-        route_handler = lambda x: self._bgp_route_handler(x, bgp_speaker_key)
         server_address = sorted(bgp_router.bgp_server_addresses_by_ipv(bgp_speaker_key.ipv))[0]
         beka = Beka(
             local_address=str(server_address),
@@ -164,7 +158,7 @@ class FaucetBgp:
             router_id=bgp_router.bgp_routerid(),
             peer_up_handler=self._bgp_up_handler,
             peer_down_handler=self._bgp_down_handler,
-            route_handler=route_handler,
+            route_handler=lambda x: self._bgp_route_handler(x, bgp_speaker_key),
             error_handler=self.logger.warning)
         for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(bgp_router.bgp_vlan(), bgp_speaker_key.ipv):
             beka.add_route(prefix=str(ip_dst), next_hop=str(ip_gw))
@@ -240,7 +234,7 @@ class FaucetBgp:
             for neighbor, neighbor_state in neighbor_states:
                 neighbor_labels = dict(
                     valve.dp.base_prom_labels(), vlan=vlan.vid, neighbor=neighbor)
-                self.metrics.bgp_neighbor_uptime_seconds.labels( # pylint: disable=no-member
+                self.metrics.bgp_neighbor_uptime_seconds.labels(  # pylint: disable=no-member
                     **neighbor_labels).set(neighbor_state['info']['uptime'])
-                self.metrics.bgp_neighbor_routes.labels( # pylint: disable=no-member
+                self.metrics.bgp_neighbor_routes.labels(  # pylint: disable=no-member
                     **dict(neighbor_labels, ipv=ipv)).set(vlan.route_count_by_ipv(ipv))

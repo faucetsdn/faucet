@@ -1,4 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
+"""Faucet setup script"""
 
 from __future__ import print_function
 
@@ -25,9 +27,9 @@ Please upgrade to python 3.5 or newer."""
           .format(py='.'.join([str(v) for v in sys.version_info[:3]])))
     sys.exit(1)
 
+
 def install_configs():
     """ Install configuration files to /etc """
-
 
     dst_ryu_conf_dir = '/etc/faucet/'
     dst_ryu_conf = os.path.join(dst_ryu_conf_dir, 'ryu.conf')
@@ -39,7 +41,7 @@ def install_configs():
     old_ryu_conf = '/etc/ryu/ryu.conf'
     old_faucet_conf_dir = '/etc/ryu/faucet/'
 
-    try:
+    def setup_ryu_conf():
         if not os.path.exists(dst_ryu_conf_dir):
             print("Creating %s" % dst_ryu_conf_dir)
             os.makedirs(dst_ryu_conf_dir)
@@ -50,6 +52,8 @@ def install_configs():
             else:
                 print("Copying %s to %s" % (src_ryu_conf, dst_ryu_conf))
                 shutil.copy(src_ryu_conf, dst_ryu_conf)
+
+    def setup_faucet_conf():
         if not os.path.exists(dst_faucet_conf_dir):
             print("Creating %s" % dst_faucet_conf_dir)
             os.makedirs(dst_faucet_conf_dir)
@@ -59,21 +63,29 @@ def install_configs():
             alt_src = os.path.join(old_faucet_conf_dir, file_name)
             if os.path.isfile(dst_file):
                 continue
-            elif os.path.isfile(alt_src):
+            if os.path.isfile(alt_src):
                 print("Migrating %s to %s" % (alt_src, dst_file))
                 shutil.copy(alt_src, dst_file)
             elif os.path.isfile(src_file):
                 print("Copying %s to %s" % (src_file, dst_file))
                 shutil.copy(src_file, dst_file)
+
+    def setup_faucet_log():
         if not os.path.exists(faucet_log_dir):
             print("Creating %s" % faucet_log_dir)
             os.makedirs(faucet_log_dir)
+
+    try:
+        setup_ryu_conf()
+        setup_faucet_conf()
+        setup_faucet_log()
     except OSError as exception:
         if exception.errno == errno.EACCES:
             print("Permission denied creating %s, skipping copying configs"
                   % exception.filename)
         else:
             raise
+
 
 setup(
     name='faucet',

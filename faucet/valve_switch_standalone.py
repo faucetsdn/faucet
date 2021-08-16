@@ -1,5 +1,7 @@
 """Manage flooding/learning on standalone datapaths."""
 
+# pylint: disable=too-many-lines
+
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -112,7 +114,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 priority=self._mask_flood_priority(eth_dst_mask)))
         return ofmsgs
 
-    def floods_to_root(self, _dp_obj):
+    @staticmethod
+    def floods_to_root(_dp_obj):
         """Return True if the given dp floods (only) to root switch"""
         return False
 
@@ -244,8 +247,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                      exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
                 if not flood_acts:
                     continue
-                if (vlan_output_ports - set([port.number]) == port_output_ports and
-                        vlan_non_output_acts == port_non_output_acts):
+                if (vlan_output_ports - set([port.number]) == port_output_ports
+                        and vlan_non_output_acts == port_non_output_acts):
                     # Delete a potentially existing port specific flow
                     # TODO: optimize, avoid generating delete for port if no existing flow.
                     if not cold_start:
@@ -364,7 +367,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             self.vlan_table.match(in_port=port.number, vlan=match_vlan),
             priority=self.low_priority, inst=inst)
 
-    def _native_vlan(self, port):
+    @staticmethod
+    def _native_vlan(port):
         for native_vlan in (port.dyn_dot1x_native_vlan, port.native_vlan):
             if native_vlan is not None:
                 return native_vlan
@@ -628,7 +632,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
 
         return ofmsgs
 
-    def _perm_learn_check(self, entry, vlan, now, eth_src, port, ofmsgs,  # pylint: disable=unused-argument
+    # pylint: disable=unused-argument
+    def _perm_learn_check(self, entry, vlan, now, eth_src, port, ofmsgs,
                           cache_port, cache_age,
                           delete_existing, refresh_rules):
         learn_exit = False
@@ -699,7 +704,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 learn_exit = True
         return (learn_exit, ofmsgs, cache_port, update_cache, delete_existing, refresh_rules)
 
-    def _learn_check(self, entry, vlan, now, eth_src, port, ofmsgs,  # pylint: disable=unused-argument
+    # pylint: disable=unused-argument
+    def _learn_check(self, entry, vlan, now, eth_src, port, ofmsgs,
                      cache_port, cache_age,
                      delete_existing, refresh_rules):
         learn_exit = True
@@ -728,9 +734,9 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         # Host not cached, and no hosts expired since we cold started
         # Enable faster learning by assuming there's no previous host to delete
         if entry is None:
-            if (last_dp_coldstart_time and
-                    (vlan.dyn_last_time_hosts_expired is None or
-                     vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
+            if (last_dp_coldstart_time
+                    and (vlan.dyn_last_time_hosts_expired is None
+                         or vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
                 delete_existing = False
         else:
             cache_age = now - entry.cache_time
@@ -748,7 +754,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
 
         return (ofmsgs, cache_port, update_cache)
 
-    def flow_timeout(self, _now, _table_id, _match):
+    @staticmethod
+    def flow_timeout(_now, _table_id, _match):
         """Handle a flow timed out message from dataplane."""
         return []
 
@@ -838,7 +845,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         self.logger.debug('Sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
         return [valve_of.packetout(port.number, bytes(pkt.data))]
 
-    def get_lacp_dpid_nomination(self, lacp_id, valve, other_valves):  # pylint: disable=unused-argument
+    @staticmethod
+    def get_lacp_dpid_nomination(lacp_id, valve, other_valves):  # pylint: disable=unused-argument
         """Chooses the DP for a given LAG.
 
         The DP will be nominated by the following conditions in order:
@@ -886,9 +894,9 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             dict: OpenFlow messages, if any by Valve
         """
         ofmsgs_by_valve = defaultdict(list)
-        if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
-                pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW and
-                pkt_meta.port.lacp):
+        if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST
+                and pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW
+                and pkt_meta.port.lacp):
             # LACP packet so reparse
             pkt_meta.data = pkt_meta.data[:valve_packet.LACP_SIZE]
             pkt_meta.reparse_all()
@@ -900,8 +908,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 if pkt_meta.port.dyn_lacp_last_resp_time:
                     age = now - pkt_meta.port.dyn_lacp_last_resp_time
                 lacp_pkt_change = (
-                    pkt_meta.port.dyn_last_lacp_pkt is None or
-                    str(lacp_pkt) != str(pkt_meta.port.dyn_last_lacp_pkt))
+                    pkt_meta.port.dyn_last_lacp_pkt is None
+                    or str(lacp_pkt) != str(pkt_meta.port.dyn_last_lacp_pkt))
                 lacp_resp_interval = pkt_meta.port.lacp_resp_interval
                 if lacp_pkt_change or (age is not None and age > lacp_resp_interval):
                     ofmsgs_by_valve[valve].extend(
@@ -925,7 +933,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                                 other_lag_port, other_actor_system))
         return ofmsgs_by_valve
 
-    def learn_host_from_pkt(self, valve, now, pkt_meta, other_valves):
+    @staticmethod
+    def learn_host_from_pkt(valve, now, pkt_meta, other_valves):
         """Learn host from packet."""
         ofmsgs = []
         ofmsgs.extend(valve.learn_host(now, pkt_meta, other_valves))

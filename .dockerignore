@@ -1,4 +1,4 @@
-faucet/*pyc
-tests/*pyc
-faucet/*/*pyc
-tests/*/*pyc
+.vagrant
+
+**/__pycache__
+**/*.pyc

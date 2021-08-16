@@ -4,9 +4,6 @@
 import os
 import re
 
-# Required to prevent circular import cycle.  pylint: disable=unused-import
-from mininet.net import Mininet
-
 from clib import mininet_test_base
 
 from clib.tcpdump_helper import TcpdumpHelper
@@ -42,7 +39,7 @@ vlans:
 """
 
     def setUp(self):
-        super(FaucetSimpleTest, self).setUp()
+        super().setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
@@ -58,7 +55,6 @@ vlans:
 
 class FaucetTcpdumpHelperTest(FaucetSimpleTest):
     """Test for TcpdumpHelper class"""
-
 
     def _terminate_with_zero(self, tcpdump_helper):
         term_returns = tcpdump_helper.terminate()

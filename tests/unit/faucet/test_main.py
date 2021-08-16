@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Test FAUCET main."""
 
@@ -20,12 +20,11 @@
 
 import unittest
 
-# pylint: disable=no-name-in-module
 # pylint: disable=import-error
 from faucet.__main__ import parse_args, build_ryu_args
 
 
-class MainTestCase(unittest.TestCase): # pytype: disable=module-attr
+class MainTestCase(unittest.TestCase):  # pytype: disable=module-attr
     """Test __main__ methods."""
 
     def test_parse_args(self):
@@ -40,4 +39,4 @@ class MainTestCase(unittest.TestCase): # pytype: disable=module-attr
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr

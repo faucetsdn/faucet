@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Unit tests run as PYTHONPATH=../../.. python3 ./test_valve_dot1x.py."""
 
@@ -49,6 +49,7 @@ vlans:
 """ % DOT1X_CONFIG
 
     def setUp(self):
+        """Setup basic 802.1x config"""
         self.setup_valves(self.CONFIG)
 
     def test_get_mac_str(self):

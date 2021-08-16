@@ -117,7 +117,7 @@ class VLAN(Conf):
         # If True, this VLAN may be dynamically added withTunnel-Private-Group-ID radius attribute.
         'edge_learn_stack_root': True,
         # If True, this VLAN will learn flows through the stack root, following forwarding path.
-        }
+    }
 
     defaults_types = {
         'name': str,
@@ -198,16 +198,18 @@ class VLAN(Conf):
         test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
         test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
             'invalid MAC address %s' % self.faucet_mac))
+        self.faucet_mac = str(netaddr.EUI(
+            self.faucet_mac, dialect=netaddr.strategy.eui48.mac_unix_expanded))
 
         test_config_condition(
             self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
         test_config_condition(
             self.acl_out and self.acls_out, 'found both acl_out and acls_out, use only acls_out')
         if self.acl_in and not isinstance(self.acl_in, list):
-            self.acls_in = [self.acl_in,]
+            self.acls_in = [self.acl_in, ]
             self.acl_in = None
         if self.acl_out and not isinstance(self.acl_out, list):
-            self.acls_out = [self.acl_out,]
+            self.acls_out = [self.acl_out, ]
             self.acl_out = None
         all_acls = []
         if self.acls_in:
@@ -237,8 +239,9 @@ class VLAN(Conf):
             test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
             try:
                 self.routes = [route['route'] for route in self.routes]
-            except TypeError:
-                raise InvalidConfigError('%s is not a valid routes value' % self.routes)
+            except TypeError as type_error:
+                raise InvalidConfigError('%s is not a valid routes value' %
+                                         self.routes) from type_error
             except KeyError:
                 pass
             for route in self.routes:
@@ -255,7 +258,7 @@ class VLAN(Conf):
     @staticmethod
     def vid_valid(vid):
         """Return True if VID valid."""
-        return isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID
+        return isinstance(vid, int) and valve_of.MIN_VID <= vid <= valve_of.MAX_VID
 
     def reset_caches(self):
         """Reset dynamic caches."""
@@ -274,8 +277,8 @@ class VLAN(Conf):
             if self in port.tagged_vlans])
         self.untagged = tuple([  # pylint: disable=consider-using-generator
             port for port in sorted_ports
-            if (self == port.native_vlan and
-                port.dyn_dot1x_native_vlan is None)])
+            if (self == port.native_vlan
+                and port.dyn_dot1x_native_vlan is None)])
         self.dot1x_untagged = tuple([  # pylint: disable=consider-using-generator
             port for port in sorted_ports
             if self == port.dyn_dot1x_native_vlan])
@@ -380,9 +383,9 @@ class VLAN(Conf):
             True if a host FIB route (and not used as a gateway).
         """
         ip_dsts = self.ip_dsts_for_ip_gw(host_ip)
-        if (len(ip_dsts) == 1 and
-                ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen and
-                ip_dsts[0].network_address == host_ip):
+        if (len(ip_dsts) == 1
+                and ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen
+                and ip_dsts[0].network_address == host_ip):
             return True
         return False
 
@@ -532,7 +535,7 @@ class VLAN(Conf):
     def flood_ports(configured_ports, exclude_unicast):
         """Return configured ports that allow flooding"""
         if exclude_unicast:
-            return tuple([port for port in configured_ports if port.unicast_flood])
+            return tuple(port for port in configured_ports if port.unicast_flood)
         return configured_ports
 
     def tagged_flood_ports(self, exclude_unicast):
@@ -569,7 +572,7 @@ class VLAN(Conf):
         pkt = packet_builder(vid, *args)
         return valve_of.packetout(port.number, bytes(pkt.data))
 
-    def flood_pkt(self, packet_builder, multi_out=True, *args):
+    def flood_pkt(self, packet_builder, multi_out, *args):
         """Return Packet-out actions via flooding"""
         ofmsgs = []
         for vid, ports in (

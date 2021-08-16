@@ -1,6 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Unit tests run as PYTHONPATH=../../.. python3 ./test_valve_stack.py."""
+
+# pylint: disable=protected-access
+# pylint: disable=too-many-lines
 
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
@@ -37,6 +40,7 @@ from clib.valve_test_lib import (
 
 
 class ValveEdgeVLANTestCase(ValveTestBases.ValveTestNetwork):
+    """Test edge VLAN operation"""
 
     CONFIG1 = """
 dps:
@@ -960,8 +964,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
         now = 1
         self.trigger_stack_ports()
         # All switches are down to start with.
-        for dpid in self.valves_manager.valves:
-            dp = self.valves_manager.valves[dpid].dp
+        for dp in [valve.dp for valve in self.valves_manager.valves.values()]:
             dp.dyn_running = False
             self.set_stack_all_ports_status(dp.name, STACK_STATE_INIT)
         for valve in self.valves_manager.valves.values():
@@ -1147,7 +1150,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
         stack_port = valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        other_valves = self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+        other_valves = self.valves_manager._other_running_valves(valve)
         self.assertTrue(stack_port.is_stack_none())
         valve.fast_state_expire(self.mock_time(), other_valves)
         self.assertTrue(stack_port.is_stack_init())
@@ -1165,7 +1168,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
         other_port = other_dp.ports[1]
         wrong_port = other_dp.ports[2]
         wrong_dp = self.valves_manager.valves[3].dp
-        other_valves = self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+        other_valves = self.valves_manager._other_running_valves(valve)
         valve.fast_state_expire(self.mock_time(), other_valves)
         for remote_dp, remote_port in [
                 (wrong_dp, other_port),
@@ -1181,7 +1184,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
         stack_port = valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        other_valves = self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+        other_valves = self.valves_manager._other_running_valves(valve)
         valve.fast_state_expire(self.mock_time(), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
@@ -1320,7 +1323,7 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
         self.validate_flooding(portup=False)
 
 
-class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):
+class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):  # pylint: disable=too-few-public-methods
     """Test inter-vlan routing with stacking capabilities in an IPV4 network"""
 
     VLAN100_FAUCET_VIPS = '10.0.1.254'
@@ -1339,12 +1342,15 @@ class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRoutin
     VLAN100_FAUCET_VIP_SPACE = '10.0.1.254/24'
     VLAN200_FAUCET_VIPS = '10.0.2.254'
     VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
+
+    V100_HOSTS = [1]
+    V200_HOSTS = [2]
+
     NUM_PORTS = 64
 
-    def base_config(self):
+    @staticmethod
+    def base_config():
         """Create the base config"""
-        self.V100_HOSTS = [1]
-        self.V200_HOSTS = [2]
         return """
     routers:
         router1:
@@ -1384,8 +1390,12 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
     VLAN200_FAUCET_VIPS = '10.0.2.254'
     VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
 
+    V100_HOSTS = [1]
+    V200_HOSTS = [3]
+
     def create_config(self):
         """Create the config file"""
+        # pylint: disable=attribute-defined-outside-init
         self.CONFIG = """
     vlans:
         vlan100:
@@ -1403,10 +1413,9 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
                   self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
                   self.base_config())
 
-    def base_config(self):
+    @staticmethod
+    def base_config():
         """Create the base config"""
-        self.V100_HOSTS = [1]
-        self.V200_HOSTS = [3]
         return """
     routers:
         router1:
@@ -1476,7 +1485,7 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
         """Returns IPV6 ether type"""
         return valve_of.ether.ETH_TYPE_IPV6
 
-    def create_match(self, vindex, host, faucet_mac, faucet_vip, code):
+    def create_match(self, vindex, host, faucet_mac, faucet_vip, _code):
         """Create an NA message"""
         return {
             'eth_src': self.create_mac(vindex, host),
@@ -1498,7 +1507,8 @@ class ValveInterVLANStackFlood(ValveTestBases.ValveTestNetwork):
     VLAN200_FAUCET_VIP_SPACE = '10.2.0.254/24'
     DST_ADDRESS = ipaddress.IPv4Address('10.1.0.1')
 
-    def base_config(self):
+    @staticmethod
+    def base_config():
         """Create the base config"""
         return """
 routers:
@@ -1575,13 +1585,14 @@ vlans:
         self.setup_valves(self.CONFIG)
         self.trigger_stack_ports()
 
-    def stack_manager_flood_ports(self, stack_manager):
+    @staticmethod
+    def stack_manager_flood_ports(stack_manager):
         """Return list of port numbers that will be flooded to"""
         stack_manager.reset_peer_distances()
         ports = list()
         if stack_manager.stack.is_root():
-            ports = (stack_manager.away_ports - stack_manager.inactive_away_ports -
-                     stack_manager.pruned_away_ports)
+            ports = (stack_manager.away_ports - stack_manager.inactive_away_ports
+                     - stack_manager.pruned_away_ports)
         else:
             ports = [stack_manager.chosen_towards_port]
         return sorted([port.number for port in ports])
@@ -1589,8 +1600,8 @@ vlans:
     def route_manager_ofmsgs(self, route_manager, vlan):
         """Return ofmsgs for route stack link flooding"""
         faucet_vip = list(vlan.faucet_vips_by_ipv(4))[0].ip
-        ofmsgs = route_manager._flood_stack_links(  # pylint: disable=protected-access
-            route_manager._gw_resolve_pkt(), vlan, route_manager.multi_out,  # pylint: disable=protected-access
+        ofmsgs = route_manager._flood_stack_links(
+            route_manager._gw_resolve_pkt(), vlan, route_manager.multi_out,
             vlan.faucet_mac, valve_of.mac.BROADCAST_STR,
             faucet_vip, self.DST_ADDRESS)
         return ofmsgs
@@ -1799,7 +1810,7 @@ dps:
             'Should not output a packet')
 
 
-class ValveTestTransitTunnel(ValveTestBases.ValveTestTunnel):
+class ValveTestTransitTunnel(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel ACL implementation"""
 
     TRANSIT_ID = 2
@@ -2132,7 +2143,7 @@ dps:
             'Should not output a packet')
 
 
-class ValveTestTransitOrderedTunnel(ValveTestBases.ValveTestTunnel):
+class ValveTestTransitOrderedTunnel(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel ACL implementation"""
 
     TRANSIT_ID = 2
@@ -2223,7 +2234,7 @@ dps:
             pcp=valve_of.PCP_TUNNEL_FLAG)
 
 
-class ValveTestMultipleOrderedTunnel(ValveTestBases.ValveTestTunnel):
+class ValveTestMultipleOrderedTunnel(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel ACL implementation with multiple hosts containing tunnel ACL"""
 
     TUNNEL_ID = 2
@@ -2300,7 +2311,7 @@ dps:
             'Did not encapsulate and forward out re-calculated port')
 
 
-class ValveTestMultipleOrderedDPTunnelACL(ValveTestBases.ValveTestTunnel):
+class ValveTestMultipleOrderedDPTunnelACL(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with multiple hosts/DP containing tunnel ACL"""
 
     TUNNEL_ID = 2
@@ -2377,7 +2388,9 @@ dps:
             'Did not encapsulate and forward out re-calculated port')
 
 
-class ValveTestMultipleOrderedTunnelDestinationDPACL(ValveTestBases.ValveTestTunnel):
+class ValveTestMultipleOrderedTunnelDestinationDPACL(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with a tunnel ACL with a DP destination"""
 
     TUNNEL_ID = 2
@@ -2423,7 +2436,7 @@ dps:
                 stack: {dp: s1, port: 4}
 """
 
-    def test_tunnel_update_multiple_DP_dest_tunnels(self):
+    def test_tunnel_update_multiple_dp_dest_tunnels(self):
         """Test having multiple hosts with the same tunnel"""
         valve = self.valves_manager.valves[0x1]
         port = valve.dp.ports[3]
@@ -2454,7 +2467,7 @@ dps:
             'Did not encapsulate and forward out re-calculated port')
 
 
-class ValveTestOrderedTunnelExitInstructions(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedTunnelExitInstructions(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with a tunnel ACL with exit instructions"""
 
     TUNNEL_ID = 2
@@ -2508,7 +2521,7 @@ dps:
             pcp=valve_of.PCP_TUNNEL_FLAG)
 
 
-class ValveTestRemoteDHCPCoprocessorTunnelACL(ValveTestBases.ValveTestTunnel):
+class ValveTestRemoteDHCPCoprocessorTunnelACL(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test bi_directional tunnel implementation to a remote coprocessor port with a DHCP server"""
 
     SW1_TUNNEL_ID = 101
@@ -2630,27 +2643,29 @@ vlans:
             'udp_src': 68}
         self.validate_tunnel(
             self.DP_ID, self.DP_ID,
-            3, 0, 4, self.SW1_TUNNEL_ID, True, 'Did not encapsulate and output to coprocessor on same switch',
+            3, 0, 4, self.SW1_TUNNEL_ID, True,
+            'Did not encapsulate and output to coprocessor on same switch',
             packet_match=dhcp_options)
         self.validate_tunnel(
             self.DP_ID, self.DP_ID,
-            4, [self.SW1_TUNNEL_ID, 100], 3, 0,
-            True, 'Did not output reverse, return DHCP packet to host on the same switch',
+            4, [self.SW1_TUNNEL_ID, 100], 3, 0, True,
+            'Did not output reverse, return DHCP packet to host on the same switch',
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
             packet_match=dhcp_options)
         self.validate_tunnel(
             2, self.DP_ID,
-            3, 0, 4, self.SW2_TUNNEL_ID, True, 'Did not encapsulate and output to coprocessor on remote switch',
+            3, 0, 4, self.SW2_TUNNEL_ID, True,
+            'Did not encapsulate and output to coprocessor on remote switch',
             packet_match=dhcp_options)
         self.validate_tunnel(
             self.DP_ID, 2,
-            4, [self.SW2_TUNNEL_ID, 100], 3, 0,
-            True, 'Did not output reverse, return DHCP packet to host on the remote switch',
+            4, [self.SW2_TUNNEL_ID, 100], 3, 0, True,
+            'Did not output reverse, return DHCP packet to host on the remote switch',
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
             packet_match=dhcp_options)
 
 
-class ValveTestOrderedBiDirectionalTunnelACL(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedBiDirectionalTunnelACL(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with a tunnel ACL with bidirectionality"""
 
     TUNNEL_ID = 2
@@ -2699,15 +2714,19 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         self.validate_tunnel(
             int(0x2), int(0x2),
-            1, self.TUNNEL_ID, 3, self.TUNNEL_ID, True, 'Did not accept reverse tunnel packet',
+            1, self.TUNNEL_ID, 3, self.TUNNEL_ID, True,
+            'Did not accept reverse tunnel packet',
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
         self.validate_tunnel(
             self.DP_ID, self.DP_ID,
-            3, self.TUNNEL_ID, 1, 0, True, 'Did not output to original source, the reverse tunnelled packet',
+            3, self.TUNNEL_ID, 1, 0, True,
+            'Did not output to original source, the reverse tunnelled packet',
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
 
 
-class ValveTestOrderedMaintainTunnelEncapsulationACL(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedMaintainTunnelEncapsulationACL(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel maintains encapsulation with maintain_encapsulation option"""
 
     TUNNEL_ID = 2
@@ -2764,7 +2783,9 @@ dps:
             pcp=valve_of.PCP_TUNNEL_FLAG)
 
 
-class ValveTestOrderedBiDirectionalDPTunnelACL(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedBiDirectionalDPTunnelACL(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with a tunnel DP ACL with bidirectionality"""
 
     TUNNEL_ID = 2
@@ -2824,7 +2845,9 @@ dps:
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
 
 
-class ValveTestOrderedBidirectionalTunnelACLwithExitInstructions(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedBidirectionalTunnelACLwithExitInstructions(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel implementation with bi-directionality and exit instructions"""
 
     TUNNEL_ID = 2
@@ -2892,7 +2915,7 @@ dps:
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
 
 
-class ValveTestOrderedReverseTunnelOption(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedReverseTunnelOption(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
     """Test tunnel implementation with reverse tunnel option"""
 
     TUNNEL_ID = 3
@@ -2963,7 +2986,9 @@ dps:
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
 
 
-class ValveTestOrderedBiDirectionalDPACLTunnelDPDestination(ValveTestBases.ValveTestTunnel):
+class ValveTestOrderedBiDirectionalDPACLTunnelDPDestination(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel configured as a DP ACL with bi-directionality and destination as a DP"""
 
     TUNNEL_ID = 2

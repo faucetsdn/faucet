@@ -18,30 +18,40 @@ if [ -z "${FAUCET_TESTS:-}" ]; then
   FAUCET_TESTS="$*"
 fi
 
-# Shorten long form arguments to make parsing easier
-FAUCET_TESTS_SHORTENED=""
-for opt in ${FAUCET_TESTS}; do
-  case "${opt}" in
-    --integration)
-      FAUCET_TESTS_SHORTENED+=" -i"
-      ;;
-    --nocheck)
-      FAUCET_TESTS_SHORTENED+=" -n"
-      ;;
-    *)
-      FAUCET_TESTS_SHORTENED+=" ${opt}"
-      ;;
-  esac
-done
-
 PARAMS=""
 
 # Parse options, some are used by this script, some are
 # passed onto mininet_main.py & clib_mininet_main.py
-for opt in ${FAUCET_TESTS_SHORTENED}; do
+for opt in ${FAUCET_TESTS}; do
   case "${opt}" in
     --help)
       HELP=1
+      ;;
+    --check)
+      INTEGRATIONTESTS=0
+      UNITTESTS=0
+      DEPCHECK=1
+      ;;
+    --integration)
+      INTEGRATIONTESTS=1
+      UNITTESTS=0
+      DEPCHECK=0
+      PARAMS+=" -i"		# Is this still needed ?
+      ;;
+    --unit)
+      INTEGRATIONTESTS=0
+      UNITTESTS=1
+      DEPCHECK=0
+      ;;
+    --nocheck)
+      DEPCHECK=0
+      PARAMS+=" -n"		# Is this still needed ?
+      ;;
+    --nointegration)
+      INTEGRATIONTESTS=0
+      ;;
+    --nounit)
+      UNITTESTS=0
       ;;
     --generative_unit)
       GEN_UNIT=1
@@ -114,22 +124,6 @@ else
   echo "Skipping pip install script"
 fi
 
-echo "========== checking IPv4/v6 localhost is up ====="
-ping6 -c 1 ::1
-ping -c 1 127.0.0.1
-
-echo "========== Starting OVS ========================="
-export OVS_LOGDIR=/usr/local/var/log/openvswitch
-/usr/local/share/openvswitch/scripts/ovs-ctl start
-ovs-vsctl show
-ovs-vsctl --no-wait set Open_vSwitch . other_config:max-idle=50000
-# Needed to support double tagging.
-ovs-vsctl --no-wait set Open_vSwitch . other_config:vlan-limit=2
-
-cd /faucet-src/tests
-
-./sysctls_for_tests.sh || true
-
 export PYTHONPATH=/faucet-src:/faucet-src/faucet:/faucet-src/clib
 
 if [ "$HELP" == 1 ] ; then
@@ -145,8 +139,9 @@ if [ "$UNITTESTS" == 1 ] ; then
 elif [ "$GEN_UNIT" == 1 ] ; then
   echo "========== Running faucet generative unit tests =========="
   cd /faucet-src/tests/generative/unit/
-  ./test_topology.py
-  cd /faucet-src/tests
+  time ./test_topology.py
+else
+  echo "========== Skipping unit tests =========="
 fi
 
 if [ "$DEPCHECK" == 1 ] ; then
@@ -160,7 +155,29 @@ if [ "$DEPCHECK" == 1 ] ; then
   time ./pylint.sh $PY_FILES_CHANGED
   echo "============ Running pytype analyzer ============"
   time ./pytype.sh $PY_FILES_CHANGED
+else
+  echo "========== Skipping code checks =========="
 fi
+
+if [ $INTEGRATIONTESTS -eq 0 -a $GEN_TOLERANCE -eq 0 ] ; then
+  echo "========== Skipping integration tests =========="
+  echo Done with faucet system tests.
+  exit 0
+fi
+
+echo "========== checking IPv4/v6 localhost is up ====="
+ping6 -c 1 ::1
+ping -c 1 127.0.0.1
+
+echo "========== Starting OVS ========================="
+export OVS_LOGDIR=/usr/local/var/log/openvswitch
+/usr/local/share/openvswitch/scripts/ovs-ctl start
+ovs-vsctl show
+ovs-vsctl --no-wait set Open_vSwitch . other_config:max-idle=50000
+# Needed to support double tagging.
+ovs-vsctl --no-wait set Open_vSwitch . other_config:vlan-limit=2
+
+/faucet-src/tests/sysctls_for_tests.sh || true
 
 echo "========== Starting docker container =========="
 mkdir -p /var/local/run/

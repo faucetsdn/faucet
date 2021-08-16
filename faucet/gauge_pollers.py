@@ -32,14 +32,14 @@ class GaugePoller:
     """Abstraction for a poller for statistics."""
 
     def __init__(self, conf, logname, prom_client):
-        self.dp = conf.dp # pylint: disable=invalid-name
+        self.dp = conf.dp  # pylint: disable=invalid-name
         self.conf = conf
         self.prom_client = prom_client
         self.reply_pending = False
         self.ryudp = None
         self.logger = logging.getLogger(
             logname + '.{0}'.format(self.conf.type)
-            )
+        )
         # _running indicates that the watcher is receiving data
         self._running = False
         self.req = None
@@ -47,7 +47,7 @@ class GaugePoller:
     def report_dp_status(self, dp_status):
         """Report DP status."""
         self.prom_client.dp_status.labels(
-            **dict(dp_id=hex(self.dp.dp_id), dp_name=self.dp.name)).set(dp_status) # pylint: disable=no-member
+            **dict(dp_id=hex(self.dp.dp_id), dp_name=self.dp.name)).set(dp_status)  # pylint: disable=no-member
 
     def start(self, ryudp, active):
         """Start the poller."""
@@ -72,7 +72,7 @@ class GaugePoller:
 
     def send_req(self):
         """Send a stats request to a datapath."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
@@ -134,7 +134,7 @@ class GaugePoller:
         for stat_name_list, stat_val in stat_pairs:
             stat_name = delim.join(stat_name_list)
             # OVS reports unsupported statistics as all-1-bits (UINT64_MAX)
-            if stat_val == 2**64-1:
+            if stat_val == 2**64 - 1:
                 stat_val = 0
             formatted_stats.append((stat_name, stat_val))
         return formatted_stats
@@ -155,20 +155,20 @@ class GaugeThreadPoller(GaugePoller):
     """
 
     def __init__(self, conf, logname, prom_client):
-        super(GaugeThreadPoller, self).__init__(conf, logname, prom_client)
+        super().__init__(conf, logname, prom_client)
         self.thread = None
         self.interval = self.conf.interval
         self.ryudp = None
 
     def start(self, ryudp, active):
         self.stop()
-        super(GaugeThreadPoller, self).start(ryudp, active)
+        super().start(ryudp, active)
         if active:
             self.thread = hub.spawn(self)
             self.thread.name = 'GaugeThreadPoller'
 
     def stop(self):
-        super(GaugeThreadPoller, self).stop()
+        super().stop()
         if self.is_active():
             hub.kill(self.thread)
             hub.joinall([self.thread])
@@ -194,7 +194,7 @@ class GaugeThreadPoller(GaugePoller):
 
     def send_req(self):
         """Send a stats request to a datapath."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
 
 class GaugeMeterStatsPoller(GaugeThreadPoller):
@@ -280,8 +280,8 @@ class GaugePortStatePoller(GaugePoller):
 
     def send_req(self):
         """Send a stats request to a datapath."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError # pragma: no cover
+        raise NotImplementedError  # pragma: no cover

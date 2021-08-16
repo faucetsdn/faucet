@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Report state based on FAUCET/Gauge/Prometheus variables."""
 
@@ -36,10 +36,11 @@ def decode_value(metric_name, value):
     result = value
     if metric_name == 'learned_macs':
         result = ':'.join(
-            format(octet, '02x') for octet in int(value).to_bytes( # pytype: disable=attribute-error
+            format(octet, '02x') for octet in int(value).to_bytes(  # pytype: disable=attribute-error
                 6, byteorder='big')
-            )
+        )
     return result
+
 
 def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
     """Scrape a list of Prometheus/FAUCET/Gauge endpoints and aggregate results."""
@@ -51,12 +52,12 @@ def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
             try:
                 if endpoint.startswith('http'):
                     response = requests.get(endpoint)
-                    if response.status_code == requests.status_codes.codes.ok: # pylint: disable=no-member
+                    if response.status_code == requests.status_codes.codes.ok:  # pylint: disable=no-member
                         content = response.content.decode('utf-8', 'strict')
                         break
                 else:
-                    response = urllib.request.urlopen(endpoint) # pytype: disable=module-attr
-                    content = response.read().decode('utf-8', 'strict')
+                    with urllib.request.urlopen(endpoint) as response:  # pytype: disable=module-attr
+                        content = response.read().decode('utf-8', 'strict')
                     break
             except (requests.exceptions.ConnectionError, ValueError) as exception:
                 err = exception
@@ -73,6 +74,7 @@ def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
             return None
     return metrics
 
+
 def _get_samples_from_metrics(metrics, metric_name, label_matches,
                               nonzero_only=False):
     result = []
@@ -87,6 +89,7 @@ def _get_samples_from_metrics(metrics, metric_name, label_matches,
                         continue
                     result.append(sample)
     return result
+
 
 def get_samples(endpoints, metric_name, label_matches, nonzero_only=False,
                 retries=3):
@@ -108,6 +111,7 @@ def get_samples(endpoints, metric_name, label_matches, nonzero_only=False,
         return None
     return _get_samples_from_metrics(
         metrics, metric_name, label_matches, nonzero_only)
+
 
 def report_label_match_metrics(report_metrics, metrics, display_labels=None,
                                nonzero_only=False, delim='\t',
@@ -192,7 +196,7 @@ def main():
         label_matches,
         nonzero_only,
         display_labels
-        ) = parse_args(sys.argv[1:])
+    ) = parse_args(sys.argv[1:])
     metrics = scrape_prometheus(endpoints)
     if metrics is None:
         sys.exit(1)
@@ -202,7 +206,7 @@ def main():
         nonzero_only=nonzero_only,
         label_matches=label_matches,
         display_labels=display_labels
-        )
+    )
     print(report)
 
 

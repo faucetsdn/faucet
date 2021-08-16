@@ -1,5 +1,7 @@
 """Utility functions to parse/create OpenFlow messages."""
 
+# pylint: disable=too-many-lines
+
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -21,12 +23,14 @@ import functools
 import ipaddress
 import random
 
-from ryu.lib import mac
+# pylint: disable=unused-import
+from ryu.lib import mac  # noqa: F401
 from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.lib.ofctl_utils import (
     str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil)
 from ryu.ofproto import ether
-from ryu.ofproto import inet
+# pylint: disable=unused-import
+from ryu.ofproto import inet  # noqa: F401
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
@@ -46,9 +50,11 @@ ECTP_ETH_TYPE = 0x9000
 # Avoid use of PCP 1 which is BK priority (lowest)
 
 TUNNEL_INDICATOR_FIELD = 'vlan_pcp'
-# Used to indicate traffic in a one-to-one bi-directional tunnel is heading in the reverse/return direction
+# Used to indicate traffic in a one-to-one bi-directional tunnel is heading
+# in the reverse/return direction
 PCP_TUNNEL_REVERSE_DIRECTION_FLAG = 4
-# Used to indicate traffic belongs in a tunnel (for all cases not including the 1-1 reverse bi-directional tunnel)
+# Used to indicate traffic belongs in a tunnel (for all cases not including
+# the 1-1 reverse bi-directional tunnel)
 PCP_TUNNEL_FLAG = 3
 
 PCP_EXT_PORT_FLAG = 2
@@ -303,8 +309,8 @@ def is_groupdel(ofmsg):
     Returns:
         bool: True if is a GroupMod delete
     """
-    if (is_groupmod(ofmsg) and
-            (ofmsg.command == ofp.OFPGC_DELETE)):
+    if (is_groupmod(ofmsg)
+            and (ofmsg.command == ofp.OFPGC_DELETE)):
         return True
     return False
 
@@ -317,8 +323,8 @@ def is_meterdel(ofmsg):
     Returns:
         bool: True if is a MeterMod delete
     """
-    if (is_metermod(ofmsg) and
-            (ofmsg.command == ofp.OFPMC_DELETE)):
+    if (is_metermod(ofmsg)
+            and (ofmsg.command == ofp.OFPMC_DELETE)):
         return True
     return False
 
@@ -331,8 +337,8 @@ def is_groupadd(ofmsg):
     Returns:
         bool: True if is a GroupMod add
     """
-    if (is_groupmod(ofmsg) and
-            (ofmsg.command == ofp.OFPGC_ADD)):
+    if (is_groupmod(ofmsg)
+            and (ofmsg.command == ofp.OFPGC_ADD)):
         return True
     return False
 
@@ -345,8 +351,8 @@ def is_meteradd(ofmsg):
     Returns:
         bool: True if is a MeterMod add
     """
-    if (is_metermod(ofmsg) and
-            (ofmsg.command == ofp.OFPMC_ADD)):
+    if (is_metermod(ofmsg)
+            and (ofmsg.command == ofp.OFPMC_ADD)):
         return True
     return False
 
@@ -359,8 +365,8 @@ def is_apply_actions(instruction):
     Returns:
         bool: True if an apply action.
     """
-    return (isinstance(instruction, parser.OFPInstructionActions) and
-            instruction.type == ofp.OFPIT_APPLY_ACTIONS)
+    return (isinstance(instruction, parser.OFPInstructionActions)
+            and instruction.type == ofp.OFPIT_APPLY_ACTIONS)
 
 
 def is_meter(instruction):
@@ -435,7 +441,7 @@ def metadata_goto_table(metadata, mask, table):
     return [
         parser.OFPInstructionWriteMetadata(metadata, mask),
         parser.OFPInstructionGotoTable(table.table_id)
-        ]
+    ]
 
 
 @functools.lru_cache()
@@ -709,8 +715,9 @@ def match_from_dict(match_dict):
         test_config_condition(of_match not in MATCH_FIELDS, 'Unknown match field: %s' % of_match)
         try:
             encoded_field = MATCH_FIELDS[of_match](field)
-        except TypeError:
-            raise InvalidConfigError('%s cannot be type %s' % (of_match, type(field)))
+        except TypeError as type_error:
+            raise InvalidConfigError('%s cannot be type %s' %
+                                     (of_match, type(field))) from type_error
         kwargs[of_match] = encoded_field
 
     return parser.OFPMatch(**kwargs)
@@ -829,7 +836,7 @@ def build_group_flood_buckets(vlan_flood_acts):
     non_outputs = []
     for act in vlan_flood_acts:
         if is_output(act):
-            buckets.append(bucket(actions=non_outputs+[act]))
+            buckets.append(bucket(actions=non_outputs + [act]))
         else:
             non_outputs.append(act)
     return buckets
@@ -1005,7 +1012,7 @@ def sort_flows(input_ofmsgs):
         input_ofmsgs,
         key=lambda ofmsg: (
             getattr(ofmsg, 'table_id', ofp.OFPTT_ALL),
-            getattr(ofmsg, 'priority', 2**16+1)), reverse=True)
+            getattr(ofmsg, 'priority', 2**16 + 1)), reverse=True)
 
 
 def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):
@@ -1148,8 +1155,8 @@ def flood_untagged_port_outputs(ports, in_port=None, exclude_ports=None):
 def flood_port_outputs(tagged_ports, untagged_ports, in_port=None, exclude_ports=None):
     """Return actions for both tagged and untagged ports."""
     return (
-        flood_tagged_port_outputs(tagged_ports, in_port, exclude_ports) +
-        flood_untagged_port_outputs(untagged_ports, in_port, exclude_ports))
+        flood_tagged_port_outputs(tagged_ports, in_port, exclude_ports)
+        + flood_untagged_port_outputs(untagged_ports, in_port, exclude_ports))
 
 
 def faucet_config(datapath=None):

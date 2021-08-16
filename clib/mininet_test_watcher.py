@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+"""Manage a model of the Mininet topology for fault tolerance testing"""
+
 import os
 import networkx
 
@@ -128,23 +130,24 @@ class OptimizedTopologyWatcher:
             # Find the longest path from all paths
             longest_path = self._get_longest_switch_path()
             # Turn path into connection graph
-            for i in range(0, len(longest_path)-1):
-                connection_graph.add_edge(longest_path[i], longest_path[i+1])
+            for i in range(0, len(longest_path) - 1):
+                connection_graph.add_edge(longest_path[i], longest_path[i + 1])
                 if not symmetric:
-                    connection_graph.add_edge(longest_path[i+1], longest_path[i])
+                    connection_graph.add_edge(longest_path[i + 1], longest_path[i])
             # Find and add remaining nodes
             for node in self.switch_graph:
                 if node not in connection_graph:
                     # Add remaining nodes to connection graph
                     path = networkx.shortest_paths.shortest_path(
                         self.switch_graph, node, list(connection_graph.nodes())[0])
-                    for i in range(0, len(path)-1):
-                        # Add path until we have reached a point that is completely inside the original simple graph
-                        if path[i] in connection_graph and path[i+1] in connection_graph:
+                    for i in range(0, len(path) - 1):
+                        # Add path until we have reached a point that is completely inside
+                        # the original simple graph
+                        if path[i] in connection_graph and path[i + 1] in connection_graph:
                             break
-                    connection_graph.add_edge(path[i], path[i+1])
+                    connection_graph.add_edge(path[i], path[i + 1])
                     if not symmetric:
-                        connection_graph.add_edge(path[i+1], path[i])
+                        connection_graph.add_edge(path[i + 1], path[i])
         return connection_graph
 
     def get_connected_hosts(self, symmetric=False, transitive=False, intervlan_only=False):

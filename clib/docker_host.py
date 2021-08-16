@@ -9,7 +9,6 @@ from subprocess import PIPE, STDOUT
 from functools import reduce
 
 # pylint: disable=import-error
-# pylint: disable=no-name-in-module
 from mininet.log import error, debug
 from mininet.node import Host
 from mininet.util import quietRun, errRun
@@ -21,6 +20,8 @@ DEFAULT_PREFIX = 'mininet'
 STARTUP_TIMEOUT_MS = 20000
 
 # pylint: disable=too-many-instance-attributes
+
+
 class DockerHost(Host):
     """Mininet host that encapsulates execution in a docker container"""
 
@@ -32,7 +33,7 @@ class DockerHost(Host):
     pollOut = None
     stdout = None
     execed = None
-    lastCmd = None # pylint: disable=invalid-name
+    lastCmd = None  # pylint: disable=invalid-name
     readbuf = None
     lastPid = None
     pid = None
@@ -69,7 +70,7 @@ class DockerHost(Host):
         self.pullImage()
         Host.__init__(self, name, **kwargs)
 
-    def pullImage(self): # pylint: disable=invalid-name
+    def pullImage(self):  # pylint: disable=invalid-name
         "Pull docker image if necessary"
         if self.image not in quietRun('docker images'):
             error('%s: docker image' % self.name, self.image,
@@ -110,25 +111,25 @@ class DockerHost(Host):
             self.shell = self._popen(cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave)
             self.stdin = os.fdopen(self.master, 'r')
             self.stdout = self.stdin
-            self.pollOut = select.poll() # pylint: disable=invalid-name
-            self.pollOut.register(self.stdout) # pylint: disable=no-member
-            self.outToNode[self.stdout.fileno()] = self # pylint: disable=no-member
-            self.pollIn = select.poll() # pylint: disable=invalid-name
-            self.pollIn.register(self.stdout, select.POLLIN) # pylint: disable=no-member
-            self.inToNode[self.stdin.fileno()] = self # pylint: disable=no-member
+            self.pollOut = select.poll()  # pylint: disable=invalid-name
+            self.pollOut.register(self.stdout)  # pylint: disable=no-member
+            self.outToNode[self.stdout.fileno()] = self  # pylint: disable=no-member
+            self.pollIn = select.poll()  # pylint: disable=invalid-name
+            self.pollIn.register(self.stdout, select.POLLIN)  # pylint: disable=no-member
+            self.inToNode[self.stdin.fileno()] = self  # pylint: disable=no-member
             self.execed = False
-            self.lastCmd = None # pylint: disable=invalid-name
-            self.lastPid = None # pylint: disable=invalid-name
+            self.lastCmd = None  # pylint: disable=invalid-name
+            self.lastPid = None  # pylint: disable=invalid-name
             self.readbuf = ''
             self.waiting = True
             data = ''
             while True:
-                data = self.read(maxbytes=1)
+                data = self.read(1)
                 if data[-1] == self.ps1:
                     break
             self.readbuf = ''
             self.waiting = False
-        except:
+        except Exception:
             error('docker cmd: %s' % ' '.join(cmd))
             if self.shell.returncode:
                 error('returncode: %d' % self.shell.returncode)
@@ -139,7 +140,7 @@ class DockerHost(Host):
         self.pid = self.inspect_pid()
         debug("Container %s created pid %s/%s." % (self.container, self.pid, self.shell.pid))
 
-        self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member
+        self.cmd('unset HISTFILE; stty -echo; set +m')  # pylint: disable=no-member
 
     def kill(self, purge=False):
         """Kill a container."""
@@ -153,7 +154,7 @@ class DockerHost(Host):
             kill_pipe = self._popen(kill_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
             kill_pipe.stdout.readlines()
             kill_pipe.stdout.close()
-        except:
+        except Exception:
             if kill_pipe:
                 kill_pipe.poll()
             raise
@@ -167,17 +168,18 @@ class DockerHost(Host):
             ps_out = pid_pipe.stdout.readlines()
             pid_pipe.stdout.close()
             return int(ps_out[0])
-        except:
+        except Exception:
             if pid_pipe is not None:
                 pid_pipe.poll()
             raise
 
-    def open_log(self, log_name='activate.log'):
+    def open_log(self):
         """Open a log file for writing and return it."""
-        return open(os.path.join(self.tmpdir, log_name), 'w')
+        # pylint: disable=consider-using-with
+        return open(os.path.join(self.tmpdir, 'activate.log'), 'w')
 
-    def activate(self, log_name='activate.log'):
-        """Active a container and return STDOUT to it."""
+    def activate(self):
+        """Activate a container and return STDOUT to it."""
         assert not self.active_pipe, 'container %s already activated' % self.container
         debug('activating container %s.' % self.container)
         inspect_cmd = ["docker", "inspect", "--format={{json .Config}}", self.image]
@@ -192,14 +194,10 @@ class DockerHost(Host):
             entrypoint = entryconfig if entryconfig else ['/usr/bin/env']
             cmd = config['Cmd'] if 'Cmd' in config else []
             docker_cmd = entrypoint + (cmd if cmd else [])
-            debug('logging to %s for %s' % (log_name, docker_cmd))
-            if log_name:
-                stdout = self.open_log(log_name)
-                self.active_log = stdout
-            else:
-                stdout = PIPE
-                self.active_log = None
-        except:
+            debug('logging to activate.log for %s' % docker_cmd)
+            stdout = self.open_log()
+            self.active_log = stdout
+        except Exception:
             if inspect_pipe:
                 inspect_pipe.poll()
             raise
@@ -227,14 +225,14 @@ class DockerHost(Host):
             self.terminate()
             raise
 
-    def read(self, maxbytes=1024):
+    def read(self, size=1024):
         """Read from an activated container."""
         poll_results = self.pollIn.poll(self.startup_timeout_ms)
         data_ready = poll_results and (poll_results[0][1] & select.POLLIN)
         assert data_ready, (
             'Timeout waiting for read data on %d after %ds' %
             (self.stdout.fileno(), self.startup_timeout_ms / 1e3))
-        return Host.read(self, maxbytes)
+        return Host.read(self, size)
 
     def terminate(self):
         """Override Mininet terminate() to partially avoid pty leak."""
@@ -263,7 +261,7 @@ class DockerHost(Host):
             if self.active_log:
                 self.active_log.close()
                 self.active_log = None
-        self.cleanup() # pylint: disable=no-member
+        self.cleanup()  # pylint: disable=no-member
         return self.active_pipe_returncode
 
     def popen(self, *args, **kwargs):
@@ -286,7 +284,7 @@ class DockerHost(Host):
         # from the owning process through the pty.
         if 'preexec_fn' not in params:
             params['preexec_fn'] = os.setpgrp
-        pipe = super(DockerHost, self)._popen(cmd, **params)
+        pipe = super()._popen(cmd, **params)
         if pipe:
             stdout = pipe.stdout
             out_fd = pipe.stdout.fileno() if stdout else None
@@ -313,6 +311,6 @@ def make_docker_host(image, prefix=DEFAULT_PREFIX, network=DEFAULT_NETWORK,
                 env_val = os.environ['DOCKER_STARTUP_TIMEOUT_MS']
                 if env_val:
                     kwargs['startup_timeout_ms'] = int(env_val)
-            super(_ImageHost, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
     return _ImageHost

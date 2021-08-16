@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Test fctl FAUCET CLI utility."""
 
@@ -27,7 +27,8 @@ import unittest
 
 from faucet import fctl
 
-class FctlTestCaseBase(unittest.TestCase): # pytype: disable=module-attr
+
+class FctlTestCaseBase(unittest.TestCase):  # pytype: disable=module-attr
     """Base class for fctl tests."""
 
     DEFAULT_VALUES = {
@@ -45,7 +46,7 @@ class FctlTestCaseBase(unittest.TestCase): # pytype: disable=module-attr
     FCTL_BASE_ARGS = [
         '--metrics={metrics}'.format(**DEFAULT_VALUES),
         '--labels=dp_id:{dp_id}'.format(**DEFAULT_VALUES)
-        ]
+    ]
     FCTL = os.path.join(SRC_DIR, 'fctl.py')
     tmpdir = None
     prom_input_file_name = None
@@ -84,6 +85,7 @@ class FctlTestCaseBase(unittest.TestCase): # pytype: disable=module-attr
 """
         return result.format(**labels).strip()
 
+
 class FctlTestCase(FctlTestCaseBase):
     """Drive fctl from shell."""
 
@@ -92,8 +94,8 @@ class FctlTestCase(FctlTestCaseBase):
         with open(self.prom_input_file_name, 'w') as prom_input_file:
             prom_input_file.write(prom_input)
         fctl_cli = ' '.join(
-            ['python3', self.FCTL]  + self.fctl_args(extra_args))
-        retcode, output = subprocess.getstatusoutput(fctl_cli) # pytype: disable=module-attr
+            ['python3', self.FCTL] + self.fctl_args(extra_args))
+        retcode, output = subprocess.getstatusoutput(fctl_cli)  # pytype: disable=module-attr
         self.assertEqual(0, retcode, msg='%s returned %d' % (
             fctl_cli, retcode))
         output = output.strip()
@@ -158,9 +160,9 @@ class FctlClassTestCase(FctlTestCaseBase):
             label_matches,
             nonzero_only,
             _
-            ) = fctl.parse_args(self.fctl_args())
+        ) = fctl.parse_args(self.fctl_args())
         metrics = fctl.scrape_prometheus(endpoints)
-        report_out = fctl.report_label_match_metrics( # pylint: disable=assignment-from-no-return
+        report_out = fctl.report_label_match_metrics(
             report_metrics=report_metrics,
             metrics=metrics,
             label_matches=label_matches,
@@ -176,4 +178,4 @@ class FctlClassTestCase(FctlTestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr

@@ -34,7 +34,7 @@ from ryu.lib.packet.stream_parser import StreamParser
 from faucet import valve_util
 from faucet import valve_of
 
-FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
+FAUCET_MAC = '0e:00:00:00:00:01'  # Default FAUCET MAC address
 
 ETH_HEADER_SIZE = 14
 ETH_VLAN_HEADER_SIZE = ETH_HEADER_SIZE + 4  # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
@@ -68,7 +68,7 @@ LLDP_FAUCET_STACK_STATE = 2
 
 LACP_SIZE = 124
 
-EUI_BITS = len(EUI(0).packed*8)
+EUI_BITS = len(EUI(0).packed * 8)
 MAC_MASK_BITMAP = {(2**EUI_BITS - 2**i): (EUI_BITS - i) for i in range(0, EUI_BITS + 1)}
 
 
@@ -346,7 +346,7 @@ def faucet_tlvs(lldp_pkt, faucet_dp_mac):
     """Return list of TLVs with FAUCET OUI."""
     return [tlv for tlv in tlvs_by_type(
         lldp_pkt.tlvs, lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC)
-            if tlv.oui == faucet_oui(faucet_dp_mac)]
+        if tlv.oui == faucet_oui(faucet_dp_mac)]
 
 
 def parse_faucet_lldp(lldp_pkt, faucet_dp_mac):
@@ -371,9 +371,9 @@ def parse_faucet_lldp(lldp_pkt, faucet_dp_mac):
 
 def lacp_actor_up(lacp_pkt):
     """Return 1 if remote LACP link is up."""
-    if (lacp_pkt.actor_state_synchronization and
-            lacp_pkt.actor_state_collecting and
-            lacp_pkt.actor_state_distributing):
+    if (lacp_pkt.actor_state_synchronization
+            and lacp_pkt.actor_state_collecting
+            and lacp_pkt.actor_state_distributing):
         return 1
     return 0
 

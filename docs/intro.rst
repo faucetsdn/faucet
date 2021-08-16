@@ -103,14 +103,14 @@ developers:
  * `faucet-dev <https://list.waikato.ac.nz/mailman/listinfo/faucet-dev>`_
  * `faucet-users <https://lists.geant.org/sympa/info/faucet-users>`_
 
-We also have the #faucetsdn IRC channel on
-`freenode <https://webchat.freenode.net/?channels=#faucetsdn>`_.
+We also have the #faucet IRC channel on
+`libera <https://web.libera.chat/?channels=#faucet>`_.
 
 A few tutorial videos are available on our
 `YouTube channel <https://www.youtube.com/channel/UChRZ5O2diT7QREazfQX0stQ>`_.
 
 The
-`FAUCET dev log <https://www.vandervecken.com/faucet>`_
+`faucet dev blog <https://www.vandervecken.com/faucet>`_
 and
 `faucetsdn twitter <https://twitter.com/faucetsdn>`_
 are good places to keep up with the latest news about faucet.

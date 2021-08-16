@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Unit tests run as PYTHONPATH=../../.. python3 ./test_valve.py."""
 
@@ -17,9 +17,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple
 
 import copy
+import time
 import unittest
+import yaml
 
 from ryu.lib import mac
 from ryu.lib.packet import slow
@@ -30,8 +33,6 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 from faucet import valve_of
 from faucet import valve_packet
 
-import yaml
-
 from clib.valve_test_lib import (
     CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
     ValveTestBases)
@@ -39,7 +40,7 @@ from clib.valve_test_lib import (
 from clib.fakeoftable import CONTROLLER_PORT
 
 
-class ValveTestCase(ValveTestBases.ValveTestBig):
+class ValveTestCase(ValveTestBases.ValveTestBig):  # pylint: disable=too-few-public-methods
     """Run complete set of basic tests."""
 
 
@@ -57,6 +58,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_fuzz_vlan(self):
@@ -116,6 +118,7 @@ acls:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic coprocessor config"""
         self.setup_valves(self.CONFIG)
 
     def test_output(self):
@@ -148,6 +151,7 @@ acls:
 
 
 class ValveRestBcastTestCase(ValveTestBases.ValveTestNetwork):
+    """Test restricted broadcast."""
 
     CONFIG = """
 dps:
@@ -168,6 +172,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config with restricted broadcast enabled"""
         self.setup_valves(self.CONFIG)
 
     def test_rest_bcast(self):
@@ -228,6 +233,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup meter and ACL config"""
         self.setup_valves(self.CONFIG)
 
     def test_usedmeter(self):
@@ -291,6 +297,7 @@ vlans:
 """ % GROUP_DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_unknown_eth_dst_rule(self):
@@ -358,6 +365,7 @@ vlans:
 """ % IDLE_DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config with mirroring"""
         self.setup_valves(self.CONFIG)
 
     def test_known_eth_src_rule(self):
@@ -436,6 +444,7 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup lacp config and activate ports"""
         self.setup_valves(self.CONFIG)
         self.activate_all_ports()
 
@@ -560,6 +569,7 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config with overriden TFM sizing"""
         self.setup_valves(self.CONFIG)
 
     def test_size(self):
@@ -613,6 +623,7 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic port and vlan config"""
         self.setup_valves(self.CONFIG)
 
     def test_size(self):
@@ -661,6 +672,7 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup basic lacp config and activate ports"""
         self.setup_valves(self.CONFIG)
         self.activate_all_ports()
 
@@ -739,6 +751,7 @@ dps:
 """
 
     def setUp(self):
+        """Setup basic port and vlan config with ACLs"""
         self.setup_valves(self.CONFIG)
 
     def test_soft(self):
@@ -778,6 +791,7 @@ dps:
 """
 
     def setUp(self):
+        """Setup basic port and vlan config with ACLs"""
         self.setup_valves(self.CONFIG)
 
     def test_hard(self):
@@ -868,6 +882,7 @@ routers:
 """ % DP1_CONFIG
 
     def setUp(self):
+        """Setup complex config with routing, bgp, mirroring and ACLs"""
         self.setup_valves(self.CONFIG)
 
     def test_unmirror(self):
@@ -876,5 +891,109 @@ routers:
         self.update_config(yaml.dump(config), reload_type='warm')
 
 
+class ValvePortDescTestCase(ValveTestBases.ValveTestNetwork):
+    """Test OFPMP_PORT_DESC reply handling."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v100
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+""" % DP1_CONFIG
+
+    def setUp(self):
+        """Setup simple configuration with no ports up"""
+        ofmsgs = self.setup_valves(self.CONFIG, ports_up=[])[self.DP_ID]
+        self.valve = self.valves_manager.valves[self.DP_ID]
+
+        self.assertFalse(ofmsgs)
+        self.assertFalse(self.valve.dp.dyn_up_port_nos)
+
+    @staticmethod
+    def _inport_flows(in_port, ofmsgs, table_id=0):
+        return [
+            ofmsg for ofmsg in ValveTestBases.flowmods_from_flows(ofmsgs)
+            if ofmsg.match.get('in_port') == in_port
+            and ofmsg.table_id == table_id]
+
+    @staticmethod
+    def _build_port_descs(port_nos, port_nos_up=None):
+        descs = []
+        for port_no in port_nos:
+            desc = namedtuple('port_no', 'state')
+            desc.port_no = port_no
+            desc.state = (
+                0 if port_no in port_nos_up else valve_of.ofp.OFPPS_LINK_DOWN)
+            descs.append(desc)
+        return descs
+
+    def _update_port_desc(self, port_nos, port_nos_up=None):
+        descs = self._build_port_descs(port_nos, port_nos_up)
+        ofmsgs_by_valve = self.valve.port_desc_stats_reply_handler(
+            descs, [], time.time())
+        return ofmsgs_by_valve[self.valve]
+
+    def test_unconfigured_ports(self):
+        port_nos = [11, 12]
+        port_nos_up = [12]
+        ofmsgs = self._update_port_desc(port_nos, port_nos_up)
+
+        self.assertTrue(self.valve.dp.dyn_up_port_nos == set(port_nos_up))
+        self.assertFalse(ofmsgs)
+
+    def test_configured_ports(self):
+        # Note: the _inport_flows() asserts track 'delta's based on
+        #  port changes, not the absolute port state
+
+        # Start with a selection of ports
+        port_nos = [1, 2]
+        port_nos_up = [1]
+        ofmsgs = self._update_port_desc(port_nos, port_nos_up)
+
+        self.assertTrue(self.valve.dp.dyn_up_port_nos == set(port_nos_up))
+        self.assertTrue(ofmsgs)
+        self.assertTrue(self._inport_flows(1, ofmsgs))
+        self.assertFalse(self._inport_flows(2, ofmsgs))
+
+        # Take port2 link-up
+        port_nos_up = [1, 2]
+        ofmsgs = self._update_port_desc(port_nos, port_nos_up)
+
+        self.assertTrue(self.valve.dp.dyn_up_port_nos == set(port_nos_up))
+        self.assertTrue(ofmsgs)
+        self.assertFalse(self._inport_flows(1, ofmsgs))
+        self.assertTrue(self._inport_flows(2, ofmsgs))
+
+        # Take port1 link-down
+        port_nos_up = [2]
+        ofmsgs = self._update_port_desc(port_nos, port_nos_up)
+
+        self.assertTrue(self.valve.dp.dyn_up_port_nos == set(port_nos_up))
+        self.assertTrue(ofmsgs)
+        self.assertTrue(self._inport_flows(1, ofmsgs))
+        self.assertFalse(self._inport_flows(2, ofmsgs))
+
+        # Take port1 link-up and remove port2
+        port_nos = [1]
+        port_nos_up = [1]
+        ofmsgs = self._update_port_desc(port_nos, port_nos_up)
+
+        self.assertTrue(self.valve.dp.dyn_up_port_nos == set(port_nos_up))
+        self.assertTrue(ofmsgs)
+        self.assertTrue(self._inport_flows(1, ofmsgs))
+        self.assertTrue(self._inport_flows(2, ofmsgs))
+
+
 if __name__ == "__main__":
-    unittest.main() # pytype: disable=module-attr
+    unittest.main()  # pytype: disable=module-attr

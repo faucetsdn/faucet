@@ -7,7 +7,7 @@ This adapter will hook into the Unix socket FAUCET is pushing events to.
 Use with Poseidon
 ^^^^^^^^^^^^^^^^^
 
-See https://github.com/CyberReboot/poseidon for full instructions.
+See https://github.com/IQTLabs/poseidon for full instructions.
 
 * Poseidon *requires* this adaptor.  Log only parsing is NOT supported.
 * Poseidon has its on RabbitMQ server.  Start the adapter, as below, but NOT the RabbitMQ server.

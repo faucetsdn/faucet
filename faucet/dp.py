@@ -1,5 +1,8 @@
 """Configuration for a datapath."""
 
+# pylint: disable=protected-access
+# pylint: disable=too-many-lines
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
@@ -150,7 +153,7 @@ configuration.
         # Have OFA copy packet outs to multiple ports.
         'idle_dst': True,
         # If False, workaround for flow idle timer not reset on flow refresh.
-        }
+    }
 
     defaults_types = {
         'dp_id': int,
@@ -350,7 +353,7 @@ configuration.
         super().check_config()
         test_config_condition(not isinstance(self.dp_id, int), (
             'dp_id must be %s not %s' % (int, type(self.dp_id))))
-        test_config_condition(self.dp_id < 0 or self.dp_id > 2**64-1, (
+        test_config_condition(self.dp_id < 0 or self.dp_id > 2**64 - 1, (
             'DP ID %s not in valid range' % self.dp_id))
         test_config_condition(not netaddr.valid_mac(self.faucet_dp_mac), (
             'invalid MAC address %s' % self.faucet_dp_mac))
@@ -479,7 +482,7 @@ configuration.
         valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
         test_config_condition(
             not valve_cl, 'hardware %s must be in %s' % (
-                self.hardware, SUPPORTED_HARDWARE.keys()))
+                self.hardware, list(SUPPORTED_HARDWARE)))
         if valve_cl is None:
             return
 
@@ -587,15 +590,15 @@ configuration.
 
             table_config.size = size
             table_config.next_tables = [
-                table_name for table_name in table_config.next_tables
-                if table_name in table_configs]
+                tbl_name for tbl_name in table_config.next_tables
+                if tbl_name in table_configs]
             next_table_ids = [
-                table_configs[table_name].table_id for table_name in table_config.next_tables]
+                table_configs[tbl_name].table_id for tbl_name in table_config.next_tables]
             tables[table_name] = ValveTable(
                 table_name, table_config, self.cookie,
                 notify_flow_removed=self.use_idle_timeout,
                 next_tables=next_table_ids
-                )
+            )
         self.tables = tables
 
     def set_defaults(self):
@@ -676,27 +679,27 @@ configuration.
 
     def coprocessor_ports(self):
         """Return list of coprocessor ports."""
-        return tuple([port for port in self.ports.values() if port.coprocessor])
+        return tuple(port for port in self.ports.values() if port.coprocessor)
 
     def restricted_bcast_arpnd_ports(self):
         """Return ports that have restricted broadcast set."""
-        return tuple([port for port in self.ports.values() if port.restricted_bcast_arpnd])
+        return tuple(port for port in self.ports.values() if port.restricted_bcast_arpnd)
 
     def lacp_ports(self):
         """Return ports that have LACP."""
-        return tuple([port for port in self.ports.values() if port.lacp])
+        return tuple(port for port in self.ports.values() if port.lacp)
 
     def lacp_up_ports(self):
         """Return ports that have LACP up."""
-        return tuple([port for port in self.lacp_ports() if port.is_actor_up()])
+        return tuple(port for port in self.lacp_ports() if port.is_actor_up())
 
     def lacp_down_ports(self):
         """Return ports that have LACP not UP"""
-        return tuple([port for port in self.lacp_ports() if not port.is_actor_up()])
+        return tuple(port for port in self.lacp_ports() if not port.is_actor_up())
 
     def lacp_nosync_ports(self):
         """Return ports that have LACP status NO_SYNC."""
-        return tuple([port for port in self.lacp_ports() if port.is_actor_nosync()])
+        return tuple(port for port in self.lacp_ports() if port.is_actor_nosync())
 
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
@@ -757,8 +760,8 @@ configuration.
             nonpriority_ports = {
                 port for port in self.lldp_beacon_ports
                 if port.running() and (
-                    port.dyn_last_lldp_beacon_time is None or
-                    port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
+                    port.dyn_last_lldp_beacon_time is None
+                    or port.dyn_last_lldp_beacon_time < cutoff_beacon_time)}
             nonpriority_ports -= priority_ports
             send_ports.extend(list(priority_ports))
             nonpriority_ports = list(nonpriority_ports)
@@ -808,6 +811,7 @@ configuration.
 
     @staticmethod
     def canonical_port_order(ports):
+        """Return iterable of ports in consistent order."""
         return sorted(ports, key=lambda x: x.number)
 
     def reset_refs(self, vlans=None):
@@ -829,8 +833,8 @@ configuration.
         else:
             new_vlans = []
             for vlan in vlans.values():
-                if (vlan_ports[vlan] or vlan.reserved_internal_vlan or
-                        vlan.dot1x_assigned or vlan._id in router_vlans):
+                if (vlan_ports[vlan] or vlan.reserved_internal_vlan
+                        or vlan.dot1x_assigned or vlan._id in router_vlans):
                     new_vlans.append(vlan)
 
         self.vlans = {}
@@ -908,7 +912,7 @@ configuration.
                     test_config_condition(stack_dp not in dp_by_name, (
                         'stack DP %s not defined' % stack_dp))
                     port_stack_dp[port] = dp_by_name[stack_dp]
-                for port, dp in port_stack_dp.items():  # pylint: disable=invalid-name
+                for port, dp in port_stack_dp.items():
                     port.stack['dp'] = dp
                     stack_port = dp.resolve_port(port.stack['port'])
                     test_config_condition(stack_port is None, (
@@ -935,12 +939,11 @@ configuration.
                     if not mirror_port.coprocessor:
                         mirror_port.output_only = True
 
-        def resolve_acl(acl_in, dp=None, vid=None, port_num=None): #pylint: disable=invalid-name
+        def resolve_acl(acl_in, vid=None, port_num=None):
             """
             Resolve an individual ACL
             Args:
                 acl_in (str): ACL name to find reference in the acl list
-                dp (DP): DP the ACL is being applied to
                 vid (int): VID of the VLAN the ACL is being applied to
                 port_num (int): The number of the port the ACl is being applied to
             Returns:
@@ -965,7 +968,7 @@ configuration.
                 If the VLAN does not exist, then create one.
 
                 Args:
-                    tunnel_id_name (str/int/None): Reference to the VLAN object that the tunnel will use
+                    tunnel_id_name (str/int/None): Reference to VLAN object that the tunnel will use
                     resolved_dst (tuple): DP, port destination tuple
                 Returns:
                     VLAN: VLAN object used by the tunnel
@@ -1110,7 +1113,7 @@ configuration.
             if self.dp_acls:
                 acls = []
                 for acl in self.dp_acls:
-                    resolve_acl(acl, dp=self)
+                    resolve_acl(acl)
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
             # Build unbuilt tunnel ACL rules (DP is not the source of the tunnel)
@@ -1229,12 +1232,12 @@ configuration.
 
     def bgp_routers(self):
         """Return list of routers with BGP enabled."""
-        return tuple([
-            router for router in self.routers.values() if router.bgp_as() and router.bgp_vlan()])
+        return tuple(
+            router for router in self.routers.values() if router.bgp_as() and router.bgp_vlan())
 
     def dot1x_ports(self):
         """Return list of ports with 802.1x enabled."""
-        return tuple([port for port in self.ports.values() if port.dot1x])
+        return tuple(port for port in self.ports.values() if port.dot1x)
 
     @staticmethod
     def _get_conf_changes(logger, conf_name, subconf, new_subconf, diff=False, ignore_keys=None):
@@ -1351,8 +1354,8 @@ configuration.
             # Topology changed so restart stack ports just to be safe
             stack_ports = [
                 port.number for port in new_dp.stack_ports()
-                if port.number not in deleted_ports and
-                port.number not in added_ports]
+                if port.number not in deleted_ports
+                and port.number not in added_ports]
             changed_ports.update(set(stack_ports))
             logger.info('Stack topology change detected, restarting stack ports')
             same_ports -= changed_ports
