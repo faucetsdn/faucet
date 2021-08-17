@@ -662,8 +662,8 @@ def valve_match_vid(value):
     return to_match_vid(value, ofp.OFPVID_PRESENT)
 
 
-# See 7.2.3.7 Flow Match Fields (OF 1.3.5)
 MATCH_FIELDS = {
+    # See 7.2.3.7 Flow Match Fields (OF 1.3.5)
     'in_port': OFCtlUtil(ofp).ofp_port_from_user,
     'in_phy_port': str_to_int,
     'metadata': to_match_masked_int,
@@ -703,7 +703,13 @@ MATCH_FIELDS = {
     'mpls_bos': str_to_int,
     'pbb_isid': to_match_masked_int,
     'tunnel_id': to_match_masked_int,
-    'ipv6_exthdr': to_match_masked_int
+    'ipv6_exthdr': to_match_masked_int,
+
+    # Nicira extensions, see ovs-fields(7)
+    'ct_state': to_match_masked_int,
+    'ct_zone': str_to_int,
+    'ct_mark': to_match_masked_int,
+    'ct_label': to_match_masked_int
 }
 
 
