@@ -4,6 +4,7 @@ FROM c65sdn/python3:1.0.4
 
 COPY ./ /faucet-src/
 
+RUN rm -f rm /usr/bin/lsb_release
 RUN ./faucet-src/docker/install-faucet.sh
 
 VOLUME ["/etc/faucet/", "/var/log/faucet/", "/var/run/faucet/"]
