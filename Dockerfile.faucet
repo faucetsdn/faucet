@@ -1,10 +1,9 @@
 ## Image name: faucet/faucet
 
-FROM c65sdn/python3:1.0.4
+FROM c65sdn/python3:1.0.5
 
 COPY ./ /faucet-src/
 
-RUN rm -f rm /usr/bin/lsb_release
 RUN ./faucet-src/docker/install-faucet.sh
 
 VOLUME ["/etc/faucet/", "/var/log/faucet/", "/var/run/faucet/"]
