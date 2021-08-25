@@ -21,7 +21,7 @@ LOCALHOST = '127.0.0.1'
 LOCALHOSTV6 = '::1'
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
-with open('/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait') as pf:
+with open('/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait', encoding='utf-8') as pf:
     MIN_PORT_AGE = max(int(pf.read()) / 2, 10)
 
 

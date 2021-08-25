@@ -231,7 +231,7 @@ class PretendInflux(QuietHandler):
             content_length = int(self.headers['content-length'])
             data = self.rfile.read(content_length)
             data = data.decode('utf-8')
-            with open(self.server.output_file, 'w') as log:
+            with open(self.server.output_file, 'w', encoding='utf-8') as log:
                 log.write(data)
 
         self.send_response(204)
@@ -562,7 +562,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
             rcv_time = int(time.time())
             db_logger.update(rcv_time, msg)
 
-            with open(self.server.output_file, 'r') as log:
+            with open(self.server.output_file, 'r', encoding='utf-8') as log:
                 output = log.read()
 
             influx_data = self.parse_influx_output(output)[1]
@@ -579,7 +579,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
         rcv_time = int(time.time())
 
         db_logger.update(rcv_time, msg)
-        with open(self.server.output_file, 'r') as log:
+        with open(self.server.output_file, 'r', encoding='utf-8') as log:
             output = log.readlines()
 
         for line in output:
@@ -617,7 +617,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
                         'cookie': msg.body[0].cookie,
                         }
 
-        with open(self.server.output_file, 'r') as log:
+        with open(self.server.output_file, 'r', encoding='utf-8') as log:
             output = log.readlines()
 
         for line in output:
@@ -779,7 +779,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
     def get_file_contents(self, filename=tmp_filename):
         """Return the contents of the temporary file and clear it"""
         filename = os.path.join(self.temp_path, filename)
-        with open(filename, 'r+') as file_:
+        with open(filename, 'r+', encoding='utf-8') as file_:
             contents = file_.read()
             file_.seek(0, 0)
             file_.truncate()
@@ -918,7 +918,7 @@ class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
 
     @staticmethod
     def _write_config(config_file_name, config):
-        with open(config_file_name, 'w') as config_file:
+        with open(config_file_name, 'w', encoding='utf-8') as config_file:
             config_file.write(config)
 
     def test_gauge(self):

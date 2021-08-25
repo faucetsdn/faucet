@@ -125,7 +125,7 @@ class GaugePoller:
             for stat_name, stat_val in self._format_stat_pairs('-', stat):
                 dp_stat_name = self._dp_stat_name(stat, stat_name)
                 log_lines.append(self._update_line(rcv_time_str, dp_stat_name, stat_val))
-        with open(self.conf.file, 'a') as logfile:
+        with open(self.conf.file, 'a', encoding='utf-8') as logfile:
             logfile.writelines(log_lines)
 
     @staticmethod

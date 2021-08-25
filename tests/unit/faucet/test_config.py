@@ -37,7 +37,7 @@ class TestConfig(unittest.TestCase):  # pytype: disable=module-attr
     def create_config_file(self, config):
         """Returns file path to file containing the config parameter."""
         conf_file_name = self.conf_file_name()
-        with open(conf_file_name, 'wb') as conf_file:
+        with open(conf_file_name, 'wb', encoding='utf-8') as conf_file:
             if isinstance(config, bytes):
                 conf_file.write(config)
             else:

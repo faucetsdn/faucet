@@ -699,7 +699,7 @@ details partner lacp pdu:
         for _ in range(self.LACP_TIMEOUT * 2):
             result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond_name)
             result = '\n'.join([line.rstrip() for line in result.splitlines()])
-            with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
+            with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w', encoding='utf-8') as state_file:
                 state_file.write(result)
             matched_all = True
             for state_txt in synced_state_list:

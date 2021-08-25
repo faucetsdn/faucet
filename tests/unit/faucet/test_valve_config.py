@@ -101,7 +101,7 @@ dps: {}
                 (self.MORE_CONFIG, 0),
                 (self.BAD_CONFIG, 1),
                 (self.CONFIG, 0)):
-            with open(self.config_file, 'w') as config_file:
+            with open(self.config_file, 'w', encoding='utf-8') as config_file:
                 config_file.write(config)
             self.valves_manager.request_reload_configs(self.mock_time(), self.config_file)
             self.assertEqual(
@@ -1173,7 +1173,7 @@ dps:
         self.assertEqual(self.get_prom('faucet_config_load_error', bare=True), 0)
         self.update_config('***broken***', reload_expected=True, error_expected=1)
         self.assertEqual(self.get_prom('faucet_config_load_error', bare=True), 1)
-        with open(self.config_file, 'r') as config_file:
+        with open(self.config_file, 'r', encoding='utf-8') as config_file:
             config_content = config_file.read()
         self.assertEqual(self.CONFIG, config_content)
         self.update_config(self.CONFIG + '\n', reload_expected=False, error_expected=0)

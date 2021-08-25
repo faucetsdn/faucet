@@ -420,7 +420,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
             self.flap_all_switch_ports()
         # Check for presence of LAG_CHANGE event in event socket log and check for it's structure
         lag_event_found = None
-        with open(self.event_log, 'r') as event_log_file:
+        with open(self.event_log, 'r', encoding='utf-8') as event_log_file:
             for event_log_line in event_log_file.readlines():
                 event = json.loads(event_log_line.strip())
                 if 'LAG_CHANGE' in event:
@@ -490,7 +490,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTestBase):
 
     def verify_events_log(self, event_log):
         """Verify event log has correct L2 learn events"""
-        with open(event_log, 'r') as event_log_file:
+        with open(event_log, 'r', encoding='utf-8') as event_log_file:
             events = [json.loads(event_log_line.strip()) for event_log_line in event_log_file]
             l2_learns = [event['L2_LEARN'] for event in events if 'L2_LEARN' in event]
             for event in l2_learns:
@@ -1051,7 +1051,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTestBase):
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
-        with open(self.acls_config, 'w') as config_file:
+        with open(self.acls_config, 'w', encoding='utf-8') as config_file:
             self.configuration_options['acl_options'] = self.acls_override()
             config_file.write(self.topo.get_config(n_vlans=1, **self.configuration_options))
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
@@ -1062,7 +1062,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTestBase):
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(5002, first_host, second_host)
-        with open(self.acls_config, 'w') as config_file:
+        with open(self.acls_config, 'w', encoding='utf-8') as config_file:
             self.configuration_options['acl_options'] = self.acls_override()
             config_file.write(self.topo.get_config(n_vlans=1, **self.configuration_options))
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
@@ -2147,7 +2147,7 @@ class FaucetStackTopoChangeTest(FaucetMultiDPTestBase):
         self._enable_event_log()
         self.verify_stack_up()
         stack_event_found = False
-        with open(self.event_log, 'r') as event_log_file:
+        with open(self.event_log, 'r', encoding='utf-8') as event_log_file:
             for event_log_line in event_log_file.readlines():
                 event = json.loads(event_log_line.strip())
                 if 'STACK_TOPO_CHANGE' in event:

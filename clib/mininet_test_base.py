@@ -294,7 +294,7 @@ class FaucetTestBase(unittest.TestCase):
         assert timeout >= 1
         assert self.event_log and os.path.exists(self.event_log)
         for _ in range(timeout):
-            with open(self.event_log) as events:
+            with open(self.event_log, encoding='utf-8') as events:
                 for event_str in events:
                     event = json.loads(event_str)
                     event_id = event['event_id']
@@ -311,7 +311,7 @@ class FaucetTestBase(unittest.TestCase):
 
     @staticmethod
     def _read_yaml(yaml_path):
-        with open(yaml_path) as yaml_file:
+        with open(yaml_path, encoding='utf-8') as yaml_file:
             content = yaml.safe_load(yaml_file.read())
         return content
 
@@ -354,7 +354,7 @@ class FaucetTestBase(unittest.TestCase):
                 delete=False) as conf_file_tmp:
             conf_file_tmp_name = conf_file_tmp.name
             conf_file_tmp.write(new_conf_str)
-        with open(conf_file_tmp_name, 'rb') as conf_file_tmp:
+        with open(conf_file_tmp_name, 'rb', encoding='utf-8') as conf_file_tmp:
             conf_file_tmp_str = conf_file_tmp.read()
             assert new_conf_str == conf_file_tmp_str
         if os.path.exists(yaml_path):
@@ -508,9 +508,9 @@ class FaucetTestBase(unittest.TestCase):
                         lines.extend(self.matching_lines_from_file(name, ovs_log))
                     if lines:
                         switch_ovs_log_name = os.path.join(self.tmpdir, os.path.basename(ovs_log))
-                        with open(switch_ovs_log_name, 'w') as switch_ovs_log:
+                        with open(switch_ovs_log_name, 'w', encoding='utf-8') as switch_ovs_log:
                             switch_ovs_log.write('\n'.join(lines))
-        with open(os.path.join(self.tmpdir, 'test_duration_secs'), 'w') as duration_file:
+        with open(os.path.join(self.tmpdir, 'test_duration_secs'), 'w', encoding='utf-8') as duration_file:
             duration_file.write(str(int(time.time() - self.start_time)))
         # Must not be any controller exception.
         for controller_env in self.env.values():
@@ -857,7 +857,7 @@ class FaucetTestBase(unittest.TestCase):
             for test_log_name in test_logs:
                 basename = os.path.basename(test_log_name)
                 if basename.startswith(controller.name):
-                    with open(test_log_name) as test_log:
+                    with open(test_log_name, encoding='utf-8') as test_log:
                         dump_txt += '\n'.join((
                             '',
                             basename,
@@ -912,7 +912,7 @@ class FaucetTestBase(unittest.TestCase):
     def verify_no_exception(self, exception_log_name):
         if not os.path.exists(exception_log_name):
             return
-        with open(exception_log_name) as exception_log:
+        with open(exception_log_name, encoding='utf-8') as exception_log:
             exception_contents = exception_log.read()
             self.assertEqual(
                 '',
@@ -1099,7 +1099,7 @@ dbs:
         groupdump = os.path.join(self.tmpdir, 'groupdump-%s.txt' % self.dpid)
         for _ in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
-            with open(groupdump, 'w') as groupdump_file:
+            with open(groupdump, 'w', encoding='utf-8') as groupdump_file:
                 for group_dict in group_dump:
                     groupdump_file.write(str(group_dict) + '\n')
                     if group_dict['group_id'] == group_id:
@@ -1113,7 +1113,7 @@ dbs:
     def get_matching_meters_on_dpid(self, dpid):
         meterdump = os.path.join(self.tmpdir, 'meterdump-%s.log' % dpid)
         meter_dump = self.get_all_meters_from_dpid(dpid)
-        with open(meterdump, 'w') as meterdump_file:
+        with open(meterdump, 'w', encoding='utf-8') as meterdump_file:
             meterdump_file.write(str(meter_dump))
         return meterdump
 
@@ -1173,7 +1173,7 @@ dbs:
                 flow_dump = self.get_all_flows_from_dpid(dpid, table_id, match=match)
             else:
                 flow_dump = self.get_all_flows_from_dpid(dpid, table_id)
-            with open(flowdump, 'w') as flowdump_file:
+            with open(flowdump, 'w', encoding='utf-8') as flowdump_file:
                 flowdump_file.write(str(flow_dump))
             for flow_dict in flow_dump:
                 if (cookie is not None
@@ -1483,7 +1483,7 @@ dbs:
                 prom_raw = requests.get(url, {}, timeout=timeout).text
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
                 return []
-            with open(os.path.join(self.tmpdir, '%s-prometheus.log' % controller_name), 'w') as prom_log:
+            with open(os.path.join(self.tmpdir, '%s-prometheus.log' % controller_name), 'w', encoding='utf-8') as prom_log:
                 prom_log.write(prom_raw)
             prom_lines = [
                 prom_line for prom_line in prom_raw.splitlines() if not prom_line.startswith('#')]
@@ -2307,7 +2307,7 @@ dbs:
 
     def force_faucet_reload(self, new_config):
         """Force FAUCET to reload."""
-        with open(self.faucet_config_path, 'w') as config_file:
+        with open(self.faucet_config_path, 'w', encoding='utf-8') as config_file:
             config_file.write(new_config)
         self.verify_faucet_reconf(change_expected=False)
 
@@ -2465,7 +2465,7 @@ dbs:
         """Get MAC address of a port."""
         address_file_name = '/sys/class/net/%s/address' % intf
         if host is None:
-            with open(address_file_name) as address_file:
+            with open(address_file_name, encoding='utf-8') as address_file:
                 address = address_file.read()
         else:
             address = host.cmd('cat %s' % address_file_name)
@@ -2712,7 +2712,7 @@ dbs:
         ))
         bgp_port = self.config_ports['bgp_port']
         exabgp_conf = exabgp_conf % {'bgp_port': bgp_port}
-        with open(exabgp_conf_file_name, 'w') as exabgp_conf_file:
+        with open(exabgp_conf_file_name, 'w', encoding='utf-8') as exabgp_conf_file:
             exabgp_conf_file.write(exabgp_conf)
         controller = self._get_controller()
         # Ensure exabgp only attempts one connection.
@@ -2744,14 +2744,14 @@ dbs:
         exabgp_log_content = []
         for log_name in (exabgp_log, exabgp_err):
             if os.path.exists(log_name):
-                with open(log_name) as log:
+                with open(log_name, encoding='utf-8') as log:
                     exabgp_log_content.append(log.read())
         self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
     @staticmethod
     def matching_lines_from_file(exp, log_name):
         exp_re = re.compile(exp)
-        with open(log_name) as log_file:
+        with open(log_name, encoding='utf-8') as log_file:
             return [log_line for log_line in log_file if exp_re.match(log_line)]
         return []
 
@@ -2819,7 +2819,7 @@ dbs:
             self.tmpdir, '%swpasupplicant.conf' % log_prefix)
         wpasupplicant_log = os.path.join(
             self.tmpdir, '%swpasupplicant.log' % log_prefix)
-        with open(wpasupplicant_conf_file_name, 'w') as wpasupplicant_conf_file:
+        with open(wpasupplicant_conf_file_name, 'w', encoding='utf-8') as wpasupplicant_conf_file:
             wpasupplicant_conf_file.write(wpasupplicant_conf)
         wpa_ctrl_socket = ''
         if wpa_ctrl_socket_path:

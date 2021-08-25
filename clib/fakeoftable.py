@@ -1208,7 +1208,7 @@ def parse_args():
 
 def _print(filename, **_kwargs):
     """Prints the JSON flow table from a file in a human readable format"""
-    with open(filename, 'r') as file_handle:
+    with open(filename, 'r', encoding='utf-8') as file_handle:
         msg = json.load(file_handle)
     datapath = FakeRyuDp()
     ofmsg = ofp_parser.ofp_msg_from_jsondict(datapath, msg)
@@ -1219,7 +1219,7 @@ def _print(filename, **_kwargs):
 
 def probe(filename, packet):
     """Prints the actions applied to packet by the table from the file"""
-    with open(filename, 'r') as file_handle:
+    with open(filename, 'r', encoding='utf-8') as file_handle:
         msg = json.load(file_handle)
     datapath = FakeRyuDp()
     ofmsg = ofp_parser.ofp_msg_from_jsondict(datapath, msg)

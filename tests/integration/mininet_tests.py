@@ -87,7 +87,7 @@ class PostHandler(SimpleHTTPRequestHandler):
         content_len = int(self.headers.get('content-length', 0))
         content = self.rfile.read(content_len).decode().strip()
         if content and hasattr(self.server, 'influx_log'):
-            with open(self.server.influx_log, 'a') as influx_log:
+            with open(self.server.influx_log, 'a', encoding='utf-8') as influx_log:
                 influx_log.write(content + '\n')
 
 
@@ -142,7 +142,7 @@ vlans:
         for _ in range(timeout):
             prom_event_id = self.scrape_prometheus_var('faucet_event_id', dpid=False)
             event_id = None
-            with open(event_log, 'r') as event_log_file:
+            with open(event_log, 'r', encoding='utf-8') as event_log_file:
                 for event_log_line in event_log_file.readlines():
                     event = json.loads(event_log_line.strip())
                     event_id = event['event_id']
@@ -348,7 +348,7 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
         dot1x_expected_events = copy.deepcopy(self.DOT1X_EXPECTED_EVENTS)
         insert_dynamic_values(dot1x_expected_events)
 
-        with open(self.event_log, 'r') as event_file:
+        with open(self.event_log, 'r', encoding='utf-8') as event_file:
             events_that_happened = []
             for event_log_line in event_file.readlines():
                 if 'DOT1X' not in event_log_line:
@@ -555,7 +555,7 @@ listen {
             shutil.copytree('/etc/freeradius/', '%s/freeradius' % self.tmpdir)
             users_path = '%s/freeradius/users' % self.tmpdir
 
-            with open('%s/freeradius/radiusd.conf' % self.tmpdir, 'r+') as default_site:
+            with open('%s/freeradius/radiusd.conf' % self.tmpdir, 'r+', encoding='utf-8') as default_site:
                 default_config = default_site.read()
                 default_config = re.sub(listen_match, '', default_config)
                 default_site.seek(0)
@@ -571,7 +571,7 @@ listen {
                             '%s/freeradius' % self.tmpdir)
             users_path = '%s/freeradius/mods-config/files/authorize' % self.tmpdir
 
-            with open('%s/freeradius/sites-enabled/default' % self.tmpdir, 'r+') as default_site:
+            with open('%s/freeradius/sites-enabled/default' % self.tmpdir, 'r+', encoding='utf-8') as default_site:
                 default_config = default_site.read()
                 default_config = re.sub(
                     listen_match, '', default_config)
@@ -581,16 +581,16 @@ listen {
                 default_site.write(default_config)
                 default_site.truncate()
 
-        with open(users_path, 'w') as users_file:
+        with open(users_path, 'w', encoding='utf-8') as users_file:
             users_file.write(self.freeradius_user_conf.format(self.SESSION_TIMEOUT))
 
-        with open('%s/freeradius/clients.conf' % self.tmpdir, 'w') as clients:
+        with open('%s/freeradius/clients.conf' % self.tmpdir, 'w', encoding='utf-8') as clients:
             clients.write("""client localhost {
     ipaddr = 127.0.0.1
     secret = SECRET
 }""")
 
-        with open('%s/freeradius/sites-enabled/inner-tunnel' % self.tmpdir, 'r+') as innertunnel_site:
+        with open('%s/freeradius/sites-enabled/inner-tunnel' % self.tmpdir, 'r+', encoding='utf-8') as innertunnel_site:
             tunnel_config = innertunnel_site.read()
             listen_config = """listen {
        ipaddr = 127.0.0.1
@@ -2113,7 +2113,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
         observed_vars = set()
         for _ in range(retries):
-            with open(self.influx_log) as influx_log:
+            with open(self.influx_log, encoding='utf-8') as influx_log:
                 influx_log_lines = influx_log.readlines()
             for point_line in influx_log_lines:
                 point_fields = point_line.strip().split()
@@ -2997,7 +2997,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
                 var, dpid=True, default=None)
         for i in range(init_config_count, init_config_count + 3):
             self._configure_count_with_retry(i)
-            with open(self.faucet_config_path, 'a') as config_file:
+            with open(self.faucet_config_path, 'a', encoding='utf-8') as config_file:
                 config_file.write('\n')
             self.verify_faucet_reconf(change_expected=False)
             self._configure_count_with_retry(i + 1)
@@ -3058,7 +3058,7 @@ acls:
         self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
         self.CONFIG = '\n'.join(
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
-        with open(self.acl_config_file, 'w') as acf:
+        with open(self.acl_config_file, 'w', encoding='utf-8') as acf:
             acf.write(self.START_ACL_CONFIG)
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -3244,7 +3244,7 @@ acls:
         self.ACL_COOKIE = random.randint(1, 2**16 - 1)
         self.ACL = self.ACL.replace('COOKIE', str(self.ACL_COOKIE))
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
-        with open(self.acl_config_file, 'w') as config_file:
+        with open(self.acl_config_file, 'w', encoding='utf-8') as config_file:
             config_file.write(self.ACL)
         self.CONFIG = '\n'.join(
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
@@ -4268,7 +4268,7 @@ details partner lacp pdu:
             for _retries in range(lacp_timeout * 2):
                 result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
                 result = '\n'.join([line.rstrip() for line in result.splitlines()])
-                with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
+                with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w', encoding='utf-8') as state_file:
                     state_file.write(result)
                 if re.search(synced_state_txt, result):
                     break
@@ -8191,7 +8191,7 @@ vlans:
             mac = dst_mac
         for _ in range(timeout):
             for _, debug_log_name in self._get_ofchannel_logs():
-                with open(debug_log_name) as debug_log:
+                with open(debug_log_name, encoding='utf-8') as debug_log:
                     debug = debug_log.read()
                 if re.search(pattern, debug):
                     return

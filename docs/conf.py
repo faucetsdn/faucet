@@ -229,7 +229,7 @@ def generate_prometheus_metric_table(_):
       - {}
 """.format(metric_name, metric.type, metric.documentation)
 
-        with open(output_path[module], 'w') as output_file:
+        with open(output_path[module], 'w', encoding='utf-8') as output_file:
             output_file.write(block_text[module])
 
 
