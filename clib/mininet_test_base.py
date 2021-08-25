@@ -1483,7 +1483,8 @@ dbs:
                 prom_raw = requests.get(url, {}, timeout=timeout).text
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
                 return []
-            with open(os.path.join(self.tmpdir, '%s-prometheus.log' % controller_name), 'w', encoding='utf-8') as prom_log:
+            log_filename = os.path.join(self.tmpdir, '%s-prometheus.log' % controller_name)
+            with open(log_filename, 'w', encoding='utf-8') as prom_log:
                 prom_log.write(prom_raw)
             prom_lines = [
                 prom_line for prom_line in prom_raw.splitlines() if not prom_line.startswith('#')]
