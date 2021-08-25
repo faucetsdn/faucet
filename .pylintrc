@@ -1,8 +1,7 @@
 [MASTER]
 disable=
     fixme,
-    import-error,
-    unspecified-encoding
+    import-error
 
 [FORMAT]
 max-line-length=120

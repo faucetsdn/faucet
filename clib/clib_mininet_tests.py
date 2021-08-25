@@ -162,7 +162,7 @@ class FaucetDockerHostTest(FaucetSimpleTest):
             'container tmp dir missing')
 
         host_log = os.path.join(self.tmpdir, host_name, 'activate.log')
-        with open(host_log, 'r') as host_log_file:
+        with open(host_log, 'r', encoding='utf-8') as host_log_file:
             lines = host_log_file.readlines()
             output = ' '.join(lines).strip()
             self.assertEqual(output, 'hello faucet')

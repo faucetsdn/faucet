@@ -61,7 +61,7 @@ class FaucetHost(CPULimitedHost):
     def terminate(self):
         # If any 'dnsmasq' processes were started, terminate them now
         for pid_file in self.pid_files:
-            with open(pid_file, 'r') as pf:
+            with open(pid_file, 'r', encoding='utf-8') as pf:
                 for _, pid in enumerate(pf):
                     os.kill(int(pid), 15)
         super().terminate()
@@ -479,7 +479,7 @@ socket_timeout=15
         self.pid_file = os.path.join(self.tmpdir, name + '.pid')
         pid_file_arg = '--ryu-pid-file=%s' % self.pid_file
         ryu_conf_file = os.path.join(self.tmpdir, 'ryu.conf')
-        with open(ryu_conf_file, 'w') as ryu_conf:
+        with open(ryu_conf_file, 'w', encoding='utf-8') as ryu_conf:
             ryu_conf.write(self.RYU_CONF)
         ryu_conf_arg = '--ryu-config-file=%s' % ryu_conf_file
         return ' '.join((
@@ -539,7 +539,7 @@ socket_timeout=15
         if self.CPROFILE:
             cprofile_args = 'python3 -m cProfile -s time'
         full_faucet_dir = os.path.abspath(mininet_test_util.FAUCET_DIR)
-        with open(script_wrapper_name, 'w') as script_wrapper:
+        with open(script_wrapper_name, 'w', encoding='utf-8') as script_wrapper:
             faucet_cli = (
                 'PYTHONPATH=%s %s exec timeout %u %s %s %s $*\n' % (
                     os.path.dirname(full_faucet_dir),
@@ -555,7 +555,7 @@ socket_timeout=15
         """Return PID of ryu-manager process."""
         if os.path.exists(self.pid_file) and os.path.getsize(self.pid_file) > 0:
             pid = None
-            with open(self.pid_file) as pid_file:
+            with open(self.pid_file, encoding='utf-8') as pid_file:
                 pid = int(pid_file.read())
             return pid
         return None
@@ -607,7 +607,7 @@ socket_timeout=15
         if os.path.exists(self.ofcap):
             self.cmd(' '.join(['fuser', '-15', '-k', self.ofcap]))
             text_ofcap_log = '%s.txt' % self.ofcap
-            with open(text_ofcap_log, 'w') as text_ofcap:
+            with open(text_ofcap_log, 'w', encoding='utf-8') as text_ofcap:
                 subprocess.call(
                     ['timeout', str(self.MAX_CTL_TIME),
                      'tshark', '-l', '-n', '-Q',

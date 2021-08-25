@@ -228,6 +228,6 @@ class OptimizedTopologyWatcher:
         sw_graph_fn = os.path.join(tmpdir, 'final_switch_graph.txt')
         networkx.write_edgelist(self.switch_graph, sw_graph_fn)
         fault_list_fn = os.path.join(tmpdir, 'fault-list.txt')
-        with open(fault_list_fn, 'w') as fl_file:
+        with open(fault_list_fn, 'w', encoding='utf-8') as fl_file:
             for fault_name in self.fault_list:
                 fl_file.write(fault_name + '\n')

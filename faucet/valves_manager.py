@@ -213,7 +213,7 @@ class ValvesManager:
         for config_file_name, config_content in self.meta_dp_state.last_good_config.items():
             self.logger.info('attempting to revert to last good config: %s' % config_file_name)
             try:
-                with open(config_file_name, 'w') as config_file:
+                with open(config_file_name, 'w', encoding='utf-8') as config_file:
                     config_file.write(str(config_content))
             except (FileNotFoundError, OSError, PermissionError) as err:
                 self.logger.error('could not revert %s: %s' % (config_file_name, err))
