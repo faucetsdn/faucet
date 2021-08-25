@@ -354,7 +354,7 @@ class FaucetTestBase(unittest.TestCase):
                 delete=False) as conf_file_tmp:
             conf_file_tmp_name = conf_file_tmp.name
             conf_file_tmp.write(new_conf_str)
-        with open(conf_file_tmp_name, 'rb', encoding='utf-8') as conf_file_tmp:
+        with open(conf_file_tmp_name, 'rb', encoding=None) as conf_file_tmp:
             conf_file_tmp_str = conf_file_tmp.read()
             assert new_conf_str == conf_file_tmp_str
         if os.path.exists(yaml_path):
