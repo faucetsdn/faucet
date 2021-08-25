@@ -12,7 +12,7 @@ import time
 from mininet.log import error, output
 
 
-DEVNULL = open(os.devnull, 'wb')  # pylint: disable=consider-using-with
+DEVNULL = open(os.devnull, 'wb', encoding=None)  # pylint: disable=consider-using-with
 GETPORT = 'GETPORT'
 PUTPORTS = 'PUTPORTS'
 GETSERIAL = 'GETSERIAL'
