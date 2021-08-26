@@ -293,7 +293,7 @@ is technically a fixed allocation for this DP Stack instance."""
                 test_config_condition(
                     path_to_root_len == 0, '%s not connected to stack' % dp)
             root_len = self.longest_path_to_root_len()
-            if root_len is not None and rool_len > 2:
+            if root_len is not None and root_len > 2:
                 self.root_flood_reflection = True
 
     @staticmethod
