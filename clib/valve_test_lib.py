@@ -789,9 +789,9 @@ class ValveTestBases:
             before_dp_status = int(self.get_prom('dp_status'))
             existing_config = None
             if os.path.exists(self.config_file):
-                with open(self.config_file) as config_file:
+                with open(self.config_file, encoding='utf-8') as config_file:
                     existing_config = config_file.read()
-            with open(self.config_file, 'w') as config_file:
+            with open(self.config_file, 'w', encoding='utf-8') as config_file:
                 config_file.write(config)
             content_change_expected = config != existing_config
             self.assertEqual(
@@ -1505,7 +1505,7 @@ class ValveTestBases:
             new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
             self.assertEqual(self.notifier.check_path(new_path), new_path)
             stale_socket = os.path.join(self.tmpdir, 'stale_socket')
-            with open(stale_socket, 'w') as stale_socket_file:
+            with open(stale_socket, 'w', encoding='utf-8') as stale_socket_file:
                 stale_socket_file.write('')
             self.assertEqual(self.notifier.check_path(stale_socket), stale_socket)
 

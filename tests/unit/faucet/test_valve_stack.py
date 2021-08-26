@@ -3457,7 +3457,7 @@ dps:
 
     def test_reload_topology_change(self):
         """Test reload with topology change forces stack ports down"""
-        with open(self.config_file, 'w') as config_file:
+        with open(self.config_file, 'w', encoding='utf-8') as config_file:
             config_file.write(self.NEW_PORT_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)
         for new_dp in new_dps:
@@ -3486,7 +3486,7 @@ dps:
 
     def test_reload_vlan_change(self):
         """Test reload with topology change, stack ports stay up"""
-        with open(self.config_file, 'w') as config_file:
+        with open(self.config_file, 'w', encoding='utf-8') as config_file:
             config_file.write(self.NEW_VLAN_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)
         for new_dp in new_dps:

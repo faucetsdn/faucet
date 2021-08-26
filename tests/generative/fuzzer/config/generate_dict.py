@@ -26,7 +26,7 @@ class ConfigDictGenerator:
     @staticmethod
     def create_config_dict(file_name):
         """Generate YAML dictionary via obtaining possible variables from Faucet CONF objects"""
-        with open(file_name, 'r+') as config_file:
+        with open(file_name, 'r+', encoding='utf-8') as config_file:
             # Read set of bogus values already currently in the config.dict file
             bogus_values = []
             for value in config_file.readlines():
@@ -108,7 +108,7 @@ class ConfigDictGenerator:
                 configs.append(create_config((graph), stack=stack))
         for config in configs:
             ex_fn = os.path.join(file_base, '%s_%s' % (file_name, ex_curr))
-            with open(ex_fn, 'w+') as ex_file:
+            with open(ex_fn, 'w+', encoding='utf-8') as ex_file:
                 ex_file.write(config)
             ex_curr += 1
 

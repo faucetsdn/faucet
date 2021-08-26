@@ -94,7 +94,7 @@ class GaugePortStateLogger(GaugePortStatePoller):
         log_msg = '%s %s' % (dpid_log(self.dp.dp_id), log_msg)
         self.logger.info(log_msg)
         if self.conf.file:
-            with open(self.conf.file, 'a') as logfile:
+            with open(self.conf.file, 'a', encoding='utf-8') as logfile:
                 logfile.write('\t'.join((rcv_time_str, log_msg)) + '\n')
 
     def send_req(self):
@@ -167,5 +167,5 @@ class GaugeFlowTableLogger(GaugeFlowTablePoller):
             with gzip.open(filename, 'wt') as outfile:
                 outfile.write(json.dumps(msg.to_jsondict()))
         else:
-            with open(filename, 'w') as outfile:
+            with open(filename, 'w', encoding='utf-8') as outfile:
                 json.dump(msg.to_jsondict(), outfile, indent=2)

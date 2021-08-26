@@ -67,9 +67,9 @@ faucet_configs:
         """Returns file path to file containing the config parameter."""
         gauge_file_name = self.conf_file_name()
         faucet_file_name = self.conf_file_name(faucet=True)
-        with open(gauge_file_name, 'w') as conf_file:
+        with open(gauge_file_name, 'w', encoding='utf-8') as conf_file:
             conf_file.write(config.format(faucet_file_name))
-        with open(faucet_file_name, 'w') as conf_file:
+        with open(faucet_file_name, 'w', encoding='utf-8') as conf_file:
             if faucet_config:
                 conf_file.write(faucet_config)
             else:
