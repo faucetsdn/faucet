@@ -1,5 +1,8 @@
 """Library for test_valve.py."""
 
+# pylint: disable=protected-access
+# pylint: disable=too-many-lines
+
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
 #
@@ -617,6 +620,7 @@ class ValveTestBases:
             self.last_flows_to_dp = {}
 
             self.tmpdir = None
+            self.config_file = None
 
             self.mock_now_sec = 100
             self.max_diff = None
@@ -714,10 +718,10 @@ class ValveTestBases:
                 before_hash, before_str = self.network.table_state(int(dp_id))
                 offset_ofmsgs = []
                 for i in range(0 - offset, len(ofmsgs)):
-                    if i >= 0 and i < len(ofmsgs):
+                    if 0 <= i < len(ofmsgs):
                         offset_ofmsgs.append(ofmsgs[i])
                     j = i + offset
-                    if j >= 0 and j < len(ofmsgs):
+                    if 0 <= j < len(ofmsgs):
                         offset_ofmsgs.append(ofmsgs[j])
                 self.network.apply_ofmsgs(int(dp_id), offset_ofmsgs, ignore_errors=True)
                 self._check_table_difference(before_hash, before_str, dp_id)
@@ -785,9 +789,9 @@ class ValveTestBases:
             before_dp_status = int(self.get_prom('dp_status'))
             existing_config = None
             if os.path.exists(self.config_file):
-                with open(self.config_file) as config_file:
+                with open(self.config_file, encoding='utf-8') as config_file:
                     existing_config = config_file.read()
-            with open(self.config_file, 'w') as config_file:
+            with open(self.config_file, 'w', encoding='utf-8') as config_file:
                 config_file.write(config)
             content_change_expected = config != existing_config
             self.assertEqual(
@@ -1056,7 +1060,7 @@ class ValveTestBases:
 
         def get_other_valves(self, valve):
             """Return other running valves"""
-            return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+            return self.valves_manager._other_running_valves(valve)
 
         def add_port(self, port_no, link_up=True, dp_id=None):
             """
@@ -1501,7 +1505,7 @@ class ValveTestBases:
             new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
             self.assertEqual(self.notifier.check_path(new_path), new_path)
             stale_socket = os.path.join(self.tmpdir, 'stale_socket')
-            with open(stale_socket, 'w') as stale_socket_file:
+            with open(stale_socket, 'w', encoding='utf-8') as stale_socket_file:
                 stale_socket_file.write('')
             self.assertEqual(self.notifier.check_path(stale_socket), stale_socket)
 
@@ -2412,14 +2416,14 @@ meters:
             del_event = RouteRemoval(
                 IPPrefix.from_string(prefix),
             )
-            self.bgp._bgp_route_handler(  # pylint: disable=protected-access
+            self.bgp._bgp_route_handler(
                 add_event,
                 faucet_bgp.BgpSpeakerKey(self.DP_ID, 0x100, 4))
-            self.bgp._bgp_route_handler(  # pylint: disable=protected-access
+            self.bgp._bgp_route_handler(
                 del_event,
                 faucet_bgp.BgpSpeakerKey(self.DP_ID, 0x100, 4))
-            self.bgp._bgp_up_handler(nexthop, 65001)  # pylint: disable=protected-access
-            self.bgp._bgp_down_handler(nexthop, 65001)  # pylint: disable=protected-access
+            self.bgp._bgp_up_handler(nexthop, 65001)
+            self.bgp._bgp_down_handler(nexthop, 65001)
 
         def test_packet_in_rate(self):
             """Test packet in rate limit triggers."""
@@ -2663,9 +2667,9 @@ meters:
             host_valve = self.valves_manager.valves[dp_id]
             for valve in self.valves_manager.valves.values():
                 valve_vlan = valve.dp.vlans[vid]
-                route_manager = valve._route_manager_by_eth_type.get(  # pylint: disable=protected-access
+                route_manager = valve._route_manager_by_eth_type.get(
                     self.get_eth_type(), None)
-                vlan_nexthop_cache = route_manager._vlan_nexthop_cache(valve_vlan)  # pylint: disable=protected-access
+                vlan_nexthop_cache = route_manager._vlan_nexthop_cache(valve_vlan)
                 self.assertTrue(vlan_nexthop_cache)
                 host_ip = ipaddress.ip_address(ip_match)
                 # Check IP address is properly cached

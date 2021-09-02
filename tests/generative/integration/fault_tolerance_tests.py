@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+"""Base class for generative testing framework"""
 
 import random
 import unittest

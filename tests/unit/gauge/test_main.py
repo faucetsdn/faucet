@@ -20,7 +20,6 @@
 
 import unittest
 
-# pylint: disable=no-name-in-module
 # pylint: disable=import-error
 from faucet.__main__ import parse_args, build_ryu_args
 

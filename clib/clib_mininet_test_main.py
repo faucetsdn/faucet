@@ -130,7 +130,7 @@ def import_hw_config():
         print('Cannot find %s in %s' % (HW_SWITCH_CONFIG_FILE, CONFIG_FILE_DIRS))
         sys.exit(-1)
     try:
-        with open(config_file_name, 'r') as config_file:
+        with open(config_file_name, 'r', encoding='utf-8') as config_file:
             config = yaml.safe_load(config_file)
     except IOError:
         print('Could not load YAML config data from %s' % config_file_name)
@@ -305,7 +305,7 @@ def pipeline_superset_report(decoded_pcap_logs):
     table_actions_max = collections.defaultdict(lambda: 0)
 
     for log in decoded_pcap_logs:
-        with open(log) as log_file:
+        with open(log, encoding='utf-8') as log_file:
             packets = re.compile(r'\n{2,}').split(log_file.read())
         for packet in packets:
             last_packet_line = None
@@ -448,7 +448,7 @@ class FaucetResult(unittest.runner.TextTestResult):  # pytype: disable=module-at
         if test.id() not in self.test_duration_secs:
             self.test_duration_secs[test.id()] = 0
         try:
-            with open(duration_file_name) as duration_file:
+            with open(duration_file_name, encoding='utf-8') as duration_file:
                 self.test_duration_secs[test.id()] = int(duration_file.read())
         except FileNotFoundError:
             pass
@@ -558,7 +558,7 @@ def report_results(results, hw_config, report_json_filename):
                 'hw_config': hw_config,
                 'tests': tests_json,
             }
-            with open(report_json_filename, 'w') as report_json_file:
+            with open(report_json_filename, 'w', encoding='utf-8') as report_json_file:
                 report_json_file.write(json.dumps(report_json))
 
 
@@ -605,7 +605,7 @@ def dump_failed_test_file(test_file, only_exts):
 
     if dump_file:
         try:
-            with open(test_file) as test_file_h:
+            with open(test_file, encoding='utf-8') as test_file_h:
                 test_file_content = test_file_h.read()
             if test_file_content:
                 print(test_file)

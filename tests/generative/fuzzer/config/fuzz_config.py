@@ -22,7 +22,7 @@ conf_file_name = os.path.join(tmpdir, 'faucet.yaml')
 
 def create_config_file(config):
     """Create config file with given contents."""
-    with open(conf_file_name, 'w') as conf_file:
+    with open(conf_file_name, 'w', encoding='utf-8') as conf_file:
         conf_file.write(config)
     return conf_file_name
 

@@ -1,3 +1,7 @@
+"""Manage Fake OF tables for unit tests"""
+
+# pylint: disable=too-many-lines
+
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
 #
@@ -135,11 +139,11 @@ class FakeOFNetwork:
 
     def shortest_path_len(self, src_dpid, dst_dpid):
         """Returns the length of the shortest path from the source to the destination"""
+        if src_dpid == dst_dpid:
+            return 1
         src_valve = self.valves_manager.valves[src_dpid]
         dst_valve = self.valves_manager.valves[dst_dpid]
-        if src_valve == dst_valve:
-            return 1
-        elif src_valve.dp.stack and dst_valve.dp.stack:
+        if src_valve.dp.stack and dst_valve.dp.stack:
             return len(src_valve.dp.stack.shortest_path(dst_valve.dp.name))
         return 2
 
@@ -1204,7 +1208,7 @@ def parse_args():
 
 def _print(filename, **_kwargs):
     """Prints the JSON flow table from a file in a human readable format"""
-    with open(filename, 'r') as file_handle:
+    with open(filename, 'r', encoding='utf-8') as file_handle:
         msg = json.load(file_handle)
     datapath = FakeRyuDp()
     ofmsg = ofp_parser.ofp_msg_from_jsondict(datapath, msg)
@@ -1215,7 +1219,7 @@ def _print(filename, **_kwargs):
 
 def probe(filename, packet):
     """Prints the actions applied to packet by the table from the file"""
-    with open(filename, 'r') as file_handle:
+    with open(filename, 'r', encoding='utf-8') as file_handle:
         msg = json.load(file_handle)
     datapath = FakeRyuDp()
     ofmsg = ofp_parser.ofp_msg_from_jsondict(datapath, msg)

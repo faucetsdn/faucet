@@ -54,13 +54,26 @@ class FaucetLink(Link):
 class FaucetHost(CPULimitedHost):
     """Base Mininet Host class, for Mininet-based tests."""
 
+    def __init__(self, *args, **kwargs):
+        self.pid_files = []
+        super().__init__(*args, **kwargs)
+
+    def terminate(self):
+        # If any 'dnsmasq' processes were started, terminate them now
+        for pid_file in self.pid_files:
+            with open(pid_file, 'r', encoding='utf-8') as pf:
+                for _, pid in enumerate(pf):
+                    os.kill(int(pid), 15)
+        super().terminate()
+
     def create_dnsmasq(self, tmpdir, iprange, router, vlan, interface=None):
         """Start dnsmasq instance inside dnsmasq namespace"""
         if interface is None:
             interface = self.defaultIntf()
-        dhcp_leasefile = os.path.join(tmpdir, 'nfv-dhcp-%s-vlan%u.leases' % (self.name, vlan))
-        log_facility = os.path.join(tmpdir, 'nfv-dhcp-%s-vlan%u.log' % (self.name, vlan))
-        pid_file = os.path.join(tmpdir, 'dnsmasq-%s-vlan%u.pid' % (self.name, vlan))
+        dhcp_leasefile = os.path.join(tmpdir, 'nfv-dhcp-%s-%s-vlan%u.leases' % (self.name, iprange, vlan))
+        log_facility = os.path.join(tmpdir, 'nfv-dhcp-%s-%s-vlan%u.log' % (self.name, iprange, vlan))
+        pid_file = os.path.join(tmpdir, 'dnsmasq-%s-%s-vlan%u.pid' % (self.name, iprange, vlan))
+        self.pid_files.append(pid_file)
         cmd = 'dnsmasq'
         opts = ''
         opts += ' --dhcp-range=%s,255.255.255.0' % iprange
@@ -69,12 +82,26 @@ class FaucetHost(CPULimitedHost):
         opts += ' --no-resolv --txt-record=does.it.work,yes'
         opts += ' --bind-interfaces'
         opts += ' --except-interface=lo'
-        opts += ' --interface=%s' % (interface)
+        opts += ' --interface=%s' % interface
         opts += ' --dhcp-leasefile=%s' % dhcp_leasefile
         opts += ' --log-facility=%s' % log_facility
         opts += ' --pid-file=%s' % pid_file
         opts += ' --conf-file='
         return self.cmd(cmd + opts)
+
+    def run_dhclient(self, tmpdir, interface=None, timeout=10):
+        """Run DHCLIENT to obtain ip address via DHCP"""
+        if interface is None:
+            interface = self.defaultIntf()
+        cmd = 'dhclient'
+        opts = ''
+        opts += ' -1'
+        opts += ' -d'
+        opts += ' -pf %s/dhclient-%s.pid' % (tmpdir, self.name)
+        opts += ' -lf %s/dhclient-%s.leases' % (tmpdir, self.name)
+        opts += ' %s' % interface
+        dhclient_cmd = cmd + opts
+        return self.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
 
     def return_ip(self):
         """Return host IP as a string"""
@@ -89,7 +116,7 @@ class VLANHost(FaucetHost):
     vlans = None
     vlan_intfs = None
 
-    def config(self, vlans=[100], **params):  # pylint: disable=arguments-differ
+    def config(self, vlans=None, **params):  # pylint: disable=arguments-differ
         """Configure VLANHost according to (optional) parameters:
 
         vlans (list): List of VLAN IDs (for the VLANs the host is configured to have)
@@ -97,6 +124,8 @@ class VLANHost(FaucetHost):
         vlan_intfs (dict): Dictionary of interface IP addresses keyed by VLAN indices
         """
         super_config = super().config(**params)
+        if vlans is None:
+            vlans = [100]
         self.vlans = vlans
         self.vlan_intfs = {}
         cmds = []
@@ -383,11 +412,11 @@ class FaucetSwitchTopo(Topo):
               get_serialno=mininet_test_util.get_serialno):
         if not host_namespace:
             host_namespace = {}
-        self.hw_dpid = hw_dpid  # pylint: disable=attribute-defined-outside-init
-        self.hw_ports = sorted(switch_map) if switch_map else []  # pylint: disable=attribute-defined-outside-init
-        self.start_port = start_port  # pylint: disable=attribute-defined-outside-init
+        self.hw_dpid = hw_dpid
+        self.hw_ports = sorted(switch_map) if switch_map else []
+        self.start_port = start_port
         maxlength = n_tagged + n_untagged + n_extended
-        self.port_order = self.extend_port_order(  # pylint: disable=attribute-defined-outside-init
+        self.port_order = self.extend_port_order(
             port_order, maxlength)
         for dpid in dpids:
             serialno = get_serialno(ports_sock, test_name)
@@ -450,7 +479,7 @@ socket_timeout=15
         self.pid_file = os.path.join(self.tmpdir, name + '.pid')
         pid_file_arg = '--ryu-pid-file=%s' % self.pid_file
         ryu_conf_file = os.path.join(self.tmpdir, 'ryu.conf')
-        with open(ryu_conf_file, 'w') as ryu_conf:
+        with open(ryu_conf_file, 'w', encoding='utf-8') as ryu_conf:
             ryu_conf.write(self.RYU_CONF)
         ryu_conf_arg = '--ryu-config-file=%s' % ryu_conf_file
         return ' '.join((
@@ -510,7 +539,7 @@ socket_timeout=15
         if self.CPROFILE:
             cprofile_args = 'python3 -m cProfile -s time'
         full_faucet_dir = os.path.abspath(mininet_test_util.FAUCET_DIR)
-        with open(script_wrapper_name, 'w') as script_wrapper:
+        with open(script_wrapper_name, 'w', encoding='utf-8') as script_wrapper:
             faucet_cli = (
                 'PYTHONPATH=%s %s exec timeout %u %s %s %s $*\n' % (
                     os.path.dirname(full_faucet_dir),
@@ -526,7 +555,7 @@ socket_timeout=15
         """Return PID of ryu-manager process."""
         if os.path.exists(self.pid_file) and os.path.getsize(self.pid_file) > 0:
             pid = None
-            with open(self.pid_file) as pid_file:
+            with open(self.pid_file, encoding='utf-8') as pid_file:
                 pid = int(pid_file.read())
             return pid
         return None
@@ -576,9 +605,9 @@ socket_timeout=15
     def _stop_cap(self):
         """Stop tcpdump for OF port and run tshark to decode it."""
         if os.path.exists(self.ofcap):
-            self.cmd(' '.join(['fuser', '-15', '-m', self.ofcap]))
+            self.cmd(' '.join(['fuser', '-15', '-k', self.ofcap]))
             text_ofcap_log = '%s.txt' % self.ofcap
-            with open(text_ofcap_log, 'w') as text_ofcap:
+            with open(text_ofcap_log, 'w', encoding='utf-8') as text_ofcap:
                 subprocess.call(
                     ['timeout', str(self.MAX_CTL_TIME),
                      'tshark', '-l', '-n', '-Q',
@@ -615,7 +644,6 @@ class FAUCET(BaseFAUCET):
 
     START_ARGS = ['--ryu-app=ryu.app.ofctl_rest']
 
-    # pylint: disable=too-many-locals
     def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, prom_port, port, test_name, **kwargs):

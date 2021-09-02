@@ -9,7 +9,6 @@ from subprocess import PIPE, STDOUT
 from functools import reduce
 
 # pylint: disable=import-error
-# pylint: disable=no-name-in-module
 from mininet.log import error, debug
 from mininet.node import Host
 from mininet.util import quietRun, errRun
@@ -176,6 +175,7 @@ class DockerHost(Host):
 
     def open_log(self):
         """Open a log file for writing and return it."""
+        # pylint: disable=consider-using-with
         return open(os.path.join(self.tmpdir, 'activate.log'), 'w')
 
     def activate(self):

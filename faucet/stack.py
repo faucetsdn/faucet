@@ -292,7 +292,8 @@ is technically a fixed allocation for this DP Stack instance."""
                 path_to_root_len = len(self.shortest_path(self.root_name, src_dp=dp))
                 test_config_condition(
                     path_to_root_len == 0, '%s not connected to stack' % dp)
-            if self.longest_path_to_root_len() > 2:
+            root_len = self.longest_path_to_root_len()
+            if root_len is not None and root_len > 2:
                 self.root_flood_reflection = True
 
     @staticmethod
@@ -364,7 +365,7 @@ is technically a fixed allocation for this DP Stack instance."""
 
     def down_ports(self):
         """Return tuple of not running stack ports"""
-        return tuple([port for port in self.ports if not port.is_stack_up()])
+        return tuple(port for port in self.ports if not port.is_stack_up())
 
     def canonical_up_ports(self, ports=None):
         """Obtains list of UP stack ports in canonical order"""

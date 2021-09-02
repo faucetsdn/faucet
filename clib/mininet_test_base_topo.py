@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+"""Base class for managing integration network topologies"""
 
 import os
 import random
@@ -45,6 +45,9 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     host_information = None
     faucet_vips = None
+
+    host_port_maps = {}
+    link_port_maps = {}
 
     def _init_faucet_config(self):
         """Initialize & normalize faucet configuration file"""
@@ -162,9 +165,10 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.dpid = self.dpids[0]
         # host_port_maps = {host_n: {switch_n: [ports, ...], ...}, ...}
         # link_port_maps = {(switch_n, switch_m): [ports, ...], ...}
-        self.port_maps, self.host_port_maps, self.link_port_maps = self.topo.create_port_maps()
-        self.port_map = self.port_maps[self.dpid]
+        port_maps, self.host_port_maps, self.link_port_maps = self.topo.create_port_maps()
+        self.port_map = port_maps[self.dpid]
         dpid_names = {}
+        # pylint: disable=consider-using-dict-items
         for i in self.topo.switches_by_id:
             dpid = self.topo.dpids_by_id[i]
             name = self.topo.switches_by_id[i]
@@ -695,7 +699,7 @@ details partner lacp pdu:
         for _ in range(self.LACP_TIMEOUT * 2):
             result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond_name)
             result = '\n'.join([line.rstrip() for line in result.splitlines()])
-            with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w') as state_file:
+            with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w', encoding='utf-8') as state_file:
                 state_file.write(result)
             matched_all = True
             for state_txt in synced_state_list:

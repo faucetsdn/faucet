@@ -72,7 +72,7 @@ def read_config(config_file, logname):
     conf = None
 
     try:
-        with open(config_file, 'r') as stream:
+        with open(config_file, 'r', encoding='utf-8') as stream:
             conf_txt = stream.read()
         conf = yaml.safe_load(conf_txt)
     except (yaml.YAMLError, UnicodeDecodeError,
@@ -91,7 +91,7 @@ def config_hash_content(content):
 
 def config_file_hash(config_file_name):
     """Return hash of YAML config file contents."""
-    with open(config_file_name) as config_file:
+    with open(config_file_name, encoding='utf-8') as config_file:
         return config_hash_content(config_file.read())
 
 

@@ -2,6 +2,9 @@
 
 """Mininet multi-switch integration tests for Faucet"""
 
+# pylint: disable=protected-access
+# pylint: disable=too-many-lines
+
 import ipaddress
 import json
 import os
@@ -11,8 +14,6 @@ from mininet.log import error
 
 from clib.mininet_test_base import IPV4_ETH, IPV6_ETH
 from clib.mininet_test_base_topo import FaucetTopoTestBase
-
-from clib import mininet_test_util
 
 
 class FaucetMultiDPTestBase(FaucetTopoTestBase):
@@ -419,7 +420,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
             self.flap_all_switch_ports()
         # Check for presence of LAG_CHANGE event in event socket log and check for it's structure
         lag_event_found = None
-        with open(self.event_log, 'r') as event_log_file:
+        with open(self.event_log, 'r', encoding='utf-8') as event_log_file:
             for event_log_line in event_log_file.readlines():
                 event = json.loads(event_log_line.strip())
                 if 'LAG_CHANGE' in event:
@@ -489,7 +490,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTestBase):
 
     def verify_events_log(self, event_log):
         """Verify event log has correct L2 learn events"""
-        with open(event_log, 'r') as event_log_file:
+        with open(event_log, 'r', encoding='utf-8') as event_log_file:
             events = [json.loads(event_log_line.strip()) for event_log_line in event_log_file]
             l2_learns = [event['L2_LEARN'] for event in events if 'L2_LEARN' in event]
             for event in l2_learns:
@@ -1050,7 +1051,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTestBase):
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
-        with open(self.acls_config, 'w') as config_file:
+        with open(self.acls_config, 'w', encoding='utf-8') as config_file:
             self.configuration_options['acl_options'] = self.acls_override()
             config_file.write(self.topo.get_config(n_vlans=1, **self.configuration_options))
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
@@ -1061,7 +1062,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTestBase):
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(5002, first_host, second_host)
-        with open(self.acls_config, 'w') as config_file:
+        with open(self.acls_config, 'w', encoding='utf-8') as config_file:
             self.configuration_options['acl_options'] = self.acls_override()
             config_file.write(self.topo.get_config(n_vlans=1, **self.configuration_options))
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
@@ -2114,11 +2115,10 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
         for intf in lacp_intfs:
             funcs = []
             # Delete all ARP records of the lacp host
-            for host_id in self.host_information:
-                host = self.host_information[host_id]['host']
-                funcs.append(lambda: host.cmd('arp -d %s' % lacp_host.IP()))
-                funcs.append(lambda: host.cmd('arp -d %s' % dst_host.IP()))
-                funcs.append(lambda: lacp_host.cmd('arp -d %s' % host.IP()))
+            for host in [info['host'] for info in self.host_information.values()]:
+                funcs.append(lambda host=host: host.cmd('arp -d %s' % lacp_host.IP()))
+                funcs.append(lambda host=host: host.cmd('arp -d %s' % dst_host.IP()))
+                funcs.append(lambda host=host: lacp_host.cmd('arp -d %s' % host.IP()))
             # Ping to cause broadcast ARP request
             funcs.append(lambda: lacp_host.cmd('ping -c5 %s' % dst_host.IP()))
             # Start tcpdump looking for broadcast ARP packets
@@ -2147,7 +2147,7 @@ class FaucetStackTopoChangeTest(FaucetMultiDPTestBase):
         self._enable_event_log()
         self.verify_stack_up()
         stack_event_found = False
-        with open(self.event_log, 'r') as event_log_file:
+        with open(self.event_log, 'r', encoding='utf-8') as event_log_file:
             for event_log_line in event_log_file.readlines():
                 event = json.loads(event_log_line.strip())
                 if 'STACK_TOPO_CHANGE' in event:
@@ -2428,13 +2428,6 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
@@ -2445,7 +2438,7 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[0])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.11')
         self.check_host_connectivity_by_id(0, 1)
@@ -2508,13 +2501,6 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
@@ -2525,7 +2511,7 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[0])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.12')
@@ -2595,13 +2581,6 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
@@ -2616,7 +2595,7 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[1])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.2.0.10')
@@ -2687,13 +2666,6 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
@@ -2708,7 +2680,7 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[1])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.10')
@@ -2851,13 +2823,6 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
         )
         self.start_net()
 
-    @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
@@ -2872,7 +2837,7 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[1])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.10')
@@ -3290,13 +3255,6 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         }
 
     @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
-    @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
@@ -3388,7 +3346,7 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         self.configure_coprocessor_network()
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.21')
         self.check_host_connectivity_by_id(0, 1)
@@ -3606,13 +3564,6 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         }
 
     @staticmethod
-    def dhclient_callback(host, timeout):
-        """Run DHCLIENT to obtain ip address via DHCP"""
-        dhclient_cmd = 'dhclient -pf /run/dhclient-%s.pid -lf /run/dhclient-%s.leases %s' % (
-            host.name, host.name, host.defaultIntf())
-        return host.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
-
-    @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
         return '0.0.0.0'
@@ -3712,7 +3663,7 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         self.verify_stack_up()
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
-            self.dhclient_callback(host, 10)
+            host.run_dhclient(self.tmpdir)
         self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.11')
         self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.21')

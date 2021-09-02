@@ -341,12 +341,13 @@ class FaucetTopoGenerator(Topo):
                 switch_name = self.switches_by_id[dp_i]
                 self._add_link(switch_name, host_name, vlans)
 
+    # pylint: disable=arguments-differ
     def build(self, ovs_type, ports_sock, test_name, num_dps, descending_dpids,
               host_links, host_vlans, switch_links, link_vlans,
               hw_dpid=None, hw_ports=None,
               port_order=None, start_port=5,
               get_serialno=mininet_test_util.get_serialno,
-              host_options=None):  # pylint: disable=arguments-differ
+              host_options=None):
         """
         Creates a Faucet mininet topology
 
@@ -366,9 +367,9 @@ class FaucetTopoGenerator(Topo):
             host_options (dict): Host index map to additional mininet host options
         """
         # Additional test generation information
-        self.ovs_type = ovs_type  # pylint: disable=attribute-defined-outside-init
-        self.ports_sock = ports_sock  # pylint: disable=attribute-defined-outside-init
-        self.test_name = test_name  # pylint: disable=attribute-defined-outside-init
+        self.ovs_type = ovs_type
+        self.ports_sock = ports_sock
+        self.test_name = test_name
         self.get_serialno = get_serialno
         self.num_dps = num_dps
         self.descending_dpids = descending_dpids

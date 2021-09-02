@@ -2,6 +2,9 @@
 
 """Test config parsing"""
 
+# pylint: disable=protected-access
+# pylint: disable=too-many-lines
+
 import logging
 import re
 import shutil
@@ -34,7 +37,7 @@ class TestConfig(unittest.TestCase):  # pytype: disable=module-attr
     def create_config_file(self, config):
         """Returns file path to file containing the config parameter."""
         conf_file_name = self.conf_file_name()
-        with open(conf_file_name, 'wb') as conf_file:
+        with open(conf_file_name, 'wb', encoding=None) as conf_file:
             if isinstance(config, bytes):
                 conf_file.write(config)
             else:
@@ -1347,8 +1350,8 @@ dps:
         _, _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
         dp = dps[0]
         self.assertEqual(len(dp.ports), 8)
-        self.assertTrue(all([p.permanent_learn for p in dp.ports.values() if p.number < 9]))
-        self.assertTrue(all([p.max_hosts == 2 for p in dp.ports.values() if p.number > 1]))
+        self.assertTrue(all(p.permanent_learn for p in dp.ports.values() if p.number < 9))
+        self.assertTrue(all(p.max_hosts == 2 for p in dp.ports.values() if p.number > 1))
         self.assertTrue(dp.ports[1].max_hosts == 4)
         self.assertEqual(dp.ports[1].description, "video conf")
 

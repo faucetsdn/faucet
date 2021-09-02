@@ -2,6 +2,8 @@
 
 """Unit tests run as PYTHONPATH=../../.. python3 ./test_valveapp_smoke.py."""
 
+# pylint: disable=protected-access
+
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
 #
@@ -44,7 +46,7 @@ class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
             dpset={},
             reg=CollectorRegistry())
         ryu_app.reload_config(None)
-        self.assertFalse(ryu_app._config_files_changed())  # pylint: disable=protected-access
+        self.assertFalse(ryu_app._config_files_changed())
         ryu_app.metric_update(None)
         event_dp = dpset.EventDPReconnected(dp=self._fake_dp())
         for enter in (True, False):
@@ -59,14 +61,14 @@ class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
                 ryu_app.port_status_handler,
                 ryu_app.flowremoved_handler,
                 ryu_app.reconnect_handler,
-                ryu_app._datapath_connect,  # pylint: disable=protected-access
-                ryu_app._datapath_disconnect):  # pylint: disable=protected-access
+                ryu_app._datapath_connect,
+                ryu_app._datapath_disconnect):
             msg = namedtuple('msg', ['datapath'])(self._fake_dp())
             event = EventOFPMsgBase(msg=msg)
             event.dp = msg.datapath
             event_handler(event)
-        ryu_app._check_thread_exception()  # pylint: disable=protected-access
-        ryu_app._thread_jitter(1)  # pylint: disable=protected-access
+        ryu_app._check_thread_exception()
+        ryu_app._thread_jitter(1)
 
 
 if __name__ == "__main__":

@@ -81,7 +81,7 @@ class Conf:
         for key, value in defaults.items():
             self._set_default(key, value, conf=conf)
 
-    def set_defaults(self, defaults=None, conf=None):
+    def set_defaults(self):
         """Set default values and run any basic sanity checks."""
         self._set_conf_defaults(self.defaults, self.__dict__)
 
@@ -163,7 +163,7 @@ class Conf:
         if isinstance(conf_v, (dict, OrderedDict)):
             return {str(i): self._str_conf(j) for i, j in conf_v.items() if j is not None}
         if isinstance(conf_v, (list, tuple, frozenset)):
-            return tuple([self._str_conf(i) for i in conf_v if i is not None])
+            return tuple(self._str_conf(i) for i in conf_v if i is not None)
         if isinstance(conf_v, Conf):
             for i in ('name', '_id'):
                 if hasattr(conf_v, i):
@@ -198,7 +198,7 @@ class Conf:
     def _finalize_val(self, val):
         if isinstance(val, list):
             return tuple(
-                [self._finalize_val(v) for v in val])
+                self._finalize_val(v) for v in val)
         if isinstance(val, set):
             return frozenset(
                 [self._finalize_val(v) for v in val])

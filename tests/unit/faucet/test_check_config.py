@@ -44,11 +44,11 @@ class CheckConfigTestCase(unittest.TestCase):  # pytype: disable=module-attr
         conf_files = []
         if config is not None:
             conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
-            with open(conf_file_name, 'w') as conf_file:
+            with open(conf_file_name, 'w', encoding='utf-8') as conf_file:
                 conf_file.write(config)
             conf_files = [conf_file_name]
-        with open(os.devnull, 'w') as check_output_file:
-            result_ok = check_config(  # pylint: disable=unexpected-keyword-arg
+        with open(os.devnull, 'w', encoding='utf-8') as check_output_file:
+            result_ok = check_config(
                 conf_files, logging.FATAL, check_output_file)
         return expected_ok == result_ok
 

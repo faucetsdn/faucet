@@ -21,6 +21,7 @@ import pytricia
 from faucet.conf import Conf, test_config_condition
 
 
+# pylint: disable=c-extension-no-member
 class _PyTricia(pytricia.PyTricia):
     def __repr__(self):
         return str([(k, self[k]) for k in sorted(self.keys())])
@@ -69,9 +70,6 @@ class Router(Conf):
 
     def __str__(self):
         return str(self._id)
-
-    def set_defaults(self, defaults=None, conf=None):
-        super().set_defaults(defaults=defaults, conf=conf)
 
     def check_config(self):
         super().check_config()

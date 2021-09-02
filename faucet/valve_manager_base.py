@@ -4,7 +4,7 @@
 # pylint: disable=unused-argument
 
 
-class ValveManagerBase:  # pylint: disable=too-few-public-methods
+class ValveManagerBase:
     """Base class for ValveManager objects.
 
     Expected to control the installation of flows into datapath tables.

@@ -91,7 +91,7 @@ class FctlTestCase(FctlTestCaseBase):
 
     def run_fctl(self, prom_input, expected_output, extra_args=None):
         """Ensure fctl succeeds and returns expected output."""
-        with open(self.prom_input_file_name, 'w') as prom_input_file:
+        with open(self.prom_input_file_name, 'w', encoding='utf-8') as prom_input_file:
             prom_input_file.write(prom_input)
         fctl_cli = ' '.join(
             ['python3', self.FCTL] + self.fctl_args(extra_args))
@@ -122,7 +122,7 @@ class FctlClassTestCase(FctlTestCaseBase):
 
     def test_http_fail(self):
         """Test HTTP scrape handled."""
-        with open(os.devnull, 'w') as err_output_file:
+        with open(os.devnull, 'w', encoding='utf-8') as err_output_file:
             self.assertEqual(
                 None,
                 fctl.scrape_prometheus(
@@ -130,7 +130,7 @@ class FctlClassTestCase(FctlTestCaseBase):
 
     def test_bad_url(self):
         """Test unparseable URL."""
-        with open(os.devnull, 'w') as err_output_file:
+        with open(os.devnull, 'w', encoding='utf-8') as err_output_file:
             self.assertEqual(
                 None,
                 fctl.scrape_prometheus(
@@ -139,16 +139,16 @@ class FctlClassTestCase(FctlTestCaseBase):
     def test_bad_content(self):
         """Test bad content."""
         bad_input_file_name = os.path.join(self.tmpdir, 'bad_content.txt')
-        with open(bad_input_file_name, 'w') as bad_input_file:
+        with open(bad_input_file_name, 'w', encoding='utf-8') as bad_input_file:
             bad_input_file.write('NOT/_prometheus_data')
-        with open(os.devnull, 'w') as err_output_file:
+        with open(os.devnull, 'w', encoding='utf-8') as err_output_file:
             self.assertEqual(
                 None,
                 fctl.scrape_prometheus(
                     ['file://%s' % bad_input_file_name], err_output_file=err_output_file))
 
     def write_prom_input_file(self, input_data):
-        with open(self.prom_input_file_name, 'w') as prom_input_file:
+        with open(self.prom_input_file_name, 'w', encoding='utf-8') as prom_input_file:
             prom_input_file.write(input_data)
 
     def test_macs(self):
@@ -162,7 +162,7 @@ class FctlClassTestCase(FctlTestCaseBase):
             _
         ) = fctl.parse_args(self.fctl_args())
         metrics = fctl.scrape_prometheus(endpoints)
-        report_out = fctl.report_label_match_metrics(  # pylint: disable=assignment-from-no-return
+        report_out = fctl.report_label_match_metrics(
             report_metrics=report_metrics,
             metrics=metrics,
             label_matches=label_matches,

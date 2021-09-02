@@ -1,5 +1,7 @@
 """Valve IPv4/IPv6 routing implementation."""
 
+# pylint: disable=too-many-lines
+
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -31,6 +33,7 @@ from faucet.valve_manager_base import ValveManagerBase
 
 
 class AnonVLAN:
+    """The anonymous VLAN for global routing"""
 
     def __init__(self, vid):
         self.vid = vid
