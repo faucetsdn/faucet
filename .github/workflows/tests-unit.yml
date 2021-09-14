@@ -63,7 +63,7 @@ jobs:
         run: |
           ./docker/pip_deps.sh
           pip3 install ./
-          pip3 show faucet
+          pip3 show c65faucet
       - name: Run unit tests
         run: |
           ./tests/run_unit_tests.sh
