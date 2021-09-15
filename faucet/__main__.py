@@ -102,8 +102,8 @@ def parse_args(sys_args):
 
 def print_version():
     """Print version number and exit."""
-    version = VersionInfo('faucet').semantic_version().release_string()
-    message = 'Faucet %s' % version
+    version = VersionInfo('c65faucet').semantic_version().release_string()
+    message = 'c65faucet %s' % version
     print(message)
 
 
