@@ -167,7 +167,7 @@ def check_dependencies():
     for (binary, binary_get_version, binary_present_re,
          binary_version_re, binary_minversion) in EXTERNAL_DEPENDENCIES:
         binary_args = [binary] + binary_get_version
-        required_binary = f'required binary/library {" ".join(binary_args)}')
+        required_binary = f'required binary/library {" ".join(binary_args)}'
         try:
             with subprocess.Popen(
                     binary_args,
