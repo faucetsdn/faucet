@@ -89,12 +89,12 @@ def parse_args(sys_args):
     for ryu_arg in RYU_OPTIONAL_ARGS:
         if len(ryu_arg) >= 3:
             args.add_argument(
-                '--ryu-%s' % ryu_arg[0],
+                f'--ryu-{ryu_arg[0]}',
                 help=ryu_arg[1],
                 default=ryu_arg[2])
         else:
             args.add_argument(
-                '--ryu-%s' % ryu_arg[0],
+                f'--ryu-{ryu_arg[0]}',
                 help=ryu_arg[1])
 
     return args.parse_args(sys_args)
@@ -103,7 +103,7 @@ def parse_args(sys_args):
 def print_version():
     """Print version number and exit."""
     version = VersionInfo('faucet').semantic_version().release_string()
-    message = 'Faucet %s' % version
+    message = f'Faucet {version}'
     print(message)
 
 
@@ -136,7 +136,7 @@ def build_ryu_args(argv):
         if arg == 'ryu_config_file' and not os.path.isfile(val):
             continue
         arg_name = arg.replace('ryu_', '').replace('_', '-')
-        ryu_args.append('--%s=%s' % (arg_name, val))
+        ryu_args.append(f'--{arg_name}={val}')
 
     # Running Faucet or Gauge?
     if args.gauge or os.path.basename(prog) == 'gauge':
