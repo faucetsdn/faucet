@@ -575,7 +575,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             self.validate_with_externals_down(dp_name)
         except AssertionError:
             asserted = True
-        self.assertTrue(asserted, f'Did not fail as expected for {dp_name}'
+        self.assertTrue(asserted, f'Did not fail as expected for {dp_name}')
 
     def verify_intervlan_routing(self):
         """Verify intervlan routing but for LAG host use bond interface"""
