@@ -1868,7 +1868,7 @@ dbs:
         fping_bin = 'fping'
         if faucet_vip.version == 6:
             fping_bin = 'fping6'
-        fping_cli = f'{fping_pin} {self.FPING_ARGS_SHORT} -b {size}' \
+        fping_cli = f'{fping_bin} {self.FPING_ARGS_SHORT} -b {size}' \
                     f' -c {total_packets} -i {packet_interval_ms} {faucet_vip.ip}'
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(mininet_test_util.timeout_cmd(
@@ -2810,7 +2810,7 @@ dbs:
         self.assertEqual(0, loss)
 
     def match_table(self, prefix):
-        exp_prefix = f'{prefix.network_address}/{prefix_netmask}'
+        exp_prefix = f'{prefix.network_address}/{prefix.netmask}'
         if prefix.version == 6:
             nw_dst_match = {'ipv6_dst': exp_prefix, 'dl_type': IPV6_ETH}
             table_id = self._IPV6_FIB_TABLE
