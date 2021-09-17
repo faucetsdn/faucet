@@ -1035,7 +1035,6 @@ configuration.
                     dst_port = dst_dp.resolve_port(dst_port_name)
                     test_config_condition(dst_port is None, (
                         f'Could not find referenced destination port ({dst_port_name}) for tunnel ACL {acl_in}'))
-                            dst_port_name, acl_in)))
                     test_config_condition(dst_port.stack is None, (
                         f'destination port {dst_port_name} for tunnel ACL {acl_in} cannot be a stack port'))
                     dst_port = dst_port.number
