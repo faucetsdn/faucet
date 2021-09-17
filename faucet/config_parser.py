@@ -69,8 +69,7 @@ def _get_vlan_by_key(dp_id, vlan_key, vlans):
         if vlan_key == vlan.vid:
             return vlan
     test_config_condition(not isinstance(vlan_key, int), (
-        'Implicitly created VLAN %s must be an int (not %s)' % (
-            vlan_key, type(vlan_key))))
+        f'Implicitly created VLAN {vlan_key} must be an int (not {type(vlan_key)})'))
     # Create VLAN with VID, if not defined.
     return vlans.setdefault(vlan_key, VLAN(vlan_key, dp_id))
 
@@ -90,7 +89,7 @@ def _dp_parse_port(dp_id, port_key, port_conf, vlans):
 
     port = Port(port_key, dp_id, port_conf)
     test_config_condition(str(port_key) not in (str(port.number), port.name), (
-        'Port key %s match port name or port number' % port_key))
+        f'Port key {port_key} match port name or port number'))
     _dp_parse_native_port_vlan()
     _dp_parse_tagged_port_vlans()
     return port
@@ -128,7 +127,7 @@ def _dp_add_ports(dp, dp_conf, dp_id, vlans):
             for range_ in re.findall(r'(\d+-\d+)', str(port_range)):
                 start_num, end_num = [int(num) for num in range_.split('-')]
                 test_config_condition(start_num >= end_num, (
-                    'Incorrect port range (%d - %d)' % (start_num, end_num)))
+                    f'Incorrect port range ({start_num} - {end_num})'))
                 port_nums.update(range(start_num, end_num + 1))
                 port_range = re.sub(range_, '', port_range)
             other_nums = [int(p) for p in re.findall(r'\d+', str(port_range))]
@@ -176,17 +175,17 @@ def _parse_dp(dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
     test_config_condition(not isinstance(dp_conf, dict), 'DP config must be dict')
     dp = DP(dp_key, dp_conf.get('dp_id', None), dp_conf)
     test_config_condition(dp.name != dp_key, (
-        'DP key %s and DP name must match' % dp_key))
+        f'DP key {dp_key} and DP name must match'))
     vlans = {}
     vids = set()
     for vlan_key, vlan_conf in vlans_conf.items():
         vlan = VLAN(vlan_key, dp.dp_id, vlan_conf)
         test_config_condition(str(vlan_key) not in (str(vlan.vid), vlan.name), (
-            'VLAN %s key must match VLAN name or VLAN VID' % vlan_key))
+            f'VLAN {vlan_key} key must match VLAN name or VLAN VID'))
         test_config_condition(not isinstance(vlan_key, (str, int)), (
-            'VLAN %s key must not be type %s' % (vlan_key, type(vlan_key))))
+            f'VLAN {vlan_key} key must not be type {type(vlan_key)}'))
         test_config_condition(vlan.vid in vids, (
-            'VLAN VID %u multiply configured' % vlan.vid))
+            f'VLAN VID {vlan.vid} multiply configured'))
         vlans[vlan_key] = vlan
         vids.add(vlan.vid)
     _parse_acls(dp, acls_conf)
@@ -206,7 +205,7 @@ def _dp_parser_v2(dps_conf, acls_conf, meters_conf,
                 dp_key, dp_conf, acls_conf, meters_conf, routers_conf, vlans_conf)
             dp_vlans.append((dp, vlans))
         except InvalidConfigError as err:
-            raise InvalidConfigError('DP %s: %s' % (dp_key, err)) from err
+            raise InvalidConfigError(f'DP {dp_key}: {err}') from err
 
     # Some VLANs are created implicitly just by referencing them in tagged/native,
     # so we must make them available to all DPs.
@@ -231,7 +230,7 @@ def _dp_parser_v2(dps_conf, acls_conf, meters_conf,
     dpid_refs = set()
     for dp in dps:
         test_config_condition(dp.dp_id in dpid_refs, (
-            'DPID %u is duplicated' % dp.dp_id))
+            f'DPID {dp.dp_id} is duplicated'))
         dpid_refs.add(dp.dp_id)
 
     routers_referenced = set()
@@ -239,7 +238,7 @@ def _dp_parser_v2(dps_conf, acls_conf, meters_conf,
         routers_referenced.update(dp.routers.keys())
     for router in routers_conf:
         test_config_condition(router not in routers_referenced, (
-            'router %s configured but not used by any DP' % router))
+            f'router {router} configured but not used by any DP'))
 
     return dps
 
@@ -265,10 +264,10 @@ def _config_parser_v2(config_file, logname, meta_dp_state):
 
     if not config_parser_util.dp_include(
             config_hashes, config_contents, config_path, logname, top_confs):
-        raise InvalidConfigError('Error found while loading config file: %s' % config_path)
+        raise InvalidConfigError(f'Error found while loading config file: {config_path}')
 
     if not top_confs['dps']:
-        raise InvalidConfigError('DPs not configured in file: %s' % config_path)
+        raise InvalidConfigError(f'DPs not configured in file: {config_path}')
 
     dps = dp_preparsed_parser(top_confs, meta_dp_state)
     return (config_hashes, config_contents, dps, top_confs)
@@ -328,7 +327,7 @@ def _watcher_parser_v2(conf, logname, prom_client):
         # TODO: refactor watcher_conf as a container.
         for dp_name in watcher_dps:
             if dp_name not in dps:
-                logger.error('DP %s in Gauge but not configured in FAUCET', dp_name)
+                logger.error(f'DP {dp_name} in Gauge but not configured in FAUCET')
                 continue
             dp = dps[dp_name]
             if 'dbs' in watcher_conf:
