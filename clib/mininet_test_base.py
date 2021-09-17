@@ -1011,7 +1011,7 @@ dps:
 faucet_configs:
     - {faucet_config_file}
 watchers:
-    {self.get_gauage_watcher_config()}
+    {self.get_gauge_watcher_config()}
 dbs:
     stats_file:
         type: 'text'
