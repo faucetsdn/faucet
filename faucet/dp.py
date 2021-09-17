@@ -481,7 +481,7 @@ configuration.
         """Configure FAUCET pipeline with tables."""
         valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
         test_config_condition(
-            not valve_cl, f'hardware {self.hardare} must be in {list(SUPPORTED_HARDWARE)}')
+            not valve_cl, f'hardware {self.hardware} must be in {list(SUPPORTED_HARDWARE)}')
         if valve_cl is None:
             return
 
