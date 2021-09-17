@@ -1408,7 +1408,7 @@ class ValveTestBases:
                     match, in_port, valve_vlan, ofp.OFPP_IN_PORT)
                 self.assertEqual(
                     in_port.hairpin, hairpin_output,
-                    msg=f'hairpin flooding incorrect (expected {in_port.hairping} got {hairpin_output})')
+                    msg=f'hairpin flooding incorrect (expected {in_port.hairpin} got {hairpin_output})')
 
                 for port in valve_vlan.get_ports():
                     output = _verify_flood_to_port(match, port, valve_vlan)
