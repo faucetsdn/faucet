@@ -2159,9 +2159,9 @@ dbs:
         tcpdump_filter = (
             f'not ether src {mirror_mac} and ether proto 0x888e')
         eap_conf_cmd = (
-            'echo "eapol_version=2\nap_scan=0\nnetwork={\n'
-            'key_mgmt=IEEE8021X\neap=MD5\nidentity=\\"login\\"\n'
-            f'password=\\"password\\"\n}\n" > {tmp_eap_conf}')
+            f'echo "eapol_version=2\nap_scan=0\nnetwork={{\n'
+            f'key_mgmt=IEEE8021X\neap=MD5\nidentity=\\"login\\"\n'
+            f'password=\\"password\\"\n}}\n" > {tmp_eap_conf}')
         wpa_supplicant_cmd = mininet_test_util.timeout_cmd(
             f'wpa_supplicant -c{tmp_eap_conf} -Dwired -i{first_host.defaultIntf().name} -d', 3)
         tcpdump_txt = self.tcpdump_helper(
