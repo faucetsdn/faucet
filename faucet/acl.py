@@ -397,7 +397,7 @@ The output action contains a dictionary with the following elements:
                 port = resolve_port_cb(port_name)
                 test_config_condition(
                     not port,
-                    (f'ACL (+self._id}) output port undefined in DP: {self.dp_id}')
+                    (f'ACL ({self._id}) output port undefined in DP: {self.dp_id}')
                 )
                 result[output_action] = port
             elif output_action == 'ports':
