@@ -2706,7 +2706,7 @@ dbs:
             if os.path.exists(log_name):
                 with open(log_name, encoding='utf-8') as log:
                     exabgp_log_content.append(log.read())
-        self.fail(f'exabgp did not peer with FAUCET: {"\n".join(exabgp_log_content)}')
+        self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
     @staticmethod
     def matching_lines_from_file(exp, log_name):
