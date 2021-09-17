@@ -206,28 +206,28 @@ def generate_prometheus_metric_table(_):
     }
 
     for module in ["faucet", "gauge"]:
-        block_text[module] = """\
-.. list-table:: {} prometheus metrics
+        block_text[module] = f"""
+.. list-table:: {module.title()} prometheus metrics
     :widths: 40 10 55
     :header-rows: 1
 
     * - Metric
       - Type
       - Description
-""".format(module.title())
+"""
 
         # pylint: disable=protected-access
         for metric in metrics[module]._reg.collect():
             if metric.type == "counter":
-                metric_name = "{}_total".format(metric.name)
+                metric_name = f"{metric.name}_total"
             else:
                 metric_name = metric.name
 
-            block_text[module] += """\
-    * - {}
-      - {}
-      - {}
-""".format(metric_name, metric.type, metric.documentation)
+            block_text[module] += f"""
+    * - {metric_name}
+      - {metric.type}
+      - {metric.documentation}
+"""
 
         with open(output_path[module], 'w', encoding='utf-8') as output_file:
             output_file.write(block_text[module])
