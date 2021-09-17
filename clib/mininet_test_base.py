@@ -529,7 +529,7 @@ class FaucetTestBase(unittest.TestCase):
             # Verify version is logged.
             self.assertTrue(
                 self.matching_lines_from_file(r'^.+version\s+(\S+)$', logfile),
-                msg=f'no version logged in {logfile}'
+                msg=f'no version logged in {logfile}')
             # Verify no OFErrors.
             oferrors += '\n\n'.join(self.matching_lines_from_file(r'^.+(OFError.+)$', logfile))
             if not ignore_oferrors:
