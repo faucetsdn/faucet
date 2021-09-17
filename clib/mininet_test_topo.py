@@ -70,22 +70,22 @@ class FaucetHost(CPULimitedHost):
         """Start dnsmasq instance inside dnsmasq namespace"""
         if interface is None:
             interface = self.defaultIntf()
-        dhcp_leasefile = os.path.join(tmpdir, 'nfv-dhcp-%s-%s-vlan%u.leases' % (self.name, iprange, vlan))
-        log_facility = os.path.join(tmpdir, 'nfv-dhcp-%s-%s-vlan%u.log' % (self.name, iprange, vlan))
-        pid_file = os.path.join(tmpdir, 'dnsmasq-%s-%s-vlan%u.pid' % (self.name, iprange, vlan))
+        dhcp_leasefile = os.path.join(tmpdir, f'nfv-dhcp-{self.name}-{iprange}-vlan{vlan}.leases')
+        log_facility = os.path.join(tmpdir, f'nfv-dhcp-{self.name}-{iprange}-vlan{vlan}.log')
+        pid_file = os.path.join(tmpdir, f'dnsmasq-{self.name}-{iprange}-vlan{vlan}.pid')
         self.pid_files.append(pid_file)
         cmd = 'dnsmasq'
         opts = ''
-        opts += ' --dhcp-range=%s,255.255.255.0' % iprange
+        opts += f' --dhcp-range={iprange},255.255.255.0'
         opts += ' --dhcp-sequential-ip'
-        opts += ' --dhcp-option=option:router,%s' % router
+        opts += f' --dhcp-option=option:router,{router}'
         opts += ' --no-resolv --txt-record=does.it.work,yes'
         opts += ' --bind-interfaces'
         opts += ' --except-interface=lo'
-        opts += ' --interface=%s' % interface
-        opts += ' --dhcp-leasefile=%s' % dhcp_leasefile
-        opts += ' --log-facility=%s' % log_facility
-        opts += ' --pid-file=%s' % pid_file
+        opts += f' --interface={interface}'
+        opts += f' --dhcp-leasefile={dhcp_leasefile}'
+        opts += f' --log-facility={log_facility}'
+        opts += f' --pid-file=pid_file'
         opts += ' --conf-file='
         return self.cmd(cmd + opts)
 
@@ -97,9 +97,9 @@ class FaucetHost(CPULimitedHost):
         opts = ''
         opts += ' -1'
         opts += ' -d'
-        opts += ' -pf %s/dhclient-%s.pid' % (tmpdir, self.name)
-        opts += ' -lf %s/dhclient-%s.leases' % (tmpdir, self.name)
-        opts += ' %s' % interface
+        opts += f' -pf {tmpdir}/dhclient-{self.name}.pid'
+        opts += f' -lf {tmpdir}/dhclient-{self.name}.leases'
+        opts += f' {interface}'
         dhclient_cmd = cmd + opts
         return self.cmd(mininet_test_util.timeout_cmd(dhclient_cmd, timeout), verbose=True)
 
@@ -136,40 +136,39 @@ class VLANHost(FaucetHost):
             for vlan_id, ip_addr in vlan_intfs.items():
                 if isinstance(vlan_id, tuple):
                     # Interface will take multiply VLAN tagged packets
-                    intf_name = '%s' % intf.name
+                    intf_name = f'{intf.name}'
                     for vlan_i in vlan_id:
                         prev_name = intf_name
                         # Cannot have intf name tu0xy-eth0.VID1.VID2 as that takes up too many bytes
-                        intf_name += '.%s' % vlan_i
+                        intf_name += f'.{vlan_i}'
                         cmds.extend([
-                            'ip link add link %s name %s type vlan id %s' %
-                            (prev_name, intf_name, vlans[vlan_i]),
-                            'ip link set dev %s up' % (intf_name)
+                            f'ip link add link {prev_name} name {intf_name} type vlan id {vlans[vlan_i]}',
+                            f'ip link set dev {intf_name} up'
                         ])
                         self.nameToIntf[intf_name] = intf
                         self.vlan_intfs.setdefault(vlan_id, [])
                         self.vlan_intfs[vlan_id].append(intf_name)
-                    cmds.append('ip -4 addr add %s dev %s' % (ip_addr, intf_name))
+                    cmds.append(f'ip -4 addr add {ip_addr} dev {intf_name}')
                 else:
-                    intf_name = '%s.%s' % (intf, vlans[vlan_id])
+                    intf_name = f'{intf}.{vlans[vlan_id]}'
                     cmds.extend([
-                        'vconfig add %s %d' % (intf.name, vlans[vlan_id]),
-                        'ip -4 addr add %s dev %s' % (ip_addr, intf_name),
-                        'ip link set dev %s up' % intf_name])
+                        f'vconfig add {intf.name} {vlans[vlan_id]}',
+                        f'ip -4 addr add {ip_addr} dev {intf_name}',
+                        f'ip link set dev {intf_name} up'])
                     self.nameToIntf[intf_name] = intf
                     self.vlan_intfs[vlan_id] = intf_name
         else:
-            vlan_intf_name = '%s.%s' % (intf, '.'.join(str(v) for v in vlans))
+            vlan_intf_name = f'{intf}.{".".join(str(v) for v in vlans)}'
             cmds.extend([
-                'ip link set dev %s up' % vlan_intf_name,
-                'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)])
+                f'ip link set dev {vlan_intf_name} up',
+                f'ip -4 addr add {params["ip"]} dev {vlan_intf_name}'])
             for vlan in vlans:
-                cmds.append('vconfig add %s %d' % (intf, vlan))
+                cmds.append(f'vconfig add {intf} {vlan}')
             intf.name = vlan_intf_name
             self.nameToIntf[vlan_intf_name] = intf
         cmds.extend([
-            'ip -4 addr flush dev %s' % intf,
-            'ip -6 addr flush dev %s' % intf])
+            f'ip -4 addr flush dev {intf}',
+            f'ip -6 addr flush dev {intf}'])
         for cmd in cmds:
             self.cmd(cmd)
         return super_config
@@ -210,7 +209,7 @@ class FaucetSwitch(OVSSwitch):
         cmd_output = super().cmd(*args, **kwargs)
         exit_code = int(super().cmd('echo $?'))
         if success is not None and exit_code != success:
-            msg = "%s exited with (%d):'%s'" % (args, exit_code, cmd_output)
+            msg = f"{args} exited with ({exit_code}):'{cmd_output}'"
             if self._workaround(args):
                 warn('Ignoring:', msg, '\n')
             else:
@@ -222,27 +221,27 @@ class FaucetSwitch(OVSSwitch):
         super().attach(intf)
         # This should be done in Mininet, but we do it for now
         port = self.ports[intf]
-        self.cmd('ovs-vsctl set Interface', intf, 'ofport_request=%s' % port)
+        self.cmd('ovs-vsctl set Interface', intf, f'ofport_request={port}')
 
     def add_controller(self, controller):
         self.clist.append((
-            self.name + controller.name, '%s:%s:%d' % (
-                controller.protocol, controller.IP(), controller.port)))
+            self.name + controller.name,
+            f'{controller.protocol}:{controller.IP()}:{controller.port}'))
         if self.listenPort:
             self.clist.append((self.name + '-listen',
-                               'ptcp:%s' % self.listenPort))
+                               f'ptcp:{self.listenPort}'))
         ccmd = '-- --id=@%s create Controller target=\\"%s\\"'
         if self.reconnectms:
-            ccmd += ' max_backoff=%d' % self.reconnectms
+            ccmd += f' max_backoff={self.reconnectms}'
         for param, value in self.controller_params.items():
-            ccmd += ' %s=%s' % (param, value)
+            ccmd += f' {param}={value}'
         cargs = ' '.join(ccmd % (name, target)
                          for name, target in self.clist)
         # Controller ID list
         cids = ','.join('@%s' % name for name, _target in self.clist)
         # One ovs-vsctl command to rule them all!
         self.vsctl(cargs
-                   + ' -- set bridge %s controller=[%s]' % (self, cids))
+                   + f' -- set bridge {self} controller=[{cids}]')
 
     def start(self, controllers):
         # Transcluded from Mininet source, since need to insert
@@ -250,39 +249,38 @@ class FaucetSwitch(OVSSwitch):
         int(self.dpid, 16)  # DPID must be a hex string
         switch_intfs = [intf for intf in self.intfList() if self.ports[intf] and not intf.IP()]
         # Command to add interfaces
-        intfs = ' '.join(' -- add-port %s %s' % (self, intf)
+        intfs = ' '.join(f' -- add-port {self} {intf}'
                          + self.intfOpts(intf)
                          for intf in switch_intfs)
         # Command to create controller entries
-        self.clist = [(self.name + c.name, '%s:%s:%d' %
-                       (c.protocol, c.IP(), c.port))
+        self.clist = [(self.name + c.name, f'{c.protocol}:{c.IP()}:{c.port}')
                       for c in controllers]
         if self.listenPort:
             self.clist.append((self.name + '-listen',
-                               'ptcp:%s' % self.listenPort))
+                               f'ptcp:{self.listenPort}'))
         ccmd = '-- --id=@%s create Controller target=\\"%s\\"'
         if self.reconnectms:
-            ccmd += ' max_backoff=%d' % self.reconnectms
+            ccmd += f' max_backoff={self.reconnectms}'
         for param, value in self.controller_params.items():
-            ccmd += ' %s=%s' % (param, value)
+            ccmd += f' {param}={value}'
         cargs = ' '.join(ccmd % (name, target)
                          for name, target in self.clist)
         # Controller ID list
         cids = ','.join('@%s' % name for name, _target in self.clist)
         # Try to delete any existing bridges with the same name
         if not self.isOldOVS():
-            cargs += ' -- --if-exists del-br %s' % self
+            cargs += f' -- --if-exists del-br {self}'
         # One ovs-vsctl command to rule them all!
         self.vsctl(cargs
-                   + ' -- add-br %s' % self
-                   + ' -- set bridge %s controller=[%s]' % (self, cids)
+                   + f' -- add-br {self}'
+                   + f' -- set bridge {self} controller=[{cids}]'
                    + self.bridgeOpts()
                    + intfs)
         # switch interfaces on mininet host, must have no IP config.
         for intf in switch_intfs:
             for ipv in (4, 6):
-                self.cmd('ip -%u addr flush dev %s' % (ipv, intf))
-            assert self.cmd('echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6' % intf) == ''
+                self.cmd(f'ip -{ipv} addr flush dev {intf}')
+            assert self.cmd(f'echo 1 > /proc/sys/net/ipv6/conf/{intf}/disable_ipv6') == ''
         # If necessary, restore TC config overwritten by OVS
         if not self.batch:
             for intf in self.intfList():
@@ -316,8 +314,7 @@ class FaucetSwitchTopo(Topo):
         id_chars = ''.join(sorted(string.ascii_letters + string.digits))  # pytype: disable=module-attr
         id_a = int(ports_served / len(id_chars))
         id_b = ports_served - (id_a * len(id_chars))
-        return '%s%s' % (
-            id_chars[id_a], id_chars[id_b])
+        return f'{id_chars[id_a]}{id_chars[id_b]}'
 
     def _add_tagged_host(self, sid_prefix, tagged_vids, host_n):
         """Add a single tagged test host."""
@@ -338,7 +335,7 @@ class FaucetSwitchTopo(Topo):
     def _add_faucet_switch(self, sid_prefix, dpid, hw_dpid, ovs_type):
         """Add a FAUCET switch."""
         switch_cls = FaucetSwitch
-        switch_name = 's%s' % sid_prefix
+        switch_name = f's{sid_prefix}'
         self.switch_dpids[switch_name] = dpid
         self.dpid_names[dpid] = switch_name
         if hw_dpid and hw_dpid == dpid:
@@ -460,7 +457,7 @@ socket_timeout=15
 
     def __init__(self, name, tmpdir, controller_intf=None, controller_ipv6=False,
                  cargs='', **kwargs):
-        name = '%s-%u' % (name, os.getpid())
+        name = f'{name}-{os.getpid()}'
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
         self.controller_ipv6 = controller_ipv6
@@ -475,13 +472,13 @@ socket_timeout=15
                 socket_type = socket.AF_INET6
             self.controller_ip = netifaces.ifaddresses(  # pylint: disable=c-extension-no-member
                 self.controller_intf)[socket_type][0]['addr']
-            ofp_listen_host_arg = '--ryu-ofp-listen-host=%s' % self.controller_ip
+            ofp_listen_host_arg = f'--ryu-ofp-listen-host={self.controller_ip}'
         self.pid_file = os.path.join(self.tmpdir, name + '.pid')
-        pid_file_arg = '--ryu-pid-file=%s' % self.pid_file
+        pid_file_arg = f'--ryu-pid-file={self.pid_file}'
         ryu_conf_file = os.path.join(self.tmpdir, 'ryu.conf')
         with open(ryu_conf_file, 'w', encoding='utf-8') as ryu_conf:
             ryu_conf.write(self.RYU_CONF)
-        ryu_conf_arg = '--ryu-config-file=%s' % ryu_conf_file
+        ryu_conf_arg = f'--ryu-config-file={ryu_conf_file}'
         return ' '.join((
             self.BASE_CARGS, pid_file_arg, ryu_conf_arg, ofp_listen_host_arg, cargs))
 
@@ -500,16 +497,15 @@ socket_timeout=15
             '-U',
             '-q',
             '-W 1',  # max files 1
-            '-G %u' % (self.MAX_CTL_TIME - 1),
-            '-c %u' % (self.MAX_OF_PKTS),
-            '-i %s' % self.controller_intf,
-            '-w %s' % self.ofcap,
-            'tcp and port %u' % self.port,
+            f'-G {self.MAX_CTL_TIME - 1}',
+            f'-c {self.MAX_OF_PKTS}',
+            f'-i {self.controller_intf}',
+            f'-w {self.ofcap}',
+            f'tcp and port {self.port}',
             '>/dev/null',
             '2>/dev/null',
         ))
-        self.cmd('timeout %s tcpdump %s &' % (
-            self.MAX_CTL_TIME, tcpdump_args))
+        self.cmd(f'timeout {self.MAX_CTL_TIME} tcpdump {tcpdump_args} &')
         for _ in range(5):
             if os.path.exists(self.ofcap):
                 return
@@ -524,9 +520,9 @@ socket_timeout=15
                                    (ctl_cert, 'ryu-ctl-cert'),
                                    (ca_certs, 'ryu-ca-certs')):
             if carg_val:
-                tls_cargs.append(('--%s=%s' % (carg_key, carg_val)))
+                tls_cargs.append((f'--{carg_key}={carg_val}'))
         if tls_cargs:
-            tls_cargs.append(('--ryu-ofp-ssl-listen-port=%u' % ofctl_port))
+            tls_cargs.append((f'--ryu-ofp-ssl-listen-port={ofctl_port}'))
         return ' '.join(tls_cargs)
 
     def _command(self, env, tmpdir, name, args):
@@ -534,7 +530,7 @@ socket_timeout=15
         env_vars = []
         for var, val in sorted(env.items()):
             env_vars.append('='.join((var, val)))
-        script_wrapper_name = os.path.join(tmpdir, 'start-%s.sh' % name)
+        script_wrapper_name = os.path.join(tmpdir, f'start-{name}.sh')
         cprofile_args = ''
         if self.CPROFILE:
             cprofile_args = 'python3 -m cProfile -s time'
@@ -549,7 +545,7 @@ socket_timeout=15
                     cprofile_args,
                     args))
             script_wrapper.write(faucet_cli)
-        return '/bin/sh %s' % script_wrapper_name
+        return f'/bin/sh {script_wrapper_name}'
 
     def ryu_pid(self):
         """Return PID of ryu-manager process."""
@@ -606,12 +602,12 @@ socket_timeout=15
         """Stop tcpdump for OF port and run tshark to decode it."""
         if os.path.exists(self.ofcap):
             self.cmd(' '.join(['fuser', '-15', '-k', self.ofcap]))
-            text_ofcap_log = '%s.txt' % self.ofcap
+            text_ofcap_log = f'{self.ofcap}.txt'
             with open(text_ofcap_log, 'w', encoding='utf-8') as text_ofcap:
                 subprocess.call(
                     ['timeout', str(self.MAX_CTL_TIME),
                      'tshark', '-l', '-n', '-Q',
-                     '-d', 'tcp.port==%u,openflow' % self.port,
+                     '-d', f'tcp.port=={self.port},openflow',
                      '-O', 'openflow_v4',
                      '-Y', 'openflow_v4',
                      '-r', self.ofcap],
@@ -651,8 +647,8 @@ class FAUCET(BaseFAUCET):
         self.ofctl_port = mininet_test_util.find_free_port(
             ports_sock, test_name)
         cargs = ' '.join((
-            '--ryu-wsapi-host=%s' % mininet_test_util.LOCALHOSTV6,
-            '--ryu-wsapi-port=%u' % self.ofctl_port,
+            f'--ryu-wsapi-host={mininet_test_util.LOCALHOSTV6}',
+            f'--ryu-wsapi-port={self.ofctl_port}',
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         super().__init__(
             name,

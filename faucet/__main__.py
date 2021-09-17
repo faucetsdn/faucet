@@ -24,10 +24,10 @@ import sys
 
 from pbr.version import VersionInfo
 
-if sys.version_info < (3,) or sys.version_info < (3, 5):
+if sys.version_info < (3,) or sys.version_info < (3, 6):
     raise ImportError("""You are trying to run faucet on python {py}
 
-Faucet is not compatible with python {py}, please upgrade to python 3.5 or newer."""
+Faucet is not compatible with python {py}, please upgrade to python 3.6 or newer."""
                       .format(py='.'.join([str(v) for v in sys.version_info[:3]])))
 
 RYU_OPTIONAL_ARGS = [
