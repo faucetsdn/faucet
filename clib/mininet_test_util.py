@@ -211,7 +211,7 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             response_str = ''
             if isinstance(response, int):
                 response = [response]
-            response_str = ''.join([f'{i for i in response}\n'])
+            response_str = ''.join(['%u\n' % i for i in response])
             connection.sendall(response_str.encode())  # pylint: disable=no-member
         connection.close()
 
