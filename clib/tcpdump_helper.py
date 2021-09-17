@@ -34,8 +34,7 @@ class TcpdumpHelper:
         tcpdump_flags += ' -Z root'
         tcpdump_flags += f' -c {packets if packets else ""}'
         tcpdump_flags += f' -w {pcap_out if pcap_out else ""}'
-        tcpdump_cmd = f'tcpdump -i {self.intf_name} {tcpdump_flags}' \
-            f' --immediate-mode -e -n -U {tcpdump_filter}'
+        tcpdump_cmd = f'tcpdump -i {self.intf_name} {tcpdump_flags} --immediate-mode -e -n -U {tcpdump_filter}'
         pipe_cmd = tcpdump_cmd
         if timeout:
             pipe_cmd = mininet_test_util.timeout_soft_cmd(tcpdump_cmd, timeout)
