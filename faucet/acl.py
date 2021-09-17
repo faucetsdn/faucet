@@ -375,6 +375,7 @@ The output action contains a dictionary with the following elements:
                     tunnel_reverse and tunnel_direction,
                     (f'Tunnel ACL {self._id} cannot contain values for the fields'
                      '`bi_directional` and `reverse` at the same time')
+                )
                 # Resolve the tunnel items
                 dst_dp, dst_port, tunnel_id = resolve_tunnel_objects(
                     tunnel_dp, tunnel_port, tunnel_id)
