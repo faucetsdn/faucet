@@ -2579,7 +2579,7 @@ dbs:
     def serve_str_on_tcp_port(self, host, port, serve_str='hello', timeout=20):
         """Serve str on a TCP port on a host."""
         host.cmd(mininet_test_util.timeout_cmd(
-            f'echo {serve_str} | nc -l {host.IP()} {timeout} &')
+            f'echo {serve_str} | nc -l {host.IP()} {port} &', timeout))
         self.wait_for_tcp_listen(host, port)
 
     def wait_nonzero_packet_count_flow(self, match, table_id, timeout=15,
