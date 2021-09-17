@@ -297,10 +297,10 @@ DOT1X_ACL_CONFIG = """
             noauth_acl: noauth_acl
 """ + BASE_DP1_CONFIG
 
-CONFIG = f"""
+CONFIG = """
 dps:
     s1:
-{DP1_CONFIG}
+%s
         interfaces:
             p1:
                 number: 1
@@ -410,13 +410,13 @@ vlans:
         vid: 0x300
     v400:
         vid: 0x400
-"""
+""" % DP1_CONFIG
 
 
-STACK_CONFIG = f"""
+STACK_CONFIG = """
 dps:
     s1:
-{DP1_CONFIG}
+%s
         stack:
             priority: 1
         interfaces:
@@ -472,12 +472,12 @@ dps:
 vlans:
     v100:
         vid: 0x100
-    """
+    """ % DP1_CONFIG
 
-STACK_LOOP_CONFIG = f"""
+STACK_LOOP_CONFIG = """
 dps:
     s1:
-{BASE_DP1_CONFIG}
+%s
         interfaces:
             1:
                 description: p1
@@ -493,7 +493,7 @@ dps:
                 description: p3
                 native_vlan: v100
     s2:
-{BASE_DP_CONFIG}
+%s
         faucet_dp_mac: 0e:00:00:00:01:02
         dp_id: 0x2
         interfaces:
@@ -511,7 +511,7 @@ dps:
                 description: p3
                 native_vlan: v100
     s3:
-{BASE_DP_CONFIG}
+%s
         faucet_dp_mac: 0e:00:00:00:01:03
         dp_id: 0x3
         stack:
@@ -533,7 +533,7 @@ dps:
 vlans:
     v100:
         vid: 0x100
-"""
+""" % (BASE_DP1_CONFIG, BASE_DP_CONFIG, BASE_DP_CONFIG)
 
 
 class ValveTestBases:
@@ -2143,11 +2143,11 @@ class ValveTestBases:
 
         def test_dp_acl_deny(self):
             """Test DP acl denies forwarding"""
-            acl_config = f"""
+            acl_config = """
 dps:
     s1:
         dp_acls: [drop_non_ospf_ipv4]
-{DP1_CONFIG}
+%s
         interfaces:
             p2:
                 number: 2
@@ -2185,7 +2185,7 @@ meters:
                         rate: 1
                     }
                 ]
-"""
+""" % DP1_CONFIG
 
             drop_match = {
                 'in_port': 2,
@@ -2208,11 +2208,11 @@ meters:
 
         def test_dp_acl_deny_ordered(self):
             """Test DP acl denies forwarding"""
-            acl_config = f"""
+            acl_config = """
 dps:
     s1:
         dp_acls: [drop_non_ospf_ipv4]
-{DP1_CONFIG}
+%s
         interfaces:
             p2:
                 number: 2
@@ -2250,7 +2250,7 @@ meters:
                         rate: 1
                     }
                 ]
-"""
+""" % DP1_CONFIG
 
             drop_match = {
                 'in_port': 2,
@@ -2273,10 +2273,10 @@ meters:
 
         def test_port_acl_deny(self):
             """Test that port ACL denies forwarding."""
-            acl_config = f"""
+            acl_config = """
 dps:
     s1:
-{DP1_CONFIG}
+%s
         interfaces:
             p2:
                 number: 2
@@ -2312,7 +2312,7 @@ meters:
                         rate: 1
                     }
                 ]
-"""
+""" % DP1_CONFIG
 
             drop_match = {
                 'in_port': 2,
