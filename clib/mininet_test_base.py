@@ -1437,7 +1437,7 @@ dbs:
         if 'faucet' in controller:
             return f'http://[{self.get_prom_addr()}]:{self.get_prom_port()}'
         if 'gauge' in controller:
-            return f'http://[{self.get_prom_addr()}]:{self.config_ports['gauge_prom_port']}'
+            return f'http://[{self.get_prom_addr()}]:{self.config_ports["gauge_prom_port"]}'
         raise NotImplementedError
 
     def scrape_prometheus(self, controller=None, timeout=15, var=None, verify_consistent=False):
