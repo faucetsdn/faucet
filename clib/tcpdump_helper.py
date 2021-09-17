@@ -50,7 +50,7 @@ class TcpdumpHelper:
             shell=False)
 
         if self.stream():
-            debug(f'tcpdump_helper stream fd {self.stream().fileno()} {self.intf_name)}')
+            debug(f'tcpdump_helper stream fd {self.stream().fileno()} {self.intf_name}')
 
         self.readbuf = ''
         self.set_blocking(blocking)
