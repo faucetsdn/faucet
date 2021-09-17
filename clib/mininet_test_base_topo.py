@@ -67,23 +67,22 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def get_gauge_watcher_config(self):
         """Return gauge watcher config"""
-        return """
+        return f"""
     port_stats:
-        dps: ['%s']
+        dps: ['{self.topo.switches_by_id[0]}']
         type: 'port_stats'
         interval: 5
         db: 'stats_file'
     port_state:
-        dps: ['%s']
+        dps: ['{self.topo.switches_by_id[0]}']
         type: 'port_state'
         interval: 5
         db: 'state_file'
     flow_table:
-        dps: ['%s']
+        dps: ['{self.topo.switches_by_id[0]}']
         type: 'flow_table'
         interval: 5
-        db: 'flow_dir'
-""" % (self.topo.switches_by_id[0], self.topo.switches_by_id[0], self.topo.switches_by_id[0])
+        db: 'flow_dir'"""
 
     def first_switch(self):
         """Return the first switch"""
@@ -91,7 +90,7 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def port_labels(self, port_no):
         """Return regex for port label"""
-        port_name = 'b%u' % port_no
+        port_name = f'b{port_no}'
         return {'port': port_name, 'port_description': r'.+'}
 
     @staticmethod
@@ -101,18 +100,18 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def faucet_vip(self, i):
         """Faucet VLAN VIP"""
-        return '10.%u.0.254/%u' % (i + 1, self.NETPREFIX)
+        return f'10.{i + 1}.0.254/{self.NETPREFIX}'
 
     @staticmethod
     def faucet_mac(i):
         """Faucet VLAN MAC"""
-        return '00:00:00:00:00:%u%u' % (i + 1, i + 1)
+        return f'00:00:00:00:00:{i + 1}{i + 1}'
 
     def host_ip_address(self, host_index, vlan_index):
         """Create a string of the host IP address"""
         if isinstance(vlan_index, (list, tuple)):
             vlan_index = vlan_index[0]
-        return '10.%u.0.%u/%u' % (vlan_index + 1, host_index + 1, self.NETPREFIX)
+        return f'10.{vlan_index + 1}.0.{host_index + 1}/{self.NETPREFIX}'
 
     def host_ping(self, src_host, dst_ip, intf=None):
         """Default method to ping from one host to an IP address"""
@@ -256,24 +255,24 @@ class FaucetTopoTestBase(FaucetTestBase):
                     for i in self.host_port_maps[host_id]]
                 bond_members = [
                     pair[0].name for switch in lacp_switches for pair in host.connectionsTo(switch)]
-                bond_name = 'bond%u' % (bond_index)
+                bond_name = f'bond{bond_index}'
                 self.host_information[host_id]['bond'] = bond_name
                 for bond_member in bond_members:
                     # Deconfigure bond members
                     self.quiet_commands(host, (
-                        'ip link set %s down' % bond_member,
-                        'ip address flush dev %s' % bond_member))
+                        f'ip link set {bond_member} down',
+                        f'ip address flush dev {bond_member}'))
                 # Configure bond interface
                 self.quiet_commands(host, (
-                    ('ip link add %s address 0e:00:00:00:00:99 '
+                    (f'ip link add {bond_name} address 0e:00:00:00:00:99 '
                      'type bond mode 802.3ad lacp_rate fast miimon 100 '
-                     'xmit_hash_policy layer2+3') % (bond_name),
-                    'ip add add %s/%s dev %s' % (orig_ip, self.NETPREFIX, bond_name),
-                    'ip link set %s up' % bond_name))
+                     'xmit_hash_policy layer2+3'),
+                    f'ip add add {orig_ip}/{self.NETPREFIX} dev {bond_name}',
+                    f'ip link set {bond_name} up'))
                 # Add bond members
                 for bond_member in bond_members:
                     self.quiet_commands(host, (
-                        'ip link set dev %s master %s' % (bond_member, bond_name),))
+                        f'ip link set dev {bond_member} master {bond_name}',))
                 bond_index += 1
                 # Return the ports to UP
                 for dp_i, ports in self.host_port_maps[host_id].items():
@@ -322,11 +321,11 @@ class FaucetTopoTestBase(FaucetTestBase):
         """Verify hosts with stack LLDP messages"""
         lldp_cap_files = []
         for host in self.hosts_name_ordered():
-            lldp_cap_file = os.path.join(self.tmpdir, '%s-lldp.cap' % host)
+            lldp_cap_file = os.path.join(self.tmpdir, f'{host}-lldp.cap')
             lldp_cap_files.append(lldp_cap_file)
             host.cmd(timeout_cmd(
-                'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC and not ether src %s &' % (
-                    host.defaultIntf(), host.MAC(), lldp_cap_file), 60))
+                f'tcpdump -U -n -c 1 -i {host.defaultIntf()} -w {host.MAC()}'
+                f' ether proto 0x88CC and not ether src {lldp_cap_file} &', 60))
         # should not flood LLDP from hosts
         self.verify_lldp_blocked(self.hosts_name_ordered())
         # hosts should see no LLDP probes
@@ -385,7 +384,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             prop_up = links_up / links
             if prop_up >= prop:
                 return
-        self.fail('not enough links up: %f / %f' % (links_up, links))
+        self.fail(f'not enough links up: {links_up} / {links}')
 
     def verify_stack_down(self):
         """Verify all stack ports are down"""
@@ -439,14 +438,14 @@ class FaucetTopoTestBase(FaucetTestBase):
                 if self.topo.isSwitch(dst_node):
                     switch_to_switch_links += 1
         num_arp_expected = switch_to_switch_links * 2
-        tcpdump_filter = 'arp and ether src %s' % ping_host.MAC()
+        tcpdump_filter = f'arp and ether src {ping_host.MAC()}'
         tcpdump_txt = self.tcpdump_helper(
             tcpdump_host, tcpdump_filter, [
-                lambda: ping_host.cmd('arp -d %s' % tcpdump_host.IP()),
-                lambda: ping_host.cmd('ping -c1 %s' % tcpdump_host.IP())],
+                lambda: ping_host.cmd(f'arp -d {tcpdump_host.IP()}'),
+                lambda: ping_host.cmd(f'ping -c1 {tcpdump_host.IP()}')],
             packets=(num_arp_expected + 1))
         num_arp_received = len(re.findall(
-            'who-has %s tell %s' % (tcpdump_host.IP(), ping_host.IP()), tcpdump_txt))
+            f'who-has {tcpdump_host.IP()} tell {ping_host.IP()}', tcpdump_txt))
         self.assertTrue(num_arp_received)
         self.assertLessEqual(num_arp_received, num_arp_expected)
 
@@ -477,15 +476,15 @@ class FaucetTopoTestBase(FaucetTestBase):
         tcpdump_text = self.tcpdump_helper(
             dst_host, 'icmp[icmptype] == 8', [
                 # need to set static ARP as only ICMP is tunnelled.
-                lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
-                lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
+                lambda: src_host.cmd(f'arp -s {other_host.IP()} {other_host.MAC()}'),
+                lambda: src_host.cmd(f'ping -c{packets} -t1 {other_host.IP()}')
             ],
             packets=1, timeout=(packets + 1),
         )
         self.wait_nonzero_packet_count_flow(
             icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False, dpid=dpid)
         self.assertTrue(re.search(
-            '%s: ICMP echo request' % other_host.IP(), tcpdump_text
+            f'{other_host.IP()}: ICMP echo request', tcpdump_text
         ), 'Tunnel was not established')
 
     def verify_one_broadcast(self, from_host, to_hosts):
@@ -497,8 +496,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                 received_broadcasts.append(to_host)
         received_names = {host.name: host for host in received_broadcasts}
         self.assertEqual(len(received_broadcasts), 1,
-                         'Received not exactly one broadcast from %s: %s' %
-                         (from_host.name, received_names))
+                         f'Received not exactly one broadcast from {from_host.name}: {received_names}')
 
     def map_int_ext_hosts(self):
         """
@@ -577,7 +575,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             self.validate_with_externals_down(dp_name)
         except AssertionError:
             asserted = True
-        self.assertTrue(asserted, 'Did not fail as expected for %s' % dp_name)
+        self.assertTrue(asserted, f'Did not fail as expected for {dp_name}'
 
     def verify_intervlan_routing(self):
         """Verify intervlan routing but for LAG host use bond interface"""
@@ -610,15 +608,13 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re, retries):
         """Helper for checking broadcast destination has been blocked"""
-        tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
-            first_host.MAC(), "ff:ff:ff:ff:ff:ff")
+        tcpdump_filter = f'udp and ether src {first_host.MAC()} and ether dst ff:ff:ff:ff:ff:ff'
         target_addr = str(self.faucet_vips[0].network.broadcast_address)
         for _ in range(retries):
             tcpdump_txt = self.tcpdump_helper(
                 second_host, tcpdump_filter, [
                     partial(first_host.cmd, (
-                        'date | socat - udp-datagram:%s:%d,broadcast' % (
-                            target_addr, port)))],
+                        f'date | socat - udp-datagram:{target_addr}:{port},broadcast'))],
                 packets=1)
             if re.search(success_re, tcpdump_txt):
                 return True
@@ -697,7 +693,7 @@ details partner lacp pdu:
         host = self.host_information[host_id]['host']
         bond_name = self.host_information[host_id]['bond']
         for _ in range(self.LACP_TIMEOUT * 2):
-            result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond_name)
+            result = host.cmd(f'cat /proc/net/bonding/{bond_name}|sed "s/[ \t]*$//g"')
             result = '\n'.join([line.rstrip() for line in result.splitlines()])
             with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w', encoding='utf-8') as state_file:
                 state_file.write(result)
@@ -715,7 +711,7 @@ details partner lacp pdu:
         synced_state_txt.strip()
         self.assertFalse(
             re.search(synced_state_txt, result),
-            msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (result, synced_state_txt))
+            msg=f'LACP did not synchronize: {result}\n\nexpected:\n\n{synced_state_txt}')
 
     def verify_lag_connectivity(self, host_id):
         """Verify LAG connectivity"""
