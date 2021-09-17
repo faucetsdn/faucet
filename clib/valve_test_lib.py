@@ -93,7 +93,7 @@ def build_dict(pkt):
         elif type_ == icmpv6.ICMPV6_ECHO_REQUEST:
             pkt_dict['echo_request_data'] = icmpv6_pkt.data.data
         else:
-            raise NotImplementedError('Unknown packet type %s \n' % icmpv6_pkt)
+            raise NotImplementedError(f'Unknown packet type {icmpv6_pkt} \n')
     ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
     if ipv4_pkt:
         pkt_dict['ipv4_src'] = ipv4_pkt.src
@@ -104,7 +104,7 @@ def build_dict(pkt):
         if type_ == icmp.ICMP_ECHO_REQUEST:
             pkt_dict['echo_request_data'] = icmp_pkt.data.data
         else:
-            raise NotImplementedError('Unknown packet type %s \n' % icmp_pkt)
+            raise NotImplementedError(f'Unknown packet type {icmp_pkt} \n')
     lacp_pkt = pkt.get_protocol(slow.lacp)
     if lacp_pkt:
         pkt_dict['actor_system'] = lacp_pkt.actor_system
@@ -297,10 +297,10 @@ DOT1X_ACL_CONFIG = """
             noauth_acl: noauth_acl
 """ + BASE_DP1_CONFIG
 
-CONFIG = """
+CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -410,13 +410,13 @@ vlans:
         vid: 0x300
     v400:
         vid: 0x400
-""" % DP1_CONFIG
+"""
 
 
-STACK_CONFIG = """
+STACK_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         stack:
             priority: 1
         interfaces:
@@ -472,12 +472,12 @@ dps:
 vlans:
     v100:
         vid: 0x100
-    """ % DP1_CONFIG
+    """
 
-STACK_LOOP_CONFIG = """
+STACK_LOOP_CONFIG = f"""
 dps:
     s1:
-%s
+{BASE_DP1_CONFIG}
         interfaces:
             1:
                 description: p1
@@ -493,7 +493,7 @@ dps:
                 description: p3
                 native_vlan: v100
     s2:
-%s
+{BASE_DP_CONFIG}
         faucet_dp_mac: 0e:00:00:00:01:02
         dp_id: 0x2
         interfaces:
@@ -511,7 +511,7 @@ dps:
                 description: p3
                 native_vlan: v100
     s3:
-%s
+{BASE_DP_CONFIG}
         faucet_dp_mac: 0e:00:00:00:01:03
         dp_id: 0x3
         stack:
@@ -533,7 +533,7 @@ dps:
 vlans:
     v100:
         vid: 0x100
-""" % (BASE_DP1_CONFIG, BASE_DP_CONFIG, BASE_DP_CONFIG)
+"""
 
 
 class ValveTestBases:
@@ -810,7 +810,7 @@ class ValveTestBases:
                     self.configure_network()
             else:
                 if reload_type is not None:
-                    var = 'faucet_config_reload_%s_total' % reload_type
+                    var = f'faucet_config_reload_{reload_type}_total'
                     self.prom_inc(
                         reload_func, var=var, inc_expected=reload_expected, dp_id=table_dpid)
                 else:
@@ -952,7 +952,7 @@ class ValveTestBases:
             before = self.get_prom(var, labels, dp_id)
             func()
             after = self.get_prom(var, labels, dp_id)
-            msg = '%s %s before %f after %f' % (var, labels, before, after)
+            msg = f'{var} {labels} before {before} after {after}'
             if inc_expected:
                 self.assertEqual(before + 1, after, msg=msg)
             else:
@@ -1055,8 +1055,7 @@ class ValveTestBases:
             status = int(self.get_prom('port_status', labels=labels, dp_id=dp_id))
             self.assertEqual(
                 status, exp_status,
-                msg='status %u != expected %u for port %s' % (
-                    status, exp_status, labels))
+                msg=f'status {status} != expected {exp_status} for port {labels}')
 
         def get_other_valves(self, valve):
             """Return other running valves"""
@@ -1160,8 +1159,7 @@ class ValveTestBases:
                             exp_state = 4
                             self.assertEqual(
                                 port.dyn_stack_current_state, exp_state,
-                                '%s stack state %s != %s' % (
-                                    port, port.dyn_stack_current_state, exp_state))
+                                f'{port} stack state {port.dyn_stack_current_state} != {exp_state}')
             # Send LLDP packets to reset the stack ports that we want to be up
             for dp_id, valve in self.valves_manager.valves.items():
                 for port in valve.dp.ports.values():
@@ -1180,8 +1178,7 @@ class ValveTestBases:
                             exp_state = 4
                         self.assertEqual(
                             port.dyn_stack_current_state, exp_state,
-                            '%s stack state %s != %s' % (
-                                port, port.dyn_stack_current_state, exp_state))
+                            f'{port} stack state {port.dyn_stack_current_state} != {exp_state}')
 
         def flap_port(self, port_no):
             """Flap op status on a port."""
@@ -1218,10 +1215,10 @@ class ValveTestBases:
         def _update_port_map(self, port, add_else_remove):
             this_dp = port.dp_id
             this_num = port.number
-            this_key = '%s:%s' % (this_dp, this_num)
+            this_key = f'{this_dp}:{this_num}'
             peer_dp = port.stack['dp'].dp_id
             peer_num = port.stack['port'].number
-            peer_key = '%s:%s' % (peer_dp, peer_num)
+            peer_key = f'{peer_dp}:{peer_num}'
             key_array = [this_key, peer_key]
             key_array.sort()
             key = key_array[0]
@@ -1308,8 +1305,8 @@ class ValveTestBases:
             return {
                 'eth_src': '00:00:00:01:00:%02x' % src,
                 'eth_dst': '00:00:00:01:00:%02x' % dst,
-                'ipv4_src': '10.0.0.%d' % src,
-                'ipv4_dst': '10.0.0.%d' % dst,
+                'ipv4_src': f'10.0.0.{src}',
+                'ipv4_dst': f'10.0.0.{dst}',
                 'vid': self.V100
             }
 
@@ -1411,8 +1408,7 @@ class ValveTestBases:
                     match, in_port, valve_vlan, ofp.OFPP_IN_PORT)
                 self.assertEqual(
                     in_port.hairpin, hairpin_output,
-                    msg='hairpin flooding incorrect (expected %s got %s)' % (
-                        in_port.hairpin, hairpin_output))
+                    msg=f'hairpin flooding incorrect (expected {in_port.hairping} got {hairpin_output})')
 
                 for port in valve_vlan.get_ports():
                     output = _verify_flood_to_port(match, port, valve_vlan)
@@ -1423,27 +1419,24 @@ class ValveTestBases:
                         # Packet must be flooded to all ports on the VLAN.
                         if port == in_port:
                             self.assertEqual(port.hairpin, output,
-                                             'unexpected hairpin flood %s %u' % (
-                                                 match, port.number))
+                                             f'unexpected hairpin flood {match} {port.number}')
                         else:
                             self.assertTrue(
                                 output,
                                 msg=(
-                                    '%s with unknown eth_dst not flooded'
-                                    ' on VLAN %u to port %u\n%s' % (
-                                        match, valve_vlan.vid,
-                                        port.number, self.network.tables[dp_id])))
+                                    f'{match} with unknown eth_dst not flooded'
+                                    f' on VLAN {valve_vlan.vid} to port {port.number}\n{self.network.tables[dp_id]}'))
 
                 # Packet must not be flooded to ports not on the VLAN.
                 for port in remaining_ports:
                     if port.stack:
                         self.assertTrue(
                             self.network.tables[dp_id].is_output(match, port=port.number),
-                            msg=('Unknown eth_dst not flooded to stack port %s' % port))
+                            msg=(f'Unknown eth_dst not flooded to stack port {port}'))
                     elif not port.mirror:
                         self.assertFalse(
                             self.network.tables[dp_id].is_output(match, port=port.number),
-                            msg=('Unknown eth_dst flooded to non-VLAN/stack/mirror %s' % port))
+                            msg=(f'Unknown eth_dst flooded to non-VLAN/stack/mirror {port}'))
 
         def verify_pkt(self, pkt, expected_pkt):
             """
@@ -1457,7 +1450,7 @@ class ValveTestBases:
             for key in expected_pkt:
                 self.assertTrue(
                     key in pkt_dict,
-                    'key %s not in pkt %s' % (key, pkt_dict))
+                    f'key {key} not in pkt {pkt_dict}')
                 if expected_pkt[key] is None:
                     # Sometimes we may not know that correct value but
                     #   want to ensure that there exists a value so use the None
@@ -1465,7 +1458,7 @@ class ValveTestBases:
                     continue
                 self.assertEqual(
                     expected_pkt[key], pkt_dict[key],
-                    'key: %s not matching (%s != %s)' % (key, expected_pkt[key], pkt_dict[key]))
+                    f'key: {key} not matching ({expected_pkt[key]} != {pkt_dict[key]})')
 
         def verify_route_add_del(self, dp_id, vlan_vid, ip_gw, ip_dst):
             """
@@ -1936,8 +1929,7 @@ class ValveTestBases:
                     vid = vid | ofp.OFPVID_PRESENT
                 self.assertTrue(
                     self.network.tables[self.DP_ID].is_output(match, ofp.OFPP_CONTROLLER, vid=vid),
-                    msg="Packet with unknown ethernet src not sent to controller: "
-                    "{0}".format(match))
+                    msg=f"Packet with unknown ethernet src not sent to controller: {match}")
 
         def test_unknown_eth_dst_rule(self):
             """Test that packets with unkown eth dst addrs get flooded correctly.
@@ -1994,8 +1986,7 @@ class ValveTestBases:
             for match in matches:
                 self.assertFalse(
                     self.network.tables[self.DP_ID].is_output(match, port=ofp.OFPP_CONTROLLER),
-                    msg="Packet ({0}) output to controller when eth_src address"
-                        " is known".format(match))
+                    msg=f"Packet ({match}) output to controller when eth_src address is known")
 
         def test_known_eth_src_deletion(self):
             """Verify that when a mac changes port the old rules get deleted.
@@ -2050,8 +2041,7 @@ class ValveTestBases:
                 for port in incorrect_ports:
                     self.assertFalse(
                         self.network.tables[self.DP_ID].is_output(match, port=port),
-                        msg=('packet %s output to incorrect port %u when eth_dst '
-                             'is known' % (match, port)))
+                        msg=f'packet {match} output to incorrect port {port} when eth_dst is known')
             self.verify_expiry()
 
         def test_mac_vlan_separation(self):
@@ -2120,9 +2110,8 @@ class ValveTestBases:
                         vid = 0
                     self.assertTrue(
                         self.network.tables[self.DP_ID].is_output(match, port=port.number, vid=vid),
-                        msg=('packet %s with eth dst learnt on deleted port not output '
-                             'correctly on vlan %u to port %u' % (
-                                 match, valve_vlan.vid, port.number)))
+                        msg=(f'packet {match} with eth dst learnt on deleted port not output '
+                             'correctly on vlan {valve_vlan.vid} to port {port.number}'))
 
         def test_port_down_eth_src_removal(self):
             """Test that when a port goes down and comes back up learnt mac
@@ -2154,11 +2143,11 @@ class ValveTestBases:
 
         def test_dp_acl_deny(self):
             """Test DP acl denies forwarding"""
-            acl_config = """
+            acl_config = f"""
 dps:
     s1:
         dp_acls: [drop_non_ospf_ipv4]
-%s
+{DP1_CONFIG}
         interfaces:
             p2:
                 number: 2
@@ -2196,7 +2185,7 @@ meters:
                         rate: 1
                     }
                 ]
-""" % DP1_CONFIG
+"""
 
             drop_match = {
                 'in_port': 2,
@@ -2219,11 +2208,11 @@ meters:
 
         def test_dp_acl_deny_ordered(self):
             """Test DP acl denies forwarding"""
-            acl_config = """
+            acl_config = f"""
 dps:
     s1:
         dp_acls: [drop_non_ospf_ipv4]
-%s
+{DP1_CONFIG}
         interfaces:
             p2:
                 number: 2
@@ -2261,7 +2250,7 @@ meters:
                         rate: 1
                     }
                 ]
-""" % DP1_CONFIG
+"""
 
             drop_match = {
                 'in_port': 2,
@@ -2284,10 +2273,10 @@ meters:
 
         def test_port_acl_deny(self):
             """Test that port ACL denies forwarding."""
-            acl_config = """
+            acl_config = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p2:
                 number: 2
@@ -2323,7 +2312,7 @@ meters:
                         rate: 1
                     }
                 ]
-""" % DP1_CONFIG
+"""
 
             drop_match = {
                 'in_port': 2,
@@ -2616,20 +2605,18 @@ meters:
 
         def create_config(self):
             """Create the config file"""
-            self.CONFIG = """
+            self.CONFIG = f"""
     vlans:
         vlan100:
             vid: 0x100
-            faucet_mac: '%s'
-            faucet_vips: ['%s']
+            faucet_mac: '{self.VLAN100_FAUCET_MAC}'
+            faucet_vips: ['{self.VLAN100_FAUCET_VIP_SPACE}']
         vlan200:
             vid: 0x200
-            faucet_mac: '%s'
-            faucet_vips: ['%s']
-    %s
-           """ % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
-                  self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
-                  self.base_config())
+            faucet_mac: '{self.VLAN200_FAUCET_MAC}'
+            faucet_vips: ['{self.VLAN200_FAUCET_VIP_SPACE}']
+    {self.base_config()}
+           """
 
         def setup_stack_routing(self):
             """Create a stacking config file."""
@@ -2640,12 +2627,12 @@ meters:
         @staticmethod
         def create_mac(vindex, host):
             """Create a MAC address string"""
-            return '00:00:00:0%u:00:0%u' % (vindex, host)
+            return f'00:00:00:0{vindex}:00:0{host}'
 
         @staticmethod
         def create_ip(vindex, host):
             """Create a IP address string"""
-            return '10.0.%u.%u' % (vindex, host)
+            return f'10.0.{vindex}.{host}'
 
         @staticmethod
         def get_eth_type():
