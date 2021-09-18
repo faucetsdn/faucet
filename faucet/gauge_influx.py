@@ -47,13 +47,13 @@ class InfluxShipper:
                     if client.write_points(points=points, time_precision='s'):
                         return True
                     self.logger.warning(
-                        '%s failed to update InfluxDB' % self.ship_error_prefix)
+                        f'{self.ship_error_prefix} failed to update InfluxDB')
                 else:
                     self.logger.warning(
-                        '%s error connecting to InfluxDB' % self.ship_error_prefix)
+                        f'{self.ship_error_prefix} error connecting to InfluxDB')
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout,
                     InfluxDBClientError, InfluxDBServerError) as err:
-                self.logger.warning('%s %s' % (self.ship_error_prefix, err))
+                self.logger.warning(f'{self.ship_error_prefix} {err}')
         return False
 
     @staticmethod
