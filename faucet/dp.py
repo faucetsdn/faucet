@@ -1279,7 +1279,7 @@ configuration.
             if added_confs:
                 logger.info(f'{conf_name}s added: {added_confs}')
             if changed_confs:
-                logger.info(f'{conf_name}s changed: {changed_congs}')
+                logger.info(f'{conf_name}s changed: {changed_confs}')
         else:
             logger.info(f'no {conf_name} changes')
 
