@@ -290,7 +290,7 @@ class Port(Conf):
             self.mirror = [self.mirror]
 
     def __str__(self):
-        return 'Port %u' % self.number
+        return f'Port {self.number}'
 
     def __repr__(self):
         return self.__str__()
@@ -308,7 +308,7 @@ class Port(Conf):
     def stack_descr(self):
         """"Return stacking annotation if this is a stacking port."""
         if self.stack:
-            return 'remote DP %s %s' % (self.stack['dp'].name, self.stack['port'])
+            return f'remote DP {self.stack["dp"].name} {self.stack["port"]}'
         return ''
 
     def set_defaults(self):
@@ -321,27 +321,26 @@ class Port(Conf):
     def check_config(self):
         super().check_config()
         test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
-            not valve_of.ignore_port(self.number))), ('Port number invalid: %s' % self.number))
+            not valve_of.ignore_port(self.number))), (f'Port number invalid: {self.number}'))
         non_vlan_options = {'stack', 'mirror', 'coprocessor', 'output_only'}
         vlan_agnostic_options = {'enabled', 'number', 'name', 'description', 'max_lldp_lost'}
         vlan_port = self.tagged_vlans or self.native_vlan
         non_vlan_port_options = {option for option in non_vlan_options if getattr(self, option)}
         test_config_condition(
             vlan_port and non_vlan_port_options,
-            'cannot have VLANs configured on non-VLAN ports: %s' % self)
+            f'cannot have VLANs configured on non-VLAN ports: {self}')
         if self.output_only:
             test_config_condition(
                 not non_vlan_port_options.issubset({'mirror', 'output_only'}),
-                'output_only can only coexist with mirror option on same port %s' % self)
+                f'output_only can only coexist with mirror option on same port {self}')
         elif self.mirror:
             test_config_condition(
                 not non_vlan_port_options.issubset({'mirror', 'coprocessor'}),
-                'coprocessor can only coexist with mirror option on same port %s' % self)
+                f'coprocessor can only coexist with mirror option on same port {self}')
         else:
             test_config_condition(
                 len(non_vlan_port_options) > 1,
-                'cannot have multiple non-VLAN port options %s on same port: %s' % (
-                    non_vlan_port_options, self))
+                f'cannot have multiple non-VLAN port options {non_vlan_port_options} on same port: {self}')
         if non_vlan_port_options:
             for key, default_val in self.defaults.items():
                 if key in vlan_agnostic_options or key in non_vlan_port_options:
@@ -351,7 +350,7 @@ class Port(Conf):
                 val = getattr(self, key)
                 test_config_condition(
                     val != default_val and val,
-                    'Cannot have VLAN option %s: %s on non-VLAN port %s' % (key, val, self))
+                    f'Cannot have VLAN option {key}: {val} on non-VLAN port {self}')
         test_config_condition(
             self.hairpin and self.hairpin_unicast,
             'Cannot have both hairpin and hairpin_unicast enabled')
@@ -360,7 +359,7 @@ class Port(Conf):
             if dot1x_feature.startswith('dot1x_') and dot1x_config}
         test_config_condition(
             dot1x_features and not self.dot1x,
-            '802.1x features %s require port to have dot1x enabled' % dot1x_features)
+            f'802.1x features {dot1x_features} require port to have dot1x enabled')
         if self.dot1x:
             test_config_condition(self.number > 65535, (
                 '802.1x not supported on ports > 65535'))
@@ -380,7 +379,7 @@ class Port(Conf):
             self._check_conf_types(self.stack, self.stack_defaults_types)
             for stack_config in list(self.stack_defaults_types.keys()):
                 test_config_condition(stack_config not in self.stack, (
-                    'stack %s must be defined' % stack_config))
+                    f'stack {stack_config} must be defined'))
             # LLDP always enabled for stack ports.
             self.receive_lldp = True
             if not self.lldp_beacon_enabled():
@@ -395,7 +394,7 @@ class Port(Conf):
                 ('lacp port priority must be at least 0 and less than 256'))
         if self.lldp_peer_mac:
             test_config_condition(not netaddr.valid_mac(self.lldp_peer_mac), (
-                'invalid MAC address %s' % self.lldp_peer_mac))
+                f'invalid MAC address {self.lldp_peer_mac}'))
         if self.lldp_beacon:
             self._check_conf_types(
                 self.lldp_beacon, self.lldp_beacon_defaults_types)
@@ -713,8 +712,7 @@ class Port(Conf):
             if stack_timed_out:
                 # Stack timed out, too many packets lost
                 self.stack_gone()
-                reason = 'too many (%u) packets lost, last received %us ago' % (
-                    num_lost_lldp, time_since_lldp_seen)
+                reason = f'too many ({num_lost_lldp}) packets lost, last received {time_since_lldp_seen}s ago'
             elif not stack_correct:
                 # Stack bad due to incorrect cabling
                 self.stack_bad()

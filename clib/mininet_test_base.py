@@ -2468,7 +2468,7 @@ dbs:
     def add_host_route(self, host, ip_dst, ip_gw):
         """Add an IP route to a Mininet host."""
         host.cmd(f'ip -{ip_dst.version} route del {ip_dst.network.with_prefixlen}')
-        add_cmd = f'ip -{ip_dst.version} route add {ip_dst.network.with_prefixle} via {ip_gw}'
+        add_cmd = f'ip -{ip_dst.version} route add {ip_dst.network.with_prefixlen} via {ip_gw}'
         self.quiet_commands(host, (add_cmd,))
 
     def _ip_ping(self, host, dst, retries, timeout=500,
