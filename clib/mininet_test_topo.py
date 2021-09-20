@@ -85,7 +85,7 @@ class FaucetHost(CPULimitedHost):
         opts += f' --interface={interface}'
         opts += f' --dhcp-leasefile={dhcp_leasefile}'
         opts += f' --log-facility={log_facility}'
-        opts += f' --pid-file=pid_file'
+        opts += f' --pid-file={pid_file}'
         opts += ' --conf-file='
         return self.cmd(cmd + opts)
 
