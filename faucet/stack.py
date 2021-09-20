@@ -188,11 +188,11 @@ is technically a fixed allocation for this DP Stack instance."""
         if not timeout_healthy:
             # Too long since DP last running, if DP not running then
             #   number of UP stack or LACP ports should be 0
-            reason += 'last running %us ago (timeout %us)' % (now - last_live_time, health_timeout)
+            reason += f'last running {now - last_live_time}s ago (timeout {health_timeout}s)'
             self.dyn_healthy_info = (False, 0.0, 0.0)
             self.dyn_healthy = False
             return self.dyn_healthy, reason
-        reason += 'running %us ago' % (now - last_live_time)
+        reason += f'running {now - last_live_time}s ago'
         if reason:
             reason += ', '
         stack_ports_healthy, stack_percentage = self.stack_port_healthy()
@@ -258,8 +258,7 @@ is technically a fixed allocation for this DP Stack instance."""
 
         for dp in stack_priority_dps:
             test_config_condition(not isinstance(dp.stack.priority, int), (
-                'stack priority must be type %s not %s' % (
-                    int, type(dp.stack.priority))))
+                f'stack priority must be type {int} not {type(dp.stack.priority)}'))
             test_config_condition(dp.stack.priority <= 0, (
                 'stack priority must be > 0'))
 
@@ -285,13 +284,13 @@ is technically a fixed allocation for this DP Stack instance."""
                 edge_name = Stack.modify_topology(graph, dp, port)
                 edge_count[edge_name] += 1
         for edge_name, count in edge_count.items():
-            test_config_condition(count != 2, '%s defined only in one direction' % edge_name)
+            test_config_condition(count != 2, f'{edge_name} defined only in one direction')
         if graph.size() and self.name in graph:
             self.graph = graph
             for dp in graph.nodes():
                 path_to_root_len = len(self.shortest_path(self.root_name, src_dp=dp))
                 test_config_condition(
-                    path_to_root_len == 0, '%s not connected to stack' % dp)
+                    path_to_root_len == 0, f'{dp} not connected to stack')
             root_len = self.longest_path_to_root_len()
             if root_len is not None and root_len > 2:
                 self.root_flood_reflection = True
@@ -314,9 +313,7 @@ is technically a fixed allocation for this DP Stack instance."""
         def make_edge_name(edge_a, edge_z):
             edge_a_dp, edge_a_port = edge_a
             edge_z_dp, edge_z_port = edge_z
-            return '%s:%s-%s:%s' % (
-                edge_a_dp.name, edge_a_port.name,
-                edge_z_dp.name, edge_z_port.name)
+            return f'{edge_a_dp.name}:{edge_a_port.name}-{edge_z_dp.name}:{edge_z_port.name}'
 
         def make_edge_attr(edge_a, edge_z):
             edge_a_dp, edge_a_port = edge_a
