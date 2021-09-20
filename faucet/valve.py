@@ -1541,7 +1541,7 @@ class Valve:
             # Same scenario as groups.
             return
         self._inc_var('of_errors')
-        self.logger.error(f'OFError type: {error_type} code: {error_code} {error_text}')
+        self.logger.error(f'OFError type: {error_type} code: {error_code} {error_txt}')
 
     def prepare_send_flows(self, flow_msgs):
         """Prepare to send flows to datapath.
