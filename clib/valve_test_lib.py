@@ -2605,18 +2605,20 @@ meters:
 
         def create_config(self):
             """Create the config file"""
-            self.CONFIG = f"""
+            self.CONFIG = """
     vlans:
         vlan100:
             vid: 0x100
-            faucet_mac: '{self.VLAN100_FAUCET_MAC}'
-            faucet_vips: ['{self.VLAN100_FAUCET_VIP_SPACE}']
+            faucet_mac: '%s'
+            faucet_vips: ['%s']
         vlan200:
             vid: 0x200
-            faucet_mac: '{self.VLAN200_FAUCET_MAC}'
-            faucet_vips: ['{self.VLAN200_FAUCET_VIP_SPACE}']
-    {self.base_config()}
-           """
+            faucet_mac: '%s'
+            faucet_vips: ['%s']
+    %s
+           """ % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
+                  self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
+                  self.base_config())
 
         def setup_stack_routing(self):
             """Create a stacking config file."""
