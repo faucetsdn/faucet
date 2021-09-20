@@ -42,7 +42,7 @@ class ConfigDictGenerator:
                             or value in bogus_values):
                         continue
                     config_file.write(f'\n"{to_write}"')
-                    config_file.write(f'\n"{rev_to_write"')
+                    config_file.write(f'\n"{rev_to_write}"')
             # Find CONF objects config file options
             for conf_obj in [ACL, Meter, Port, Router, DP, VLAN]:
                 for value in conf_obj.defaults:
