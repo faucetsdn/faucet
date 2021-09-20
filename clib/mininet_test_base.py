@@ -1815,7 +1815,7 @@ dbs:
 
     def verify_empty_caps(self, cap_files):
         cap_file_cmds = [
-            f'tcpdump -n -v -A -r {cap_file for cap_file in cap_files} 2> /dev/null']
+            'tcpdump -n -v -A -r %s 2> /dev/null' % cap_file for cap_file in cap_files]
         self.quiet_commands(self.net.controllers[0], cap_file_cmds)
 
     def verify_no_bcast_to_self(self, timeout=3):

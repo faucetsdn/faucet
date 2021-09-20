@@ -253,11 +253,11 @@ class Valve:
         for ipv, route_manager_class, neighbor_timeout in (
                 (4, valve_route.ValveIPv4RouteManager, self.dp.arp_neighbor_timeout),
                 (6, valve_route.ValveIPv6RouteManager, self.dp.nd_neighbor_timeout)):
-            fib_table_name = 'ipv%u_fib' % ipv
+            fib_table_name = f'ipv{ipv}_fib'
             if fib_table_name not in self.dp.tables:
                 continue
             fib_table = self.dp.tables[fib_table_name]
-            proactive_learn = getattr(self.dp, 'proactive_learn_v%u' % ipv)
+            proactive_learn = getattr(self.dp, f'proactive_learn_v{ipv}')
             route_manager = route_manager_class(
                 self.logger, self.notify, self.dp.global_vlan, neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle,
@@ -270,8 +270,7 @@ class Valve:
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
                     route_manager.active = True
                     vips_str = list(str(vip) for vip in vlan.faucet_vips_by_ipv(route_manager.IPV))
-                    self.logger.info('IPv%u routing is active on %s with VIPs %s' % (
-                        route_manager.IPV, vlan, vips_str))
+                    self.logger.info(f'IPv{route_manager.IPV} routing is active on {vlan} with VIPs {vips_str}')
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         self._managers = tuple(
@@ -313,8 +312,7 @@ class Valve:
                 self.dp.ofchannel_log,
                 logging.DEBUG,
                 0)
-        log_prefix = '%u %s' % (
-            len(ofmsgs), valve_util.dpid_log(self.dp.dp_id))
+        log_prefix = f'{len(ofmsgs)} {valve_util.dpid_log(self.dp.dp_id)}'
         for i, ofmsg in enumerate(ofmsgs, start=1):
             self.ofchannel_logger.debug(
                 '%u/%s %s', i, log_prefix, ofmsg)
@@ -382,7 +380,7 @@ class Valve:
 
     def add_vlan(self, vlan, cold_start=False):
         """Configure a VLAN."""
-        self.logger.info('Configuring %s' % vlan)
+        self.logger.info(f'Configuring {vlan}')
         ofmsgs = []
         if vlan.reserved_internal_vlan:
             return ofmsgs
@@ -398,7 +396,7 @@ class Valve:
 
     def del_vlan(self, vlan):
         """Delete a configured VLAN."""
-        self.logger.info('Delete VLAN %s' % vlan)
+        self.logger.info(f'Delete VLAN {vlan}')
         ofmsgs = []
         for manager in self._managers:
             ofmsgs.extend(manager.del_vlan(vlan))
@@ -511,8 +509,7 @@ class Valve:
 
         def _fabricate(port_no, reason, status):
             self.logger.info(
-                'Port %s fabricating %s status %s' %
-                (port_no, Valve._decode_port_status(reason), status))
+                f'Port {port_no} fabricating {Valve._decode_port_status(reason)} status {status}')
 
             _ofmsgs_by_valve = self.port_status_handler(
                 port_no, reason, 0 if status else valve_of.ofp.OFPPS_LINK_DOWN,
@@ -535,12 +532,10 @@ class Valve:
 
         if conf_port_nos != curr_dyn_port_nos:
             self.logger.info(
-                'delta in known ports: conf %s dyn %s' %
-                (conf_port_nos, curr_dyn_port_nos))
+                f'delta in known ports: conf {conf_port_nos} dyn {curr_dyn_port_nos}')
         if prev_dyn_up_port_nos != curr_dyn_up_port_nos:
             self.logger.info(
-                'delta in up state: %s => %s' %
-                (prev_dyn_up_port_nos, curr_dyn_up_port_nos))
+                f'delta in up state: {prev_dyn_up_port_nos} => {curr_dyn_up_port_nos}')
 
         # Ports we have no config for
         for port_no in no_conf_port_nos:
@@ -587,8 +582,7 @@ class Valve:
         if not port.opstatus_reconf:
             return {}
         if reason not in Valve._port_status_codes:
-            self.logger.warning('Unhandled port status %s/state %s for %s' % (
-                reason, state, port))
+            self.logger.warning(f'Unhandled port status {reason}/state {state} for {port}')
             return {}
 
         ofmsgs_by_valve = {self: []}
@@ -599,25 +593,24 @@ class Valve:
             (state & valve_of.ofp.OFPPS_BLOCKED) or (state & valve_of.ofp.OFPPS_LINK_DOWN))
         live_state = state & valve_of.ofp.OFPPS_LIVE
         decoded_reason = Valve._decode_port_status(reason)
-        state_description = '%s up status %s reason %s state %s' % (
-            port, port_status, decoded_reason, state)
+        state_description = f'{port} up status {port_status} reason {decoded_reason} state {state}'
         ofmsgs = []
         if new_port_status != port.dyn_phys_up:
-            self.logger.info('status change: %s' % state_description)
+            self.logger.info(f'status change: {state_description}')
             if new_port_status:
                 ofmsgs = self.port_add(port_no)
             else:
                 ofmsgs = self.port_delete(port_no, keep_cache=True, other_valves=_other_valves)
         else:
-            self.logger.info('status did not change: %s' % state_description)
+            self.logger.info(f'status did not change: {state_description}')
             if new_port_status:
                 if blocked_down_state:
                     self.logger.info(
-                        '%s state down or blocked despite status up, setting to status down' % port)
+                        f'{port} state down or blocked despite status up, setting to status down')
                     ofmsgs = self.port_delete(port_no, keep_cache=True, other_valves=_other_valves)
                 if not live_state:
                     self.logger.info(
-                        '%s state OFPPS_LIVE reset, ignoring in expectation of port down' % port)
+                        f'{port} state OFPPS_LIVE reset, ignoring in expectation of port down')
         ofmsgs_by_valve[self].extend(ofmsgs)
         return ofmsgs_by_valve
 
@@ -692,7 +685,7 @@ class Valve:
                 if port.dyn_lldp_beacon_recv_state:
                     age = now - port.dyn_lldp_beacon_recv_time
                     if age > self.dp.lldp_beacon['send_interval'] * port.max_lldp_lost:
-                        self.logger.info('LLDP for %s inactive after %us' % (port, age))
+                        self.logger.info(f'LLDP for {port} inactive after {age}s')
                         port.dyn_lldp_beacon_recv_state = None
         return self._lldp_manager.update_stack_link_state(
             self.dp.stack_ports(), now, self, other_valves)
@@ -764,7 +757,7 @@ class Valve:
                 continue
             port = self.dp.ports[port_num]
             port.dyn_phys_up = True
-            self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
+            self.logger.info(f'{port} ({port.description}) {log_msg}')
 
             if not port.running():
                 continue
@@ -813,7 +806,7 @@ class Valve:
                 continue
             port = self.dp.ports[port_num]
             port.dyn_phys_up = False
-            self.logger.info('%s (%s) %s' % (port, port.description, log_msg))
+            self.logger.info(f'{port} ({port.description}) {log_msg}')
 
             # now is set to a time value only when ports_delete is called to flush
             if now:
@@ -904,25 +897,25 @@ class Valve:
         if port.dyn_lldp_beacon_recv_state != remote_port_state:
             chassis_id = str(self.dp.faucet_dp_mac)
             if remote_port_state:
-                self.logger.info('LLDP on %s, %s from %s (remote %s, port %u) state %s' % (
-                    chassis_id, port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id),
-                    remote_port_id, port.stack_state_name(remote_port_state)))
+                self.logger.info(f'LLDP on {chassis_id}, {port} from {pkt_meta.eth_src} ' \
+                    f'(remote {valve_util.dpid_log(remote_dp_id)}, port {remote_port_id})' \
+                    f' state {port.stack_state_name(remote_port_state)}')
             port.dyn_lldp_beacon_recv_state = remote_port_state
 
         peer_mac_src = self.dp.ports[port.number].lldp_peer_mac
         if peer_mac_src and peer_mac_src != pkt_meta.eth_src:
-            self.logger.warning('Unexpected LLDP peer. Received pkt from %s instead of %s' % (
-                pkt_meta.eth_src, peer_mac_src))
+            self.logger.warning(f'Unexpected LLDP peer. Received pkt from {pkt_meta.eth_src} ' \
+                f'instead of {peer_mac_src}')
         ofmsgs_by_valve = {}
         if remote_dp_id and remote_port_id:
-            self.logger.debug('FAUCET LLDP on %s from %s (remote %s, port %u)' % (
-                port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id), remote_port_id))
+            self.logger.debug(f'FAUCET LLDP on {port} from {pkt_meta.eth_src} ' \
+                f'(remote {valve_util.dpid_log(remote_dp_id)}, port {remote_port_id})')
             ofmsgs_by_valve.update(self._lldp_manager.verify_lldp(
                 port, now, self, other_valves,
                 remote_dp_id, remote_dp_name,
                 remote_port_id, remote_port_state))
         else:
-            self.logger.debug('LLDP on %s from %s: %s' % (port, pkt_meta.eth_src, str(lldp_pkt)))
+            self.logger.debug(f'LLDP on {port} from {pkt_meta.eth_src}: {str(lldp_pkt)}')
         return ofmsgs_by_valve
 
     @staticmethod
@@ -977,19 +970,19 @@ class Valve:
                 pkt_meta.vlan.add_cache_host(pkt_meta.eth_src, learn_port, now)
                 if pkt_meta.l3_pkt is None:
                     pkt_meta.reparse_ip()
-                learn_log = 'L2 learned on %s %s (%u hosts total)' % (
-                    learn_port, pkt_meta.log(), pkt_meta.vlan.hosts_count())
+                learn_log = f'L2 learned on {learn_port} {pkt_meta.log()} ' \
+                    f'({pkt_meta.vlan.hosts_count()} hosts total)'
                 stack_descr = None
                 if pkt_meta.port.stack:
                     stack_descr = pkt_meta.port.stack_descr()
-                    learn_log += ' from %s' % stack_descr
+                    learn_log += f' from {stack_descr}'
                 previous_port_no = None
                 if previous_port is not None:
                     previous_port_no = previous_port.number
                     if pkt_meta.port.number != previous_port_no:
-                        learn_log += ', moved from %s' % previous_port
+                        learn_log += f', moved from {previous_port}'
                         if previous_port.stack:
-                            learn_log += ' from %s' % previous_port.stack_descr()
+                            learn_log += f' from {previous_port.stack_descr()}'
                 self.logger.info(learn_log)
                 learn_labels = dict(self.dp.base_prom_labels(), vid=pkt_meta.vlan.vid,
                                     eth_src=pkt_meta.eth_src)
@@ -1045,7 +1038,7 @@ class Valve:
         if not self.dp.dyn_running:
             return None
         if self.dp.strict_packet_in_cookie and self.dp.cookie != msg.cookie:
-            self.logger.info('got packet in with unknown cookie %s' % msg.cookie)
+            self.logger.info(f'got packet in with unknown cookie {msg.cookie}')
             return None
         # Drop any packet we didn't specifically ask for
         if msg.reason != valve_of.ofp.OFPR_ACTION:
@@ -1066,34 +1059,31 @@ class Valve:
             data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
         if pkt is None or eth_pkt is None:
             self.logger.info(
-                'unparseable packet from port %u' % in_port)
+                f'unparseable packet from port {in_port}')
             return None
         if (vlan_vid is not None
                 and vlan_vid not in self.dp.vlans
                 and vlan_vid != self.dp.global_vlan):
             self.logger.info(
-                'packet for unknown VLAN %u' % vlan_vid)
+                f'packet for unknown VLAN {vlan_vid}')
             return None
         pkt_meta = self.parse_rcv_packet(
             in_port, vlan_vid, eth_type, data, msg.total_len, pkt, eth_pkt, vlan_pkt)
         if not valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.info(
-                'packet with non-unicast eth_src %s port %u' % (
-                    pkt_meta.eth_src, in_port))
+                f'packet with non-unicast eth_src {pkt_meta.eth_src} port {in_port}')
             return None
         if valve_packet.mac_addr_all_zeros(pkt_meta.eth_src):
             self.logger.info(
-                'packet with all zeros eth_src %s port %u' % (
-                    pkt_meta.eth_src, in_port))
+                f'packet with all zeros eth_src {pkt_meta.eth_src} port {in_port}')
             return None
         if self.dp.stack and self.dp.stack.graph:
             if (not pkt_meta.port.stack
                     and pkt_meta.vlan
                     and pkt_meta.vlan not in pkt_meta.port.tagged_vlans
                     and pkt_meta.vlan != pkt_meta.port.native_vlan):
-                self.logger.warning(
-                    ('packet from non-stack port number %u is not member of VLAN %u' % (
-                        pkt_meta.port.number, pkt_meta.vlan.vid)))
+                self.logger.warning(f'packet from non-stack port number ' \
+                    f'{pkt_meta.port.number} is not member of VLAN {pkt_meta.vlan.vid}')
                 return None
         return pkt_meta
 
@@ -1268,7 +1258,7 @@ class Valve:
             for port in ports_up:
                 lacp_age = now - port.dyn_lacp_updated_time
                 if lacp_age > self.dp.lacp_timeout:
-                    self.logger.info('LAG %s %s expired (age %u)' % (lag, port, lacp_age))
+                    self.logger.info(f'LAG {lag} {port} expired (age {lacp_age})')
                     ofmsgs_by_valve[self].extend(self.lacp_update(
                         port, False, now=now, other_valves=_other_valves))
         return ofmsgs_by_valve
@@ -1312,7 +1302,7 @@ class Valve:
         new_pipeline = new_dp.pipeline_str().splitlines()
         differ = difflib.Differ()
         diff = '\n'.join(differ.compare(old_pipeline, new_pipeline))
-        self.logger.info('pipeline change: %s' % diff)
+        self.logger.info(f'pipeline change: {diff}')
 
     def _pipeline_change(self, new_dp):
         if new_dp:
@@ -1322,8 +1312,7 @@ class Valve:
             old_table_ids = self.dp.pipeline_tableids()
             new_table_ids = new_dp.pipeline_tableids()
             if old_table_ids != new_table_ids:
-                self.logger.info('table IDs changed, old %s new %s' %
-                                 (old_table_ids, new_table_ids))
+                self.logger.info(f'table IDs changed, old {old_table_ids} new {new_table_ids}')
                 return True
         return False
 
@@ -1448,8 +1437,8 @@ class Valve:
         restart_type, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp), valves)
         if restart_type is not None:
-            self._inc_var('faucet_config_reload_%s' % restart_type)
-            self.logger.info('%s starting' % restart_type)
+            self._inc_var(f'faucet_config_reload_{restart_type}')
+            self.logger.info(f'{restart_type} starting')
             if restart_type == 'cold':
                 self.logger.info('forcing DP reconnection to ensure ports are synchronized')
                 ofmsgs = None
@@ -1525,7 +1514,7 @@ class Valve:
         orig_msgs = [orig_msg for orig_msg in self.recent_ofmsgs if orig_msg.xid == msg.xid]
         error_txt = msg
         if orig_msgs:
-            error_txt = '%s caused by %s' % (error_txt, orig_msgs[0])
+            error_txt = f'{error_txt} caused by {orig_msgs[0]}'
         error_type = 'UNKNOWN'
         error_code = 'UNKNOWN'
         try:
@@ -1552,7 +1541,7 @@ class Valve:
             # Same scenario as groups.
             return
         self._inc_var('of_errors')
-        self.logger.error('OFError type: %s code: %s %s' % (error_type, error_code, error_txt))
+        self.logger.error(f'OFError type: {error_type} code: {error_code} {error_text}')
 
     def prepare_send_flows(self, flow_msgs):
         """Prepare to send flows to datapath.
