@@ -61,7 +61,7 @@ class FctlTestCaseBase(unittest.TestCase):  # pytype: disable=module-attr
     def fctl_args(self, extra_args=None):
         """generate argument list for fctl"""
         result = copy.copy(self.FCTL_BASE_ARGS)
-        result += ['--endpoints=file:%s' % self.prom_input_file_name]
+        result += [f'--endpoints=file:{self.prom_input_file_name}']
         if extra_args is not None:
             result += extra_args
         return result
@@ -96,8 +96,7 @@ class FctlTestCase(FctlTestCaseBase):
         fctl_cli = ' '.join(
             ['python3', self.FCTL] + self.fctl_args(extra_args))
         retcode, output = subprocess.getstatusoutput(fctl_cli)  # pytype: disable=module-attr
-        self.assertEqual(0, retcode, msg='%s returned %d' % (
-            fctl_cli, retcode))
+        self.assertEqual(0, retcode, msg=f'{fctl_cli} returned {retcode}')
         output = output.strip()
         self.assertEqual(output, expected_output)
 
@@ -145,7 +144,7 @@ class FctlClassTestCase(FctlTestCaseBase):
             self.assertEqual(
                 None,
                 fctl.scrape_prometheus(
-                    ['file://%s' % bad_input_file_name], err_output_file=err_output_file))
+                    [f'file://{bad_input_file_name}'], err_output_file=err_output_file))
 
     def write_prom_input_file(self, input_data):
         with open(self.prom_input_file_name, 'w', encoding='utf-8') as prom_input_file:
