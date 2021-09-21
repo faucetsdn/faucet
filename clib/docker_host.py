@@ -100,7 +100,7 @@ class DockerHost(Host):
         base_cmd = ["docker", "run", "-ti", "--privileged", "--entrypoint", "env",
                     "-h", self.name, "--name", self.container]
         opt_args = [f'--net={self.network}']
-        env_vars = self.env_vars + [f"TERM=dumb", "PS1={self.ps1}"]
+        env_vars = self.env_vars + ["TERM=dumb", f"PS1={self.ps1}"]
         env_args = reduce(operator.add, (['--env', var] for var in env_vars), [])
         vol_args = reduce(operator.add, (['-v', var] for var in self.vol_maps), ['-v', tmp_volume])
         image_args = [self.image, "bash", "--norc", "-is", "mininet:" + self.name]
