@@ -121,11 +121,11 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
                 config_mask = self.match_types[match_type]
                 flow_mask = isinstance(match_field, tuple)
                 assert config_mask or (not config_mask and not flow_mask), (
-                    f'{match_type} configured mask {config_mask} but flow mask ' \
+                    f'{match_type} configured mask {config_mask} but flow mask '
                     f'{flow_mask} in table {self.name} ({flowmod})')
                 if self.exact_match and match_fields:
                     assert len(self.match_types) == len(match_fields), (
-                        f'exact match table {self.name} matches {self.match_types} ' \
+                        f'exact match table {self.name} matches {self.match_types} '
                         f'do not match flow matches {match_fields} ({flowmod})')
 
     def _trim_actions(self, actions):

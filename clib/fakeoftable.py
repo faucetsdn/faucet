@@ -381,7 +381,8 @@ class FakeOFTable:
             for table in tables:
                 entries = len(table)
                 if entries > tfm_body.max_entries:
-                    tfm_table_details = f'self.dp_id: table {table_id} {tfm_body.name} full ({entries}/{tfm_body.max_entries})'
+                    tfm_table_details = f'self.dp_id: table {table_id} {tfm_body.name} ' \
+                                        f'full ({entries}/{tfm_body.max_entries})'
                     flow_dump = '\n\n'.join(
                         (tfm_table_details, str(ofmsg), str(tfm_body)))
                     raise FakeOFTableException(flow_dump)

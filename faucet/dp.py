@@ -996,7 +996,7 @@ configuration.
                     if tunnel_vlan:
                         # VLAN exists, i.e: user specified the VLAN so check if it is reserved
                         test_config_condition(not tunnel_vlan.reserved_internal_vlan, (
-                            f'VLAN {tunnel_vlan.name} is required for use by' \
+                            f'VLAN {tunnel_vlan.name} is required for use by'
                             f' tunnel {tunnel_id_name} but is not reserved'))
                     else:
                         # VLAN does not exist, so the ID should be the VID the user wants
@@ -1009,7 +1009,7 @@ configuration.
                     if existing_tunnel_vlan is not None:
                         test_config_condition(
                             existing_tunnel_vlan == tunnel_vlan.vid,
-                            f'Cannot have multiple tunnel IDs ({existing_tunnel_vlan.vid},' \
+                            f'Cannot have multiple tunnel IDs ({existing_tunnel_vlan.vid},'
                             f' {tunnel_vlan.vid}) to same destination {resolved_dst}')
                 return tunnel_vlan
 

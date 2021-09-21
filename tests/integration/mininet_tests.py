@@ -358,7 +358,8 @@ filter_id_user_deny  Cleartext-Password := "deny_pass"
 
             for expected_event in dot1x_expected_events:
                 self.assertTrue(expected_event in events_that_happened,
-                                msg=f'expected event: {expected_event} not in events_that_happened {events_that_happened}')
+                                msg=f'expected event: {expected_event} not in '
+                                    f'events_that_happened {events_that_happened}')
 
     @staticmethod
     def _eapol_filter(fields):
@@ -1194,7 +1195,7 @@ class Faucet8021XVLANTest(Faucet8021XSuccessTest):
         self.wait_until_matching_flow(
             {'vlan_vid': radius_vid1},
             table_id=self._FLOOD_TABLE,
-            actions=[f'POP_VLAN', f'OUTPUT:{port_no1}', f'OUTPUT:{port_no3}'])
+            actions=['POP_VLAN', f'OUTPUT:{port_no1}', f'OUTPUT:{port_no3}'])
         self.wait_until_matching_flow(
             {'vlan_vid': vid},
             table_id=self._FLOOD_TABLE,
@@ -2794,8 +2795,8 @@ vlans:
             time.sleep(1)
         first_host_diag = first_host.cmd('ifconfig -a ; arp -an')
         second_host_diag = second_host.cmd('ifconfig -a ; arp -an')
-        self.fail(f'{mac_ips} cannot be learned ({macs_learned} != {fping_out})\n' \
-            f'first host {first_host_diag}\nsecond host {second_host_diag}\n')
+        self.fail(f'{mac_ips} cannot be learned ({macs_learned} != {fping_out})\n'
+                  f'first host {first_host_diag}\nsecond host {second_host_diag}\n')
 
     def test_untagged(self):
         first_host, second_host = self.hosts_name_ordered()[:2]
@@ -4284,8 +4285,7 @@ details partner lacp pdu:
                 f'ip address flush dev {bond_member}'))
         # Configure bond interface
         self.quiet_commands(first_host, (
-            f'ip link add {bond} address 0e:00:00:00:00:99 ' \
-            f'type bond mode 802.3ad lacp_rate fast miimon 100',
+            f'ip link add {bond} address 0e:00:00:00:00:99 type bond mode 802.3ad lacp_rate fast miimon 100',
             f'ip add add {orig_ip}/24 dev {bond}',
             f'ip link set {bond} up'))
         # Add bond members

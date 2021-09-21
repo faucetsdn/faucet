@@ -91,8 +91,8 @@ class ValveLLDPManager(ValveManagerBase):
                 or remote_dp_name != remote_dp.name
                 or remote_port_id != remote_port.number):
             self.logger.error(
-                f'Stack {port} cabling incorrect, expected ' \
-                f'{valve_util.dpid_log(remote_dp.dp_id)}:{remote_dp.name}:{remote_port.number}, ' \
+                f'Stack {port} cabling incorrect, expected '
+                f'{valve_util.dpid_log(remote_dp.dp_id)}:{remote_dp.name}:{remote_port.number}, '
                 f'actual {valve_util.dpid_log(remote_dp_id)}:{remote_dp_name}:{remote_port_id}')
             stack_correct = False
             self._inc_var('stack_cabling_errors')
@@ -133,8 +133,8 @@ class ValveLLDPManager(ValveManagerBase):
                 self.notify({'STACK_STATE': {
                     'port': port.number,
                     'state': after_state}})
-                self.logger.info(f'Stack {port} state {port.stack_state_name(after_state)} ' \
-                    f'(previous state {port.stack_state_name(before_state)}): {reason}')
+                self.logger.info(f'Stack {port} state {port.stack_state_name(after_state)} '
+                                 f'(previous state {port.stack_state_name(before_state)}): {reason}')
                 stack_changes += 1
                 port_up = False
                 if port.is_stack_up():

@@ -485,8 +485,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                         self.eth_src_table.match(in_port=port.number)))
                     port.dyn_learn_ban_count += 1
                     self.logger.info(
-                        f'max hosts {port.max_hosts} reached on {port}, ' \
-                        f'temporarily banning learning on this port, ' \
+                        f'max hosts {port.max_hosts} reached on {port}, '
+                        f'temporarily banning learning on this port, '
                         f'and not learning {eth_src}')
             if vlan is not None and vlan.max_hosts:
                 hosts_count = vlan.hosts_count()
@@ -494,8 +494,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                     ofmsgs.append(self._temp_ban_host_learning(self.eth_src_table.match(vlan=vlan)))
                     vlan.dyn_learn_ban_count += 1
                     self.logger.info(
-                        f'max hosts {vlan.max_hosts} reached on VLAN {vlan.vid}, ' \
-                        f'temporarily banning learning on this VLAN, ' \
+                        f'max hosts {vlan.max_hosts} reached on VLAN {vlan.vid}, '
+                        f'temporarily banning learning on this VLAN, '
                         f'and not learning {eth_src} on {port}')
         return ofmsgs
 
@@ -690,8 +690,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 if port != cache_port and cache_age < self.cache_update_guard_time:
                     learn_ban = True
                     port.dyn_learn_ban_count += 1
-                    self.logger.info(f'rapid move of {eth_src} from {cache_port} ' \
-                        f'to {port}, temp loop ban {port}')
+                    self.logger.info(f'rapid move of {eth_src} from {cache_port} '
+                                     f'to {port}, temp loop ban {port}')
 
             # already, or newly in protect mode, apply the ban rules.
             if learn_ban:
@@ -773,9 +773,9 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             lacp_up, now=now, lacp_pkt=lacp_pkt,
             cold_start=cold_start)
         if prev_actor_state != new_actor_state:
-            self.logger.info(f'LAG {port.lacp} {port} actor state ' \
-                f'{port.actor_state_name(new_actor_state)} (previous state ' \
-                f'{port.actor_state_name(prev_actor_state)})')
+            self.logger.info(f'LAG {port.lacp} {port} actor state '
+                             f'{port.actor_state_name(new_actor_state)} (previous state '
+                             f'{port.actor_state_name(prev_actor_state)})')
         return prev_actor_state != new_actor_state
 
     def enable_forwarding(self, port):
@@ -808,8 +808,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             for peer_num in port.lacp_passthrough:
                 lacp_peer = self.ports.get(peer_num, None)
                 if not lacp_peer.dyn_lacp_up:
-                    self.logger.warning(f'Suppressing LACP LAG {port.lacp} on ' \
-                        f'{port}, peer {lacp_peer} link is down')
+                    self.logger.warning(f'Suppressing LACP LAG {port.lacp} on '
+                                        f'{port}, peer {lacp_peer} link is down')
                     return []
         actor_state_activity = 0
         if port.lacp_active:
@@ -873,9 +873,9 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         prev_state = port.lacp_port_state()
         new_state = port.lacp_port_update(valve.dp.dp_id == nominated_dpid, cold_start=cold_start)
         if new_state != prev_state:
-            self.logger.info(f'LAG {port.lacp} {port} ' \
-                f'{port.port_role_name(new_state)} ' \
-                f'(previous state{port.port_role_name(prev_state)})')
+            self.logger.info(f'LAG {port.lacp} {port} '
+                             f'{port.port_role_name(new_state)} '
+                             f'(previous state{port.port_role_name(prev_state)})')
         return new_state != prev_state
 
     def lacp_handler(self, now, pkt_meta, valve, other_valves, lacp_update):
@@ -925,7 +925,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                     other_actor_system = other_lag_port.dyn_last_lacp_pkt.actor_system
                     if actor_system != other_actor_system:
                         self.logger.error(
-                            f'LACP actor system mismatch {pkt_meta.port}: ' \
+                            f'LACP actor system mismatch {pkt_meta.port}: '
                             f'{actor_system}, {other_lag_port} {other_actor_system}')
         return ofmsgs_by_valve
 

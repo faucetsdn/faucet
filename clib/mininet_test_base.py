@@ -1678,7 +1678,8 @@ dbs:
                     new_mac_table, msg=f'no host cache for VLAN {host_cache}')
                 self.assertEqual(
                     old_mac_table, new_mac_table,
-                    msg=f'host cache for VLAN {host_cache} not same over reload (old {old_mac_table}, new {new_mac_table})')
+                    msg=f'host cache for VLAN {host_cache} not same over reload '
+                        f'(old {old_mac_table}, new {new_mac_table})')
             else:
                 verify_faucet_reconf_func()
             return
@@ -1809,7 +1810,7 @@ dbs:
         scapy_cmd = self.scapy_template(
             (f'Ether(src=\'{host_a.MAC()}\', dst=\'{host_b.MAC()}\', type={IPV4_ETH}) / '
              f'IP(src=\'{host_a.IP()}\', dst=\'{host_b.IP()}\') / UDP(dport=67,sport=68)'),
-                host_a.defaultIntf(), count=packets)
+            host_a.defaultIntf(), count=packets)
         return self._verify_xcast(unicast_expected, packets, tcpdump_filter,
                                   scapy_cmd, host_a, host_b)
 
@@ -1827,7 +1828,7 @@ dbs:
             bcast_cap_files.append(bcast_cap_file)
             host.cmd(mininet_test_util.timeout_cmd(
                 f'tcpdump -U -n -c 1 -i {host.defaultIntf()} -w {bcast_cap_file} {tcpdump_filter} &',
-                    tcpdump_timeout))
+                tcpdump_timeout))
         for host in self.hosts_name_ordered():
             for bcast_cmd in (
                     (f'ndisc6 -w1 fe80::1 {host.defaultIntf()}'),
@@ -2785,7 +2786,7 @@ dbs:
         if wpa_ctrl_socket_path:
             wpa_ctrl_socket = f'-C {wpa_ctrl_socket_path}'
         wpasupplicant_cmd = mininet_test_util.timeout_cmd(
-            f'wpa_supplicant -dd -t -c {wpasupplicant_conf_file_name}' \
+            f'wpa_supplicant -dd -t -c {wpasupplicant_conf_file_name}'
             f' -i {host.defaultIntf()} -D wired -f {wpasupplicant_log} {wpa_ctrl_socket} &', 300)
         host.cmd(wpasupplicant_cmd)
         for _ in range(timeout):

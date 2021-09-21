@@ -897,19 +897,20 @@ class Valve:
         if port.dyn_lldp_beacon_recv_state != remote_port_state:
             chassis_id = str(self.dp.faucet_dp_mac)
             if remote_port_state:
-                self.logger.info(f'LLDP on {chassis_id}, {port} from {pkt_meta.eth_src} ' \
-                    f'(remote {valve_util.dpid_log(remote_dp_id)}, port {remote_port_id})' \
+                self.logger.info(
+                    f'LLDP on {chassis_id}, {port} from {pkt_meta.eth_src} '
+                    f'(remote {valve_util.dpid_log(remote_dp_id)}, port {remote_port_id})'
                     f' state {port.stack_state_name(remote_port_state)}')
             port.dyn_lldp_beacon_recv_state = remote_port_state
 
         peer_mac_src = self.dp.ports[port.number].lldp_peer_mac
         if peer_mac_src and peer_mac_src != pkt_meta.eth_src:
-            self.logger.warning(f'Unexpected LLDP peer. Received pkt from {pkt_meta.eth_src} ' \
-                f'instead of {peer_mac_src}')
+            self.logger.warning(f'Unexpected LLDP peer. Received pkt from {pkt_meta.eth_src} '
+                                f'instead of {peer_mac_src}')
         ofmsgs_by_valve = {}
         if remote_dp_id and remote_port_id:
-            self.logger.debug(f'FAUCET LLDP on {port} from {pkt_meta.eth_src} ' \
-                f'(remote {valve_util.dpid_log(remote_dp_id)}, port {remote_port_id})')
+            self.logger.debug(f'FAUCET LLDP on {port} from {pkt_meta.eth_src} '
+                              f'(remote {valve_util.dpid_log(remote_dp_id)}, port {remote_port_id})')
             ofmsgs_by_valve.update(self._lldp_manager.verify_lldp(
                 port, now, self, other_valves,
                 remote_dp_id, remote_dp_name,
@@ -1082,8 +1083,8 @@ class Valve:
                     and pkt_meta.vlan
                     and pkt_meta.vlan not in pkt_meta.port.tagged_vlans
                     and pkt_meta.vlan != pkt_meta.port.native_vlan):
-                self.logger.warning(f'packet from non-stack port number ' \
-                    f'{pkt_meta.port.number} is not member of VLAN {pkt_meta.vlan.vid}')
+                self.logger.warning(f'packet from non-stack port number '
+                                    f'{pkt_meta.port.number} is not member of VLAN {pkt_meta.vlan.vid}')
                 return None
         return pkt_meta
 
