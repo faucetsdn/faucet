@@ -691,7 +691,7 @@ class FaucetTestBase(unittest.TestCase):
         return gauge_controller
 
     def _start_faucet(self, controller_intf, controller_ipv6):
-        self.assertIsNone(self.net, 'Cannot invoke _start_faucet() multilpe times')
+        self.assertIsNone(self.net, 'Cannot invoke _start_faucet() multiple times')
         self.assertTrue(self.NUM_FAUCET_CONTROLLERS > 0, 'Define at least 1 Faucet controller')
         self.assertTrue(self.NUM_GAUGE_CONTROLLERS > 0, 'Define at least 1 Gauge controller')
 
