@@ -852,11 +852,18 @@ class FaucetTestBase(unittest.TestCase):
 
     def _dump_controller_logs(self):
         dump_txt = ''
-        test_logs = glob.glob(os.path.join(self.tmpdir, '*.log'))
+        test_logs = sorted(glob.glob(os.path.join(self.tmpdir, '*.log')))
         for controller in self.net.controllers:
+            header_txt = controller.name + ' log files'
+            dump_txt += '\n'.join((
+                '',
+                '#' * len(header_txt),
+                header_txt,
+                '#' * len(header_txt),
+                ''))
             for test_log_name in test_logs:
                 basename = os.path.basename(test_log_name)
-                if basename.startswith(controller.name):
+                if basename.startswith(controller.name_no_pid):
                     with open(test_log_name, encoding='utf-8') as test_log:
                         dump_txt += '\n'.join((
                             '',
@@ -864,7 +871,6 @@ class FaucetTestBase(unittest.TestCase):
                             '=' * len(basename),
                             '',
                             test_log.read()))
-                    break
         return dump_txt
 
     def _controllers_healthy(self):

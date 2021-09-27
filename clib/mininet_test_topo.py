@@ -460,12 +460,13 @@ socket_timeout=15
 
     def __init__(self, name, tmpdir, controller_intf=None, controller_ipv6=False,
                  cargs='', **kwargs):
-        name = '%s-%u' % (name, os.getpid())
+        self.name_no_pid = name
+        name_with_pid = '%s-%u' % (name, os.getpid())
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
         self.controller_ipv6 = controller_ipv6
         super().__init__(
-            name, cargs=self._add_cargs(cargs, name), **kwargs)
+            name_with_pid, cargs=self._add_cargs(cargs, name_with_pid), **kwargs)
 
     def _add_cargs(self, cargs, name):
         ofp_listen_host_arg = ''
@@ -633,7 +634,7 @@ socket_timeout=15
         super().stop()
         if os.path.exists(self.logname()):
             tmpdir_logname = os.path.join(
-                self.tmpdir, os.path.basename(self.logname()))
+                self.tmpdir, self.name + '-stdout-stderr.log')
             if os.path.exists(tmpdir_logname):
                 os.remove(tmpdir_logname)
             shutil.move(self.logname(), tmpdir_logname)
