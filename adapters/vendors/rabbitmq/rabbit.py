@@ -97,10 +97,9 @@ class RabbitAdapter:
             self.channel.exchange_declare(exchange=self.exchange,
                                           exchange_type=self.exchange_type)
         except (pika.exceptions.AMQPError, socket.gaierror, OSError) as err:
-            print("Unable to connect to RabbitMQ at %s:%s because: %s" %
-                  (self.host, self.port, err))
+            print(f"Unable to connect to RabbitMQ at {self.host}:{self.port} because: {err}")
             return False
-        print("Connected to RabbitMQ at %s:%s" % (self.host, self.port))
+        print(f"Connected to RabbitMQ at {self.host}:{self.port}")
         return True
 
     def socket_conn(self):
@@ -118,9 +117,9 @@ class RabbitAdapter:
             self.sock.connect(self.event_sock)
             self.sock.setblocking(False)
         except socket.error as err:
-            print("Failed to connect to the socket because: %s" % err)
+            print(f"Failed to connect to the socket because: {err}")
             return False
-        print("Connected to the socket at %s" % self.event_sock)
+        print(f"Connected to the socket at {self.event_sock}")
         return True
 
     def poll_events(self):
@@ -160,8 +159,7 @@ class RabbitAdapter:
                             properties=pika.BasicProperties(delivery_mode=2,))
                     events = []
                 except pika.exceptions.AMQPError as err:
-                    print("Unable to send events %s to RabbitMQ: %s, retrying" % (
-                        events, err))
+                    print(f"Unable to send events {events} to RabbitMQ: {err}, retrying")
                     time.sleep(1)
                     self.rabbit_conn()
                     sys.stdout.flush()
