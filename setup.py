@@ -89,7 +89,7 @@ def install_configs():
 setup(
     name='faucet',
     setup_requires=['pbr>=1.9', 'setuptools>=17.1'],
-    python_requires='>=3.7'
+    python_requires='>=3.7',
     pbr=True
 )
 
