@@ -1,9 +1,9 @@
 name: Build docker images for release
 
 on:
-  push:
-    tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+  release:
+    types:
+      - published
 
 jobs:
   faucet-docker-image:
@@ -29,8 +29,8 @@ jobs:
       - name: Run buildx
         run: |
           docker buildx build \
-            --tag faucet/faucet:${{ github.event.release.tag_name }} \
-            --tag faucet/faucet:latest \
+            --tag c65sdn/faucet:${{ github.event.release.tag_name }} \
+            --tag c65sdn/faucet:latest \
             --platform linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x \
             --output "type=registry" \
             --file Dockerfile.faucet \
@@ -60,8 +60,8 @@ jobs:
       - name: Run buildx
         run: |
           docker buildx build \
-            --tag faucet/gauge:${{ github.event.release.tag_name }} \
-            --tag faucet/gauge:latest \
+            --tag c65sdn/gauge:${{ github.event.release.tag_name }} \
+            --tag c65sdn/gauge:latest \
             --platform linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x \
             --output "type=registry" \
             --file Dockerfile.gauge \
@@ -91,8 +91,8 @@ jobs:
         run: |
           cd adapters/vendors/rabbitmq/
           docker buildx build \
-            --tag faucet/event-adapter-rabbitmq:${{ github.event.release.tag_name }} \
-            --tag faucet/event-adapter-rabbitmq:latest \
+            --tag c65sdn/event-adapter-rabbitmq:${{ github.event.release.tag_name }} \
+            --tag c65sdn/event-adapter-rabbitmq:latest \
             --platform linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x \
             --output "type=registry" \
             --file Dockerfile \
@@ -122,8 +122,8 @@ jobs:
         run: |
           cd adapters/vendors/faucetagent/
           docker buildx build \
-            --tag faucet/event-adapter-faucetagent:${{ github.event.release.tag_name }} \
-            --tag faucet/event-adapter-faucetagent:latest \
+            --tag c65sdn/event-adapter-faucetagent:${{ github.event.release.tag_name }} \
+            --tag c65sdn/event-adapter-faucetagent:latest \
             --platform linux/amd64 \
             --output "type=registry" \
             --file Dockerfile \

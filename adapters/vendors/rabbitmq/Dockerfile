@@ -1,6 +1,6 @@
 ## Image name: faucet/event-adapter-rabbitmq
 
-FROM faucet/base:5.0.0
+FROM c65sdn/base:latest
 LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 
 ENV PYTHONUNBUFFERED=0
@@ -11,11 +11,12 @@ COPY requirements.txt requirements.txt
 COPY rabbit.py rabbit.py
 COPY test_rabbit.py test_rabbit.py
 
-RUN apk add --update \
+RUN apk add --no-cache --update \
       python3 \
       python3-dev \
       gcc \
-      musl-dev \
+      musl-dev py3-pip \
+    && pip3 install --no-cache-dir --upgrade wheel setuptools \
     && pip3 install --no-cache-dir -r requirements.txt \
 # run tests
     && apk add --update pytest \
