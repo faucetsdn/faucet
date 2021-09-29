@@ -50,8 +50,7 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
     def goto(self, next_table):
         """Add goto next table instruction."""
         assert next_table.name in self.table_config.next_tables, (
-            '%s not configured as next table in %s' % (
-                next_table.name, self.name))
+            f'{next_table.name} not configured as next table in {self.name}')
         return valve_of.goto_table(next_table)
 
     def goto_this(self):
@@ -60,8 +59,7 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
     def goto_miss(self, next_table):
         """Add miss goto table instruction."""
         assert next_table.name == self.table_config.miss_goto, (
-            '%s not configured as miss table in %s' % (
-                next_table.name, self.name))
+            f'{next_table.name} not configured as miss table in {self.name}')
         return valve_of.goto_table(next_table)
 
     @staticmethod
@@ -110,25 +108,25 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
             if self.table_id != valve_of.ofp.OFPTT_ALL:
                 for match_type, match_field in match_fields:
                     assert match_type in self.match_types, (
-                        '%s match in table %s' % (match_type, self.name))
+                        f'{match_type} match in table {self.name}')
         else:
             # TODO: ACL builder should not use ALL table.
             if self.table_id == valve_of.ofp.OFPTT_ALL:
                 return
             assert not (flowmod.priority == 0 and match_fields), (
-                'default flow cannot have matches on table %s: %s' % (self.name, flowmod))
+                f'default flow cannot have matches on table {self.name}: {flowmod}')
             for match_type, match_field in match_fields:
                 assert match_type in self.match_types, (
-                    '%s match in table %s' % (match_type, self.name))
+                    f'{match_type} match in table {self.name}')
                 config_mask = self.match_types[match_type]
                 flow_mask = isinstance(match_field, tuple)
                 assert config_mask or (not config_mask and not flow_mask), (
-                    '%s configured mask %s but flow mask %s in table %s (%s)' % (
-                        match_type, config_mask, flow_mask, self.name, flowmod))
+                    f'{match_type} configured mask {config_mask} but flow mask '
+                    f'{flow_mask} in table {self.name} ({flowmod})')
                 if self.exact_match and match_fields:
                     assert len(self.match_types) == len(match_fields), (
-                        'exact match table %s matches %s do not match flow matches %s (%s)' % (
-                            self.name, self.match_types, match_fields, flowmod))
+                        f'exact match table {self.name} matches {self.match_types} '
+                        f'do not match flow matches {match_fields} ({flowmod})')
 
     def _trim_actions(self, actions):
         new_actions = []
@@ -143,9 +141,7 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
         set_fields = {action.key for action in new_actions if valve_of.is_set_field(action)}
         if self.table_id != valve_of.ofp.OFPTT_ALL and set_fields:
             assert set_fields.issubset(self.set_fields), (
-                'unexpected set fields %s configured %s in %s' % (set_fields,
-                                                                  self.set_fields,
-                                                                  self.name))
+                f'unexpected set fields {set_fields} configured {self.set_fields} in {self.name}')
         return new_actions
 
     @functools.lru_cache()

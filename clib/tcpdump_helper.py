@@ -50,8 +50,7 @@ class TcpdumpHelper:
             shell=False)
 
         if self.stream():
-            debug('tcpdump_helper stream fd %s %s' % (
-                self.stream().fileno(), self.intf_name))
+            debug(f'tcpdump_helper stream fd {self.stream().fileno()} {self.intf_name}')
 
         self.readbuf = ''
         self.set_blocking(blocking)
@@ -81,7 +80,7 @@ class TcpdumpHelper:
                 line = self.next_line()
                 if not line:
                     break
-                debug('tcpdump_helper fd %d line "%s"' % (self.stream().fileno(), line))
+                debug(f'tcpdump_helper fd {self.stream().fileno()} line "{line}"')
                 tcpdump_txt += line.strip()
         return tcpdump_txt
 
@@ -91,7 +90,7 @@ class TcpdumpHelper:
             return -1
 
         try:
-            debug('tcpdump_helper terminate fd %s' % self.stream().fileno())
+            debug(f'tcpdump_helper terminate fd {self.stream().fileno()}')
             self.pipe.terminate()
             result = self.pipe.wait()
             if result == 124:
@@ -101,8 +100,7 @@ class TcpdumpHelper:
             self.pipe = None
             return result
         except EnvironmentError as err:
-            error('Error closing tcpdump_helper fd %d: %s' % (
-                self.pipe.stdout.fileno(), err))
+            error(f'Error closing tcpdump_helper fd {self.pipe.stdout.fileno()}: {err}')
             return -2
 
     def readline(self):
@@ -131,13 +129,13 @@ class TcpdumpHelper:
             try:
                 line = self.readline()
             except OSError as err:
-                if err.errno == errno.EWOULDBLOCK or err.errno == errno.EAGAIN:
+                if err.errno in (errno.EWOULDBLOCK, errno.EAGAIN):
                     return ''
                 raise
-            assert line or self.started, 'tcpdump did not start: %s' % self.last_line.strip()
+            assert line or self.started, f'tcpdump did not start: {self.last_line.strip()}'
             if self.started:
                 return line
-            if re.search('listening on %s' % self.intf_name, line):
+            if re.search(f'listening on {self.intf_name}', line):
                 self.started = True
                 # When we see tcpdump start, then call provided functions.
                 if self.funcs is not None:

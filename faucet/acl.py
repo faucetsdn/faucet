@@ -139,7 +139,7 @@ The output action contains a dictionary with the following elements:
             conf = {}
         else:
             raise InvalidConfigError(
-                'ACL conf is an invalid type %s' % _id)
+                f'ACL conf is an invalid type {_id}')
         conf['rules'] = []
         for rule in rules:
             normalized_rule = rule
@@ -148,7 +148,7 @@ The output action contains a dictionary with the following elements:
                 if normalized_rule is None:
                     normalized_rule = {k: v for k, v in rule.items() if v is not None}
             test_config_condition(not isinstance(normalized_rule, dict), (
-                'ACL rule is %s not %s (%s)' % (type(normalized_rule), dict, rules)))
+                f'ACL rule is {type(normalized_rule)} not {dict} ({rules})'))
             conf['rules'].append(normalized_rule)
         super().__init__(_id, dp_id, conf)
 
@@ -158,7 +158,7 @@ The output action contains a dictionary with the following elements:
 
     def check_config(self):
         test_config_condition(
-            not self.rules, 'no rules found for ACL %s' % self._id)
+            not self.rules, f'no rules found for ACL {self._id}')
         for rule in self.rules:
             self._check_conf_types(rule, self.rule_types)
             for rule_field, rule_conf in rule.items():
@@ -169,7 +169,7 @@ The output action contains a dictionary with the following elements:
                 elif rule_field == 'actions':
                     test_config_condition(
                         not rule_conf,
-                        'Missing rule actions in ACL %s' % self._id)
+                        f'Missing rule actions in ACL {self._id}')
                     self._check_conf_types(rule_conf, self.actions_types)
                     for action_name, action_conf in rule_conf.items():
                         if action_name == 'output':
@@ -281,7 +281,7 @@ The output action contains a dictionary with the following elements:
                     # Fetch tunnel items from the tunnel output dict
                     test_config_condition(
                         'dp' not in tunnel,
-                        'ACL (%s) tunnel DP not defined' % self._id)
+                        f'ACL ({self._id}) tunnel DP not defined')
                     tunnel_dp = tunnel['dp']
                     tunnel_port = tunnel.get('port', None)
                     tunnel_id = tunnel.get('tunnel_id', None)
@@ -292,8 +292,8 @@ The output action contains a dictionary with the following elements:
                     tunnel_reverse = tunnel.get('reverse', False)
                     test_config_condition(
                         tunnel_reverse and tunnel_direction,
-                        ('Tunnel ACL %s cannot contain values for the fields'
-                         '`bi_directional` and `reverse` at the same time' % self._id))
+                        (f'Tunnel ACL {self._id} cannot contain values for the fields'
+                         '`bi_directional` and `reverse` at the same time'))
                     # Resolve the tunnel items
                     dst_dp, dst_port, tunnel_id = resolve_tunnel_objects(
                         tunnel_dp, tunnel_port, tunnel_id)
@@ -315,14 +315,14 @@ The output action contains a dictionary with the following elements:
                     port = resolve_port_cb(port_name)
                     test_config_condition(
                         not port,
-                        'ACL (%s) output port undefined in DP: %s' % (self._id, self.dp_id))
+                        f'ACL ({self._id}) output port undefined in DP: {self.dp_id}')
                     result.append({key: port})
                 elif key == 'ports':
                     resolved_ports = [
                         resolve_port_cb(p) for p in value]
                     test_config_condition(
                         None in resolved_ports,
-                        'ACL (%s) output port(s) not defined in DP: %s' % (self._id, self.dp_id))
+                        f'ACL ({self._id}) output port(s) not defined in DP: {self.dp_id}')
                     result.append({key: resolved_ports})
                 elif key == 'failover':
                     failover = value
@@ -335,8 +335,7 @@ The output action contains a dictionary with the following elements:
                                 resolve_port_cb(p) for p in failover_values]
                             test_config_condition(
                                 None in resolved_ports,
-                                'ACL (%s) failover port(s) not defined in DP: %s' % (
-                                    self._id, self.dp_id))
+                                f'ACL ({self._id}) failover port(s) not defined in DP: {self.dp_id}')
                             failover_dict[failover_name] = resolved_ports
                         else:
                             failover_dict[failover_name] = failover_values
@@ -353,17 +352,17 @@ The output action contains a dictionary with the following elements:
         result = {}
         test_config_condition(
             'vlan_vid' in action_conf and 'vlan_vids' in action_conf,
-            'ACL %s has both vlan_vid and vlan_vids defined' % self._id)
+            f'ACL {self._id} has both vlan_vid and vlan_vids defined')
         test_config_condition(
             'port' in action_conf and 'ports' in action_conf,
-            'ACL %s has both port and ports defined' % self._id)
+            f'ACL {self._id} has both port and ports defined')
         for output_action, output_action_values in action_conf.items():
             if output_action == 'tunnel':
                 tunnel = output_action_values
                 # Fetch tunnel items from the tunnel output dict
                 test_config_condition(
                     'dp' not in tunnel,
-                    'ACL (%s) tunnel DP not defined' % self._id)
+                    f'ACL ({self._id}) tunnel DP not defined')
                 tunnel_dp = tunnel['dp']
                 tunnel_port = tunnel.get('port', None)
                 tunnel_id = tunnel.get('tunnel_id', None)
@@ -374,8 +373,9 @@ The output action contains a dictionary with the following elements:
                 tunnel_reverse = tunnel.get('reverse', False)
                 test_config_condition(
                     tunnel_reverse and tunnel_direction,
-                    ('Tunnel ACL %s cannot contain values for the fields'
-                     '`bi_directional` and `reverse` at the same time' % self._id))
+                    (f'Tunnel ACL {self._id} cannot contain values for the fields'
+                     '`bi_directional` and `reverse` at the same time')
+                )
                 # Resolve the tunnel items
                 dst_dp, dst_port, tunnel_id = resolve_tunnel_objects(
                     tunnel_dp, tunnel_port, tunnel_id)
@@ -397,8 +397,7 @@ The output action contains a dictionary with the following elements:
                 port = resolve_port_cb(port_name)
                 test_config_condition(
                     not port,
-                    ('ACL (%s) output port undefined in DP: %s'
-                     % (self._id, self.dp_id))
+                    (f'ACL ({self._id}) output port undefined in DP: {self.dp_id}')
                 )
                 result[output_action] = port
             elif output_action == 'ports':
@@ -406,8 +405,7 @@ The output action contains a dictionary with the following elements:
                     resolve_port_cb(p) for p in output_action_values]
                 test_config_condition(
                     None in resolved_ports,
-                    ('ACL (%s) output port(s) not defined in DP: %s'
-                     % (self._id, self.dp_id))
+                    (f'ACL ({self._id}) output port(s) not defined in DP: {self.dp_id}')
                 )
                 result[output_action] = resolved_ports
             elif output_action == 'failover':
@@ -421,8 +419,7 @@ The output action contains a dictionary with the following elements:
                             resolve_port_cb(p) for p in failover_values]
                         test_config_condition(
                             None in resolved_ports,
-                            ('ACL (%s) failover port(s) not defined in DP: %s'
-                             % (self._id, self.dp_id))
+                            (f'ACL ({self._id}) failover port(s) not defined in DP: {self.dp_id}')
                         )
                         result[output_action][failover_name] = resolved_ports
                     else:
@@ -446,8 +443,7 @@ The output action contains a dictionary with the following elements:
                         resolved_port = resolve_port_cb(action_conf)
                         test_config_condition(
                             resolved_port is None,
-                            ('ACL (%s) mirror port is not defined in DP: %s'
-                             % (self._id, self.dp_id))
+                            (f'ACL ({self._id}) mirror port is not defined in DP: {self.dp_id}')
                         )
                         resolved_actions[action_name] = resolved_port
                     elif action_name == 'output':

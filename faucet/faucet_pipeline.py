@@ -49,10 +49,10 @@ class ValveTableConfig:  # pylint: disable=too-many-instance-attributes
 
     def __str__(self):
         field_strs = ' '.join([
-            '%s: %s' % (key, val)
+            f'{key}: {val}'
             for key, val in sorted(self.__dict__.items())
             if val])
-        return 'table config %s' % field_strs
+        return f'table config {field_strs}'
 
     def __repr__(self):
         return self.__str__()
@@ -73,9 +73,9 @@ _NEXT_VIP = ('vip',) + _NEXT_ETH
 
 def _fib_table(ipv, table_id):
     return ValveTableConfig(
-        'ipv%u_fib' % ipv,
+        f'ipv{ipv}_fib',
         table_id,
-        match_types=(('eth_type', False), ('ipv%u_dst' % ipv, True), ('vlan_vid', False)),
+        match_types=(('eth_type', False), (f'ipv{ipv}_dst', True), ('vlan_vid', False)),
         set_fields=('eth_dst', 'eth_src', 'vlan_vid'),
         dec_ttl=True,
         vlan_port_scale=3.1,

@@ -189,7 +189,7 @@ class FakeOFNetwork:
             if not found:
                 # Packet not reached destination, so continue traversing
                 if trace:
-                    sys.stderr.write('FakeOFTable %s: %s\n' % (dp_id, pkt))
+                    sys.stderr.write(f'FakeOFTable {dp_id}: {pkt}\n')
                 port_outputs = self.tables[dp_id].get_port_outputs(pkt, trace=trace)
                 valve = self.valves_manager.valves[dp_id]
                 for out_port, out_pkts in port_outputs.items():
@@ -219,7 +219,7 @@ class FakeOFNetwork:
                         elif trace:
                             # Output to non-stack port, can ignore this output
                             sys.stderr.write(
-                                'Ignoring non-stack output %s:%s\n' % (valve.dp.name, out_port))
+                                f'Ignoring non-stack output {valve.dp.name}:{out_port}\n')
             if trace:
                 sys.stderr.write('\n')
         return found
@@ -270,13 +270,13 @@ class FakeOFTable:
         def _add(ofmsg, group_id):
             if group_id in self.groups:
                 raise FakeOFTableException(
-                    'group already in group table: %s' % ofmsg)
+                    f'group already in group table: {ofmsg}')
             self.groups[group_id] = ofmsg
 
         def _modify(ofmsg, group_id):
             if group_id not in self.groups:
                 raise FakeOFTableException(
-                    'group not in group table: %s' % ofmsg)
+                    f'group not in group table: {ofmsg}')
             self.groups[group_id] = ofmsg
 
         _groupmod_handlers = {
@@ -298,15 +298,12 @@ class FakeOFTable:
             if table_id == ofp.OFPTT_ALL:
                 if ofmsg.match.items() and not self.tfm:
                     raise FakeOFTableException(
-                        'got %s with matches before TFM that defines tables'
-                        % ofmsg)
+                        f'got {ofmsg} with matches before TFM that defines tables')
                 return
 
             if tfm_body is None:
                 raise FakeOFTableException(
-                    'got %s before TFM that defines table %u' % (
-                        ofmsg, table_id
-                    )
+                    f'got {ofmsg} before TFM that defines table {table_id}'
                 )
 
         def _add(table, flowmod):
@@ -333,9 +330,7 @@ class FakeOFTable:
                     table.remove(fte)
                     break
                 if flowmod.overlaps(fte):
-                    raise FakeOFTableException(
-                        'Overlapping flowmods {} and {}'.format(
-                            flowmod, fte))
+                    raise FakeOFTableException(f'Overlapping flowmods {flowmod} and {fte}')
             table.append(flowmod)
 
         def _del(table, flowmod):
@@ -386,8 +381,8 @@ class FakeOFTable:
             for table in tables:
                 entries = len(table)
                 if entries > tfm_body.max_entries:
-                    tfm_table_details = '%s : table %u %s full (%u/%u)' % (
-                        self.dp_id, table_id, tfm_body.name, entries, tfm_body.max_entries)
+                    tfm_table_details = f'self.dp_id: table {table_id} {tfm_body.name} ' \
+                                        f'full ({entries}/{tfm_body.max_entries})'
                     flow_dump = '\n\n'.join(
                         (tfm_table_details, str(ofmsg), str(tfm_body)))
                     raise FakeOFTableException(flow_dump)
@@ -464,7 +459,7 @@ class FakeOFTable:
                 matching_fte = fte
                 break
         if trace:
-            sys.stderr.write('%s: %s\n' % (table_id, matching_fte))
+            sys.stderr.write(f'{table_id}: {matching_fte}\n')
         return matching_fte
 
     def _process_instruction(self, match, instruction):
@@ -515,7 +510,7 @@ class FakeOFTable:
             elif action.type == ofp.OFPAT_GROUP:
                 # Group mod so make sure that we process the group buckets
                 if action.group_id not in self.groups:
-                    raise FakeOFTableException('output group not in group table: %s' % action)
+                    raise FakeOFTableException(f'output group not in group table: {action}')
                 buckets = self.groups[action.group_id].buckets
                 for bucket in buckets:
                     bucket_outputs, _, _ = self._process_instruction(packet_dict, bucket)
@@ -568,8 +563,8 @@ class FakeOFTable:
         if next_table:
             pending_actions = []
         if pending_actions:
-            raise FakeOFTableException('flow performs actions on packet after \
-                                       output with no goto: %s' % matching_fte)
+            raise FakeOFTableException(f'flow performs actions on packet after \
+                                       output with no goto: {matching_fte}')
         return outputs, packet_dict, next_table
 
     def get_output(self, match, trace=False):
@@ -699,7 +694,7 @@ class FakeOFTable:
             # if a flowmod is found, make modifications to the match values and
             # determine if another lookup is necessary
             if trace:
-                sys.stderr.write('%d: %s\n' % (table_id, matching_fte))
+                sys.stderr.write(f'{table_id}: {matching_fte}\n')
             if matching_fte:
                 for instruction in matching_fte.instructions:
                     instructions.append(instruction)
@@ -772,7 +767,7 @@ class FakeOFTable:
 
         if trace:
             sys.stderr.write(
-                'tracing packet flow %s matching to port %s, vid %s\n' % (match, port, vid))
+                f'tracing packet flow {match} matching to port {port}, vid {vid}\n')
 
         # vid_stack represents the packet's vlan stack, innermost label listed
         # first
@@ -797,7 +792,7 @@ class FakeOFTable:
                 elif action.type == ofp.OFPAT_GROUP:
                     if action.group_id not in self.groups:
                         raise FakeOFTableException(
-                            'output group not in group table: %s' % action)
+                            f'output group not in group table: {action}')
                     buckets = self.groups[action.group_id].buckets
                     for bucket in buckets:
                         bucket_vid_stack = vid_stack
@@ -831,7 +826,7 @@ class FakeOFTable:
     def __str__(self):
         string = ''
         for table_id, table in enumerate(self.tables):
-            string += '\n----- Table %u -----\n' % (table_id)
+            string += f'\n----- Table {table_id} -----\n'
             string += '\n'.join(sorted([str(flowmod) for flowmod in table]))
         return string
 
@@ -883,8 +878,7 @@ class FlowMod:
         for instruction in self.instructions:
             if instruction.type in instruction_types:
                 raise FakeOFTableException(
-                    'FlowMod with Multiple instructions of the '
-                    'same type: {}'.format(self.instructions))
+                    f'FlowMod with Multiple instructions of the same type: {self.instructions}')
             instruction_types.add(instruction.type)
 
     def out_port_matches(self, other):
@@ -1050,7 +1044,7 @@ class FlowMod:
                 if mask is not None and mask != -1:
                     mask_str = str(mask)
         if mask_str:
-            result += "/{}".format(mask_str)
+            result += f"/{mask_str}"
         return result
 
     def _pretty_action_str(self, action):
@@ -1069,7 +1063,7 @@ class FlowMod:
             else:
                 value = str(action.port)
         elif isinstance(action, parser.OFPActionSetField):
-            name = 'set_{}'.format(action.key)
+            name = f'set_{action.key}'
             value = self._pretty_field_str(action.key, action.value)
         else:
             name, attr = actions_names_attrs[type(action).__name__]
@@ -1077,40 +1071,39 @@ class FlowMod:
                 value = getattr(action, attr)
         result = name
         if value:
-            result += " {}".format(value)
+            result += f" {value}"
         return result
 
     def __str__(self):
-        result = 'Priority: {0} | Match: '.format(self.priority)
+        result = f'Priority: {self.priority} | Match: '
 
         for key in sorted(self.match_values.keys()):
             val = self.match_values[key]
             mask = self.match_masks[key]
-            result += " {} {},".format(
-                key, self._pretty_field_str(key, val, mask))
+            result += f" {key} {self._pretty_field_str(key, val, mask)},"
         result = result.rstrip(',')
         result += " | Instructions :"
         if not self.instructions:
             result += ' drop'
         for instruction in self.instructions:
             if isinstance(instruction, parser.OFPInstructionGotoTable):
-                result += ' goto {}'.format(instruction.table_id)
+                result += f' goto {instruction.table_id}'
             elif isinstance(instruction, parser.OFPInstructionActions):
                 for action in instruction.actions:
-                    result += " {},".format(self._pretty_action_str(action))
+                    result += f" {self._pretty_action_str(action)},"
             else:
                 result += str(instruction)
         result = result.rstrip(',')
         return result
 
     def __repr__(self):
-        string = 'priority: {0} cookie: {1}'.format(self.priority, self.cookie)
+        string = f'priority: {self.priority} cookie: {self.cookie}'
         for key in sorted(self.match_values.keys()):
             mask = self.match_masks[key]
-            string += ' {0}: {1}'.format(key, self.match_values[key])
+            string += f' {key}: {self.match_values[key]}'
             if mask.int != -1:  # pytype: disable=attribute-error
-                string += '/{0}'.format(mask)
-        string += ' Instructions: {0}'.format(str(self.instructions))
+                string += f'/{mask}'
+        string += f' Instructions: {str(self.instructions)}'
         return string
 
 

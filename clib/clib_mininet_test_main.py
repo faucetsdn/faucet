@@ -125,24 +125,24 @@ def import_hw_config():
         if os.path.isfile(config_file_name):
             break
     if os.path.isfile(config_file_name):
-        print('Using config from %s' % config_file_name)
+        print(f'Using config from {config_file_name}')
     else:
-        print('Cannot find %s in %s' % (HW_SWITCH_CONFIG_FILE, CONFIG_FILE_DIRS))
+        print(f'Cannot find {HW_SWITCH_CONFIG_FILE} in {CONFIG_FILE_DIRS}')
         sys.exit(-1)
     try:
         with open(config_file_name, 'r', encoding='utf-8') as config_file:
             config = yaml.safe_load(config_file)
     except IOError:
-        print('Could not load YAML config data from %s' % config_file_name)
+        print(f'Could not load YAML config data from {config_file_name}')
         sys.exit(-1)
     if config.get('hw_switch', False):
         unknown_keys = set(config.keys()) - set(ALL_HW_CONFIG.keys())
         if unknown_keys:
-            print('unknown config %s in %s' % (unknown_keys, config_file_name))
+            print(f'unknown config {unknown_keys} in {config_file_name}')
             sys.exit(-1)
         missing_required_keys = set(REQUIRED_HW_CONFIG.keys()) - set(config.keys())
         if missing_required_keys:
-            print('missing required config: %s' % missing_required_keys)
+            print(f'missing required config: {missing_required_keys}')
             sys.exit(-1)
         for config_key, config_value in config.items():
             valid_types = ALL_HW_CONFIG[config_key]
@@ -150,15 +150,12 @@ def import_hw_config():
                 config_value for valid_type in valid_types
                 if isinstance(config_value, valid_type)]
             if not valid_values:
-                print('%s (%s) must be of type %s in %s' % (
-                    config_key, config_value,
-                    valid_types, config_file_name))
+                print(f'{config_key} ({config_value}) must be of type {valid_types} in {config_file_name}')
                 sys.exit(-1)
         dp_ports = config['dp_ports']
         if len(dp_ports) < REQUIRED_TEST_PORTS:
-            print('At least %u dataplane ports are required, '
-                  '%d are provided in %s.' %
-                  (REQUIRED_TEST_PORTS, len(dp_ports), config_file_name))
+            print(f'At least {REQUIRED_TEST_PORTS} dataplane ports are required, '
+                  f'{len(dp_ports)} are provided in {config_file_name}.')
             sys.exit(-1)
         return config
     return None
@@ -170,8 +167,7 @@ def check_dependencies():
     for (binary, binary_get_version, binary_present_re,
          binary_version_re, binary_minversion) in EXTERNAL_DEPENDENCIES:
         binary_args = [binary] + binary_get_version
-        required_binary = 'required binary/library %s' % (
-            ' '.join(binary_args))
+        required_binary = f'required binary/library {" ".join(binary_args)}'
         try:
             with subprocess.Popen(
                     binary_args,
@@ -187,31 +183,28 @@ def check_dependencies():
             # Might have run successfully, need to parse output
             pass
         except OSError:
-            print('could not run %s' % required_binary)
+            print(f'could not run {required_binary}')
             return False
         present_match = re.search(binary_present_re, binary_output)
         if not present_match:
-            print('%s not present or did not return expected string %s (%s)' % (
-                required_binary, binary_present_re, binary_output))
+            print(f'{required_binary} not present or did not return expected string '
+                  f'{binary_present_re} ({binary_output})')
             return False
         if binary_version_re:
             version_match = re.search(binary_version_re, binary_output)
             if version_match is None:
-                print('could not get version from %s (%s)' % (
-                    required_binary, binary_output))
+                print(f'could not get version from {required_binary} ({binary_output})')
                 return False
             try:
                 binary_version = version_match.group(1)
             except ValueError:
-                print('cannot parse version %s for %s' % (
-                    version_match, required_binary))
+                print(f'cannot parse version {version_match} for {required_binary}')
                 return False
             if binary == 'fuser' and binary_version == 'UNKNOWN':
                 # Workaround for psmisc 23.3
                 return True
             if version.parse(binary_version) < version.parse(binary_minversion):
-                print('%s version %s is less than required version %s' % (
-                    required_binary, binary_version, binary_minversion))
+                print(f'{required_binary} version {binary_version} is less than required version {binary_minversion}')
                 return False
     return True
 
@@ -334,16 +327,13 @@ def pipeline_superset_report(decoded_pcap_logs):
             parse_flow(flow_lines)
 
     for table in sorted(table_matches):
-        print('table: %u' % table)
-        print('  matches: %s (max %u)' % (
-            sorted(table_matches[table]), table_matches_max[table]))
-        print('  table_instructions: %s (max %u)' % (
-            sorted(table_instructions[table]), table_instructions_max[table]))
-        print('  table_actions: %s (max %u)' % (
-            sorted(table_actions[table]), table_actions_max[table]))
+        print(f'table: {table}')
+        print(f'  matches: {sorted(table_matches[table])} (max {table_matches_max[table]})')
+        print(f'  table_instructions: {sorted(table_instructions[table])} (max {table_instructions_max[table]})')
+        print(f'  table_actions: {sorted(table_actions[table])} (max {table_actions_max[table]})')
     if group_actions:
         print('group bucket actions:')
-        print('  %s' % sorted(group_actions))
+        print(f'  {sorted(group_actions)}')
 
 
 def filter_test_hardware(test_obj, hw_config):
@@ -399,7 +389,7 @@ def expand_tests(modules, requested_test_classes, regex_test_classes, excluded_t
             if test_name.endswith('Test') and test_name.startswith('Faucet'):
                 if not filter_test_hardware(test_obj, hw_config):
                     continue
-                print('adding test %s' % test_name)
+                print(f'adding test {test_name}')
                 test_suite = make_suite(
                     test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg(),
                     port_order, start_port)
@@ -420,7 +410,7 @@ def expand_tests(modules, requested_test_classes, regex_test_classes, excluded_t
             parallel_test_suites = []
         if parallel_test_suites:
             seed = time.time()
-            print('seeding parallel test shuffle with %f' % seed)
+            print(f'seeding parallel test shuffle with {seed}')
             random.seed(seed)
             random.shuffle(parallel_test_suites)
             for test_suite in parallel_test_suites:
@@ -488,7 +478,7 @@ def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests):
     results = []
     if parallel_tests.countTestCases():
         max_parallel_tests = min(parallel_tests.countTestCases(), max_loadavg())
-        print('running maximum of %u parallel tests' % max_parallel_tests)
+        print(f'running maximum of {max_parallel_tests} parallel tests')
         parallel_runner = test_runner(root_tmpdir, resultclass)
         parallel_suite = ConcurrentTestSuite(
             parallel_tests, fork_for_tests(max_parallel_tests))
@@ -564,8 +554,8 @@ def report_results(results, hw_config, report_json_filename):
 
 def run_test_suites(debug, report_json_filename, hw_config, root_tmpdir,
                     resultclass, single_tests, parallel_tests, sanity_result):
-    print('running %u tests in parallel and %u tests serial' % (
-        parallel_tests.countTestCases(), single_tests.countTestCases()))
+    print(f'running {parallel_tests.countTestCases()} tests in parallel and '
+          f'{single_tests.countTestCases()} tests serial')
     results = []
     results.append(sanity_result)
     results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
@@ -588,7 +578,7 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
             break
         time.sleep(1)
     if not os.path.exists(ports_sock):
-        print('ports server did not start (%s not created)' % ports_sock)
+        print(f'ports server did not start ({ports_sock} not created)')
         sys.exit(-1)
     return ports_sock
 
@@ -637,7 +627,7 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
         if not keep_logs or not os.listdir(root_tmpdir):
             shutil.rmtree(root_tmpdir)
     else:
-        print('\nlog/debug files for failed tests are in %s\n' % root_tmpdir)
+        print(f'\nlog/debug files for failed tests are in {root_tmpdir}\n')
         if not keep_logs:
             if sanity:
                 test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
@@ -657,7 +647,7 @@ def run_tests(modules, hw_config, requested_test_classes, regex_test_classes, du
         print('Testing hardware, forcing test serialization')
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-', dir='/var/tmp')
-    print('Logging test results in %s' % root_tmpdir)
+    print(f'Logging test results in {root_tmpdir}')
     start_free_ports = 10
     min_free_ports = 200
     if serial:
@@ -778,7 +768,7 @@ def parse_args():
         regex_test_classes = None
         if args.regex:
             regex_test_classes = re.compile(args.regex)
-            print('Running tests on classes matching %s' % args.regex)
+            print(f'Running tests on classes matching {args.regex}')
     except(KeyError, IndexError, ValueError):
         parser.print_usage()
         sys.exit(-1)
@@ -798,7 +788,7 @@ def parse_args():
 def test_main(modules):
     """Test main."""
 
-    print('testing module %s' % modules)
+    print(f'testing module {modules}')
 
     (requested_test_classes, regex_test_classes, clean, dumpfail, debug, keep_logs, nocheck,
      serial, repeat, excluded_test_classes, report_json_filename, port_order,
@@ -821,7 +811,7 @@ def test_main(modules):
             sys.exit(-1)
 
     print('port order: -o', ','.join(str(i) for i in port_order))
-    print('start port: --port %s' % start_port)
+    print(f'start port: --port {start_port}')
 
     hw_config = import_hw_config()
 

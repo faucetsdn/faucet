@@ -47,15 +47,15 @@ class ValveTestCase(ValveTestBases.ValveTestBig):  # pylint: disable=too-few-pub
 class ValveFuzzTestCase(ValveTestBases.ValveTestNetwork):
     """Test unknown ports/VLANs."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
                 native_vlan: 0x100
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -153,10 +153,10 @@ acls:
 class ValveRestBcastTestCase(ValveTestBases.ValveTestNetwork):
     """Test restricted broadcast."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -169,7 +169,7 @@ dps:
                 number: 3
                 native_vlan: 0x100
                 restricted_bcast_arpnd: true
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config with restricted broadcast enabled"""
@@ -271,10 +271,10 @@ class ValveOFErrorTestCase(ValveTestBases.ValveTestNetwork):
 class ValveGroupTestCase(ValveTestBases.ValveTestNetwork):
     """Tests for datapath with group support."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{GROUP_DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -294,7 +294,7 @@ vlans:
         vid: 0x100
     v200:
         vid: 0x200
-""" % GROUP_DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -335,10 +335,10 @@ vlans:
 class ValveIdleLearnTestCase(ValveTestBases.ValveTestNetwork):
     """Smoke test for idle-flow based learning. This feature is not currently reliable."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{IDLE_DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -362,7 +362,7 @@ vlans:
         vid: 0x100
     v200:
         vid: 0x200
-""" % IDLE_DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config with mirroring"""
@@ -411,10 +411,10 @@ vlans:
 class ValveLACPTestCase(ValveTestBases.ValveTestNetwork):
     """Test LACP."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         lacp_timeout: 5
         interfaces:
             p1:
@@ -441,7 +441,7 @@ vlans:
         vid: 0x200
     v300:
         vid: 0x300
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup lacp config and activate ports"""
@@ -553,10 +553,10 @@ vlans:
 class ValveTFMSizeOverride(ValveTestBases.ValveTestNetwork):
     """Test TFM size override."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         table_sizes:
             eth_src: 999
         interfaces:
@@ -566,7 +566,7 @@ dps:
 vlans:
     v100:
         vid: 0x100
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config with overriden TFM sizing"""
@@ -586,10 +586,10 @@ class ValveTFMSize(ValveTestBases.ValveTestNetwork):
 
     NUM_PORTS = 128
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         lacp_timeout: 5
         interfaces:
             p1:
@@ -620,7 +620,7 @@ vlans:
         vid: 0x200
     v300:
         vid: 0x300
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -638,10 +638,10 @@ vlans:
 class ValveActiveLACPTestCase(ValveTestBases.ValveTestNetwork):
     """Test LACP."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         lacp_timeout: 5
         interfaces:
             p1:
@@ -669,7 +669,7 @@ vlans:
         vid: 0x200
     v300:
         vid: 0x300
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic lacp config and activate ports"""
@@ -805,7 +805,7 @@ class ValveMirrorTestCase(ValveTestBases.ValveTestBig):
     """Test ACL and interface mirroring."""
     # TODO: check mirror packets are present/correct
 
-    CONFIG = """
+    CONFIG = f"""
 acls:
     mirror_ospf:
         - rule:
@@ -823,7 +823,7 @@ acls:
                 allow: 1
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -879,7 +879,7 @@ routers:
             server_addresses: ['127.0.0.1']
             neighbor_addresses: ['127.0.0.1']
             vlan: v100
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup complex config with routing, bgp, mirroring and ACLs"""
@@ -894,10 +894,10 @@ routers:
 class ValvePortDescTestCase(ValveTestBases.ValveTestNetwork):
     """Test OFPMP_PORT_DESC reply handling."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -910,7 +910,7 @@ vlans:
         vid: 0x100
     v200:
         vid: 0x200
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup simple configuration with no ports up"""

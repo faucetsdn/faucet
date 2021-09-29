@@ -97,7 +97,7 @@ class FaucetTopoGenerator(Topo):
         for i, dpid in self.dpids_by_id.items():
             switch_name = self.switches_by_id[i]
             ports = self.ports[switch_name].keys()
-            port_maps[dpid] = {'port_%d' % i: port for i, port in enumerate(ports)}
+            port_maps[dpid] = {f'port_{i}': port for i, port in enumerate(ports)}
         return port_maps
 
     def create_port_maps(self):
@@ -137,7 +137,7 @@ class FaucetTopoGenerator(Topo):
     @staticmethod
     def vlan_name(i):
         """VLAN name"""
-        return 'vlan-%i' % (i + 1)
+        return f'vlan-{i+1}'
 
     @staticmethod
     def vlan_vid(i):
@@ -147,7 +147,7 @@ class FaucetTopoGenerator(Topo):
     @staticmethod
     def router_name(i):
         """Router name"""
-        return 'router-%s' % (i + 1)
+        return f'router-{i + 1}'
 
     def __init__(self, *args, **kwargs):
         self.switches_by_id = {}
@@ -165,8 +165,7 @@ class FaucetTopoGenerator(Topo):
             string.ascii_letters + string.digits))
         id_a = int(ports_served / len(id_chars))
         id_b = ports_served - (id_a * len(id_chars))
-        return '%s%s' % (
-            id_chars[id_a], id_chars[id_b])
+        return f'{id_chars[id_a]}{id_chars[id_b]}'
 
     @staticmethod
     def extend_port_order(port_order=None, max_length=16):
@@ -253,7 +252,7 @@ class FaucetTopoGenerator(Topo):
         """
         sid_prefix = self._generate_sid_prefix()
         switch_cls = FaucetSwitch
-        switch_name = 's%s' % sid_prefix
+        switch_name = f's{sid_prefix}'
         if switch_index == 0 and self.hw_dpid:
             self.hw_name = switch_name
             self.dpids_by_id[switch_index] = self.hw_dpid
@@ -406,28 +405,28 @@ class FaucetTopoGenerator(Topo):
                 # Link is to an outside network, so treat it as a output only link with more
                 #   specific options defined in the options dictionary
                 interface_config = {
-                    'name': 'b%u' % src_port,
-                    'description': 'output only %s' % link_name,
+                    'name': f'{src_port}',
+                    'description': f'output only {link_name}',
                 }
             elif isinstance(vlans, int):
                 # Untagged link
                 interface_config = {
-                    'name': 'b%u' % src_port,
-                    'description': 'untagged %s' % link_name,
+                    'name': f'b{src_port}',
+                    'description': f'untagged {link_name}',
                     'native_vlan': self.vlan_name(vlans)
                 }
             elif isinstance(vlans, list):
                 # Tagged link
                 interface_config = {
-                    'name': 'b%u' % src_port,
-                    'description': 'tagged %s' % link_name,
+                    'name': f'b{src_port}',
+                    'description': f'tagged {link_name}',
                     'tagged_vlans': [self.vlan_name(vlan) for vlan in vlans]
                 }
             elif dst_node and dst_port:
                 # Stack link
                 interface_config = {
-                    'name': 'b%u' % src_port,
-                    'description': 'stack %s' % link_name,
+                    'name': f'b{src_port}',
+                    'description': f'stack {link_name}',
                     'stack': {
                         'dp': dst_node,
                         'port': dst_port
@@ -436,11 +435,11 @@ class FaucetTopoGenerator(Topo):
             elif vlans is None:
                 # output only link or coprocessor, leave to more specific options to handle
                 interface_config = {
-                    'name': 'b%u' % src_port,
-                    'description': 'output only %s' % link_name,
+                    'name': f'b{src_port}',
+                    'description': f'output only {link_name}',
                 }
             else:
-                raise GenerationError('Unknown %s link type %s' % (type_, vlans))
+                raise GenerationError(f'Unknown {type} link type {vlans}')
             if options:
                 for option_key, option_value in options.items():
                     interface_config[option_key] = option_value
@@ -460,7 +459,7 @@ class FaucetTopoGenerator(Topo):
                     src_port, dst_port = link_info['port2'], link_info['port1']
                 else:
                     src_port, dst_port = link_info['port1'], link_info['port2']
-                link_name = 'link #%s to %s:%s' % (link_key, dst_node, dst_port)
+                link_name = f'link #{link_key} to {dst_node}:{dst_port}'
                 options = {}
                 dst_id = dst_info['switch_n']
                 if link_options and (src_id, dst_id) in link_options:
@@ -470,7 +469,7 @@ class FaucetTopoGenerator(Topo):
             else:
                 # Generate host-switch config link
                 src_port, dst_port = link_info['port1'], None
-                link_name = 'link #%s to %s' % (link_key, dst_node)
+                link_name = f'link #{link_key} to {dst_node}'
                 host_n = dst_info['host_n']
                 if host_options and host_n in host_options:
                     options = host_options[host_n]
@@ -586,4 +585,4 @@ class FaucetFakeOFTopoGenerator(FaucetTopoGenerator):
     @staticmethod
     def dp_dpid(i):
         """DP DPID"""
-        return '%u' % (i + 1)
+        return f'{i + 1}'

@@ -59,12 +59,12 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
     def _terminate_with_zero(self, tcpdump_helper):
         term_returns = tcpdump_helper.terminate()
         self.assertEqual(
-            0, term_returns, msg='terminate code not 0: %d' % term_returns)
+            0, term_returns, msg=f'terminate code not 0: {term_returns}')
 
     def _terminate_with_nonzero(self, tcpdump_helper):
         term_returns = tcpdump_helper.terminate()
         self.assertNotEqual(
-            0, term_returns, msg='terminate code is 0: %d' % term_returns)
+            0, term_returns, msg=f'terminate code is 0: {term_returns}')
 
     def test_tcpdump_execute(self):
         """Check tcpdump filter monitors ping using execute"""
@@ -73,10 +73,10 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         to_host = self.net.hosts[1]
         tcpdump_filter = ('icmp')
         tcpdump_helper = TcpdumpHelper(to_host, tcpdump_filter, [
-            lambda: from_host.cmd('ping -c1 %s' % to_host.IP())])
+            lambda: from_host.cmd(f'ping -c1 {to_host.IP()}')])
         tcpdump_txt = tcpdump_helper.execute()
         self.assertTrue(re.search(
-            '%s: ICMP echo request' % to_host.IP(), tcpdump_txt))
+            f'{to_host.IP()}: ICMP echo request', tcpdump_txt))
         self._terminate_with_zero(tcpdump_helper)
 
     def test_tcpdump_pcap(self):
@@ -88,11 +88,11 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         pcap_file = os.path.join(self.tmpdir, 'out.pcap')
         tcpdump_helper = TcpdumpHelper(
             to_host, tcpdump_filter,
-            [lambda: from_host.cmd('ping -c3 %s' % to_host.IP())],
+            [lambda: from_host.cmd(f'ping -c3 {to_host.IP()}')],
             pcap_out=pcap_file, packets=None)
         tcpdump_helper.execute()
         self._terminate_with_zero(tcpdump_helper)
-        result = from_host.cmd('tcpdump -en -r %s' % pcap_file)
+        result = from_host.cmd(f'tcpdump -en -r {pcap_file}')
         self.assertEqual(result.count('ICMP echo reply'), 3, 'three icmp echo replies')
 
     def test_tcpdump_noblock(self):
@@ -103,7 +103,7 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         tcpdump_filter = ('icmp')
         tcpdump_helper = TcpdumpHelper(
             to_host, tcpdump_filter,
-            [lambda: from_host.cmd('ping -c10 %s' % to_host.IP())],
+            [lambda: from_host.cmd(f'ping -c10 {to_host.IP()}')],
             blocking=False, packets=None)
         count = 0
         while tcpdump_helper.next_line():
@@ -118,14 +118,14 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         to_host = self.net.hosts[1]
         tcpdump_filter = ('icmp')
         tcpdump_helper = TcpdumpHelper(to_host, tcpdump_filter, [
-            lambda: from_host.cmd('ping -c5 -i2 %s' % to_host.IP())])
+            lambda: from_host.cmd(f'ping -c5 -i2 {to_host.IP()}')])
 
         self.assertTrue(re.search('proto ICMP', tcpdump_helper.next_line()))
         next_line = tcpdump_helper.next_line()
-        self.assertTrue(re.search('%s: ICMP echo request' % to_host.IP(), next_line), next_line)
+        self.assertTrue(re.search(f'{to_host.IP()}: ICMP echo request', next_line), next_line)
         self.assertTrue(re.search('proto ICMP', tcpdump_helper.next_line()))
         next_line = tcpdump_helper.next_line()
-        self.assertTrue(re.search('%s: ICMP echo reply' % from_host.IP(), next_line), next_line)
+        self.assertTrue(re.search(f'{from_host.IP()}: ICMP echo reply', next_line), next_line)
         self.assertFalse(re.search('ICMP', tcpdump_helper.next_line()))
         while tcpdump_helper.next_line():
             pass
@@ -154,7 +154,7 @@ class FaucetDockerHostTest(FaucetSimpleTest):
 
         self.assertTrue(
             count == self.N_EXTENDED,
-            'Found %d containers, expected %d' % (count, self.N_EXTENDED))
+            f'Found {count} containers, expected {self.N_EXTENDED}')
 
         self.assertTrue(
             os.path.exists(
