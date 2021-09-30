@@ -760,7 +760,7 @@ class PacketMeta:
     def log(self):
         vlan_msg = ''
         if self.vlan:
-            vlan_msg = 'VLAN %u' % self.vlan.vid
+            vlan_msg = f'VLAN {self.vlan.vid}'
         return '%s (L2 type 0x%4.4x, L2 dst %s, L3 src %s, L3 dst %s) %s %s' % (
             self.eth_src, self.eth_type, self.eth_dst, self.l3_src, self.l3_dst,
             self.port, vlan_msg)

@@ -38,16 +38,16 @@ from clib.valve_test_lib import BASE_DP1_CONFIG, CONFIG, DP1_CONFIG, FAUCET_MAC,
 class ValveIncludeTestCase(ValveTestBases.ValveTestNetwork):
     """Test include optional files."""
 
-    CONFIG = """
+    CONFIG = f"""
 include-optional: ['/does/not/exist/']
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
                 native_vlan: 0x100
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup config with non-existent optional include file"""
@@ -61,20 +61,20 @@ dps:
 class ValveBadConfTestCase(ValveTestBases.ValveTestNetwork):
     """Test recovery from a bad config file."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
                 native_vlan: 0x100
-""" % DP1_CONFIG
+"""
 
-    MORE_CONFIG = """
+    MORE_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -82,7 +82,7 @@ dps:
             p2:
                 number: 2
                 native_vlan: 0x100
-""" % DP1_CONFIG
+"""
 
     BAD_CONFIG = """
 dps: {}
@@ -107,16 +107,16 @@ dps: {}
             self.assertEqual(
                 load_error,
                 self.get_prom('faucet_config_load_error', bare=True),
-                msg='%u: %s' % (load_error, config))
+                msg=f'{load_error}: {config}')
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestNetwork):
     """Test changes to config on ports."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -125,12 +125,12 @@ dps:
                 number: 2
                 native_vlan: 0x200
                 permanent_learn: True
-""" % DP1_CONFIG
+"""
 
-    LESS_CONFIG = """
+    LESS_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -139,7 +139,7 @@ dps:
                 number: 2
                 native_vlan: 0x200
                 permanent_learn: False
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -163,10 +163,10 @@ dps:
 class ValveDeletePortTestCase(ValveTestBases.ValveTestNetwork):
     """Test deletion of a port."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -177,12 +177,12 @@ dps:
             p3:
                 number: 3
                 tagged_vlans: [0x100]
-""" % DP1_CONFIG
+"""
 
-    LESS_CONFIG = """
+    LESS_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -190,7 +190,7 @@ dps:
             p2:
                 number: 2
                 tagged_vlans: [0x100]
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -204,10 +204,10 @@ dps:
 class ValveAddPortMirrorNoDelVLANTestCase(ValveTestBases.ValveTestNetwork):
     """Test addition of port mirroring does not cause a del VLAN."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -218,12 +218,12 @@ dps:
             p3:
                 number: 3
                 output_only: true
-""" % DP1_CONFIG
+"""
 
-    MORE_CONFIG = """
+    MORE_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -235,7 +235,7 @@ dps:
                 number: 3
                 output_only: true
                 mirror: [1]
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -249,10 +249,10 @@ dps:
 class ValveAddPortTestCase(ValveTestBases.ValveTestNetwork):
     """Test addition of a port."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -260,12 +260,12 @@ dps:
             p2:
                 number: 2
                 tagged_vlans: [0x100]
-""" % DP1_CONFIG
+"""
 
-    MORE_CONFIG = """
+    MORE_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -276,7 +276,7 @@ dps:
             p3:
                 number: 3
                 tagged_vlans: [0x100]
-""" % DP1_CONFIG
+"""
 
     @staticmethod
     def _inport_flows(in_port, ofmsgs):
@@ -393,10 +393,10 @@ dps:
 class ValveWarmStartVLANTestCase(ValveTestBases.ValveTestNetwork):
     """Test change of port VLAN only is a warm start."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 9
@@ -410,12 +410,12 @@ dps:
             p4:
                 number: 14
                 native_vlan: 0x200
-""" % DP1_CONFIG
+"""
 
-    WARM_CONFIG = """
+    WARM_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 9
@@ -429,7 +429,7 @@ dps:
             p4:
                 number: 14
                 native_vlan: 0x300
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -461,10 +461,10 @@ dps:
 class ValveDeleteVLANTestCase(ValveTestBases.ValveTestNetwork):
     """Test deleting VLAN."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -472,12 +472,12 @@ dps:
             p2:
                 number: 2
                 native_vlan: 0x200
-""" % DP1_CONFIG
+"""
 
-    LESS_CONFIG = """
+    LESS_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -485,7 +485,7 @@ dps:
             p2:
                 number: 2
                 native_vlan: 0x200
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -499,10 +499,10 @@ dps:
 class ValveChangeDPTestCase(ValveTestBases.ValveTestNetwork):
     """Test changing DP."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         priority_offset: 4321
         interfaces:
             p1:
@@ -511,12 +511,12 @@ dps:
             p2:
                 number: 2
                 native_vlan: 0x100
-""" % DP1_CONFIG
+"""
 
-    NEW_CONFIG = """
+    NEW_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         priority_offset: 1234
         interfaces:
             p1:
@@ -525,7 +525,7 @@ dps:
             p2:
                 number: 2
                 native_vlan: 0x100
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config with priority offset"""
@@ -539,10 +539,10 @@ dps:
 class ValveAddVLANTestCase(ValveTestBases.ValveTestNetwork):
     """Test adding VLAN."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -550,12 +550,12 @@ dps:
             p2:
                 number: 2
                 tagged_vlans: [0x100]
-""" % DP1_CONFIG
+"""
 
-    MORE_CONFIG = """
+    MORE_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -563,7 +563,7 @@ dps:
             p2:
                 number: 2
                 tagged_vlans: [0x100, 0x300]
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -577,7 +577,7 @@ dps:
 class ValveChangeACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test changes to ACL on a port."""
 
-    CONFIG = """
+    CONFIG = f"""
 acls:
     acl_same_a:
         - rule:
@@ -593,7 +593,7 @@ acls:
                 allow: 0
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -602,9 +602,9 @@ dps:
             p2:
                 number: 2
                 native_vlan: 0x200
-""" % DP1_CONFIG
+"""
 
-    SAME_CONTENT_CONFIG = """
+    SAME_CONTENT_CONFIG = f"""
 acls:
     acl_same_a:
         - rule:
@@ -620,7 +620,7 @@ acls:
                 allow: 0
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -629,9 +629,9 @@ dps:
             p2:
                 number: 2
                 native_vlan: 0x200
-""" % DP1_CONFIG
+"""
 
-    DIFF_CONTENT_CONFIG = """
+    DIFF_CONTENT_CONFIG = f"""
 acls:
     acl_same_a:
         - rule:
@@ -647,7 +647,7 @@ acls:
                 allow: 0
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -656,7 +656,7 @@ dps:
             p2:
                 number: 2
                 native_vlan: 0x200
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic ACL config"""
@@ -690,10 +690,10 @@ dps:
 class ValveChangeMirrorTestCase(ValveTestBases.ValveTestNetwork):
     """Test changes mirroring port."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -704,12 +704,12 @@ dps:
             p3:
                 number: 3
                 native_vlan: 0x200
-""" % DP1_CONFIG
+"""
 
-    MIRROR_CONFIG = """
+    MIRROR_CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -720,7 +720,7 @@ dps:
             p3:
                 number: 3
                 native_vlan: 0x200
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -763,10 +763,10 @@ class ValveACLTestCase(ValveTestBases.ValveTestNetwork):
 
     def test_vlan_acl_deny(self):
         """Test VLAN ACL denies a packet."""
-        acl_config = """
+        acl_config = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -803,7 +803,7 @@ acls:
             dl_type: 0x800
             actions:
                 allow: 0
-""" % DP1_CONFIG
+"""
 
         drop_match = {
             'in_port': 2,
@@ -976,15 +976,15 @@ acls:
 class ValveReloadConfigProfile(ValveTestBases.ValveTestNetwork):
     """Test reload processing time."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{BASE_DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
                 native_vlan: 0x100
-""" % BASE_DP1_CONFIG
+"""
     NUM_PORTS = 100
 
     baseline_total_tt = None
@@ -1028,16 +1028,16 @@ dps:
                 return
             time.sleep(i)
 
-        self.fail('%f: %s' % (total_tt_prop, pstats_text))
+        self.fail('{total_tt_prop}: {pstats_text}')
 
 
 class ValveTestVLANRef(ValveTestBases.ValveTestNetwork):
     """Test reference to same VLAN by name or VID."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -1048,7 +1048,7 @@ dps:
 vlans:
     threes:
         vid: 333
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -1065,15 +1065,15 @@ vlans:
 class ValveTestConfigHash(ValveTestBases.ValveTestNetwork):
     """Verify faucet_config_hash_info update after config change"""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DP1_CONFIG}
         interfaces:
             p1:
                 number: 1
                 native_vlan: 0x100
-""" % DP1_CONFIG
+"""
 
     def setUp(self):
         """Setup basic port and vlan config"""

@@ -1,9 +1,7 @@
 [MASTER]
-# TODO: remove consider-using-f-string when python3.5 is gone.
 disable=
     fixme,
-    import-error,
-    consider-using-f-string
+    import-error
 
 [FORMAT]
 max-line-length=120

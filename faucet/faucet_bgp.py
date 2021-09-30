@@ -34,8 +34,7 @@ class BgpSpeakerKey:
         self.ipv = ipv
 
     def __str__(self):
-        return 'BGP speaker key DP ID: %u, VLAN VID: %u, IP version: %u' % (
-            self.dp_id, self.vlan_vid, self.ipv)
+        return f'BGP speaker key DP ID: {self.dp_id}, VLAN VID: {self.vlan_vid}, IP version: {self.ipv}'
 
     def __repr__(self):
         return self.__str__()
@@ -81,11 +80,11 @@ class FaucetBgp:
 
     @kill_on_exception(exc_logname)
     def _bgp_up_handler(self, remote_ip, remote_as):
-        self.logger.info('BGP peer router ID %s AS %s up' % (remote_ip, remote_as))
+        self.logger.info(f'BGP peer router ID {remote_ip} AS {remote_as} up')
 
     @kill_on_exception(exc_logname)
     def _bgp_down_handler(self, remote_ip, remote_as):
-        self.logger.info('BGP peer router ID %s AS %s down' % (remote_ip, remote_as))
+        self.logger.info(f'BGP peer router ID {remote_ip} AS {remote_as} down')
         # TODO: delete RIB routes for down peer.
 
     @kill_on_exception(exc_logname)
@@ -101,20 +100,20 @@ class FaucetBgp:
         if vlan is None:
             return
         prefix = ipaddress.ip_network(str(path_change.prefix))
-        route_str = 'BGP route %s' % prefix
+        route_str = f'BGP route {prefix}'
 
         if path_change.next_hop:
             nexthop = ipaddress.ip_address(str(path_change.next_hop))
-            route_str = 'BGP route %s nexthop %s' % (prefix, nexthop)
+            route_str = f'BGP route {prefix} nexthop {nexthop}'
 
             if vlan.is_faucet_vip(nexthop):
                 self.logger.error(
-                    'Skipping %s because nexthop cannot be us' % route_str)
+                    f'Skipping {route_str} because nexthop cannot be us')
                 return
 
             if valve.router_vlan_for_ip_gw(vlan, nexthop) is None:
                 self.logger.info(
-                    'Skipping %s because nexthop not in %s' % (route_str, vlan))
+                    f'Skipping {route_str} because nexthop not in {vlan}')
                 return
 
         if bgp_speaker_key not in self._dp_bgp_rib:
@@ -179,18 +178,18 @@ class FaucetBgp:
 
     def _add_bgp_speaker(self, valve, bgp_speaker_key, bgp_router):
         if bgp_speaker_key in self._dp_bgp_speakers:
-            self.logger.info('Skipping re/configuration of existing %s' % bgp_speaker_key)
+            self.logger.info(f'Skipping re/configuration of existing {bgp_speaker_key}')
             bgp_speaker = self._dp_bgp_speakers[bgp_speaker_key]
             if bgp_speaker_key in self._dp_bgp_rib:
                 # Re-add routes (to avoid flapping BGP even when VLAN cold starts).
                 for prefix, nexthop in self._dp_bgp_rib[bgp_speaker_key].items():
-                    self.logger.info('Re-adding %s via %s' % (prefix, nexthop))
+                    self.logger.info(f'Re-adding {prefix} via {nexthop}')
                     bgp_vlan = bgp_router.bgp_vlan()
                     flowmods = valve.add_route(bgp_vlan, nexthop, prefix)
                     if flowmods:
                         self._send_flow_msgs(valve, flowmods)
         else:
-            self.logger.info('Adding %s' % bgp_speaker_key)
+            self.logger.info(f'Adding {bgp_speaker_key}')
             bgp_speaker = self._create_bgp_speaker_for_vlan(bgp_speaker_key, bgp_router)
         return {bgp_speaker_key: bgp_speaker}
 

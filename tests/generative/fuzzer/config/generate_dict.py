@@ -31,30 +31,30 @@ class ConfigDictGenerator:
             bogus_values = []
             for value in config_file.readlines():
                 # Remove quotes and \n from bogus value to get the true bogus value
-                bogus_values.append(r'%s' % value[1:2])
+                bogus_values.append(fr'{value[1:2]}')
             # Make sure to add head values into the dictionary
             for value in V2_TOP_CONFS:
                 for bogus in bogus_values:
-                    to_write = r'%s%s' % (value, bogus)
-                    rev_to_write = r'%s%s' % (bogus, value)
+                    to_write = fr'{value}{bogus}'
+                    rev_to_write = fr'{bogus}{value}'
                     if (to_write in bogus_values
                             or rev_to_write in bogus_values
                             or value in bogus_values):
                         continue
-                    config_file.write('\n"%s"' % to_write)
-                    config_file.write('\n"%s"' % rev_to_write)
+                    config_file.write(f'\n"{to_write}"')
+                    config_file.write(f'\n"{rev_to_write}"')
             # Find CONF objects config file options
             for conf_obj in [ACL, Meter, Port, Router, DP, VLAN]:
                 for value in conf_obj.defaults:
                     for bogus in bogus_values:
-                        to_write = r'%s%s' % (value, bogus)
-                        rev_to_write = r'%s%s' % (bogus, value)
+                        to_write = fr'{value}{bogus}'
+                        rev_to_write = fr'{bogus}{value}'
                         if (to_write in bogus_values
                                 or rev_to_write in bogus_values
                                 or value in bogus_values):
                             continue
-                        config_file.write('\n"%s"' % to_write)
-                        config_file.write('\n"%s"' % rev_to_write)
+                        config_file.write(f'\n"{to_write}"')
+                        config_file.write(f'\n"{rev_to_write}"')
 
     def create_examples(self, file_base, file_name):
         """Generate some initial starting configs by generating them via the config_generator"""
@@ -107,7 +107,7 @@ class ConfigDictGenerator:
             for stack in (True, False):
                 configs.append(create_config((graph), stack=stack))
         for config in configs:
-            ex_fn = os.path.join(file_base, '%s_%s' % (file_name, ex_curr))
+            ex_fn = os.path.join(file_base, f'{file_name}_{ex_curr}')
             with open(ex_fn, 'w+', encoding='utf-8') as ex_file:
                 ex_file.write(config)
             ex_curr += 1

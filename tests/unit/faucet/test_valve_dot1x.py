@@ -27,10 +27,10 @@ from clib.valve_test_lib import DOT1X_CONFIG, DOT1X_ACL_CONFIG, ValveTestBases
 class ValveDot1xSmokeTestCase(ValveTestBases.ValveTestNetwork):
     """Smoke test to check dot1x can be initialized."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-%s
+{DOT1X_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -46,7 +46,7 @@ vlans:
         vid: 0x200
         dot1x_assigned: True
 
-""" % DOT1X_CONFIG
+"""
 
     def setUp(self):
         """Setup basic 802.1x config"""
@@ -84,11 +84,11 @@ acls:
                 allow: 0
 """
 
-    CONFIG = """
-{}
+    CONFIG = f"""
+{ACL_CONFIG}
 dps:
     s1:
-{}
+{DOT1X_ACL_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -104,16 +104,16 @@ vlans:
     student:
         vid: 0x200
         dot1x_assigned: True
-""".format(ACL_CONFIG, DOT1X_ACL_CONFIG)
+"""
 
 
 class ValveDot1xMABSmokeTestCase(ValveDot1xSmokeTestCase):
     """Smoke test to check dot1x can be initialized with dot1x MAB."""
 
-    CONFIG = """
+    CONFIG = f"""
 dps:
     s1:
-{}
+{DOT1X_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -126,12 +126,12 @@ dps:
 vlans:
     v100:
         vid: 0x100
-""".format(DOT1X_CONFIG)
+"""
 
 
 class ValveDot1xDynACLSmokeTestCase(ValveDot1xSmokeTestCase):
     """Smoke test to check dot1x can be initialized with dynamic dot1x ACLs."""
-    CONFIG = """
+    CONFIG = f"""
 acls:
     accept_acl:
         dot1x_assigned: True
@@ -147,7 +147,7 @@ acls:
                 allow: True
 dps:
     s1:
-%s
+{DOT1X_CONFIG}
         interfaces:
             p1:
                 number: 1
@@ -161,7 +161,7 @@ dps:
 vlans:
     v100:
         vid: 0x100
-""" % DOT1X_CONFIG
+"""
 
     def setUp(self):
         self.setup_valves(self.CONFIG)

@@ -352,13 +352,13 @@ configuration.
         """Check configuration of this dp"""
         super().check_config()
         test_config_condition(not isinstance(self.dp_id, int), (
-            'dp_id must be %s not %s' % (int, type(self.dp_id))))
+            f'dp_id must be {int} not {type(self.dp_id)}'))
         test_config_condition(self.dp_id < 0 or self.dp_id > 2**64 - 1, (
-            'DP ID %s not in valid range' % self.dp_id))
+            f'DP ID {self.dp_id} not in valid range'))
         test_config_condition(not netaddr.valid_mac(self.faucet_dp_mac), (
-            'invalid MAC address %s' % self.faucet_dp_mac))
+            f'invalid MAC address {self.faucet_dp_mac}'))
         test_config_condition(not (self.interfaces or self.interface_ranges), (
-            'DP %s must have at least one interface' % self))
+            f'DP {self} must have at least one interface'))
         test_config_condition(self.timeout < 15, 'timeout must be > 15')
         test_config_condition(self.timeout > 65535, 'timeout cannot be > than 65335')
         # To prevent L2 learning from timing out before L3 can refresh
@@ -392,7 +392,7 @@ configuration.
         if 'send_interval' not in self.lldp_beacon:
             self.lldp_beacon['send_interval'] = self.DEFAULT_LLDP_SEND_INTERVAL
         test_config_condition(self.lldp_beacon['send_interval'] < 1, (
-            'DP ID %s LLDP beacon send_interval not in valid range' % self.dp_id))
+            f'DP ID {self.dp_id} LLDP beacon send_interval not in valid range'))
         if 'max_per_interval' not in self.lldp_beacon:
             self.lldp_beacon['max_per_interval'] = self.DEFAULT_LLDP_MAX_PER_INTERVAL
         self.lldp_beacon = self._set_unknown_conf(
@@ -470,7 +470,7 @@ configuration.
             (table.table_id, str(table.table_config))
             for table in self.tables.values()])
         return '\n'.join([
-            'table ID %u %s' % (table_id, table_config)
+            f'table ID {table_id} {table_config}'
             for table_id, table_config in table_configs])
 
     def pipeline_tableids(self):
@@ -481,8 +481,7 @@ configuration.
         """Configure FAUCET pipeline with tables."""
         valve_cl = SUPPORTED_HARDWARE.get(self.hardware, None)
         test_config_condition(
-            not valve_cl, 'hardware %s must be in %s' % (
-                self.hardware, list(SUPPORTED_HARDWARE)))
+            not valve_cl, f'hardware {self.hardware} must be in {list(SUPPORTED_HARDWARE)}')
         if valve_cl is None:
             return
 
@@ -497,7 +496,7 @@ configuration.
         # Only configure IP routing tables if enabled.
         for vlan in self.vlans.values():
             for ipv in vlan.ipvs():
-                included_tables.add('ipv%u_fib' % ipv)
+                included_tables.add(f'ipv{ipv}_fib')
                 included_tables.add('vip')
         if valve_cl.STATIC_TABLE_IDS:
             included_tables.add('port_acl')
@@ -548,12 +547,12 @@ configuration.
                 set_fields = set(table_config.set_fields)
                 test_config_condition(
                     not set_fields.issubset(oxm_fields),
-                    'set_fields not all OpenFlow OXM fields %s' % (set_fields - oxm_fields))
+                    f'set_fields not all OpenFlow OXM fields {set_fields - oxm_fields}')
             if table_config.match_types:
                 matches = set(match for match, _ in table_config.match_types)
                 test_config_condition(
                     not matches.issubset(oxm_fields),
-                    'matches not all OpenFlow OXM fields %s' % (matches - oxm_fields))
+                    f'matches not all OpenFlow OXM fields {matches - oxm_fields}')
 
             scale_factor = 1.0
             # Need flows for internal/external.
@@ -887,7 +886,7 @@ configuration.
         def resolve_vlan(vlan_name):
             """Resolve VLAN by name or VID."""
             test_config_condition(not isinstance(vlan_name, (str, int)), (
-                'VLAN must be type %s or %s not %s' % (str, int, type(vlan_name))))
+                f'VLAN must be type {str} or {int} not {type(vlan_name)}'))
             if vlan_name in vlan_by_name:
                 return vlan_by_name[vlan_name]
             if vlan_name in self.vlans:
@@ -910,13 +909,13 @@ configuration.
                 for port in self.stack_ports():
                     stack_dp = port.stack['dp']
                     test_config_condition(stack_dp not in dp_by_name, (
-                        'stack DP %s not defined' % stack_dp))
+                        f'stack DP {stack_dp} not defined'))
                     port_stack_dp[port] = dp_by_name[stack_dp]
                 for port, dp in port_stack_dp.items():
                     port.stack['dp'] = dp
                     stack_port = dp.resolve_port(port.stack['port'])
                     test_config_condition(stack_port is None, (
-                        'stack port %s not defined in DP %s' % (port.stack['port'], dp.name)))
+                        f'stack port {port.stack["port"]} not defined in DP{dp.name}'))
                     port.stack['port'] = stack_port
 
         def resolve_mirror_destinations():
@@ -926,7 +925,7 @@ configuration.
                 if mirror_port.mirror is not None:
                     mirrored_ports = resolve_ports(mirror_port.mirror)
                     test_config_condition(len(mirrored_ports) != len(mirror_port.mirror), (
-                        'port mirror not defined in DP %s' % self.name))
+                        f'port mirror not defined in DP {self.name}'))
                     for mirrored_port in mirrored_ports:
                         mirror_from_port[mirrored_port].append(mirror_port)
 
@@ -950,7 +949,7 @@ configuration.
                 matches, set_fields, meter (3-Tuple): ACL matches, set fields and meter values
             """
             test_config_condition(acl_in not in self.acls, (
-                'missing ACL %s in DP: %s' % (acl_in, self.name)))
+                f'missing ACL {acl_in} in DP:{self.name}'))
             acl = self.acls[acl_in]
             tunnel_dsts_to_vlan = {}
 
@@ -997,12 +996,12 @@ configuration.
                     if tunnel_vlan:
                         # VLAN exists, i.e: user specified the VLAN so check if it is reserved
                         test_config_condition(not tunnel_vlan.reserved_internal_vlan, (
-                            'VLAN %s is required for use by tunnel %s but is not reserved' % (
-                                tunnel_vlan.name, tunnel_id_name)))
+                            f'VLAN {tunnel_vlan.name} is required for use by'
+                            f' tunnel {tunnel_id_name} but is not reserved'))
                     else:
                         # VLAN does not exist, so the ID should be the VID the user wants
                         test_config_condition(isinstance(tunnel_id_name, str), (
-                            'Tunnel VLAN (%s) does not exist' % tunnel_id_name))
+                            f'Tunnel VLAN ({tunnel_id_name}) does not exist'))
                         # Create the tunnel VLAN object
                         tunnel_vlan = create_vlan(tunnel_id_name)
                         tunnel_vlan.reserved_internal_vlan = True
@@ -1010,8 +1009,8 @@ configuration.
                     if existing_tunnel_vlan is not None:
                         test_config_condition(
                             existing_tunnel_vlan == tunnel_vlan.vid,
-                            'Cannot have multiple tunnel IDs (%u, %u) to same destination %s' % (
-                                existing_tunnel_vlan.vid, tunnel_vlan.vid, resolved_dst))
+                            f'Cannot have multiple tunnel IDs ({existing_tunnel_vlan.vid},'
+                            f' {tunnel_vlan.vid}) to same destination {resolved_dst}')
                 return tunnel_vlan
 
             def resolve_tunnel_objects(dst_dp_name, dst_port_name, tunnel_id_name):
@@ -1029,18 +1028,15 @@ configuration.
                 test_config_condition(vid is not None, 'Tunnels do not support VLAN-ACLs')
                 # Port & DP tunnel ACL
                 test_config_condition(dst_dp_name not in dp_by_name, (
-                    'Could not find referenced destination DP (%s) for tunnel ACL %s' % (
-                        dst_dp_name, acl_in)))
+                    f'Could not find referenced destination DP ({dst_dp_name}) for tunnel ACL {acl_in}'))
                 dst_dp = dp_by_name[dst_dp_name]
                 dst_port = None
                 if dst_port_name:
                     dst_port = dst_dp.resolve_port(dst_port_name)
                     test_config_condition(dst_port is None, (
-                        'Could not find referenced destination port (%s) for tunnel ACL %s' % (
-                            dst_port_name, acl_in)))
+                        f'Could not find referenced destination port ({dst_port_name}) for tunnel ACL {acl_in}'))
                     test_config_condition(dst_port.stack is None, (
-                        'destination port %s for tunnel ACL %s cannot be a stack port' % (
-                            dst_port_name, acl_in)))
+                        f'destination port {dst_port_name} for tunnel ACL {acl_in} cannot be a stack port'))
                     dst_port = dst_port.number
                 dst_dp = dst_dp.name
                 resolved_dst = (dst_dp, dst_port)
@@ -1054,7 +1050,7 @@ configuration.
             acl.resolve_ports(resolve_port_cb, resolve_tunnel_objects)
             for meter_name in acl.get_meters():
                 test_config_condition(meter_name not in self.meters, (
-                    'meter %s is not configured' % meter_name))
+                    f'meter {meter_name} is not configured'))
                 acl_meters.add(meter_name)
             for port_no in acl.get_mirror_destinations():
                 port = self.ports[port_no]
@@ -1144,7 +1140,7 @@ configuration.
                 vids = {vlan.vid for vlan in self.vlans.values()}
                 test_config_condition(
                     self.global_vlan in vids,
-                    'global_vlan VID %s conflicts with existing VLAN' % self.global_vlan)
+                    f'global_vlan VID {self.global_vlan} conflicts with existing VLAN')
 
             # Check for overlapping VIP subnets or VLANs.
             all_router_vlans = set()
@@ -1154,7 +1150,7 @@ configuration.
                     lone_vlan = router.vlans[0]
                     test_config_condition(
                         lone_vlan in all_router_vlans,
-                        'single VLAN %s in more than one router' % lone_vlan)
+                        f'single VLAN {lone_vlan} in more than one router')
                 for vlan in router.vlans:
                     vips.update({vip for vip in vlan.faucet_vips if not vip.ip.is_link_local})
                 all_router_vlans.update(router.vlans)
@@ -1162,25 +1158,23 @@ configuration.
                     for other_vip in vips - set([vip]):
                         test_config_condition(
                             vip.ip in other_vip.network,
-                            'VIPs %s and %s overlap in router %s' % (
-                                vip, other_vip, router_name))
+                            f'VIPs {vip} and {other_vip} overlap in router {router_name}')
             bgp_routers = self.bgp_routers()
             if bgp_routers:
                 for bgp_router in bgp_routers:
                     bgp_vlan = bgp_router.bgp_vlan()
                     vlan_dp_ids = [str(dp.dp_id) for dp in dps if bgp_vlan.vid in dp.vlans]
                     test_config_condition(len(vlan_dp_ids) != 1, (
-                        'DPs (%s) sharing a BGP speaker VLAN (%s) is unsupported') % (
-                            ', '.join(vlan_dp_ids), bgp_vlan.vid))
+                        f'DPs ({", ".join(vlan_dp_ids)}) sharing a BGP speaker VLAN ({bgp_vlan.vid}) is unsupported'))
                     test_config_condition(bgp_router.bgp_server_addresses() != (
                         bgp_routers[0].bgp_server_addresses()), (
                             'BGP server addresses must all be the same'))
                 router_ids = {bgp_router.bgp_routerid() for bgp_router in bgp_routers}
                 test_config_condition(
-                    len(router_ids) != 1, 'BGP router IDs must all be the same: %s' % router_ids)
+                    len(router_ids) != 1, f'BGP router IDs must all be the same: {router_ids}')
                 bgp_ports = {bgp_router.bgp_port() for bgp_router in bgp_routers}
                 test_config_condition(
-                    len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
+                    len(bgp_ports) != 1, f'BGP ports must all be the same: {bgp_ports}')
 
         if not self.stack_ports():
             # Revert back to None if there are no stack ports
@@ -1191,7 +1185,7 @@ configuration.
 
         test_config_condition(
             not self.vlans and not self.non_vlan_ports(),
-            'no VLANs referenced by interfaces in %s' % self.name)
+            f'no VLANs referenced by interfaces in {self.name}')
         dp_by_name = {dp.name: dp for dp in dps}
         vlan_by_name = {vlan.name: vlan for vlan in self.vlans.values()}
         loop_protect_external_ports = {
@@ -1263,18 +1257,16 @@ configuration.
                         new_conf, ignore_keys=(ignore_keys.union(['description']))):
                     same_confs.add(conf_id)
                     description_only_confs.add(conf_id)
-                    logger.info('%s %s description only changed' % (
-                        conf_name, conf_id))
+                    logger.info(f'{conf_name} {conf_id} description only changed')
                 else:
                     changed_confs.add(conf_id)
                     if diff:
-                        logger.info('%s %s changed: %s' % (
-                            conf_name, conf_id, old_conf.conf_diff(new_conf)))
+                        logger.info(f'{conf_name} {conf_id} changed: {old_conf.conf_diff(new_conf)}')
                     else:
-                        logger.info('%s %s changed' % (conf_name, conf_id))
+                        logger.info(f'{conf_name} {conf_id} changed')
             else:
                 added_confs.add(conf_id)
-                logger.info('%s %s added' % (conf_name, conf_id))
+                logger.info(f'{conf_name} {conf_id} added')
 
         for conf_id in same_confs:
             old_conf = subconf[conf_id]
@@ -1283,13 +1275,14 @@ configuration.
         changes = deleted_confs or added_confs or changed_confs
         if changes:
             if deleted_confs:
-                logger.info('%ss deleted: %s' % (conf_name, deleted_confs))
+                logger.info(f'{conf_name}s deleted: {deleted_confs}')
             if added_confs:
-                logger.info('%ss added: %s' % (conf_name, added_confs))
+                logger.info(f'{conf_name}s added: {added_confs}')
             if changed_confs:
-                logger.info('%ss changed: %s' % (conf_name, changed_confs))
+                logger.info(f'{conf_name}s changed: {changed_confs}')
         else:
-            logger.info('no %s changes' % conf_name)
+            logger.info(f'no {conf_name} changes')
+
 
         return (
             changes, deleted_confs, added_confs, changed_confs, same_confs, description_only_confs)
@@ -1411,8 +1404,7 @@ configuration.
                 old_port = self.ports[port_no]
                 new_port = new_dp.ports[port_no]
                 if old_port.mirror != new_port.mirror:
-                    logger.info('port %s mirror options changed: %s' % (
-                        port_no, new_port.mirror))
+                    logger.info(f'port {port_no} mirror options changed: {new_port.mirror}')
                     changed_ports.add(port_no)
                 # ACL changes
                 new_acl_ids = new_port.acls_in
@@ -1425,16 +1417,14 @@ configuration.
                     old_acl_ids = [acl._id for acl in old_acl_ids]
                 if port_acls_changed:
                     changed_acl_ports.add(port_no)
-                    logger.info('port %s ACL changed (ACL %s content changed)' % (
-                        port_no, port_acls_changed))
+                    logger.info(f'port {port_no} ACL changed (ACL {port_acls_changed} content changed)')
                 elif (old_acl_ids or new_acl_ids) and old_acl_ids != new_acl_ids:
                     changed_acl_ports.add(port_no)
-                    logger.info('port %s ACL changed (ACL %s to %s)' % (
-                        port_no, old_acl_ids, new_acl_ids))
+                    logger.info(f'port {port_no} ACL changed (ACL {old_acl_ids} to {new_acl_ids})')
 
             if changed_acl_ports:
                 same_ports -= changed_acl_ports
-                logger.info('ports where ACL only changed: %s' % changed_acl_ports)
+                logger.info(f'ports where ACL only changed: {changed_acl_ports}')
 
         same_ports -= changed_ports
         changed_vlans -= deleted_vlans
@@ -1445,7 +1435,7 @@ configuration.
             if vlan.faucet_vips:
                 changed_vlans_with_vips.append(vlan)
         if changed_vlans_with_vips:
-            logger.info('forcing cold start because %s has routing' % changed_vlans_with_vips)
+            logger.info(f'forcing cold start because {changed_vlans_with_vips} has routing')
             all_ports_changed = True
 
         return (all_ports_changed, deleted_ports,
@@ -1495,7 +1485,7 @@ configuration.
             logger.info('DP routers config changed - requires cold start')
         elif not self.ignore_subconf(
                 new_dp, ignore_keys=['interfaces', 'interface_ranges', 'routers']):
-            logger.info('DP config changed - requires cold start: %s' % self.conf_diff(new_dp))
+            logger.info(f'DP config changed - requires cold start: {self.conf_diff(new_dp)}')
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
             deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)

@@ -24,10 +24,10 @@ import sys
 
 from pbr.version import VersionInfo
 
-if sys.version_info < (3,) or sys.version_info < (3, 5):
+if sys.version_info < (3,) or sys.version_info < (3, 6):
     raise ImportError("""You are trying to run faucet on python {py}
 
-Faucet is not compatible with python {py}, please upgrade to python 3.5 or newer."""
+Faucet is not compatible with python {py}, please upgrade to python 3.6 or newer."""
                       .format(py='.'.join([str(v) for v in sys.version_info[:3]])))
 
 RYU_OPTIONAL_ARGS = [
@@ -89,12 +89,12 @@ def parse_args(sys_args):
     for ryu_arg in RYU_OPTIONAL_ARGS:
         if len(ryu_arg) >= 3:
             args.add_argument(
-                '--ryu-%s' % ryu_arg[0],
+                f'--ryu-{ryu_arg[0]}',
                 help=ryu_arg[1],
                 default=ryu_arg[2])
         else:
             args.add_argument(
-                '--ryu-%s' % ryu_arg[0],
+                f'--ryu-{ryu_arg[0]}',
                 help=ryu_arg[1])
 
     return args.parse_args(sys_args)
@@ -136,7 +136,7 @@ def build_ryu_args(argv):
         if arg == 'ryu_config_file' and not os.path.isfile(val):
             continue
         arg_name = arg.replace('ryu_', '').replace('_', '-')
-        ryu_args.append('--%s=%s' % (arg_name, val))
+        ryu_args.append(f'--{arg_name}={val}')
 
     # Running Faucet or Gauge?
     if args.gauge or os.path.basename(prog) == 'gauge':

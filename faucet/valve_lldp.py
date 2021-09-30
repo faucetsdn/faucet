@@ -91,14 +91,9 @@ class ValveLLDPManager(ValveManagerBase):
                 or remote_dp_name != remote_dp.name
                 or remote_port_id != remote_port.number):
             self.logger.error(
-                'Stack %s cabling incorrect, expected %s:%s:%u, actual %s:%s:%u' % (
-                    port,
-                    valve_util.dpid_log(remote_dp.dp_id),
-                    remote_dp.name,
-                    remote_port.number,
-                    valve_util.dpid_log(remote_dp_id),
-                    remote_dp_name,
-                    remote_port_id))
+                f'Stack {port} cabling incorrect, expected '
+                f'{valve_util.dpid_log(remote_dp.dp_id)}:{remote_dp.name}:{remote_port.number}, '
+                f'actual {valve_util.dpid_log(remote_dp_id)}:{remote_dp_name}:{remote_port_id}')
             stack_correct = False
             self._inc_var('stack_cabling_errors')
         port.dyn_stack_probe_info = {
@@ -138,9 +133,8 @@ class ValveLLDPManager(ValveManagerBase):
                 self.notify({'STACK_STATE': {
                     'port': port.number,
                     'state': after_state}})
-                self.logger.info('Stack %s state %s (previous state %s): %s' % (
-                    port, port.stack_state_name(after_state),
-                    port.stack_state_name(before_state), reason))
+                self.logger.info(f'Stack {port} state {port.stack_state_name(after_state)} '
+                                 f'(previous state {port.stack_state_name(before_state)}): {reason}')
                 stack_changes += 1
                 port_up = False
                 if port.is_stack_up():
@@ -150,8 +144,7 @@ class ValveLLDPManager(ValveManagerBase):
                 for stack_valve in stacked_valves:
                     stack_valve.stack_manager.update_stack_topo(port_up, valve.dp, port)
         if stack_changes or valve.stale_root:
-            self.logger.info('%u stack ports changed state, stale root %s' %
-                             (stack_changes, valve.stale_root))
+            self.logger.info(f'{stack_changes} stack ports changed state, stale root {valve.stale_root}')
             valve.stale_root = False
             notify_dps = {}
             for stack_valve in stacked_valves:

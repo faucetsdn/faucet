@@ -35,8 +35,7 @@ def lsof_tcp_listening_cmd(port, ipv, state, terse):
     terse_arg = ''
     if terse:
         terse_arg = '-t'
-    return 'lsof -b -P -n %s -sTCP:%s -i %u -a -i tcp:%u' % (
-        terse_arg, state, ipv, port)
+    return f'lsof -b -P -n {terse_arg} -sTCP:{state} -i {ipv} -a -i tcp:{port}'
 
 
 def lsof_udp_listening_cmd(port, terse):
@@ -44,8 +43,7 @@ def lsof_udp_listening_cmd(port, terse):
     terse_arg = ''
     if terse:
         terse_arg = '-t'
-    return 'lsof -b -P -n %s -i udp:%u -a' % (
-        terse_arg, port)
+    return f'lsof -b -P -n {terse_arg} -i udp:{port} -a'
 
 
 def tcp_listening_cmd(port, ipv=4, state='LISTEN', terse=True):
@@ -103,14 +101,14 @@ def test_server_request(ports_socket, name, command):
     assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
-    sock.sendall(('%s,%s\n' % (command, name)).encode())
-    output('%s %s\n' % (name, command))
+    sock.sendall((f'{command},{name}\n').encode())
+    output(f'{name} {command}\n')
     buf = receive_sock_line(sock)
     responses = [int(i) for i in buf.split('\n')]
     sock.close()
     if len(responses) == 1:
         responses = responses[0]
-    output('%s %s: %u\n' % (name, command, responses))
+    output(f'{name} {command}: {responses}\n')
     return responses
 
 
@@ -126,7 +124,7 @@ def find_free_port(ports_socket, name):
         port = test_server_request(ports_socket, request_name, GETPORT)
         if not tcp_listening(port):
             return port
-        error('port %u is busy, try another' % port)
+        error(f'port {port} is busy, try another')
 
 
 def find_free_udp_port(ports_socket, name):
@@ -135,7 +133,7 @@ def find_free_udp_port(ports_socket, name):
         port = test_server_request(ports_socket, request_name, GETPORT)
         if not udp_listening(port):
             return port
-        error('port %u is busy, try another' % port)
+        error(f'port {port} is busy, try another')
 
 
 def return_free_ports(ports_socket, name):
@@ -220,9 +218,9 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
 
 def timeout_cmd(cmd, timeout):
     """Return a command line prefaced with a timeout wrappers and stdout/err unbuffered."""
-    return 'timeout -sKILL %us stdbuf -o0 -e0 %s' % (timeout, cmd)
+    return f'timeout -sKILL {timeout}s stdbuf -o0 -e0 {cmd}'
 
 
 def timeout_soft_cmd(cmd, timeout):
     """Same as timeout_cmd buf using SIGTERM on timeout."""
-    return 'timeout %us stdbuf -o0 -e0 %s' % (timeout, cmd)
+    return f'timeout {timeout}s stdbuf -o0 -e0 {cmd}'
