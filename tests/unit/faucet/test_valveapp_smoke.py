@@ -24,12 +24,12 @@ from collections import namedtuple
 import os
 import unittest
 from prometheus_client import CollectorRegistry
-from ryu.controller import dpset
-from ryu.controller.ofp_event import EventOFPMsgBase
+from os_ken.controller import dpset
+from os_ken.controller.ofp_event import EventOFPMsgBase
 from faucet import faucet
 
 
-class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
+class OSKenAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
     """Test bare instantiation of controller classes."""
 
     @staticmethod
@@ -42,33 +42,33 @@ class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
         os.environ['FAUCET_CONFIG'] = '/dev/null'
         os.environ['FAUCET_LOG'] = '/dev/null'
         os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
-        ryu_app = faucet.Faucet(
+        os_ken_app = faucet.Faucet(
             dpset={},
             reg=CollectorRegistry())
-        ryu_app.reload_config(None)
-        self.assertFalse(ryu_app._config_files_changed())
-        ryu_app.metric_update(None)
+        os_ken_app.reload_config(None)
+        self.assertFalse(os_ken_app._config_files_changed())
+        os_ken_app.metric_update(None)
         event_dp = dpset.EventDPReconnected(dp=self._fake_dp())
         for enter in (True, False):
             event_dp.enter = enter
-            ryu_app.connect_or_disconnect_handler(event_dp)
+            os_ken_app.connect_or_disconnect_handler(event_dp)
         for event_handler in (
-                ryu_app.error_handler,
-                ryu_app.features_handler,
-                ryu_app.packet_in_handler,
-                ryu_app.desc_stats_reply_handler,
-                ryu_app.port_desc_stats_reply_handler,
-                ryu_app.port_status_handler,
-                ryu_app.flowremoved_handler,
-                ryu_app.reconnect_handler,
-                ryu_app._datapath_connect,
-                ryu_app._datapath_disconnect):
+                os_ken_app.error_handler,
+                os_ken_app.features_handler,
+                os_ken_app.packet_in_handler,
+                os_ken_app.desc_stats_reply_handler,
+                os_ken_app.port_desc_stats_reply_handler,
+                os_ken_app.port_status_handler,
+                os_ken_app.flowremoved_handler,
+                os_ken_app.reconnect_handler,
+                os_ken_app._datapath_connect,
+                os_ken_app._datapath_disconnect):
             msg = namedtuple('msg', ['datapath'])(self._fake_dp())
             event = EventOFPMsgBase(msg=msg)
             event.dp = msg.datapath
             event_handler(event)
-        ryu_app._check_thread_exception()
-        ryu_app._thread_jitter(1)
+        os_ken_app._check_thread_exception()
+        os_ken_app._thread_jitter(1)
 
 
 if __name__ == "__main__":

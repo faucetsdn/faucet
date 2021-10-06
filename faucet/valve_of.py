@@ -24,15 +24,15 @@ import ipaddress
 import random
 
 # pylint: disable=unused-import
-from ryu.lib import mac  # noqa: F401
-from ryu.lib import ofctl_v1_3 as ofctl
-from ryu.lib.ofctl_utils import (
+from os_ken.lib import mac  # noqa: F401
+from os_ken.lib import ofctl_v1_3 as ofctl
+from os_ken.lib.ofctl_utils import (
     str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil)
-from ryu.ofproto import ether
+from os_ken.ofproto import ether
 # pylint: disable=unused-import
-from ryu.ofproto import inet  # noqa: F401
-from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.ofproto import ofproto_v1_3_parser as parser
+from os_ken.ofproto import inet  # noqa: F401
+from os_ken.ofproto import ofproto_v1_3 as ofp
+from os_ken.ofproto import ofproto_v1_3_parser as parser
 
 from faucet.conf import test_config_condition, InvalidConfigError
 from faucet.valve_of_old import OLD_MATCH_FIELDS

@@ -28,10 +28,10 @@ from collections import OrderedDict
 
 from bitstring import Bits
 
-from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.ofproto import ofproto_v1_3_parser as parser
-from ryu.ofproto import ofproto_parser as ofp_parser
-from ryu.lib import addrconv
+from os_ken.ofproto import ofproto_v1_3 as ofp
+from os_ken.ofproto import ofproto_v1_3_parser as parser
+from os_ken.ofproto import ofproto_parser as ofp_parser
+from os_ken.lib import addrconv
 
 
 CONTROLLER_PORT = 4294967293

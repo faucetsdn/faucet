@@ -20,7 +20,7 @@
 
 from urllib.parse import parse_qs
 
-from ryu.lib import hub
+from os_ken.lib import hub
 from pbr.version import VersionInfo
 from prometheus_client import Gauge as PromGauge
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, REGISTRY

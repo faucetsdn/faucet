@@ -22,8 +22,8 @@ import random
 import unittest
 import yaml
 
-from ryu.lib import mac
-from ryu.ofproto import ofproto_v1_3 as ofp
+from os_ken.lib import mac
+from os_ken.ofproto import ofproto_v1_3 as ofp
 
 import networkx
 from networkx.generators.atlas import graph_atlas_g

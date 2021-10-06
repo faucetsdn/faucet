@@ -6,7 +6,7 @@ import logging
 import sys
 
 import afl
-from ryu.controller import dpset
+from os_ken.controller import dpset
 from faucet import faucet
 import fake_packet
 

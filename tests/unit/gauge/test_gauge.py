@@ -21,11 +21,11 @@ import yaml
 import requests
 from requests.exceptions import ReadTimeout
 
-from ryu.controller.ofp_event import EventOFPMsgBase
-from ryu.lib import type_desc
-from ryu.lib import hub
-from ryu.ofproto import ofproto_v1_3 as ofproto
-from ryu.ofproto import ofproto_v1_3_parser as parser
+from os_ken.controller.ofp_event import EventOFPMsgBase
+from os_ken.lib import type_desc
+from os_ken.lib import hub
+from os_ken.ofproto import ofproto_v1_3 as ofproto
+from os_ken.ofproto import ofproto_v1_3_parser as parser
 
 from prometheus_client import CollectorRegistry
 
@@ -890,18 +890,18 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
         compare_flow_msg(msg, yaml_dict, self)
 
 
-class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
+class OSKenAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
     """Test Gauge Ryu app."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
         os.environ['GAUGE_LOG'] = os.path.join(self.tmpdir, 'gauge.log')
         os.environ['GAUGE_EXCEPTION_LOG'] = os.path.join(self.tmpdir, 'gauge-exception.log')
-        self.ryu_app = None
+        self.os_ken_app = None
 
     def tearDown(self):
-        valve_util.close_logger(self.ryu_app.logger)
-        valve_util.close_logger(self.ryu_app.exc_logger)
+        valve_util.close_logger(self.os_ken_app.logger)
+        valve_util.close_logger(self.os_ken_app.exc_logger)
         shutil.rmtree(self.tmpdir)
 
     @staticmethod
@@ -924,16 +924,16 @@ class RyuAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
     def test_gauge(self):
         """Test Gauge can be initialized."""
         os.environ['GAUGE_CONFIG'] = '/dev/null'
-        self.ryu_app = gauge.Gauge(
+        self.os_ken_app = gauge.Gauge(
             dpset={},
             reg=CollectorRegistry())
-        self.ryu_app.reload_config(None)
-        self.assertFalse(self.ryu_app._config_files_changed())
-        self.ryu_app._update_watcher(None, self._fake_event())
-        self.ryu_app._start_watchers(self._fake_dp(), {}, time.time())
+        self.os_ken_app.reload_config(None)
+        self.assertFalse(self.os_ken_app._config_files_changed())
+        self.os_ken_app._update_watcher(None, self._fake_event())
+        self.os_ken_app._start_watchers(self._fake_dp(), {}, time.time())
         for event_handler in (
-                self.ryu_app._datapath_connect,
-                self.ryu_app._datapath_disconnect):
+                self.os_ken_app._datapath_connect,
+                self.os_ken_app._datapath_disconnect):
             event_handler(self._fake_event())
 
     def test_gauge_config(self):
@@ -990,34 +990,34 @@ dbs:
         prometheus_port: 0
 """ % os.environ['FAUCET_CONFIG']
         self._write_config(os.environ['GAUGE_CONFIG'], gauge_conf)
-        self.ryu_app = gauge.Gauge(
+        self.os_ken_app = gauge.Gauge(
             dpset={},
             reg=CollectorRegistry())
-        self.ryu_app.reload_config(None)
-        self.assertFalse(self.ryu_app._config_files_changed())
-        self.assertTrue(self.ryu_app.watchers)
-        self.ryu_app.reload_config(None)
-        self.assertTrue(self.ryu_app.watchers)
-        self.assertFalse(self.ryu_app._config_files_changed())
+        self.os_ken_app.reload_config(None)
+        self.assertFalse(self.os_ken_app._config_files_changed())
+        self.assertTrue(self.os_ken_app.watchers)
+        self.os_ken_app.reload_config(None)
+        self.assertTrue(self.os_ken_app.watchers)
+        self.assertFalse(self.os_ken_app._config_files_changed())
         # Load a new FAUCET config.
         self._write_config(os.environ['FAUCET_CONFIG'], faucet_conf2)
-        self.assertTrue(self.ryu_app._config_files_changed())
-        self.ryu_app.reload_config(None)
-        self.assertTrue(self.ryu_app.watchers)
-        self.assertFalse(self.ryu_app._config_files_changed())
+        self.assertTrue(self.os_ken_app._config_files_changed())
+        self.os_ken_app.reload_config(None)
+        self.assertTrue(self.os_ken_app.watchers)
+        self.assertFalse(self.os_ken_app._config_files_changed())
         # Load an invalid Gauge config
         self._write_config(os.environ['GAUGE_CONFIG'], 'invalid')
-        self.assertTrue(self.ryu_app._config_files_changed())
-        self.ryu_app.reload_config(None)
-        self.assertTrue(self.ryu_app.watchers)
+        self.assertTrue(self.os_ken_app._config_files_changed())
+        self.os_ken_app.reload_config(None)
+        self.assertTrue(self.os_ken_app.watchers)
         # Keep trying to load a valid version.
-        self.assertTrue(self.ryu_app._config_files_changed())
+        self.assertTrue(self.os_ken_app._config_files_changed())
         # Load good Gauge config back
         self._write_config(os.environ['GAUGE_CONFIG'], gauge_conf)
-        self.assertTrue(self.ryu_app._config_files_changed())
-        self.ryu_app.reload_config(None)
-        self.assertTrue(self.ryu_app.watchers)
-        self.assertFalse(self.ryu_app._config_files_changed())
+        self.assertTrue(self.os_ken_app._config_files_changed())
+        self.os_ken_app.reload_config(None)
+        self.assertTrue(self.os_ken_app.watchers)
+        self.assertFalse(self.os_ken_app._config_files_changed())
 
 
 if __name__ == "__main__":
