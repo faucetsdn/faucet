@@ -384,6 +384,10 @@ def is_set_field(action):
     return isinstance(action, parser.OFPActionSetField)
 
 
+def is_ct(action):
+    return isinstance(action, parser.NXActionCT)
+
+
 def apply_meter(meter_id):
     """Return instruction to apply a meter."""
     return parser.OFPInstructionMeter(meter_id, ofp.OFPIT_METER)
@@ -511,6 +515,39 @@ def pop_vlan():
         ryu.ofproto.ofproto_v1_3_parser.OFPActionPopVlan: Pop VLAN.
     """
     return parser.OFPActionPopVlan()
+
+
+def ct(**kwds):  # pylint: disable=invalid-name
+    """Return connection tracker action.
+
+    Args:
+        kwds (dict): exactly one connection tracker action.
+    Returns:
+        ryu.ofproto.nx_actions.NXActionCT: connection tracker action.
+    """
+    return parser.NXActionCT(**kwds)  # pylint: disable=no-member
+
+
+def ct_clear():
+    """Return clear connection tracker state action.
+
+    Args:
+        kwds (dict): exactly one clear connection tracker state action.
+    Returns:
+        ryu.ofproto.nx_actions.NXActionCTClear: clear connection tracker state action.
+    """
+    return parser.NXActionCTClear()  # pylint: disable=no-member
+
+
+def ct_nat(**kwds):
+    """Return network address translation connection tracker action.
+
+    Args:
+        kwds (dict): exactly one network address translation connection tracker action.
+    Returns:
+        ryu.ofproto.nx_actions.NXActionNAT: network address translation connection tracker action.
+    """
+    return parser.NXActionNAT(**kwds)  # pylint: disable=no-member
 
 
 @functools.lru_cache(maxsize=1024)

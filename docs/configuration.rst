@@ -959,6 +959,10 @@ Actions is a dictionary of actions to apply upon match.
       - dictionary or list
       - None
       - Used to apply more specific output actions for an ACL
+    * - ct
+      - dictionary
+      - None
+      - Used to apply connection tracking to the specified flow.
 
 The output action contains a dictionary with the following elements:
 
