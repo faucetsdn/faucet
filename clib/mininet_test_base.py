@@ -353,6 +353,7 @@ class FaucetTestBase(unittest.TestCase):
                 dir=os.path.dirname(yaml_path),
                 delete=False) as conf_file_tmp:
             conf_file_tmp_name = conf_file_tmp.name
+            os.chmod(conf_file_tmp_name, 0o644)
             conf_file_tmp.write(new_conf_str)
         with open(conf_file_tmp_name, 'rb', encoding=None) as conf_file_tmp:
             conf_file_tmp_str = conf_file_tmp.read()
