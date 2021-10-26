@@ -647,6 +647,7 @@ def run_tests(modules, hw_config, requested_test_classes, regex_test_classes, du
         print('Testing hardware, forcing test serialization')
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-', dir='/var/tmp')
+    os.chmod(root_tmpdir, 0o755)
     print(f'Logging test results in {root_tmpdir}')
     start_free_ports = 10
     min_free_ports = 200

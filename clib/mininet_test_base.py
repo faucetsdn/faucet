@@ -353,6 +353,7 @@ class FaucetTestBase(unittest.TestCase):
                 dir=os.path.dirname(yaml_path),
                 delete=False) as conf_file_tmp:
             conf_file_tmp_name = conf_file_tmp.name
+            os.chmod(conf_file_tmp_name, 0o644)
             conf_file_tmp.write(new_conf_str)
         with open(conf_file_tmp_name, 'rb', encoding=None) as conf_file_tmp:
             conf_file_tmp_str = conf_file_tmp.read()
@@ -689,7 +690,7 @@ class FaucetTestBase(unittest.TestCase):
         return gauge_controller
 
     def _start_faucet(self, controller_intf, controller_ipv6):
-        self.assertIsNone(self.net, 'Cannot invoke _start_faucet() multilpe times')
+        self.assertIsNone(self.net, 'Cannot invoke _start_faucet() multiple times')
         self.assertTrue(self.NUM_FAUCET_CONTROLLERS > 0, 'Define at least 1 Faucet controller')
         self.assertTrue(self.NUM_GAUGE_CONTROLLERS > 0, 'Define at least 1 Gauge controller')
 
@@ -849,11 +850,18 @@ class FaucetTestBase(unittest.TestCase):
 
     def _dump_controller_logs(self):
         dump_txt = ''
-        test_logs = glob.glob(os.path.join(self.tmpdir, '*.log'))
+        test_logs = sorted(glob.glob(os.path.join(self.tmpdir, '*.log')))
         for controller in self.net.controllers:
+            header_txt = controller.name + ' log files'
+            dump_txt += '\n'.join((
+                '',
+                '#' * len(header_txt),
+                header_txt,
+                '#' * len(header_txt),
+                ''))
             for test_log_name in test_logs:
                 basename = os.path.basename(test_log_name)
-                if basename.startswith(controller.name):
+                if basename.startswith(controller.name_no_pid):
                     with open(test_log_name, encoding='utf-8') as test_log:
                         dump_txt += '\n'.join((
                             '',
@@ -861,7 +869,6 @@ class FaucetTestBase(unittest.TestCase):
                             '=' * len(basename),
                             '',
                             test_log.read()))
-                    break
         return dump_txt
 
     def _controllers_healthy(self):
