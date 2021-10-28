@@ -60,8 +60,8 @@ SUPPORTS_METADATA = (
 
 
 EXTERNAL_DEPENDENCIES = (
-    ('ryu-manager', ['--version'],
-     'ryu-manager', r'ryu-manager (\d+\.\d+)\n', "4.9"),
+    ('osken-manager', ['--version'],
+     'osken-manager', r'osken-manager(\d+\.\d+)\n', "2.1"),
     ('ovs-vsctl', ['--version'], 'Open vSwitch',
      r'ovs-vsctl\s+\(Open vSwitch\)\s+(\d+\.\d+)\.\d+\n', "2.3"),
     ('tcpdump', ['-h'], 'tcpdump',

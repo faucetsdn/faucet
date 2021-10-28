@@ -25,8 +25,8 @@ from contextlib import contextmanager
 
 import eventlet
 
-from ryu.lib import hub
-from ryu.lib.hub import StreamServer
+from os_ken.lib import hub
+from os_ken.lib.hub import StreamServer
 
 
 class NonBlockLock:

@@ -23,7 +23,7 @@ import json
 import gzip
 import time
 
-from ryu.ofproto import ofproto_v1_3 as ofp
+from os_ken.ofproto import ofproto_v1_3 as ofp
 
 from faucet.conf import InvalidConfigError
 from faucet.valve_util import dpid_log

@@ -551,10 +551,8 @@ socket_timeout=15
     def ryu_pid(self):
         """Return PID of ryu-manager process."""
         if os.path.exists(self.pid_file) and os.path.getsize(self.pid_file) > 0:
-            pid = None
             with open(self.pid_file, encoding='utf-8') as pid_file:
-                pid = int(pid_file.read())
-            return pid
+                return int(pid_file.read())
         return None
 
     def listen_port(self, port, state='LISTEN'):
@@ -639,7 +637,7 @@ socket_timeout=15
 class FAUCET(BaseFAUCET):
     """Start a FAUCET controller."""
 
-    START_ARGS = ['--ryu-app=ryu.app.ofctl_rest']
+    START_ARGS = ['--ryu-app-lists=%s' % (os.path.dirname(os.path.realpath(__file__)) + '/../ofctl_rest/ofctl_rest.py')]
 
     def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
@@ -647,10 +645,10 @@ class FAUCET(BaseFAUCET):
         self.prom_port = prom_port
         self.ofctl_port = mininet_test_util.find_free_port(
             ports_sock, test_name)
-        cargs = ' '.join((
-            f'--ryu-wsapi-host={mininet_test_util.LOCALHOSTV6}',
-            f'--ryu-wsapi-port={self.ofctl_port}',
-            self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
+        env['OFCTL_PORT'] = str(self.ofctl_port)
+        env['OFCTL_HOST'] = mininet_test_util.LOCALHOSTV6
+        cargs = ' '.join(
+            self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs))
         super().__init__(
             name,
             tmpdir,

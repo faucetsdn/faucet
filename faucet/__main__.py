@@ -57,8 +57,6 @@ RYU_OPTIONAL_ARGS = [
     ('ofp-tcp-listen-port', 'openflow tcp listen port (default: 6653)'),
     ('pid-file', 'pid file name'),
     ('user-flags', 'Additional flags file for user applications'),
-    ('wsapi-host', 'webapp listen host (default 0.0.0.0)'),
-    ('wsapi-port', 'webapp listen port (default 8080)')
 ]
 
 
@@ -81,7 +79,7 @@ def parse_args(sys_args):
     args.add_argument(
         '--use-syslog', action='store_true', help='output to syslog')
     args.add_argument(
-        '--ryu-app',
+        '--ryu-app-lists',
         action='append',
         help='add Ryu app (can be specified multiple times)',
         metavar='APP')
@@ -131,7 +129,7 @@ def build_ryu_args(argv):
     for arg, val in vars(args).items():
         if not val or not arg.startswith('ryu'):
             continue
-        if arg == 'ryu_app':
+        if arg == 'ryu_app_lists':
             continue
         if arg == 'ryu_config_file' and not os.path.isfile(val):
             continue
@@ -145,11 +143,11 @@ def build_ryu_args(argv):
         ryu_args.append('faucet.faucet')
 
     # Check for additional Ryu apps.
-    if args.ryu_app:
-        ryu_args.extend(args.ryu_app)
+    if args.ryu_app_lists:
+        ryu_args.extend(args.ryu_app_lists)
 
     # Replace current process with ryu-manager from PATH (no PID change).
-    ryu_args.insert(0, 'ryu-manager')
+    ryu_args.insert(0, 'osken-manager')
     return ryu_args
 
 
