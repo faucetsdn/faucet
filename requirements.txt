@@ -5,6 +5,6 @@ influxdb>=2.12.0
 msgpack==1.0.2
 networkx>=1.9
 pbr==5.5.1
-prometheus_client==0.11.0
+prometheus_client==0.12.0
 pyyaml==6.0
 pytricia
