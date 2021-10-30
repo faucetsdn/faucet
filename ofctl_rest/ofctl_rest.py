@@ -44,6 +44,8 @@ supported_ofctl = {
     ofproto_v1_3.OFP_VERSION: ofctl_v1_3,
 }
 
+# pylint: disable=missing-function-docstring,disable=invalid-name,disable=missing-class-docstring,disable=too-few-public-methods,disable=unused-argument,disable=no-member
+
 # REST API
 #
 
@@ -290,7 +292,7 @@ def command_method(method):
 
 class StatsController(ControllerBase):
     def __init__(self, req, link, data, **config):
-        super(StatsController, self).__init__(req, link, data, **config)
+        super().__init__(req, link, data, **config)
         self.dpset = data['dpset']
         self.waiters = data['waiters']
 
@@ -410,8 +412,9 @@ class StatsController(ControllerBase):
     def get_role(self, req, dp, ofctl, **kwargs):
         return ofctl.get_role(dp, self.waiters)
 
+    @staticmethod
     @command_method
-    def mod_flow_entry(self, req, dp, ofctl, flow, cmd, **kwargs):
+    def mod_flow_entry(req, dp, ofctl, flow, cmd, **kwargs):
         cmd_convert = {
             'add': dp.ofproto.OFPFC_ADD,
             'modify': dp.ofproto.OFPFC_MODIFY,
@@ -425,13 +428,15 @@ class StatsController(ControllerBase):
 
         ofctl.mod_flow_entry(dp, flow, mod_cmd)
 
+    @staticmethod
     @command_method
-    def delete_flow_entry(self, req, dp, ofctl, flow, **kwargs):
+    def delete_flow_entry(req, dp, ofctl, flow, **kwargs):
         flow = {'table_id': dp.ofproto.OFPTT_ALL}
         ofctl.mod_flow_entry(dp, flow, dp.ofproto.OFPFC_DELETE)
 
+    @staticmethod
     @command_method
-    def mod_meter_entry(self, req, dp, ofctl, meter, cmd, **kwargs):
+    def mod_meter_entry(req, dp, ofctl, meter, cmd, **kwargs):
         cmd_convert = {
             'add': dp.ofproto.OFPMC_ADD,
             'modify': dp.ofproto.OFPMC_MODIFY,
@@ -443,8 +448,9 @@ class StatsController(ControllerBase):
 
         ofctl.mod_meter_entry(dp, meter, mod_cmd)
 
+    @staticmethod
     @command_method
-    def mod_group_entry(self, req, dp, ofctl, group, cmd, **kwargs):
+    def mod_group_entry(req, dp, ofctl, group, cmd, **kwargs):
         cmd_convert = {
             'add': dp.ofproto.OFPGC_ADD,
             'modify': dp.ofproto.OFPGC_MODIFY,
@@ -473,12 +479,14 @@ class StatsController(ControllerBase):
 
         ofctl.mod_port_behavior(dp, port_config)
 
+    @staticmethod
     @command_method
-    def send_experimenter(self, req, dp, ofctl, exp, **kwargs):
+    def send_experimenter(req, dp, ofctl, exp, **kwargs):
         ofctl.send_experimenter(dp, exp)
 
+    @staticmethod
     @command_method
-    def set_role(self, req, dp, ofctl, role, **kwargs):
+    def set_role(req, dp, ofctl, role, **kwargs):
         ofctl.set_role(dp, role)
 
 
@@ -490,7 +498,7 @@ class RestStatsApi(app_manager.OSKenApp):
     }
 
     def __init__(self, *args, **kwargs):
-        super(RestStatsApi, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.dpset = kwargs['dpset']
         wsgi = kwargs['wsgi']
         self.waiters = {}
