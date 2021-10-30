@@ -291,6 +291,8 @@ def command_method(method):
 
 
 class StatsController(ControllerBase):
+    # pytype: disable=no-attribute
+
     def __init__(self, req, link, data, **config):
         super().__init__(req, link, data, **config)
         self.dpset = data['dpset']
