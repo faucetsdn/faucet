@@ -33,9 +33,6 @@ import eventlet.wsgi
 
 from os_ken.lib import hub
 
-HEX_PATTERN = r'0x[0-9a-z]+'
-DIGIT_PATTERN = r'[1-9][0-9]*'
-
 # pylint: disable=missing-function-docstring,disable=invalid-name,disable=missing-class-docstring,disable=too-few-public-methods
 
 
