@@ -1,4 +1,4 @@
 -r docs/requirements.txt
 flake8==4.0.1
 pylint==2.11.1
-pytype==2021.10.18
+pytype==2021.11.2
