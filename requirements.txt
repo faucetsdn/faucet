@@ -7,3 +7,4 @@ networkx>=1.9
 pbr==5.5.1
 prometheus_client==0.12.0
 pyyaml==6.0
+pytricia
