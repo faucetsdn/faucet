@@ -12,6 +12,7 @@ import yaml  # pytype: disable=pyi-error
 from clib.mininet_test_util import timeout_cmd
 from clib.mininet_test_base import FaucetTestBase, IPV4_ETH
 from clib.config_generator import FaucetTopoGenerator
+from clib.valve_test_lib import yaml_load
 
 
 class FaucetTopoTestBase(FaucetTestBase):
@@ -55,7 +56,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         for config_var in (self.config_ports, self.port_map):
             config_vars.update(config_var)
         faucet_config = self.CONFIG % config_vars
-        self._write_yaml_conf(self.faucet_config_path, yaml.safe_load(faucet_config))
+        self._write_yaml_conf(self.faucet_config_path, yaml_load(faucet_config))
 
     def _annotate_interfaces_conf(self, yaml_conf):
         """We don't need to annotate the interfaces"""

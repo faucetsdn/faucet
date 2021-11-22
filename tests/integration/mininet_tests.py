@@ -26,8 +26,6 @@ from http.server import HTTPServer
 
 import scapy.all
 
-import yaml  # pytype: disable=pyi-error
-
 from mininet.log import error
 from mininet.util import pmonitor
 
@@ -35,6 +33,7 @@ from clib import mininet_test_base
 from clib import mininet_test_util
 
 from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
+from clib.valve_test_lib import yaml_load
 
 MIN_MBPS = 100
 
@@ -1672,7 +1671,7 @@ dbs:
             self.monitor_meter_stats_file)
         if self.config_ports:
             gauge_config = gauge_config % self.config_ports
-        self._write_yaml_conf(self.gauge_config_path, yaml.safe_load(gauge_config))
+        self._write_yaml_conf(self.gauge_config_path, yaml_load(gauge_config))
 
     def test_untagged(self):
         """All hosts on the same untagged VLAN should have connectivity."""

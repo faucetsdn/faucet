@@ -32,7 +32,7 @@ import shutil
 import tempfile
 
 import unittest
-import yaml
+from ruamel.yaml.main import round_trip_load, round_trip_dump
 
 from os_ken.lib import mac
 from os_ken.lib.packet import (
@@ -55,6 +55,14 @@ from faucet import valve_util
 from faucet.valve import TfmValve
 
 from clib.fakeoftable import FakeOFNetwork
+
+
+def yaml_load(yaml_str):
+    return round_trip_load(yaml_str)
+
+
+def yaml_dump(yaml_dict):
+    return round_trip_dump(yaml_dict)
 
 
 def build_dict(pkt):
@@ -1311,9 +1319,9 @@ class ValveTestBases:
             }
 
         def _config_edge_learn_stack_root(self, new_value):
-            config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+            config = yaml_load(self.CONFIG)
             config['vlans']['v100']['edge_learn_stack_root'] = new_value
-            return yaml.dump(config)
+            return yaml_dump(config)
 
         def learn_hosts(self):
             """Learn some hosts."""
@@ -2128,10 +2136,10 @@ class ValveTestBases:
             _ = self.valves_manager.valves[self.DP_ID]
 
             match = {'in_port': 1, 'vlan_vid': 0}
-            orig_config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+            orig_config = yaml_load(self.CONFIG)
             deletedport1_config = copy.copy(orig_config)
             del deletedport1_config['dps'][self.DP_NAME]['interfaces']['p1']
-            self.update_config(yaml.dump(deletedport1_config))
+            self.update_config(yaml_dump(deletedport1_config))
             self.assertFalse(
                 self.network.tables[self.DP_ID].is_output(match, port=2, vid=self.V100),
                 msg='Packet output after port delete')

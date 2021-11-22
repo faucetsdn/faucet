@@ -23,7 +23,6 @@
 from functools import partial
 import unittest
 import ipaddress
-import yaml
 
 from os_ken.lib import mac
 from os_ken.ofproto import ofproto_v1_3 as ofp
@@ -36,7 +35,7 @@ from faucet.port import (
 from clib.fakeoftable import CONTROLLER_PORT
 
 from clib.valve_test_lib import (
-    BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
+    BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases, yaml_load, yaml_dump)
 
 
 class ValveEdgeVLANTestCase(ValveTestBases.ValveTestNetwork):
@@ -1276,12 +1275,12 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
 
     def _set_max_lldp_lost(self, new_value):
         """Set the interface config option max_lldp_lost"""
-        config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+        config = yaml_load(self.CONFIG)
         for dp in config['dps'].values():
             for interface in dp['interfaces'].values():
                 if 'stack' in interface:
                     interface['max_lldp_lost'] = new_value
-        return yaml.dump(config)
+        return yaml_dump(config)
 
     def test_max_lldp_timeout(self):
         """Check that timeout can be increased"""
@@ -1740,9 +1739,9 @@ dps:
             self.DP_ID, self.DP_ID,
             1, 0, 3, self.SRC_ID, True,
             'Did not encapsulate and forward')
-        new_config_yaml = yaml.safe_load(self.CONFIG)
+        new_config_yaml = yaml_load(self.CONFIG)
         new_config_yaml['dps']['s1']['interfaces'][1]['description'] = 'changed'
-        self.update_config(yaml.dump(new_config_yaml), reload_type=None)
+        self.update_config(yaml_dump(new_config_yaml), reload_type=None)
         self.activate_all_ports()
         # warm start with no topo change with tunnel.
         self.validate_tunnel(
@@ -1950,9 +1949,9 @@ dps:
 """
 
     def test_new_tunnel_source(self):
-        config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+        config = yaml_load(self.CONFIG)
         config['dps']['s1']['interfaces'][5]['acls_in'] = ['tunnel_acl']
-        self.update_config(yaml.dump(config), reload_type='warm')
+        self.update_config(yaml_dump(config), reload_type='warm')
         self.activate_all_ports()
         self.test_tunnel_update_multiple_tunnels()
 
@@ -4213,7 +4212,7 @@ dps:
     def test_stack(self):
         """Test getting config for stack with correct config"""
         dp = self.valves_manager.valves[1].dp
-        stack_conf = yaml.safe_load(dp.stack.to_conf())
+        stack_conf = yaml_load(dp.stack.to_conf())
         self.assertIsInstance(stack_conf, dict)
         self.assertIn('priority', stack_conf)
         self.assertIn('down_time_multiple', stack_conf)
@@ -4226,8 +4225,8 @@ dps:
     def test_dp_stack(self):
         """Test getting config for DP with correct subconfig stack"""
         dp = self.valves_manager.valves[1].dp
-        dp_conf = yaml.safe_load(dp.to_conf())
-        stack_conf = yaml.safe_load(dp.stack.to_conf())
+        dp_conf = yaml_load(dp.to_conf())
+        stack_conf = yaml_load(dp.stack.to_conf())
         self.assertIn('stack', dp_conf)
         self.assertIsInstance(dp_conf['stack'], dict)
         self.assertEqual(dp_conf['stack'], stack_conf)

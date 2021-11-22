@@ -21,7 +21,6 @@ import subprocess
 import tempfile
 import time
 import unittest
-import yaml
 
 import netaddr
 import requests
@@ -37,6 +36,8 @@ from clib import mininet_test_util
 from clib import mininet_test_topo
 from clib.mininet_test_topo import FaucetLink
 from clib.tcpdump_helper import TcpdumpHelper
+from clib.valve_test_lib import yaml_load, yaml_dump
+
 
 MAX_TEST_VID = 512
 OFPVID_PRESENT = 0x1000
@@ -312,7 +313,7 @@ class FaucetTestBase(unittest.TestCase):
     @staticmethod
     def _read_yaml(yaml_path):
         with open(yaml_path, encoding='utf-8') as yaml_file:
-            content = yaml.safe_load(yaml_file.read())
+            content = yaml_load(yaml_file.read())
         return content
 
     def _get_faucet_conf(self):
@@ -347,7 +348,7 @@ class FaucetTestBase(unittest.TestCase):
     @staticmethod
     def _write_yaml_conf(yaml_path, yaml_conf):
         assert isinstance(yaml_conf, dict)
-        new_conf_str = yaml.dump(yaml_conf).encode()
+        new_conf_str = yaml_dump(yaml_conf).encode()
         with tempfile.NamedTemporaryFile(
                 prefix=os.path.basename(yaml_path),
                 dir=os.path.dirname(yaml_path),
@@ -372,8 +373,8 @@ class FaucetTestBase(unittest.TestCase):
         for config_var in (self.config_ports, self.port_map):
             config_vars.update(config_var)
         faucet_config = faucet_config % config_vars
-        yaml_conf = self._annotate_interfaces_conf(yaml.safe_load(faucet_config))
-        self._write_yaml_conf(self.faucet_config_path, yaml_conf)
+        yaml_conf = yaml_dump(self._annotate_interfaces_conf(yaml_load(faucet_config)))
+        self._write_yaml_conf(self.faucet_config_path, yaml_load(yaml_conf))
 
     def _init_gauge_config(self):
         gauge_config = self.get_gauge_config(
@@ -383,7 +384,7 @@ class FaucetTestBase(unittest.TestCase):
             self.monitor_flow_table_dir)
         if self.config_ports:
             gauge_config = gauge_config % self.config_ports
-        self._write_yaml_conf(self.gauge_config_path, yaml.safe_load(gauge_config))
+        self._write_yaml_conf(self.gauge_config_path, yaml_load(gauge_config))
 
     def _test_name(self):
         return mininet_test_util.flat_test_name(self.id())

@@ -43,6 +43,7 @@ from mininet.log import setLogLevel
 from mininet.clean import Cleanup
 
 from clib import mininet_test_util
+from clib.valve_test_lib import yaml_load
 
 DEFAULT_HARDWARE = 'Open vSwitch'
 
@@ -131,7 +132,7 @@ def import_hw_config():
         sys.exit(-1)
     try:
         with open(config_file_name, 'r', encoding='utf-8') as config_file:
-            config = yaml.safe_load(config_file)
+            config = yaml_load(config_file)
     except IOError:
         print(f'Could not load YAML config data from {config_file_name}')
         sys.exit(-1)
