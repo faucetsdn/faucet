@@ -34,8 +34,6 @@ import time
 import traceback
 import unittest
 
-import yaml
-
 from packaging import version
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
@@ -43,7 +41,7 @@ from mininet.log import setLogLevel
 from mininet.clean import Cleanup
 
 from clib import mininet_test_util
-from clib.valve_test_lib import yaml_load
+from clib.valve_test_lib import yaml_load, yaml_dump
 
 DEFAULT_HARDWARE = 'Open vSwitch'
 
@@ -542,8 +540,7 @@ def report_results(results, hw_config, report_json_filename):
                     ('OK', result.successes))
             for test_status, test_list in test_lists:
                 tests_json.update(report_tests(test_status, test_list, result))
-        print(yaml.dump(
-            tests_json, default_flow_style=False, explicit_start=True, explicit_end=True))
+        print(yaml_dump(tests_json))
         if report_json_filename:
             report_json = {
                 'hw_config': hw_config,

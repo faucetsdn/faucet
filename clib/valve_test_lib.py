@@ -32,7 +32,6 @@ import shutil
 import tempfile
 
 import unittest
-from ruamel.yaml.main import round_trip_load, round_trip_dump
 
 from os_ken.lib import mac
 from os_ken.lib.packet import (
@@ -52,17 +51,10 @@ from faucet import valves_manager
 from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_util
+from faucet.config_parser_util import yaml_load, yaml_dump
 from faucet.valve import TfmValve
 
 from clib.fakeoftable import FakeOFNetwork
-
-
-def yaml_load(yaml_str):
-    return round_trip_load(yaml_str)
-
-
-def yaml_dump(yaml_dict):
-    return round_trip_dump(yaml_dict)
 
 
 def build_dict(pkt):

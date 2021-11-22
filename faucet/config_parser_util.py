@@ -19,7 +19,7 @@
 import hashlib
 import logging
 import os
-from ruamel.yaml import round_trip_load
+from ruamel.yaml import round_trip_load, round_trip_dump
 from ruamel.yaml.constructor import DuplicateKeyError
 from ruamel.yaml.scanner import ScannerError
 from ruamel.yaml.composer import ComposerError
@@ -30,6 +30,11 @@ CONFIG_HASH_FUNC = 'sha256'
 def yaml_load(yaml_str):
     """Wrap YAML load library."""
     return round_trip_load(yaml_str)
+
+
+def yaml_dump(yaml_dict):
+    """Wrap YAML dump library."""
+    return round_trip_dump(yaml_dict)
 
 
 def get_logger(logname):

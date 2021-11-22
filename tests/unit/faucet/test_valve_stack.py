@@ -31,11 +31,12 @@ from faucet import valve_of
 from faucet.port import (
     STACK_STATE_INIT, STACK_STATE_UP,
     LACP_PORT_SELECTED, LACP_PORT_UNSELECTED)
+from faucet.config_parser_util import yaml_load, yaml_dump
 
 from clib.fakeoftable import CONTROLLER_PORT
 
 from clib.valve_test_lib import (
-    BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases, yaml_load, yaml_dump)
+    BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
 
 
 class ValveEdgeVLANTestCase(ValveTestBases.ValveTestNetwork):
