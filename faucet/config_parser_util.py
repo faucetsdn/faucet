@@ -19,22 +19,29 @@
 import hashlib
 import logging
 import os
-from ruamel.yaml import round_trip_load, round_trip_dump
+from io import StringIO
+from ruamel.yaml import YAML
 from ruamel.yaml.constructor import DuplicateKeyError
 from ruamel.yaml.scanner import ScannerError
 from ruamel.yaml.composer import ComposerError
+from ruamel.yaml.constructor import ConstructorError
+from ruamel.yaml.parser import ParserError
 
 CONFIG_HASH_FUNC = 'sha256'
 
 
 def yaml_load(yaml_str):
     """Wrap YAML load library."""
-    return round_trip_load(yaml_str)
+    yml = YAML(typ='safe')
+    return yml.load(yaml_str)
 
 
 def yaml_dump(yaml_dict):
     """Wrap YAML dump library."""
-    return round_trip_dump(yaml_dict)
+    with StringIO() as stream:
+        yml = YAML(typ='safe')
+        yml.dump(yaml_dict, stream=stream)
+        return stream.getvalue()
 
 
 def get_logger(logname):
@@ -52,9 +59,8 @@ def read_config(config_file, logname):
         with open(config_file, 'r', encoding='utf-8') as stream:
             conf_txt = stream.read()
         conf = yaml_load(conf_txt)
-    except (TypeError, UnicodeDecodeError,
-            PermissionError, ValueError,
-            ScannerError, DuplicateKeyError, ComposerError) as err:  # pytype: disable=name-error
+    except (TypeError, UnicodeDecodeError, PermissionError, ValueError,
+            ScannerError, DuplicateKeyError, ComposerError, ConstructorError, ParserError) as err:  # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
     except FileNotFoundError as err:  # pytype: disable=name-error
         logger.error('Could not find requested file: %s (%s)', config_file, str(err))
