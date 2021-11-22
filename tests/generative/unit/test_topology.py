@@ -20,7 +20,6 @@
 
 import random
 import unittest
-import yaml
 
 from os_ken.lib import mac
 from os_ken.ofproto import ofproto_v1_3 as ofp
@@ -28,7 +27,7 @@ from os_ken.ofproto import ofproto_v1_3 as ofp
 import networkx
 from networkx.generators.atlas import graph_atlas_g
 
-from clib.valve_test_lib import ValveTestBases
+from clib.valve_test_lib import ValveTestBases, yaml_load, yaml_dump
 
 from clib.config_generator import FaucetFakeOFTopoGenerator
 
@@ -131,7 +130,7 @@ class ValveGenerativeBase(ValveTestBases.ValveTestNetwork):
     def verify_vlan_change(self):
         """Change host VLAN, check restart of rules consistent"""
         _, host_port_maps, _ = self.topo.create_port_maps()
-        yaml_config = yaml.safe_load(self.CONFIG)
+        yaml_config = yaml_load(self.CONFIG)
         intf_config = yaml_config['dps'][self.topo.switches_by_id[1]]['interfaces']
 
         for host_i in host_port_maps:
@@ -152,7 +151,7 @@ class ValveGenerativeBase(ValveTestBases.ValveTestNetwork):
                     # Created a different VLAN so now stop searching
                     break
 
-        new_config = yaml.dump(yaml_config)
+        new_config = yaml_dump(yaml_config)
         self.update_and_revert_config(self.CONFIG, new_config, None)
 
     def validate_topology_change(self):
