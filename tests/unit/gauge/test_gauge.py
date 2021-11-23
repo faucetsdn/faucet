@@ -16,8 +16,6 @@ from unittest import mock
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-import yaml
-
 import requests
 from requests.exceptions import ReadTimeout
 
@@ -30,6 +28,7 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 from prometheus_client import CollectorRegistry
 
 from faucet import gauge, gauge_prom, gauge_influx, gauge_pollers, watcher, valve_util
+from faucet.config_parser_util import yaml_load
 
 
 class QuietHandler(BaseHTTPRequestHandler):
@@ -885,7 +884,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
             "{}--flowtable--{}.json".format(datapath.name, rcv_time_str)
         )
 
-        yaml_dict = yaml.safe_load(log_str)['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
+        yaml_dict = yaml_load(log_str)['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
 
         compare_flow_msg(msg, yaml_dict, self)
 
