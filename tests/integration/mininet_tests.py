@@ -29,11 +29,12 @@ import scapy.all
 from mininet.log import error
 from mininet.util import pmonitor
 
+from faucet.config_parser_util import yaml_load
+
 from clib import mininet_test_base
 from clib import mininet_test_util
 
 from clib.mininet_test_base import PEER_BGP_AS, IPV4_ETH, IPV6_ETH
-from clib.valve_test_lib import yaml_load
 
 MIN_MBPS = 100
 
