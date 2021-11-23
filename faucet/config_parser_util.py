@@ -60,7 +60,8 @@ def read_config(config_file, logname):
             conf_txt = stream.read()
         conf = yaml_load(conf_txt)
     except (TypeError, UnicodeDecodeError, PermissionError, ValueError,
-            ScannerError, DuplicateKeyError, ComposerError, ConstructorError, ParserError) as err:  # pytype: disable=name-error
+            ScannerError, DuplicateKeyError, ComposerError,
+            ConstructorError, ParserError) as err:  # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
     except FileNotFoundError as err:  # pytype: disable=name-error
         logger.error('Could not find requested file: %s (%s)', config_file, str(err))

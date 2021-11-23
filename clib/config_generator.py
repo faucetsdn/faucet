@@ -438,7 +438,7 @@ class FaucetTopoGenerator(Topo):
                     'description': f'output only {link_name}',
                 }
             else:
-                raise GenerationError(f'Unknown {type} link type {vlans}')
+                raise GenerationError(f'Unknown {_type} link type {vlans}')
             if options:
                 for option_key, option_value in options.items():
                     interface_config[option_key] = option_value
