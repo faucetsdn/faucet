@@ -31,10 +31,11 @@ from os_ken.ofproto import ofproto_v1_3_parser as parser
 
 from faucet import valve_of
 from faucet import valve_packet
+from faucet.config_parser_util import yaml_load, yaml_dump
 
 from clib.valve_test_lib import (
     CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
-    ValveTestBases, yaml_load, yaml_dump)
+    ValveTestBases)
 
 from clib.fakeoftable import CONTROLLER_PORT
 

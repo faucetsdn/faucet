@@ -19,13 +19,12 @@
 import random
 import string
 
-import yaml
-
 from mininet.log import output
 from mininet.topo import Topo
 
 from clib import mininet_test_util
 from clib.mininet_test_topo import FaucetHost, VLANHost, FaucetSwitch, NoControllerFaucetSwitch
+from clib.valve_test_lib import yaml_dump
 
 
 class GenerationError(Exception):
@@ -400,7 +399,7 @@ class FaucetTopoGenerator(Topo):
 
         def get_interface_config(link_name, src_port, dst_node, dst_port, vlans, options, ignored):
             interface_config = {}
-            type_ = 'switch-switch' if dst_port else 'switch-host'
+            _type = 'switch-switch' if dst_port else 'switch-host'
             if ignored:
                 # Link is to an outside network, so treat it as a output only link with more
                 #   specific options defined in the options dictionary
@@ -574,7 +573,7 @@ class FaucetTopoGenerator(Topo):
             ignored_switches = []
         config['dps'] = self.get_dps_config(
             dp_options, host_options, link_options, ignored_switches)
-        return yaml.dump(config, default_flow_style=False)
+        return yaml_dump(config)
 
 
 class FaucetFakeOFTopoGenerator(FaucetTopoGenerator):

@@ -28,7 +28,7 @@ from os_ken.ofproto import ofproto_v1_3_parser as parser
 from prometheus_client import CollectorRegistry
 
 from faucet import gauge, gauge_prom, gauge_influx, gauge_pollers, watcher, valve_util
-from clib.valve_test_lib import yaml_load
+from faucet.config_parser_util import yaml_load
 
 
 class QuietHandler(BaseHTTPRequestHandler):
