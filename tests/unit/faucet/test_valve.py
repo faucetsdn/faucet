@@ -22,7 +22,6 @@ from collections import namedtuple
 import copy
 import time
 import unittest
-import yaml
 
 from ryu.lib import mac
 from ryu.lib.packet import slow
@@ -32,6 +31,7 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from faucet import valve_of
 from faucet import valve_packet
+from faucet.config_parser_util import yaml_load, yaml_dump
 
 from clib.valve_test_lib import (
     CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
@@ -755,10 +755,10 @@ dps:
         self.setup_valves(self.CONFIG)
 
     def test_soft(self):
-        config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+        config = yaml_load(self.CONFIG)
         config['dps']['s1']['interfaces']['p1']['acls_in'] = ['acl2']
         # We changed match conditions only, so this can be a warm start.
-        self.update_config(yaml.dump(config), reload_type='warm')
+        self.update_config(yaml_dump(config), reload_type='warm')
 
 
 class HardPipelineTestCase(ValveTestBases.ValveTestNetwork):
@@ -795,10 +795,10 @@ dps:
         self.setup_valves(self.CONFIG)
 
     def test_hard(self):
-        config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+        config = yaml_load(self.CONFIG)
         config['dps']['s1']['interfaces']['p1']['acls_in'] = ['acl2']
         # Changed match conditions require restart.
-        self.update_config(yaml.dump(config), reload_type='cold')
+        self.update_config(yaml_dump(config), reload_type='cold')
 
 
 class ValveMirrorTestCase(ValveTestBases.ValveTestBig):
@@ -886,9 +886,9 @@ routers:
         self.setup_valves(self.CONFIG)
 
     def test_unmirror(self):
-        config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
+        config = yaml_load(self.CONFIG)
         del config['dps']['s1']['interfaces']['p5']['mirror']
-        self.update_config(yaml.dump(config), reload_type='warm')
+        self.update_config(yaml_dump(config), reload_type='warm')
 
 
 class ValvePortDescTestCase(ValveTestBases.ValveTestNetwork):

@@ -73,7 +73,7 @@ vlans:
         faucet_mac: '{mac}'
         faucet_vips: ['{v200_vip}/64']
         acl_out: drop_non_allow_host_v6
-        minimum_ip_size_check: no
+        minimum_ip_size_check: false
 routers:
     r_v100_v200:
         vlans: [v100, v200]

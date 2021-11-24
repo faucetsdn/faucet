@@ -2897,9 +2897,9 @@ dps:
                 native_vlan: vlan100
                 lacp: 1
                 lacp_port_selected: True
-                lacp_selected = True
-                lacp_unselected = True
-                lacp_standby = True
+                lacp_selected: True
+                lacp_unselected: True
+                lacp_standby: True
 """
         self.check_config_failure(config, cp.dp_parser)
 
