@@ -15,7 +15,7 @@ RUN apk add --update \
     musl-dev \
     psmisc \
     python3 \
-    py3-pip
+    py3-pip \
     python3-dev \
     && rm -rf /var/cache/apk/*
 
