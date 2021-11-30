@@ -25,7 +25,7 @@ import time
 
 import ipaddress
 
-from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
+from os_ken.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 
 from faucet import valve_of
 from faucet import valve_packet

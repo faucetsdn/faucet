@@ -25,7 +25,7 @@ import unittest
 import netaddr
 import requests
 
-from ryu.ofproto import ofproto_v1_3 as ofp
+from os_ken.ofproto import ofproto_v1_3 as ofp
 
 from mininet.link import Intf as HWIntf  # pylint: disable=import-error
 from mininet.log import error, output  # pylint: disable=import-error

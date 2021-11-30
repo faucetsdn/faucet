@@ -1,4 +1,4 @@
-"""RyuApp shim between Ryu and Gauge."""
+"""OSKenApp shim between Ryu and Gauge."""
 
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
@@ -18,9 +18,9 @@
 
 import time
 
-from ryu.controller.handler import MAIN_DISPATCHER
-from ryu.controller.handler import set_ev_cls
-from ryu.controller import ofp_event
+from os_ken.controller.handler import MAIN_DISPATCHER
+from os_ken.controller.handler import set_ev_cls
+from os_ken.controller import ofp_event
 
 from faucet import valve_of
 from faucet.conf import InvalidConfigError
@@ -29,12 +29,12 @@ from faucet.gauge_pollers import GaugePortStatePoller
 from faucet.gauge_prom import GaugePrometheusClient
 from faucet.valves_manager import ConfigWatcher
 from faucet.valve_of import ofp, parser
-from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
+from faucet.valve_ryuapp import EventReconfigure, OSKenAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
 from faucet.watcher import watcher_factory
 
 
-class Gauge(RyuAppBase):
+class Gauge(OSKenAppBase):
     """Ryu app for polling Faucet controlled datapaths for stats/state.
 
     It can poll multiple datapaths. The configuration files for each datapath

@@ -20,9 +20,9 @@ import logging
 import random
 import time
 
-from ryu.lib import hub
-from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.ofproto import ofproto_v1_3_parser as parser
+from os_ken.lib import hub
+from os_ken.ofproto import ofproto_v1_3 as ofp
+from os_ken.ofproto import ofproto_v1_3_parser as parser
 
 from faucet.valve_of import devid_present
 from faucet.valve_of_old import OLD_MATCH_FIELDS
