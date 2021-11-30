@@ -14,6 +14,7 @@ COPY test_rabbit.py test_rabbit.py
 RUN apk add --update \
       python3 \
       python3-dev \
+      py3-pip \
       gcc \
       musl-dev \
     && pip3 install --no-cache-dir -r requirements.txt \
