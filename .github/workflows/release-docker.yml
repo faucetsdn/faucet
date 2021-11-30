@@ -29,7 +29,7 @@ jobs:
       - name: Run buildx
         run: |
           docker buildx build \
-            --tag faucet/faucet:${{ github.event.release.tag_name }} \
+            --tag "faucet/faucet:${GITHUB_REF_NAME}" \
             --tag faucet/faucet:latest \
             --platform linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x \
             --output "type=registry" \
@@ -60,7 +60,7 @@ jobs:
       - name: Run buildx
         run: |
           docker buildx build \
-            --tag faucet/gauge:${{ github.event.release.tag_name }} \
+            --tag "faucet/gauge:${GITHUB_REF_NAME}" \
             --tag faucet/gauge:latest \
             --platform linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x \
             --output "type=registry" \
@@ -91,7 +91,7 @@ jobs:
         run: |
           cd adapters/vendors/rabbitmq/
           docker buildx build \
-            --tag faucet/event-adapter-rabbitmq:${{ github.event.release.tag_name }} \
+            --tag "faucet/event-adapter-rabbitmq:${GITHUB_REF_NAME}" \
             --tag faucet/event-adapter-rabbitmq:latest \
             --platform linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x \
             --output "type=registry" \
@@ -122,7 +122,7 @@ jobs:
         run: |
           cd adapters/vendors/faucetagent/
           docker buildx build \
-            --tag faucet/event-adapter-faucetagent:${{ github.event.release.tag_name }} \
+            --tag "faucet/event-adapter-faucetagent:${GITHUB_REF_NAME}" \
             --tag faucet/event-adapter-faucetagent:latest \
             --platform linux/amd64 \
             --output "type=registry" \
