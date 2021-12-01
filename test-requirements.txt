@@ -10,3 +10,5 @@ packaging
 requests
 requirements-parser
 scapy==2.4.4
+webob
+tinyrpc

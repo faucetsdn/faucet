@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ryu.lib import hub
+from os_ken.lib import hub
 from chewie import chewie
 from faucet.valve_util import kill_on_exception
 

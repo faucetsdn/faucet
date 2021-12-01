@@ -33,12 +33,12 @@ import tempfile
 
 import unittest
 
-from ryu.lib import mac
-from ryu.lib.packet import (
+from os_ken.lib import mac
+from os_ken.lib.packet import (
     arp, ethernet, icmp, icmpv6, ipv4, ipv6, lldp, slow, packet, vlan)
-from ryu.ofproto import ether, inet
-from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.ofproto import ofproto_v1_3_parser as parser
+from os_ken.ofproto import ether, inet
+from os_ken.ofproto import ofproto_v1_3 as ofp
+from os_ken.ofproto import ofproto_v1_3_parser as parser
 from prometheus_client import CollectorRegistry
 from beka.route import RouteAddition, RouteRemoval
 from beka.ip import IPAddress, IPPrefix

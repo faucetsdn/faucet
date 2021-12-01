@@ -23,11 +23,11 @@ import copy
 import time
 import unittest
 
-from ryu.lib import mac
-from ryu.lib.packet import slow
-from ryu.ofproto import ether
-from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.ofproto import ofproto_v1_3_parser as parser
+from os_ken.lib import mac
+from os_ken.lib.packet import slow
+from os_ken.ofproto import ether
+from os_ken.ofproto import ofproto_v1_3 as ofp
+from os_ken.ofproto import ofproto_v1_3_parser as parser
 
 from faucet import valve_of
 from faucet import valve_packet

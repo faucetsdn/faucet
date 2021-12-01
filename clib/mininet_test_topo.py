@@ -643,7 +643,7 @@ socket_timeout=15
 class FAUCET(BaseFAUCET):
     """Start a FAUCET controller."""
 
-    START_ARGS = ['--ryu-app=ryu.app.ofctl_rest']
+    START_ARGS = ['--ryu-app-lists=%s' % (os.path.dirname(os.path.realpath(__file__)) + '/../ofctl_rest/ofctl_rest.py')]
 
     def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
@@ -651,10 +651,10 @@ class FAUCET(BaseFAUCET):
         self.prom_port = prom_port
         self.ofctl_port = mininet_test_util.find_free_port(
             ports_sock, test_name)
-        cargs = ' '.join((
-            '--ryu-wsapi-host=%s' % mininet_test_util.LOCALHOSTV6,
-            '--ryu-wsapi-port=%u' % self.ofctl_port,
-            self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
+        env['OFCTL_PORT'] = str(self.ofctl_port)
+        env['OFCTL_HOST'] = mininet_test_util.LOCALHOSTV6
+        cargs = ' '.join(
+            self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs))
         super().__init__(
             name,
             tmpdir,

@@ -23,13 +23,13 @@ import socket
 import struct
 from netaddr import EUI
 
-from ryu.lib import addrconv
-from ryu.lib.mac import BROADCAST, DONTCARE, is_multicast, haddr_to_bin
-from ryu.lib.packet import (
+from os_ken.lib import addrconv
+from os_ken.lib.mac import BROADCAST, DONTCARE, is_multicast, haddr_to_bin
+from os_ken.lib.packet import (
     arp, bpdu, ethernet,
     icmp, icmpv6, ipv4, ipv6,
     lldp, slow, packet, vlan)
-from ryu.lib.packet.stream_parser import StreamParser
+from os_ken.lib.packet.stream_parser import StreamParser
 
 from faucet import valve_util
 from faucet import valve_of

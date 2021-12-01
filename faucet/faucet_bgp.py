@@ -20,7 +20,7 @@
 
 import ipaddress
 
-from ryu.lib import hub
+from os_ken.lib import hub
 from beka.beka import Beka
 from faucet.valve_util import kill_on_exception
 

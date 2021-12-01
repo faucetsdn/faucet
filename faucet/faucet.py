@@ -1,4 +1,4 @@
-"""RyuApp shim between Ryu and Valve."""
+"""OSKenApp shim between Ryu and Valve."""
 
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
@@ -27,15 +27,15 @@ import time
 
 from functools import partial
 
-from ryu.controller.handler import CONFIG_DISPATCHER
-from ryu.controller.handler import MAIN_DISPATCHER
-from ryu.controller.handler import set_ev_cls
-from ryu.controller import dpset
-from ryu.controller import event
-from ryu.controller import ofp_event
-from ryu.lib import hub
+from os_ken.controller.handler import CONFIG_DISPATCHER
+from os_ken.controller.handler import MAIN_DISPATCHER
+from os_ken.controller.handler import set_ev_cls
+from os_ken.controller import dpset
+from os_ken.controller import event
+from os_ken.controller import ofp_event
+from os_ken.lib import hub
 
-from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
+from faucet.valve_ryuapp import EventReconfigure, OSKenAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
 from faucet import faucet_event
 from faucet import faucet_bgp
@@ -82,8 +82,8 @@ class EventFaucetEventSockHeartbeat(event.EventBase):  # pylint: disable=too-few
     """
 
 
-class Faucet(RyuAppBase):
-    """A RyuApp that implements an L2/L3 learning VLAN switch.
+class Faucet(OSKenAppBase):
+    """A OSKenApp that implements an L2/L3 learning VLAN switch.
 
     Valve provides the switch implementation; this is a shim for the Ryu
     event handling framework to interface with Valve.

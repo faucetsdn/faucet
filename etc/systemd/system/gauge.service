@@ -7,7 +7,7 @@ Wants=network-online.target
 EnvironmentFile=/etc/default/gauge
 User=faucet
 Group=faucet
-ExecStart=/usr/local/bin/gauge --ryu-config-file=${GAUGE_RYU_CONF} --ryu-ofp-tcp-listen-port=${GAUGE_LISTEN_PORT} --ryu-wsapi-host=${WSAPI_LISTEN_HOST} --ryu-app=ryu.app.ofctl_rest
+ExecStart=/usr/local/bin/gauge --ryu-config-file=${GAUGE_RYU_CONF} --ryu-ofp-tcp-listen-port=${GAUGE_LISTEN_PORT}
 Restart=always
 
 [Install]
