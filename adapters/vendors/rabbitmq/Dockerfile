@@ -1,6 +1,6 @@
 ## Image name: faucet/event-adapter-rabbitmq
 
-FROM faucet/base:5.0.0
+FROM faucet/python3:6.0.0
 LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 
 ENV PYTHONUNBUFFERED=0
@@ -12,7 +12,6 @@ COPY rabbit.py rabbit.py
 COPY test_rabbit.py test_rabbit.py
 
 RUN apk add --update \
-      python3 \
       python3-dev \
       gcc \
       musl-dev \
