@@ -33,7 +33,7 @@ jobs:
         run: |
           export DEBEMAIL='maintainers@faucet.nz'
           export DEBFULLNAME='Faucet Maintainers'
-          debchange --newversion ${{ github.event.release.tag_name }} -b "New upstream release"
+          debchange --newversion "${GITHUB_REF_NAME}" -b "New upstream release"
       - name: Build package
         run: |
           mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
