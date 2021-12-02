@@ -42,7 +42,7 @@ Installation on Debian/Raspbian 10+ and Ubuntu 18.04+
 
   sudo apt-get install curl gnupg apt-transport-https lsb-release
   echo "deb https://packagecloud.io/faucetsdn/faucet/$(lsb_release -si | awk '{print tolower($0)}')/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/faucet.list
-  curl -L https://packagecloud.io/faucetsdn/faucet/gpgkey | sudo apt-key add -
+  sudo curl -1sLf https://packagecloud.io/faucetsdn/faucet/gpgkey -o /etc/apt/trusted.gpg.d/faucet.asc
   sudo apt-get update
 
 
