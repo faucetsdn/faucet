@@ -50,7 +50,7 @@ Description: source code for faucet and gauge (Python3)
 Package: faucet
 Architecture: all
 Depends: adduser,
-         python3-faucet (>= 1.9.0),
+         python3-faucet (>= 1.10.0),
 Suggests: gauge
 Description: This is a compact open source OpenFlow controller (Python 3)
  This is a compact open source OpenFlow controller, which enables network
@@ -65,7 +65,7 @@ Description: This is a compact open source OpenFlow controller (Python 3)
 Package: gauge
 Architecture: all
 Depends: adduser,
-         python3-faucet (>= 1.9.0),
+         python3-faucet (>= 1.10.0),
 Suggests: python-faucet-doc, faucet
 Description: This is a component the Faucet OpenFlow controller (Python 3)
  This is a component of the Faucet OpenFlow controller,
@@ -76,9 +76,9 @@ Description: This is a component the Faucet OpenFlow controller (Python 3)
 
 Package: faucet-all-in-one
 Architecture: all
-Depends: faucet (>= 1.9.0),
-         gauge (>= 1.9.0),
-         python3-faucet (>= 1.9.0),
+Depends: faucet (>= 1.10.0),
+         gauge (>= 1.10.0),
+         python3-faucet (>= 1.10.0),
          prometheus (>= 2.0.0),
          grafana,
 Suggests: python-faucet-doc
