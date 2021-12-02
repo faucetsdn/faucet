@@ -60,7 +60,7 @@ SUPPORTS_METADATA = (
 
 EXTERNAL_DEPENDENCIES = (
     ('osken-manager', ['--version'],
-     'osken-manager', r'osken-manager(\d+\.\d+)\n', "2.1"),
+     'osken-manager', r'osken-manager\s+(\d+\.\d+\.\d+)\n', "2.1"),
     ('ovs-vsctl', ['--version'], 'Open vSwitch',
      r'ovs-vsctl\s+\(Open vSwitch\)\s+(\d+\.\d+)\.\d+\n', "2.3"),
     ('tcpdump', ['-h'], 'tcpdump',

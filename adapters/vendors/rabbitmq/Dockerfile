@@ -11,8 +11,7 @@ COPY requirements.txt requirements.txt
 COPY rabbit.py rabbit.py
 COPY test_rabbit.py test_rabbit.py
 
-RUN apk add --no-cache --update \
-      python3 \
+RUN apk add --update \
       python3-dev \
       gcc \
       musl-dev py3-pip \
