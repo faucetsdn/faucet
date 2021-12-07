@@ -15,7 +15,7 @@ jobs:
     environment:
       name: "release"
     container:
-      image: "ubuntu:bionic"
+      image: "debian:latest"
     steps:
       - name: Install dependencies
         run: |
@@ -25,7 +25,7 @@ jobs:
       - name: Enable faucet apt repo
         run: |
           echo "deb https://packagecloud.io/faucetsdn/faucet/$(lsb_release -si | awk '{print tolower($0)}')/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/faucet.list
-          curl -L https://packagecloud.io/faucetsdn/faucet/gpgkey | apt-key add -
+          curl -1sLf https://packagecloud.io/faucetsdn/faucet/gpgkey -o /etc/apt/trusted.gpg.d/faucet.asc
           apt-get update
       - name: Checkout repo
         uses: actions/checkout@v2

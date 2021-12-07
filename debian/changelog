@@ -1,7 +1,5 @@
-faucet (1.9.0) unstable; urgency=medium
+faucet (1.10.0) unstable; urgency=medium
 
   * New upstream release.
 
- -- Brad Cowie <brad@faucet.nz>  Tue, 19 Mar 2019 11:00:00 +1300
-
-
+ -- Brad Cowie <brad@faucet.nz>  Wed, 08 Dec 2021 11:00:00 +1300

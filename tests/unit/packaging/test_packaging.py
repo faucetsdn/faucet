@@ -68,7 +68,7 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
         requirements_file = os.path.join(src_dir, 'requirements.txt')
 
         self.dpkg_name = {
-            'pyyaml': 'python3-yaml',
+            'os_ken': 'python3-os-ken',
             'prometheus_client': 'python3-prometheus-client'
         }
 

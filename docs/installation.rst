@@ -35,16 +35,28 @@ faucet-all-in-one Install faucet, gauge, prometheus and grafana. Easy to use and
 ================= ==========================================================================================================
 
 
-Installation on Debian/Raspbian 10+ and Ubuntu 18.04+
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Installation on Debian/Raspbian/Raspberry Pi OS and Ubuntu
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The apt repo supports the following distro versions:
+
+ * Debian 10+
+ * Raspbian 10+
+ * Raspberry Pi OS 11+
+ * Ubuntu 18.04+
+
+The following architectures are supported for each distro:
+
+ * amd64
+ * armhf
+ * arm64
 
 .. code:: console
 
   sudo apt-get install curl gnupg apt-transport-https lsb-release
   echo "deb https://packagecloud.io/faucetsdn/faucet/$(lsb_release -si | awk '{print tolower($0)}')/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/faucet.list
-  curl -L https://packagecloud.io/faucetsdn/faucet/gpgkey | sudo apt-key add -
+  sudo curl -1sLf https://packagecloud.io/faucetsdn/faucet/gpgkey -o /etc/apt/trusted.gpg.d/faucet.asc
   sudo apt-get update
-
 
 Then to install all components for a fully functioning system on a single machine:
 
