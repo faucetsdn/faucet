@@ -76,7 +76,7 @@ with an IDE such as `PyCharm <https://www.jetbrains.com/pycharm/>`_.
 Instructions on setting up PyCharm for developing faucet are below.
 
 If you would rather develop on the command line directly, a short summary
-of the command line setup for development in a ``venv`` with Python 3.6+
+of the command line setup for development in a ``venv`` with Python 3.7+
 is included after the PyCharm instructions.
 
 Create a new project in PyCharm
@@ -204,20 +204,20 @@ run configuration.
 Now that everything is setup you can run either the faucet controller, gauge
 controller and test suite from the ``Run`` menu.
 
-Developing with a Python 3.6+ venv
+Developing with a Python 3.7+ venv
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you would prefer not to use PyCharm and are comfortable developing
 Python directly on the command line, these steps should get you started.
-They have been tested with Ubuntu 18.04 LTS, which includes Python 3.6,
+They have been tested with Ubuntu 18.04 LTS, which includes Python 3.7,
 but similar instructions should work on other platforms that include
-Python 3.6+.
+Python 3.7+.
 
 Install C/C++ compilers and Python development environment packages:
 
     .. code:: console
 
-       sudo apt-get install python3-venv libpython3.6-dev gcc g++ make
+       sudo apt-get install python3-venv libpython3.7-dev gcc g++ make
 
 If you have not already, clone the faucet git repository:
 
