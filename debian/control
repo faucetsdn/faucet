@@ -20,7 +20,7 @@ Build-Depends: debhelper (>= 11),
                python3-pytricia,
 Standards-Version: 3.9.6
 Homepage: https://github.com/faucetsdn/faucet
-X-Python3-Version: >= 3.6
+X-Python3-Version: >= 3.7
 Vcs-Git: https://github.com/faucetsdn/faucet.git
 Vcs-Browser: https://github.com/faucetsdn/faucet
 
@@ -35,7 +35,7 @@ Depends: python3-influxdb (>= 2.12.0),
          python3-beka (>= 0.4.0), python3-beka (<< 0.4.1),
          python3-chewie (>= 0.0.23), python3-chewie (<< 0.0.24),
          python3-pytricia (>= 1.0.0),
-         python3:any (>= 3.6~),
+         python3:any (>= 3.7~),
          ${misc:Depends},
 Suggests: python-faucet-doc, faucet, gauge
 Description: source code for faucet and gauge (Python3)
