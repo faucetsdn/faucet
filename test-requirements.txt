@@ -9,6 +9,6 @@ netifaces
 packaging
 requests
 requirements-parser
-scapy==2.4.4
+scapy==2.4.5
 webob
 tinyrpc
