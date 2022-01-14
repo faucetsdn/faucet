@@ -1881,6 +1881,8 @@ class FaucetSanityTest(FaucetUntaggedTest):
     def test_scapy_fuzz(self):
         # Scapy 2.4.5 has issues with 'fuzz' generation
         #  so black-list that version with a test
+        # https://github.com/secdev/scapy/issues/3306
+        # TODO: fix expected in next scapy release, > 2.4.5.
         exception = False
         try:
             scapy.all.send(scapy.all.fuzz(scapy.all.Ether()))  # pylint: disable=no-member
