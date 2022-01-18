@@ -70,7 +70,7 @@ EXTERNAL_DEPENDENCIES = (
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
      r'fuser \(PSmisc\) (\d+\.\d+|UNKNOWN)\n', "22.0"),
     ('lsof', ['-v'], r'lsof version',
-     r'revision: (\d+\.\d+)\n', "4.86"),
+     r'revision: (\d+\.\d+(\.\d+)?)\n', "4.86"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
      r'(\d+\.\d+).\d+', "2.2"),
     ('exabgp', ['--version'], 'ExaBGP',
