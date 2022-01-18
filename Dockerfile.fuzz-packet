@@ -1,6 +1,6 @@
 ## Image name: faucet/packet-fuzzer
 
-FROM faucet/test-base:9.0.2
+FROM faucet/test-base:10.0.0
 
 ENV PIP3="pip3 --no-cache-dir install --upgrade"
 ENV PATH="/venv/bin:$PATH"
