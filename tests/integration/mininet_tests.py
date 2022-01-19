@@ -1811,7 +1811,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
                  'ip link set %s up' % macvlan2_intf)):
             setup_cmds.append('ip netns exec %s %s' % (netns, exec_cmd))
         self.quiet_commands(first_host, setup_cmds)
-        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_ipv4)
+        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
         self.one_ipv4_ping(first_host, second_host.IP())
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
