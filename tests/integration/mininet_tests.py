@@ -6383,7 +6383,7 @@ acls:
 
     def test_tagged(self):
         first_host, second_host = self.hosts_name_ordered()[0:2]
-        tcpdump_filter = 'not vlan and icmp and ether dst 06:06:06:06:06:06'
+        tcpdump_filter = 'icmp and ether dst 06:06:06:06:06:06 and not vlan'
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
@@ -6430,7 +6430,7 @@ acls:
 
     def test_tagged(self):
         first_host, second_host = self.hosts_name_ordered()[0:2]
-        tcpdump_filter = 'not vlan and icmp and ether dst 06:06:06:06:06:06'
+        tcpdump_filter = 'icmp and ether dst 06:06:06:06:06:06 and not vlan'
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
