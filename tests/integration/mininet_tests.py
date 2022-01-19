@@ -5400,7 +5400,7 @@ acls:
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt), msg=tcpdump_txt)
         self.assertTrue(re.search(
-            'vlan 456.+ethertype 802.1Q-QinQ, vlan 123', tcpdump_txt), msg=tcpdump_txt)
+            r'vlan 456.+ethertype 802\.1Q-QinQ \(0x88a8\), vlan 123', tcpdump_txt), msg=tcpdump_txt)
 
 
 class FaucetUntaggedMultiConfVlansOrderedOutputTest(FaucetUntaggedTest):
@@ -5448,7 +5448,7 @@ acls:
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt), msg=tcpdump_txt)
         self.assertTrue(re.search(
-            'vlan 456.+ethertype 802.1Q-QinQ, vlan 123', tcpdump_txt), msg=tcpdump_txt)
+            r'vlan 456.+ethertype 802\.1Q-QinQ \(0x88a8\), vlan 123', tcpdump_txt), msg=tcpdump_txt)
 
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
