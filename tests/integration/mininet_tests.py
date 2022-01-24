@@ -1810,7 +1810,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
                  f'ip link set {macvlan2_intf} up')):
             setup_cmds.append(f'ip netns exec {netns} {exec_cmd}')
         self.quiet_commands(first_host, setup_cmds)
-        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_ipv4)
+        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
         self.one_ipv4_ping(first_host, second_host.IP())
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
@@ -5391,7 +5391,7 @@ acls:
         self.assertTrue(re.search(
             f'{second_host.IP()}: ICMP echo request', tcpdump_txt), msg=tcpdump_txt)
         self.assertTrue(re.search(
-            'vlan 456.+ethertype 802.1Q-QinQ, vlan 123', tcpdump_txt), msg=tcpdump_txt)
+            r'vlan 456.+ethertype 802\.1Q-QinQ \(0x88a8\), vlan 123', tcpdump_txt), msg=tcpdump_txt)
 
 
 class FaucetUntaggedMultiConfVlansOrderedOutputTest(FaucetUntaggedTest):
@@ -5439,7 +5439,7 @@ acls:
         self.assertTrue(re.search(
             f'{second_host.IP()}: ICMP echo request', tcpdump_txt), msg=tcpdump_txt)
         self.assertTrue(re.search(
-            'vlan 456.+ethertype 802.1Q-QinQ, vlan 123', tcpdump_txt), msg=tcpdump_txt)
+            r'vlan 456.+ethertype 802\.1Q-QinQ \(0x88a8\), vlan 123', tcpdump_txt), msg=tcpdump_txt)
 
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
@@ -6372,7 +6372,7 @@ acls:
 
     def test_tagged(self):
         first_host, second_host = self.hosts_name_ordered()[0:2]
-        tcpdump_filter = 'not vlan and icmp and ether dst 06:06:06:06:06:06'
+        tcpdump_filter = 'icmp and ether dst 06:06:06:06:06:06 and not vlan'
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
@@ -6419,7 +6419,7 @@ acls:
 
     def test_tagged(self):
         first_host, second_host = self.hosts_name_ordered()[0:2]
-        tcpdump_filter = 'not vlan and icmp and ether dst 06:06:06:06:06:06'
+        tcpdump_filter = 'icmp and ether dst 06:06:06:06:06:06 and not vlan'
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
