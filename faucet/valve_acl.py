@@ -105,6 +105,38 @@ def rewrite_vlan(acl_table, output_dict):
     return vlan_actions
 
 
+def build_ct_actions(acl_table, ct_dict):
+    """Build conntrack action from ACL rule"""
+
+    if 'clear' in ct_dict and ct_dict['clear']:
+        return valve_of.ct_clear()
+
+    ct_actions = []
+
+    if 'nat' in ct_dict:
+        nat_args = {
+            'flags': ct_dict['nat'].get('flags', 0),
+            'range_ipv4_min': ct_dict['nat'].get('range_ipv4_min', ''),
+            'range_ipv4_max': ct_dict['nat'].get('range_ipv4_max', ''),
+            'range_ipv6_min': ct_dict['nat'].get('range_ipv6_min', ''),
+            'range_ipv6_max': ct_dict['nat'].get('range_ipv6_max', ''),
+            'range_proto_min': ct_dict['nat'].get('range_proto_min', None),
+            'range_proto_max': ct_dict['nat'].get('range_proto_max', None),
+        }
+        ct_actions.append(valve_of.ct_nat(**nat_args))
+
+    ct_args = {
+        'flags': ct_dict.get('flags', 0),
+        'actions': ct_actions,
+        'alg': ct_dict.get('alg', 0),
+        'recirc_table': ct_dict.get('table'),
+        'zone_ofs_nbits': ct_dict.get('zone'),
+        'zone_src': ct_dict.get('zone_src', None),
+    }
+
+    return valve_of.ct(**ct_args)
+
+
 def build_output_actions(acl_table, output_dict, tunnel_rules=None, source_id=None):
     """Implement actions to alter packet/output."""
     if isinstance(output_dict, (list, tuple)):
@@ -195,6 +227,9 @@ def build_acl_entry(  # pylint: disable=too-many-arguments,too-many-branches,too
                 # if port specified, output packet now and exit pipeline.
                 if not allow and output_port is not None:
                     continue
+            if 'ct' in attrib_value:
+                ct_action = build_ct_actions(acl_table, attrib_value['ct'])
+                acl_act.append(ct_action)
 
             if allow:
                 acl_inst.extend(allow_inst)

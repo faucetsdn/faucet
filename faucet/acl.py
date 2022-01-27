@@ -87,6 +87,7 @@ The output action contains a dictionary with the following elements:
         'output': (dict, list),
         'allow': int,
         'force_port_vlan': int,
+        'ct': dict,
     }
     output_actions_types = {
         'tunnel': dict,
@@ -98,6 +99,24 @@ The output action contains a dictionary with the following elements:
         'swap_vid': int,
         'vlan_vid': int,
         'vlan_vids': list,
+    }
+    ct_action_types = {
+        'flags': int,
+        'alg': int,
+        'table': int,
+        'zone': int,
+        'zone_src': int,
+        'clear': bool,
+        'nat': dict,
+    }
+    ct_action_nat_types = {
+        'flags': int,
+        'range_ipv4_min': str,
+        'range_ipv4_max': str,
+        'range_ipv6_min': str,
+        'range_ipv6_max': str,
+        'range_proto_min': int,
+        'range_proto_max': int
     }
     tunnel_types = {
         'type': (str, None),
@@ -186,6 +205,23 @@ The output action contains a dictionary with the following elements:
                                 # Old format
                                 self._check_conf_types(
                                     action_conf, self.output_actions_types)
+                        elif action_name == 'ct':
+                            self._check_conf_types(action_conf, self.ct_action_types)
+                            # if clear set, make sure nothing else is
+                            if 'clear' in action_conf and action_conf['clear']:
+                                test_config_condition(
+                                    len(action_conf) != 1,
+                                    "no other parameters can be set when 'clear' set on "
+                                    "conntrack ACL")
+                            else:
+                                test_config_condition(
+                                    'table' not in action_conf,
+                                    "required parameter 'table' not set for conntrack ACL")
+                                test_config_condition(
+                                    'zone' not in action_conf,
+                                    "required parameter 'zone' not set for conntrack ACL")
+                            if 'nat' in action_conf:
+                                self._check_conf_types(action_conf['nat'], self.ct_action_nat_types)
 
     def build(self, meters, vid, port_num):
         """Check that ACL can be built from config."""

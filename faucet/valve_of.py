@@ -384,6 +384,10 @@ def is_set_field(action):
     return isinstance(action, parser.OFPActionSetField)
 
 
+def is_ct(action):
+    return isinstance(action, parser.NXActionCT)
+
+
 def apply_meter(meter_id):
     """Return instruction to apply a meter."""
     return parser.OFPInstructionMeter(meter_id, ofp.OFPIT_METER)
@@ -511,6 +515,39 @@ def pop_vlan():
         ryu.ofproto.ofproto_v1_3_parser.OFPActionPopVlan: Pop VLAN.
     """
     return parser.OFPActionPopVlan()
+
+
+def ct(**kwds):  # pylint: disable=invalid-name
+    """Return connection tracker action.
+
+    Args:
+        kwds (dict): exactly one connection tracker action.
+    Returns:
+        ryu.ofproto.nx_actions.NXActionCT: connection tracker action.
+    """
+    return parser.NXActionCT(**kwds)  # pylint: disable=no-member
+
+
+def ct_clear():
+    """Return clear connection tracker state action.
+
+    Args:
+        kwds (dict): exactly one clear connection tracker state action.
+    Returns:
+        ryu.ofproto.nx_actions.NXActionCTClear: clear connection tracker state action.
+    """
+    return parser.NXActionCTClear()  # pylint: disable=no-member
+
+
+def ct_nat(**kwds):
+    """Return network address translation connection tracker action.
+
+    Args:
+        kwds (dict): exactly one network address translation connection tracker action.
+    Returns:
+        ryu.ofproto.nx_actions.NXActionNAT: network address translation connection tracker action.
+    """
+    return parser.NXActionNAT(**kwds)  # pylint: disable=no-member
 
 
 @functools.lru_cache(maxsize=1024)
@@ -662,8 +699,8 @@ def valve_match_vid(value):
     return to_match_vid(value, ofp.OFPVID_PRESENT)
 
 
-# See 7.2.3.7 Flow Match Fields (OF 1.3.5)
 MATCH_FIELDS = {
+    # See 7.2.3.7 Flow Match Fields (OF 1.3.5)
     'in_port': OFCtlUtil(ofp).ofp_port_from_user,
     'in_phy_port': str_to_int,
     'metadata': to_match_masked_int,
@@ -703,7 +740,13 @@ MATCH_FIELDS = {
     'mpls_bos': str_to_int,
     'pbb_isid': to_match_masked_int,
     'tunnel_id': to_match_masked_int,
-    'ipv6_exthdr': to_match_masked_int
+    'ipv6_exthdr': to_match_masked_int,
+
+    # Nicira extensions, see ovs-fields(7)
+    'ct_state': to_match_masked_int,
+    'ct_zone': str_to_int,
+    'ct_mark': to_match_masked_int,
+    'ct_label': to_match_masked_int
 }
 
 

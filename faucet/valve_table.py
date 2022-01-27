@@ -153,8 +153,12 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
             new_inst = []
             for instruction in inst:
                 if instruction.type == valve_of.ofp.OFPIT_APPLY_ACTIONS:
+                    recirc_present = any((
+                        True for action in instruction.actions
+                        if valve_of.is_ct(action) and hasattr(action, 'recirc_table')
+                    ))
                     # If no goto present, this is the last set of actions that can take place
-                    if not goto_present:
+                    if not goto_present and not recirc_present:
                         instruction.actions = self._trim_actions(instruction.actions)
                     # Always drop an apply actions instruction with no actions.
                     if not instruction.actions:
