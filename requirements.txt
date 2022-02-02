@@ -1,4 +1,4 @@
-chewie==0.0.23
+chewie==0.0.24
 influxdb>=2.12.0
 networkx>=1.9
 pbr>=1.9
