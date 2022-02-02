@@ -29,7 +29,7 @@ Architecture: all
 Depends: python3-influxdb (>= 2.12.0),
          python3-networkx (>= 1.9),
          python3-pbr (>= 1.9),
-         python3-prometheus-client (>= 0.12.0), python3-prometheus-client (<< 0.12.1),
+         python3-prometheus-client (>= 0.13.1), python3-prometheus-client (<< 0.13.2),
          python3-ruamel.yaml (>= 0.17.20), python3-ruamel.yaml (<< 0.17.21),
          python3-os-ken (>= 2.3.0), python3-os-ken (<< 2.3.1),
          python3-beka (>= 0.4.1), python3-beka (<< 0.4.2),
