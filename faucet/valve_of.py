@@ -385,7 +385,7 @@ def is_set_field(action):
 
 
 def is_ct(action):
-    return isinstance(action, parser.NXActionCT)
+    return isinstance(action, parser.NXActionCT)  # pylint: disable=no-member
 
 
 def apply_meter(meter_id):
