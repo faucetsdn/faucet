@@ -21,6 +21,7 @@ import hashlib
 import struct
 from faucet import valve_of
 from faucet.faucet_pipeline import ValveTableConfig
+from faucet.valve_util import LRU_MAX
 
 
 class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attributes
@@ -89,7 +90,7 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
 
     # TODO: verify actions
     @staticmethod
-    @functools.lru_cache(maxsize=1024)
+    @functools.lru_cache(maxsize=LRU_MAX)
     def match(in_port=None, vlan=None,  # pylint: disable=too-many-arguments
               eth_type=None, eth_src=None, eth_dst=None, eth_dst_mask=None,
               icmpv6_type=None, nw_proto=None, nw_dst=None, metadata=None,
@@ -102,6 +103,7 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
             vlan_pcp, udp_src, udp_dst)
         return valve_of.match(match_dict)
 
+    @functools.lru_cache(maxsize=LRU_MAX)
     def _verify_flowmod(self, flowmod):
         match_fields = flowmod.match.items()
         if valve_of.is_flowdel(flowmod):
@@ -138,13 +140,13 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
                 pending_actions = []
             else:
                 pending_actions.append(action)
-        set_fields = {action.key for action in new_actions if valve_of.is_set_field(action)}
-        if self.table_id != valve_of.ofp.OFPTT_ALL and set_fields:
-            assert set_fields.issubset(self.set_fields), (
+        if self.table_id != valve_of.ofp.OFPTT_ALL:
+            set_fields = {action.key for action in new_actions if valve_of.is_set_field(action)}
+            assert not set_fields or set_fields.issubset(self.set_fields), (
                 f'unexpected set fields {set_fields} configured {self.set_fields} in {self.name}')
         return new_actions
 
-    @functools.lru_cache()
+    @functools.lru_cache(maxsize=LRU_MAX)
     def _trim_inst(self, inst):
         """Discard empty/actions on packets that are not output and not goto another table."""
         inst_types = {instruction.type for instruction in inst}
@@ -192,7 +194,7 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
             out_port,
             out_group,
             match,
-            tuple(inst),
+            inst,
             hard_timeout,
             idle_timeout,
             flags)

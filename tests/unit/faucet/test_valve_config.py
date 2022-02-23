@@ -1013,8 +1013,6 @@ dps:
             load_orig_config()
             pstats_out, pstats_text = self.profile(
                 partial(self.update_config, self.CONFIG, reload_type='cold'))
-            cache_info = valve_of.output_non_output_actions.cache_info()
-            self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
             total_tt_prop = (
                 pstats_out.total_tt / self.baseline_total_tt)  # pytype: disable=attribute-error
             # must not be 20x slower, to ingest config for 100 interfaces than 1.
@@ -1023,8 +1021,9 @@ dps:
             if total_tt_prop < 20:
                 for valve in self.valves_manager.valves.values():
                     for table in valve.dp.tables.values():
-                        cache_info = table._trim_inst.cache_info()  # pylint: disable=protected-access
-                        self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
+                        for cacheable_func in (table._trim_inst, table._verify_flowmod):  # pylint: disable=protected-access
+                            cache_info = cacheable_func.cache_info()
+                            self.assertGreater(cache_info.hits, 0, msg=(table.name, cacheable_func, cache_info))
                 return
             time.sleep(i)
 
