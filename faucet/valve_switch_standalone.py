@@ -26,6 +26,7 @@ from faucet import valve_of
 from faucet import valve_packet
 from faucet.valve_manager_base import ValveManagerBase
 from faucet.vlan import NullVLAN
+from faucet.valve_util import LRU_MAX
 
 
 class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-methods
@@ -119,7 +120,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         """Return True if the given dp floods (only) to root switch"""
         return False
 
-    @functools.lru_cache(maxsize=1024)
+    @functools.lru_cache(maxsize=LRU_MAX)
     def _mask_flood_priority(self, eth_dst_mask):
         return self.flood_priority + valve_packet.mac_mask_bits(eth_dst_mask)
 
@@ -162,7 +163,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             inst=(valve_of.apply_actions(flood_acts),),
             priority=flood_priority)
 
-    @functools.lru_cache(maxsize=1024)
+    @functools.lru_cache(maxsize=LRU_MAX)
     def _vlan_flood_priority(self, eth_type, eth_dst_mask):
         priority = self._mask_flood_priority(eth_dst_mask)
         if eth_type:

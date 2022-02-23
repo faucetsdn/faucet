@@ -36,6 +36,7 @@ from os_ken.ofproto import ofproto_v1_3_parser as parser
 
 from faucet.conf import test_config_condition, InvalidConfigError
 from faucet.valve_of_old import OLD_MATCH_FIELDS
+from faucet.valve_util import LRU_MAX
 
 MIN_VID = 1
 MAX_VID = 4095
@@ -393,7 +394,7 @@ def apply_meter(meter_id):
     return parser.OFPInstructionMeter(meter_id, ofp.OFPIT_METER)
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=LRU_MAX)
 def _apply_actions(actions):
     return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
 
@@ -409,7 +410,7 @@ def apply_actions(actions):
     return _apply_actions(tuple(actions))
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=LRU_MAX)
 def goto_table(table):
     """Return instruction to goto table.
 
@@ -421,7 +422,7 @@ def goto_table(table):
     return parser.OFPInstructionGotoTable(table.table_id)
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=LRU_MAX)
 def goto_table_id(table_id):
     """Return instruction to goto table by table ID.
 
@@ -448,7 +449,7 @@ def metadata_goto_table(metadata, mask, table):
     ]
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=LRU_MAX)
 def set_field(**kwds):
     """Return action to set any field.
 
@@ -482,7 +483,7 @@ def devid_present(vid):
     return vid ^ ofp.OFPVID_PRESENT
 
 
-@functools.lru_cache(maxsize=1024)
+@functools.lru_cache(maxsize=LRU_MAX)
 def push_vlan_act(table, vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
     """Return OpenFlow action list to push Ethernet 802.1Q header with VLAN VID.
 
@@ -497,7 +498,6 @@ def push_vlan_act(table, vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
     ]
 
 
-@functools.lru_cache()
 def dec_ip_ttl():
     """Return OpenFlow action to decrement IP TTL.
 
@@ -507,7 +507,6 @@ def dec_ip_ttl():
     return parser.OFPActionDecNwTtl()
 
 
-@functools.lru_cache(maxsize=1024)
 def pop_vlan():
     """Return OpenFlow action to pop outermost Ethernet 802.1Q VLAN header.
 
@@ -550,7 +549,7 @@ def ct_nat(**kwds):
     return parser.NXActionNAT(**kwds)  # pylint: disable=no-member
 
 
-@functools.lru_cache(maxsize=1024)
+@functools.lru_cache(maxsize=LRU_MAX)
 def output_port(port_num, max_len=0):
     """Return OpenFlow action to output to a port.
 
@@ -586,7 +585,7 @@ def dedupe_output_port_acts(output_port_acts):
     return [output_port(port) for port in sorted(output_ports)]
 
 
-@functools.lru_cache(maxsize=1024)
+@functools.lru_cache(maxsize=LRU_MAX)
 def output_non_output_actions(flood_acts):
     """Split output actions into deduped actions, output ports, and non-output port actions.
 
@@ -615,7 +614,6 @@ def output_non_output_actions(flood_acts):
     return (deduped_acts, output_ports, nonoutput_actions)
 
 
-@functools.lru_cache()
 def output_in_port():
     """Return OpenFlow action to output out input port.
 
@@ -625,7 +623,7 @@ def output_in_port():
     return output_port(OFP_IN_PORT)
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=LRU_MAX)
 def output_controller(max_len=MAX_PACKET_IN_BYTES):
     """Return OpenFlow action to packet in to the controller.
 
@@ -655,7 +653,7 @@ def packetouts(port_nums, data):
         data=data)
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=LRU_MAX)
 def packetout(port_num, data):
     """Return OpenFlow action to packet out to dataplane from controller.
 
@@ -668,7 +666,6 @@ def packetout(port_num, data):
     return packetouts([port_num], data)
 
 
-@functools.lru_cache()
 def barrier():
     """Return OpenFlow barrier request.
 
@@ -694,7 +691,7 @@ def match(match_fields):
     return parser.OFPMatch(**match_fields)
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=LRU_MAX)
 def valve_match_vid(value):
     return to_match_vid(value, ofp.OFPVID_PRESENT)
 
@@ -772,7 +769,7 @@ def _match_ip_masked(ipa):
     return (str(ipa.ip), str(ipa.netmask))
 
 
-@functools.lru_cache(maxsize=1024)
+@functools.lru_cache(maxsize=LRU_MAX)
 def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
                      eth_dst=None, eth_dst_mask=None, icmpv6_type=None,
                      nw_proto=None, nw_dst=None, metadata=None,
@@ -826,7 +823,7 @@ def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
     return match_dict
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=LRU_MAX)
 def flowmod(cookie, command, table_id, priority, out_port, out_group,
             match_fields, inst, hard_timeout, idle_timeout, flags=0):
     return parser.OFPFlowMod(
@@ -849,7 +846,7 @@ class NullRyuDatapath:
     ofproto = ofp
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=LRU_MAX)
 def verify_flowmod(flowmod_msg):
     """Verify flowmod can be serialized."""
     flowmod_msg.datapath = NullRyuDatapath()
@@ -1016,7 +1013,7 @@ _MSG_KINDS = {
 }
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=LRU_MAX)
 def _msg_kind(ofmsg):
     ofmsg_type = type(ofmsg)
     ofmsg_kind = _MSG_KINDS_TYPES.get(ofmsg_type, None)

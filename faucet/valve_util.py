@@ -23,6 +23,8 @@ import signal
 import sys
 from functools import wraps
 
+LRU_MAX = 4096
+
 
 def kill_on_exception(logname):
     """decorator to ensure functions will kill ryu when an unhandled exception
