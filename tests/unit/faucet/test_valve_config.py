@@ -110,6 +110,61 @@ dps: {}
                 msg='%u: %s' % (load_error, config))
 
 
+class ValveChangeVLANACLTestCase(ValveTestBases.ValveTestNetwork):
+
+    CONFIG = """
+acls:
+  acl1:
+  - rule:
+      eth_type: 0x0806
+      actions:
+        allow: 1
+vlans:
+  vlan1:
+    acls_in:
+    - acl1
+    vid: 10
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+""" % DP1_CONFIG
+
+    MORE_CONFIG = """
+acls:
+  acl1:
+  - rule:
+      eth_type: 0x0806
+      actions:
+        allow: 1
+  - rule:
+      eth_type: 0x0800
+      actions:
+        allow: 0
+vlans:
+  vlan1:
+    acls_in:
+    - acl1
+    vid: 10
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+""" % DP1_CONFIG
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_change_vlan_acl(self):
+        """Test vlan ACL change is detected."""
+        self.update_and_revert_config(self.CONFIG, self.MORE_CONFIG, 'cold')
+
+
 class ValveChangePortTestCase(ValveTestBases.ValveTestNetwork):
     """Test changes to config on ports."""
 
