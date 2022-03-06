@@ -415,8 +415,16 @@ class ValveAclManager(ValveManagerBase):
         ofmsgs.extend(self.add_port(port))
         return ofmsgs
 
+    def del_vlan(self, vlan):
+        """Remove VLAN ACLs if configured."""
+        ofmsgs = []
+        for table in (self.vlan_acl_table, self.egress_acl_table):
+            if table is not None:
+                ofmsgs.append(table.flowdel(match=table.match(vlan=vlan)))
+        return ofmsgs
+
     def add_vlan(self, vlan, cold_start):
-        """Install vlan ACLS if configured"""
+        """Install VLAN ACL if configured."""
         ofmsgs = []
         if vlan.acls_in:
             acl_allow_inst = self.pipeline.accept_to_classification()

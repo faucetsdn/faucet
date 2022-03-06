@@ -1300,20 +1300,50 @@ configuration.
             logger, 'ACL', self.acls, new_dp.acls, diff=True)
         return added_acls.union(changed_acls)
 
-    def _get_vlan_config_changes(self, logger, new_dp):
+    def _get_vlan_config_changes(self, logger, new_dp, changed_acls):
         """Detect any config changes to VLANs.
 
         Args:
             logger (ValveLogger): logger instance.
             new_dp (DP): new dataplane configuration.
+            changed_acls (set): changed/added ACL IDs.
         Returns:
             changes (tuple) of:
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed/added VLAN IDs.
         """
-        _, deleted_vlans, added_vlans, changed_vlans, _, _ = self._get_conf_changes(
-            logger, 'VLAN', self.vlans, new_dp.vlans)
-        return (deleted_vlans, added_vlans.union(changed_vlans))
+        _, deleted_vlans, added_vlans, changed_vlans, same_vlans, _ = self._get_conf_changes(
+            logger, 'VLAN', self.vlans, new_dp.vlans,
+            diff=True, ignore_keys=frozenset(['acls_in']))
+        changed_vlans = added_vlans.union(changed_vlans)
+        # TODO: optimize for warm start.
+        for vlan_id in same_vlans:
+            old_vlan = self.vlans[vlan_id]
+            new_vlan = new_dp.vlans[vlan_id]
+            if self._acl_ref_changes(
+                    'VLAN %u' % vlan_id, old_vlan, new_vlan, changed_acls, logger):
+                changed_vlans.add(vlan_id)
+        return (deleted_vlans, changed_vlans)
+
+    def _acl_ref_changes(self, conf_desc, old_conf, new_conf, changed_acls, logger):
+        changed = False
+        new_acl_ids = new_conf.acls_in
+        conf_acls_changed = set()
+        if new_acl_ids:
+            new_acl_ids = [acl._id for acl in new_acl_ids]
+            conf_acls_changed = set(new_acl_ids).intersection(changed_acls)
+        old_acl_ids = old_conf.acls_in
+        if old_acl_ids:
+            old_acl_ids = [acl._id for acl in old_acl_ids]
+        if conf_acls_changed:
+            changed = True
+            logger.info('%s ACL changed (ACL %s content changed)' % (
+                conf_desc, conf_acls_changed))
+        elif (old_acl_ids or new_acl_ids) and old_acl_ids != new_acl_ids:
+            changed = True
+            logger.info('%s ACL changed (ACL %s to %s)' % (
+                conf_desc, old_acl_ids, new_acl_ids))
+        return changed
 
     def _get_port_config_changes(self, logger, new_dp, changed_vlans, deleted_vlans, changed_acls):
         """Detect any config changes to ports.
@@ -1406,21 +1436,9 @@ configuration.
                 if old_port.mirror != new_port.mirror:
                     logger.info(f'port {port_no} mirror options changed: {new_port.mirror}')
                     changed_ports.add(port_no)
-                # ACL changes
-                new_acl_ids = new_port.acls_in
-                port_acls_changed = set()
-                if new_acl_ids:
-                    new_acl_ids = [acl._id for acl in new_acl_ids]
-                    port_acls_changed = set(new_acl_ids).intersection(changed_acls)
-                old_acl_ids = old_port.acls_in
-                if old_acl_ids:
-                    old_acl_ids = [acl._id for acl in old_acl_ids]
-                if port_acls_changed:
+                if self._acl_ref_changes(
+                        'port %u' % port_no, old_port, new_port, changed_acls, logger):
                     changed_acl_ports.add(port_no)
-                    logger.info(f'port {port_no} ACL changed (ACL {port_acls_changed} content changed)')
-                elif (old_acl_ids or new_acl_ids) and old_acl_ids != new_acl_ids:
-                    changed_acl_ports.add(port_no)
-                    logger.info(f'port {port_no} ACL changed (ACL {old_acl_ids} to {new_acl_ids})')
 
             if changed_acl_ports:
                 same_ports -= changed_acl_ports
@@ -1488,7 +1506,7 @@ configuration.
             logger.info(f'DP config changed - requires cold start: {self.conf_diff(new_dp)}')
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
-            deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)
+            deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp, changed_acls)
             (all_meters_changed, deleted_meters,
              added_meters, changed_meters) = self._get_meter_config_changes(logger, new_dp)
             (all_ports_changed, deleted_ports, changed_ports, added_ports,

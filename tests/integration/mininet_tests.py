@@ -3013,6 +3013,81 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
                 self.scrape_prometheus_var(var, dpid=True, default=None))
 
 
+class FaucetChangeVlanACLTest(FaucetTest):
+
+    N_UNTAGGED = 4
+    N_TAGGED = 0
+    LINKS_PER_HOST = 1
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        acls_in: [1]
+"""
+
+    START_ACL_CONFIG = """
+acls:
+  1:
+    rules:
+    - rule:
+        eth_type: 0x800
+        actions: {allow: 1}
+    - rule:
+        actions: {allow: 1}
+"""
+
+    UPDATE_ACL_CONFIG = """
+acls:
+  1:
+    rules:
+    - rule:
+        eth_type: 0x806
+        actions: {allow: 1}
+    - rule:
+        eth_type: 0x800
+        actions: {allow: 1}
+    - rule:
+        actions: {allow: 1}
+"""
+
+    # pylint: disable=invalid-name
+    CONFIG = CONFIG_BOILER_UNTAGGED
+
+    def setUp(self):
+        super().setUp()
+        self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
+        self.CONFIG = '\n'.join(
+            (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
+        with open(self.acl_config_file, 'w', encoding='utf-8') as acf:
+            acf.write(self.START_ACL_CONFIG)
+        self.topo = self.topo_class(
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
+            links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid)
+        self.start_net()
+
+    def test_vlan_acl_update(self):
+        self.ping_all_when_learned()
+        new_yaml_acl_conf = yaml_load(self.UPDATE_ACL_CONFIG)
+        self.reload_conf(
+            new_yaml_acl_conf, self.acl_config_file,  # pytype: disable=attribute-error
+            restart=True, cold_start=True)
+        self.wait_until_matching_flow(
+            {'dl_type': 0x800}, table_id=self._VLAN_ACL_TABLE)
+        self.wait_until_matching_flow(
+            {'dl_type': 0x806}, table_id=self._VLAN_ACL_TABLE)
+        self.ping_all_when_learned()
+        orig_yaml_acl_conf = yaml_load(self.START_ACL_CONFIG)
+        self.reload_conf(
+            orig_yaml_acl_conf, self.acl_config_file,  # pytype: disable=attribute-error
+            restart=True, cold_start=True)
+        self.wait_until_matching_flow(
+            {'dl_type': 0x800}, table_id=self._VLAN_ACL_TABLE)
+        self.wait_until_no_matching_flow(
+            {'dl_type': 0x806}, table_id=self._VLAN_ACL_TABLE)
+        self.ping_all_when_learned()
+
+
 class FaucetIPv4TupleTest(FaucetTest):
 
     MAX_RULES = 1024
@@ -3116,6 +3191,7 @@ acls:
         tcp_dst: 65535
         tcp_src: 65535
 """
+
 
 
 class FaucetConfigReloadTestBase(FaucetTest):
