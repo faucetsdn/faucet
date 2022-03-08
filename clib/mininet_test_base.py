@@ -493,7 +493,7 @@ class FaucetTestBase(unittest.TestCase):
         for switch in self.net.switches:
             switch_names.append(switch.name)
             self.dump_switch_flows(switch)
-            switch.cmd(f'{self.VSCTL} del-br {switch.name}')
+            switch.cmd(f'{self.VSCTL} --if-exists del-br {switch.name}')
         self._stop_net()
         self.net = None
         if self.event_sock_dir and os.path.exists(self.event_sock_dir):
