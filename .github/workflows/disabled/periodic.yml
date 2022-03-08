@@ -7,7 +7,7 @@ on:
     - cron: '0 0,12 * * *'
 
 env:
-  FAUCET_TEST_IMG: "faucet/tests"
+  FAUCET_TEST_IMG: "c65sdn/tests"
   SHARDARGS: "--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=99999999999:99999999999 -v /var/local/lib/docker:/var/lib/docker -v /var/tmp:/var/tmp"
 
 jobs:
