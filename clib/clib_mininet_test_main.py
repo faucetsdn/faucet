@@ -23,7 +23,6 @@ import os
 import sys
 import pdb
 import pstats
-import psutil
 import random
 import re
 import shutil
@@ -39,6 +38,7 @@ from packaging import version
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.log import setLogLevel
 from mininet.clean import Cleanup
+import psutil
 
 from clib import mininet_test_util
 from clib.valve_test_lib import yaml_load, yaml_dump
