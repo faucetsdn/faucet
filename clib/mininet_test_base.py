@@ -1555,7 +1555,7 @@ dbs:
                 dpid=dpid, multiple=multiple, controller=controller, retries=retries)
             if result == result_wanted:
                 return True
-            if orgreater and result > result_wanted:
+            if orgreater and result is not None and result > result_wanted:
                 return True
             time.sleep(1)
         return False
