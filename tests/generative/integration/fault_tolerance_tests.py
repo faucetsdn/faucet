@@ -4,6 +4,7 @@ import random
 import unittest
 import networkx
 
+from mininet.log import error
 from clib.mininet_test_watcher import OptimizedTopologyWatcher
 from clib.mininet_test_base_topo import FaucetTopoTestBase
 from clib.mininet_test_topo import FAUCET
@@ -211,10 +212,10 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         name = '%s:%s DOWN' % (self.topo.switches_by_id[index], self.dpids[index])
         self.topo_watcher.add_switch_fault(index, name)
         switch.stop()
-        switch.cmd(self.VSCTL, 'del-controller', switch.name, '|| true')
+        error(switch.cmd(self.VSCTL, 'del-controller', switch.name, '|| true'))
         self.assertTrue(
-            self.wait_for_prometheus_var(
-                'of_dp_disconnections_total', 1, dpid=dpid), 'DP %s not detected as DOWN' % dpid)
+            self.wait_for_prometheus_var('dp_status', 0, default=0, dpid=dpid, retries=10),
+            'DP %s not detected as DOWN' % dpid)
         self.net.switches.remove(switch)
 
     def random_switch_fault(self, *_args):

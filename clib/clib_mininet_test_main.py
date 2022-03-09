@@ -784,7 +784,7 @@ def parse_args():
         args.loglevel, args.profile)
 
 
-def test_main(modules):
+def test_main(modules, serial_override=None):
     """Test main."""
 
     print(f'testing module {modules}')
@@ -792,6 +792,10 @@ def test_main(modules):
     (requested_test_classes, regex_test_classes, clean, dumpfail, debug, keep_logs, nocheck,
      serial, repeat, excluded_test_classes, report_json_filename, port_order,
      start_port, loglevel, profile) = parse_args()
+
+    if serial_override is not None:
+        print('overriding serial to ', serial_override)
+        serial = serial_override
 
     setLogLevel(loglevel)
 
