@@ -78,7 +78,7 @@ class GaugePoller:
         """Called when a polling cycle passes without receiving a response."""
 
         dpid_str = ''
-        if self.req and 'datapath' in self.req:
+        if self.req and hasattr(self.req, 'datapath'):
             dpid_str = 'DPID %s (%s)' % (self.req.datapath.id, hex(self.req.datapath.id))
 
         self.logger.info('%s no response to %s', dpid_str, self.req)

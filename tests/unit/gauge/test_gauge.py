@@ -656,16 +656,9 @@ class GaugeThreadPollerTest(unittest.TestCase):  # pytype: disable=module-attr
         GaugeThreadPoller class, which just throws an error"""
         self.send_called = True
 
-    @staticmethod
-    def fake_no_response():
-        """This should be called instead of the no_response method in the
-        GaugeThreadPoller class, which just throws an error"""
-        return
-
     def test_start(self):
         """ Checks if the poller is started """
         self.poller.send_req = self.fake_send_req
-        self.poller.no_response = self.fake_no_response
 
         self.poller.start(mock.Mock(), active=True)
         poller_thread = self.poller.thread
@@ -676,7 +669,6 @@ class GaugeThreadPollerTest(unittest.TestCase):  # pytype: disable=module-attr
     def test_stop(self):
         """ Check if a poller can be stopped """
         self.poller.send_req = self.fake_send_req
-        self.poller.no_response = self.fake_no_response
 
         self.poller.start(mock.Mock(), active=True)
         poller_thread = self.poller.thread
