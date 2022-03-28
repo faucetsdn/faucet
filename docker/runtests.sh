@@ -160,6 +160,8 @@ if [ "$CODE_CHECK" == 1 ] ; then
   cd /faucet-src/tests/codecheck
   echo "============ Running pylint analyzer ============"
   time ./pylint.sh $PY_FILES_CHANGED
+  echo "============ Running flake8 analyzer ============"
+  time ./flake8.sh $PY_FILES_CHANGED
   echo "============ Running pytype analyzer ============"
   time ./pytype.sh $PY_FILES_CHANGED
 else
