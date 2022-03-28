@@ -1,14 +1,14 @@
-name: Code health checks
+name: Documentation checks
 
 on: [push, pull_request]
 
 env:
   FILES_CHANGED: "all"
-  CODECHECK_PY_VER: 3.8
+  DOCS_PY_VER: 3.8
 
 jobs:
-  codecheck:
-    name: Code check
+  build-docs:
+    name: Build documentation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -48,21 +48,17 @@ jobs:
           echo "PY_FILES_CHANGED=${PY_FILES_CHANGED}" >> ${GITHUB_ENV}
           echo "RQ_FILES_CHANGED=${RQ_FILES_CHANGED}" >> ${GITHUB_ENV}
           echo "DOC_FILES_CHANGED=${DOC_FILES_CHANGED}" >> ${GITHUB_ENV}
-      - name: Set up python-${{ env.CODECHECK_PY_VER }}
+      - name: Set up python-${{ env.DOCS_PY_VER }}
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ env.CODECHECK_PY_VER }}
+          python-version: ${{ env.DOCS_PY_VER }}
       - name: Install dependencies
         run: |
-          ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt"
-      - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED }}
-        name: Run pylint
+          ./docker/pip_deps.sh --extra-requirements="docs/requirements.txt"
+      - if: ${{ env.FILES_CHANGED == 'all' || env.DOC_FILES_CHANGED }}
+        name: Build docs
         run: |
-          cd ./tests/codecheck
-          if [[ "${{ env.FILES_CHANGED }}" == "all" || ! -z "${{ env.RQ_FILES_CHANGED }}" ]]; then
-            echo "Running pylint on everything"
-            ./pylint.sh
-          else
-            echo "Running pylint on ${{ env.PY_FILES_CHANGED }}"
-            ./pylint.sh ${{ env.PY_FILES_CHANGED }}
-          fi
+          cd ./docs
+          sudo apt-get install librsvg2-bin
+          make html
+          rm -rf _build

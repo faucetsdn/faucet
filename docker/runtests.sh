@@ -5,6 +5,7 @@ set -euo pipefail
 INTEGRATION_TESTS=1
 UNIT_TESTS=1
 CODE_CHECK=1
+DOC_CHECK=1
 GEN_UNIT=0
 GEN_TOLERANCE=0
 SKIP_PIP=0
@@ -31,20 +32,24 @@ for opt in ${FAUCET_TESTS}; do
       INTEGRATION_TESTS=0
       UNIT_TESTS=0
       CODE_CHECK=1
+      DOC_CHECK=1
       ;;
     --integration)
       INTEGRATION_TESTS=1
       UNIT_TESTS=0
       CODE_CHECK=0
+      DOC_CHECK=0
       PARAMS+=" -i"		# Is this still needed ?
       ;;
     --unit)
       INTEGRATION_TESTS=0
       UNIT_TESTS=1
       CODE_CHECK=0
+      DOC_CHECK=0
       ;;
     --nocheck)
       CODE_CHECK=0
+      DOC_CHECK=0
       PARAMS+=" -n"		# Is this still needed ?
       ;;
     --nointegration)
@@ -57,6 +62,7 @@ for opt in ${FAUCET_TESTS}; do
       GEN_UNIT=1
       UNIT_TESTS=0
       CODE_CHECK=0
+      DOC_CHECK=0
       INTEGRATION_TESTS=0
       PARAMS+=" ${opt}"
       ;;
@@ -64,6 +70,7 @@ for opt in ${FAUCET_TESTS}; do
       GEN_TOLERANCE=1
       UNIT_TESTS=0
       CODE_CHECK=0
+      DOC_CHECK=0
       INTEGRATION_TESTS=0
       PARAMS+=" ${opt}"
       ;;
@@ -77,11 +84,13 @@ for opt in ${FAUCET_TESTS}; do
             # run only integration tests
             UNIT_TESTS=0
             CODE_CHECK=0
+            DOC_CHECK=0
             PARAMS+=" -${opt:$i:1}"
             ;;
           n)
-            # skip code check
+            # skip code and docs chec
             CODE_CHECK=0
+            DOC_CHECK=0
             PARAMS+=" -${opt:$i:1}"
             ;;
           u)
@@ -119,6 +128,9 @@ if [ "$SKIP_PIP" == 0 ] ; then
   if [ "$CODE_CHECK" == 1 ] ; then
     pip_deps_args+=("--extra-requirements=codecheck-requirements.txt")
   fi
+  if [ "$DOC_CHECK" == 1 ] ; then
+    pip_deps_args+=("--extra-requirements=docs/requirements.txt")
+  fi
   ./docker/pip_deps.sh "${pip_deps_args[@]}"
 else
   echo "Skipping pip install script"
@@ -145,11 +157,6 @@ else
 fi
 
 if [ "$CODE_CHECK" == 1 ] ; then
-  echo "========== Building documentation =========="
-  cd /faucet-src/docs
-  time make html
-  rm -rf _build
-
   cd /faucet-src/tests/codecheck
   echo "============ Running pylint analyzer ============"
   time ./pylint.sh $PY_FILES_CHANGED
@@ -157,6 +164,13 @@ if [ "$CODE_CHECK" == 1 ] ; then
   time ./pytype.sh $PY_FILES_CHANGED
 else
   echo "========== Skipping code checks =========="
+fi
+
+if [ "$DOC_CHECK" == 1 ] ; then
+  echo "========== Building documentation =========="
+  cd /faucet-src/docs
+  time make html
+  rm -rf _build
 fi
 
 if [ "$INTEGRATION_TESTS" == 0 ] && [ "$GEN_TOLERANCE" == 0 ] ; then
