@@ -2,9 +2,10 @@
 
 set -euo pipefail
 
-INTEGRATIONTESTS=1
-UNITTESTS=1
-DEPCHECK=1
+INTEGRATION_TESTS=1
+UNIT_TESTS=1
+CODE_CHECK=1
+DOC_CHECK=1
 GEN_UNIT=0
 GEN_TOLERANCE=0
 SKIP_PIP=0
@@ -28,43 +29,49 @@ for opt in ${FAUCET_TESTS}; do
       HELP=1
       ;;
     --check)
-      INTEGRATIONTESTS=0
-      UNITTESTS=0
-      DEPCHECK=1
+      INTEGRATION_TESTS=0
+      UNIT_TESTS=0
+      CODE_CHECK=1
+      DOC_CHECK=1
       ;;
     --integration)
-      INTEGRATIONTESTS=1
-      UNITTESTS=0
-      DEPCHECK=0
+      INTEGRATION_TESTS=1
+      UNIT_TESTS=0
+      CODE_CHECK=0
+      DOC_CHECK=0
       PARAMS+=" -i"		# Is this still needed ?
       ;;
     --unit)
-      INTEGRATIONTESTS=0
-      UNITTESTS=1
-      DEPCHECK=0
+      INTEGRATION_TESTS=0
+      UNIT_TESTS=1
+      CODE_CHECK=0
+      DOC_CHECK=0
       ;;
     --nocheck)
-      DEPCHECK=0
+      CODE_CHECK=0
+      DOC_CHECK=0
       PARAMS+=" -n"		# Is this still needed ?
       ;;
     --nointegration)
-      INTEGRATIONTESTS=0
+      INTEGRATION_TESTS=0
       ;;
     --nounit)
-      UNITTESTS=0
+      UNIT_TESTS=0
       ;;
     --generative_unit)
       GEN_UNIT=1
-      UNITTESTS=0
-      DEPCHECK=0
-      INTEGRATIONTESTS=0
+      UNIT_TESTS=0
+      CODE_CHECK=0
+      DOC_CHECK=0
+      INTEGRATION_TESTS=0
       PARAMS+=" ${opt}"
       ;;
     --generative_tolerance)
       GEN_TOLERANCE=1
-      UNITTESTS=0
-      DEPCHECK=0
-      INTEGRATIONTESTS=0
+      UNIT_TESTS=0
+      CODE_CHECK=0
+      DOC_CHECK=0
+      INTEGRATION_TESTS=0
       PARAMS+=" ${opt}"
       ;;
     --*)
@@ -75,18 +82,20 @@ for opt in ${FAUCET_TESTS}; do
         case "${opt:$i:1}" in
           i)
             # run only integration tests
-            UNITTESTS=0
-            DEPCHECK=0
+            UNIT_TESTS=0
+            CODE_CHECK=0
+            DOC_CHECK=0
             PARAMS+=" -${opt:$i:1}"
             ;;
           n)
-            # skip code check
-            DEPCHECK=0
+            # skip code and docs chec
+            CODE_CHECK=0
+            DOC_CHECK=0
             PARAMS+=" -${opt:$i:1}"
             ;;
           u)
             # skip unit tests
-            UNITTESTS=0
+            UNIT_TESTS=0
             ;;
           z)
             # Skip pip installer
@@ -116,8 +125,11 @@ if [ "$SKIP_PIP" == 0 ] ; then
     echo "Using pip cache"
     pip_deps_args+=("--pip-args=--cache-dir=/var/tmp/pip-cache")
   fi
-  if [ "$DEPCHECK" == 1 ] ; then
+  if [ "$CODE_CHECK" == 1 ] ; then
     pip_deps_args+=("--extra-requirements=codecheck-requirements.txt")
+  fi
+  if [ "$DOC_CHECK" == 1 ] ; then
+    pip_deps_args+=("--extra-requirements=docs/requirements.txt")
   fi
   ./docker/pip_deps.sh "${pip_deps_args[@]}"
 else
@@ -132,7 +144,7 @@ if [ "$HELP" == 1 ] ; then
   exit 0
 fi
 
-if [ "$UNITTESTS" == 1 ] ; then
+if [ "$UNIT_TESTS" == 1 ] ; then
   echo "========== Running faucet unit tests =========="
   cd /faucet-src/tests
   time ./run_unit_tests.sh
@@ -144,22 +156,26 @@ else
   echo "========== Skipping unit tests =========="
 fi
 
-if [ "$DEPCHECK" == 1 ] ; then
-  echo "========== Building documentation =========="
-  cd /faucet-src/docs
-  time make html
-  rm -rf _build
-
+if [ "$CODE_CHECK" == 1 ] ; then
   cd /faucet-src/tests/codecheck
   echo "============ Running pylint analyzer ============"
   time ./pylint.sh $PY_FILES_CHANGED
+  echo "============ Running flake8 analyzer ============"
+  time ./flake8.sh $PY_FILES_CHANGED
   echo "============ Running pytype analyzer ============"
   time ./pytype.sh $PY_FILES_CHANGED
 else
   echo "========== Skipping code checks =========="
 fi
 
-if [ $INTEGRATIONTESTS -eq 0 -a $GEN_TOLERANCE -eq 0 ] ; then
+if [ "$DOC_CHECK" == 1 ] ; then
+  echo "========== Building documentation =========="
+  cd /faucet-src/docs
+  time make html
+  rm -rf _build
+fi
+
+if [ "$INTEGRATION_TESTS" == 0 ] && [ "$GEN_TOLERANCE" == 0 ] ; then
   echo "========== Skipping integration tests =========="
   echo Done with faucet system tests.
   exit 0
@@ -194,7 +210,7 @@ test_failures=
 export FAUCET_DIR=/faucet-src/faucet
 export http_proxy=
 
-if [ "$INTEGRATIONTESTS" == 1 ] ; then
+if [ "$INTEGRATION_TESTS" == 1 ] ; then
   echo "========== Running faucet integration tests =========="
   cd /faucet-src/tests/integration
   ./mininet_main.py -c
@@ -244,7 +260,7 @@ EOL
   ovs-ofctl dump-ports hwbr
 fi
 
-if [ "$INTEGRATIONTESTS" == 1 ]; then
+if [ "$INTEGRATION_TESTS" == 1 ]; then
   time ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
   cd /faucet-src/clib
   time ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"

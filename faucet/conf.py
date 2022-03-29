@@ -124,8 +124,7 @@ class Conf:
         self._check_unknown_conf(conf)
         self._check_conf_types(conf, self.defaults_types)
 
-    @staticmethod
-    def check_config():
+    def check_config(self):  # pylint: disable=no-self-use
         """Check config at instantiation time for errors, typically via assert."""
         return
 

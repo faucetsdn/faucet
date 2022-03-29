@@ -15,11 +15,12 @@ class MockPikaChannel(pika.channel.Channel):
         pass
 
     @staticmethod
-    def basic_publish(exchange,
-                      routing_key,
-                      body,
-                      properties=None,
-                      mandatory=False):
+    def basic_publish(self,  # pylint: disable=no-self-use
+                      _exchange,
+                      _routing_key,
+                      _body,
+                      _properties=None,
+                      _mandatory=False):
         return True
 
 
@@ -31,23 +32,22 @@ class MockPikaBadAMQP(pika.channel.Channel):
         pass
 
     @staticmethod
-    def basic_publish(exchange,
-                      routing_key,
-                      body,
-                      properties=None,
-                      mandatory=False):
+    def basic_publish(self,  # pylint: disable=no-self-use
+                      _exchange,
+                      _routing_key,
+                      _body,
+                      _properties=None,
+                      _mandatory=False):
         raise pika.exceptions.AMQPError('failure')
 
 
 class MockRabbitAdapter(rabbit.RabbitAdapter):
     """Mock class for testing RabbitAdapter"""
 
-    @staticmethod
-    def rabbit_conn():
+    def rabbit_conn(self):  # pylint: disable=no-self-use
         return True
 
-    @staticmethod
-    def socket_conn():
+    def socket_conn(self):  # pylint: disable=no-self-use
         return True
 
 
