@@ -4,7 +4,7 @@ set -euo pipefail
 
 APK="apk -q"
 BUILDDEPS="gcc python3-dev musl-dev parallel yaml-dev g++"
-TESTDEPS="bitstring pytest wheel virtualenv"
+TESTDEPS="bitstring pytest wheel virtualenv pip"
 PIP3="pip3 -q --no-cache-dir install --upgrade"
 FROOT="/faucet-src"
 
@@ -33,6 +33,7 @@ done
 
 # Clean up
 rm -r "${FROOT}"
+rm -r /usr/local/lib/python3*/site-packages/os_ken/tests/
 
 # Smoke test
 faucet -V || exit 1
