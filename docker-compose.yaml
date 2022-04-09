@@ -3,7 +3,7 @@ version: '2'
 services:
     influxdb:
         restart: always
-        image: 'influxdb:2.1'
+        image: 'influxdb:2.2'
         ports:
             - '8086'
             - '8083'
