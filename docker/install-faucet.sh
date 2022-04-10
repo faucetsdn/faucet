@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-APK="apk -q"
+APK="apk -q --no-cache"
 BUILDDEPS="gcc python3-dev musl-dev parallel yaml-dev g++"
 TESTDEPS="bitstring pytest wheel virtualenv pip"
 PIP3="pip3 -q --no-cache-dir install --upgrade"
