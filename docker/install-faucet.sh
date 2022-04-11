@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-APK="apk -q --no-cache"
+APK="apk --no-cache"
 BUILDDEPS="gcc python3-dev musl-dev parallel yaml-dev g++"
 TESTDEPS="bitstring pytest wheel virtualenv pip"
-PIP3="pip3 -q install --upgrade"
+PIP3="pip3 install --upgrade"
 FROOT="/faucet-src"
 
 dir=$(dirname "$0")
