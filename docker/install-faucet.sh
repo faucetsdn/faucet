@@ -5,7 +5,7 @@ set -euo pipefail
 APK="apk -q --no-cache"
 BUILDDEPS="gcc python3-dev musl-dev parallel yaml-dev g++"
 TESTDEPS="bitstring pytest wheel virtualenv pip"
-PIP3="pip3 -q --no-cache-dir install --upgrade"
+PIP3="pip3 -q install --upgrade"
 FROOT="/faucet-src"
 
 dir=$(dirname "$0")
@@ -32,6 +32,7 @@ for i in ${BUILDDEPS} ; do
 done
 
 # Clean up
+rm -r "${HOME}/.cache"
 rm -r "${FROOT}"
 rm -r /usr/local/lib/python3*/site-packages/os_ken/tests/
 
