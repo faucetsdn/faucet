@@ -2,15 +2,15 @@
 
 set -euo pipefail
 
-APK="apk -q"
-BUILDDEPS="gcc python3-dev musl-dev parallel yaml-dev g++"
+APK="apk --no-cache"
+BUILDDEPS="git gcc python3-dev musl-dev parallel yaml-dev g++"
 TESTDEPS="bitstring pytest wheel virtualenv pip"
-PIP3="pip3 -q --no-cache-dir install --upgrade"
+PIP3="pip3 install --upgrade"
 FROOT="/faucet-src"
 
 dir=$(dirname "$0")
 
-${APK} add -U git ${BUILDDEPS}
+${APK} add -U ${BUILDDEPS}
 "${dir}/retrycmd.sh" "${PIP3} ${TESTDEPS}"
 "${dir}/retrycmd.sh" "${PIP3} -r ${FROOT}/requirements.txt"
 ${PIP3} ${FROOT}
@@ -32,6 +32,7 @@ for i in ${BUILDDEPS} ; do
 done
 
 # Clean up
+rm -r "${HOME}/.cache"
 rm -r "${FROOT}"
 rm -r /usr/local/lib/python3*/site-packages/os_ken/tests/
 
