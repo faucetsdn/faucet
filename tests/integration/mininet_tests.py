@@ -3555,12 +3555,11 @@ class FaucetConfigReloadMACFlushTest(FaucetConfigReloadTestBase):
         self.change_port_config(
             self.port_map['port_2'], 'native_vlan', 200,
             restart=True, cold_start=False)
-        for port_name in ('port_1', 'port_2'):
-            self.wait_until_matching_flow(
-                {'in_port': int(self.port_map[port_name])},
-                table_id=self._VLAN_TABLE,
-                actions=['SET_FIELD: {vlan_vid:4296}'])
-        self.assertEqual(0, len(self.scrape_prometheus(var='learned_l2_port')))
+        self.wait_until_matching_flow(
+            {'in_port': int(self.port_map['port_2'])},
+            table_id=self._VLAN_TABLE,
+            actions=['SET_FIELD: {vlan_vid:4296}'])
+        self.assertLess(4, len(self.scrape_prometheus(var='learned_l2_port')))
 
 
 class FaucetConfigReloadEmptyAclTest(FaucetConfigReloadTestBase):
