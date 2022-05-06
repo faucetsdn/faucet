@@ -3559,7 +3559,7 @@ class FaucetConfigReloadMACFlushTest(FaucetConfigReloadTestBase):
             {'in_port': int(self.port_map['port_2'])},
             table_id=self._VLAN_TABLE,
             actions=['SET_FIELD: {vlan_vid:4296}'])
-        self.assertLess(4, len(self.scrape_prometheus(var='learned_l2_port')))
+        self.assertLess(len(self.scrape_prometheus(var='learned_l2_port')), 4)
 
 
 class FaucetConfigReloadEmptyAclTest(FaucetConfigReloadTestBase):
