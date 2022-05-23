@@ -7,7 +7,7 @@ exabgp==4.2.18
 importlab>=0.3.1
 netifaces
 packaging
-psutil==5.9.0
+psutil==5.9.1
 requests
 requirements-parser
 scapy==2.4.4
