@@ -2875,7 +2875,7 @@ class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
     def _max_hosts():  # pylint: disable=no-method-argument,no-self-use
         return 512
 
-    MAX_HOSTS = _max_hosts()
+    MAX_HOSTS = _max_hosts()  # pylint: disable=too-many-function-args
     TEST_IPV4_NET = '10.0.0.0'
     TEST_IPV4_PREFIX = 16  # must hold more than MAX_HOSTS + 4
     LEARN_IPV4 = '10.0.254.254'
@@ -2885,7 +2885,7 @@ vlans:
         description: "untagged"
         max_hosts: %u
         faucet_vips: ["10.0.254.254/16"]
-""" % (_max_hosts() + 4)
+""" % (_max_hosts() + 4)  # pylint: disable=too-many-function-args
 
     CONFIG = ("""
         ignore_learn_ins: 0
@@ -2894,7 +2894,10 @@ vlans:
             eth_src: %u
             eth_dst: %u
             ipv4_fib: %u
-""" % (_max_hosts() + 64, _max_hosts() + 64, _max_hosts() + 64) + """
+""" % (_max_hosts() + 64,  # pylint: disable=too-many-function-args
+           _max_hosts() + 64,  # pylint: disable=too-many-function-args
+           _max_hosts() + 64   # pylint: disable=too-many-function-args
+           ) + """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2923,7 +2926,7 @@ class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
     def _max_hosts():  # pylint: disable=no-method-argument,no-self-use
         return 1024
 
-    MAX_HOSTS = _max_hosts()
+    MAX_HOSTS = _max_hosts()  # pylint: disable=too-many-function-args
     TEST_IPV4_NET = '10.0.0.0'
     TEST_IPV4_PREFIX = 16  # must hold more than MAX_HOSTS + 4
     LEARN_IPV4 = '10.0.0.1'
@@ -2932,7 +2935,7 @@ vlans:
     100:
         description: "untagged"
         max_hosts: %u
-""" % (_max_hosts() + 4)
+""" % (_max_hosts() + 4)  # pylint: disable=too-many-function-args
 
     CONFIG = ("""
         ignore_learn_ins: 0
@@ -2940,7 +2943,9 @@ vlans:
         table_sizes:
             eth_src: %u
             eth_dst: %u
-""" % (_max_hosts() + 64, _max_hosts() + 64) + """
+""" % (_max_hosts() + 64,  # pylint: disable=too-many-function-args
+           _max_hosts() + 64  # pylint: disable=too-many-function-args
+           ) + """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -5833,9 +5838,9 @@ class FaucetTaggedGlobalIPv4RouteTest(FaucetTaggedTest):
     NETPREFIX = 24
     ETH_TYPE = IPV4_ETH
     NETNS = True
-    VIDS = _vids()
-    GLOBAL_VID = global_vid()
-    STR_VIDS = [str(i) for i in _vids()]
+    VIDS = _vids()  # pylint: disable=too-many-function-args
+    GLOBAL_VID = global_vid()  # pylint: disable=too-many-function-args
+    STR_VIDS = [str(i) for i in _vids()]  # pylint: disable=too-many-function-args
     NEW_VIDS = VIDS[1:]
 
     @staticmethod
@@ -5886,7 +5891,7 @@ vlans:
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
-""" % (global_vid(),
+""" % (global_vid(),  # pylint: disable=too-many-function-args
        len(STR_VIDS) * 3,   # VLAN
        len(STR_VIDS) * 2,   # VIP
        len(STR_VIDS) * 12,  # Flood
@@ -6015,9 +6020,9 @@ class FaucetTaggedGlobalIPv6RouteTest(FaucetTaggedGlobalIPv4RouteTest):
     def global_vid():  # pylint: disable=no-method-argument,no-self-use
         return 2047
 
-    VIDS = _vids()
-    GLOBAL_VID = global_vid()
-    STR_VIDS = [str(i) for i in _vids()]
+    VIDS = _vids()  # pylint: disable=too-many-function-args
+    GLOBAL_VID = global_vid()  # pylint: disable=too-many-function-args
+    STR_VIDS = [str(i) for i in _vids()]  # pylint: disable=too-many-function-args
     NEW_VIDS = VIDS[1:]
 
     def netbase(self, vid, host):
@@ -6067,7 +6072,7 @@ vlans:
                 native_vlan: 99
                 tagged_vlans: [%s]
                 hairpin_unicast: True
-""" % (global_vid(), '%(port_3)d', '%(port_1)d', '%(port_1)d',
+""" % (global_vid(), '%(port_3)d', '%(port_1)d', '%(port_1)d',  # pylint: disable=too-many-function-args
        ','.join(STR_VIDS), '%(port_2)d', ','.join(STR_VIDS))
 
 
@@ -6076,8 +6081,8 @@ class FaucetTaggedScaleTest(FaucetTaggedTest):
     def _vids():  # pylint: disable=no-method-argument,no-self-use
         return list(range(100, 148))
 
-    VIDS = _vids()
-    STR_VIDS = [str(i) for i in _vids()]
+    VIDS = _vids()  # pylint: disable=too-many-function-args
+    STR_VIDS = [str(i) for i in _vids()]  # pylint: disable=too-many-function-args
     NEW_VIDS = VIDS[1:]
 
     CONFIG_GLOBAL = """
@@ -7705,12 +7710,12 @@ class FaucetDestRewriteTest(FaucetUntaggedTest):
     def override_mac():  # pylint: disable=no-method-argument,no-self-use
         return '0e:00:00:00:00:02'
 
-    OVERRIDE_MAC = override_mac()
+    OVERRIDE_MAC = override_mac()  # pylint: disable=too-many-function-args
 
     def rewrite_mac():  # pylint: disable=no-method-argument,no-self-use
         return '0e:00:00:00:00:03'
 
-    REWRITE_MAC = rewrite_mac()
+    REWRITE_MAC = rewrite_mac()  # pylint: disable=too-many-function-args
 
     CONFIG_GLOBAL = """
 vlans:
@@ -7729,7 +7734,7 @@ acls:
         - rule:
             actions:
                 allow: 1
-""" % (override_mac(), rewrite_mac())
+""" % (override_mac(), rewrite_mac())  # pylint: disable=too-many-function-args
     CONFIG = """
         interfaces:
             %(port_1)d:
@@ -7794,12 +7799,12 @@ class FaucetDestRewriteOrderedTest(FaucetUntaggedTest):
     def override_mac():  # pylint: disable=no-method-argument,no-self-use
         return '0e:00:00:00:00:02'
 
-    OVERRIDE_MAC = override_mac()
+    OVERRIDE_MAC = override_mac()  # pylint: disable=too-many-function-args
 
     def rewrite_mac():  # pylint: disable=no-method-argument,no-self-use
         return '0e:00:00:00:00:03'
 
-    REWRITE_MAC = rewrite_mac()
+    REWRITE_MAC = rewrite_mac()  # pylint: disable=too-many-function-args
 
     CONFIG_GLOBAL = """
 vlans:
@@ -7818,7 +7823,7 @@ acls:
         - rule:
             actions:
                 allow: 1
-""" % (override_mac(), rewrite_mac())
+""" % (override_mac(), rewrite_mac())  # pylint: disable=too-many-function-args
     CONFIG = """
         interfaces:
             %(port_1)d:
