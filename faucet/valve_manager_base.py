@@ -1,6 +1,5 @@
 """Valve Manager base class"""
 
-# pylint: disable=no-self-use
 # pylint: disable=unused-argument
 
 
