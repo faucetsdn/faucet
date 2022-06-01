@@ -104,13 +104,13 @@ class GaugePoller:
         self.reply_pending = False
         self._update(rcv_time, msg)
 
-    def _format_stat_pairs(self, _delim, _stat):  # pylint: disable=no-self-use
+    def _format_stat_pairs(self, _delim, _stat):
         return ()
 
-    def _dp_stat_name(self, _stat, _stat_name):  # pylint: disable=no-self-use
+    def _dp_stat_name(self, _stat, _stat_name):
         return ''
 
-    def _rcv_time(self, rcv_time):  # pylint: disable=no-self-use
+    def _rcv_time(self, rcv_time):
         return time.strftime('%b %d %H:%M:%S', time.localtime(rcv_time))
 
     def _update(self, rcv_time, msg):

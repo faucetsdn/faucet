@@ -14,7 +14,7 @@ class MockPikaChannel(pika.channel.Channel):
         # pylint: disable=super-init-not-called
         pass
 
-    def basic_publish(self,  # pylint: disable=no-self-use
+    def basic_publish(self,
                       exchange,  # pylint: disable=unused-argument
                       routing_key,  # pylint: disable=unused-argument
                       body,  # pylint: disable=unused-argument
@@ -30,7 +30,7 @@ class MockPikaBadAMQP(pika.channel.Channel):
         # pylint: disable=super-init-not-called
         pass
 
-    def basic_publish(self,  # pylint: disable=no-self-use
+    def basic_publish(self,
                       exchange,  # pylint: disable=unused-argument
                       routing_key,  # pylint: disable=unused-argument
                       body,  # pylint: disable=unused-argument
@@ -42,10 +42,10 @@ class MockPikaBadAMQP(pika.channel.Channel):
 class MockRabbitAdapter(rabbit.RabbitAdapter):
     """Mock class for testing RabbitAdapter"""
 
-    def rabbit_conn(self):  # pylint: disable=no-self-use
+    def rabbit_conn(self):
         return True
 
-    def socket_conn(self):  # pylint: disable=no-self-use
+    def socket_conn(self):
         return True
 
 
