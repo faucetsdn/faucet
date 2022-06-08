@@ -101,7 +101,7 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
                                               'eth_src': mac_str,
                                               'status': status}})
 
-    def log_port_event(self, event_type, port_type, valve, port_num):  # pylint: disable=no-self-use
+    def log_port_event(self, event_type, port_type, valve, port_num):
         """Log a dot1x port event"""
         valve.dot1x_event({event_type: {'dp_id': valve.dp.dp_id,
                                         'port': port_num,
