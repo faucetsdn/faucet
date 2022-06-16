@@ -18,7 +18,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
       - name: Set up python-${{ env.RELEASE_PY_VER }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ env.RELEASE_PY_VER }}
       - name: Build python package
