@@ -23,7 +23,7 @@ It supports:
 - Policy based forwarding to offload to external NFV applications (Eg 802.1x via hostapd, DHCP to isc DHCPD)
 - Port and flow statistics via InfluxDB/Grafana
 - Controller health and statistics via Prometheus
-- Unit and systems tests run under Travis based on mininet and OVS
+- Unit and systems tests run under GitHub workflows based on mininet and OVS
 
 Hardware and software switch support
 ------------------------------------
