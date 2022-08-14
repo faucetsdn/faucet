@@ -54,8 +54,8 @@ The following architectures are supported for each distro:
 .. code:: console
 
   sudo apt-get install curl gnupg apt-transport-https lsb-release
-  echo "deb https://packagecloud.io/faucetsdn/faucet/$(lsb_release -si | awk '{print tolower($0)}')/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/faucet.list
-  sudo curl -1sLf https://packagecloud.io/faucetsdn/faucet/gpgkey -o /etc/apt/trusted.gpg.d/faucet.asc
+  curl -1sLf https://packagecloud.io/faucetsdn/faucet/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/faucet.gpg
+  echo "deb [signed-by=/usr/share/keyrings/faucet.gpg] https://packagecloud.io/faucetsdn/faucet/$(lsb_release -si | awk '{print tolower($0)}')/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/faucet.list
   sudo apt-get update
 
 Then to install all components for a fully functioning system on a single machine:
