@@ -349,32 +349,13 @@ switch (which we call a ``datapath``) to faucet. We will be using
 `Open vSwitch <http://www.openvswitch.org/>`_ for this which is a
 production-grade software switch with very good OpenFlow support.
 
-    1. Add WAND Open vSwitch repo
-
-       The bundled version of Open vSwitch in Ubuntu 16.04 is quite old so we
-       will use
-       `WAND's package repo <https://cloudsmith.io/~wand/repos/openvswitch>`_ to
-       install a newer version (if you're using a more recent debian or ubuntu
-       release you can skip this step).
-
-       .. note::
-          If you're using a more recent debian or ubuntu release you can skip
-          this step
-
-       .. code:: console
-
-           sudo apt-get install apt-transport-https curl lsb-release
-           sudo curl -1sLf https://dl.cloudsmith.io/public/wand/openvswitch/gpg.2E801E8CCE233F26.key -o /etc/apt/trusted.gpg.d/wand-openvswitch.asc
-           curl -1sLf "https://dl.cloudsmith.io/public/wand/openvswitch/config.deb.txt?distro=$(lsb_release -is)&codename=$(lsb_release -sc)" | sudo tee /etc/apt/sources.list.d/wand-openvswitch.list
-           sudo apt-get update
-
-    2. Install Open vSwitch
+    1. Install Open vSwitch
 
        .. code:: console
 
            sudo apt-get install openvswitch-switch
 
-    3. Add network namespaces to simulate hosts
+    2. Add network namespaces to simulate hosts
 
        We will use two linux network namespaces to simulate hosts and this will
        allow us to generate some traffic on our network.
@@ -398,7 +379,7 @@ production-grade software switch with very good OpenFlow support.
            create_ns host1 192.168.0.1/24
            create_ns host2 192.168.0.2/24
 
-    2. Configure Open vSwitch
+    3. Configure Open vSwitch
 
        We will now configure a single Open vSwitch bridge (which will act as our
        datapath) and add two ports to this bridge:
@@ -417,7 +398,7 @@ production-grade software switch with very good OpenFlow support.
        `Open vSwitch documentation <http://docs.openvswitch.org/en/latest/>`_
        is very good if you wish to find out more about configuring Open vSwitch.
 
-    3. Verify datapath is connected to faucet
+    4. Verify datapath is connected to faucet
 
        At this point everything should be working, we just need to verify that
        is the case. If we now load up some of the grafana dashboards we imported
@@ -428,7 +409,7 @@ production-grade software switch with very good OpenFlow support.
        files ``/var/log/faucet/faucet.log`` or the Open vSwitch log
        ``/var/log/openvswitch/ovs-vswitchd.log`` for clues.
 
-    4. Generate traffic between virtual hosts
+    5. Generate traffic between virtual hosts
 
        With ``host1`` and ``host2`` we can now test our network works and start
        generating some traffic which will show up in grafana.
