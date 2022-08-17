@@ -21,18 +21,11 @@ Before submitting a PR
 -  All unit and integration tests must pass (please use the docker based tests; see
    :ref:`docker-sw-testing`). Where hardware is available, please also run the hardware
    based integration tests also.
--  In order to speed up acceptance of your PR we recommend enabling TravisCI on your
-   own github repo, and linking the test results in the body of the PR. This enables
-   the maintainers to quickly verify that your changes pass all tests in a pristine
-   environment while conserving our TravisCI resources on the main branch (by minimizing
-   resources used on potentially failing test runs which could be caught before opening
-   a PR on the main branch).
 -  You must use the github feature branches (see https://gist.github.com/vlandham/3b2b79c40bc7353ae95a),
    for your change and squash commits (https://blog.github.com/2016-04-01-squash-your-commits/)
    when creating the PR.
 -  Please use the supplied git pre-commit hook (see ``../git-hook/pre-commit``),
-   to automatically run the unit tests and pylint for you at git commit time,
-   which will save you TravisCI resources also.
+   to automatically run the unit tests and pylint for you at git commit time.
 -  pylint must show no new errors or warnings.
 -  Code must conform to the style guide (see below).
 
