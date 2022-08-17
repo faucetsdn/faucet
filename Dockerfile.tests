@@ -1,6 +1,6 @@
 ## Image name: faucet/tests
 
-FROM faucet/test-base:10.0.3
+FROM faucet/test-base:11.0.0
 
 COPY ./ /faucet-src/
 WORKDIR /faucet-src/
