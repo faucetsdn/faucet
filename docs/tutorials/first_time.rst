@@ -28,8 +28,9 @@ Package installation
        .. code:: console
 
            sudo apt-get install curl gnupg apt-transport-https lsb-release
-           curl -1sLf https://packagecloud.io/faucetsdn/faucet/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/faucet.gpg
-           echo "deb [signed-by=/usr/share/keyrings/faucet.gpg] https://packagecloud.io/faucetsdn/faucet/$(lsb_release -si | awk '{print tolower($0)}')/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/faucet.list
+           sudo mkdir -p /etc/apt/keyrings/
+           curl -1sLf https://packagecloud.io/faucetsdn/faucet/gpgkey | sudo gpg --dearmor -o /etc/apt/keyrings/faucet.gpg
+           echo "deb [signed-by=/etc/apt/keyrings/faucet.gpg] https://packagecloud.io/faucetsdn/faucet/$(lsb_release -si | awk '{print tolower($0)}')/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/faucet.list
            sudo apt-get update
 
     2. Install the required packages, we can use the ``faucet-all-in-one``
