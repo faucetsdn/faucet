@@ -78,7 +78,7 @@ def install_configs():
     try:
         setup_ryu_conf()
         setup_faucet_conf()
-    except FileNotFound as exception:
+    except FileNotFoundError as exception:
         print(str(exception))
     except OSError as exception:
         if exception.errno == errno.EACCES:
