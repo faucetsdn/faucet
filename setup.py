@@ -79,6 +79,8 @@ def install_configs():
         setup_ryu_conf()
         setup_faucet_conf()
         setup_faucet_log()
+    except FileNotFound as exception:
+        print(str(exception))
     except OSError as exception:
         if exception.errno == errno.EACCES:
             print(f"Permission denied creating {exception.filename}, skipping copying configs")
