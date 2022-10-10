@@ -11,6 +11,7 @@ FROOT="/faucet-src"
 dir=$(dirname "$0")
 
 ${APK} add -U ${BUILDDEPS}
+"${dir}/retrycmd.sh" "${PIP3} git+https://github.com/faucetsdn/python3-fakencclient"
 "${dir}/retrycmd.sh" "${PIP3} ${TESTDEPS}"
 "${dir}/retrycmd.sh" "${PIP3} -r ${FROOT}/requirements.txt"
 ${PIP3} ${FROOT}
@@ -35,6 +36,8 @@ done
 rm -r "${HOME}/.cache"
 rm -r "${FROOT}"
 rm -r /usr/local/lib/python3*/site-packages/os_ken/tests/
+rm -r /usr/local/lib/python3*/site-packages/os_ken/lib/of_config/
+rm /usr/local/lib/python3*/site-packages/os_ken/cmd/of_config_cli.py
 
 # Smoke test
 faucet -V || exit 1
