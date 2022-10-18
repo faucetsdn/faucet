@@ -166,7 +166,7 @@ class Port(Conf):
         'unicast_flood': bool,
         'mirror': (list, str, int),
         'native_vlan': (str, int),
-        'tagged_vlans': list,
+        'tagged_vlans': set,
         'acl_in': (str, int),
         'acls_in': list,
         'stack': dict,
@@ -281,7 +281,7 @@ class Port(Conf):
         self.dyn_lacp_actor_state = LACP_ACTOR_NOTCONFIGURED
         self.dyn_stack_probe_info = {}
 
-        self.tagged_vlans = []
+        self.tagged_vlans = set()
         self.lldp_beacon = {}
         super().__init__(_id, dp_id, conf)
 
@@ -316,7 +316,7 @@ class Port(Conf):
         self._set_default('number', self._id)
         self._set_default('name', str(self._id))
         self._set_default('description', self.name)
-        self._set_default('tagged_vlans', [])
+        self._set_default('tagged_vlans', set())
 
     def check_config(self):
         super().check_config()
@@ -439,7 +439,7 @@ class Port(Conf):
         if self.native_vlan:
             test_config_condition(self.native_vlan in self.tagged_vlans, (
                 'cannot have same native and tagged VLAN on same port'))
-        self.tagged_vlans = tuple(self.tagged_vlans)
+        self.tagged_vlans = frozenset(self.tagged_vlans)
         super().finalize()
 
     def running(self):

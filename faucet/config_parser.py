@@ -84,8 +84,8 @@ def _dp_parse_port(dp_id, port_key, port_conf, vlans):
 
     def _dp_parse_tagged_port_vlans():
         if port.tagged_vlans:
-            port_tagged_vlans = [
-                _get_vlan_by_key(dp_id, vlan_key, vlans) for vlan_key in port.tagged_vlans]
+            port_tagged_vlans = {
+                _get_vlan_by_key(dp_id, vlan_key, vlans) for vlan_key in port.tagged_vlans}
             port.tagged_vlans = port_tagged_vlans
 
     port = Port(port_key, dp_id, port_conf)
