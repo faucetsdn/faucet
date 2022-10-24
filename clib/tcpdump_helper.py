@@ -49,9 +49,10 @@ class TcpdumpHelper:
             close_fds=True,
             shell=False)
 
-        if self.stream():
+        stream = self.stream()
+        if stream:
             debug('tcpdump_helper stream fd %s %s' % (
-                self.stream().fileno(), self.intf_name))
+                stream.fileno(), self.intf_name))
 
         self.readbuf = ''
         self.set_blocking(blocking)
@@ -76,22 +77,24 @@ class TcpdumpHelper:
     def execute(self):
         """Run the helper and accumulate tcpdump output."""
         tcpdump_txt = ''
-        if self.stream():
+        stream = self.stream()
+        if stream:
             while True:
                 line = self.next_line()
                 if not line:
                     break
-                debug('tcpdump_helper fd %d line "%s"' % (self.stream().fileno(), line))
+                debug('tcpdump_helper fd %d line "%s"' % (stream.fileno(), line))
                 tcpdump_txt += line.strip()
         return tcpdump_txt
 
     def terminate(self):
         """Terminate the helper."""
-        if not self.pipe or not self.stream():
+        stream = self.stream()
+        if not self.pipe or not stream:
             return -1
 
         try:
-            debug('tcpdump_helper terminate fd %s' % self.stream().fileno())
+            debug('tcpdump_helper terminate fd %s' % stream.fileno())
             self.pipe.terminate()
             result = self.pipe.wait()
             if result == 124:
