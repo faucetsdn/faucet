@@ -2,16 +2,6 @@
 groups:
   - name: faucet.rules
     rules:
-      # Convert OF stats to rates
-      - record: instance_dpid:of_packet_ins:rate1m
-        expr: rate(of_packet_ins_total[1m])
-      - record: instance_dpid:ignored_packet_ins:rate1m
-        expr: rate(of_ignored_packet_ins_total[1m])
-      - record: instance_dpid:of_unexpected_packet_ins:rate1m
-        expr: rate(of_unexpected_packet_ins_total[1m])
-      - record: instance_dpid:of_flowmsgs_sent:rate1m
-        expr: rate(of_flowmsgs_sent_total[1m])
-
       # Sum hosts learned on VLANs
       - record: instance_vlan:vlan_hosts_learned:sum
         expr: sum(vlan_hosts_learned) BY (instance, vlan)
@@ -25,19 +15,3 @@ groups:
         expr: >-
           sum(port_vlan_hosts_learned)
           BY (instance, port, vlan, dp_id, dp_name)
-
-      # Convert Port stats to rates
-      - record: instance_port:of_port_rx_packets:rate1m
-        expr: rate(of_port_rx_packets[1m])
-      - record: instance_port:of_port_tx_packets:rate1m
-        expr: rate(of_port_tx_packets[1m])
-      - record: instance_port:of_port_rx_bits:rate1m
-        expr: rate(of_port_rx_bytes[1m]) * 8
-      - record: instance_port:of_port_tx_bits:rate1m
-        expr: rate(of_port_tx_bytes[1m]) * 8
-      - record: instance_port:of_port_rx_dropped:rate1m
-        expr: rate(of_port_rx_dropped[1m])
-      - record: instance_port:of_port_tx_dropped:rate1m
-        expr: rate(of_port_tx_dropped[1m])
-      - record: instance_port:of_port_rx_errors:rate1m
-        expr: rate(of_port_rx_errors[1m])
