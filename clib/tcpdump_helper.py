@@ -31,6 +31,7 @@ class TcpdumpHelper:
             self.intf_name = self.intf_name.split('.')[0]
 
         tcpdump_flags = vflags
+        # pylint: disable=consider-using-f-string
         tcpdump_flags += ' -Z root'
         tcpdump_flags += ' -c %u' % packets if packets else ''
         tcpdump_flags += ' -w %s' % pcap_out if pcap_out else ''
