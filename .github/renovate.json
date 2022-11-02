@@ -1,0 +1,18 @@
+{
+  "enabledManagers": [
+    "docker-compose"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "matchDatasources": ["github-tags"],
+      "enabled": false
+    }
+  ],
+  "separateMajorMinor": false,
+  "extends": [
+    "config:base",
+    ":preserveSemverRanges",
+    "docker:enableMajor"
+  ]
+}
