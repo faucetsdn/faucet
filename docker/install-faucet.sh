@@ -31,6 +31,8 @@ pip3 uninstall -y ${TESTDEPS} || exit 1
 for i in ${BUILDDEPS} ; do
   ${APK} del "$i" || exit 1
 done
+# Needed by greenlet.
+apk add libstdc++
 
 # Clean up
 rm -r "${HOME}/.cache"
