@@ -83,6 +83,9 @@ def install_configs():
         if exception.errno == errno.EACCES:
             print("Permission denied creating %s, skipping copying configs"
                   % exception.filename)
+        elif exception.errno == errno.ENOENT:
+            print("File not found creating %s, skipping copying configs"
+                  % exception.filename)
         else:
             raise
 
