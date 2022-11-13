@@ -82,7 +82,11 @@ def install_configs():
         print(str(exception))
     except OSError as exception:
         if exception.errno == errno.EACCES:
-            print(f"Permission denied creating {exception.filename}, skipping copying configs")
+            print("Permission denied creating %s, skipping copying configs"
+                  % exception.filename)
+        elif exception.errno == errno.ENOENT:
+            print("File not found creating %s, skipping copying configs"
+                  % exception.filename)
         else:
             raise
 
