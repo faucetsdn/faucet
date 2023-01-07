@@ -1,3 +1,3 @@
-flake8==5.0.4
+flake8==6.0.0
 pylint==2.15.9
 pytype==2022.10.26
