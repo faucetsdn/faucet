@@ -637,8 +637,9 @@ socket_timeout=15
 class FAUCET(BaseFAUCET):
     """Start a FAUCET controller."""
 
-    START_ARGS = ['--ryu-app-lists=%s' % (os.path.join(os.path.dirname(
-        os.path.realpath(__file__)), '/../ofctl_rest/ofctl_rest.py'))]
+    START_ARGS = ['--ryu-app-lists=%s' % (os.path.dirname(os.path.realpath(__file__)) +
+        '/../ofctl_rest/ofctl_rest.py')]
+
 
     def __init__(self, name, tmpdir, controller_intf, controller_ipv6, env,
                  ctl_privkey, ctl_cert, ca_certs,
