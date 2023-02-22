@@ -14,7 +14,7 @@ if [[ "$*" == "" ]] ; then
 
   files=("${files[@]}" "${root_files[@]}")
 
-  for dir in adapters clib docs faucet tests ; do
+  for dir in adapters clib ofctl_rest docs faucet tests ; do
     readarray -t sub_files \
       <<< "$(find "${BASEDIR}/${dir}/" -type f ! -size 0 -name '*.py' -exec realpath {} \;)"
 
