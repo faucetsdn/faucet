@@ -144,6 +144,9 @@ if [ "$HELP" == 1 ] ; then
   exit 0
 fi
 
+# workaround for c65faucet/faucet
+export PBR_VERSION=0.0.0
+
 if [ "$UNIT_TESTS" == 1 ] ; then
   echo "========== Running faucet unit tests =========="
   cd /faucet-src/tests

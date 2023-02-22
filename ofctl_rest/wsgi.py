@@ -29,11 +29,11 @@ import webob.dec
 import webob.exc
 from webob.request import Request as webob_Request
 from webob.response import Response as webob_Response
+import eventlet.wsgi
 
 from os_ken.lib import hub
 
-HEX_PATTERN = r'0x[0-9a-z]+'
-DIGIT_PATTERN = r'[1-9][0-9]*'
+# pylint: disable=missing-function-docstring,disable=invalid-name,disable=missing-class-docstring,disable=too-few-public-methods
 
 
 def route(name, path, methods=None, requirements=None):
@@ -58,7 +58,7 @@ class Request(webob_Request):
     DEFAULT_CHARSET = "UTF-8"
 
     def __init__(self, environ, charset=DEFAULT_CHARSET, *args, **kwargs):
-        super(Request, self).__init__(
+        super().__init__(
             environ, charset=charset, *args, **kwargs)
 
 
@@ -72,10 +72,10 @@ class Response(webob_Response):
     DEFAULT_CHARSET = "UTF-8"
 
     def __init__(self, charset=DEFAULT_CHARSET, *args, **kwargs):
-        super(Response, self).__init__(charset=charset, *args, **kwargs)
+        super().__init__(charset=charset, *args, **kwargs)
 
 
-class WebSocketRegistrationWrapper(object):
+class WebSocketRegistrationWrapper:
 
     def __init__(self, func, controller):
         self._controller = controller
@@ -86,7 +86,7 @@ class WebSocketRegistrationWrapper(object):
         ws_manager = wsgi_application.websocketmanager
         ws_manager.add_connection(ws)
         try:
-            self._controller_method(ws)
+            self._controller_method(ws)  # pylint: disable=not-callable
         finally:
             ws_manager.delete_connection(ws)
 
@@ -94,18 +94,10 @@ class WebSocketRegistrationWrapper(object):
 class _AlreadyHandledResponse(Response):
     # XXX: Eventlet API should not be used directly.
     # https://github.com/benoitc/gunicorn/pull/2581
-    from packaging import version
-    import eventlet
-    if version.parse(eventlet.__version__) >= version.parse("0.30.3"):
-        import eventlet.wsgi
-        _ALREADY_HANDLED = getattr(eventlet.wsgi, "ALREADY_HANDLED", None)
-    else:
-        from eventlet.wsgi import ALREADY_HANDLED
-        _ALREADY_HANDLED = ALREADY_HANDLED
+    _ALREADY_HANDLED = getattr(eventlet.wsgi, "ALREADY_HANDLED", None)
 
     def __call__(self, environ, start_response):
         return self._ALREADY_HANDLED
-
 
 def websocket(name, path):
     def _websocket(controller_func):
@@ -128,7 +120,7 @@ def websocket(name, path):
     return _websocket
 
 
-class ControllerBase(object):
+class ControllerBase:
     special_vars = ['action', 'controller']
 
     def __init__(self, req, link, data, **config):
@@ -175,7 +167,7 @@ class WebSocketRPCServer(RPCServer):
     def __init__(self, ws, rpc_callback):
         dispatcher = RPCDispatcher()
         dispatcher.register_instance(rpc_callback)
-        super(WebSocketRPCServer, self).__init__(
+        super().__init__(
             WebSocketServerTransport(ws),
             JSONRPCProtocol(),
             dispatcher,
@@ -183,7 +175,7 @@ class WebSocketRPCServer(RPCServer):
 
     def serve_forever(self):
         try:
-            super(WebSocketRPCServer, self).serve_forever()
+            super().serve_forever()
         except WebSocketDisconnectedError:
             return
 
@@ -202,6 +194,7 @@ class WebSocketClientTransport(ClientTransport):
 
         if expect_reply:
             return self.queue.get()
+        return None
 
 
 class WebSocketRPCClient(RPCClient):
@@ -209,7 +202,7 @@ class WebSocketRPCClient(RPCClient):
     def __init__(self, ws):
         self.ws = ws
         self.queue = hub.Queue()
-        super(WebSocketRPCClient, self).__init__(
+        super().__init__(
             JSONRPCProtocol(),
             WebSocketClientTransport(ws, self.queue),
         )
@@ -225,10 +218,10 @@ class WebSocketRPCClient(RPCClient):
 class wsgify_hack(webob.dec.wsgify):
     def __call__(self, environ, start_response):
         self.kwargs['start_response'] = start_response
-        return super(wsgify_hack, self).__call__(environ, start_response)
+        return super().__call__(environ, start_response)
 
 
-class WebSocketManager(object):
+class WebSocketManager:
 
     def __init__(self):
         self._connections = []
@@ -244,13 +237,13 @@ class WebSocketManager(object):
             connection.send(msg)
 
 
-class WSGIApplication(object):
+class WSGIApplication:
     def __init__(self, **config):
         self.config = config
         self.mapper = Mapper()
         self.registory = {}
         self._wsmanager = WebSocketManager()
-        super(WSGIApplication, self).__init__()
+        super().__init__()
 
     def _match(self, req):
         # Note: Invoke the new API, first. If the arguments unmatched,
@@ -313,7 +306,7 @@ class WSGIApplication(object):
 
 class WSGIServer(hub.WSGIServer):
     def __init__(self, application, host, port, **config):
-        super(WSGIServer, self).__init__((host, port), application, **config)
+        super().__init__((host, port), application, **config)
 
     def __call__(self):
         self.serve_forever()

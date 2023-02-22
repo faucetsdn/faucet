@@ -38,6 +38,8 @@ apk add libstdc++
 rm -r "${HOME}/.cache"
 rm -r "${FROOT}"
 rm -r /usr/local/lib/python3*/site-packages/os_ken/tests/
+rm -r /usr/local/lib/python3*/site-packages/os_ken/lib/of_config/
+rm /usr/local/lib/python3*/site-packages/os_ken/cmd/of_config_cli.py
 
 # Smoke test
 faucet -V || exit 1
