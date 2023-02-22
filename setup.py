@@ -2,6 +2,8 @@
 
 """Faucet setup script"""
 
+#  pylint: disable=consider-using-f-string
+
 from __future__ import print_function
 
 import errno

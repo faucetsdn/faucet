@@ -674,37 +674,37 @@ class RestStatsApi(app_manager.OSKenApp):
         uri = path + '/flowentry/{cmd}'
         mapper.connect('stats', uri,
                        controller=StatsController, action='mod_flow_entry',
-                       conditions=dict(method=['POST']))
+                       conditions={"method": ['POST']})
 
         uri = path + '/flowentry/clear/{dpid}'
         mapper.connect('stats', uri,
                        controller=StatsController, action='delete_flow_entry',
-                       conditions=dict(method=['DELETE']))
+                       conditions={"method": ['DELETE']})
 
         uri = path + '/meterentry/{cmd}'
         mapper.connect('stats', uri,
                        controller=StatsController, action='mod_meter_entry',
-                       conditions=dict(method=['POST']))
+                       conditions={"method": ['POST']})
 
         uri = path + '/groupentry/{cmd}'
         mapper.connect('stats', uri,
                        controller=StatsController, action='mod_group_entry',
-                       conditions=dict(method=['POST']))
+                       conditions={"method": ['POST']})
 
         uri = path + '/portdesc/{cmd}'
         mapper.connect('stats', uri,
                        controller=StatsController, action='mod_port_behavior',
-                       conditions=dict(method=['POST']))
+                       conditions={"method": ['POST']})
 
         uri = path + '/experimenter/{dpid}'
         mapper.connect('stats', uri,
                        controller=StatsController, action='send_experimenter',
-                       conditions=dict(method=['POST']))
+                       conditions={"method": ['POST']})
 
         uri = path + '/role'
         mapper.connect('stats', uri,
                        controller=StatsController, action='set_role',
-                       conditions=dict(method=['POST']))
+                       conditions={"method": ['POST']})
 
         self.server = WSGIServer(wsgi, OFCTL_HOST, OFCTL_PORT)
         self.server_thread = hub.spawn(self.server.serve_forever)
