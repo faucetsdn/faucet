@@ -43,19 +43,19 @@ def install_configs():
 
     def setup_ryu_conf():
         if not os.path.exists(dst_ryu_conf_dir):
-            print(f"Creating {dst_ryu_conf_dir}")
+            print("Creating %s" % dst_ryu_conf_dir)
             os.makedirs(dst_ryu_conf_dir)
         if not os.path.isfile(dst_ryu_conf):
             if os.path.exists(old_ryu_conf) and os.path.isfile(old_ryu_conf):
-                print(f"Migrating {old_ryu_conf} to {dst_ryu_conf}")
+                print("Migrating %s to %s" % (old_ryu_conf, dst_ryu_conf))
                 shutil.copy(old_ryu_conf, dst_ryu_conf)
             else:
-                print(f"Copying {src_ryu_conf} to {dst_ryu_conf}")
+                print("Copying %s to %s" % (src_ryu_conf, dst_ryu_conf))
                 shutil.copy(src_ryu_conf, dst_ryu_conf)
 
     def setup_faucet_conf():
         if not os.path.exists(dst_faucet_conf_dir):
-            print(f"Creating {dst_faucet_conf_dir}")
+            print("Creating %s" % dst_faucet_conf_dir)
             os.makedirs(dst_faucet_conf_dir)
         for file_name in os.listdir(src_faucet_conf_dir):
             src_file = os.path.join(src_faucet_conf_dir, file_name)
@@ -64,34 +64,30 @@ def install_configs():
             if os.path.isfile(dst_file):
                 continue
             if os.path.isfile(alt_src):
-                print(f"Migrating {alt_src} to {dst_file}")
+                print("Migrating %s to %s" % (alt_src, dst_file))
                 shutil.copy(alt_src, dst_file)
             elif os.path.isfile(src_file):
-                print(f"Copying {src_file} to {dst_file}")
+                print("Copying %s to %s" % (src_file, dst_file))
                 shutil.copy(src_file, dst_file)
 
     def setup_faucet_log():
         if not os.path.exists(faucet_log_dir):
-            print(f"Creating {faucet_log_dir}")
+            print("Creating %s" % faucet_log_dir)
             os.makedirs(faucet_log_dir)
 
     try:
         setup_ryu_conf()
         setup_faucet_conf()
-    except FileNotFoundError as exception:
-        print(str(exception))
-    except OSError as exception:
-        if exception.errno == errno.EACCES:
-            print(f"Permission denied creating {exception.filename}, skipping copying configs")
-        elif exception.errno == errno.ENOENT:
-            print(f"File not found creating {exception.filename}, skipping copying configs")
-        else:
-            raise
-
-    try:
         setup_faucet_log()
     except OSError as exception:
-        print(str(exception))
+        if exception.errno == errno.EACCES:
+            print("Permission denied creating %s, skipping copying configs"
+                  % exception.filename)
+        elif exception.errno == errno.ENOENT:
+            print("File not found creating %s, skipping copying configs"
+                  % exception.filename)
+        else:
+            raise
 
 
 setup(
