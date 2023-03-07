@@ -4,9 +4,6 @@ networkx>=1.9
 pbr>=1.9
 prometheus_client==0.16.0
 ruamel.yaml==0.17.21
-# dnspython 2.3.0 is not compatible with eventlet
-# https://github.com/eventlet/eventlet/issues/781
-dnspython<2.3.0
 os_ken==2.6.0
 beka==0.4.1
 pytricia>=1.0.0
