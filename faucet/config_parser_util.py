@@ -27,26 +27,26 @@ from ruamel.yaml.composer import ComposerError
 from ruamel.yaml.constructor import ConstructorError
 from ruamel.yaml.parser import ParserError
 
-CONFIG_HASH_FUNC = 'sha256'
+CONFIG_HASH_FUNC = "sha256"
 
 
 def yaml_load(yaml_str):
     """Wrap YAML load library."""
-    yml = YAML(typ='safe')
+    yml = YAML(typ="safe")
     return yml.load(yaml_str)
 
 
 def yaml_dump(yaml_dict):
     """Wrap YAML dump library."""
     with StringIO() as stream:
-        yml = YAML(typ='safe')
+        yml = YAML(typ="safe")
         yml.dump(yaml_dict, stream=stream)
         return stream.getvalue()
 
 
 def get_logger(logname):
     """Return logger instance for config parsing."""
-    return logging.getLogger(logname + '.config')
+    return logging.getLogger(logname + ".config")
 
 
 def read_config(config_file, logname):
@@ -56,27 +56,35 @@ def read_config(config_file, logname):
     conf = None
 
     try:
-        with open(config_file, 'r', encoding='utf-8') as stream:
+        with open(config_file, "r", encoding="utf-8") as stream:
             conf_txt = stream.read()
         conf = yaml_load(conf_txt)
-    except (TypeError, UnicodeDecodeError, PermissionError, ValueError,
-            ScannerError, DuplicateKeyError, ComposerError,
-            ConstructorError, ParserError) as err:  # pytype: disable=name-error
-        logger.error('Error in file %s (%s)', config_file, str(err))
+    except (
+        TypeError,
+        UnicodeDecodeError,
+        PermissionError,
+        ValueError,
+        ScannerError,
+        DuplicateKeyError,
+        ComposerError,
+        ConstructorError,
+        ParserError,
+    ) as err:  # pytype: disable=name-error
+        logger.error("Error in file %s (%s)", config_file, str(err))
     except FileNotFoundError as err:  # pytype: disable=name-error
-        logger.error('Could not find requested file: %s (%s)', config_file, str(err))
+        logger.error("Could not find requested file: %s (%s)", config_file, str(err))
     return conf, conf_txt
 
 
 def config_hash_content(content):
     """Return hash of config file content."""
     config_hash = getattr(hashlib, CONFIG_HASH_FUNC)
-    return config_hash(content.encode('utf-8')).hexdigest()
+    return config_hash(content.encode("utf-8")).hexdigest()
 
 
 def config_file_hash(config_file_name):
     """Return hash of YAML config file contents."""
-    with open(config_file_name, encoding='utf-8') as config_file:
+    with open(config_file_name, encoding="utf-8") as config_file:
         return config_hash_content(config_file.read())
 
 
@@ -87,22 +95,29 @@ def dp_config_path(config_file, parent_file=None):
     return os.path.realpath(config_file)
 
 
-def dp_include(config_hashes, config_contents, config_file, logname,  # pylint: disable=too-many-locals
-               top_confs):
+def dp_include(
+    config_hashes,
+    config_contents,
+    config_file,
+    logname,  # pylint: disable=too-many-locals
+    top_confs,
+):
     """Handles including additional config files"""
     logger = get_logger(logname)
     if not os.path.isfile(config_file):
-        logger.warning('not a regular file or does not exist: %s', config_file)
+        logger.warning("not a regular file or does not exist: %s", config_file)
         return False
     conf, config_content = read_config(config_file, logname)
     if not conf:
-        logger.warning('error loading config from file: %s', config_file)
+        logger.warning("error loading config from file: %s", config_file)
         return False
 
-    valid_conf_keys = set(top_confs.keys()).union({'include', 'include-optional', 'version'})
+    valid_conf_keys = set(top_confs.keys()).union(
+        {"include", "include-optional", "version"}
+    )
     unknown_top_confs = set(conf.keys()) - valid_conf_keys
     if unknown_top_confs:
-        logger.error('unknown top level config items: %s', unknown_top_confs)
+        logger.error("unknown top level config items: %s", unknown_top_confs)
         return False
 
     # Add the SHA256 hash for this configuration file, so FAUCET can determine
@@ -125,30 +140,36 @@ def dp_include(config_hashes, config_contents, config_file, logname,  # pylint: 
             return False
 
     for include_directive, file_required in (
-            ('include', True),
-            ('include-optional', False)):
+        ("include", True),
+        ("include-optional", False),
+    ):
         include_values = conf.pop(include_directive, [])
         if not isinstance(include_values, list):
-            logger.error('Include directive is not in a valid format')
+            logger.error("Include directive is not in a valid format")
             return False
         for include_file in include_values:
             if not isinstance(include_file, str):
                 include_file = str(include_file)
 
             include_path = dp_config_path(include_file, parent_file=config_file)
-            logger.info('including file: %s', include_path)
+            logger.info("including file: %s", include_path)
             if include_path in config_hashes:
                 logger.error(
-                    'include file %s already loaded, include loop found in file: %s',
-                    include_path, config_file,)
+                    "include file %s already loaded, include loop found in file: %s",
+                    include_path,
+                    config_file,
+                )
                 return False
             if not dp_include(
-                    new_config_hashes, config_contents, include_path, logname, new_top_confs):
+                new_config_hashes, config_contents, include_path, logname, new_top_confs
+            ):
                 if file_required:
-                    logger.error('unable to load required include file: %s', include_path)
+                    logger.error(
+                        "unable to load required include file: %s", include_path
+                    )
                     return False
                 new_config_hashes[include_path] = None
-                logger.warning('skipping optional include file: %s', include_path)
+                logger.warning("skipping optional include file: %s", include_path)
 
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.
