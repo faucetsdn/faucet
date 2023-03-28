@@ -1,7 +1,8 @@
 [MASTER]
 disable=
     fixme,
-    import-error
+    import-error,
+    consider-using-f-string
 
 [FORMAT]
 max-line-length=120
