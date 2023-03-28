@@ -27,22 +27,25 @@ from functools import wraps
 def kill_on_exception(logname):
     """decorator to ensure functions will kill ryu when an unhandled exception
     occurs"""
+
     def _koe(func):
         @wraps(func)
         def __koe(*args, **kwargs):
             try:
                 func(*args, **kwargs)
             except Exception:  # pylint: disable=broad-except
-                logging.getLogger(logname).exception('Unhandled exception, killing RYU')
+                logging.getLogger(logname).exception("Unhandled exception, killing RYU")
                 logging.shutdown()
                 os.kill(os.getpid(), signal.SIGTERM)
+
         return __koe
+
     return _koe
 
 
 def utf8_decode(msg_str):
     """Gracefully decode a possibly UTF-8 string."""
-    return msg_str.decode('utf-8', errors='replace')
+    return msg_str.decode("utf-8", errors="replace")
 
 
 def get_sys_prefix():
@@ -54,9 +57,11 @@ def get_sys_prefix():
     # original path in sys.real_prefix. If this value exists, and is
     # different from sys.prefix, then we are most likely running in a
     # virtualenv. Also check for Py3.3+ pyvenv.
-    sysprefix = ''
-    if (getattr(sys, 'real_prefix', sys.prefix) != sys.prefix
-            or getattr(sys, 'base_prefix', sys.prefix) != sys.prefix):
+    sysprefix = ""
+    if (
+        getattr(sys, "real_prefix", sys.prefix) != sys.prefix
+        or getattr(sys, "base_prefix", sys.prefix) != sys.prefix
+    ):
         sysprefix = sys.prefix
 
     return sysprefix
@@ -65,33 +70,33 @@ def get_sys_prefix():
 _PREFIX = get_sys_prefix()
 # To specify a boolean-only setting, set the default value to a bool type.
 DEFAULTS = {
-    'FAUCET_CONFIG': ''.join((
-        _PREFIX,
-        '/etc/faucet/faucet.yaml',
-        ':',
-        _PREFIX,
-        '/etc/ryu/faucet/faucet.yaml')),
-    'FAUCET_STACK_ROOT_STATE_UPDATE_TIME': 10,
-    'FAUCET_CONFIG_STAT_RELOAD': False,
-    'FAUCET_CONFIG_AUTO_REVERT': False,
-    'FAUCET_LOG_LEVEL': 'INFO',
-    'FAUCET_LOG': _PREFIX + '/var/log/faucet/faucet.log',
-    'FAUCET_EVENT_SOCK': '',  # Special-case, see get_setting().
-    'FAUCET_EVENT_SOCK_HEARTBEAT': 0,  # Special-case, see get_setting().
-    'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/faucet/faucet_exception.log',
-    'FAUCET_PROMETHEUS_PORT': '9302',
-    'FAUCET_PROMETHEUS_ADDR': '0.0.0.0',
-    'GAUGE_CONFIG': ''.join((
-        _PREFIX,
-        '/etc/faucet/gauge.yaml',
-        ':',
-        _PREFIX,
-        '/etc/ryu/faucet/gauge.yaml')),
-    'GAUGE_CONFIG_STAT_RELOAD': False,
-    'GAUGE_LOG_LEVEL': 'INFO',
-    'GAUGE_PROMETHEUS_ADDR': '0.0.0.0',
-    'GAUGE_EXCEPTION_LOG': _PREFIX + '/var/log/faucet/gauge_exception.log',
-    'GAUGE_LOG': _PREFIX + '/var/log/faucet/gauge.log'
+    "FAUCET_CONFIG": "".join(
+        (
+            _PREFIX,
+            "/etc/faucet/faucet.yaml",
+            ":",
+            _PREFIX,
+            "/etc/ryu/faucet/faucet.yaml",
+        )
+    ),
+    "FAUCET_STACK_ROOT_STATE_UPDATE_TIME": 10,
+    "FAUCET_CONFIG_STAT_RELOAD": False,
+    "FAUCET_CONFIG_AUTO_REVERT": False,
+    "FAUCET_LOG_LEVEL": "INFO",
+    "FAUCET_LOG": _PREFIX + "/var/log/faucet/faucet.log",
+    "FAUCET_EVENT_SOCK": "",  # Special-case, see get_setting().
+    "FAUCET_EVENT_SOCK_HEARTBEAT": 0,  # Special-case, see get_setting().
+    "FAUCET_EXCEPTION_LOG": _PREFIX + "/var/log/faucet/faucet_exception.log",
+    "FAUCET_PROMETHEUS_PORT": "9302",
+    "FAUCET_PROMETHEUS_ADDR": "0.0.0.0",
+    "GAUGE_CONFIG": "".join(
+        (_PREFIX, "/etc/faucet/gauge.yaml", ":", _PREFIX, "/etc/ryu/faucet/gauge.yaml")
+    ),
+    "GAUGE_CONFIG_STAT_RELOAD": False,
+    "GAUGE_LOG_LEVEL": "INFO",
+    "GAUGE_PROMETHEUS_ADDR": "0.0.0.0",
+    "GAUGE_EXCEPTION_LOG": _PREFIX + "/var/log/faucet/gauge_exception.log",
+    "GAUGE_LOG": _PREFIX + "/var/log/faucet/gauge.log",
 }
 
 
@@ -108,10 +113,12 @@ def get_setting(name, path_eval=False):
     default_value = DEFAULTS[name]
     result = os.getenv(name, default_value)
     # split on ':' and find the first suitable path
-    if (path_eval
-            and isinstance(result, str)
-            and isinstance(default_value, str) and not
-            isinstance(default_value, bool)):
+    if (
+        path_eval
+        and isinstance(result, str)
+        and isinstance(default_value, str)
+        and not isinstance(default_value, bool)
+    ):
         locations = result.split(":")
         result = None
         for loc in locations:
@@ -124,13 +131,13 @@ def get_setting(name, path_eval=False):
     if isinstance(default_value, bool):
         return _cast_bool(result)
     # Special default for FAUCET_EVENT_SOCK.
-    if name == 'FAUCET_EVENT_SOCK':
-        if result == '0':
-            return ''
+    if name == "FAUCET_EVENT_SOCK":
+        if result == "0":
+            return ""
         if _cast_bool(result):
-            return _PREFIX + '/var/run/faucet/faucet.sock'
-    if name == 'FAUCET_EVENT_SOCK_HEARTBEAT':
-        if result == '0':
+            return _PREFIX + "/var/run/faucet/faucet.sock"
+    if name == "FAUCET_EVENT_SOCK_HEARTBEAT":
+        if result == "0":
             return 0
     return result
 
@@ -139,8 +146,8 @@ def get_logger(logname, logfile, loglevel, propagate):
     """Create and return a logger object."""
 
     stream_handlers = {
-        'STDOUT': sys.stdout,
-        'STDERR': sys.stderr,
+        "STDOUT": sys.stdout,
+        "STDERR": sys.stderr,
     }
 
     try:
@@ -153,9 +160,8 @@ def get_logger(logname, logfile, loglevel, propagate):
         sys.exit(-1)
 
     logger = logging.getLogger(logname)
-    log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
-    logger_handler.setFormatter(
-        logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
+    log_fmt = "%(asctime)s %(name)-6s %(levelname)-8s %(message)s"
+    logger_handler.setFormatter(logging.Formatter(log_fmt, "%b %d %H:%M:%S"))
     logger.addHandler(logger_handler)
     logger.propagate = propagate
     logger.setLevel(loglevel)
@@ -174,8 +180,8 @@ def close_logger(logger):
 def dpid_log(dpid):
     """Log a DP ID as hex/decimal."""
     if dpid is None:
-        return 'DPID None (NoneType)'
-    return 'DPID %u (0x%x)' % (dpid, dpid)
+        return "DPID None (NoneType)"
+    return "DPID %u (0x%x)" % (dpid, dpid)
 
 
 def stat_config_files(config_hashes):
@@ -189,5 +195,6 @@ def stat_config_files(config_hashes):
         config_files_stats[config_file] = (
             config_file_stat.st_size,
             config_file_stat.st_mtime,
-            config_file_stat.st_ctime)
+            config_file_stat.st_ctime,
+        )
     return config_files_stats
