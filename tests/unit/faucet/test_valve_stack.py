@@ -29,14 +29,22 @@ from os_ken.ofproto import ofproto_v1_3 as ofp
 
 from faucet import valve_of
 from faucet.port import (
-    STACK_STATE_INIT, STACK_STATE_UP,
-    LACP_PORT_SELECTED, LACP_PORT_UNSELECTED)
+    STACK_STATE_INIT,
+    STACK_STATE_UP,
+    LACP_PORT_SELECTED,
+    LACP_PORT_UNSELECTED,
+)
 from faucet.config_parser_util import yaml_load, yaml_dump
 
 from clib.fakeoftable import CONTROLLER_PORT
 
 from clib.valve_test_lib import (
-    BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
+    BASE_DP1_CONFIG,
+    CONFIG,
+    STACK_CONFIG,
+    STACK_LOOP_CONFIG,
+    ValveTestBases,
+)
 
 
 class ValveEdgeVLANTestCase(ValveTestBases.ValveTestNetwork):
@@ -136,16 +144,17 @@ dps:
         s3 = self.valves_manager.valves[3].dp
         self.assertFalse(s3.stack.is_root())
         self.assertTrue(s3.stack.is_edge())
-        match = {'in_port': 2, 'vlan_vid': 0, 'eth_src': self.P2_V100_MAC}
+        match = {"in_port": 2, "vlan_vid": 0, "eth_src": self.P2_V100_MAC}
         self.network.tables[3].is_output(match, port=3)
-        match = {'in_port': 3, 'vlan_vid': 0, 'eth_src': self.P2_V100_MAC}
+        match = {"in_port": 3, "vlan_vid": 0, "eth_src": self.P2_V100_MAC}
         self.network.tables[3].is_output(match, port=2)
 
 
 class ValveStackMCLAGTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacked MCLAG"""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -188,7 +197,9 @@ dps:
                 description: p4
                 native_vlan: 100
                 lacp: 1
-""" % BASE_DP1_CONFIG
+"""
+        % BASE_DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic loop config"""
@@ -207,16 +218,24 @@ dps:
         valve = self.valves_manager.valves[0x1]
         other_valves = self.get_other_valves(valve)
         # Equal number of LAG ports, choose root DP
-        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(
+            1, valve, other_valves
+        )[0]
         self.assertEqual(
-            nominated_dpid, 0x1,
-            'Expected nominated DPID %s but found %s' % (0x1, nominated_dpid))
+            nominated_dpid,
+            0x1,
+            "Expected nominated DPID %s but found %s" % (0x1, nominated_dpid),
+        )
         # Choose DP with most UP LAG ports
         lacp_ports[0x1][0].actor_nosync()
-        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(
+            1, valve, other_valves
+        )[0]
         self.assertEqual(
-            nominated_dpid, 0x2,
-            'Expected nominated DPID %s but found %s' % (0x2, nominated_dpid))
+            nominated_dpid,
+            0x2,
+            "Expected nominated DPID %s but found %s" % (0x2, nominated_dpid),
+        )
         # Set all links to no_sync
         for valve in self.valves_manager.valves.values():
             for port in valve.dp.ports.values():
@@ -226,23 +245,35 @@ dps:
                     port.actor_nosync()
         valve = self.valves_manager.valves[0x1]
         other_valves = self.get_other_valves(valve)
-        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(
+            1, valve, other_valves
+        )[0]
         self.assertEqual(
-            nominated_dpid, 0x1,
-            'Expected nominated DPID %s but found %s' % (0x1, nominated_dpid))
+            nominated_dpid,
+            0x1,
+            "Expected nominated DPID %s but found %s" % (0x1, nominated_dpid),
+        )
         # Set one link to up
         lacp_ports[0x1][0].actor_up()
-        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(
+            1, valve, other_valves
+        )[0]
         self.assertEqual(
-            nominated_dpid, 0x1,
-            'Expected nominated DPID %s but found %s' % (0x1, nominated_dpid))
+            nominated_dpid,
+            0x1,
+            "Expected nominated DPID %s but found %s" % (0x1, nominated_dpid),
+        )
         # Set DP 1 links to init
         lacp_ports[0x1][0].actor_init()
         lacp_ports[0x1][1].actor_init()
-        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(
+            1, valve, other_valves
+        )[0]
         self.assertEqual(
-            nominated_dpid, 0x2,
-            'Expected nominated DPID %s but found %s' % (0x2, nominated_dpid))
+            nominated_dpid,
+            0x2,
+            "Expected nominated DPID %s but found %s" % (0x2, nominated_dpid),
+        )
 
     def test_no_dpid_nominations(self):
         """Test dpid nomination doesn't nominate when no LACP ports are up"""
@@ -250,19 +281,23 @@ dps:
         valve = self.valves_manager.valves[0x1]
         other_valves = self.get_other_valves(valve)
         # No actors UP so should return None
-        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, other_valves)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(
+            1, valve, other_valves
+        )[0]
         self.assertEqual(
-            nominated_dpid, None,
-            'Did not expect to nominate DPID %s' % nominated_dpid)
+            nominated_dpid, None, "Did not expect to nominate DPID %s" % nominated_dpid
+        )
         # No other valves so should return None
         for valve in self.valves_manager.valves.values():
             for port in valve.dp.ports.values():
                 if port.lacp:
                     port.actor_up()
-        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, None)[0]
+        nominated_dpid = valve.switch_manager.get_lacp_dpid_nomination(1, valve, None)[
+            0
+        ]
         self.assertEqual(
-            nominated_dpid, None,
-            'Did not expect to nominate DPID %s' % nominated_dpid)
+            nominated_dpid, None, "Did not expect to nominate DPID %s" % nominated_dpid
+        )
 
     def test_nominated_dpid_port_selection(self):
         """Test a nominated port selection state is changed"""
@@ -280,24 +315,32 @@ dps:
                 valve.lacp_update(port, True, 1, 1, other_valves)
                 # Testing accuracy of varz port_lacp_role
                 port_labels = {
-                    'port': port.name,
-                    'port_description': port.description,
-                    'dp_name': valve.dp.name,
-                    'dp_id': '0x%x' % valve.dp.dp_id
+                    "port": port.name,
+                    "port_description": port.description,
+                    "dp_name": valve.dp.name,
+                    "dp_id": "0x%x" % valve.dp.dp_id,
                 }
-                lacp_role = self.get_prom('port_lacp_role', labels=port_labels, bare=True)
+                lacp_role = self.get_prom(
+                    "port_lacp_role", labels=port_labels, bare=True
+                )
                 self.assertEqual(
-                    port.lacp_port_state(), lacp_role,
-                    'Port %s DP %s role %s differs from varz value %s'
-                    % (port, valve, port.lacp_port_state(), lacp_role))
+                    port.lacp_port_state(),
+                    lacp_role,
+                    "Port %s DP %s role %s differs from varz value %s"
+                    % (port, valve, port.lacp_port_state(), lacp_role),
+                )
                 if valve.dp.dp_id == 0x1:
                     self.assertEqual(
-                        port.lacp_port_state(), LACP_PORT_SELECTED,
-                        'Expected LACP port %s DP %s to be SELECTED' % (port, valve))
+                        port.lacp_port_state(),
+                        LACP_PORT_SELECTED,
+                        "Expected LACP port %s DP %s to be SELECTED" % (port, valve),
+                    )
                 else:
                     self.assertEqual(
-                        port.lacp_port_state(), LACP_PORT_UNSELECTED,
-                        'Expected LACP port %s DP %s to be UNSELECTED' % (port, valve))
+                        port.lacp_port_state(),
+                        LACP_PORT_UNSELECTED,
+                        "Expected LACP port %s DP %s to be UNSELECTED" % (port, valve),
+                    )
 
     def test_lag_flood(self):
         """Test flooding is allowed for UP & SELECTED LAG links only"""
@@ -305,15 +348,15 @@ dps:
         main_valve = self.valves_manager.valves[0x1]
         main_other_valves = self.get_other_valves(main_valve)
         # Start with all LAG links INIT & UNSELECTED
-        self.validate_flood(2, 0, 3, False, 'Flooded out UNSELECTED & INIT LAG port')
-        self.validate_flood(2, 0, 4, False, 'Flooded out UNSELECTED & INIT LAG port')
+        self.validate_flood(2, 0, 3, False, "Flooded out UNSELECTED & INIT LAG port")
+        self.validate_flood(2, 0, 4, False, "Flooded out UNSELECTED & INIT LAG port")
         # Set UP & SELECTED one s1 LAG link
         port3 = main_valve.dp.ports[3]
         port4 = main_valve.dp.ports[4]
         self.apply_ofmsgs(main_valve.lacp_update(port4, True, 1, 1, main_other_valves))
         self.apply_ofmsgs(main_valve.lacp_update(port3, False, 1, 1, main_other_valves))
-        self.validate_flood(2, 0, 3, False, 'Flooded out NOSYNC LAG port')
-        self.validate_flood(2, 0, 4, True, 'Did not flood out SELECTED LAG port')
+        self.validate_flood(2, 0, 3, False, "Flooded out NOSYNC LAG port")
+        self.validate_flood(2, 0, 4, True, "Did not flood out SELECTED LAG port")
         # Set UP & SELECTED s2 LAG links
         valve = self.valves_manager.valves[0x2]
         other_valves = self.get_other_valves(valve)
@@ -322,13 +365,13 @@ dps:
                 valve.lacp_update(port, True, 1, 1, other_valves)
         self.apply_ofmsgs(main_valve.lacp_update(port4, True, 1, 1, main_other_valves))
         self.apply_ofmsgs(main_valve.lacp_update(port3, False, 1, 1, main_other_valves))
-        self.validate_flood(2, 0, 3, False, 'Flooded out UNSELECTED & NOSYNC LAG port')
-        self.validate_flood(2, 0, 4, False, 'Flooded out UNSELECTED LAG port')
+        self.validate_flood(2, 0, 3, False, "Flooded out UNSELECTED & NOSYNC LAG port")
+        self.validate_flood(2, 0, 4, False, "Flooded out UNSELECTED LAG port")
         # Set UP & SELECTED both s1 LAG links
         self.apply_ofmsgs(main_valve.lacp_update(port3, True, 1, 1, main_other_valves))
         self.apply_ofmsgs(main_valve.lacp_update(port4, True, 1, 1, main_other_valves))
-        self.validate_flood(2, 0, 3, True, 'Did not flood out SELECTED LAG port')
-        self.validate_flood(2, 0, 4, False, 'Flooded out multiple LAG ports')
+        self.validate_flood(2, 0, 3, True, "Did not flood out SELECTED LAG port")
+        self.validate_flood(2, 0, 4, False, "Flooded out multiple LAG ports")
 
     def test_lag_pipeline_accept(self):
         """Test packets entering through UP & SELECTED LAG links"""
@@ -337,18 +380,30 @@ dps:
         main_other_valves = self.get_other_valves(main_valve)
         # Packet initially rejected
         self.validate_flood(
-            3, 0, None, False, 'Packet incoming through UNSELECTED & INIT port was accepted')
+            3,
+            0,
+            None,
+            False,
+            "Packet incoming through UNSELECTED & INIT port was accepted",
+        )
         self.validate_flood(
-            4, 0, None, False, 'Packet incoming through UNSELECTED & INIT port was accepted')
+            4,
+            0,
+            None,
+            False,
+            "Packet incoming through UNSELECTED & INIT port was accepted",
+        )
         # Set one s1 LAG port 4 to SELECTED & UP
         port3 = main_valve.dp.ports[3]
         port4 = main_valve.dp.ports[4]
         self.apply_ofmsgs(main_valve.lacp_update(port4, True, 1, 1, main_other_valves))
         self.apply_ofmsgs(main_valve.lacp_update(port3, False, 1, 1, main_other_valves))
         self.validate_flood(
-            3, 0, None, False, 'Packet incoming through NOSYNC port was accepted')
+            3, 0, None, False, "Packet incoming through NOSYNC port was accepted"
+        )
         self.validate_flood(
-            4, 0, None, True, 'Packet incoming through SELECTED port was not accepted')
+            4, 0, None, True, "Packet incoming through SELECTED port was not accepted"
+        )
         # Set UP & SELECTED s2 LAG links, set one s1 port down
         valve = self.valves_manager.valves[0x2]
         other_valves = self.get_other_valves(valve)
@@ -358,22 +413,31 @@ dps:
         self.apply_ofmsgs(main_valve.lacp_update(port4, True, 1, 1, main_other_valves))
         self.apply_ofmsgs(main_valve.lacp_update(port3, False, 1, 1, main_other_valves))
         self.validate_flood(
-            3, 0, None, False, 'Packet incoming through UNSELECTED & NOSYNC port was accepted')
+            3,
+            0,
+            None,
+            False,
+            "Packet incoming through UNSELECTED & NOSYNC port was accepted",
+        )
         self.validate_flood(
-            4, 0, None, False, 'Packet incoming through UNSELECTED port was accepted')
+            4, 0, None, False, "Packet incoming through UNSELECTED port was accepted"
+        )
         # Set UP & SELECTED both s1 LAG links
         self.apply_ofmsgs(main_valve.lacp_update(port3, True, 1, 1, main_other_valves))
         self.apply_ofmsgs(main_valve.lacp_update(port4, True, 1, 1, main_other_valves))
         self.validate_flood(
-            3, 0, None, True, 'Packet incoming through SELECTED port was not accepted')
+            3, 0, None, True, "Packet incoming through SELECTED port was not accepted"
+        )
         self.validate_flood(
-            4, 0, None, True, 'Packet incoming through SELECTED port was not accepted')
+            4, 0, None, True, "Packet incoming through SELECTED port was not accepted"
+        )
 
 
 class ValveStackMCLAGRestartTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacked MCLAG"""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -416,7 +480,9 @@ dps:
                 description: p4
                 native_vlan: 100
                 lacp: 1
-""" % BASE_DP1_CONFIG
+"""
+        % BASE_DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic loop config"""
@@ -429,26 +495,31 @@ dps:
         other_valves = self.get_other_valves(valve)
         old_port = valve.dp.ports[3]
         # Make sure LACP state has been updated
-        self.assertTrue(valve.lacp_update(old_port, True, 1, 1, other_valves), 'No OFMSGS returned')
-        self.assertTrue(old_port.is_actor_up(), 'Actor not UP')
+        self.assertTrue(
+            valve.lacp_update(old_port, True, 1, 1, other_valves), "No OFMSGS returned"
+        )
+        self.assertTrue(old_port.is_actor_up(), "Actor not UP")
         # Set port DOWN
         valve.port_delete(3, other_valves=other_valves)
-        self.assertTrue(old_port.is_actor_none(), 'Actor not NONE')
+        self.assertTrue(old_port.is_actor_none(), "Actor not NONE")
         # Restart switch & LACP port
         self.cold_start()
         new_port = valve.dp.ports[3]
         # A full cold-start should change port object, but self.cold_start() is 'incomplete'
-        self.assertEqual(id(old_port), id(new_port), 'Port object changed')
-        self.assertTrue(valve.port_add(3), 'No OFMSGS returned')
+        self.assertEqual(id(old_port), id(new_port), "Port object changed")
+        self.assertTrue(valve.port_add(3), "No OFMSGS returned")
         # Successfully restart LACP from downed
-        self.assertTrue(valve.lacp_update(new_port, True, 1, 1, other_valves), 'No OFMSGS returned')
-        self.assertTrue(new_port.is_actor_up(), 'Actor not UP')
+        self.assertTrue(
+            valve.lacp_update(new_port, True, 1, 1, other_valves), "No OFMSGS returned"
+        )
+        self.assertTrue(new_port.is_actor_up(), "Actor not UP")
 
 
 class ValveStackMCLAGStandbyTestCase(ValveTestBases.ValveTestNetwork):
     """Test MCLAG with standby port option overrules unselected states"""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -489,7 +560,9 @@ dps:
                 native_vlan: 100
                 lacp_standby: True
                 lacp: 1
-""" % BASE_DP1_CONFIG
+"""
+        % BASE_DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic loop config"""
@@ -506,7 +579,9 @@ dps:
                 self.assertTrue(port.is_port_selected())
         for port in other_valve.dp.ports.values():
             if port.lacp:
-                other_valve.lacp_update(port, True, 1, 1, self.get_other_valves(other_valve))
+                other_valve.lacp_update(
+                    port, True, 1, 1, self.get_other_valves(other_valve)
+                )
                 self.assertTrue(port.is_port_standby())
         for port in valve.dp.ports.values():
             if port.lacp:
@@ -514,14 +589,17 @@ dps:
                 self.assertTrue(port.is_port_standby())
         for port in other_valve.dp.ports.values():
             if port.lacp:
-                other_valve.lacp_update(port, True, 1, 1, self.get_other_valves(other_valve))
+                other_valve.lacp_update(
+                    port, True, 1, 1, self.get_other_valves(other_valve)
+                )
                 self.assertTrue(port.is_port_selected())
 
 
 class ValveStackRootExtLoopProtectTestCase(ValveTestBases.ValveTestNetwork):
     """External loop protect test cases"""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -564,7 +642,9 @@ dps:
                 description: p4
                 native_vlan: 100
                 loop_protect_external: True
-""" % BASE_DP1_CONFIG
+"""
+        % BASE_DP1_CONFIG
+    )
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
@@ -573,29 +653,32 @@ dps:
     def test_loop_protect(self):
         """test basic loop protection"""
         mcast_match = {
-            'in_port': 2,
-            'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': 0,
-            'eth_type': 0x800,
-            'ipv4_dst': '224.0.0.5',
+            "in_port": 2,
+            "eth_dst": mac.BROADCAST_STR,
+            "vlan_vid": 0,
+            "eth_type": 0x800,
+            "ipv4_dst": "224.0.0.5",
         }
         table = self.network.tables[self.DP_ID]
         self.assertTrue(
             table.is_output(mcast_match, port=1),
-            msg='mcast packet not flooded to non-root stack')
+            msg="mcast packet not flooded to non-root stack",
+        )
         self.assertTrue(
             table.is_output(mcast_match, port=3),
-            msg='mcast packet not flooded locally on root')
+            msg="mcast packet not flooded locally on root",
+        )
         self.assertFalse(
             table.is_output(mcast_match, port=4),
-            msg='mcast packet multiply flooded externally on root')
+            msg="mcast packet multiply flooded externally on root",
+        )
 
 
 class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
     """Test base class for loop stack config"""
 
     CONFIG = STACK_CONFIG
-    DP = 's2'
+    DP = "s2"
     DP_ID = 2
 
     def setUp(self):
@@ -614,22 +697,22 @@ class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
 
     def _unicast_to(self, out_port, trace=False):
         ucast_match = {
-            'in_port': 4,
-            'eth_src': self.P2_V100_MAC,
-            'eth_dst': self.P1_V100_MAC,
-            'vlan_vid': 0,
-            'eth_type': 0x800,
+            "in_port": 4,
+            "eth_src": self.P2_V100_MAC,
+            "eth_dst": self.P1_V100_MAC,
+            "vlan_vid": 0,
+            "eth_type": 0x800,
         }
         table = self.network.tables[self.DP_ID]
         return table.is_output(ucast_match, port=out_port, trace=trace)
 
     def _learning_from_bcast(self, in_port, trace=False):
         ucast_match = {
-            'in_port': in_port,
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.BROADCAST_MAC,
-            'vlan_vid': self.V100,
-            'eth_type': 0x800,
+            "in_port": in_port,
+            "eth_src": self.P1_V100_MAC,
+            "eth_dst": self.BROADCAST_MAC,
+            "vlan_vid": self.V100,
+            "eth_type": 0x800,
         }
         table = self.network.tables[self.DP_ID]
         if trace:
@@ -640,21 +723,29 @@ class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
         """Validate the switch behavior before learning, and then learn hosts"""
 
         # Before learning, unicast should flood to stack root and packet-in.
-        self.assertFalse(self._unicast_to(1), 'unlearned unicast to stack root')
-        self.assertFalse(self._unicast_to(2), 'unlearned unicast to stack root')
-        self.assertTrue(self._unicast_to(3), 'unlearned unicast away from stack root')
-        self.assertTrue(self._unicast_to(CONTROLLER_PORT), 'unlearned unicast learn')
-        self.assertFalse(self._learning_from_bcast(1), 'learn from stack root broadcast')
-        self.assertFalse(self._learning_from_bcast(4), 'learn from access port broadcast')
+        self.assertFalse(self._unicast_to(1), "unlearned unicast to stack root")
+        self.assertFalse(self._unicast_to(2), "unlearned unicast to stack root")
+        self.assertTrue(self._unicast_to(3), "unlearned unicast away from stack root")
+        self.assertTrue(self._unicast_to(CONTROLLER_PORT), "unlearned unicast learn")
+        self.assertFalse(
+            self._learning_from_bcast(1), "learn from stack root broadcast"
+        )
+        self.assertFalse(
+            self._learning_from_bcast(4), "learn from access port broadcast"
+        )
 
         self.learn_stack_hosts()
 
-        self.assertFalse(self._unicast_to(1), 'learned unicast to stack root')
-        self.assertFalse(self._unicast_to(2), 'learned unicast to stack root')
-        self.assertTrue(self._unicast_to(3), 'learned unicast away from stack root')
-        self.assertFalse(self._unicast_to(CONTROLLER_PORT), 'no learn from unicast')
-        self.assertFalse(self._learning_from_bcast(1), 'learn from stack root broadcast')
-        self.assertFalse(self._learning_from_bcast(4), 'learn from access port broadcast')
+        self.assertFalse(self._unicast_to(1), "learned unicast to stack root")
+        self.assertFalse(self._unicast_to(2), "learned unicast to stack root")
+        self.assertTrue(self._unicast_to(3), "learned unicast away from stack root")
+        self.assertFalse(self._unicast_to(CONTROLLER_PORT), "no learn from unicast")
+        self.assertFalse(
+            self._learning_from_bcast(1), "learn from stack root broadcast"
+        )
+        self.assertFalse(
+            self._learning_from_bcast(4), "learn from access port broadcast"
+        )
 
     def test_stack_learn_edge(self):
         """Test stack learned edge"""
@@ -663,7 +754,9 @@ class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
 
     def test_stack_learn_not_root(self):
         """Test stack learned when not root"""
-        self.update_config(self._config_edge_learn_stack_root(False), reload_type='warm')
+        self.update_config(
+            self._config_edge_learn_stack_root(False), reload_type="warm"
+        )
         self.activate_all_ports()
         self.validate_edge_learn_ports()
 
@@ -680,16 +773,16 @@ class ValveStackLoopTest(ValveTestBases.ValveTestNetwork):
     def validate_flooding(self, rerouted=False, portup=True):
         """Validate the flooding state of the stack"""
         vid = self.V100
-        self.validate_flood(1, vid, 1, False, 'flooded out input stack port')
-        self.validate_flood(1, vid, 2, portup, 'not flooded to stack root')
-        self.validate_flood(1, vid, 3, portup, 'not flooded to external host')
-        self.validate_flood(2, vid, 1, rerouted, 'flooded out other stack port')
-        self.validate_flood(2, vid, 2, False, 'flooded out input stack port')
-        self.validate_flood(2, vid, 3, True, 'not flooded to external host')
+        self.validate_flood(1, vid, 1, False, "flooded out input stack port")
+        self.validate_flood(1, vid, 2, portup, "not flooded to stack root")
+        self.validate_flood(1, vid, 3, portup, "not flooded to external host")
+        self.validate_flood(2, vid, 1, rerouted, "flooded out other stack port")
+        self.validate_flood(2, vid, 2, False, "flooded out input stack port")
+        self.validate_flood(2, vid, 3, True, "not flooded to external host")
         vid = 0
-        self.validate_flood(3, vid, 1, rerouted, 'flooded out inactive port')
-        self.validate_flood(3, vid, 2, True, 'not flooded to stack root')
-        self.validate_flood(3, vid, 3, False, 'flooded out hairpin')
+        self.validate_flood(3, vid, 1, rerouted, "flooded out inactive port")
+        self.validate_flood(3, vid, 2, True, "not flooded to stack root")
+        self.validate_flood(3, vid, 3, False, "flooded out hairpin")
 
     def learn_stack_hosts(self):
         """Learn some hosts."""
@@ -705,22 +798,22 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
 
     def _unicast_to(self, out_port):
         ucast_match = {
-            'in_port': 3,
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.P2_V100_MAC,
-            'vlan_vid': 0,
-            'eth_type': 0x800,
+            "in_port": 3,
+            "eth_src": self.P1_V100_MAC,
+            "eth_dst": self.P2_V100_MAC,
+            "vlan_vid": 0,
+            "eth_type": 0x800,
         }
         table = self.network.tables[self.DP_ID]
         return table.is_output(ucast_match, port=out_port)
 
     def _learning_from_bcast(self, in_port):
         bcast_match = {
-            'in_port': in_port,
-            'eth_src': self.P2_V100_MAC,
-            'eth_dst': self.BROADCAST_MAC,
-            'vlan_vid': self.V100,
-            'eth_type': 0x800,
+            "in_port": in_port,
+            "eth_src": self.P2_V100_MAC,
+            "eth_dst": self.BROADCAST_MAC,
+            "vlan_vid": self.V100,
+            "eth_type": 0x800,
         }
         table = self.network.tables[self.DP_ID]
         return table.is_output(bcast_match, port=CONTROLLER_PORT)
@@ -729,31 +822,33 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
         """Validate the switch behavior before learning, and then learn hosts"""
 
         # Before learning, unicast should flood to stack root and packet-in.
-        self.assertFalse(self._unicast_to(1), 'unicast direct to edge')
-        self.assertTrue(self._unicast_to(2), 'unicast to stack root')
-        self.assertTrue(self._unicast_to(CONTROLLER_PORT), 'learn from unicast')
+        self.assertFalse(self._unicast_to(1), "unicast direct to edge")
+        self.assertTrue(self._unicast_to(2), "unicast to stack root")
+        self.assertTrue(self._unicast_to(CONTROLLER_PORT), "learn from unicast")
 
-        self.assertTrue(self._learning_from_bcast(2), 'learn from stack root broadcast')
+        self.assertTrue(self._learning_from_bcast(2), "learn from stack root broadcast")
 
         self.learn_stack_hosts()
 
-        self.assertFalse(self._unicast_to(CONTROLLER_PORT), 'learn from unicast')
+        self.assertFalse(self._unicast_to(CONTROLLER_PORT), "learn from unicast")
 
     def test_edge_learn_edge_port(self):
         """Check the behavior of the basic edge_learn_port algorithm"""
 
-        self.update_config(self._config_edge_learn_stack_root(False), reload_type='warm')
+        self.update_config(
+            self._config_edge_learn_stack_root(False), reload_type="warm"
+        )
 
         self.activate_all_ports()
 
         self.validate_edge_learn_ports()
 
         # After learning, unicast should go direct to edge switch.
-        self.assertTrue(self._unicast_to(1), 'unicast direct to edge')
-        self.assertFalse(self._unicast_to(2), 'unicast to stack root')
+        self.assertTrue(self._unicast_to(1), "unicast direct to edge")
+        self.assertFalse(self._unicast_to(2), "unicast to stack root")
 
         # TODO: This should be False to prevent unnecessary packet-ins.
-        self.assertTrue(self._learning_from_bcast(2), 'learn from stack root broadcast')
+        self.assertTrue(self._learning_from_bcast(2), "learn from stack root broadcast")
 
     def test_edge_learn_stack_root(self):
         """Check the behavior of learning always towards stack root"""
@@ -763,9 +858,11 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
         self.validate_edge_learn_ports()
 
         # After learning, unicast should go to stack root, and no more learning from root.
-        self.assertFalse(self._unicast_to(1), 'unicast direct to edge')
-        self.assertTrue(self._unicast_to(2), 'unicast to stack root')
-        self.assertFalse(self._learning_from_bcast(2), 'learn from stack root broadcast')
+        self.assertFalse(self._unicast_to(1), "unicast direct to edge")
+        self.assertTrue(self._unicast_to(2), "unicast to stack root")
+        self.assertFalse(
+            self._learning_from_bcast(2), "learn from stack root broadcast"
+        )
 
 
 class ValveStackRedundantLink(ValveStackLoopTest):
@@ -775,30 +872,34 @@ class ValveStackRedundantLink(ValveStackLoopTest):
         """Basic loop protection check"""
         self.activate_all_ports()
         mcast_match = {
-            'in_port': 3,
-            'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': 0,
-            'eth_type': 0x800,
-            'ipv4_dst': '224.0.0.5',
+            "in_port": 3,
+            "eth_dst": mac.BROADCAST_STR,
+            "vlan_vid": 0,
+            "eth_type": 0x800,
+            "ipv4_dst": "224.0.0.5",
         }
         table = self.network.tables[self.DP_ID]
         valve = self.valves_manager.valves[self.DP_ID]
         self.assertTrue(
             table.is_output(mcast_match, port=2),
-            msg='mcast packet not flooded to root of stack')
+            msg="mcast packet not flooded to root of stack",
+        )
         self.assertFalse(valve.dp.ports[2].non_stack_forwarding())
         self.assertFalse(
             table.is_output(mcast_match, port=1),
-            msg='mcast packet flooded root of stack via not shortest path')
+            msg="mcast packet flooded root of stack via not shortest path",
+        )
         self.deactivate_stack_port(valve.dp.ports[2])
         self.assertFalse(valve.dp.ports[2].non_stack_forwarding())
         self.assertFalse(
             table.is_output(mcast_match, port=2),
-            msg='mcast packet flooded to root of stack via redundant path')
+            msg="mcast packet flooded to root of stack via redundant path",
+        )
         self.assertFalse(valve.dp.ports[2].non_stack_forwarding())
         self.assertTrue(
             table.is_output(mcast_match, port=1),
-            msg='mcast packet not flooded root of stack')
+            msg="mcast packet not flooded root of stack",
+        )
         self.assertFalse(valve.dp.ports[2].non_stack_forwarding())
         self.assertTrue(valve.dp.ports[3].non_stack_forwarding())
 
@@ -806,7 +907,8 @@ class ValveStackRedundantLink(ValveStackLoopTest):
 class ValveStackNonRootExtLoopProtectTestCase(ValveTestBases.ValveTestNetwork):
     """Test non-root external loop protect"""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -858,7 +960,9 @@ dps:
             2:
                 description: p2
                 native_vlan: 100
-""" % BASE_DP1_CONFIG
+"""
+        % BASE_DP1_CONFIG
+    )
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
@@ -867,28 +971,32 @@ dps:
     def test_loop_protect(self):
         """Test expected table outputs for external loop protect"""
         mcast_match = {
-            'in_port': 2,
-            'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': 0,
-            'eth_type': 0x800,
-            'ipv4_dst': '224.0.0.5',
+            "in_port": 2,
+            "eth_dst": mac.BROADCAST_STR,
+            "vlan_vid": 0,
+            "eth_type": 0x800,
+            "ipv4_dst": "224.0.0.5",
         }
         table = self.network.tables[self.DP_ID]
         self.assertTrue(
             table.is_output(mcast_match, port=1),
-            msg='mcast packet not flooded to root of stack')
+            msg="mcast packet not flooded to root of stack",
+        )
         self.assertFalse(
             table.is_output(mcast_match, port=3),
-            msg='mcast packet flooded locally on non-root')
+            msg="mcast packet flooded locally on non-root",
+        )
         self.assertFalse(
             table.is_output(mcast_match, port=4),
-            msg='mcast packet flooded locally on non-root')
+            msg="mcast packet flooded locally on non-root",
+        )
 
 
 class ValveStackAndNonStackTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacked switches can exist with non-stacked switches"""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -925,7 +1033,9 @@ dps:
             2:
                 description: p2
                 native_vlan: 0x100
-""" % BASE_DP1_CONFIG
+"""
+        % BASE_DP1_CONFIG
+    )
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
@@ -933,7 +1043,9 @@ dps:
     def test_nonstack_dp_port(self):
         """Test that finding a path from a stack swithc to a non-stack switch cannot happen"""
         self.assertIsNone(None, self.valves_manager.valves[0x3].dp.stack)
-        self.assertEqual(None, self.valves_manager.valves[0x1].dp.stack.shortest_path_port('s3'))
+        self.assertEqual(
+            None, self.valves_manager.valves[0x1].dp.stack.shortest_path_port("s3")
+        )
 
 
 class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
@@ -969,70 +1081,87 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
             self.set_stack_all_ports_status(dp.name, STACK_STATE_INIT)
         for valve in self.valves_manager.valves.values():
             self.assertFalse(valve.dp.dyn_running)
-            self.assertEqual('s1', valve.dp.stack.root_name)
-            root_hop_port = valve.dp.stack.shortest_path_port('s1')
+            self.assertEqual("s1", valve.dp.stack.root_name)
+            root_hop_port = valve.dp.stack.shortest_path_port("s1")
             root_hop_port = root_hop_port.number if root_hop_port else 0
-            self.assertEqual(root_hop_port, self.get_prom('dp_root_hop_port', dp_id=valve.dp.dp_id))
+            self.assertEqual(
+                root_hop_port, self.get_prom("dp_root_hop_port", dp_id=valve.dp.dp_id)
+            )
         # From a cold start - we pick the s1 as root.
         self.assertEqual(None, self.valves_manager.meta_dp_state.stack_root_name)
         self.assertFalse(
-            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
-        self.assertEqual('s1', self.valves_manager.meta_dp_state.stack_root_name)
-        self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
-        self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=1))
-        self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=2))
-        self.assertEqual(1, self.get_prom('stack_root_change_count_total', bare=True))
-        now += (self.STACK_ROOT_DOWN_TIME * 2)
+            self.valves_manager.maintain_stack_root(
+                now, self.STACK_ROOT_STATE_UPDATE_TIME
+            )
+        )
+        self.assertEqual("s1", self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(1, self.get_prom("faucet_stack_root_dpid", bare=True))
+        self.assertTrue(self.get_prom("is_dp_stack_root", dp_id=1))
+        self.assertFalse(self.get_prom("is_dp_stack_root", dp_id=2))
+        self.assertEqual(1, self.get_prom("stack_root_change_count_total", bare=True))
+        now += self.STACK_ROOT_DOWN_TIME * 2
         # Time passes, still no change, s1 is still the root.
         self.assertFalse(
-            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
-        self.assertEqual('s1', self.valves_manager.meta_dp_state.stack_root_name)
-        self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
-        self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=1))
-        self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=2))
-        self.assertEqual(1, self.get_prom('stack_root_change_count_total', bare=True))
+            self.valves_manager.maintain_stack_root(
+                now, self.STACK_ROOT_STATE_UPDATE_TIME
+            )
+        )
+        self.assertEqual("s1", self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(1, self.get_prom("faucet_stack_root_dpid", bare=True))
+        self.assertTrue(self.get_prom("is_dp_stack_root", dp_id=1))
+        self.assertFalse(self.get_prom("is_dp_stack_root", dp_id=2))
+        self.assertEqual(1, self.get_prom("stack_root_change_count_total", bare=True))
         # s2 has come up, but has all stack ports down and s1 is still down.
-        self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
-        now += (self.STACK_ROOT_STATE_UPDATE_TIME * 2)
+        self.valves_manager.meta_dp_state.dp_last_live_time["s2"] = now
+        now += self.STACK_ROOT_STATE_UPDATE_TIME * 2
         # We expect s2 to be the new root because now it has stack links up.
-        self.set_stack_all_ports_status('s2', STACK_STATE_UP)
-        now += (self.STACK_ROOT_STATE_UPDATE_TIME * 2)
-        self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
+        self.set_stack_all_ports_status("s2", STACK_STATE_UP)
+        now += self.STACK_ROOT_STATE_UPDATE_TIME * 2
+        self.valves_manager.meta_dp_state.dp_last_live_time["s2"] = now
         self.assertTrue(
-            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
-        self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
-        self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
-        self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=1))
-        self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=2))
-        self.assertEqual(2, self.get_prom('stack_root_change_count_total', bare=True))
+            self.valves_manager.maintain_stack_root(
+                now, self.STACK_ROOT_STATE_UPDATE_TIME
+            )
+        )
+        self.assertEqual("s2", self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(2, self.get_prom("faucet_stack_root_dpid", bare=True))
+        self.assertFalse(self.get_prom("is_dp_stack_root", dp_id=1))
+        self.assertTrue(self.get_prom("is_dp_stack_root", dp_id=2))
+        self.assertEqual(2, self.get_prom("stack_root_change_count_total", bare=True))
         # More time passes, s1 is still down, s2 is still the root.
-        now += (self.STACK_ROOT_DOWN_TIME * 2)
+        now += self.STACK_ROOT_DOWN_TIME * 2
         # s2 recently said something, s2 still the root.
-        self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now - 1
-        self.set_stack_all_ports_status('s2', STACK_STATE_UP)
+        self.valves_manager.meta_dp_state.dp_last_live_time["s2"] = now - 1
+        self.set_stack_all_ports_status("s2", STACK_STATE_UP)
         self.assertFalse(
-            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
-        self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
-        self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
-        self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=1))
-        self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=2))
-        self.assertEqual(2, self.get_prom('stack_root_change_count_total', bare=True))
+            self.valves_manager.maintain_stack_root(
+                now, self.STACK_ROOT_STATE_UPDATE_TIME
+            )
+        )
+        self.assertEqual("s2", self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(2, self.get_prom("faucet_stack_root_dpid", bare=True))
+        self.assertFalse(self.get_prom("is_dp_stack_root", dp_id=1))
+        self.assertTrue(self.get_prom("is_dp_stack_root", dp_id=2))
+        self.assertEqual(2, self.get_prom("stack_root_change_count_total", bare=True))
         # now s1 came up too, but we stay on s2 because it's healthy.
-        self.valves_manager.meta_dp_state.dp_last_live_time['s1'] = now + 1
+        self.valves_manager.meta_dp_state.dp_last_live_time["s1"] = now + 1
         now += self.STACK_ROOT_STATE_UPDATE_TIME
         self.assertFalse(
-            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
-        self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
-        self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
-        self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=1))
-        self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=2))
-        self.assertEqual(2, self.get_prom('stack_root_change_count_total', bare=True))
+            self.valves_manager.maintain_stack_root(
+                now, self.STACK_ROOT_STATE_UPDATE_TIME
+            )
+        )
+        self.assertEqual("s2", self.valves_manager.meta_dp_state.stack_root_name)
+        self.assertEqual(2, self.get_prom("faucet_stack_root_dpid", bare=True))
+        self.assertFalse(self.get_prom("is_dp_stack_root", dp_id=1))
+        self.assertTrue(self.get_prom("is_dp_stack_root", dp_id=2))
+        self.assertEqual(2, self.get_prom("stack_root_change_count_total", bare=True))
 
 
 class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacking/forwarding."""
 
-    DP = 's3'
+    DP = "s3"
     DP_ID = 0x3
 
     def setUp(self):
@@ -1042,22 +1171,24 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
     def test_stack_learn(self):
         """Test host learning on stack root."""
         self.prom_inc(
-            partial(self.rcv_packet, 1, 0x300, {
-                'eth_src': self.P1_V300_MAC,
-                'eth_dst': self.UNKNOWN_MAC,
-                'ipv4_src': '10.0.0.1',
-                'ipv4_dst': '10.0.0.2'}),
-            'vlan_hosts_learned',
-            labels={'vlan': str(int(0x300))})
+            partial(
+                self.rcv_packet,
+                1,
+                0x300,
+                {
+                    "eth_src": self.P1_V300_MAC,
+                    "eth_dst": self.UNKNOWN_MAC,
+                    "ipv4_src": "10.0.0.1",
+                    "ipv4_dst": "10.0.0.2",
+                },
+            ),
+            "vlan_hosts_learned",
+            labels={"vlan": str(int(0x300))},
+        )
 
     def test_stack_flood(self):
         """Test packet flooding when stacking."""
-        matches = [
-            {
-                'in_port': 1,
-                'vlan_vid': 0,
-                'eth_src': self.P1_V300_MAC
-            }]
+        matches = [{"in_port": 1, "vlan_vid": 0, "eth_src": self.P1_V300_MAC}]
         self.verify_flooding(matches)
 
     def test_stack_off_on(self):
@@ -1088,7 +1219,7 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
 class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacking/forwarding."""
 
-    DP = 's4'
+    DP = "s4"
     DP_ID = 0x4
 
     def setUp(self):
@@ -1097,37 +1228,41 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
 
     def test_stack_learn(self):
         """Test host learning on non-root switch."""
-        self.rcv_packet(1, 0x300, {
-            'eth_src': self.P1_V300_MAC,
-            'eth_dst': self.UNKNOWN_MAC,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.2'})
-        self.rcv_packet(5, 0x300, {
-            'eth_src': self.P1_V300_MAC,
-            'eth_dst': self.UNKNOWN_MAC,
-            'vid': 0x300,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.2'})
+        self.rcv_packet(
+            1,
+            0x300,
+            {
+                "eth_src": self.P1_V300_MAC,
+                "eth_dst": self.UNKNOWN_MAC,
+                "ipv4_src": "10.0.0.1",
+                "ipv4_dst": "10.0.0.2",
+            },
+        )
+        self.rcv_packet(
+            5,
+            0x300,
+            {
+                "eth_src": self.P1_V300_MAC,
+                "eth_dst": self.UNKNOWN_MAC,
+                "vid": 0x300,
+                "ipv4_src": "10.0.0.1",
+                "ipv4_dst": "10.0.0.2",
+            },
+        )
 
     def test_stack_flood(self):
         """Test packet flooding when stacking."""
-        matches = [
-            {
-                'in_port': 1,
-                'vlan_vid': 0,
-                'eth_src': self.P1_V300_MAC
-            }]
+        matches = [{"in_port": 1, "vlan_vid": 0, "eth_src": self.P1_V300_MAC}]
         self.verify_flooding(matches)
 
     def test_no_unexpressed_packetin(self):
         """Test host learning on stack root."""
         unexpressed_vid = 0x666 | ofp.OFPVID_PRESENT
-        match = {
-            'vlan_vid': unexpressed_vid,
-            'eth_dst': self.UNKNOWN_MAC}
+        match = {"vlan_vid": unexpressed_vid, "eth_dst": self.UNKNOWN_MAC}
         table = self.network.tables[self.DP_ID]
         self.assertFalse(
-            table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=unexpressed_vid))
+            table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=unexpressed_vid)
+        )
 
     def test_topo(self):
         """Test DP is assigned appropriate edge/root states"""
@@ -1154,8 +1289,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
         self.assertTrue(stack_port.is_stack_none())
         valve.fast_state_expire(self.mock_time(), other_valves)
         self.assertTrue(stack_port.is_stack_init())
-        for change_func, check_func in [
-                ('stack_up', 'is_stack_up')]:
+        for change_func, check_func in [("stack_up", "is_stack_up")]:
             getattr(other_port, change_func)()
             self.rcv_lldp(stack_port, other_dp, other_port)
             self.assertTrue(getattr(stack_port, check_func)(), msg=change_func)
@@ -1170,9 +1304,7 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
         wrong_dp = self.valves_manager.valves[3].dp
         other_valves = self.valves_manager._other_running_valves(valve)
         valve.fast_state_expire(self.mock_time(), other_valves)
-        for remote_dp, remote_port in [
-                (wrong_dp, other_port),
-                (other_dp, wrong_port)]:
+        for remote_dp, remote_port in [(wrong_dp, other_port), (other_dp, wrong_port)]:
             self.rcv_lldp(stack_port, other_dp, other_port)
             self.assertTrue(stack_port.is_stack_up())
             self.rcv_lldp(stack_port, remote_dp, remote_port)
@@ -1195,17 +1327,19 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
         port_labels = {
-            'port': stack_port.name,
-            'port_description': stack_port.description,
-            'dp_name': valve.dp.name,
-            'dp_id': '0x%x' % valve.dp.dp_id
+            "port": stack_port.name,
+            "port_description": stack_port.description,
+            "dp_name": valve.dp.name,
+            "dp_id": "0x%x" % valve.dp.dp_id,
         }
         stack_change_count = self.get_prom(
-            'port_stack_state_change_count_total', labels=port_labels, bare=True)
+            "port_stack_state_change_count_total", labels=port_labels, bare=True
+        )
         self.assertEqual(
-            4, stack_change_count,
-            'Port %s DP %s expected stack change count %s differs from varz value %s'
-            % (stack_port, valve.dp.name, 4, stack_change_count)
+            4,
+            stack_change_count,
+            "Port %s DP %s expected stack change count %s differs from varz value %s"
+            % (stack_port, valve.dp.name, 4, stack_change_count),
         )
 
 
@@ -1235,7 +1369,7 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestNetwork):
         verify_stack_learn_edges(num_edges)
         valve = self.valves_manager.valves[self.DP_ID]
         ports = [valve.dp.ports[1], valve.dp.ports[2]]
-        edges = [('s1', 's2', 's1:1-s2:1'), ('s1', 's2', 's1:2-s2:2')]
+        edges = [("s1", "s2", "s1:1-s2:1"), ("s1", "s2", "s1:2-s2:2")]
         for port, edge in zip(ports, edges):
             num_edges -= 1
             self.down_stack_port(port)
@@ -1250,16 +1384,16 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
     def validate_flooding(self, rerouted=False, portup=True):
         """Validate the flooding state of the stack"""
         vid = self.V100
-        self.validate_flood(1, vid, 1, False, 'flooded out input stack port')
-        self.validate_flood(1, vid, 2, portup, 'not flooded to stack root')
-        self.validate_flood(1, vid, 3, portup, 'not flooded to external host')
-        self.validate_flood(2, vid, 1, rerouted, 'flooded out other stack port')
-        self.validate_flood(2, vid, 2, False, 'flooded out input stack port')
-        self.validate_flood(2, vid, 3, True, 'not flooded to external host')
+        self.validate_flood(1, vid, 1, False, "flooded out input stack port")
+        self.validate_flood(1, vid, 2, portup, "not flooded to stack root")
+        self.validate_flood(1, vid, 3, portup, "not flooded to external host")
+        self.validate_flood(2, vid, 1, rerouted, "flooded out other stack port")
+        self.validate_flood(2, vid, 2, False, "flooded out input stack port")
+        self.validate_flood(2, vid, 3, True, "not flooded to external host")
         vid = 0
-        self.validate_flood(3, vid, 1, rerouted, 'flooded out inactive port')
-        self.validate_flood(3, vid, 2, True, 'not flooded to stack root')
-        self.validate_flood(3, vid, 3, False, 'flooded out hairpin')
+        self.validate_flood(3, vid, 1, rerouted, "flooded out inactive port")
+        self.validate_flood(3, vid, 2, True, "not flooded to stack root")
+        self.validate_flood(3, vid, 3, False, "flooded out hairpin")
 
     def test_update_stack_graph(self):
         """Test stack graph port UP and DOWN updates"""
@@ -1267,7 +1401,7 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
         self.activate_all_ports()
         self.validate_flooding(False)
         table = self.network.tables[self.DP_ID]
-        self.assertLessEqual(table.flow_count(), 33, 'table overflow')
+        self.assertLessEqual(table.flow_count(), 33, "table overflow")
         # Deactivate link between the two other switches, not the one under test.
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[2]
@@ -1277,10 +1411,10 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
     def _set_max_lldp_lost(self, new_value):
         """Set the interface config option max_lldp_lost"""
         config = yaml_load(self.CONFIG)
-        for dp in config['dps'].values():
-            for interface in dp['interfaces'].values():
-                if 'stack' in interface:
-                    interface['max_lldp_lost'] = new_value
+        for dp in config["dps"].values():
+            for interface in dp["interfaces"].values():
+                if "stack" in interface:
+                    interface["max_lldp_lost"] = new_value
         return yaml_dump(config)
 
     def test_max_lldp_timeout(self):
@@ -1308,7 +1442,9 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
         self.activate_stack_port(port)
         self.validate_flooding()
         new_config = self._set_max_lldp_lost(100)
-        self.update_config(new_config, reload_expected=False, no_reload_no_table_change=False)
+        self.update_config(
+            new_config, reload_expected=False, no_reload_no_table_change=False
+        )
         self.activate_all_ports()
         self.validate_flooding()
 
@@ -1323,13 +1459,15 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
         self.validate_flooding(portup=False)
 
 
-class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):  # pylint: disable=too-few-public-methods
+class ValveTestIPV4StackedRouting(
+    ValveTestBases.ValveTestStackedRouting
+):  # pylint: disable=too-few-public-methods
     """Test inter-vlan routing with stacking capabilities in an IPV4 network"""
 
-    VLAN100_FAUCET_VIPS = '10.0.1.254'
-    VLAN100_FAUCET_VIP_SPACE = '10.0.1.254/24'
-    VLAN200_FAUCET_VIPS = '10.0.2.254'
-    VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
+    VLAN100_FAUCET_VIPS = "10.0.1.254"
+    VLAN100_FAUCET_VIP_SPACE = "10.0.1.254/24"
+    VLAN200_FAUCET_VIPS = "10.0.2.254"
+    VLAN200_FAUCET_VIP_SPACE = "10.0.2.254/24"
 
     def setUp(self):
         self.setup_stack_routing()
@@ -1338,10 +1476,10 @@ class ValveTestIPV4StackedRouting(ValveTestBases.ValveTestStackedRouting):  # py
 class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRouting):
     """Test stacked intervlan routing when each DP has only one of the routed VLANs"""
 
-    VLAN100_FAUCET_VIPS = '10.0.1.254'
-    VLAN100_FAUCET_VIP_SPACE = '10.0.1.254/24'
-    VLAN200_FAUCET_VIPS = '10.0.2.254'
-    VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
+    VLAN100_FAUCET_VIPS = "10.0.1.254"
+    VLAN100_FAUCET_VIP_SPACE = "10.0.1.254/24"
+    VLAN200_FAUCET_VIPS = "10.0.2.254"
+    VLAN200_FAUCET_VIP_SPACE = "10.0.2.254/24"
 
     V100_HOSTS = [1]
     V200_HOSTS = [2]
@@ -1385,10 +1523,10 @@ class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRoutin
 class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRouting):
     """Test stacked intervlan routing when DP in path contains no routed VLANs"""
 
-    VLAN100_FAUCET_VIPS = '10.0.1.254'
-    VLAN100_FAUCET_VIP_SPACE = '10.0.1.254/24'
-    VLAN200_FAUCET_VIPS = '10.0.2.254'
-    VLAN200_FAUCET_VIP_SPACE = '10.0.2.254/24'
+    VLAN100_FAUCET_VIPS = "10.0.1.254"
+    VLAN100_FAUCET_VIP_SPACE = "10.0.1.254/24"
+    VLAN200_FAUCET_VIPS = "10.0.2.254"
+    VLAN200_FAUCET_VIP_SPACE = "10.0.2.254/24"
 
     V100_HOSTS = [1]
     V200_HOSTS = [3]
@@ -1409,9 +1547,13 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
         vlan300:
             vid: 0x300
     %s
-           """ % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
-                  self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
-                  self.base_config())
+           """ % (
+            self.VLAN100_FAUCET_MAC,
+            self.VLAN100_FAUCET_VIP_SPACE,
+            self.VLAN200_FAUCET_MAC,
+            self.VLAN200_FAUCET_VIP_SPACE,
+            self.base_config(),
+        )
 
     @staticmethod
     def base_config():
@@ -1467,10 +1609,10 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
 class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
     """Test inter-vlan routing with stacking capabilities in an IPV6 network"""
 
-    VLAN100_FAUCET_VIPS = 'fc80::1:254'
-    VLAN200_FAUCET_VIPS = 'fc80::2:254'
-    VLAN100_FAUCET_VIP_SPACE = 'fc80::1:254/64'
-    VLAN200_FAUCET_VIP_SPACE = 'fc80::1:254/64'
+    VLAN100_FAUCET_VIPS = "fc80::1:254"
+    VLAN200_FAUCET_VIPS = "fc80::2:254"
+    VLAN100_FAUCET_VIP_SPACE = "fc80::1:254/64"
+    VLAN200_FAUCET_VIP_SPACE = "fc80::1:254/64"
 
     def setUp(self):
         self.setup_stack_routing()
@@ -1478,7 +1620,7 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
     @staticmethod
     def create_ip(vindex, host):
         """Create a IP address string"""
-        return 'fc80::%u:%u' % (vindex, host)
+        return "fc80::%u:%u" % (vindex, host)
 
     @staticmethod
     def get_eth_type():
@@ -1488,24 +1630,24 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
     def create_match(self, vindex, host, faucet_mac, faucet_vip, _code):
         """Create an NA message"""
         return {
-            'eth_src': self.create_mac(vindex, host),
-            'eth_dst': faucet_mac,
-            'ipv6_src': self.create_ip(vindex, host),
-            'ipv6_dst': faucet_vip,
-            'neighbor_advert_ip': self.create_ip(vindex, host)
+            "eth_src": self.create_mac(vindex, host),
+            "eth_dst": faucet_mac,
+            "ipv6_src": self.create_ip(vindex, host),
+            "ipv6_dst": faucet_vip,
+            "neighbor_advert_ip": self.create_ip(vindex, host),
         }
 
 
 class ValveInterVLANStackFlood(ValveTestBases.ValveTestNetwork):
     """Test that the stack ports get flooded to for interVLAN packets"""
 
-    VLAN100_FAUCET_MAC = '00:00:00:00:00:11'
-    VLAN200_FAUCET_MAC = '00:00:00:00:00:22'
-    VLAN100_FAUCET_VIPS = '10.1.0.254'
-    VLAN100_FAUCET_VIP_SPACE = '10.1.0.254/24'
-    VLAN200_FAUCET_VIPS = '10.2.0.254'
-    VLAN200_FAUCET_VIP_SPACE = '10.2.0.254/24'
-    DST_ADDRESS = ipaddress.IPv4Address('10.1.0.1')
+    VLAN100_FAUCET_MAC = "00:00:00:00:00:11"
+    VLAN200_FAUCET_MAC = "00:00:00:00:00:22"
+    VLAN100_FAUCET_VIPS = "10.1.0.254"
+    VLAN100_FAUCET_VIP_SPACE = "10.1.0.254/24"
+    VLAN200_FAUCET_VIPS = "10.2.0.254"
+    VLAN200_FAUCET_VIP_SPACE = "10.2.0.254/24"
+    DST_ADDRESS = ipaddress.IPv4Address("10.1.0.1")
 
     @staticmethod
     def base_config():
@@ -1575,9 +1717,13 @@ vlans:
         faucet_mac: '%s'
         faucet_vips: ['%s']
 %s
-        """ % (self.VLAN100_FAUCET_MAC, self.VLAN100_FAUCET_VIP_SPACE,
-               self.VLAN200_FAUCET_MAC, self.VLAN200_FAUCET_VIP_SPACE,
-               self.base_config())
+        """ % (
+            self.VLAN100_FAUCET_MAC,
+            self.VLAN100_FAUCET_VIP_SPACE,
+            self.VLAN200_FAUCET_MAC,
+            self.VLAN200_FAUCET_VIP_SPACE,
+            self.base_config(),
+        )
 
     def setUp(self):
         """Create a stacking config file."""
@@ -1591,8 +1737,11 @@ vlans:
         stack_manager.reset_peer_distances()
         ports = list()
         if stack_manager.stack.is_root():
-            ports = (stack_manager.away_ports - stack_manager.inactive_away_ports
-                     - stack_manager.pruned_away_ports)
+            ports = (
+                stack_manager.away_ports
+                - stack_manager.inactive_away_ports
+                - stack_manager.pruned_away_ports
+            )
         else:
             ports = [stack_manager.chosen_towards_port]
         return sorted([port.number for port in ports])
@@ -1601,9 +1750,14 @@ vlans:
         """Return ofmsgs for route stack link flooding"""
         faucet_vip = list(vlan.faucet_vips_by_ipv(4))[0].ip
         ofmsgs = route_manager._flood_stack_links(
-            route_manager._gw_resolve_pkt(), vlan, route_manager.multi_out,
-            vlan.faucet_mac, valve_of.mac.BROADCAST_STR,
-            faucet_vip, self.DST_ADDRESS)
+            route_manager._gw_resolve_pkt(),
+            vlan,
+            route_manager.multi_out,
+            vlan.faucet_mac,
+            valve_of.mac.BROADCAST_STR,
+            faucet_vip,
+            self.DST_ADDRESS,
+        )
         return ofmsgs
 
     def test_flood_towards_root_from_s1(self):
@@ -1611,7 +1765,9 @@ vlans:
         output_ports = [3]
         valve = self.valves_manager.valves[1]
         ports = self.stack_manager_flood_ports(valve.stack_manager)
-        self.assertEqual(output_ports, ports, 'InterVLAN flooding does not match expected')
+        self.assertEqual(
+            output_ports, ports, "InterVLAN flooding does not match expected"
+        )
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
         ofmsgs = self.route_manager_ofmsgs(route_manager, vlan)
@@ -1622,7 +1778,9 @@ vlans:
         output_ports = [3, 4]
         valve = self.valves_manager.valves[2]
         ports = self.stack_manager_flood_ports(valve.stack_manager)
-        self.assertEqual(output_ports, ports, 'InterVLAN flooding does not match expected')
+        self.assertEqual(
+            output_ports, ports, "InterVLAN flooding does not match expected"
+        )
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
         ofmsgs = self.route_manager_ofmsgs(route_manager, vlan)
@@ -1633,7 +1791,9 @@ vlans:
         output_ports = [3]
         valve = self.valves_manager.valves[3]
         ports = self.stack_manager_flood_ports(valve.stack_manager)
-        self.assertEqual(output_ports, ports, 'InterVLAN flooding does not match expected')
+        self.assertEqual(
+            output_ports, ports, "InterVLAN flooding does not match expected"
+        )
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
         ofmsgs = self.route_manager_ofmsgs(route_manager, vlan)
@@ -1644,7 +1804,9 @@ vlans:
         output_ports = [3]
         valve = self.valves_manager.valves[4]
         ports = self.stack_manager_flood_ports(valve.stack_manager)
-        self.assertEqual(output_ports, ports, 'InterVLAN flooding does not match expected')
+        self.assertEqual(
+            output_ports, ports, "InterVLAN flooding does not match expected"
+        )
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
         ofmsgs = self.route_manager_ofmsgs(route_manager, vlan)
@@ -1737,41 +1899,72 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should encapsulate and output packet towards tunnel destination s3
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.SRC_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.SRC_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         new_config_yaml = yaml_load(self.CONFIG)
-        new_config_yaml['dps']['s1']['interfaces'][1]['description'] = 'changed'
+        new_config_yaml["dps"]["s1"]["interfaces"][1]["description"] = "changed"
         self.update_config(yaml_dump(new_config_yaml), reload_type=None)
         self.activate_all_ports()
         # warm start with no topo change with tunnel.
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.SRC_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.SRC_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
-        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.assertTrue(ofmsgs, "No tunnel ofmsgs returned after a topology change")
         self.apply_ofmsgs(ofmsgs)
         # Should encapsulate and output packet using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.SRC_ID, True,
-            'Did not encapsulate and forward out re-calculated port')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.SRC_ID,
+            True,
+            "Did not encapsulate and forward out re-calculated port",
+        )
         self.flap_port(1)
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.SRC_ID, True,
-            'Did not encapsulate and forward after port flap')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.SRC_ID,
+            True,
+            "Did not encapsulate and forward after port flap",
+        )
 
     def test_update_same_tunnel(self):
         """Test tunnel rules when outputting to host on the same switch as the source"""
         valve = self.valves_manager.valves[0x1]
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            2, 0, 1, 0, True, 'Did not forward to host on same DP')
+            self.DP_ID,
+            self.DP_ID,
+            2,
+            0,
+            1,
+            0,
+            True,
+            "Did not forward to host on same DP",
+        )
 
     def test_update_dst_tunnel(self):
         """Test a tunnel outputting to the correct tunnel destination"""
@@ -1781,19 +1974,33 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should accept encapsulated packet and output to the destination host
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            3, self.DST_ID, 1, 0, True, 'Did not output to host',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            3,
+            self.DST_ID,
+            1,
+            0,
+            True,
+            "Did not output to host",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
-        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.assertTrue(ofmsgs, "No tunnel ofmsgs returned after a topology change")
         self.apply_ofmsgs(ofmsgs)
         # Should accept encapsulated packet and output using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            4, self.DST_ID, 1, 0, True, 'Did not output to host',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            4,
+            self.DST_ID,
+            1,
+            0,
+            True,
+            "Did not output to host",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
 
     def test_update_none_tunnel(self):
         """Test tunnel on a switch not using a tunnel ACL"""
@@ -1801,16 +2008,30 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should drop any packets received from the tunnel
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            5, self.NONE_ID, None, None, False,
-            'Should not output a packet')
+            self.DP_ID,
+            self.DP_ID,
+            5,
+            self.NONE_ID,
+            None,
+            None,
+            False,
+            "Should not output a packet",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            6, self.NONE_ID, None, None, False,
-            'Should not output a packet')
+            self.DP_ID,
+            self.DP_ID,
+            6,
+            self.NONE_ID,
+            None,
+            None,
+            False,
+            "Should not output a packet",
+        )
 
 
-class ValveTestTransitTunnel(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
+class ValveTestTransitTunnel(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel ACL implementation"""
 
     TRANSIT_ID = 2
@@ -1876,29 +2097,47 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should accept packet from stack and output to the next switch
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            3, self.TRANSIT_ID, 5, self.TRANSIT_ID, True,
-            'Did not output to next switch',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            3,
+            self.TRANSIT_ID,
+            5,
+            self.TRANSIT_ID,
+            True,
+            "Did not output to next switch",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port1.number)
         # Should accept encapsulated packet and output using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            4, self.TRANSIT_ID, 5, self.TRANSIT_ID, True,
-            'Did not output to next switch',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            4,
+            self.TRANSIT_ID,
+            5,
+            self.TRANSIT_ID,
+            True,
+            "Did not output to next switch",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
         # Set the chosen port to the next switch down to force a path recalculation
         self.set_port_down(port2.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
-        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.assertTrue(ofmsgs, "No tunnel ofmsgs returned after a topology change")
         self.apply_ofmsgs(ofmsgs)
         # Should accept encapsulated packet and output using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            4, self.TRANSIT_ID, 6, self.TRANSIT_ID, True,
-            'Did not output to next switch',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            4,
+            self.TRANSIT_ID,
+            6,
+            self.TRANSIT_ID,
+            True,
+            "Did not output to next switch",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
 
 
 class ValveTestMultipleTunnel(ValveTestBases.ValveTestTunnel):
@@ -1951,8 +2190,8 @@ dps:
 
     def test_new_tunnel_source(self):
         config = yaml_load(self.CONFIG)
-        config['dps']['s1']['interfaces'][5]['acls_in'] = ['tunnel_acl']
-        self.update_config(yaml_dump(config), reload_type='warm')
+        config["dps"]["s1"]["interfaces"][5]["acls_in"] = ["tunnel_acl"]
+        self.update_config(yaml_dump(config), reload_type="warm")
         self.activate_all_ports()
         self.test_tunnel_update_multiple_tunnels()
 
@@ -1964,27 +2203,51 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should encapsulate and output packet towards tunnel destination s3
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            2, 0, 3, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            2,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
-        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.assertTrue(ofmsgs, "No tunnel ofmsgs returned after a topology change")
         self.apply_ofmsgs(ofmsgs)
         # Should encapsulate and output packet using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward out re-calculated port')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward out re-calculated port",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward out re-calculated port')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward out re-calculated port",
+        )
 
 
 class ValveTestOrderedTunnel2DP(ValveTestBases.ValveTestTunnel):
@@ -2079,32 +2342,58 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should encapsulate and output packet towards tunnel destination s3
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.SRC_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.SRC_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.SRC_ID, True,
-            'Did not encapsulate and forward',
-            eth_type=0x86dd, ip_proto=56)
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.SRC_ID,
+            True,
+            "Did not encapsulate and forward",
+            eth_type=0x86DD,
+            ip_proto=56,
+        )
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
-        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.assertTrue(ofmsgs, "No tunnel ofmsgs returned after a topology change")
         self.apply_ofmsgs(ofmsgs)
         # Should encapsulate and output packet using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.SRC_ID, True,
-            'Did not encapsulate and forward out re-calculated port')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.SRC_ID,
+            True,
+            "Did not encapsulate and forward out re-calculated port",
+        )
 
     def test_update_same_tunnel(self):
         """Test tunnel rules when outputting to host on the same switch as the source"""
         valve = self.valves_manager.valves[0x1]
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            2, 0, 1, 0, True, 'Did not forward to host on same DP')
+            self.DP_ID,
+            self.DP_ID,
+            2,
+            0,
+            1,
+            0,
+            True,
+            "Did not forward to host on same DP",
+        )
 
     def test_update_dst_tunnel(self):
         """Test a tunnel outputting to the correct tunnel destination"""
@@ -2114,19 +2403,33 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should accept encapsulated packet and output to the destination host
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            3, self.DST_ID, 1, 0, True, 'Did not output to host',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            3,
+            self.DST_ID,
+            1,
+            0,
+            True,
+            "Did not output to host",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
-        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.assertTrue(ofmsgs, "No tunnel ofmsgs returned after a topology change")
         self.apply_ofmsgs(ofmsgs)
         # Should accept encapsulated packet and output using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            4, self.DST_ID, 1, 0, True, 'Did not output to host',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            4,
+            self.DST_ID,
+            1,
+            0,
+            True,
+            "Did not output to host",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
 
     def test_update_none_tunnel(self):
         """Test tunnel on a switch not using a tunnel ACL"""
@@ -2134,16 +2437,30 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should drop any packets received from the tunnel
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            5, self.NONE_ID, None, None, False,
-            'Should not output a packet')
+            self.DP_ID,
+            self.DP_ID,
+            5,
+            self.NONE_ID,
+            None,
+            None,
+            False,
+            "Should not output a packet",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            6, self.NONE_ID, None, None, False,
-            'Should not output a packet')
+            self.DP_ID,
+            self.DP_ID,
+            6,
+            self.NONE_ID,
+            None,
+            None,
+            False,
+            "Should not output a packet",
+        )
 
 
-class ValveTestTransitOrderedTunnel(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
+class ValveTestTransitOrderedTunnel(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel ACL implementation"""
 
     TRANSIT_ID = 2
@@ -2209,32 +2526,52 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should accept packet from stack and output to the next switch
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            3, self.TRANSIT_ID, 5, self.TRANSIT_ID, True,
-            'Did not output to next switch',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            3,
+            self.TRANSIT_ID,
+            5,
+            self.TRANSIT_ID,
+            True,
+            "Did not output to next switch",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port1.number)
         # Should accept encapsulated packet and output using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            4, self.TRANSIT_ID, 5, self.TRANSIT_ID, True,
-            'Did not output to next switch',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            4,
+            self.TRANSIT_ID,
+            5,
+            self.TRANSIT_ID,
+            True,
+            "Did not output to next switch",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
         # Set the chosen port to the next switch down to force a path recalculation
         self.set_port_down(port2.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
-        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.assertTrue(ofmsgs, "No tunnel ofmsgs returned after a topology change")
         self.apply_ofmsgs(ofmsgs)
         # Should accept encapsulated packet and output using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            4, self.TRANSIT_ID, 6, self.TRANSIT_ID, True,
-            'Did not output to next switch',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            4,
+            self.TRANSIT_ID,
+            6,
+            self.TRANSIT_ID,
+            True,
+            "Did not output to next switch",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
 
 
-class ValveTestMultipleOrderedTunnel(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
+class ValveTestMultipleOrderedTunnel(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel ACL implementation with multiple hosts containing tunnel ACL"""
 
     TUNNEL_ID = 2
@@ -2288,30 +2625,56 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should encapsulate and output packet towards tunnel destination s3
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            2, 0, 3, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            2,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
-        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.assertTrue(ofmsgs, "No tunnel ofmsgs returned after a topology change")
         self.apply_ofmsgs(ofmsgs)
         # Should encapsulate and output packet using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward out re-calculated port')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward out re-calculated port",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward out re-calculated port')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward out re-calculated port",
+        )
 
 
-class ValveTestMultipleOrderedDPTunnelACL(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
+class ValveTestMultipleOrderedDPTunnelACL(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with multiple hosts/DP containing tunnel ACL"""
 
     TUNNEL_ID = 2
@@ -2365,27 +2728,51 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should encapsulate and output packet towards tunnel destination s3
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            2, 0, 3, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            2,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
-        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.assertTrue(ofmsgs, "No tunnel ofmsgs returned after a topology change")
         self.apply_ofmsgs(ofmsgs)
         # Should encapsulate and output packet using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward out re-calculated port')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward out re-calculated port",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward out re-calculated port')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward out re-calculated port",
+        )
 
 
 class ValveTestMultipleOrderedTunnelDestinationDPACL(
@@ -2444,30 +2831,56 @@ dps:
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         # Should encapsulate and output packet towards tunnel destination s3
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            2, 0, 3, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            2,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         # Set the chosen port down to force a recalculation on the tunnel path
         self.set_port_down(port.number)
         ofmsgs = valve.stack_manager.add_tunnel_acls()
-        self.assertTrue(ofmsgs, 'No tunnel ofmsgs returned after a topology change')
+        self.assertTrue(ofmsgs, "No tunnel ofmsgs returned after a topology change")
         self.apply_ofmsgs(ofmsgs)
         # Should encapsulate and output packet using the new path
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward out re-calculated port')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward out re-calculated port",
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 4, self.TUNNEL_ID, True,
-            'Did not encapsulate and forward out re-calculated port')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            4,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward out re-calculated port",
+        )
 
 
-class ValveTestOrderedTunnelExitInstructions(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
+class ValveTestOrderedTunnelExitInstructions(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with a tunnel ACL with exit instructions"""
 
     TUNNEL_ID = 2
@@ -2513,15 +2926,31 @@ dps:
     def test_tunnel_additional_exit_instructions(self):
         """Test having additional exit instructions"""
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.TUNNEL_ID, True, 'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         self.validate_tunnel(
-            int(0x2), int(0x2),
-            3, self.TUNNEL_ID, 1, 101, True, 'Did not apply additional exit instructions',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            int(0x2),
+            int(0x2),
+            3,
+            self.TUNNEL_ID,
+            1,
+            101,
+            True,
+            "Did not apply additional exit instructions",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
 
 
-class ValveTestRemoteDHCPCoprocessorTunnelACL(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
+class ValveTestRemoteDHCPCoprocessorTunnelACL(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test bi_directional tunnel implementation to a remote coprocessor port with a DHCP server"""
 
     SW1_TUNNEL_ID = 101
@@ -2637,35 +3066,62 @@ vlans:
     def test_tunnel_remote_bi_directional_tunnel_coprocessor(self):
         """Test having a bi_directional tunnel to a remote coprocessor"""
         dhcp_options = {
-            'ip_proto': 17,
-            'eth_type': 0x0800,
-            'udp_dst': 67,
-            'udp_src': 68}
+            "ip_proto": 17,
+            "eth_type": 0x0800,
+            "udp_dst": 67,
+            "udp_src": 68,
+        }
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            3, 0, 4, self.SW1_TUNNEL_ID, True,
-            'Did not encapsulate and output to coprocessor on same switch',
-            packet_match=dhcp_options)
+            self.DP_ID,
+            self.DP_ID,
+            3,
+            0,
+            4,
+            self.SW1_TUNNEL_ID,
+            True,
+            "Did not encapsulate and output to coprocessor on same switch",
+            packet_match=dhcp_options,
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            4, [self.SW1_TUNNEL_ID, 100], 3, 0, True,
-            'Did not output reverse, return DHCP packet to host on the same switch',
+            self.DP_ID,
+            self.DP_ID,
+            4,
+            [self.SW1_TUNNEL_ID, 100],
+            3,
+            0,
+            True,
+            "Did not output reverse, return DHCP packet to host on the same switch",
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
-            packet_match=dhcp_options)
+            packet_match=dhcp_options,
+        )
         self.validate_tunnel(
-            2, self.DP_ID,
-            3, 0, 4, self.SW2_TUNNEL_ID, True,
-            'Did not encapsulate and output to coprocessor on remote switch',
-            packet_match=dhcp_options)
+            2,
+            self.DP_ID,
+            3,
+            0,
+            4,
+            self.SW2_TUNNEL_ID,
+            True,
+            "Did not encapsulate and output to coprocessor on remote switch",
+            packet_match=dhcp_options,
+        )
         self.validate_tunnel(
-            self.DP_ID, 2,
-            4, [self.SW2_TUNNEL_ID, 100], 3, 0, True,
-            'Did not output reverse, return DHCP packet to host on the remote switch',
+            self.DP_ID,
+            2,
+            4,
+            [self.SW2_TUNNEL_ID, 100],
+            3,
+            0,
+            True,
+            "Did not output reverse, return DHCP packet to host on the remote switch",
             pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
-            packet_match=dhcp_options)
+            packet_match=dhcp_options,
+        )
 
 
-class ValveTestOrderedBiDirectionalTunnelACL(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
+class ValveTestOrderedBiDirectionalTunnelACL(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel DP ACL implementation with a tunnel ACL with bidirectionality"""
 
     TUNNEL_ID = 2
@@ -2713,15 +3169,27 @@ dps:
         valve = self.valves_manager.valves[0x1]
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         self.validate_tunnel(
-            int(0x2), int(0x2),
-            1, self.TUNNEL_ID, 3, self.TUNNEL_ID, True,
-            'Did not accept reverse tunnel packet',
-            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
+            int(0x2),
+            int(0x2),
+            1,
+            self.TUNNEL_ID,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not accept reverse tunnel packet",
+            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            3, self.TUNNEL_ID, 1, 0, True,
-            'Did not output to original source, the reverse tunnelled packet',
-            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            3,
+            self.TUNNEL_ID,
+            1,
+            0,
+            True,
+            "Did not output to original source, the reverse tunnelled packet",
+            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
+        )
 
 
 class ValveTestOrderedMaintainTunnelEncapsulationACL(
@@ -2775,12 +3243,26 @@ dps:
         valve = self.valves_manager.valves[0x1]
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.TUNNEL_ID, True, 'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         self.validate_tunnel(
-            int(0x2), int(0x2),
-            3, self.TUNNEL_ID, 1, self.TUNNEL_ID, True, 'Did not maintain tunnel encapsulation',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            int(0x2),
+            int(0x2),
+            3,
+            self.TUNNEL_ID,
+            1,
+            self.TUNNEL_ID,
+            True,
+            "Did not maintain tunnel encapsulation",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
 
 
 class ValveTestOrderedBiDirectionalDPTunnelACL(
@@ -2835,14 +3317,27 @@ dps:
         valve = self.valves_manager.valves[0x1]
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         self.validate_tunnel(
-            int(0x2), int(0x2),
-            1, self.TUNNEL_ID, 3, self.TUNNEL_ID, True, 'Did not accept reverse tunnel packet',
-            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
+            int(0x2),
+            int(0x2),
+            1,
+            self.TUNNEL_ID,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not accept reverse tunnel packet",
+            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            3, [self.TUNNEL_ID, 1], 1, 0,
-            True, 'Did not output to original source, the reverse tunnelled packet',
-            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            3,
+            [self.TUNNEL_ID, 1],
+            1,
+            0,
+            True,
+            "Did not output to original source, the reverse tunnelled packet",
+            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
+        )
 
 
 class ValveTestOrderedBidirectionalTunnelACLwithExitInstructions(
@@ -2898,24 +3393,53 @@ dps:
         valve = self.valves_manager.valves[0x1]
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            1, 0, 3, self.TUNNEL_ID, True, 'Did not encapsulate and forward')
+            self.DP_ID,
+            self.DP_ID,
+            1,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and forward",
+        )
         self.validate_tunnel(
-            int(0x2), int(0x2),
-            3, self.TUNNEL_ID, 1, 101, True, 'Did not apply additional exit instructions',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            int(0x2),
+            int(0x2),
+            3,
+            self.TUNNEL_ID,
+            1,
+            101,
+            True,
+            "Did not apply additional exit instructions",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
         self.validate_tunnel(
-            int(0x2), int(0x2),
-            1, self.TUNNEL_ID, 3, self.TUNNEL_ID, True, 'Did not accept reverse tunnel packet',
-            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
+            int(0x2),
+            int(0x2),
+            1,
+            self.TUNNEL_ID,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not accept reverse tunnel packet",
+            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
+        )
         self.validate_tunnel(
-            self.DP_ID, self.DP_ID,
-            3, [self.TUNNEL_ID, 1], 1, 0,
-            True, 'Did not output to original source, the reverse tunnelled packet',
-            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
+            self.DP_ID,
+            self.DP_ID,
+            3,
+            [self.TUNNEL_ID, 1],
+            1,
+            0,
+            True,
+            "Did not output to original source, the reverse tunnelled packet",
+            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
+        )
 
 
-class ValveTestOrderedReverseTunnelOption(ValveTestBases.ValveTestTunnel):  # pylint: disable=too-few-public-methods
+class ValveTestOrderedReverseTunnelOption(
+    ValveTestBases.ValveTestTunnel
+):  # pylint: disable=too-few-public-methods
     """Test tunnel implementation with reverse tunnel option"""
 
     TUNNEL_ID = 3
@@ -2976,14 +3500,26 @@ dps:
         valve = self.valves_manager.valves[0x1]
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         self.validate_tunnel(
-            int(0x2), int(0x2),
-            1, 1, 3, self.TUNNEL_ID,
-            True, 'Did not output to original source, the reverse tunnelled packet')
+            int(0x2),
+            int(0x2),
+            1,
+            1,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not output to original source, the reverse tunnelled packet",
+        )
         self.validate_tunnel(
-            int(0x1), int(0x1),
-            3, self.TUNNEL_ID, 1, 0,
-            True, 'Did not output to original source, the reverse tunnelled packet',
-            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
+            int(0x1),
+            int(0x1),
+            3,
+            self.TUNNEL_ID,
+            1,
+            0,
+            True,
+            "Did not output to original source, the reverse tunnelled packet",
+            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
+        )
 
 
 class ValveTestOrderedBiDirectionalDPACLTunnelDPDestination(
@@ -3036,36 +3572,70 @@ dps:
         valve = self.valves_manager.valves[0x1]
         self.apply_ofmsgs(valve.stack_manager.add_tunnel_acls())
         self.validate_tunnel(
-            int(0x1), int(0x1),
-            1, 0, 3, self.TUNNEL_ID,
-            True, 'Did not encapsulate and output towards destination')
+            int(0x1),
+            int(0x1),
+            1,
+            0,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not encapsulate and output towards destination",
+        )
         self.validate_tunnel(
-            int(0x2), int(0x2),
-            3, [self.TUNNEL_ID, 1], 1, 0,
-            True, 'Did not output to host as flood',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            int(0x2),
+            int(0x2),
+            3,
+            [self.TUNNEL_ID, 1],
+            1,
+            0,
+            True,
+            "Did not output to host as flood",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
         self.validate_tunnel(
-            int(0x2), int(0x2),
-            1, self.TUNNEL_ID, 3, self.TUNNEL_ID,
-            True, 'Did not output reverse packet towards reverse destination',
-            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
+            int(0x2),
+            int(0x2),
+            1,
+            self.TUNNEL_ID,
+            3,
+            self.TUNNEL_ID,
+            True,
+            "Did not output reverse packet towards reverse destination",
+            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
+        )
         self.validate_tunnel(
-            int(0x1), int(0x1),
-            3, [self.TUNNEL_ID, 1], 1, 0,
-            True, 'Did not output reverse packet to host as flood',
-            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
+            int(0x1),
+            int(0x1),
+            3,
+            [self.TUNNEL_ID, 1],
+            1,
+            0,
+            True,
+            "Did not output reverse packet to host as flood",
+            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
+        )
         self.validate_tunnel(
-            int(0x1), int(0x1),
-            3, self.TUNNEL_ID, None, None,
+            int(0x1),
+            int(0x1),
+            3,
+            self.TUNNEL_ID,
+            None,
+            None,
             False,
-            'Expected a drop of the reverse tunnel packet as it fell through to the flood table without a VID',
-            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG)
+            "Expected a drop of the reverse tunnel packet as it fell through to the flood table without a VID",
+            pcp=valve_of.PCP_TUNNEL_REVERSE_DIRECTION_FLAG,
+        )
         self.validate_tunnel(
-            int(0x2), int(0x2),
-            3, self.TUNNEL_ID, None, None,
+            int(0x2),
+            int(0x2),
+            3,
+            self.TUNNEL_ID,
+            None,
+            None,
             False,
-            'Expected a drop of the tunnel packet as it fell through to the flood table without a VID',
-            pcp=valve_of.PCP_TUNNEL_FLAG)
+            "Expected a drop of the tunnel packet as it fell through to the flood table without a VID",
+            pcp=valve_of.PCP_TUNNEL_FLAG,
+        )
 
 
 class ValveTwoDpRoot(ValveTestBases.ValveTestNetwork):
@@ -3135,7 +3705,7 @@ dps:
         self.assertFalse(dp.stack.is_edge())
 
     def test_add_remove_port(self):
-        self.update_and_revert_config(self.CONFIG, self.CONFIG3, 'warm')
+        self.update_and_revert_config(self.CONFIG, self.CONFIG3, "warm")
 
 
 class ValveTwoDpRootEdge(ValveTestBases.ValveTestNetwork):
@@ -3205,7 +3775,7 @@ dps:
         self.assertTrue(dp_obj.stack.is_edge())
 
     def test_add_remove_port(self):
-        self.update_and_revert_config(self.CONFIG, self.CONFIG3, 'warm')
+        self.update_and_revert_config(self.CONFIG, self.CONFIG3, "warm")
 
 
 class GroupDeleteACLTestCase(ValveTestBases.ValveTestNetwork):
@@ -3265,18 +3835,32 @@ dps:
         ofmsgs = valve.acl_manager.add_port(port)
         self.check_groupmods_exist(valve_of.valve_flowreorder(ofmsgs))
         global_flowmod = valve_of.flowmod(
-            0, ofp.OFPFC_DELETE, ofp.OFPTT_ALL,
-            0, ofp.OFPP_CONTROLLER, ofp.OFPP_CONTROLLER,
-            valve_of.match_from_dict({}), (), 0, 0, 0)
+            0,
+            ofp.OFPFC_DELETE,
+            ofp.OFPTT_ALL,
+            0,
+            ofp.OFPP_CONTROLLER,
+            ofp.OFPP_CONTROLLER,
+            valve_of.match_from_dict({}),
+            (),
+            0,
+            0,
+            0,
+        )
         self.check_groupmods_exist(
-            valve_of.valve_flowreorder(ofmsgs + [global_flowmod]))
+            valve_of.valve_flowreorder(ofmsgs + [global_flowmod])
+        )
         global_metermod = valve_of.meterdel()
         self.check_groupmods_exist(
-            valve_of.valve_flowreorder(ofmsgs + [global_flowmod, global_metermod]))
+            valve_of.valve_flowreorder(ofmsgs + [global_flowmod, global_metermod])
+        )
         global_groupmod = valve_of.groupdel()
         self.check_groupmods_exist(
             valve_of.valve_flowreorder(
-                ofmsgs + [global_flowmod, global_metermod, global_groupmod]), False)
+                ofmsgs + [global_flowmod, global_metermod, global_groupmod]
+            ),
+            False,
+        )
 
     def test_all_offset(self):
         """Test groups with the redundant controller offset check for all possible offsets"""
@@ -3452,12 +4036,11 @@ dps:
 
     def test_reload_topology_change_warmstart(self):
         """Test reload with topology change forces stack ports down, only warm starts"""
-        self.update_and_revert_config(
-            self.CONFIG, self.NEW_PORT_CONFIG, 'warm')
+        self.update_and_revert_config(self.CONFIG, self.NEW_PORT_CONFIG, "warm")
 
     def test_reload_topology_change(self):
         """Test reload with topology change forces stack ports down"""
-        with open(self.config_file, 'w', encoding='utf-8') as config_file:
+        with open(self.config_file, "w", encoding="utf-8") as config_file:
             config_file.write(self.NEW_PORT_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)
         for new_dp in new_dps:
@@ -3467,8 +4050,10 @@ dps:
             for port in valve.dp.stack_ports():
                 if not all_ports_changed:
                     self.assertIn(
-                        port.number, changed_ports,
-                        'Stack port not detected as changed on topology change')
+                        port.number,
+                        changed_ports,
+                        "Stack port not detected as changed on topology change",
+                    )
 
     def test_reload_vlan_change_warmstart(self):
         """Test reload with topology change, only do a warm start"""
@@ -3478,15 +4063,20 @@ dps:
 
         # DPID 1 Port 3 changes vlan from 200, to 100, back to 200
         self.update_and_revert_config(
-            self.CONFIG, self.NEW_VLAN_CONFIG, 'warm',
-            verify_func=lambda: self.assertEqual(valve.dp.ports[3].native_vlan.vid, 100))
+            self.CONFIG,
+            self.NEW_VLAN_CONFIG,
+            "warm",
+            verify_func=lambda: self.assertEqual(
+                valve.dp.ports[3].native_vlan.vid, 100
+            ),
+        )
 
         self.assertTrue(valve.dp.ports[3].dyn_update_time)
         self.assertEqual(valve.dp.ports[3].native_vlan.vid, 200)
 
     def test_reload_vlan_change(self):
         """Test reload with topology change, stack ports stay up"""
-        with open(self.config_file, 'w', encoding='utf-8') as config_file:
+        with open(self.config_file, "w", encoding="utf-8") as config_file:
             config_file.write(self.NEW_VLAN_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)
         for new_dp in new_dps:
@@ -3495,8 +4085,10 @@ dps:
             changed_ports = changed[1]
             for port in valve.dp.stack_ports():
                 self.assertNotIn(
-                    port.number, changed_ports,
-                    'Stack port detected as changed on non-topology change')
+                    port.number,
+                    changed_ports,
+                    "Stack port detected as changed on non-topology change",
+                )
 
 
 class ValveStackHealthTest(ValveTestBases.ValveTestNetwork):
@@ -3579,19 +4171,25 @@ dps:
                     port.select_port()
                 if port.stack:
                     port.stack_up()
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
-        self.assertTrue(dps[0].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
-        self.assertFalse(dps[0].stack.update_health(
-            120, last_live_times, self.UPDATE_TIME)[0])
-        self.assertTrue(dps[1].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
-        self.assertFalse(dps[1].stack.update_health(
-            130, last_live_times, self.UPDATE_TIME)[0])
-        self.assertTrue(dps[2].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
-        self.assertFalse(dps[2].stack.update_health(
-            140, last_live_times, self.UPDATE_TIME)[0])
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
+        self.assertTrue(
+            dps[0].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
+        self.assertFalse(
+            dps[0].stack.update_health(120, last_live_times, self.UPDATE_TIME)[0]
+        )
+        self.assertTrue(
+            dps[1].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
+        self.assertFalse(
+            dps[1].stack.update_health(130, last_live_times, self.UPDATE_TIME)[0]
+        )
+        self.assertTrue(
+            dps[2].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
+        self.assertFalse(
+            dps[2].stack.update_health(140, last_live_times, self.UPDATE_TIME)[0]
+        )
 
     def test_lacp_down(self):
         """Test stack health on LACP ports being DOWN"""
@@ -3603,23 +4201,28 @@ dps:
                     port.select_port()
                 if port.stack:
                     port.stack_up()
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
-        self.assertTrue(dps[0].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
+        self.assertTrue(
+            dps[0].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
         for port in dps[0].ports.values():
             if port.lacp:
                 port.actor_notconfigured()
-        self.assertFalse(dps[0].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
-        self.assertTrue(dps[1].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
+        self.assertFalse(
+            dps[0].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
+        self.assertTrue(
+            dps[1].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
         for port in dps[1].ports.values():
             if port.lacp:
                 port.actor_nosync()
-        self.assertFalse(dps[1].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
-        self.assertTrue(dps[2].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
+        self.assertFalse(
+            dps[1].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
+        self.assertTrue(
+            dps[2].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
 
     def test_stack_port_down(self):
         """Test stack health on stack ports being DOWN"""
@@ -3631,28 +4234,34 @@ dps:
                     port.select_port()
                 if port.stack:
                     port.stack_up()
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
-        self.assertTrue(dps[0].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
+        self.assertTrue(
+            dps[0].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
         for port in dps[0].ports.values():
             if port.stack:
                 port.stack_bad()
-        self.assertFalse(dps[0].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
-        self.assertTrue(dps[1].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
+        self.assertFalse(
+            dps[0].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
+        self.assertTrue(
+            dps[1].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
         for port in dps[1].ports.values():
             if port.stack:
                 port.stack_gone()
-        self.assertFalse(dps[1].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
-        self.assertTrue(dps[2].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
+        self.assertFalse(
+            dps[1].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
+        self.assertTrue(
+            dps[2].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
         for port in dps[2].ports.values():
             if port.stack:
                 port.stack_admin_down()
-        self.assertFalse(dps[2].stack.update_health(
-            110, last_live_times, self.UPDATE_TIME)[0])
+        self.assertFalse(
+            dps[2].stack.update_health(110, last_live_times, self.UPDATE_TIME)[0]
+        )
 
 
 class ValveVariableRootHealthTest(ValveTestBases.ValveTestNetwork):
@@ -3726,7 +4335,11 @@ dps:
         self.setup_valves(self.CONFIG)
 
     def other_valves(self, root_valve):
-        return [valve for valve in self.valves_manager.valves.values() if valve != root_valve]
+        return [
+            valve
+            for valve in self.valves_manager.valves.values()
+            if valve != root_valve
+        ]
 
     def test_sw3_lacp(self):
         """Test LACP health metrics with SW3"""
@@ -3738,7 +4351,7 @@ dps:
                     port.select_port()
                 if port.stack:
                     port.stack_up()
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
         # SW3 has no LACP ports, so LACP health percentage should be 0.0,
         #   but overall should be considered healthy
         dps[2].stack.update_health(100, last_live_times, self.UPDATE_TIME)
@@ -3755,7 +4368,7 @@ dps:
                     port.select_port()
                 if port.stack:
                     port.stack_up()
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
         # Take down some LACP ports, health percentage configured so
         #   SW1 will still be healthy
         for port in dps[0].ports.values():
@@ -3785,7 +4398,7 @@ dps:
                     port.select_port()
                 if port.stack:
                     port.stack_up()
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
         # Take down some LACP ports, health percentage configured
         #   so SW2 will still be healthy
         for port_num in [4, 5]:
@@ -3816,7 +4429,7 @@ dps:
                     port.select_port()
                 if port.stack:
                     port.stack_up()
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
         # All switches running, stack and LACP UP
         for port_num in [2, 3]:
             port = dps[0].ports[port_num]
@@ -3843,7 +4456,7 @@ dps:
                     port.select_port()
                 if port.stack:
                     port.stack_up()
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
         # All switches running, stack and LACP UP
         for port_num in [2]:
             port = dps[1].ports[port_num]
@@ -3932,7 +4545,11 @@ dps:
         self.setup_valves(self.CONFIG)
 
     def other_valves(self, root_valve):
-        return [valve for valve in self.valves_manager.valves.values() if valve != root_valve]
+        return [
+            valve
+            for valve in self.valves_manager.valves.values()
+            if valve != root_valve
+        ]
 
     def test_lacp_root_nomination(self):
         """Test root selection health"""
@@ -3945,11 +4562,15 @@ dps:
                 if port.stack:
                     port.stack_up()
         valves = self.valves_manager.valves
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
         # Start not root currently selected, all valves should select root sw1
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME
+                ),
+                "sw1",
+            )
         # Create some LACP ports DOWN, but maintain above the health threshold, Equal percentage
         #   of LACP ports taken down so LACP stays the same
         for port_num in [4]:
@@ -3959,29 +4580,45 @@ dps:
             port = dps[1].ports[port_num]
             port.actor_nosync()
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME
+                ),
+                "sw1",
+            )
         # Change it so SW2 has greater percentage of LACP ports UP, so should be elected
         for port_num in [4]:
             port = dps[1].ports[port_num]
             port.actor_up()
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw2')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME
+                ),
+                "sw2",
+            )
         # Stats of Sw1 and Sw2 the same, should choose lower priority: SW1
         for port_num in [4]:
             port = dps[1].ports[port_num]
             port.actor_nosync()
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME
+                ),
+                "sw1",
+            )
         # SW2 considered DOWN, so should only nominate SW1
         for port_num in [4, 5]:
             port = dps[1].ports[port_num]
             port.actor_nosync()
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME
+                ),
+                "sw1",
+            )
 
     def test_stack_root_nomination(self):
         """Test root selection health"""
@@ -3994,11 +4631,15 @@ dps:
                 if port.stack:
                     port.stack_up()
         valves = self.valves_manager.valves
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
         # Start not root currently selected, all valves should select root sw1
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME
+                ),
+                "sw1",
+            )
         # Create some stack ports DOWN, but maintain above the health threshold, Equal percentage
         #   of stack ports taken down so stack stays the same
         for port_num in [2]:
@@ -4008,15 +4649,23 @@ dps:
             port = dps[0].ports[port_num]
             port.stack_bad()
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME
+                ),
+                "sw1",
+            )
         # Change it so SW2 has greater percentage of stack ports UP, so should be elected
         for port_num in [2]:
             port = dps[1].ports[port_num]
             port.stack_up()
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw2')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME
+                ),
+                "sw2",
+            )
 
 
 class ValveRootNominationTest(ValveStackHealthTest):
@@ -4091,7 +4740,11 @@ dps:
 
     def other_valves(self, root_valve):
         """Return a list of the other valves"""
-        return [valve for valve in self.valves_manager.valves.values() if valve != root_valve]
+        return [
+            valve
+            for valve in self.valves_manager.valves.values()
+            if valve != root_valve
+        ]
 
     def test_root_nomination(self):
         """Test root selection health"""
@@ -4104,42 +4757,73 @@ dps:
                 if port.stack:
                     port.stack_up()
         valves = self.valves_manager.valves
-        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        last_live_times = {"sw1": 100, "sw2": 100, "sw3": 100}
         # Start not root currently selected, all valves should select root sw1
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    None, list(valves.values()), 100, last_live_times, self.UPDATE_TIME
+                ),
+                "sw1",
+            )
         # timeout SW1, all valves should select sw2
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                valves[1], self.other_valves(valves[1]), 111,
-                last_live_times, self.UPDATE_TIME), 'sw2')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    valves[1],
+                    self.other_valves(valves[1]),
+                    111,
+                    last_live_times,
+                    self.UPDATE_TIME,
+                ),
+                "sw2",
+            )
         # timeout sw2, should return None because there are no healthy switches
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                valves[2], self.other_valves(valves[2]),
-                121, last_live_times, self.UPDATE_TIME), None)
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    valves[2],
+                    self.other_valves(valves[2]),
+                    121,
+                    last_live_times,
+                    self.UPDATE_TIME,
+                ),
+                None,
+            )
         # timeout sw1, despite being unhealthy, all valves should select sw2
         for port in valves[2].dp.ports.values():
             if port.stack:
                 port.stack_bad()
         for valve in valves.values():
-            self.assertEqual(valve.stack_manager.nominate_stack_root(
-                valves[1], self.other_valves(valves[1]), 111,
-                last_live_times, self.UPDATE_TIME), 'sw2')
+            self.assertEqual(
+                valve.stack_manager.nominate_stack_root(
+                    valves[1],
+                    self.other_valves(valves[1]),
+                    111,
+                    last_live_times,
+                    self.UPDATE_TIME,
+                ),
+                "sw2",
+            )
 
     def test_consistent_roots(self):
         """Test inconsistent root detection"""
         valves = self.valves_manager.valves
         for valve in valves.values():
-            valve.dp.stack.root_name = 'sw1'
+            valve.dp.stack.root_name = "sw1"
         for valve in valves.values():
-            self.assertTrue(valve.stack_manager.consistent_roots(
-                'sw1', valve, self.other_valves(valve)))
-        valves[1].dp.stack.root_name = 'sw2'
+            self.assertTrue(
+                valve.stack_manager.consistent_roots(
+                    "sw1", valve, self.other_valves(valve)
+                )
+            )
+        valves[1].dp.stack.root_name = "sw2"
         for valve in valves.values():
-            self.assertFalse(valve.stack_manager.consistent_roots(
-                'sw1', valve, self.other_valves(valve)))
+            self.assertFalse(
+                valve.stack_manager.consistent_roots(
+                    "sw1", valve, self.other_valves(valve)
+                )
+            )
 
 
 class ValveStackConfigTest(ValveTestBases.ValveTestNetwork):
@@ -4215,28 +4899,29 @@ dps:
         dp = self.valves_manager.valves[1].dp
         stack_conf = yaml_load(dp.stack.to_conf())
         self.assertIsInstance(stack_conf, dict)
-        self.assertIn('priority', stack_conf)
-        self.assertIn('down_time_multiple', stack_conf)
-        self.assertIn('route_learning', stack_conf)
-        self.assertNotIn('dyn_healthy', stack_conf)
-        self.assertNotIn('canonical_port_order', stack_conf)
-        self.assertNotIn('graph', stack_conf)
-        self.assertNotIn('name', stack_conf)
+        self.assertIn("priority", stack_conf)
+        self.assertIn("down_time_multiple", stack_conf)
+        self.assertIn("route_learning", stack_conf)
+        self.assertNotIn("dyn_healthy", stack_conf)
+        self.assertNotIn("canonical_port_order", stack_conf)
+        self.assertNotIn("graph", stack_conf)
+        self.assertNotIn("name", stack_conf)
 
     def test_dp_stack(self):
         """Test getting config for DP with correct subconfig stack"""
         dp = self.valves_manager.valves[1].dp
         dp_conf = yaml_load(dp.to_conf())
         stack_conf = yaml_load(dp.stack.to_conf())
-        self.assertIn('stack', dp_conf)
-        self.assertIsInstance(dp_conf['stack'], dict)
-        self.assertEqual(dp_conf['stack'], stack_conf)
+        self.assertIn("stack", dp_conf)
+        self.assertIsInstance(dp_conf["stack"], dict)
+        self.assertEqual(dp_conf["stack"], stack_conf)
 
 
 class ValveStackLLDPRestartTestCase(ValveTestBases.ValveTestNetwork):
     """Test restarting stacked LLDP"""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -4265,7 +4950,9 @@ dps:
             2:
                 description: p2
                 native_vlan: 100
-""" % BASE_DP1_CONFIG
+"""
+        % BASE_DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic loop config"""
@@ -4273,32 +4960,38 @@ dps:
 
     def test_lldp_cold_start(self):
         """Test cold-starting a switch preserves LLDP states"""
-        self.migrate_stack_root('s1')
+        self.migrate_stack_root("s1")
         self.activate_all_ports()
         valve = self.valves_manager.valves[0x1]
         old_port = valve.dp.ports[1]
-        self.assertTrue(old_port.is_stack_up(), 'Port stack not UP')
+        self.assertTrue(old_port.is_stack_up(), "Port stack not UP")
         init_events = self.get_events()
-        init_ports = [event for event in init_events if 'PORTS_STATUS' in event]
-        self.assertEqual(2, len(init_ports), 'Expected 2 PORTS_STATUS events')
+        init_ports = [event for event in init_events if "PORTS_STATUS" in event]
+        self.assertEqual(2, len(init_ports), "Expected 2 PORTS_STATUS events")
 
-        self.migrate_stack_root('s2')
+        self.migrate_stack_root("s2")
         migrate_events = self.get_events()
 
         def is_coldstart(event):
-            return 'CONFIG_CHANGE' in event and event['CONFIG_CHANGE']['restart_type'] == 'cold'
+            return (
+                "CONFIG_CHANGE" in event
+                and event["CONFIG_CHANGE"]["restart_type"] == "cold"
+            )
+
         migrate_coldstarts = [event for event in migrate_events if is_coldstart(event)]
-        self.assertEqual(2, len(migrate_coldstarts), 'Expected 2 coldstart events')
+        self.assertEqual(2, len(migrate_coldstarts), "Expected 2 coldstart events")
 
-        migrate_stack = [event for event in migrate_events if 'STACK_STATE' in event]
-        self.assertEqual(0, len(migrate_stack), 'Expected 0 stack state events')
+        migrate_stack = [event for event in migrate_events if "STACK_STATE" in event]
+        self.assertEqual(0, len(migrate_stack), "Expected 0 stack state events")
 
-        migrate_topo = [event for event in migrate_events if 'STACK_TOPO_CHANGE' in event]
-        self.assertEqual(2, len(migrate_topo), 'Expected 2 topo change events')
+        migrate_topo = [
+            event for event in migrate_events if "STACK_TOPO_CHANGE" in event
+        ]
+        self.assertEqual(2, len(migrate_topo), "Expected 2 topo change events")
 
         new_port = valve.dp.ports[1]
-        self.assertNotEqual(id(old_port), id(new_port), 'Port object not changed')
-        self.assertTrue(new_port.is_stack_up(), 'Port stack not UP')
+        self.assertNotEqual(id(old_port), id(new_port), "Port object not changed")
+        self.assertTrue(new_port.is_stack_up(), "Port stack not UP")
 
 
 if __name__ == "__main__":

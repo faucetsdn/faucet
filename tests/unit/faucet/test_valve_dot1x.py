@@ -27,7 +27,8 @@ from clib.valve_test_lib import DOT1X_CONFIG, DOT1X_ACL_CONFIG, ValveTestBases
 class ValveDot1xSmokeTestCase(ValveTestBases.ValveTestNetwork):
     """Smoke test to check dot1x can be initialized."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -46,7 +47,9 @@ vlans:
         vid: 0x200
         dot1x_assigned: True
 
-""" % DOT1X_CONFIG
+"""
+        % DOT1X_CONFIG
+    )
 
     def setUp(self):
         """Setup basic 802.1x config"""
@@ -54,19 +57,22 @@ vlans:
 
     def test_get_mac_str(self):
         """Test NFV port formatter."""
-        self.assertEqual('00:00:00:0f:01:01', faucet_dot1x.get_mac_str(15, 257))
+        self.assertEqual("00:00:00:0f:01:01", faucet_dot1x.get_mac_str(15, 257))
 
     def test_handlers(self):
         """Test dot1x logoff/failure handlers."""
         valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]
         port_no = 1
-        vlan_name = 'student'
-        filter_id = 'block_http'
+        vlan_name = "student"
+        filter_id = "block_http"
         for handler in (self.dot1x.logoff_handler, self.dot1x.failure_handler):
-            handler('0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
+            handler("0e:00:00:00:00:ff", faucet_dot1x.get_mac_str(valve_index, port_no))
         self.dot1x.auth_handler(
-            '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no),
-            vlan_name=vlan_name, filter_id=filter_id)
+            "0e:00:00:00:00:ff",
+            faucet_dot1x.get_mac_str(valve_index, port_no),
+            vlan_name=vlan_name,
+            filter_id=filter_id,
+        )
 
 
 class ValveDot1xACLSmokeTestCase(ValveDot1xSmokeTestCase):
@@ -104,7 +110,9 @@ vlans:
     student:
         vid: 0x200
         dot1x_assigned: True
-""".format(ACL_CONFIG, DOT1X_ACL_CONFIG)
+""".format(
+        ACL_CONFIG, DOT1X_ACL_CONFIG
+    )
 
 
 class ValveDot1xMABSmokeTestCase(ValveDot1xSmokeTestCase):
@@ -126,12 +134,16 @@ dps:
 vlans:
     v100:
         vid: 0x100
-""".format(DOT1X_CONFIG)
+""".format(
+        DOT1X_CONFIG
+    )
 
 
 class ValveDot1xDynACLSmokeTestCase(ValveDot1xSmokeTestCase):
     """Smoke test to check dot1x can be initialized with dynamic dot1x ACLs."""
-    CONFIG = """
+
+    CONFIG = (
+        """
 acls:
     accept_acl:
         dot1x_assigned: True
@@ -161,7 +173,9 @@ dps:
 vlans:
     v100:
         vid: 0x100
-""" % DOT1X_CONFIG
+"""
+        % DOT1X_CONFIG
+    )
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
@@ -170,15 +184,15 @@ vlans:
         valve_index = self.dot1x.dp_id_to_valve_index[self.DP_ID]
         port_no = 1
         vlan_name = None
-        filter_id = 'accept_acl'
-        for handler in (
-                self.dot1x.logoff_handler,
-                self.dot1x.failure_handler):
-            handler(
-                '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no))
+        filter_id = "accept_acl"
+        for handler in (self.dot1x.logoff_handler, self.dot1x.failure_handler):
+            handler("0e:00:00:00:00:ff", faucet_dot1x.get_mac_str(valve_index, port_no))
         self.dot1x.auth_handler(
-            '0e:00:00:00:00:ff', faucet_dot1x.get_mac_str(valve_index, port_no),
-            vlan_name=vlan_name, filter_id=filter_id)
+            "0e:00:00:00:00:ff",
+            faucet_dot1x.get_mac_str(valve_index, port_no),
+            vlan_name=vlan_name,
+            filter_id=filter_id,
+        )
 
 
 if __name__ == "__main__":

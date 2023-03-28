@@ -34,17 +34,15 @@ class OSKenAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
 
     @staticmethod
     def _fake_dp():
-        datapath = namedtuple('datapath', ['id', 'close'])(0, lambda: None)
+        datapath = namedtuple("datapath", ["id", "close"])(0, lambda: None)
         return datapath
 
     def test_faucet(self):
         """Test FAUCET can be initialized."""
-        os.environ['FAUCET_CONFIG'] = '/dev/null'
-        os.environ['FAUCET_LOG'] = '/dev/null'
-        os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
-        os_ken_app = faucet.Faucet(
-            dpset={},
-            reg=CollectorRegistry())
+        os.environ["FAUCET_CONFIG"] = "/dev/null"
+        os.environ["FAUCET_LOG"] = "/dev/null"
+        os.environ["FAUCET_EXCEPTION_LOG"] = "/dev/null"
+        os_ken_app = faucet.Faucet(dpset={}, reg=CollectorRegistry())
         os_ken_app.reload_config(None)
         self.assertFalse(os_ken_app._config_files_changed())
         os_ken_app.metric_update(None)
@@ -53,17 +51,18 @@ class OSKenAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
             event_dp.enter = enter
             os_ken_app.connect_or_disconnect_handler(event_dp)
         for event_handler in (
-                os_ken_app.error_handler,
-                os_ken_app.features_handler,
-                os_ken_app.packet_in_handler,
-                os_ken_app.desc_stats_reply_handler,
-                os_ken_app.port_desc_stats_reply_handler,
-                os_ken_app.port_status_handler,
-                os_ken_app.flowremoved_handler,
-                os_ken_app.reconnect_handler,
-                os_ken_app._datapath_connect,
-                os_ken_app._datapath_disconnect):
-            msg = namedtuple('msg', ['datapath'])(self._fake_dp())
+            os_ken_app.error_handler,
+            os_ken_app.features_handler,
+            os_ken_app.packet_in_handler,
+            os_ken_app.desc_stats_reply_handler,
+            os_ken_app.port_desc_stats_reply_handler,
+            os_ken_app.port_status_handler,
+            os_ken_app.flowremoved_handler,
+            os_ken_app.reconnect_handler,
+            os_ken_app._datapath_connect,
+            os_ken_app._datapath_disconnect,
+        ):
+            msg = namedtuple("msg", ["datapath"])(self._fake_dp())
             event = EventOFPMsgBase(msg=msg)
             event.dp = msg.datapath
             event_handler(event)

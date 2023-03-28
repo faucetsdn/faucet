@@ -43,19 +43,18 @@ class CheckConfigTestCase(unittest.TestCase):  # pytype: disable=module-attr
         """Try to parse config and return True if result fails or succeeds as expected."""
         conf_files = []
         if config is not None:
-            conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
-            with open(conf_file_name, 'w', encoding='utf-8') as conf_file:
+            conf_file_name = os.path.join(self.tmpdir, "faucet.yaml")
+            with open(conf_file_name, "w", encoding="utf-8") as conf_file:
                 conf_file.write(config)
             conf_files = [conf_file_name]
-        with open(os.devnull, 'w', encoding='utf-8') as check_output_file:
-            result_ok = check_config(
-                conf_files, logging.FATAL, check_output_file)
+        with open(os.devnull, "w", encoding="utf-8") as check_output_file:
+            result_ok = check_config(conf_files, logging.FATAL, check_output_file)
         return expected_ok == result_ok
 
     def _deprecated_acl_check(self, config, success):
         # TODO: Check acls_in work now acl_in is deprecated, remove in future
-        if config and 'acl_in' in config and 'acls_in' not in config:
-            acls_cfg = re.sub('(acl_in: )(.*)', 'acls_in: [\\2]', config)
+        if config and "acl_in" in config and "acls_in" not in config:
+            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
             self.assertTrue(self.run_check_config(acls_cfg, success))
 
     def check_config_success(self, config):

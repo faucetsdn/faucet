@@ -4,12 +4,19 @@ import unittest
 
 from faucet.port import Port
 from faucet.port import (
-    LACP_ACTOR_NOTCONFIGURED, LACP_PORT_NOTCONFIGURED,
-    LACP_ACTOR_INIT, LACP_ACTOR_UP, LACP_ACTOR_NOSYNC, LACP_ACTOR_NONE,
-    LACP_PORT_UNSELECTED, LACP_PORT_SELECTED, LACP_PORT_STANDBY)
+    LACP_ACTOR_NOTCONFIGURED,
+    LACP_PORT_NOTCONFIGURED,
+    LACP_ACTOR_INIT,
+    LACP_ACTOR_UP,
+    LACP_ACTOR_NOSYNC,
+    LACP_ACTOR_NONE,
+    LACP_PORT_UNSELECTED,
+    LACP_PORT_SELECTED,
+    LACP_PORT_STANDBY,
+)
 
 
-class MockVLAN():  # pylint: disable=too-few-public-methods
+class MockVLAN:  # pylint: disable=too-few-public-methods
     """Mock class for VLAN so we can inject into Port"""
 
     def __init__(self, name):
@@ -22,9 +29,9 @@ class FaucetPortMethodTest(unittest.TestCase):  # pytype: disable=module-attr
     def test_vlans(self):
         """Test that the vlans() method behaves correctly"""
 
-        vlan100 = MockVLAN('v100')
-        vlan200 = MockVLAN('v200')
-        vlan300 = MockVLAN('v300')
+        vlan100 = MockVLAN("v100")
+        vlan200 = MockVLAN("v200")
+        vlan300 = MockVLAN("v300")
 
         tagged_vlans = [vlan200, vlan300]
         native_vlan = vlan100

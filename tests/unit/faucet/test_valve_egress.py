@@ -25,12 +25,17 @@ from os_ken.ofproto import ofproto_v1_3 as ofp
 from clib.valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
 
-class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):  # pylint: disable=too-few-public-methods
+class ValveTestEgressPipeline(
+    ValveTestBases.ValveTestBig
+):  # pylint: disable=too-few-public-methods
     """Run complete set of basic tests."""
 
-    DP1_CONFIG = """
+    DP1_CONFIG = (
+        """
             egress_pipeline: True
-    """ + DP1_CONFIG
+    """
+        + DP1_CONFIG
+    )
 
 
 class ValveEgressACLTestCase(ValveTestBases.ValveTestNetwork):
@@ -41,10 +46,10 @@ class ValveEgressACLTestCase(ValveTestBases.ValveTestNetwork):
 
     def test_vlan_acl_deny(self):
         """Test VLAN ACL denies a packet."""
-        ALLOW_HOST_V6 = 'fc00:200::1:1'  # pylint: disable=invalid-name
-        DENY_HOST_V6 = 'fc00:200::1:2'  # pylint: disable=invalid-name
-        FAUCET_V100_VIP = 'fc00:100::1'  # pylint: disable=invalid-name
-        FAUCET_V200_VIP = 'fc00:200::1'  # pylint: disable=invalid-name
+        ALLOW_HOST_V6 = "fc00:200::1:1"  # pylint: disable=invalid-name
+        DENY_HOST_V6 = "fc00:200::1:2"  # pylint: disable=invalid-name
+        FAUCET_V100_VIP = "fc00:100::1"  # pylint: disable=invalid-name
+        FAUCET_V200_VIP = "fc00:200::1"  # pylint: disable=invalid-name
         acl_config = """
 dps:
     s1:
@@ -88,88 +93,108 @@ acls:
             eth_type: 0x86DD
             actions:
                 allow: 0
-""".format(dp1_config=DP1_CONFIG, mac=FAUCET_MAC, v100_vip=FAUCET_V100_VIP,
-           v200_vip=FAUCET_V200_VIP, allow_host=ALLOW_HOST_V6)
+""".format(
+            dp1_config=DP1_CONFIG,
+            mac=FAUCET_MAC,
+            v100_vip=FAUCET_V100_VIP,
+            v200_vip=FAUCET_V200_VIP,
+            allow_host=ALLOW_HOST_V6,
+        )
 
         l2_drop_match = {
-            'in_port': 2,
-            'eth_dst': self.P3_V200_MAC,
-            'vlan_vid': 0,
-            'eth_type': 0x86DD,
-            'ipv6_dst': DENY_HOST_V6}
+            "in_port": 2,
+            "eth_dst": self.P3_V200_MAC,
+            "vlan_vid": 0,
+            "eth_type": 0x86DD,
+            "ipv6_dst": DENY_HOST_V6,
+        }
         l2_accept_match = {
-            'in_port': 3,
-            'eth_dst': self.P2_V200_MAC,
-            'vlan_vid': 0x200 | ofp.OFPVID_PRESENT,
-            'eth_type': 0x86DD,
-            'ipv6_dst': ALLOW_HOST_V6}
-        v100_accept_match = {'in_port': 1, 'vlan_vid': 0}
+            "in_port": 3,
+            "eth_dst": self.P2_V200_MAC,
+            "vlan_vid": 0x200 | ofp.OFPVID_PRESENT,
+            "eth_type": 0x86DD,
+            "ipv6_dst": ALLOW_HOST_V6,
+        }
+        v100_accept_match = {"in_port": 1, "vlan_vid": 0}
         table = self.network.tables[self.DP_ID]
 
         # base case
         for match in (l2_drop_match, l2_accept_match):
             self.assertTrue(
                 table.is_output(match, port=4),
-                msg='Packet not output before adding ACL')
+                msg="Packet not output before adding ACL",
+            )
 
         # multicast
-        self.update_config(acl_config, reload_type='cold')
+        self.update_config(acl_config, reload_type="cold")
         self.assertTrue(
             table.is_output(v100_accept_match, port=3),
-            msg='Packet not output when on vlan with no ACL'
+            msg="Packet not output when on vlan with no ACL",
         )
         self.assertFalse(
-            table.is_output(l2_drop_match, port=3),
-            msg='Packet not blocked by ACL')
+            table.is_output(l2_drop_match, port=3), msg="Packet not blocked by ACL"
+        )
         self.assertTrue(
-            table.is_output(l2_accept_match, port=2),
-            msg='Packet not allowed by ACL')
+            table.is_output(l2_accept_match, port=2), msg="Packet not allowed by ACL"
+        )
 
         # unicast
-        self.rcv_packet(2, 0x200, {
-            'eth_src': self.P2_V200_MAC,
-            'eth_dst': self.P3_V200_MAC,
-            'vid': 0x200,
-            'ipv6_src': ALLOW_HOST_V6,
-            'ipv6_dst': DENY_HOST_V6,
-            'neighbor_advert_ip': ALLOW_HOST_V6,
-        })
-        self.rcv_packet(3, 0x200, {
-            'eth_src': self.P3_V200_MAC,
-            'eth_dst': self.P2_V200_MAC,
-            'vid': 0x200,
-            'ipv6_src': DENY_HOST_V6,
-            'ipv6_dst': ALLOW_HOST_V6,
-            'neighbor_advert_ip': DENY_HOST_V6,
-        })
+        self.rcv_packet(
+            2,
+            0x200,
+            {
+                "eth_src": self.P2_V200_MAC,
+                "eth_dst": self.P3_V200_MAC,
+                "vid": 0x200,
+                "ipv6_src": ALLOW_HOST_V6,
+                "ipv6_dst": DENY_HOST_V6,
+                "neighbor_advert_ip": ALLOW_HOST_V6,
+            },
+        )
+        self.rcv_packet(
+            3,
+            0x200,
+            {
+                "eth_src": self.P3_V200_MAC,
+                "eth_dst": self.P2_V200_MAC,
+                "vid": 0x200,
+                "ipv6_src": DENY_HOST_V6,
+                "ipv6_dst": ALLOW_HOST_V6,
+                "neighbor_advert_ip": DENY_HOST_V6,
+            },
+        )
 
         self.assertTrue(
-            table.is_output(l2_accept_match, port=2),
-            msg='Packet not allowed by ACL')
+            table.is_output(l2_accept_match, port=2), msg="Packet not allowed by ACL"
+        )
         self.assertFalse(
-            table.is_output(l2_drop_match, port=3),
-            msg='Packet not blocked by ACL')
+            table.is_output(l2_drop_match, port=3), msg="Packet not blocked by ACL"
+        )
 
         # l3
         l3_drop_match = {
-            'in_port': 1,
-            'eth_dst': FAUCET_MAC,
-            'vlan_vid': 0,
-            'eth_type': 0x86DD,
-            'ipv6_dst': DENY_HOST_V6}
+            "in_port": 1,
+            "eth_dst": FAUCET_MAC,
+            "vlan_vid": 0,
+            "eth_type": 0x86DD,
+            "ipv6_dst": DENY_HOST_V6,
+        }
         l3_accept_match = {
-            'in_port': 1,
-            'eth_dst': FAUCET_MAC,
-            'vlan_vid': 0,
-            'eth_type': 0x86DD,
-            'ipv6_dst': ALLOW_HOST_V6}
+            "in_port": 1,
+            "eth_dst": FAUCET_MAC,
+            "vlan_vid": 0,
+            "eth_type": 0x86DD,
+            "ipv6_dst": ALLOW_HOST_V6,
+        }
 
         self.assertTrue(
             table.is_output(l3_accept_match, port=2),
-            msg='Routed packet not allowed by ACL')
+            msg="Routed packet not allowed by ACL",
+        )
         self.assertFalse(
             table.is_output(l3_drop_match, port=3),
-            msg='Routed packet not blocked by ACL')
+            msg="Routed packet not blocked by ACL",
+        )
 
 
 if __name__ == "__main__":

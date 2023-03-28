@@ -34,20 +34,28 @@ from faucet import valve_packet
 from faucet.config_parser_util import yaml_load, yaml_dump
 
 from clib.valve_test_lib import (
-    CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
-    ValveTestBases)
+    CONFIG,
+    DP1_CONFIG,
+    FAUCET_MAC,
+    GROUP_DP1_CONFIG,
+    IDLE_DP1_CONFIG,
+    ValveTestBases,
+)
 
 from clib.fakeoftable import CONTROLLER_PORT
 
 
-class ValveTestCase(ValveTestBases.ValveTestBig):  # pylint: disable=too-few-public-methods
+class ValveTestCase(
+    ValveTestBases.ValveTestBig
+):  # pylint: disable=too-few-public-methods
     """Run complete set of basic tests."""
 
 
 class ValveFuzzTestCase(ValveTestBases.ValveTestNetwork):
     """Test unknown ports/VLANs."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -55,7 +63,9 @@ dps:
             p1:
                 number: 1
                 native_vlan: 0x100
-""" % DP1_CONFIG
+"""
+        % DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -65,19 +75,29 @@ dps:
         """Test unknown VIDs/ports."""
         for _ in range(0, 3):
             for i in range(0, 64):
-                self.rcv_packet(1, i, {
-                    'eth_src': self.P1_V100_MAC,
-                    'eth_dst': self.P2_V200_MAC,
-                    'ipv4_src': '10.0.0.2',
-                    'ipv4_dst': '10.0.0.3',
-                    'vid': i})
+                self.rcv_packet(
+                    1,
+                    i,
+                    {
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.P2_V200_MAC,
+                        "ipv4_src": "10.0.0.2",
+                        "ipv4_dst": "10.0.0.3",
+                        "vid": i,
+                    },
+                )
             for i in range(0, 64):
-                self.rcv_packet(i, 0x100, {
-                    'eth_src': self.P1_V100_MAC,
-                    'eth_dst': self.P2_V200_MAC,
-                    'ipv4_src': '10.0.0.2',
-                    'ipv4_dst': '10.0.0.3',
-                    'vid': 0x100})
+                self.rcv_packet(
+                    i,
+                    0x100,
+                    {
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.P2_V200_MAC,
+                        "ipv4_src": "10.0.0.2",
+                        "ipv4_dst": "10.0.0.3",
+                        "vid": 0x100,
+                    },
+                )
         # pylint: disable=no-member
         # pylint: disable=no-value-for-parameter
         cache_info = valve_packet.parse_packet_in_pkt.cache_info()
@@ -87,7 +107,8 @@ dps:
 class ValveCoprocessorTestCase(ValveTestBases.ValveTestNetwork):
     """Test direct packet output using coprocessor."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -115,7 +136,9 @@ acls:
         - rule:
             actions:
                 allow: 1
-""" % DP1_CONFIG
+"""
+        % DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic coprocessor config"""
@@ -125,26 +148,37 @@ acls:
         # VID for direct output to port 2
         copro_vid_out = (0x200 + 2) | ofp.OFPVID_PRESENT
         direct_match = {
-            'in_port': 1, 'vlan_vid': copro_vid_out, 'eth_type': ether.ETH_TYPE_IP,
-            'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
+            "in_port": 1,
+            "vlan_vid": copro_vid_out,
+            "eth_type": ether.ETH_TYPE_IP,
+            "eth_src": self.P1_V100_MAC,
+            "eth_dst": mac.BROADCAST_STR,
+        }
         table = self.network.tables[self.DP_ID]
         self.assertTrue(table.is_output(direct_match, port=2))
         p2_host_match = {
-            'eth_src': self.P1_V100_MAC, 'eth_dst': self.P2_V200_MAC,
-            'ipv4_src': '10.0.0.2', 'ipv4_dst': '10.0.0.3',
-            'eth_type': ether.ETH_TYPE_IP}
+            "eth_src": self.P1_V100_MAC,
+            "eth_dst": self.P2_V200_MAC,
+            "ipv4_src": "10.0.0.2",
+            "ipv4_dst": "10.0.0.3",
+            "eth_type": ether.ETH_TYPE_IP,
+        }
         p2_host_receive = copy.deepcopy(p2_host_match)
-        p2_host_receive.update({'in_port': 2})
+        p2_host_receive.update({"in_port": 2})
         # learn P2 host
         self.rcv_packet(2, 0x100, p2_host_receive)
         # copro can send to P2 via regular pipeline and is not subject to VLAN ACL.
         p2_copro_host_receive = copy.deepcopy(p2_host_match)
         p2_copro_host_receive.update(
-            {'in_port': 1,
-             'ipv4_src': '10.0.0.99', 'ipv4_dst': '10.0.0.3',
-             'eth_src': p2_host_match['eth_dst'],
-             'eth_dst': p2_host_match['eth_src']})
-        p2_copro_host_receive['vlan_vid'] = 0x100 | ofp.OFPVID_PRESENT
+            {
+                "in_port": 1,
+                "ipv4_src": "10.0.0.99",
+                "ipv4_dst": "10.0.0.3",
+                "eth_src": p2_host_match["eth_dst"],
+                "eth_dst": p2_host_match["eth_src"],
+            }
+        )
+        p2_copro_host_receive["vlan_vid"] = 0x100 | ofp.OFPVID_PRESENT
         self.assertTrue(table.is_output(p2_copro_host_receive, port=2, vid=0x100))
         # copro send to P2 was not flooded
         self.assertFalse(table.is_output(p2_copro_host_receive, port=3, vid=0x100))
@@ -153,7 +187,8 @@ acls:
 class ValveRestBcastTestCase(ValveTestBases.ValveTestNetwork):
     """Test restricted broadcast."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -169,7 +204,9 @@ dps:
                 number: 3
                 native_vlan: 0x100
                 restricted_bcast_arpnd: true
-""" % DP1_CONFIG
+"""
+        % DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic port and vlan config with restricted broadcast enabled"""
@@ -177,14 +214,22 @@ dps:
 
     def test_rest_bcast(self):
         match = {
-            'in_port': 1, 'vlan_vid': 0, 'eth_type': ether.ETH_TYPE_IP,
-            'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
+            "in_port": 1,
+            "vlan_vid": 0,
+            "eth_type": ether.ETH_TYPE_IP,
+            "eth_src": self.P1_V100_MAC,
+            "eth_dst": mac.BROADCAST_STR,
+        }
         table = self.network.tables[self.DP_ID]
         self.assertTrue(table.is_output(match, port=2))
         self.assertFalse(table.is_output(match, port=3))
         match = {
-            'in_port': 2, 'vlan_vid': 0, 'eth_type': ether.ETH_TYPE_IP,
-            'eth_src': self.P1_V100_MAC, 'eth_dst': mac.BROADCAST_STR}
+            "in_port": 2,
+            "vlan_vid": 0,
+            "eth_type": ether.ETH_TYPE_IP,
+            "eth_src": self.P1_V100_MAC,
+            "eth_dst": mac.BROADCAST_STR,
+        }
         self.assertTrue(table.is_output(match, port=1))
         self.assertTrue(table.is_output(match, port=3))
 
@@ -192,7 +237,8 @@ dps:
 class ValveUnusedMeterTestCase(ValveTestBases.ValveTestNetwork):
     """Test unused meters are not configured."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 meters:
     unusedmeter:
         meter_id: 1
@@ -230,7 +276,9 @@ dps:
                 number: 1
                 native_vlan: 0x100
                 acls_in: [meteracl]
-""" % DP1_CONFIG
+"""
+        % DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup meter and ACL config"""
@@ -238,7 +286,7 @@ dps:
 
     def test_usedmeter(self):
         valve = self.valves_manager.valves[self.DP_ID]
-        self.assertEqual(['usedmeter'], list(valve.dp.meters.keys()))
+        self.assertEqual(["usedmeter"], list(valve.dp.meters.keys()))
 
 
 class ValveOFErrorTestCase(ValveTestBases.ValveTestNetwork):
@@ -257,21 +305,25 @@ class ValveOFErrorTestCase(ValveTestBases.ValveTestNetwork):
                 self.assertTrue(isinstance(error_code, int))
                 self.assertTrue(isinstance(error_str, str))
         test_err = parser.OFPErrorMsg(
-            datapath=None, type_=ofp.OFPET_FLOW_MOD_FAILED, code=ofp.OFPFMFC_UNKNOWN)
+            datapath=None, type_=ofp.OFPET_FLOW_MOD_FAILED, code=ofp.OFPFMFC_UNKNOWN
+        )
         valve = self.valves_manager.valves[self.DP_ID]
         valve.oferror(test_err)
         test_unknown_type_err = parser.OFPErrorMsg(
-            datapath=None, type_=666, code=ofp.OFPFMFC_UNKNOWN)
+            datapath=None, type_=666, code=ofp.OFPFMFC_UNKNOWN
+        )
         valve.oferror(test_unknown_type_err)
         test_unknown_code_err = parser.OFPErrorMsg(
-            datapath=None, type_=ofp.OFPET_FLOW_MOD_FAILED, code=666)
+            datapath=None, type_=ofp.OFPET_FLOW_MOD_FAILED, code=666
+        )
         valve.oferror(test_unknown_code_err)
 
 
 class ValveGroupTestCase(ValveTestBases.ValveTestNetwork):
     """Tests for datapath with group support."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -294,7 +346,9 @@ vlans:
         vid: 0x100
     v200:
         vid: 0x200
-""" % GROUP_DP1_CONFIG
+"""
+        % GROUP_DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -310,24 +364,16 @@ vlans:
         self.learn_hosts()
         matches = [
             {
-                'in_port': 3,
-                'vlan_vid': self.V100,
+                "in_port": 3,
+                "vlan_vid": self.V100,
             },
+            {"in_port": 2, "vlan_vid": 0, "eth_dst": self.P1_V100_MAC},
+            {"in_port": 1, "vlan_vid": 0, "eth_src": self.P1_V100_MAC},
             {
-                'in_port': 2,
-                'vlan_vid': 0,
-                'eth_dst': self.P1_V100_MAC
+                "in_port": 3,
+                "vlan_vid": self.V200,
+                "eth_src": self.P2_V200_MAC,
             },
-            {
-                'in_port': 1,
-                'vlan_vid': 0,
-                'eth_src': self.P1_V100_MAC
-            },
-            {
-                'in_port': 3,
-                'vlan_vid': self.V200,
-                'eth_src': self.P2_V200_MAC,
-            }
         ]
         self.verify_flooding(matches)
 
@@ -335,7 +381,8 @@ vlans:
 class ValveIdleLearnTestCase(ValveTestBases.ValveTestNetwork):
     """Smoke test for idle-flow based learning. This feature is not currently reliable."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -362,7 +409,9 @@ vlans:
         vid: 0x100
     v200:
         vid: 0x200
-""" % IDLE_DP1_CONFIG
+"""
+        % IDLE_DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic port and vlan config with mirroring"""
@@ -375,20 +424,28 @@ vlans:
         self.assertTrue(
             valve.flow_timeout(
                 self.mock_time(),
-                valve.dp.tables['eth_dst'].table_id,
-                {'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}))
+                valve.dp.tables["eth_dst"].table_id,
+                {"vlan_vid": self.V100, "eth_dst": self.P1_V100_MAC},
+            )
+        )
         self.assertFalse(
             valve.flow_timeout(
                 self.mock_time(),
-                valve.dp.tables['eth_src'].table_id,
-                {'vlan_vid': self.V100, 'in_port': 1, 'eth_src': self.P1_V100_MAC}))
+                valve.dp.tables["eth_src"].table_id,
+                {"vlan_vid": self.V100, "in_port": 1, "eth_src": self.P1_V100_MAC},
+            )
+        )
 
     def test_host_learn_coldstart(self):
         """Test flow learning, including cold-start cache invalidation"""
         valve = self.valves_manager.valves[self.DP_ID]
         match = {
-            'in_port': 3, 'vlan_vid': self.V100, 'eth_type': ether.ETH_TYPE_IP,
-            'eth_src': self.P3_V100_MAC, 'eth_dst': self.P1_V100_MAC}
+            "in_port": 3,
+            "vlan_vid": self.V100,
+            "eth_type": ether.ETH_TYPE_IP,
+            "eth_src": self.P3_V100_MAC,
+            "eth_dst": self.P1_V100_MAC,
+        }
         table = self.network.tables[self.DP_ID]
         self.assertTrue(table.is_output(match, port=1))
         self.assertTrue(table.is_output(match, port=2))
@@ -411,7 +468,8 @@ vlans:
 class ValveLACPTestCase(ValveTestBases.ValveTestNetwork):
     """Test LACP."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -441,7 +499,9 @@ vlans:
         vid: 0x200
     v300:
         vid: 0x300
-""" % DP1_CONFIG
+"""
+        % DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup lacp config and activate ports"""
@@ -453,20 +513,21 @@ vlans:
         test_port = 1
         labels = self.port_labels(test_port)
         valve = self.valves_manager.valves[self.DP_ID]
-        self.assertEqual(
-            1, int(self.get_prom('port_lacp_state', labels=labels)))
-        self.assertFalse(
-            valve.dp.ports[1].non_stack_forwarding())
-        self.rcv_packet(test_port, 0, {
-            'actor_system': '0e:00:00:00:00:02',
-            'partner_system': FAUCET_MAC,
-            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
-            'eth_src': '0e:00:00:00:00:02',
-            'actor_state_synchronization': 1})
-        self.assertEqual(
-            3, int(self.get_prom('port_lacp_state', labels=labels)))
-        self.assertTrue(
-            valve.dp.ports[1].non_stack_forwarding())
+        self.assertEqual(1, int(self.get_prom("port_lacp_state", labels=labels)))
+        self.assertFalse(valve.dp.ports[1].non_stack_forwarding())
+        self.rcv_packet(
+            test_port,
+            0,
+            {
+                "actor_system": "0e:00:00:00:00:02",
+                "partner_system": FAUCET_MAC,
+                "eth_dst": slow.SLOW_PROTOCOL_MULTICAST,
+                "eth_src": "0e:00:00:00:00:02",
+                "actor_state_synchronization": 1,
+            },
+        )
+        self.assertEqual(3, int(self.get_prom("port_lacp_state", labels=labels)))
+        self.assertTrue(valve.dp.ports[1].non_stack_forwarding())
         self.learn_hosts()
         self.verify_expiry()
 
@@ -475,85 +536,92 @@ vlans:
         valve = self.valves_manager.valves[self.DP_ID]
         test_port = 1
         labels = self.port_labels(test_port)
-        self.assertEqual(
-            1, int(self.get_prom('port_lacp_state', labels=labels)))
-        self.assertFalse(
-            valve.dp.ports[1].non_stack_forwarding())
-        self.rcv_packet(test_port, 0, {
-            'actor_system': '0e:00:00:00:00:02',
-            'partner_system': FAUCET_MAC,
-            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
-            'eth_src': '0e:00:00:00:00:02',
-            'actor_state_synchronization': 1})
-        self.assertEqual(
-            3, int(self.get_prom('port_lacp_state', labels=labels)))
-        self.assertTrue(
-            valve.dp.ports[1].non_stack_forwarding())
+        self.assertEqual(1, int(self.get_prom("port_lacp_state", labels=labels)))
+        self.assertFalse(valve.dp.ports[1].non_stack_forwarding())
+        self.rcv_packet(
+            test_port,
+            0,
+            {
+                "actor_system": "0e:00:00:00:00:02",
+                "partner_system": FAUCET_MAC,
+                "eth_dst": slow.SLOW_PROTOCOL_MULTICAST,
+                "eth_src": "0e:00:00:00:00:02",
+                "actor_state_synchronization": 1,
+            },
+        )
+        self.assertEqual(3, int(self.get_prom("port_lacp_state", labels=labels)))
+        self.assertTrue(valve.dp.ports[1].non_stack_forwarding())
         self.learn_hosts()
         self.verify_expiry()
-        self.rcv_packet(test_port, 0, {
-            'actor_system': '0e:00:00:00:00:02',
-            'partner_system': FAUCET_MAC,
-            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
-            'eth_src': '0e:00:00:00:00:02',
-            'actor_state_synchronization': 0})
+        self.rcv_packet(
+            test_port,
+            0,
+            {
+                "actor_system": "0e:00:00:00:00:02",
+                "partner_system": FAUCET_MAC,
+                "eth_dst": slow.SLOW_PROTOCOL_MULTICAST,
+                "eth_src": "0e:00:00:00:00:02",
+                "actor_state_synchronization": 0,
+            },
+        )
+        self.assertEqual(5, int(self.get_prom("port_lacp_state", labels=labels)))
+        self.assertFalse(valve.dp.ports[1].non_stack_forwarding())
         self.assertEqual(
-            5, int(self.get_prom('port_lacp_state', labels=labels)))
-        self.assertFalse(
-            valve.dp.ports[1].non_stack_forwarding())
-        self.assertEqual(
-            4, int(self.get_prom('port_lacp_state_change_count_total', labels=labels)))
+            4, int(self.get_prom("port_lacp_state_change_count_total", labels=labels))
+        )
 
     def test_lacp_timeout(self):
         """Test LACP comes up and then times out."""
         valve = self.valves_manager.valves[self.DP_ID]
         test_port = 1
         labels = self.port_labels(test_port)
-        self.assertEqual(
-            1, int(self.get_prom('port_lacp_state', labels=labels)))
-        self.assertFalse(
-            valve.dp.ports[1].non_stack_forwarding())
-        self.rcv_packet(test_port, 0, {
-            'actor_system': '0e:00:00:00:00:02',
-            'partner_system': FAUCET_MAC,
-            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
-            'eth_src': '0e:00:00:00:00:02',
-            'actor_state_synchronization': 1})
-        self.assertEqual(
-            3, int(self.get_prom('port_lacp_state', labels=labels)))
-        self.assertTrue(
-            valve.dp.ports[1].non_stack_forwarding())
+        self.assertEqual(1, int(self.get_prom("port_lacp_state", labels=labels)))
+        self.assertFalse(valve.dp.ports[1].non_stack_forwarding())
+        self.rcv_packet(
+            test_port,
+            0,
+            {
+                "actor_system": "0e:00:00:00:00:02",
+                "partner_system": FAUCET_MAC,
+                "eth_dst": slow.SLOW_PROTOCOL_MULTICAST,
+                "eth_src": "0e:00:00:00:00:02",
+                "actor_state_synchronization": 1,
+            },
+        )
+        self.assertEqual(3, int(self.get_prom("port_lacp_state", labels=labels)))
+        self.assertTrue(valve.dp.ports[1].non_stack_forwarding())
         future_now = self.mock_time(10)
         expire_ofmsgs = valve.state_expire(future_now, None)
         self.assertTrue(expire_ofmsgs)
-        self.assertEqual(
-            1, int(self.get_prom('port_lacp_state', labels=labels)))
-        self.assertFalse(
-            valve.dp.ports[1].non_stack_forwarding())
+        self.assertEqual(1, int(self.get_prom("port_lacp_state", labels=labels)))
+        self.assertFalse(valve.dp.ports[1].non_stack_forwarding())
 
     def test_dp_disconnect(self):
         """Test LACP state when disconnects."""
         test_port = 1
         labels = self.port_labels(test_port)
-        self.assertEqual(
-            1, int(self.get_prom('port_lacp_state', labels=labels)))
-        self.rcv_packet(test_port, 0, {
-            'actor_system': '0e:00:00:00:00:02',
-            'partner_system': FAUCET_MAC,
-            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
-            'eth_src': '0e:00:00:00:00:02',
-            'actor_state_synchronization': 1})
-        self.assertEqual(
-            3, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertEqual(1, int(self.get_prom("port_lacp_state", labels=labels)))
+        self.rcv_packet(
+            test_port,
+            0,
+            {
+                "actor_system": "0e:00:00:00:00:02",
+                "partner_system": FAUCET_MAC,
+                "eth_dst": slow.SLOW_PROTOCOL_MULTICAST,
+                "eth_src": "0e:00:00:00:00:02",
+                "actor_state_synchronization": 1,
+            },
+        )
+        self.assertEqual(3, int(self.get_prom("port_lacp_state", labels=labels)))
         self.disconnect_dp()
-        self.assertEqual(
-            0, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertEqual(0, int(self.get_prom("port_lacp_state", labels=labels)))
 
 
 class ValveTFMSizeOverride(ValveTestBases.ValveTestNetwork):
     """Test TFM size override."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -566,7 +634,9 @@ dps:
 vlans:
     v100:
         vid: 0x100
-""" % DP1_CONFIG
+"""
+        % DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic port and vlan config with overriden TFM sizing"""
@@ -575,7 +645,7 @@ vlans:
     def test_size(self):
         table = self.network.tables[self.DP_ID]
         tfm_by_name = {body.name: body for body in table.tfm.values()}
-        eth_src_table = tfm_by_name.get(b'eth_src', None)
+        eth_src_table = tfm_by_name.get(b"eth_src", None)
         self.assertTrue(eth_src_table)
         if eth_src_table is not None:
             self.assertEqual(999, eth_src_table.max_entries)
@@ -586,7 +656,8 @@ class ValveTFMSize(ValveTestBases.ValveTestNetwork):
 
     NUM_PORTS = 128
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -620,7 +691,9 @@ vlans:
         vid: 0x200
     v300:
         vid: 0x300
-""" % DP1_CONFIG
+"""
+        % DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic port and vlan config"""
@@ -629,7 +702,7 @@ vlans:
     def test_size(self):
         table = self.network.tables[self.DP_ID]
         tfm_by_name = {body.name: body for body in table.tfm.values()}
-        flood_table = tfm_by_name.get(b'flood', None)
+        flood_table = tfm_by_name.get(b"flood", None)
         self.assertTrue(flood_table)
         if flood_table is not None:
             self.assertGreater(flood_table.max_entries, self.NUM_PORTS * 2)
@@ -638,7 +711,8 @@ vlans:
 class ValveActiveLACPTestCase(ValveTestBases.ValveTestNetwork):
     """Test LACP."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -669,7 +743,9 @@ vlans:
         vid: 0x200
     v300:
         vid: 0x300
-""" % DP1_CONFIG
+"""
+        % DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup basic lacp config and activate ports"""
@@ -680,20 +756,23 @@ vlans:
         """Test LACP comes up."""
         test_port = 1
         labels = self.port_labels(test_port)
-        self.assertEqual(
-            1, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.assertEqual(1, int(self.get_prom("port_lacp_state", labels=labels)))
         # Ensure LACP packet sent.
         valve = self.valves_manager.valves[self.DP_ID]
         ofmsgs = valve.fast_advertise(self.mock_time(), None)[valve]
         self.assertTrue(ValveTestBases.packet_outs_from_flows(ofmsgs))
-        self.rcv_packet(test_port, 0, {
-            'actor_system': '0e:00:00:00:00:02',
-            'partner_system': FAUCET_MAC,
-            'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
-            'eth_src': '0e:00:00:00:00:02',
-            'actor_state_synchronization': 1})
-        self.assertEqual(
-            3, int(self.get_prom('port_lacp_state', labels=labels)))
+        self.rcv_packet(
+            test_port,
+            0,
+            {
+                "actor_system": "0e:00:00:00:00:02",
+                "partner_system": FAUCET_MAC,
+                "eth_dst": slow.SLOW_PROTOCOL_MULTICAST,
+                "eth_src": "0e:00:00:00:00:02",
+                "actor_state_synchronization": 1,
+            },
+        )
+        self.assertEqual(3, int(self.get_prom("port_lacp_state", labels=labels)))
         self.learn_hosts()
         self.verify_expiry()
 
@@ -705,18 +784,12 @@ class ValveL2LearnTestCase(ValveTestBases.ValveTestNetwork):
         self.setup_valves(CONFIG)
 
     def test_expiry(self):
-        learn_labels = {
-            'vid': str(0x200),
-            'eth_src': self.P2_V200_MAC
-        }
-        self.assertEqual(
-            0, self.get_prom('learned_l2_port', labels=learn_labels))
+        learn_labels = {"vid": str(0x200), "eth_src": self.P2_V200_MAC}
+        self.assertEqual(0, self.get_prom("learned_l2_port", labels=learn_labels))
         self.learn_hosts()
-        self.assertEqual(
-            2.0, self.get_prom('learned_l2_port', labels=learn_labels))
+        self.assertEqual(2.0, self.get_prom("learned_l2_port", labels=learn_labels))
         self.verify_expiry()
-        self.assertEqual(
-            0, self.get_prom('learned_l2_port', labels=learn_labels))
+        self.assertEqual(0, self.get_prom("learned_l2_port", labels=learn_labels))
 
 
 class SoftPipelineTestCase(ValveTestBases.ValveTestNetwork):
@@ -756,9 +829,9 @@ dps:
 
     def test_soft(self):
         config = yaml_load(self.CONFIG)
-        config['dps']['s1']['interfaces']['p1']['acls_in'] = ['acl2']
+        config["dps"]["s1"]["interfaces"]["p1"]["acls_in"] = ["acl2"]
         # We changed match conditions only, so this can be a warm start.
-        self.update_config(yaml_dump(config), reload_type='warm')
+        self.update_config(yaml_dump(config), reload_type="warm")
 
 
 class HardPipelineTestCase(ValveTestBases.ValveTestNetwork):
@@ -796,16 +869,18 @@ dps:
 
     def test_hard(self):
         config = yaml_load(self.CONFIG)
-        config['dps']['s1']['interfaces']['p1']['acls_in'] = ['acl2']
+        config["dps"]["s1"]["interfaces"]["p1"]["acls_in"] = ["acl2"]
         # Changed match conditions require restart.
-        self.update_config(yaml_dump(config), reload_type='cold')
+        self.update_config(yaml_dump(config), reload_type="cold")
 
 
 class ValveMirrorTestCase(ValveTestBases.ValveTestBig):
     """Test ACL and interface mirroring."""
+
     # TODO: check mirror packets are present/correct
 
-    CONFIG = """
+    CONFIG = (
+        """
 acls:
     mirror_ospf:
         - rule:
@@ -879,7 +954,9 @@ routers:
             server_addresses: ['127.0.0.1']
             neighbor_addresses: ['127.0.0.1']
             vlan: v100
-""" % DP1_CONFIG
+"""
+        % DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup complex config with routing, bgp, mirroring and ACLs"""
@@ -887,14 +964,15 @@ routers:
 
     def test_unmirror(self):
         config = yaml_load(self.CONFIG)
-        del config['dps']['s1']['interfaces']['p5']['mirror']
-        self.update_config(yaml_dump(config), reload_type='warm')
+        del config["dps"]["s1"]["interfaces"]["p5"]["mirror"]
+        self.update_config(yaml_dump(config), reload_type="warm")
 
 
 class ValvePortDescTestCase(ValveTestBases.ValveTestNetwork):
     """Test OFPMP_PORT_DESC reply handling."""
 
-    CONFIG = """
+    CONFIG = (
+        """
 dps:
     s1:
 %s
@@ -910,7 +988,9 @@ vlans:
         vid: 0x100
     v200:
         vid: 0x200
-""" % DP1_CONFIG
+"""
+        % DP1_CONFIG
+    )
 
     def setUp(self):
         """Setup simple configuration with no ports up"""
@@ -923,25 +1003,26 @@ vlans:
     @staticmethod
     def _inport_flows(in_port, ofmsgs, table_id=0):
         return [
-            ofmsg for ofmsg in ValveTestBases.flowmods_from_flows(ofmsgs)
-            if ofmsg.match.get('in_port') == in_port
-            and ofmsg.table_id == table_id]
+            ofmsg
+            for ofmsg in ValveTestBases.flowmods_from_flows(ofmsgs)
+            if ofmsg.match.get("in_port") == in_port and ofmsg.table_id == table_id
+        ]
 
     @staticmethod
     def _build_port_descs(port_nos, port_nos_up=None):
         descs = []
         for port_no in port_nos:
-            desc = namedtuple('port_no', 'state')
+            desc = namedtuple("port_no", "state")
             desc.port_no = port_no
-            desc.state = (
-                0 if port_no in port_nos_up else valve_of.ofp.OFPPS_LINK_DOWN)
+            desc.state = 0 if port_no in port_nos_up else valve_of.ofp.OFPPS_LINK_DOWN
             descs.append(desc)
         return descs
 
     def _update_port_desc(self, port_nos, port_nos_up=None):
         descs = self._build_port_descs(port_nos, port_nos_up)
         ofmsgs_by_valve = self.valve.port_desc_stats_reply_handler(
-            descs, [], time.time())
+            descs, [], time.time()
+        )
         return ofmsgs_by_valve[self.valve]
 
     def test_unconfigured_ports(self):
