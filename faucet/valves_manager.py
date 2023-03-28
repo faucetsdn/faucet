@@ -75,8 +75,17 @@ class ConfigWatcher:
 class ValvesManager:
     """Manage a collection of Valves."""
 
-    def __init__(self, logname, logger, metrics, notifier, bgp,
-                 dot1x, config_auto_revert, send_flows_to_dp_by_id):
+    def __init__(
+        self,
+        logname,
+        logger,
+        metrics,
+        notifier,
+        bgp,
+        dot1x,
+        config_auto_revert,
+        send_flows_to_dp_by_id,
+    ):
         """Initialize ValvesManager.
 
         Args:
@@ -124,8 +133,10 @@ class ValvesManager:
     def valves_by_name(self):
         """Return a name/valve dict of all the stacking valves"""
         return {
-            valve.dp.name: valve for valve in self.valves.values()
-            if valve.stack_manager}
+            valve.dp.name: valve
+            for valve in self.valves.values()
+            if valve.stack_manager
+        }
 
     def maintain_stack_root(self, now, update_time):
         """
@@ -146,11 +157,14 @@ class ValvesManager:
         prev_root_valve = valves_by_name.get(prev_root_name, None)
 
         prev_other_valves = [
-            valve for valve in self.valves.values()
-            if valve != prev_root_valve]
+            valve for valve in self.valves.values() if valve != prev_root_valve
+        ]
 
-        new_root_name = list(valves_by_name.values())[0].stack_manager.nominate_stack_root(
-            prev_root_valve, prev_other_valves, now, last_live_times, update_time)
+        new_root_name = list(valves_by_name.values())[
+            0
+        ].stack_manager.nominate_stack_root(
+            prev_root_valve, prev_other_valves, now, last_live_times, update_time
+        )
         return self.set_stack_root(now, new_root_name)
 
     def set_stack_root(self, now, new_root_name):
@@ -170,8 +184,9 @@ class ValvesManager:
         if new_root_valve:
             if prev_root_name != new_root_name:
                 # Current stack root is not the new stack root
-                self.logger.info('Stack root %s (previous %s)' % (
-                    new_root_name, prev_root_name))
+                self.logger.info(
+                    "Stack root %s (previous %s)" % (new_root_name, prev_root_name)
+                )
                 if prev_root_valve:
                     labels = prev_root_valve.dp.base_prom_labels()
                     self.metrics.is_dp_stack_root.labels(**labels).set(0)
@@ -184,12 +199,14 @@ class ValvesManager:
             else:
                 # Current stack root does not change, however ensure that the current stack root
                 #   is known for all DPs
-                new_other_valves = [valve for valve in self.valves.values()
-                                    if valve != new_root_valve]
+                new_other_valves = [
+                    valve for valve in self.valves.values() if valve != new_root_valve
+                ]
                 inconsistent_dps = not new_root_valve.stack_manager.consistent_roots(
-                    prev_root_name, new_root_valve, new_other_valves)
+                    prev_root_name, new_root_valve, new_other_valves
+                )
                 if inconsistent_dps:
-                    self.logger.info('Reloading stack DPs (stack root inconsistent)')
+                    self.logger.info("Reloading stack DPs (stack root inconsistent)")
                     self.reload_stack_root_config(now)
                     stack_change = True
             labels = new_root_valve.dp.base_prom_labels()
@@ -206,46 +223,58 @@ class ValvesManager:
 
     def event_socket_heartbeat(self):
         """raises event for event sock heartbeat"""
-        self._notify({'EVENT_SOCK_HEARTBEAT': None})
+        self._notify({"EVENT_SOCK_HEARTBEAT": None})
 
     def revert_config(self):
         """Attempt to revert config to last known good version."""
-        for config_file_name, config_content in self.meta_dp_state.last_good_config.items():
-            self.logger.info('attempting to revert to last good config: %s' % config_file_name)
+        for (
+            config_file_name,
+            config_content,
+        ) in self.meta_dp_state.last_good_config.items():
+            self.logger.info(
+                "attempting to revert to last good config: %s" % config_file_name
+            )
             try:
-                with open(config_file_name, 'w', encoding='utf-8') as config_file:
+                with open(config_file_name, "w", encoding="utf-8") as config_file:
                     config_file.write(str(config_content))
             except (FileNotFoundError, OSError, PermissionError) as err:
-                self.logger.error('could not revert %s: %s' % (config_file_name, err))
+                self.logger.error("could not revert %s: %s" % (config_file_name, err))
                 return
-        self.logger.info('successfully reverted to last good config')
+        self.logger.info("successfully reverted to last good config")
 
     def parse_configs(self, new_config_file):
         """Return parsed configs for Valves, or None."""
         self.metrics.faucet_config_hash_func.labels(algorithm=CONFIG_HASH_FUNC)
         try:
             new_conf_hashes, new_config_content, new_dps, top_conf = dp_parser(
-                new_config_file, self.logname, self.meta_dp_state)
+                new_config_file, self.logname, self.meta_dp_state
+            )
             new_present_conf_hashes = [
-                (conf_file, conf_hash) for conf_file, conf_hash in sorted(new_conf_hashes.items())
-                if conf_hash is not None]
+                (conf_file, conf_hash)
+                for conf_file, conf_hash in sorted(new_conf_hashes.items())
+                if conf_hash is not None
+            ]
             conf_files = [conf_file for conf_file, _ in new_present_conf_hashes]
             conf_hashes = [conf_hash for _, conf_hash in new_present_conf_hashes]
             self.config_watcher.update(new_config_file, new_conf_hashes)
             self.meta_dp_state.top_conf = top_conf
             self.meta_dp_state.last_good_config = new_config_content
             self.meta_dp_state.config_hash_info = dict(
-                config_files=','.join(conf_files), hashes=','.join(conf_hashes), error='')
+                config_files=",".join(conf_files),
+                hashes=",".join(conf_hashes),
+                error="",
+            )
             self.metrics.faucet_config_hash.info(self.meta_dp_state.config_hash_info)
             self.metrics.faucet_config_load_error.set(0)
         except InvalidConfigError as err:
-            self.logger.error('New config bad (%s) - rejecting', err)
+            self.logger.error("New config bad (%s) - rejecting", err)
             # If the config was reverted, let the watcher notice.
             if self.config_auto_revert:
                 self.revert_config()
             self.config_watcher.update(new_config_file)
             self.meta_dp_state.config_hash_info = dict(
-                config_files=new_config_file, hashes='', error=str(err))
+                config_files=new_config_file, hashes="", error=str(err)
+            )
             self.metrics.faucet_config_hash.info(self.meta_dp_state.config_hash_info)
             self.metrics.faucet_config_load_error.set(1)
             new_dps = None
@@ -254,12 +283,15 @@ class ValvesManager:
     def new_valve(self, new_dp):
         valve_cl = valve_factory(new_dp)
         if valve_cl is not None:
-            return valve_cl(new_dp, self.logname, self.metrics, self.notifier, self.dot1x)
+            return valve_cl(
+                new_dp, self.logname, self.metrics, self.notifier, self.dot1x
+            )
         self.logger.error(
-            '%s hardware %s must be one of %s',
+            "%s hardware %s must be one of %s",
             new_dp.name,
             new_dp.hardware,
-            sorted(list(SUPPORTED_HARDWARE.keys())))
+            sorted(list(SUPPORTED_HARDWARE.keys())),
+        )
         return None
 
     def _apply_configs(self, new_dps, now, delete_dp):
@@ -271,17 +303,17 @@ class ValvesManager:
         for new_dp in new_dps:
             dp_id = new_dp.dp_id
             if dp_id in self.valves:
-                self.logger.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
+                self.logger.info("Reconfiguring existing datapath %s", dpid_log(dp_id))
                 valve = self.valves[dp_id]
                 ofmsgs = valve.reload_config(now, new_dp, list(self.valves.values()))
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
                 sent[dp_id] = valve.dp.dyn_running
             else:
-                self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
+                self.logger.info("Add new datapath %s", dpid_log(new_dp.dp_id))
                 valve = self.new_valve(new_dp)
                 if valve is None:
                     continue
-                self._notify({'CONFIG_CHANGE': {'restart_type': 'new'}}, dp=new_dp)
+                self._notify({"CONFIG_CHANGE": {"restart_type": "new"}}, dp=new_dp)
             valve.update_config_metrics()
             self.valves[dp_id] = valve
         if delete_dp is not None:
@@ -312,13 +344,20 @@ class ValvesManager:
     def request_reload_configs(self, now, new_config_file, delete_dp=None):
         """Process a request to load config changes."""
         if self.config_watcher.content_changed(new_config_file):
-            self.logger.info('configuration %s changed, analyzing differences', new_config_file)
+            self.logger.info(
+                "configuration %s changed, analyzing differences", new_config_file
+            )
             result = self.load_configs(now, new_config_file, delete_dp=delete_dp)
-            self._notify({'CONFIG_CHANGE':
-                          {'success': result,
-                           'config_hash_info': self.meta_dp_state.config_hash_info}})
+            self._notify(
+                {
+                    "CONFIG_CHANGE": {
+                        "success": result,
+                        "config_hash_info": self.meta_dp_state.config_hash_info,
+                    }
+                }
+            )
         else:
-            self.logger.info('configuration is unchanged, not reloading')
+            self.logger.info("configuration is unchanged, not reloading")
             self.metrics.faucet_config_load_error.set(0)
         self.metrics.faucet_config_reload_requests.inc()  # pylint: disable=no-member
 
@@ -333,11 +372,16 @@ class ValvesManager:
         ofmsgs_by_valve = defaultdict(list)
         for valve in self.valves.values():
             other_valves = self._other_running_valves(valve)
-            valve_service_labels = dict(valve.dp.base_prom_labels(), valve_service=valve_service)
+            valve_service_labels = dict(
+                valve.dp.base_prom_labels(), valve_service=valve_service
+            )
             valve_service_func = getattr(valve, valve_service)
             with self.metrics.faucet_valve_service_secs.labels(  # pylint: disable=no-member
-                    **valve_service_labels).time():
-                for service_valve, ofmsgs in valve_service_func(now, other_valves).items():
+                **valve_service_labels
+            ).time():
+                for service_valve, ofmsgs in valve_service_func(
+                    now, other_valves
+                ).items():
                     # Since we are calling all Valves, keep only the ofmsgs
                     # provided by the last Valve called (eventual consistency).
                     if service_valve in ofmsgs_by_valve:
@@ -346,49 +390,64 @@ class ValvesManager:
         self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 
     def _other_running_valves(self, valve):
-        return [other_valve for other_valve in self.valves.values()
-                if valve != other_valve and other_valve.dp.dyn_running]
+        return [
+            other_valve
+            for other_valve in self.valves.values()
+            if valve != other_valve and other_valve.dp.dyn_running
+        ]
 
     def port_desc_stats_reply_handler(self, valve, msg, now):
         """Handle a port desc stats reply message."""
         ofmsgs_by_valve = valve.port_desc_stats_reply_handler(
-            msg.body, self._other_running_valves(valve), now)
+            msg.body, self._other_running_valves(valve), now
+        )
         self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 
     def port_status_handler(self, valve, msg, now):
         """Handle a port status change message."""
         ofmsgs_by_valve = valve.port_status_handler(
-            msg.desc.port_no, msg.reason, msg.desc.state, self._other_running_valves(valve), now)
+            msg.desc.port_no,
+            msg.reason,
+            msg.desc.state,
+            self._other_running_valves(valve),
+            now,
+        )
         self._send_ofmsgs_by_valve(ofmsgs_by_valve)
 
     def valve_packet_in(self, now, valve, msg):
         """Time a call to Valve packet in handler."""
         self.metrics.of_packet_ins.labels(  # pylint: disable=no-member
-            **valve.dp.base_prom_labels()).inc()
+            **valve.dp.base_prom_labels()
+        ).inc()
         if valve.rate_limit_packet_ins(now):
             return
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
             self.metrics.of_unexpected_packet_ins.labels(  # pylint: disable=no-member
-                **valve.dp.base_prom_labels()).inc()
+                **valve.dp.base_prom_labels()
+            ).inc()
             return
         with self.metrics.faucet_packet_in_secs.labels(  # pylint: disable=no-member
-                **valve.dp.base_prom_labels()).time():
-            ofmsgs_by_valve = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
+            **valve.dp.base_prom_labels()
+        ).time():
+            ofmsgs_by_valve = valve.rcv_packet(
+                now, self._other_running_valves(valve), pkt_meta
+            )
         if ofmsgs_by_valve:
             self._send_ofmsgs_by_valve(ofmsgs_by_valve)
             valve.update_metrics(now, pkt_meta.port, rate_limited=True)
 
     def update_config_applied(self, sent=None, reset=False):
         """Update faucet_config_applied from {dpid: sent} dict,
-           defining applied == sent == enqueued via Ryu"""
+        defining applied == sent == enqueued via Ryu"""
         if reset:
             self.config_applied = defaultdict(bool)
         if sent:
             self.config_applied.update(sent)
         count = float(len(self.valves))
-        configured = sum((1 if self.config_applied[dp_id] else 0)
-                         for dp_id in self.valves)
+        configured = sum(
+            (1 if self.config_applied[dp_id] else 0) for dp_id in self.valves
+        )
         fraction = configured / count if count > 0 else 0
         self.metrics.faucet_config_applied.set(fraction)
 

@@ -19,11 +19,11 @@
 
 # Map of old field name, to new.
 OLD_MATCH_FIELDS = {
-    'dl_dst': 'eth_dst',
-    'dl_src': 'eth_src',
-    'dl_type': 'eth_type',
-    'dl_vlan': 'vlan_vid',
-    'nw_proto': 'ip_proto',
-    'nw_src': 'ipv4_src',
-    'nw_dst': 'ipv4_dst',
+    "dl_dst": "eth_dst",
+    "dl_src": "eth_src",
+    "dl_type": "eth_type",
+    "dl_vlan": "vlan_vid",
+    "nw_proto": "ip_proto",
+    "nw_src": "ipv4_src",
+    "nw_dst": "ipv4_dst",
 }
