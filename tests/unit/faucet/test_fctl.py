@@ -32,28 +32,30 @@ class FctlTestCaseBase(unittest.TestCase):  # pytype: disable=module-attr
     """Base class for fctl tests."""
 
     DEFAULT_VALUES = {
-        'dp_id': '0xb827eb608918',
-        'mac_addr': 'a4:5e:60:c5:5c:ed',
-        'metrics': 'learned_macs',
-        'n': 3,
-        'port': '17',
-        'vlan': '2004',
-        'value': 180725257428205.0
+        "dp_id": "0xb827eb608918",
+        "mac_addr": "a4:5e:60:c5:5c:ed",
+        "metrics": "learned_macs",
+        "n": 3,
+        "port": "17",
+        "vlan": "2004",
+        "value": 180725257428205.0,
     }
 
-    SRC_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../faucet')
+    SRC_DIR = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "../../../faucet"
+    )
 
     FCTL_BASE_ARGS = [
-        '--metrics={metrics}'.format(**DEFAULT_VALUES),
-        '--labels=dp_id:{dp_id}'.format(**DEFAULT_VALUES)
+        "--metrics={metrics}".format(**DEFAULT_VALUES),
+        "--labels=dp_id:{dp_id}".format(**DEFAULT_VALUES),
     ]
-    FCTL = os.path.join(SRC_DIR, 'fctl.py')
+    FCTL = os.path.join(SRC_DIR, "fctl.py")
     tmpdir = None
     prom_input_file_name = None
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        self.prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
+        self.prom_input_file_name = os.path.join(self.tmpdir, "prom_input.txt")
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
@@ -61,7 +63,7 @@ class FctlTestCaseBase(unittest.TestCase):  # pytype: disable=module-attr
     def fctl_args(self, extra_args=None):
         """generate argument list for fctl"""
         result = copy.copy(self.FCTL_BASE_ARGS)
-        result += ['--endpoints=file:%s' % self.prom_input_file_name]
+        result += ["--endpoints=file:%s" % self.prom_input_file_name]
         if extra_args is not None:
             result += extra_args
         return result
@@ -91,13 +93,13 @@ class FctlTestCase(FctlTestCaseBase):
 
     def run_fctl(self, prom_input, expected_output, extra_args=None):
         """Ensure fctl succeeds and returns expected output."""
-        with open(self.prom_input_file_name, 'w', encoding='utf-8') as prom_input_file:
+        with open(self.prom_input_file_name, "w", encoding="utf-8") as prom_input_file:
             prom_input_file.write(prom_input)
-        fctl_cli = ' '.join(
-            ['python3', self.FCTL] + self.fctl_args(extra_args))
-        retcode, output = subprocess.getstatusoutput(fctl_cli)  # pytype: disable=module-attr
-        self.assertEqual(0, retcode, msg='%s returned %d' % (
-            fctl_cli, retcode))
+        fctl_cli = " ".join(["python3", self.FCTL] + self.fctl_args(extra_args))
+        retcode, output = subprocess.getstatusoutput(
+            fctl_cli
+        )  # pytype: disable=module-attr
+        self.assertEqual(0, retcode, msg="%s returned %d" % (fctl_cli, retcode))
         output = output.strip()
         self.assertEqual(output, expected_output)
 
@@ -109,12 +111,15 @@ class FctlTestCase(FctlTestCaseBase):
         """Test can filter by display labels."""
         expected_output = """
 learned_macs\t[('dp_id', '{dp_id}')]\t{mac_addr}
-""".format(**self.DEFAULT_VALUES).strip()
+""".format(
+            **self.DEFAULT_VALUES
+        ).strip()
 
         self.run_fctl(
             self.learned_macs_prom(),
             expected_output,
-            extra_args=['--display-labels=dp_id'])
+            extra_args=["--display-labels=dp_id"],
+        )
 
 
 class FctlClassTestCase(FctlTestCaseBase):
@@ -122,59 +127,63 @@ class FctlClassTestCase(FctlTestCaseBase):
 
     def test_http_fail(self):
         """Test HTTP scrape handled."""
-        with open(os.devnull, 'w', encoding='utf-8') as err_output_file:
+        with open(os.devnull, "w", encoding="utf-8") as err_output_file:
             self.assertEqual(
                 None,
                 fctl.scrape_prometheus(
-                    ['http://127.0.0.1:23'], err_output_file=err_output_file))
+                    ["http://127.0.0.1:23"], err_output_file=err_output_file
+                ),
+            )
 
     def test_bad_url(self):
         """Test unparseable URL."""
-        with open(os.devnull, 'w', encoding='utf-8') as err_output_file:
+        with open(os.devnull, "w", encoding="utf-8") as err_output_file:
             self.assertEqual(
                 None,
                 fctl.scrape_prometheus(
-                    ['not/a$#@/valid_URL'], err_output_file=err_output_file))
+                    ["not/a$#@/valid_URL"], err_output_file=err_output_file
+                ),
+            )
 
     def test_bad_content(self):
         """Test bad content."""
-        bad_input_file_name = os.path.join(self.tmpdir, 'bad_content.txt')
-        with open(bad_input_file_name, 'w', encoding='utf-8') as bad_input_file:
-            bad_input_file.write('NOT/_prometheus_data')
-        with open(os.devnull, 'w', encoding='utf-8') as err_output_file:
+        bad_input_file_name = os.path.join(self.tmpdir, "bad_content.txt")
+        with open(bad_input_file_name, "w", encoding="utf-8") as bad_input_file:
+            bad_input_file.write("NOT/_prometheus_data")
+        with open(os.devnull, "w", encoding="utf-8") as err_output_file:
             self.assertEqual(
                 None,
                 fctl.scrape_prometheus(
-                    ['file://%s' % bad_input_file_name], err_output_file=err_output_file))
+                    ["file://%s" % bad_input_file_name], err_output_file=err_output_file
+                ),
+            )
 
     def write_prom_input_file(self, input_data):
-        with open(self.prom_input_file_name, 'w', encoding='utf-8') as prom_input_file:
+        with open(self.prom_input_file_name, "w", encoding="utf-8") as prom_input_file:
             prom_input_file.write(input_data)
 
     def test_macs(self):
         """Test reporting of learned MACs."""
         self.write_prom_input_file(self.learned_macs_prom())
-        (
-            endpoints,
-            report_metrics,
-            label_matches,
-            nonzero_only,
-            _
-        ) = fctl.parse_args(self.fctl_args())
+        (endpoints, report_metrics, label_matches, nonzero_only, _) = fctl.parse_args(
+            self.fctl_args()
+        )
         metrics = fctl.scrape_prometheus(endpoints)
         report_out = fctl.report_label_match_metrics(
             report_metrics=report_metrics,
             metrics=metrics,
             label_matches=label_matches,
-            nonzero_only=nonzero_only)
+            nonzero_only=nonzero_only,
+        )
         self.assertEqual(report_out, self.learned_macs_result())
 
     def test_get_samples(self):
         """Test querying with get_samples"""
         self.write_prom_input_file(self.learned_macs_prom())
         samples = fctl.get_samples(
-            ['file://' + self.prom_input_file_name], 'learned_macs', {})
-        self.assertEqual(samples[0].value, self.DEFAULT_VALUES['value'])
+            ["file://" + self.prom_input_file_name], "learned_macs", {}
+        )
+        self.assertEqual(samples[0].value, self.DEFAULT_VALUES["value"])
 
 
 if __name__ == "__main__":
