@@ -37,9 +37,7 @@ class GaugePoller:
         self.prom_client = prom_client
         self.reply_pending = False
         self.ryudp = None
-        self.logger = logging.getLogger(
-            logname + '.{0}'.format(self.conf.type)
-        )
+        self.logger = logging.getLogger(logname + ".{0}".format(self.conf.type))
         # _running indicates that the watcher is receiving data
         self._running = False
         self.req = None
@@ -47,18 +45,21 @@ class GaugePoller:
     def report_dp_status(self, dp_status):
         """Report DP status."""
         self.prom_client.dp_status.labels(
-            **dict(dp_id=hex(self.dp.dp_id), dp_name=self.dp.name)).set(dp_status)  # pylint: disable=no-member
+            **dict(dp_id=hex(self.dp.dp_id), dp_name=self.dp.name)
+        ).set(
+            dp_status
+        )  # pylint: disable=no-member
 
     def start(self, ryudp, active):
         """Start the poller."""
         self.ryudp = ryudp
         self._running = True
         if active:
-            self.logger.info('starting')
+            self.logger.info("starting")
 
     def stop(self):
         """Stop the poller."""
-        self.logger.info('stopping')
+        self.logger.info("stopping")
         self._running = False
 
     def running(self):
@@ -77,11 +78,14 @@ class GaugePoller:
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
 
-        dpid_str = ''
-        if self.req and hasattr(self.req, 'datapath'):
-            dpid_str = 'DPID %s (%s)' % (self.req.datapath.id, hex(self.req.datapath.id))
+        dpid_str = ""
+        if self.req and hasattr(self.req, "datapath"):
+            dpid_str = "DPID %s (%s)" % (
+                self.req.datapath.id,
+                hex(self.req.datapath.id),
+            )
 
-        self.logger.info('%s no response to %s', dpid_str, self.req)
+        self.logger.info("%s no response to %s", dpid_str, self.req)
 
     def update(self, rcv_time, msg):
         """Handle the responses to requests.
@@ -99,7 +103,7 @@ class GaugePoller:
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
         if not self.running():
-            self.logger.debug('update received when not running')
+            self.logger.debug("update received when not running")
             return
         self.reply_pending = False
         self._update(rcv_time, msg)
@@ -108,10 +112,10 @@ class GaugePoller:
         return ()
 
     def _dp_stat_name(self, _stat, _stat_name):
-        return ''
+        return ""
 
     def _rcv_time(self, rcv_time):
-        return time.strftime('%b %d %H:%M:%S', time.localtime(rcv_time))
+        return time.strftime("%b %d %H:%M:%S", time.localtime(rcv_time))
 
     def _update(self, rcv_time, msg):
         if not self.conf.file:
@@ -119,10 +123,12 @@ class GaugePoller:
         rcv_time_str = self._rcv_time(rcv_time)
         log_lines = []
         for stat in msg.body:
-            for stat_name, stat_val in self._format_stat_pairs('-', stat):
+            for stat_name, stat_val in self._format_stat_pairs("-", stat):
                 dp_stat_name = self._dp_stat_name(stat, stat_name)
-                log_lines.append(self._update_line(rcv_time_str, dp_stat_name, stat_val))
-        with open(self.conf.file, 'a', encoding='utf-8') as logfile:
+                log_lines.append(
+                    self._update_line(rcv_time_str, dp_stat_name, stat_val)
+                )
+        with open(self.conf.file, "a", encoding="utf-8") as logfile:
             logfile.writelines(log_lines)
 
     @staticmethod
@@ -138,7 +144,7 @@ class GaugePoller:
 
     @staticmethod
     def _update_line(rcv_time_str, stat_name, stat_val):
-        return '\t'.join((rcv_time_str, stat_name, str(stat_val))) + '\n'
+        return "\t".join((rcv_time_str, stat_name, str(stat_val))) + "\n"
 
 
 class GaugeThreadPoller(GaugePoller):
@@ -162,7 +168,7 @@ class GaugeThreadPoller(GaugePoller):
         super().start(ryudp, active)
         if active:
             self.thread = hub.spawn(self)
-            self.thread.name = 'GaugeThreadPoller'
+            self.thread.name = "GaugeThreadPoller"
 
     def stop(self):
         super().stop()
@@ -205,7 +211,7 @@ class GaugeMeterStatsPoller(GaugeThreadPoller):
 
 class GaugePortStatsPoller(GaugeThreadPoller):
     """Periodically sends a port stats request to the datapath and parses
-       and outputs the response.
+    and outputs the response.
     """
 
     def send_req(self):
@@ -215,14 +221,15 @@ class GaugePortStatsPoller(GaugeThreadPoller):
 
     def _format_stat_pairs(self, delim, stat):
         stat_pairs = (
-            (('packets', 'out'), stat.tx_packets),
-            (('packets', 'in'), stat.rx_packets),
-            (('bytes', 'out'), stat.tx_bytes),
-            (('bytes', 'in'), stat.rx_bytes),
-            (('dropped', 'out'), stat.tx_dropped),
-            (('dropped', 'in'), stat.rx_dropped),
-            (('errors', 'out'), stat.tx_errors),
-            (('errors', 'in'), stat.rx_errors))
+            (("packets", "out"), stat.tx_packets),
+            (("packets", "in"), stat.rx_packets),
+            (("bytes", "out"), stat.tx_bytes),
+            (("bytes", "in"), stat.rx_bytes),
+            (("dropped", "out"), stat.tx_dropped),
+            (("dropped", "in"), stat.rx_dropped),
+            (("errors", "out"), stat.tx_errors),
+            (("errors", "in"), stat.rx_errors),
+        )
         return self._format_stats(delim, stat_pairs)
 
 
@@ -238,38 +245,39 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
         if self.ryudp:
             match = parser.OFPMatch()
             self.req = parser.OFPFlowStatsRequest(
-                self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
-                0, 0, match)
+                self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY, 0, 0, match
+            )
             self.ryudp.send_msg(self.req)
 
     def _parse_flow_stats(self, stats):
         """Parse flow stats reply message into tags/labels and byte/packet counts."""
-        packet_count = int(stats['packet_count'])
-        byte_count = int(stats['byte_count'])
-        instructions = stats['instructions']
+        packet_count = int(stats["packet_count"])
+        byte_count = int(stats["byte_count"])
+        instructions = stats["instructions"]
         tags = {
-            'dp_name': self.dp.name,
-            'dp_id': hex(self.dp.dp_id),
-            'table_id': int(stats['table_id']),
-            'priority': int(stats['priority']),
-            'inst_count': len(instructions),
-            'cookie': int(stats['cookie']),
+            "dp_name": self.dp.name,
+            "dp_id": hex(self.dp.dp_id),
+            "table_id": int(stats["table_id"]),
+            "priority": int(stats["priority"]),
+            "inst_count": len(instructions),
+            "cookie": int(stats["cookie"]),
         }
-        oxm_matches = stats['match']['OFPMatch']['oxm_fields']
+        oxm_matches = stats["match"]["OFPMatch"]["oxm_fields"]
         for oxm_match in oxm_matches:
-            oxm_tlv = oxm_match['OXMTlv']
-            mask = oxm_tlv['mask']
-            val = oxm_tlv['value']
-            orig_field = oxm_tlv['field']
+            oxm_tlv = oxm_match["OXMTlv"]
+            mask = oxm_tlv["mask"]
+            val = oxm_tlv["value"]
+            orig_field = oxm_tlv["field"]
             if mask is not None:
-                val = '/'.join((str(val), str(mask)))
+                val = "/".join((str(val), str(mask)))
             field = OLD_MATCH_FIELDS.get(orig_field, orig_field)
             tags[field] = val
-            if field == 'vlan_vid' and mask is None:
-                tags['vlan'] = devid_present(int(val))
+            if field == "vlan_vid" and mask is None:
+                tags["vlan"] = devid_present(int(val))
         return (
-            ('flow_packet_count', tags, packet_count),
-            ('flow_byte_count', tags, byte_count))
+            ("flow_packet_count", tags, packet_count),
+            ("flow_byte_count", tags, byte_count),
+        )
 
 
 class GaugePortStatePoller(GaugePoller):
