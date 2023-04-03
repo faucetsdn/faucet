@@ -37,31 +37,88 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
     # then we flood all destination eth_dsts).
     FLOOD_DSTS = (
         (True, None, None, None),
-        (False, None, valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.mac_byte_mask(3)),  # 802.x
-        (False, None, '01:00:5E:00:00:00', valve_packet.mac_byte_mask(3)),  # IPv4 multicast
-        (False, None, '33:33:00:00:00:00', valve_packet.mac_byte_mask(2)),  # IPv6 multicast
-        (False, None, valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)),  # eth broadcasts
+        (
+            False,
+            None,
+            valve_packet.BRIDGE_GROUP_ADDRESS,
+            valve_packet.mac_byte_mask(3),
+        ),  # 802.x
+        (
+            False,
+            None,
+            "01:00:5E:00:00:00",
+            valve_packet.mac_byte_mask(3),
+        ),  # IPv4 multicast
+        (
+            False,
+            None,
+            "33:33:00:00:00:00",
+            valve_packet.mac_byte_mask(2),
+        ),  # IPv6 multicast
+        (
+            False,
+            None,
+            valve_of.mac.BROADCAST_STR,
+            valve_packet.mac_byte_mask(6),
+        ),  # eth broadcasts
     )
     # Ports with restricted broadcast enabled may only receive these broadcasts.
     RESTRICTED_FLOOD_DISTS = (
-        (False, valve_of.ether.ETH_TYPE_ARP,
-         valve_of.mac.BROADCAST_STR, valve_packet.mac_byte_mask(6)),  # ARP
-        (False, valve_of.ether.ETH_TYPE_IPV6,
-         '33:33:FF:00:00:00', valve_packet.mac_byte_mask(3)),  # IPv6 multicast for ND
-        (False, valve_of.ether.ETH_TYPE_IPV6,
-         valve_packet.IPV6_ALL_ROUTERS_MCAST, valve_packet.mac_byte_mask(6)),  # IPV6 all routers
-        (False, valve_of.ether.ETH_TYPE_IPV6,
-         valve_packet.IPV6_ALL_NODES_MCAST, valve_packet.mac_byte_mask(6)),  # IPv6 all nodes
+        (
+            False,
+            valve_of.ether.ETH_TYPE_ARP,
+            valve_of.mac.BROADCAST_STR,
+            valve_packet.mac_byte_mask(6),
+        ),  # ARP
+        (
+            False,
+            valve_of.ether.ETH_TYPE_IPV6,
+            "33:33:FF:00:00:00",
+            valve_packet.mac_byte_mask(3),
+        ),  # IPv6 multicast for ND
+        (
+            False,
+            valve_of.ether.ETH_TYPE_IPV6,
+            valve_packet.IPV6_ALL_ROUTERS_MCAST,
+            valve_packet.mac_byte_mask(6),
+        ),  # IPV6 all routers
+        (
+            False,
+            valve_of.ether.ETH_TYPE_IPV6,
+            valve_packet.IPV6_ALL_NODES_MCAST,
+            valve_packet.mac_byte_mask(6),
+        ),  # IPv6 all nodes
     )
 
-    def __init__(self, logger, ports, vlans,  # pylint: disable=too-many-arguments
-                 vlan_table, vlan_acl_table, eth_src_table, eth_dst_table,
-                 eth_dst_hairpin_table, flood_table, classification_table,
-                 pipeline, use_group_table, groups, combinatorial_port_flood,
-                 canonical_port_order, restricted_bcast_arpnd, has_externals,
-                 learn_ban_timeout, learn_timeout, learn_jitter, cache_update_guard_time,
-                 idle_dst, dp_high_priority, dp_highest_priority, faucet_dp_mac,
-                 drop_spoofed_faucet_mac):
+    def __init__(
+        self,
+        logger,
+        ports,
+        vlans,
+        vlan_table,
+        vlan_acl_table,
+        eth_src_table,
+        eth_dst_table,
+        eth_dst_hairpin_table,
+        flood_table,
+        classification_table,
+        pipeline,
+        use_group_table,
+        groups,
+        combinatorial_port_flood,
+        canonical_port_order,
+        restricted_bcast_arpnd,
+        has_externals,
+        learn_ban_timeout,
+        learn_timeout,
+        learn_jitter,
+        cache_update_guard_time,
+        idle_dst,
+        dp_high_priority,
+        dp_highest_priority,
+        faucet_dp_mac,
+        drop_spoofed_faucet_mac,
+    ):  # pylint: disable=too-many-arguments
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
@@ -106,12 +163,16 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         """Initialise the flood table with filtering flows."""
         ofmsgs = []
         for eth_dst, eth_dst_mask in (
-                (valve_packet.CISCO_CDP_VTP_UDLD_ADDRESS, valve_packet.mac_byte_mask(6)),
-                (valve_packet.CISCO_SPANNING_GROUP_ADDRESS, valve_packet.mac_byte_mask(6)),
-                (valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.BRIDGE_GROUP_MASK)):
-            ofmsgs.append(self.flood_table.flowdrop(
-                self.flood_table.match(eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
-                priority=self._mask_flood_priority(eth_dst_mask)))
+            (valve_packet.CISCO_CDP_VTP_UDLD_ADDRESS, valve_packet.mac_byte_mask(6)),
+            (valve_packet.CISCO_SPANNING_GROUP_ADDRESS, valve_packet.mac_byte_mask(6)),
+            (valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.BRIDGE_GROUP_MASK),
+        ):
+            ofmsgs.append(
+                self.flood_table.flowdrop(
+                    self.flood_table.match(eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
+                    priority=self._mask_flood_priority(eth_dst_mask),
+                )
+            )
         return ofmsgs
 
     @staticmethod
@@ -128,13 +189,23 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         """Return list of all ports that should be flooded to on a VLAN."""
         return list(vlan.flood_ports(vlan.get_ports(), exclude_unicast))
 
-    def _build_flood_local_rule_actions(self, vlan, exclude_unicast, in_port,  # pylint: disable=too-many-arguments
-                                        exclude_all_external, exclude_restricted_bcast_arpnd):
+    def _build_flood_local_rule_actions(
+        self,
+        vlan,
+        exclude_unicast,
+        in_port,
+        exclude_all_external,
+        exclude_restricted_bcast_arpnd,
+    ):  # pylint: disable=too-many-arguments
         """Return a list of flood actions to flood packets from a port."""
-        external_ports = self.canonical_port_order(vlan.loop_protect_external_ports_up())
+        external_ports = self.canonical_port_order(
+            vlan.loop_protect_external_ports_up()
+        )
         exclude_ports = vlan.excluded_lag_ports(in_port)
         exclude_ports.update(vlan.exclude_native_if_dot1x())
-        if exclude_all_external or (in_port is not None and in_port.loop_protect_external):
+        if exclude_all_external or (
+            in_port is not None and in_port.loop_protect_external
+        ):
             exclude_ports.update(set(external_ports))
         else:
             exclude_ports.update(set(external_ports[1:]))
@@ -144,15 +215,31 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             vlan.tagged_flood_ports(exclude_unicast),
             vlan.untagged_flood_ports(exclude_unicast),
             in_port=in_port,
-            exclude_ports=exclude_ports)
+            exclude_ports=exclude_ports,
+        )
 
-    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port,  # pylint: disable=too-many-arguments
-                                  exclude_all_external=False, exclude_restricted_bcast_arpnd=False):
+    def _build_flood_rule_actions(
+        self,
+        vlan,
+        exclude_unicast,
+        in_port,
+        exclude_all_external=False,
+        exclude_restricted_bcast_arpnd=False,
+    ):  # pylint: disable=too-many-arguments
         actions = []
-        if vlan.loop_protect_external_ports() and vlan.tagged_flood_ports(exclude_unicast):
+        if vlan.loop_protect_external_ports() and vlan.tagged_flood_ports(
+            exclude_unicast
+        ):
             actions.append(self.flood_table.set_external_forwarding_requested())
-        actions.extend(self._build_flood_local_rule_actions(
-            vlan, exclude_unicast, in_port, exclude_all_external, exclude_restricted_bcast_arpnd))
+        actions.extend(
+            self._build_flood_local_rule_actions(
+                vlan,
+                exclude_unicast,
+                in_port,
+                exclude_all_external,
+                exclude_restricted_bcast_arpnd,
+            )
+        )
         return tuple(actions)
 
     def _build_flood_rule(self, match, command, flood_acts, flood_priority):
@@ -160,7 +247,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             match=match,
             command=command,
             inst=(valve_of.apply_actions(flood_acts),),
-            priority=flood_priority)
+            priority=flood_priority,
+        )
 
     @functools.lru_cache(maxsize=1024)
     def _vlan_flood_priority(self, eth_type, eth_dst_mask):
@@ -169,96 +257,187 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             priority += eth_type
         return priority
 
-    def _build_flood_rule_for_vlan(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
-                                   exclude_unicast, command):
+    def _build_flood_rule_for_vlan(
+        self,
+        vlan,
+        eth_type,
+        eth_dst,
+        eth_dst_mask,
+        exclude_unicast,
+        command,
+    ):  # pylint: disable=too-many-arguments
         flood_priority = self._vlan_flood_priority(eth_type, eth_dst_mask)
         match = self.flood_table.match(
-            vlan=vlan, eth_type=eth_type, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
+            vlan=vlan, eth_type=eth_type, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask
+        )
         # TODO: optimization - drop all general flood dsts if all ports are restricted.
         exclude_restricted_bcast_arpnd = True
         flood_acts = self._build_flood_rule_actions(
-            vlan, exclude_unicast, None,
-            exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
-        return (self._build_flood_rule(match, command, flood_acts, flood_priority), flood_acts)
+            vlan,
+            exclude_unicast,
+            None,
+            exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd,
+        )
+        return (
+            self._build_flood_rule(match, command, flood_acts, flood_priority),
+            flood_acts,
+        )
 
-    def _build_flood_acts_for_port(self, vlan, exclude_unicast, port,  # pylint: disable=too-many-arguments
-                                   exclude_all_external=False,
-                                   exclude_restricted_bcast_arpnd=False):
+    def _build_flood_acts_for_port(
+        self,
+        vlan,
+        exclude_unicast,
+        port,
+        exclude_all_external=False,
+        exclude_restricted_bcast_arpnd=False,
+    ):  # pylint: disable=too-many-arguments
         flood_acts = ()
         port_output_ports = []
         port_non_output_acts = []
         if port.dyn_phys_up:
             if exclude_restricted_bcast_arpnd:
                 flood_acts = self._build_flood_rule_actions(
-                    vlan, exclude_unicast, port, exclude_all_external, port.restricted_bcast_arpnd)
+                    vlan,
+                    exclude_unicast,
+                    port,
+                    exclude_all_external,
+                    port.restricted_bcast_arpnd,
+                )
             else:
                 flood_acts = self._build_flood_rule_actions(
-                    vlan, exclude_unicast, port, exclude_all_external, False)
-            (flood_acts,
-             port_output_ports,
-             port_non_output_acts) = valve_of.output_non_output_actions(flood_acts)
+                    vlan, exclude_unicast, port, exclude_all_external, False
+                )
+            (
+                flood_acts,
+                port_output_ports,
+                port_non_output_acts,
+            ) = valve_of.output_non_output_actions(flood_acts)
             if not port_output_ports:
                 flood_acts = ()
                 port_non_output_acts = ()
         return (flood_acts, port_output_ports, port_non_output_acts)
 
-    def _build_flood_match_priority(self, port, vlan, eth_type,  # pylint: disable=too-many-arguments
-                                    eth_dst, eth_dst_mask, add_match):
+    def _build_flood_match_priority(
+        self,
+        port,
+        vlan,
+        eth_type,
+        eth_dst,
+        eth_dst_mask,
+        add_match,
+    ):  # pylint: disable=too-many-arguments
         flood_priority = self._vlan_flood_priority(eth_type, eth_dst_mask) + 1
         if add_match is None:
             add_match = {}
         match = self.flood_table.match(
-            vlan=vlan, in_port=port.number,
-            eth_type=eth_type, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask,
-            **add_match)
+            vlan=vlan,
+            in_port=port.number,
+            eth_type=eth_type,
+            eth_dst=eth_dst,
+            eth_dst_mask=eth_dst_mask,
+            **add_match
+        )
         return (flood_priority, match)
 
-    def _build_flood_rule_for_port(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
-                                   command, port, flood_acts, add_match=None):
+    def _build_flood_rule_for_port(
+        self,
+        vlan,
+        eth_type,
+        eth_dst,
+        eth_dst_mask,
+        command,
+        port,
+        flood_acts,
+        add_match=None,
+    ):  # pylint: disable=too-many-arguments
         flood_priority, match = self._build_flood_match_priority(
-            port, vlan, eth_type, eth_dst, eth_dst_mask, add_match)
+            port, vlan, eth_type, eth_dst, eth_dst_mask, add_match
+        )
         return self._build_flood_rule(match, command, flood_acts, flood_priority)
 
-    def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
-                                exclude_unicast, exclude_restricted_bcast_arpnd,
-                                command, cold_start):
+    def _build_mask_flood_rules(
+        self,
+        vlan,
+        eth_type,
+        eth_dst,
+        eth_dst_mask,
+        exclude_unicast,
+        exclude_restricted_bcast_arpnd,
+        command,
+        cold_start,
+    ):  # pylint: disable=too-many-arguments
         ofmsgs = []
         if self.combinatorial_port_flood:
             for port in self._vlan_all_ports(vlan, exclude_unicast):
                 flood_acts, _, _ = self._build_flood_acts_for_port(
-                    vlan, exclude_unicast, port,
-                    exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
+                    vlan,
+                    exclude_unicast,
+                    port,
+                    exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd,
+                )
                 if flood_acts:
-                    ofmsgs.append(self._build_flood_rule_for_port(
-                        vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts))
+                    ofmsgs.append(
+                        self._build_flood_rule_for_port(
+                            vlan,
+                            eth_type,
+                            eth_dst,
+                            eth_dst_mask,
+                            command,
+                            port,
+                            flood_acts,
+                        )
+                    )
         else:
             vlan_flood_ofmsg, vlan_flood_acts = self._build_flood_rule_for_vlan(
-                vlan, eth_type, eth_dst, eth_dst_mask, exclude_unicast, command)
+                vlan, eth_type, eth_dst, eth_dst_mask, exclude_unicast, command
+            )
             if not self.use_group_table:
                 ofmsgs.append(vlan_flood_ofmsg)
-            (flood_acts,
-             vlan_output_ports,
-             vlan_non_output_acts) = valve_of.output_non_output_actions(vlan_flood_acts)
+            (
+                flood_acts,
+                vlan_output_ports,
+                vlan_non_output_acts,
+            ) = valve_of.output_non_output_actions(vlan_flood_acts)
             for port in self._vlan_all_ports(vlan, exclude_unicast):
-                (flood_acts,
-                 port_output_ports,
-                 port_non_output_acts) = self._build_flood_acts_for_port(
-                     vlan, exclude_unicast, port,
-                     exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
+                (
+                    flood_acts,
+                    port_output_ports,
+                    port_non_output_acts,
+                ) = self._build_flood_acts_for_port(
+                    vlan,
+                    exclude_unicast,
+                    port,
+                    exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd,
+                )
                 if not flood_acts:
                     continue
-                if (vlan_output_ports - set([port.number]) == port_output_ports
-                        and vlan_non_output_acts == port_non_output_acts):
+                if (
+                    vlan_output_ports - set([port.number]) == port_output_ports
+                    and vlan_non_output_acts == port_non_output_acts
+                ):
                     # Delete a potentially existing port specific flow
                     # TODO: optimize, avoid generating delete for port if no existing flow.
                     if not cold_start:
                         flood_priority, match = self._build_flood_match_priority(
-                            port, vlan, eth_type, eth_dst, eth_dst_mask, add_match=None)
-                        ofmsgs.append(self.flood_table.flowdel(
-                            match=match, priority=flood_priority))
+                            port, vlan, eth_type, eth_dst, eth_dst_mask, add_match=None
+                        )
+                        ofmsgs.append(
+                            self.flood_table.flowdel(
+                                match=match, priority=flood_priority
+                            )
+                        )
                 else:
-                    ofmsgs.append(self._build_flood_rule_for_port(
-                        vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts))
+                    ofmsgs.append(
+                        self._build_flood_rule_for_port(
+                            vlan,
+                            eth_type,
+                            eth_dst,
+                            eth_dst_mask,
+                            command,
+                            port,
+                            flood_acts,
+                        )
+                    )
         return ofmsgs
 
     def _build_multiout_flood_rules(self, vlan, command, cold_start):
@@ -268,33 +447,51 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             if unicast_eth_dst and not vlan.unicast_flood:
                 continue
             exclude_restricted_bcast_arpnd = eth_type is None
-            ofmsgs.extend(self._build_mask_flood_rules(
-                vlan, eth_type, eth_dst, eth_dst_mask,
-                unicast_eth_dst, exclude_restricted_bcast_arpnd,
-                command, cold_start))
+            ofmsgs.extend(
+                self._build_mask_flood_rules(
+                    vlan,
+                    eth_type,
+                    eth_dst,
+                    eth_dst_mask,
+                    unicast_eth_dst,
+                    exclude_restricted_bcast_arpnd,
+                    command,
+                    cold_start,
+                )
+            )
         return ofmsgs
 
     def _build_group_flood_rules(self, vlan, command):
         """Build flooding rules for a VLAN using groups."""
         _, vlan_flood_acts = self._build_flood_rule_for_vlan(
-            vlan, None, None, None, False, command)
+            vlan, None, None, None, False, command
+        )
         group_id = vlan.vid
         group = self.groups.get_entry(
-            group_id, valve_of.build_group_flood_buckets(vlan_flood_acts))
+            group_id, valve_of.build_group_flood_buckets(vlan_flood_acts)
+        )
         groups_by_unicast_eth = {False: group, True: group}
         ofmsgs = []
 
         # Only configure unicast flooding group if has different output
         # actions to non unicast flooding.
         _, unicast_eth_vlan_flood_acts = self._build_flood_rule_for_vlan(
-            vlan, None, None, None, True, command)
-        unicast_eth_vlan_flood_acts, unicast_output_ports, _ = valve_of.output_non_output_actions(
-            unicast_eth_vlan_flood_acts)
-        vlan_flood_acts, vlan_output_ports, _ = valve_of.output_non_output_actions(vlan_flood_acts)
+            vlan, None, None, None, True, command
+        )
+        (
+            unicast_eth_vlan_flood_acts,
+            unicast_output_ports,
+            _,
+        ) = valve_of.output_non_output_actions(unicast_eth_vlan_flood_acts)
+        vlan_flood_acts, vlan_output_ports, _ = valve_of.output_non_output_actions(
+            vlan_flood_acts
+        )
         if unicast_output_ports != vlan_output_ports:
             group_id += valve_of.VLAN_GROUP_OFFSET
             group = self.groups.get_entry(
-                group_id, valve_of.build_group_flood_buckets(unicast_eth_vlan_flood_acts))
+                group_id,
+                valve_of.build_group_flood_buckets(unicast_eth_vlan_flood_acts),
+            )
             groups_by_unicast_eth[True] = group
 
         for group in groups_by_unicast_eth.values():
@@ -305,13 +502,19 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 continue
             group = groups_by_unicast_eth[unicast_eth_dst]
             match = self.flood_table.match(
-                vlan=vlan, eth_type=eth_type, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
+                vlan=vlan, eth_type=eth_type, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask
+            )
             flood_priority = self._vlan_flood_priority(eth_type, eth_dst_mask)
-            ofmsgs.append(self.flood_table.flowmod(
-                match=match,
-                command=command,
-                inst=(valve_of.apply_actions((valve_of.group_act(group.group_id),)),),
-                priority=flood_priority))
+            ofmsgs.append(
+                self.flood_table.flowmod(
+                    match=match,
+                    command=command,
+                    inst=(
+                        valve_of.apply_actions((valve_of.group_act(group.group_id),)),
+                    ),
+                    priority=flood_priority,
+                )
+            )
         return ofmsgs
 
     def add_drop_spoofed_faucet_mac_rules(self, vlan):
@@ -320,25 +523,29 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         # TODO: antispoof for controller IPs on this VLAN, too.
         ofmsgs = []
         if self.drop_spoofed_faucet_mac:
-            ofmsgs.extend(self.pipeline.filter_packets({'eth_src': vlan.faucet_mac}))
+            ofmsgs.extend(self.pipeline.filter_packets({"eth_src": vlan.faucet_mac}))
         return ofmsgs
 
     def add_vlan(self, vlan, cold_start):
         ofmsgs = []
         ofmsgs.extend(self.add_drop_spoofed_faucet_mac_rules(vlan))
-        ofmsgs.append(self.eth_src_table.flowcontroller(
-            match=self.eth_src_table.match(vlan=vlan),
-            priority=self.low_priority,
-            inst=(self.eth_src_table.goto(self.output_table),)))
+        ofmsgs.append(
+            self.eth_src_table.flowcontroller(
+                match=self.eth_src_table.match(vlan=vlan),
+                priority=self.low_priority,
+                inst=(self.eth_src_table.goto(self.output_table),),
+            )
+        )
         ofmsgs.extend(self._build_flood_rules(vlan, cold_start))
         return ofmsgs
 
     def del_vlan(self, vlan):
         return [
-            self.flood_table.flowdel(
-                match=self.flood_table.match(vlan=vlan)),
+            self.flood_table.flowdel(match=self.flood_table.match(vlan=vlan)),
             self.eth_src_table.flowdel(
-                match=self.eth_src_table.match(vlan=vlan), priority=self.low_priority)]
+                match=self.eth_src_table.match(vlan=vlan), priority=self.low_priority
+            ),
+        ]
 
     def update_vlan(self, vlan):
         return self._build_flood_rules(vlan, cold_start=False, modify=True)
@@ -352,8 +559,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         actions = copy.copy(mirror_act)
         match_vlan = vlan
         if push_vlan:
-            actions.extend(valve_of.push_vlan_act(
-                self.vlan_table, vlan.vid))
+            actions.extend(valve_of.push_vlan_act(self.vlan_table, vlan.vid))
             match_vlan = NullVLAN()
         if self.has_externals:
             if port.loop_protect_external:
@@ -362,10 +568,13 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 actions.append(self.vlan_table.set_external_forwarding_requested())
         inst = (
             valve_of.apply_actions(actions),
-            self.vlan_table.goto(self._find_forwarding_table(vlan)))
+            self.vlan_table.goto(self._find_forwarding_table(vlan)),
+        )
         return self.vlan_table.flowmod(
             self.vlan_table.match(in_port=port.number, vlan=match_vlan),
-            priority=self.low_priority, inst=inst)
+            priority=self.low_priority,
+            inst=inst,
+        )
 
     @staticmethod
     def _native_vlan(port):
@@ -385,36 +594,44 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         return self.vlan_table.match(
             in_port=port.number,
             eth_type=valve_of.ether.ETH_TYPE_SLOW,
-            eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST)
+            eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST,
+        )
 
     def add_port(self, port):
         ofmsgs = []
         if port.vlans():
             mirror_act = port.mirror_actions()
             for vlan in port.tagged_vlans:
-                ofmsgs.append(self._port_add_vlan_rules(
-                    port, vlan, mirror_act, push_vlan=False))
+                ofmsgs.append(
+                    self._port_add_vlan_rules(port, vlan, mirror_act, push_vlan=False)
+                )
             native_vlan = self._native_vlan(port)
             if native_vlan is not None:
-                ofmsgs.append(self._port_add_vlan_rules(
-                    port, native_vlan, mirror_act))
+                ofmsgs.append(self._port_add_vlan_rules(port, native_vlan, mirror_act))
             # If no untagged VLANs, add explicit drop rule for untagged packets.
             elif port.count_untag_vlan_miss:
-                ofmsgs.append(self.vlan_table.flowdrop(
-                    self.vlan_table.match(in_port=port.number, vlan=NullVLAN()),
-                    priority=self.low_priority))
+                ofmsgs.append(
+                    self.vlan_table.flowdrop(
+                        self.vlan_table.match(in_port=port.number, vlan=NullVLAN()),
+                        priority=self.low_priority,
+                    )
+                )
             if port.lacp:
-                ofmsgs.append(self.vlan_table.flowcontroller(
-                    self._lacp_match(port),
-                    priority=self.dp_highest_priority,
-                    max_len=valve_packet.LACP_SIZE))
+                ofmsgs.append(
+                    self.vlan_table.flowcontroller(
+                        self._lacp_match(port),
+                        priority=self.dp_highest_priority,
+                        max_len=valve_packet.LACP_SIZE,
+                    )
+                )
                 ofmsgs.extend(self.lacp_advertise(port))
         return ofmsgs
 
     def _del_host_flows(self, port):
         ofmsgs = []
         ofmsgs.append(
-            self.eth_src_table.flowdel(self.eth_src_table.match(in_port=port.number)))
+            self.eth_src_table.flowdel(self.eth_src_table.match(in_port=port.number))
+        )
         for table in (self.eth_dst_table, self.eth_dst_hairpin_table):
             if table:
                 # per OF 1.3.5 B.6.23, the OFA will match flows
@@ -428,17 +645,25 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             ofmsgs.extend(self._del_host_flows(port))
             native_vlan = self._native_vlan(port)
             if native_vlan is not None or port.count_untag_vlan_miss:
-                ofmsgs.append(self.vlan_table.flowdel(
-                    self.vlan_table.match(in_port=port.number, vlan=NullVLAN()),
-                    priority=self.low_priority))
+                ofmsgs.append(
+                    self.vlan_table.flowdel(
+                        self.vlan_table.match(in_port=port.number, vlan=NullVLAN()),
+                        priority=self.low_priority,
+                    )
+                )
             for vlan in port.tagged_vlans:
-                ofmsgs.append(self.vlan_table.flowdel(
-                    self.vlan_table.match(in_port=port.number, vlan=vlan),
-                    priority=self.low_priority))
+                ofmsgs.append(
+                    self.vlan_table.flowdel(
+                        self.vlan_table.match(in_port=port.number, vlan=vlan),
+                        priority=self.low_priority,
+                    )
+                )
             if port.lacp:
-                ofmsgs.append(self.vlan_table.flowdel(
-                    self._lacp_match(port),
-                    priority=self.dp_highest_priority))
+                ofmsgs.append(
+                    self.vlan_table.flowdel(
+                        self._lacp_match(port), priority=self.dp_highest_priority
+                    )
+                )
         return ofmsgs
 
     def _build_flood_rules(self, vlan, cold_start, modify=False):
@@ -481,36 +706,46 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         if entry is None:
             if port.max_hosts:
                 if port.hosts_count() == port.max_hosts:
-                    ofmsgs.append(self._temp_ban_host_learning(
-                        self.eth_src_table.match(in_port=port.number)))
+                    ofmsgs.append(
+                        self._temp_ban_host_learning(
+                            self.eth_src_table.match(in_port=port.number)
+                        )
+                    )
                     port.dyn_learn_ban_count += 1
                     self.logger.info(
-                        'max hosts %u reached on %s, '
-                        'temporarily banning learning on this port, '
-                        'and not learning %s' % (
-                            port.max_hosts, port, eth_src))
+                        "max hosts %u reached on %s, "
+                        "temporarily banning learning on this port, "
+                        "and not learning %s" % (port.max_hosts, port, eth_src)
+                    )
             if vlan is not None and vlan.max_hosts:
                 hosts_count = vlan.hosts_count()
                 if hosts_count == vlan.max_hosts:
-                    ofmsgs.append(self._temp_ban_host_learning(self.eth_src_table.match(vlan=vlan)))
+                    ofmsgs.append(
+                        self._temp_ban_host_learning(
+                            self.eth_src_table.match(vlan=vlan)
+                        )
+                    )
                     vlan.dyn_learn_ban_count += 1
                     self.logger.info(
-                        'max hosts %u reached on VLAN %u, '
-                        'temporarily banning learning on this VLAN, '
-                        'and not learning %s on %s' % (
-                            vlan.max_hosts, vlan.vid, eth_src, port))
+                        "max hosts %u reached on VLAN %u, "
+                        "temporarily banning learning on this VLAN, "
+                        "and not learning %s on %s"
+                        % (vlan.max_hosts, vlan.vid, eth_src, port)
+                    )
         return ofmsgs
 
     def _temp_ban_host_learning(self, match):
         return self.eth_src_table.flowdrop(
-            match,
-            priority=(self.low_priority + 1),
-            hard_timeout=self.learn_ban_timeout)
+            match, priority=(self.low_priority + 1), hard_timeout=self.learn_ban_timeout
+        )
 
     def delete_host_from_vlan(self, eth_src, vlan):
         """Delete a host from a VLAN."""
-        ofmsgs = [self.eth_src_table.flowdel(
-            self.eth_src_table.match(vlan=vlan, eth_src=eth_src))]
+        ofmsgs = [
+            self.eth_src_table.flowdel(
+                self.eth_src_table.match(vlan=vlan, eth_src=eth_src)
+            )
+        ]
         for table in (self.eth_dst_table, self.eth_dst_hairpin_table):
             if table:
                 ofmsgs.append(table.flowdel(table.match(vlan=vlan, eth_dst=eth_src)))
@@ -522,8 +757,9 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         if expired_hosts:
             vlan.dyn_last_time_hosts_expired = now
             self.logger.info(
-                '%u recently active hosts on VLAN %u, expired %s' % (
-                    vlan.hosts_count(), vlan.vid, expired_hosts))
+                "%u recently active hosts on VLAN %u, expired %s"
+                % (vlan.hosts_count(), vlan.vid, expired_hosts)
+            )
         return expired_hosts
 
     def _jitter_learn_timeout(self, base_learn_timeout, port, eth_dst):
@@ -564,11 +800,17 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             return True
         return None
 
-    def learn_host_on_vlan_port_flows(self, port, vlan, eth_src,
-                                      delete_existing, refresh_rules,
-                                      src_rule_idle_timeout,
-                                      src_rule_hard_timeout,
-                                      dst_rule_idle_timeout):
+    def learn_host_on_vlan_port_flows(
+        self,
+        port,
+        vlan,
+        eth_src,
+        delete_existing,
+        refresh_rules,
+        src_rule_idle_timeout,
+        src_rule_hard_timeout,
+        dst_rule_idle_timeout,
+    ):  # pylint: disable=too-many-arguments
         """Return flows that implement learning a host on a port."""
         ofmsgs = []
 
@@ -578,16 +820,20 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
 
         # Associate this MAC with source port.
         src_match = self.eth_src_table.match(
-            in_port=port.number, vlan=vlan, eth_src=eth_src)
+            in_port=port.number, vlan=vlan, eth_src=eth_src
+        )
         src_priority = self.host_priority - 1
 
         inst = (self.eth_src_table.goto(self.output_table),)
-        ofmsgs.append(self.eth_src_table.flowmod(
-            match=src_match,
-            priority=src_priority,
-            inst=inst,
-            hard_timeout=src_rule_hard_timeout,
-            idle_timeout=src_rule_idle_timeout))
+        ofmsgs.append(
+            self.eth_src_table.flowmod(
+                match=src_match,
+                priority=src_priority,
+                inst=inst,
+                hard_timeout=src_rule_hard_timeout,
+                idle_timeout=src_rule_idle_timeout,
+            )
+        )
 
         hairpinning = port.hairpin or port.hairpin_unicast
         # If we are refreshing only and not in hairpin mode, leave existing eth_dst alone.
@@ -595,69 +841,119 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             return ofmsgs
 
         match_dict = {
-            'vlan': vlan, 'eth_dst': eth_src, valve_of.EXTERNAL_FORWARDING_FIELD: None}
+            "vlan": vlan,
+            "eth_dst": eth_src,
+            valve_of.EXTERNAL_FORWARDING_FIELD: None,
+        }
         if self.has_externals:
-            match_dict.update({
-                valve_of.EXTERNAL_FORWARDING_FIELD: valve_of.PCP_EXT_PORT_FLAG})
+            match_dict.update(
+                {valve_of.EXTERNAL_FORWARDING_FIELD: valve_of.PCP_EXT_PORT_FLAG}
+            )
 
         inst = self.pipeline.output(
-            port, vlan, external_forwarding_requested=self._external_forwarding_requested(port))
+            port,
+            vlan,
+            external_forwarding_requested=self._external_forwarding_requested(port),
+        )
 
         # Output packets for this MAC to specified port.
-        ofmsgs.append(self.eth_dst_table.flowmod(
-            self.eth_dst_table.match(**match_dict),
-            priority=self.host_priority,
-            inst=inst,
-            idle_timeout=dst_rule_idle_timeout))
-
-        if self.has_externals and not port.loop_protect_external:
-            match_dict.update({
-                valve_of.EXTERNAL_FORWARDING_FIELD: valve_of.PCP_NONEXT_PORT_FLAG})
-            ofmsgs.append(self.eth_dst_table.flowmod(
+        ofmsgs.append(
+            self.eth_dst_table.flowmod(
                 self.eth_dst_table.match(**match_dict),
                 priority=self.host_priority,
                 inst=inst,
-                idle_timeout=dst_rule_idle_timeout))
+                idle_timeout=dst_rule_idle_timeout,
+            )
+        )
+
+        if self.has_externals and not port.loop_protect_external:
+            match_dict.update(
+                {valve_of.EXTERNAL_FORWARDING_FIELD: valve_of.PCP_NONEXT_PORT_FLAG}
+            )
+            ofmsgs.append(
+                self.eth_dst_table.flowmod(
+                    self.eth_dst_table.match(**match_dict),
+                    priority=self.host_priority,
+                    inst=inst,
+                    idle_timeout=dst_rule_idle_timeout,
+                )
+            )
 
         # If port is in hairpin mode, install a special rule
         # that outputs packets destined to this MAC back out the same
         # port they came in (e.g. multiple hosts on same WiFi AP,
         # and FAUCET is switching between them on the same port).
         if hairpinning:
-            ofmsgs.append(self.eth_dst_hairpin_table.flowmod(
-                self.eth_dst_hairpin_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
-                priority=self.host_priority,
-                inst=self.pipeline.output(port, vlan, hairpin=True),
-                idle_timeout=dst_rule_idle_timeout))
+            ofmsgs.append(
+                self.eth_dst_hairpin_table.flowmod(
+                    self.eth_dst_hairpin_table.match(
+                        in_port=port.number, vlan=vlan, eth_dst=eth_src
+                    ),
+                    priority=self.host_priority,
+                    inst=self.pipeline.output(port, vlan, hairpin=True),
+                    idle_timeout=dst_rule_idle_timeout,
+                )
+            )
 
         return ofmsgs
 
-    # pylint: disable=unused-argument
-    def _perm_learn_check(self, entry, vlan, now, eth_src, port, ofmsgs,
-                          cache_port, cache_age,
-                          delete_existing, refresh_rules):
+    def _perm_learn_check(
+        self,
+        entry,
+        vlan,
+        now,
+        eth_src,
+        port,
+        ofmsgs,
+        cache_port,
+        cache_age,
+        delete_existing,
+        refresh_rules,
+    ):  # pylint: disable=too-many-arguments,disable=unused-argument
         learn_exit = False
         update_cache = True
         if entry is not None and entry.port.permanent_learn:
             if entry.port != port:
-                ofmsgs.extend(self.pipeline.filter_packets(
-                    {'eth_src': eth_src, 'in_port': port.number}))
+                ofmsgs.extend(
+                    self.pipeline.filter_packets(
+                        {"eth_src": eth_src, "in_port": port.number}
+                    )
+                )
             learn_exit = True
             update_cache = False
-        return (learn_exit, ofmsgs, cache_port, update_cache, delete_existing, refresh_rules)
+        return (
+            learn_exit,
+            ofmsgs,
+            cache_port,
+            update_cache,
+            delete_existing,
+            refresh_rules,
+        )
 
-    def _learn_cache_check(self, entry, vlan, now, eth_src, port, ofmsgs,  # pylint: disable=unused-argument
-                           cache_port, cache_age,
-                           delete_existing, refresh_rules):
+    def _learn_cache_check(
+        self,
+        entry,
+        vlan,
+        now,
+        eth_src,
+        port,
+        ofmsgs,
+        cache_port,
+        cache_age,
+        delete_existing,
+        refresh_rules,
+    ):  # pylint: disable=unused-argument,disable=too-many-arguments
         learn_exit = False
         update_cache = True
         if cache_port is not None:
             # packet was received on same member of a LAG.
-            same_lag = (port.lacp and port.lacp == cache_port.lacp)
+            same_lag = port.lacp and port.lacp == cache_port.lacp
             guard_time = self.cache_update_guard_time
             if cache_port == port or same_lag:
                 port_cache_valid = (
-                    port.dyn_update_time is not None and port.dyn_update_time <= entry.cache_time)
+                    port.dyn_update_time is not None
+                    and port.dyn_update_time <= entry.cache_time
+                )
                 # aggressively re-learn on LAGs
                 if same_lag:
                     guard_time = 2
@@ -670,11 +966,28 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                     delete_existing = False
                     if port_cache_valid:
                         refresh_rules = True
-        return (learn_exit, ofmsgs, cache_port, update_cache, delete_existing, refresh_rules)
+        return (
+            learn_exit,
+            ofmsgs,
+            cache_port,
+            update_cache,
+            delete_existing,
+            refresh_rules,
+        )
 
-    def _loop_protect_check(self, entry, vlan, now, eth_src, port, ofmsgs,  # pylint: disable=unused-argument
-                            cache_port, cache_age,
-                            delete_existing, refresh_rules):
+    def _loop_protect_check(
+        self,
+        entry,
+        vlan,
+        now,
+        eth_src,
+        port,
+        ofmsgs,
+        cache_port,
+        cache_age,
+        delete_existing,
+        refresh_rules,
+    ):  # pylint: disable=unused-argument,disable=too-many-arguments
         learn_exit = False
         update_cache = True
         if port.loop_protect:
@@ -693,36 +1006,80 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 if port != cache_port and cache_age < self.cache_update_guard_time:
                     learn_ban = True
                     port.dyn_learn_ban_count += 1
-                    self.logger.info('rapid move of %s from %s to %s, temp loop ban %s' % (
-                        eth_src, cache_port, port, port))
+                    self.logger.info(
+                        "rapid move of %s from %s to %s, temp loop ban %s"
+                        % (eth_src, cache_port, port, port)
+                    )
 
             # already, or newly in protect mode, apply the ban rules.
             if learn_ban:
                 port.dyn_last_ban_time = now
-                ofmsgs.append(self._temp_ban_host_learning(
-                    self.eth_src_table.match(in_port=port.number)))
+                ofmsgs.append(
+                    self._temp_ban_host_learning(
+                        self.eth_src_table.match(in_port=port.number)
+                    )
+                )
                 learn_exit = True
-        return (learn_exit, ofmsgs, cache_port, update_cache, delete_existing, refresh_rules)
+        return (
+            learn_exit,
+            ofmsgs,
+            cache_port,
+            update_cache,
+            delete_existing,
+            refresh_rules,
+        )
 
-    # pylint: disable=unused-argument
-    def _learn_check(self, entry, vlan, now, eth_src, port, ofmsgs,
-                     cache_port, cache_age,
-                     delete_existing, refresh_rules):
+    def _learn_check(
+        self,
+        entry,
+        vlan,
+        now,
+        eth_src,
+        port,
+        ofmsgs,
+        cache_port,
+        cache_age,
+        delete_existing,
+        refresh_rules,
+    ):  # pylint: disable=unused-argument,disable=too-many-arguments
         learn_exit = True
         update_cache = True
-        (src_rule_idle_timeout,
-         src_rule_hard_timeout,
-         dst_rule_idle_timeout) = self._learn_host_timeouts(port, eth_src)
+        (
+            src_rule_idle_timeout,
+            src_rule_hard_timeout,
+            dst_rule_idle_timeout,
+        ) = self._learn_host_timeouts(port, eth_src)
 
-        ofmsgs.extend(self.learn_host_on_vlan_port_flows(
-            port, vlan, eth_src, delete_existing, refresh_rules,
-            src_rule_idle_timeout, src_rule_hard_timeout,
-            dst_rule_idle_timeout))
-        return (learn_exit, ofmsgs, cache_port, update_cache, delete_existing, refresh_rules)
+        ofmsgs.extend(
+            self.learn_host_on_vlan_port_flows(
+                port,
+                vlan,
+                eth_src,
+                delete_existing,
+                refresh_rules,
+                src_rule_idle_timeout,
+                src_rule_hard_timeout,
+                dst_rule_idle_timeout,
+            )
+        )
+        return (
+            learn_exit,
+            ofmsgs,
+            cache_port,
+            update_cache,
+            delete_existing,
+            refresh_rules,
+        )
 
-    def learn_host_on_vlan_ports(self, now, port, vlan, eth_src,
-                                 delete_existing=True,
-                                 last_dp_coldstart_time=None):
+    def learn_host_on_vlan_ports(
+        self,
+        now,
+        port,
+        vlan,
+        eth_src,
+        delete_existing=True,
+        last_dp_coldstart_time=None,
+    ):  # pylint: disable=unused-argument,disable=too-many-arguments
         """Learn a host on a port."""
         ofmsgs = []
         cache_port = None
@@ -734,21 +1091,40 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         # Host not cached, and no hosts expired since we cold started
         # Enable faster learning by assuming there's no previous host to delete
         if entry is None:
-            if (last_dp_coldstart_time
-                    and (vlan.dyn_last_time_hosts_expired is None
-                         or vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
+            if last_dp_coldstart_time and (
+                vlan.dyn_last_time_hosts_expired is None
+                or vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time
+            ):
                 delete_existing = False
         else:
             cache_age = now - entry.cache_time
             cache_port = entry.port
 
         for learn_func in (
-                self._perm_learn_check, self._learn_cache_check,
-                self._loop_protect_check, self._learn_check):
-            (learn_exit, ofmsgs, cache_port, update_cache,
-             delete_existing, refresh_rules) = learn_func(
-                 entry, vlan, now, eth_src, port, ofmsgs, cache_port, cache_age,
-                 delete_existing, refresh_rules)
+            self._perm_learn_check,
+            self._learn_cache_check,
+            self._loop_protect_check,
+            self._learn_check,
+        ):
+            (
+                learn_exit,
+                ofmsgs,
+                cache_port,
+                update_cache,
+                delete_existing,
+                refresh_rules,
+            ) = learn_func(
+                entry,
+                vlan,
+                now,
+                eth_src,
+                port,
+                ofmsgs,
+                cache_port,
+                cache_age,
+                delete_existing,
+                refresh_rules,
+            )
             if learn_exit:
                 break
 
@@ -759,7 +1135,9 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         """Handle a flow timed out message from dataplane."""
         return []
 
-    def lacp_update_actor_state(self, port, lacp_up, now=None, lacp_pkt=None, cold_start=False):
+    def lacp_update_actor_state(
+        self, port, lacp_up, now=None, lacp_pkt=None, cold_start=False
+    ):  # pylint: disable=too-many-arguments
         """Updates a LAG actor state.
 
         Args:
@@ -773,26 +1151,39 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         """
         prev_actor_state = port.actor_state()
         new_actor_state = port.lacp_actor_update(
-            lacp_up, now=now, lacp_pkt=lacp_pkt,
-            cold_start=cold_start)
+            lacp_up, now=now, lacp_pkt=lacp_pkt, cold_start=cold_start
+        )
         if prev_actor_state != new_actor_state:
-            self.logger.info('LAG %u %s actor state %s (previous state %s)' % (
-                port.lacp, port, port.actor_state_name(new_actor_state),
-                port.actor_state_name(prev_actor_state)))
+            self.logger.info(
+                "LAG %u %s actor state %s (previous state %s)"
+                % (
+                    port.lacp,
+                    port,
+                    port.actor_state_name(new_actor_state),
+                    port.actor_state_name(prev_actor_state),
+                )
+            )
         return prev_actor_state != new_actor_state
 
     def enable_forwarding(self, port):
         ofmsgs = []
-        ofmsgs.append(self.vlan_table.flowdel(
-            match=self.vlan_table.match(in_port=port.number),
-            priority=self.dp_high_priority, strict=True))
+        ofmsgs.append(
+            self.vlan_table.flowdel(
+                match=self.vlan_table.match(in_port=port.number),
+                priority=self.dp_high_priority,
+                strict=True,
+            )
+        )
         return ofmsgs
 
     def disable_forwarding(self, port):
         ofmsgs = []
-        ofmsgs.append(self.vlan_table.flowdrop(
-            match=self.vlan_table.match(in_port=port.number),
-            priority=self.dp_high_priority))
+        ofmsgs.append(
+            self.vlan_table.flowdrop(
+                match=self.vlan_table.match(in_port=port.number),
+                priority=self.dp_high_priority,
+            )
+        )
         return ofmsgs
 
     def lacp_req_reply(self, lacp_pkt, port):
@@ -811,8 +1202,10 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             for peer_num in port.lacp_passthrough:
                 lacp_peer = self.ports.get(peer_num, None)
                 if not lacp_peer.dyn_lacp_up:
-                    self.logger.warning('Suppressing LACP LAG %s on %s, peer %s link is down' %
-                                        (port.lacp, port, lacp_peer))
+                    self.logger.warning(
+                        "Suppressing LACP LAG %s on %s, peer %s link is down"
+                        % (port.lacp, port, lacp_peer)
+                    )
                     return []
         actor_state_activity = 0
         if port.lacp_active:
@@ -820,12 +1213,20 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         actor_state_sync, actor_state_col, actor_state_dist = port.get_lacp_flags()
         if lacp_pkt:
             pkt = valve_packet.lacp_reqreply(
-                self.faucet_dp_mac, self.faucet_dp_mac,
-                port.lacp, port.lacp_port_id, port.lacp_port_priority,
-                actor_state_sync, actor_state_activity,
-                actor_state_col, actor_state_dist,
-                lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
-                lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
+                self.faucet_dp_mac,
+                self.faucet_dp_mac,
+                port.lacp,
+                port.lacp_port_id,
+                port.lacp_port_priority,
+                actor_state_sync,
+                actor_state_activity,
+                actor_state_col,
+                actor_state_dist,
+                lacp_pkt.actor_system,
+                lacp_pkt.actor_key,
+                lacp_pkt.actor_port,
+                lacp_pkt.actor_system_priority,
+                lacp_pkt.actor_port_priority,
                 lacp_pkt.actor_state_defaulted,
                 lacp_pkt.actor_state_expired,
                 lacp_pkt.actor_state_timeout,
@@ -833,20 +1234,29 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
                 lacp_pkt.actor_state_distributing,
                 lacp_pkt.actor_state_aggregation,
                 lacp_pkt.actor_state_synchronization,
-                lacp_pkt.actor_state_activity)
+                lacp_pkt.actor_state_activity,
+            )
         else:
             pkt = valve_packet.lacp_reqreply(
-                self.faucet_dp_mac, self.faucet_dp_mac,
-                port.lacp, port.lacp_port_id, port.lacp_port_priority,
+                self.faucet_dp_mac,
+                self.faucet_dp_mac,
+                port.lacp,
+                port.lacp_port_id,
+                port.lacp_port_priority,
                 actor_state_synchronization=actor_state_sync,
                 actor_state_activity=actor_state_activity,
                 actor_state_collecting=actor_state_col,
-                actor_state_distributing=actor_state_dist)
-        self.logger.debug('Sending LACP %s on %s activity %s' % (pkt, port, actor_state_activity))
+                actor_state_distributing=actor_state_dist,
+            )
+        self.logger.debug(
+            "Sending LACP %s on %s activity %s" % (pkt, port, actor_state_activity)
+        )
         return [valve_of.packetout(port.number, bytes(pkt.data))]
 
     @staticmethod
-    def get_lacp_dpid_nomination(lacp_id, valve, other_valves):  # pylint: disable=unused-argument
+    def get_lacp_dpid_nomination(
+        lacp_id, valve, other_valves
+    ):  # pylint: disable=unused-argument
         """Chooses the DP for a given LAG.
 
         The DP will be nominated by the following conditions in order:
@@ -860,9 +1270,11 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         Returns:
             nominated_dpid, reason
         """
-        return (valve.dp.dp_id, 'standalone')
+        return (valve.dp.dp_id, "standalone")
 
-    def lacp_update_port_selection_state(self, port, valve, other_valves=None, cold_start=False):
+    def lacp_update_port_selection_state(
+        self, port, valve, other_valves=None, cold_start=False
+    ):
         """Update the LACP port selection state.
 
         Args:
@@ -872,16 +1284,28 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         Returns:
             bool: True if port state changed
         """
-        nominated_dpid, _ = self.get_lacp_dpid_nomination(port.lacp, valve, other_valves)
+        nominated_dpid, _ = self.get_lacp_dpid_nomination(
+            port.lacp, valve, other_valves
+        )
         prev_state = port.lacp_port_state()
-        new_state = port.lacp_port_update(valve.dp.dp_id == nominated_dpid, cold_start=cold_start)
+        new_state = port.lacp_port_update(
+            valve.dp.dp_id == nominated_dpid, cold_start=cold_start
+        )
         if new_state != prev_state:
-            self.logger.info('LAG %u %s %s (previous state %s)' % (
-                port.lacp, port, port.port_role_name(new_state),
-                port.port_role_name(prev_state)))
+            self.logger.info(
+                "LAG %u %s %s (previous state %s)"
+                % (
+                    port.lacp,
+                    port,
+                    port.port_role_name(new_state),
+                    port.port_role_name(prev_state),
+                )
+            )
         return new_state != prev_state
 
-    def lacp_handler(self, now, pkt_meta, valve, other_valves, lacp_update):
+    def lacp_handler(
+        self, now, pkt_meta, valve, other_valves, lacp_update
+    ):  # pylint: disable=too-many-arguments
         """
         Handle receiving an LACP packet
         Args:
@@ -894,43 +1318,60 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             dict: OpenFlow messages, if any by Valve
         """
         ofmsgs_by_valve = defaultdict(list)
-        if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST
-                and pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW
-                and pkt_meta.port.lacp):
+        if (
+            pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST
+            and pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW
+            and pkt_meta.port.lacp
+        ):
             # LACP packet so reparse
-            pkt_meta.data = pkt_meta.data[:valve_packet.LACP_SIZE]
+            pkt_meta.data = pkt_meta.data[: valve_packet.LACP_SIZE]
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
             if lacp_pkt:
-                self.logger.debug('receive LACP %s on %s' % (lacp_pkt, pkt_meta.port))
+                self.logger.debug("receive LACP %s on %s" % (lacp_pkt, pkt_meta.port))
                 # Respond to new LACP packet or if we haven't sent anything in a while
                 age = None
                 if pkt_meta.port.dyn_lacp_last_resp_time:
                     age = now - pkt_meta.port.dyn_lacp_last_resp_time
-                lacp_pkt_change = (
-                    pkt_meta.port.dyn_last_lacp_pkt is None
-                    or str(lacp_pkt) != str(pkt_meta.port.dyn_last_lacp_pkt))
+                lacp_pkt_change = pkt_meta.port.dyn_last_lacp_pkt is None or str(
+                    lacp_pkt
+                ) != str(pkt_meta.port.dyn_last_lacp_pkt)
                 lacp_resp_interval = pkt_meta.port.lacp_resp_interval
                 if lacp_pkt_change or (age is not None and age > lacp_resp_interval):
                     ofmsgs_by_valve[valve].extend(
-                        self.lacp_req_reply(lacp_pkt, pkt_meta.port))
+                        self.lacp_req_reply(lacp_pkt, pkt_meta.port)
+                    )
                     pkt_meta.port.dyn_lacp_last_resp_time = now
                 # Update the LACP information
                 actor_up = lacp_pkt.actor_state_synchronization
-                ofmsgs_by_valve[valve].extend(lacp_update(
-                    pkt_meta.port, actor_up, now=now, lacp_pkt=lacp_pkt, other_valves=other_valves))
+                ofmsgs_by_valve[valve].extend(
+                    lacp_update(
+                        pkt_meta.port,
+                        actor_up,
+                        now=now,
+                        lacp_pkt=lacp_pkt,
+                        other_valves=other_valves,
+                    )
+                )
                 # Determine if LACP ports with the same ID have met different actor systems
                 other_lag_ports = [
-                    port for port in self.ports.values()
-                    if port.lacp == pkt_meta.port.lacp and port.dyn_last_lacp_pkt]
+                    port
+                    for port in self.ports.values()
+                    if port.lacp == pkt_meta.port.lacp and port.dyn_last_lacp_pkt
+                ]
                 actor_system = lacp_pkt.actor_system
                 for other_lag_port in other_lag_ports:
                     other_actor_system = other_lag_port.dyn_last_lacp_pkt.actor_system
                     if actor_system != other_actor_system:
                         self.logger.error(
-                            'LACP actor system mismatch %s: %s, %s %s' % (
-                                pkt_meta.port, actor_system,
-                                other_lag_port, other_actor_system))
+                            "LACP actor system mismatch %s: %s, %s %s"
+                            % (
+                                pkt_meta.port,
+                                actor_system,
+                                other_lag_port,
+                                other_actor_system,
+                            )
+                        )
         return ofmsgs_by_valve
 
     @staticmethod
@@ -953,17 +1394,17 @@ class ValveSwitchFlowRemovedManager(ValveSwitchManager):
     def flow_timeout(self, now, table_id, match):
         ofmsgs = []
         if table_id in (self.eth_src_table.table_id, self.eth_dst_table.table_id):
-            if 'vlan_vid' in match:
-                vlan = self.vlans[valve_of.devid_present(match['vlan_vid'])]
+            if "vlan_vid" in match:
+                vlan = self.vlans[valve_of.devid_present(match["vlan_vid"])]
                 in_port = None
                 eth_src = None
                 eth_dst = None
                 for field, value in match.items():
-                    if field == 'in_port':
+                    if field == "in_port":
                         in_port = value
-                    elif field == 'eth_src':
+                    elif field == "eth_src":
                         eth_src = value
-                    elif field == 'eth_dst':
+                    elif field == "eth_dst":
                         eth_dst = value
                 if eth_src and in_port:
                     port = self.ports[in_port]
@@ -992,7 +1433,7 @@ class ValveSwitchFlowRemovedManager(ValveSwitchManager):
         entry = vlan.cached_host_on_port(eth_src, port)
         if entry is not None:
             vlan.expire_cache_host(eth_src)
-            self.logger.info('expired src_rule for host %s' % eth_src)
+            self.logger.info("expired src_rule for host %s" % eth_src)
         return ofmsgs
 
     def _dst_rule_expire(self, now, vlan, eth_dst):
@@ -1002,8 +1443,10 @@ class ValveSwitchFlowRemovedManager(ValveSwitchManager):
         ofmsgs = []
         entry = vlan.cached_host(eth_dst)
         if entry is not None:
-            ofmsgs.extend(self.learn_host_on_vlan_ports(
-                now, entry.port, vlan, eth_dst, delete_existing=False))
-            self.logger.info(
-                'refreshing host %s from VLAN %u' % (eth_dst, vlan.vid))
+            ofmsgs.extend(
+                self.learn_host_on_vlan_ports(
+                    now, entry.port, vlan, eth_dst, delete_existing=False
+                )
+            )
+            self.logger.info("refreshing host %s from VLAN %u" % (eth_dst, vlan.vid))
         return ofmsgs
