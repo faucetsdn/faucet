@@ -8,9 +8,11 @@ from faucet.valve_manager_base import ValveManagerBase
 
 class ValveStackManager(ValveManagerBase):
     """Implement stack manager, this handles the more higher-order stack functions.
-This includes port nominations and flood directionality."""
+    This includes port nominations and flood directionality."""
 
-    def __init__(self, logger, dp, stack, tunnel_acls, acl_manager, output_table, **_kwargs):
+    def __init__(
+        self, logger, dp, stack, tunnel_acls, acl_manager, output_table, **_kwargs
+    ):
         """
         Initialize variables and set up peer distances
 
@@ -48,7 +50,9 @@ This includes port nominations and flood directionality."""
     @staticmethod
     def stacked_valves(valves):
         """Return set of valves that have stacking enabled"""
-        return {valve for valve in valves if valve.dp.stack and valve.dp.stack.root_name}
+        return {
+            valve for valve in valves if valve.dp.stack and valve.dp.stack.root_name
+        }
 
     def reset_peer_distances(self):
         """Recalculates the towards and away ports for this node"""
@@ -65,8 +69,9 @@ This includes port nominations and flood directionality."""
             self.away_ports = all_peer_ports
         else:
             port_peer_distances = {
-                port: len(port.stack['dp'].stack.shortest_path_to_root())
-                for port in all_peer_ports}
+                port: len(port.stack["dp"].stack.shortest_path_to_root())
+                for port in all_peer_ports
+            }
             shortest_peer_distance = None
             for port, port_peer_distance in port_peer_distances.items():
                 if shortest_peer_distance is None:
@@ -74,8 +79,10 @@ This includes port nominations and flood directionality."""
                     continue
                 shortest_peer_distance = min(shortest_peer_distance, port_peer_distance)
             self.towards_root_ports = {
-                port for port, port_peer_distance in port_peer_distances.items()
-                if port_peer_distance == shortest_peer_distance}
+                port
+                for port, port_peer_distance in port_peer_distances.items()
+                if port_peer_distance == shortest_peer_distance
+            }
 
             self.away_ports = all_peer_ports - self.towards_root_ports
 
@@ -87,16 +94,20 @@ This includes port nominations and flood directionality."""
                     first_peer_dp = shortest_path[1]
                 else:
                     first_peer_port = self.stack.canonical_port_order(
-                        self.towards_root_ports)[0]
-                    first_peer_dp = first_peer_port.stack['dp'].name
+                        self.towards_root_ports
+                    )[0]
+                    first_peer_dp = first_peer_port.stack["dp"].name
                 # The chosen towards ports are the ports through the chosen peer DP
                 self.chosen_towards_ports = {
-                    port for port in self.towards_root_ports
-                    if port.stack['dp'].name == first_peer_dp}  # pytype: disable=attribute-error
+                    port
+                    for port in self.towards_root_ports
+                    if port.stack["dp"].name == first_peer_dp
+                }  # pytype: disable=attribute-error
 
             if self.chosen_towards_ports:
                 self.chosen_towards_port = self.stack.canonical_up_ports(
-                    self.chosen_towards_ports)[0]
+                    self.chosen_towards_ports
+                )[0]
 
             # Away ports are all the remaining (non-towards) ports
             self.away_ports = all_peer_ports - self.towards_root_ports
@@ -104,19 +115,28 @@ This includes port nominations and flood directionality."""
         if self.away_ports:
             # Get inactive away ports, ports whose peers have a better path to root
             self.inactive_away_ports = {
-                port for port in self.away_ports
-                if not self.stack.is_in_path(port.stack['dp'].name, self.stack.root_name)}
+                port
+                for port in self.away_ports
+                if not self.stack.is_in_path(
+                    port.stack["dp"].name, self.stack.root_name
+                )
+            }
 
             # Get pruned away ports, redundant ports for each adjacent DP
             ports_by_dp = defaultdict(list)
             for port in self.away_ports:
-                ports_by_dp[port.stack['dp']].append(port)
+                ports_by_dp[port.stack["dp"]].append(port)
             for ports in ports_by_dp.values():
                 remote_away_ports = self.stack.canonical_up_ports(
-                    [port.stack['port'] for port in ports])
-                self.pruned_away_ports.update([
-                    port.stack['port'] for port in remote_away_ports
-                    if port != remote_away_ports[0]])
+                    [port.stack["port"] for port in ports]
+                )
+                self.pruned_away_ports.update(
+                    [
+                        port.stack["port"]
+                        for port in remote_away_ports
+                        if port != remote_away_ports[0]
+                    ]
+                )
 
         return self.chosen_towards_ports
 
@@ -132,9 +152,9 @@ This includes port nominations and flood directionality."""
         self.stack.modify_link(dp, port, event)
         towards_ports = self.reset_peer_distances()
         if towards_ports:
-            self.logger.info('shortest path to root is via %s' % towards_ports)
+            self.logger.info("shortest path to root is via %s" % towards_ports)
         else:
-            self.logger.info('no path available to root')
+            self.logger.info("no path available to root")
 
     def default_port_towards(self, dp_name):
         """
@@ -168,7 +188,7 @@ This includes port nominations and flood directionality."""
             # Current node is a transit node between root & destination, direct path to destination
             away_dp = path_to_root[path_to_root.index(self.stack.name) - 1]
             for port in self.away_ports:
-                if port.stack['dp'].name == away_dp and not self.is_pruned_port(port):
+                if port.stack["dp"].name == away_dp and not self.is_pruned_port(port):
                     return port
             return None
         # Otherwise, head towards the root, path to destination via root
@@ -224,15 +244,18 @@ This includes port nominations and flood directionality."""
             bool: True if current stack node is healthy
         """
         prev_health = self.stack.dyn_healthy_info
-        new_health, reason = self.stack.update_health(
-            now, last_live_times, update_time)
+        new_health, reason = self.stack.update_health(now, last_live_times, update_time)
         if prev_health != self.stack.dyn_healthy_info:
-            health = 'HEALTHY' if new_health else 'UNHEALTHY'
-            self.logger.info('Stack node %s %s (%s)' % (self.stack.name, health, reason))
+            health = "HEALTHY" if new_health else "UNHEALTHY"
+            self.logger.info(
+                "Stack node %s %s (%s)" % (self.stack.name, health, reason)
+            )
         return new_health
 
     @staticmethod
-    def nominate_stack_root(root_valve, other_valves, now, last_live_times, update_time):
+    def nominate_stack_root(
+        root_valve, other_valves, now, last_live_times, update_time
+    ):
         """
         Nominate a new stack root
 
@@ -254,7 +277,9 @@ This includes port nominations and flood directionality."""
         unhealthy_valves = []
         for valve in stack_valves:
             if valve.dp.stack.is_root_candidate():
-                healthy = valve.stack_manager.update_health(now, last_live_times, update_time)
+                healthy = valve.stack_manager.update_health(
+                    now, last_live_times, update_time
+                )
                 if healthy:
                     healthy_valves.append(valve)
                 elif valve.dp.stack.dyn_healthy_info[0]:
@@ -329,34 +354,34 @@ This includes port nominations and flood directionality."""
 
     def adjacent_stack_ports(self, peer_dp):
         """Return list of ports that connect to an adjacent DP"""
-        return [port for port in self.stack.ports if port.stack['dp'] == peer_dp]
+        return [port for port in self.stack.ports if port.stack["dp"] == peer_dp]
 
     def acl_update_tunnel(self, acl):
         """Return ofmsgs for all tunnels in an ACL with a tunnel rule"""
         ofmsgs = []
         source_vids = defaultdict(list)
         for _id, tunnel_dest in acl.tunnel_dests.items():
-            dst_dp, dst_port = tunnel_dest['dst_dp'], tunnel_dest['dst_port']
+            dst_dp, dst_port = tunnel_dest["dst_dp"], tunnel_dest["dst_port"]
             # Update the tunnel rules for each tunnel action specified
             updated_sources = []
             updated_reverse_sources = []
             for source_id, source in acl.tunnel_sources.items():
                 # We loop through each tunnel source in a single ACL instance and update the info
-                src_dp, src_port = source['dp'], source['port']
-                in_port = self.tunnel_outport(
-                    dst_dp, src_dp, src_port)
-                out_port = self.tunnel_outport(
-                    src_dp, dst_dp, dst_port)
+                src_dp, src_port = source["dp"], source["port"]
+                in_port = self.tunnel_outport(dst_dp, src_dp, src_port)
+                out_port = self.tunnel_outport(src_dp, dst_dp, dst_port)
                 updated = False
                 if out_port is None and dst_port is None and dst_dp == self.dp.name:
                     # Will need to update at most once, to ensure the correct rules
                     # get populated in the destination DP for a tunnel that outputs
                     # to just a DP
                     updated = acl.update_source_tunnel_rules(
-                        self.stack.name, source_id, _id, out_port, self.output_table)
+                        self.stack.name, source_id, _id, out_port, self.output_table
+                    )
                 elif out_port:
                     updated = acl.update_source_tunnel_rules(
-                        self.stack.name, source_id, _id, out_port, self.output_table)
+                        self.stack.name, source_id, _id, out_port, self.output_table
+                    )
                 if updated:
                     if self.stack.name == src_dp:
                         # We need to re-build and apply the whole ACL
@@ -367,10 +392,12 @@ This includes port nominations and flood directionality."""
                 reverse_updated = False
                 if src_port is None and in_port is None and src_dp == self.dp.name:
                     reverse_updated = acl.update_reverse_tunnel_rules(
-                        self.stack.name, source_id, _id, in_port, self.output_table)
+                        self.stack.name, source_id, _id, in_port, self.output_table
+                    )
                 elif in_port:
                     reverse_updated = acl.update_reverse_tunnel_rules(
-                        self.stack.name, source_id, _id, in_port, self.output_table)
+                        self.stack.name, source_id, _id, in_port, self.output_table
+                    )
                 if reverse_updated:
                     if acl.requires_reverse_tunnel(_id):
                         # Update the reverse tunnel rules if the tunnel is configured to have them
@@ -378,17 +405,22 @@ This includes port nominations and flood directionality."""
             # The tunnel in the ACL does not have a source on this stack instance, so
             #   we only need to re-build the special tunnel forwarding rule.
             for source_id in updated_sources:
-                ofmsgs.extend(self.acl_manager.build_tunnel_rules_ofmsgs(
-                    source_id, _id, acl))
+                ofmsgs.extend(
+                    self.acl_manager.build_tunnel_rules_ofmsgs(source_id, _id, acl)
+                )
             for source_id in updated_reverse_sources:
-                ofmsgs.extend(self.acl_manager.build_reverse_tunnel_rules_ofmsgs(
-                    source_id, _id, acl))
+                ofmsgs.extend(
+                    self.acl_manager.build_reverse_tunnel_rules_ofmsgs(
+                        source_id, _id, acl
+                    )
+                )
         # If a tunnel is updated, but the source is configured as the current DP
         #   then we will also need to re-build the rest of the ACL rules aswell.
         for source_id, vids in source_vids.items():
             for vid in vids:
-                ofmsgs.extend(self.acl_manager.build_tunnel_acl_rule_ofmsgs(
-                    source_id, vid, acl))
+                ofmsgs.extend(
+                    self.acl_manager.build_tunnel_acl_rule_ofmsgs(source_id, vid, acl)
+                )
         return ofmsgs
 
     def add_tunnel_acls(self):
