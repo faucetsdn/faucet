@@ -37,14 +37,14 @@ class OFVLAN:
 class NullVLAN:
     """Placeholder null VLAN."""
 
-    name = 'Null VLAN'
+    name = "Null VLAN"
     vid = valve_of.ofp.OFPVID_NONE
 
 
 class AnyVLAN:
     """Placeholder any tagged VLAN. NOTE: Not used, not well supported by hardware"""
 
-    name = 'Any VLAN'
+    name = "Any VLAN"
     vid = valve_of.ofp.OFPVID_PRESENT
 
 
@@ -52,23 +52,23 @@ class HostCacheEntry:
     """Association of a host with a port."""
 
     __slots__ = [
-        'cache_time',
-        'eth_src',
-        'eth_src_int',
-        'port',
+        "cache_time",
+        "eth_src",
+        "eth_src_int",
+        "port",
     ]
 
     def __init__(self, eth_src, port, cache_time):
         self.eth_src = eth_src
         self.port = port
         self.cache_time = cache_time
-        self.eth_src_int = int(eth_src.replace(':', ''), 16)
+        self.eth_src_int = int(eth_src.replace(":", ""), 16)
 
     def __hash__(self):
         return hash((self.eth_src_int, self.port.number))
 
     def __str__(self):
-        return '%s on %s' % (self.eth_src, self.port)
+        return "%s on %s" % (self.eth_src, self.port)
 
     def __repr__(self):
         return self.__str__()
@@ -83,62 +83,62 @@ class HostCacheEntry:
 class VLAN(Conf):
     """Contains state for one VLAN, including its configuration."""
 
-# Note: while vlans are configured once for each datapath, there will be a
-# separate vlan object created for each datapath that the vlan appears on
+    # Note: while vlans are configured once for each datapath, there will be a
+    # separate vlan object created for each datapath that the vlan appears on
 
-    mutable_attrs = frozenset(['tagged', 'untagged', 'dot1x_untagged'])
+    mutable_attrs = frozenset(["tagged", "untagged", "dot1x_untagged"])
 
     defaults = {
-        'name': None,
-        'description': None,
-        'acl_in': None,
-        'acls_in': None,
-        'acl_out': None,
-        'acls_out': None,
-        'faucet_vips': None,
-        'faucet_mac': FAUCET_MAC,
+        "name": None,
+        "description": None,
+        "acl_in": None,
+        "acls_in": None,
+        "acl_out": None,
+        "acls_out": None,
+        "faucet_vips": None,
+        "faucet_mac": FAUCET_MAC,
         # set MAC for FAUCET VIPs on this VLAN
-        'unicast_flood': True,
-        'routes': None,
-        'max_hosts': 256,
+        "unicast_flood": True,
+        "routes": None,
+        "max_hosts": 256,
         # Limit number of hosts that can be learned on a VLAN.
-        'vid': None,
-        'proactive_arp_limit': 0,
+        "vid": None,
+        "proactive_arp_limit": 0,
         # Don't proactively ARP for hosts if over this limit (default 2*max_hosts)
-        'proactive_nd_limit': 0,
+        "proactive_nd_limit": 0,
         # Don't proactively ND for hosts if over this limit (default 2*max_hosts)
-        'targeted_gw_resolution': True,
+        "targeted_gw_resolution": True,
         # If True, target the first re-resolution attempt to last known port only.
-        'minimum_ip_size_check': True,
+        "minimum_ip_size_check": True,
         # If False, don't check that IP packets have a payload (OVS trace/tutorial requires False).
-        'reserved_internal_vlan': False,
+        "reserved_internal_vlan": False,
         # If True, forward packets from the VLAN table to the VLAN_ACL table matching the VID
-        'dot1x_assigned': False,
+        "dot1x_assigned": False,
         # If True, this VLAN may be dynamically added withTunnel-Private-Group-ID radius attribute.
-        'edge_learn_stack_root': True,
+        "edge_learn_stack_root": True,
         # If True, this VLAN will learn flows through the stack root, following forwarding path.
     }
 
     defaults_types = {
-        'name': str,
-        'description': str,
-        'acl_in': (int, str),
-        'acls_in': list,
-        'acl_out': (int, str),
-        'acls_out': list,
-        'faucet_vips': list,
-        'faucet_mac': str,
-        'unicast_flood': bool,
-        'routes': list,
-        'max_hosts': int,
-        'vid': int,
-        'proactive_arp_limit': int,
-        'proactive_nd_limit': int,
-        'targeted_gw_resolution': bool,
-        'minimum_ip_size_check': bool,
-        'reserved_internal_vlan': bool,
-        'dot1x_assigned': bool,
-        'edge_learn_stack_root': bool,
+        "name": str,
+        "description": str,
+        "acl_in": (int, str),
+        "acls_in": list,
+        "acl_out": (int, str),
+        "acls_out": list,
+        "faucet_vips": list,
+        "faucet_mac": str,
+        "unicast_flood": bool,
+        "routes": list,
+        "max_hosts": int,
+        "vid": int,
+        "proactive_arp_limit": int,
+        "proactive_nd_limit": int,
+        "targeted_gw_resolution": bool,
+        "minimum_ip_size_check": bool,
+        "reserved_internal_vlan": bool,
+        "dot1x_assigned": bool,
+        "edge_learn_stack_root": bool,
     }
 
     def __init__(self, _id, dp_id, conf=None):
@@ -189,27 +189,40 @@ class VLAN(Conf):
 
     def set_defaults(self):
         super().set_defaults()
-        self._set_default('vid', self._id)
-        self._set_default('name', str(self._id))
-        self._set_default('faucet_vips', [])
+        self._set_default("vid", self._id)
+        self._set_default("name", str(self._id))
+        self._set_default("faucet_vips", [])
 
     def check_config(self):
         super().check_config()
-        test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
-        test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
-            'invalid MAC address %s' % self.faucet_mac))
-        self.faucet_mac = str(netaddr.EUI(
-            self.faucet_mac, dialect=netaddr.strategy.eui48.mac_unix_expanded))
+        test_config_condition(not self.vid_valid(self.vid), "invalid VID %s" % self.vid)
+        test_config_condition(
+            not netaddr.valid_mac(self.faucet_mac),
+            ("invalid MAC address %s" % self.faucet_mac),
+        )
+        self.faucet_mac = str(
+            netaddr.EUI(
+                self.faucet_mac, dialect=netaddr.strategy.eui48.mac_unix_expanded
+            )
+        )
 
         test_config_condition(
-            self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
+            self.acl_in and self.acls_in,
+            "found both acl_in and acls_in, use only acls_in",
+        )
         test_config_condition(
-            self.acl_out and self.acls_out, 'found both acl_out and acls_out, use only acls_out')
+            self.acl_out and self.acls_out,
+            "found both acl_out and acls_out, use only acls_out",
+        )
         if self.acl_in and not isinstance(self.acl_in, list):
-            self.acls_in = [self.acl_in, ]
+            self.acls_in = [
+                self.acl_in,
+            ]
             self.acl_in = None
         if self.acl_out and not isinstance(self.acl_out, list):
-            self.acls_out = [self.acl_out, ]
+            self.acls_out = [
+                self.acl_out,
+            ]
             self.acl_out = None
         all_acls = []
         if self.acls_in:
@@ -218,7 +231,8 @@ class VLAN(Conf):
             all_acls.extend(self.acls_out)
         for acl in all_acls:
             test_config_condition(
-                not isinstance(acl, (int, str)), 'acl names must be int or str')
+                not isinstance(acl, (int, str)), "acl names must be int or str"
+            )
 
         if self.max_hosts:
             if not self.proactive_arp_limit:
@@ -227,32 +241,48 @@ class VLAN(Conf):
                 self.proactive_nd_limit = 2 * self.max_hosts
 
         if self.faucet_vips:
-            self.faucet_vips = frozenset([
-                self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface)
-                for ip_str in self.faucet_vips])
+            self.faucet_vips = frozenset(
+                [
+                    self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface)
+                    for ip_str in self.faucet_vips
+                ]
+            )
             for faucet_vip in self.faucet_vips:
                 test_config_condition(
                     faucet_vip.network.prefixlen == faucet_vip.max_prefixlen,
-                    'VIP cannot be a host address')
+                    "VIP cannot be a host address",
+                )
 
         if self.routes:
-            test_config_condition(not isinstance(self.routes, list), 'invalid VLAN routes format')
+            test_config_condition(
+                not isinstance(self.routes, list), "invalid VLAN routes format"
+            )
             try:
-                self.routes = [route['route'] for route in self.routes]
+                self.routes = [route["route"] for route in self.routes]
             except TypeError as type_error:
-                raise InvalidConfigError('%s is not a valid routes value' %
-                                         self.routes) from type_error
+                raise InvalidConfigError(
+                    "%s is not a valid routes value" % self.routes
+                ) from type_error
             except KeyError:
                 pass
             for route in self.routes:
-                test_config_condition(not isinstance(route, dict), 'invalid VLAN route format')
-                test_config_condition('ip_gw' not in route, 'missing ip_gw in VLAN route')
-                test_config_condition('ip_dst' not in route, 'missing ip_dst in VLAN route')
-                ip_gw = self._check_ip_str(route['ip_gw'])
-                ip_dst = self._check_ip_str(route['ip_dst'], ip_method=ipaddress.ip_network)
+                test_config_condition(
+                    not isinstance(route, dict), "invalid VLAN route format"
+                )
+                test_config_condition(
+                    "ip_gw" not in route, "missing ip_gw in VLAN route"
+                )
+                test_config_condition(
+                    "ip_dst" not in route, "missing ip_dst in VLAN route"
+                )
+                ip_gw = self._check_ip_str(route["ip_gw"])
+                ip_dst = self._check_ip_str(
+                    route["ip_dst"], ip_method=ipaddress.ip_network
+                )
                 test_config_condition(
                     ip_gw.version != ip_dst.version,
-                    'ip_gw version does not match the ip_dst version')
+                    "ip_gw version does not match the ip_dst version",
+                )
                 self.add_route(ip_dst, ip_gw)
 
     @staticmethod
@@ -272,16 +302,24 @@ class VLAN(Conf):
     def reset_ports(self, ports):
         """Reset tagged and untagged port lists."""
         sorted_ports = sorted(ports, key=lambda i: i.number)
-        self.tagged = tuple([  # pylint: disable=consider-using-generator
-            port for port in sorted_ports
-            if self in port.tagged_vlans])
-        self.untagged = tuple([  # pylint: disable=consider-using-generator
-            port for port in sorted_ports
-            if (self == port.native_vlan
-                and port.dyn_dot1x_native_vlan is None)])
-        self.dot1x_untagged = tuple([  # pylint: disable=consider-using-generator
-            port for port in sorted_ports
-            if self == port.dyn_dot1x_native_vlan])
+        # pylint: disable=consider-using-generator
+        self.tagged = tuple(
+            [
+                port for port in sorted_ports if self in port.tagged_vlans
+            ]
+        )
+        self.untagged = tuple(
+            [
+                port
+                for port in sorted_ports
+                if (self == port.native_vlan and port.dyn_dot1x_native_vlan is None)
+            ]
+        )
+        self.dot1x_untagged = tuple(
+            [
+                port for port in sorted_ports if self == port.dyn_dot1x_native_vlan
+            ]
+        )
 
     def add_cache_host(self, eth_src, port, cache_time):
         """Add/update a host to the cache on a port at at time."""
@@ -290,7 +328,8 @@ class VLAN(Conf):
             self.dyn_host_cache_stats_stale[port.number] = True
         else:
             self.dyn_host_cache_by_port[existing_entry.port.number].remove(
-                existing_entry)
+                existing_entry
+            )
         entry = HostCacheEntry(eth_src, port, cache_time)
         if port.number not in self.dyn_host_cache_by_port:
             self.dyn_host_cache_by_port[port.number] = set()
@@ -339,16 +378,22 @@ class VLAN(Conf):
         expired_hosts = []
         min_cache_time = now - learn_timeout
 
-        if self.dyn_oldest_host_time is None or self.dyn_oldest_host_time < min_cache_time:
+        if (
+            self.dyn_oldest_host_time is None
+            or self.dyn_oldest_host_time < min_cache_time
+        ):
             expired_hosts = [
-                entry for entry in self.dyn_host_cache.values()
-                if entry.cache_time < min_cache_time and not entry.port.permanent_learn]
+                entry
+                for entry in self.dyn_host_cache.values()
+                if entry.cache_time < min_cache_time and not entry.port.permanent_learn
+            ]
             for entry in expired_hosts:
                 self.expire_cache_host(entry.eth_src)
             self.dyn_oldest_host_time = now
             if self.dyn_host_cache:
                 self.dyn_oldest_host_time = min(
-                    [entry.cache_time for entry in self.dyn_host_cache.values()])
+                    [entry.cache_time for entry in self.dyn_host_cache.values()]
+                )
         return expired_hosts
 
     def faucet_vips_by_ipv(self, ipv):
@@ -383,9 +428,11 @@ class VLAN(Conf):
             True if a host FIB route (and not used as a gateway).
         """
         ip_dsts = self.ip_dsts_for_ip_gw(host_ip)
-        if (len(ip_dsts) == 1
-                and ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen
-                and ip_dsts[0].network_address == host_ip):
+        if (
+            len(ip_dsts) == 1
+            and ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen
+            and ip_dsts[0].network_address == host_ip
+        ):
             return True
         return False
 
@@ -440,12 +487,14 @@ class VLAN(Conf):
     def __str__(self):
         str_ports = []
         if self.tagged:
-            str_ports.append('tagged: %s' % ','.join([str(p) for p in self.tagged]))
+            str_ports.append("tagged: %s" % ",".join([str(p) for p in self.tagged]))
         if self.untagged:
-            str_ports.append('untagged: %s' % ','.join([str(p) for p in self.untagged]))
+            str_ports.append("untagged: %s" % ",".join([str(p) for p in self.untagged]))
         if self.dot1x_untagged:
-            str_ports.append('dot1x_untagged: %s' % ','.join([str(p) for p in self.dot1x_untagged]))
-        return 'VLAN %s vid:%s %s' % (self.name, self.vid, ' '.join(str_ports))
+            str_ports.append(
+                "dot1x_untagged: %s" % ",".join([str(p) for p in self.dot1x_untagged])
+            )
+        return "VLAN %s vid:%s %s" % (self.name, self.vid, " ".join(str_ports))
 
     def __repr__(self):
         return self.__str__()
@@ -456,38 +505,68 @@ class VLAN(Conf):
 
     def restricted_bcast_arpnd_ports(self):
         """Return all ports with restricted broadcast enabled."""
-        return tuple([  # pylint: disable=consider-using-generator
-            port for port in self.get_ports() if port.restricted_bcast_arpnd])
+        # pylint: disable=consider-using-generator
+        return tuple(
+            [
+                port for port in self.get_ports() if port.restricted_bcast_arpnd
+            ]
+        )
 
     def hairpin_ports(self):
         """Return all ports with hairpin enabled."""
-        return tuple([  # pylint: disable=consider-using-generator
-            port for port in self.get_ports() if port.hairpin])
+        # pylint: disable=consider-using-generator
+        return tuple(
+            [
+                port for port in self.get_ports() if port.hairpin
+            ]
+        )
 
     def mirrored_ports(self):
         """Return ports that are mirrored on this VLAN."""
-        return tuple([  # pylint: disable=consider-using-generator
-            port for port in self.get_ports() if port.mirror])
+        # pylint: disable=consider-using-generator
+        return tuple(
+            [
+                port for port in self.get_ports() if port.mirror
+            ]
+        )
 
     def loop_protect_external_ports(self):
         """Return ports wth external loop protection set."""
-        return tuple([  # pylint: disable=consider-using-generator
-            port for port in self.get_ports() if port.loop_protect_external])
+        # pylint: disable=consider-using-generator
+        return tuple(
+            [
+                port for port in self.get_ports() if port.loop_protect_external
+            ]
+        )
 
     def loop_protect_external_ports_up(self):
         """Return up ports with external loop protection set."""
-        return tuple([  # pylint: disable=consider-using-generator
-            port for port in self.loop_protect_external_ports() if port.dyn_phys_up])
+        # pylint: disable=consider-using-generator
+        return tuple(
+            [
+                port for port in self.loop_protect_external_ports() if port.dyn_phys_up
+            ]
+        )
 
     def lacp_ports(self):
         """Return ports that have LACP on this VLAN."""
-        return tuple([  # pylint: disable=consider-using-generator
-            port for port in self.get_ports() if port.lacp])
+        # pylint: disable=consider-using-generator
+        return tuple(
+            [
+                port for port in self.get_ports() if port.lacp
+            ]
+        )
 
     def lacp_up_selected_ports(self):
         """Return LACP ports that have been SELECTED and are UP"""
-        return tuple([  # pylint: disable=consider-using-generator
-            port for port in self.lacp_ports() if port.is_port_selected() and port.is_actor_up()])
+        # pylint: disable=consider-using-generator
+        return tuple(
+            [
+                port
+                for port in self.lacp_ports()
+                if port.is_port_selected() and port.is_actor_up()
+            ]
+        )
 
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
@@ -544,8 +623,9 @@ class VLAN(Conf):
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged + self.dot1x_untagged, exclude_unicast)
 
-    def output_port(self, port, hairpin=False, output_table=None,
-                    external_forwarding_requested=None):
+    def output_port(
+        self, port, hairpin=False, output_table=None, external_forwarding_requested=None
+    ):
         actions = []
         if self.port_is_untagged(port):
             actions.append(valve_of.pop_vlan())
@@ -576,20 +656,28 @@ class VLAN(Conf):
         """Return Packet-out actions via flooding"""
         ofmsgs = []
         for vid, ports in (
-                (self.vid, self.tagged_flood_ports(False)),
-                (None, self.untagged_flood_ports(False))):
+            (self.vid, self.tagged_flood_ports(False)),
+            (None, self.untagged_flood_ports(False)),
+        ):
             if ports:
                 pkt = packet_builder(vid, *args)
                 exclude_ports = self.excluded_lag_ports()
                 running_port_nos = [
-                    port.number for port in ports if port.running() and port not in exclude_ports]
+                    port.number
+                    for port in ports
+                    if port.running() and port not in exclude_ports
+                ]
                 if running_port_nos:
                     random.shuffle(running_port_nos)
                     if multi_out:
                         ofmsgs.append(valve_of.packetouts(running_port_nos, pkt.data))
                     else:
                         ofmsgs.extend(
-                            [valve_of.packetout(port_no, pkt.data) for port_no in running_port_nos])
+                            [
+                                valve_of.packetout(port_no, pkt.data)
+                                for port_no in running_port_nos
+                            ]
+                        )
         return ofmsgs
 
     def port_is_tagged(self, port):
@@ -619,8 +707,9 @@ class VLAN(Conf):
             faucet_vip = self.vip_map(ipa)
         if faucet_vip:
             if ipa not in (
-                    faucet_vip.network.network_address,
-                    faucet_vip.network.broadcast_address):
+                faucet_vip.network.network_address,
+                faucet_vip.network.broadcast_address,
+            ):
                 return faucet_vip
         return None
 
