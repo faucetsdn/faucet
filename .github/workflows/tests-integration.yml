@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 env:
   FILES_CHANGED: "all"
-  MATRIX_SHARDS: 15
+  MATRIX_SHARDS: 10
 
 jobs:
   sanity-tests:
