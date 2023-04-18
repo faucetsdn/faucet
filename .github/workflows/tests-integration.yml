@@ -11,7 +11,7 @@ jobs:
     name: Sanity tests
     runs-on: ubuntu-20.04
     container:
-      image: faucet/test-base:12.0.0
+      image: faucet/test-base:latest
       options: --privileged --cap-add=ALL -v /lib/modules:/lib/modules -v /var/local/lib/docker:/var/lib/docker --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=-1
     steps:
       - name: Checkout repo
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-20.04
     needs: sanity-tests
     container:
-      image: faucet/test-base:12.0.0
+      image: faucet/test-base:latest
       options: --privileged --cap-add=ALL -v /lib/modules:/lib/modules -v /var/local/lib/docker:/var/lib/docker --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=-1
     strategy:
       matrix:

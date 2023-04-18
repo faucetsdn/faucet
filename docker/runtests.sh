@@ -117,6 +117,8 @@ done
 # Remove leading space
 FAUCET_TESTS="${PARAMS#"${PARAMS%%[![:space:]]*}"}"
 
+git config --global --add safe.directory '*'
+
 cd /faucet-src
 
 if [ "$SKIP_PIP" == 0 ] ; then
