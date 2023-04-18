@@ -92,10 +92,10 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
     # Loggin Methods
     def log_auth_event(self, valve, port_num, mac_str, status):
         """Log an authentication attempt event"""
-        self.metrics.inc_var(f'dp_dot1x_{status}', valve.dp.base_prom_labels())
-        self.metrics.inc_var(f'port_dot1x_{status}', valve.dp.port_labels(port_num))
+        self.metrics.inc_var('dp_dot1x_{}'.format(status), valve.dp.base_prom_labels())
+        self.metrics.inc_var('port_dot1x_{}'.format(status), valve.dp.port_labels(port_num))
         self.logger.info(
-            f'{status.capitalize()} from MAC {mac_str} on {port_num}')
+            '{} from MAC {} on {}'.format(status.capitalize(), mac_str, port_num))
         valve.dot1x_event({'AUTHENTICATION': {'dp_id': valve.dp.dp_id,
                                               'port': port_num,
                                               'eth_src': mac_str,
@@ -314,7 +314,8 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
             for dot1x_port in valve.dp.dot1x_ports():
                 self.set_mac_str(valve, valve_index, dot1x_port.number)
                 self.logger.info(
-                    f'dot1x enabled on {valve.dp} ({valve_index}) port {dot1x_port}, NFV interface {dot1x_intf}')
+                    'dot1x enabled on %s (%s) port %s, NFV interface %s' % (
+                        valve.dp, valve_index, dot1x_port, dot1x_intf))
 
             valve.dot1x_event({'ENABLED': {'dp_id': valve.dp.dp_id}})
 
@@ -346,13 +347,15 @@ class FaucetDot1x:  # pylint: disable=too-many-instance-attributes
 
         acl = valve.dp.acls.get(acl_name, None)
         if dot1x_port.dot1x_dyn_acl and acl:
-            self.logger.info(f"DOT1X_DYN_ACL: Adding ACL '{acl_name}' for port '{port_num}'")
-            self.logger.debug(f"DOT1X_DYN_ACL: ACL contents: '{str(acl.__dict__)}'")
+            self.logger.info("DOT1X_DYN_ACL: Adding ACL '{0}' for port '{1}'".format(
+                acl_name, port_num))
+            self.logger.debug("DOT1X_DYN_ACL: ACL contents: '{0}'".format(str(acl.__dict__)))
             flowmods.extend(acl_manager.add_port_acl(acl, port_num, mac_str))
         elif dot1x_port.dot1x_acl:
             auth_acl, _ = self._get_acls(valve.dp)
-            self.logger.info(f"DOT1X_PRE_ACL: Adding ACL '{acl_name}' for port '{port_num}'")
-            self.logger.debug(f"DOT1X_PRE_ACL: ACL contents: '{str(auth_acl.__dict__)}'")
+            self.logger.info("DOT1X_PRE_ACL: Adding ACL '{0}' for port '{1}'".format(
+                acl_name, port_num))
+            self.logger.debug("DOT1X_PRE_ACL: ACL contents: '{0}'".format(str(auth_acl.__dict__)))
             flowmods.extend(acl_manager.add_port_acl(auth_acl, port_num, mac_str))
         else:
             flowmods.extend(acl_manager.add_authed_mac(port_num, mac_str))

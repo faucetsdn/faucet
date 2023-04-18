@@ -25,8 +25,16 @@ from faucet.vlan import OFVLAN
 class CoprocessorManager(ValveManagerBase):
     """Implementation of Valve coprocessor."""
 
-    def __init__(self, ports, copro_table, vlan_table, eth_src_table,  # pylint: disable=too-many-arguments
-                 output_table, low_priority, high_priority):
+    def __init__(
+        self,
+        ports,
+        copro_table,
+        vlan_table,
+        eth_src_table,  # pylint: disable=too-many-arguments
+        output_table,
+        low_priority,
+        high_priority,
+    ):
         self.ports = ports
         self.copro_table = copro_table
         self.vlan_table = vlan_table
@@ -39,23 +47,34 @@ class CoprocessorManager(ValveManagerBase):
         """Add flows to allow coprocessor to inject or output packets."""
         ofmsgs = []
         if port.coprocessor:
-            ofmsgs.append(self.vlan_table.flowmod(
-                self.vlan_table.match(in_port=port.number),
-                priority=self.low_priority,
-                inst=(self.vlan_table.goto(self.copro_table),)))
-            ofmsgs.append(self.eth_src_table.flowmod(
-                match=self.eth_src_table.match(in_port=port.number),
-                priority=self.high_priority,
-                inst=(self.eth_src_table.goto(self.output_table),)))
+            ofmsgs.append(
+                self.vlan_table.flowmod(
+                    self.vlan_table.match(in_port=port.number),
+                    priority=self.low_priority,
+                    inst=(self.vlan_table.goto(self.copro_table),),
+                )
+            )
+            ofmsgs.append(
+                self.eth_src_table.flowmod(
+                    match=self.eth_src_table.match(in_port=port.number),
+                    priority=self.high_priority,
+                    inst=(self.eth_src_table.goto(self.output_table),),
+                )
+            )
             # TODO: add additional output port strategies (eg. MPLS) and tagged ports
-            vlan_vid_base = port.coprocessor.get('vlan_vid_base', 0)
+            vlan_vid_base = port.coprocessor.get("vlan_vid_base", 0)
             for port_number in self.ports:
-                inst = (valve_of.apply_actions((
-                    valve_of.pop_vlan(),
-                    valve_of.output_port(port_number))),)
+                inst = (
+                    valve_of.apply_actions(
+                        (valve_of.pop_vlan(), valve_of.output_port(port_number))
+                    ),
+                )
                 vid = vlan_vid_base + port_number
                 vlan = OFVLAN(str(vid), vid)
                 match = self.copro_table.match(vlan=vlan)
-                ofmsgs.append(self.copro_table.flowmod(
-                    match=match, priority=self.high_priority, inst=inst))
+                ofmsgs.append(
+                    self.copro_table.flowmod(
+                        match=match, priority=self.high_priority, inst=inst
+                    )
+                )
         return ofmsgs

@@ -182,10 +182,10 @@ For Prometheus:
         test_config_condition(
             self.file is not None and not
             (os.path.dirname(self.file) and os.access(os.path.dirname(self.file), os.W_OK)),
-            f'{self.file} is not writable')
+            '%s is not writable' % self.file)
         test_config_condition(
             self.path is not None and not os.access(self.path, os.W_OK),
-            f'{self.file} is not writable')
+            '%s is not writable' % self.file)
 
     def add_dp(self, dp):
         """Add a datapath to this watcher."""
@@ -201,4 +201,4 @@ For Prometheus:
         valid_types = {'flow_table', 'port_stats', 'port_state', 'meter_stats'}
         test_config_condition(
             self.type not in valid_types,
-            f'type {self.type} not one of {valid_types}')
+            'type %s not one of %s' % (self.type, valid_types))

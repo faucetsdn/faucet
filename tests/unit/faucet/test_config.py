@@ -14,7 +14,7 @@ import unittest
 
 from faucet import config_parser as cp
 
-LOGNAME = '/dev/null'
+LOGNAME = "/dev/null"
 
 
 class TestConfig(unittest.TestCase):  # pytype: disable=module-attr
@@ -32,23 +32,23 @@ class TestConfig(unittest.TestCase):  # pytype: disable=module-attr
 
     def conf_file_name(self):
         """Return path to test config file in test directory."""
-        return os.path.join(self.tmpdir, 'faucet.yaml')
+        return os.path.join(self.tmpdir, "faucet.yaml")
 
     def create_config_file(self, config):
         """Returns file path to file containing the config parameter."""
         conf_file_name = self.conf_file_name()
-        with open(conf_file_name, 'wb', encoding=None) as conf_file:
+        with open(conf_file_name, "wb", encoding=None) as conf_file:
             if isinstance(config, bytes):
                 conf_file.write(config)
             else:
-                conf_file.write(config.encode('utf-8'))
+                conf_file.write(config.encode("utf-8"))
         return conf_file_name
 
     def run_function_with_config(self, config, function, before_function=None):
         """Return False with error if provided function raises InvalidConfigError."""
         # TODO: Check acls_in work now acl_in is deprecated
-        if isinstance(config, str) and 'acl_in' in config and 'acls_in' not in config:
-            config = re.sub('(acl_in: )(.*)', 'acls_in: [\\2]', config)
+        if isinstance(config, str) and "acl_in" in config and "acls_in" not in config:
+            config = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
         conf_file = self.create_config_file(config)
         if before_function:
             before_function()
@@ -61,13 +61,15 @@ class TestConfig(unittest.TestCase):  # pytype: disable=module-attr
     def check_config_failure(self, config, function, before_function=None):
         """Ensure config parsing reported as failed."""
         config_success, config_err = self.run_function_with_config(
-            config, function, before_function)
+            config, function, before_function
+        )
         self.assertEqual(config_success, False, config_err)
 
     def check_config_success(self, config, function, before_function=None):
         """Ensure config parsing reported succeeded."""
         config_success, config_err = self.run_function_with_config(
-            config, function, before_function)
+            config, function, before_function
+        )
         self.assertEqual(config_success, True, config_err)
 
     def _get_dps_as_dict(self, config):
@@ -90,35 +92,23 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         dps = self._get_dps_as_dict(config)
-        self.assertTrue(1 in dps, 'datapath configured with incorrect dp_id')
+        self.assertTrue(1 in dps, "datapath configured with incorrect dp_id")
         dp = dps[1]
+        self.assertEqual(dp.name, "sw1", "datapath configured with incorrect name")
+        self.assertTrue(1 in dp.ports, "interface not configured in datapath")
         self.assertEqual(
-            dp.name, 'sw1', 'datapath configured with incorrect name')
-        self.assertTrue(
-            1 in dp.ports, 'interface not configured in datapath')
-        self.assertEqual(
-            len(dp.ports),
-            1,
-            'unexpected interface configured in datapath'
+            len(dp.ports), 1, "unexpected interface configured in datapath"
         )
-        self.assertTrue(100 in dp.vlans, 'vlan not configured in datapath')
-        self.assertEqual(
-            len(dp.vlans),
-            1,
-            'unexpected vlan configured in datapath'
-        )
+        self.assertTrue(100 in dp.vlans, "vlan not configured in datapath")
+        self.assertEqual(len(dp.vlans), 1, "unexpected vlan configured in datapath")
         port = dp.ports[1]
-        self.assertEqual(port.number, 1, 'port number configured incorrectly')
-        self.assertEqual(
-            port.name, 'testing', 'port name configured incorrectly')
+        self.assertEqual(port.number, 1, "port number configured incorrectly")
+        self.assertEqual(port.name, "testing", "port name configured incorrectly")
         vlan = dp.vlans[100]
-        self.assertEqual(vlan.vid, 100, 'vlan vid configured incorrectly')
+        self.assertEqual(vlan.vid, 100, "vlan vid configured incorrectly")
+        self.assertEqual(vlan.name, "office", "vlan name configured incorrectly")
         self.assertEqual(
-            vlan.name, 'office', 'vlan name configured incorrectly')
-        self.assertEqual(
-            port.native_vlan,
-            vlan,
-            'native vlan configured incorrectly in port'
+            port.native_vlan, vlan, "native vlan configured incorrectly in port"
         )
 
     def test_config_stack(self):
@@ -177,20 +167,21 @@ dps:
         self.check_config_success(config, cp.dp_parser)
         dps = self._get_dps_as_dict(config)
         for dp in dps.values():
-            self.assertTrue(
-                dp.stack is not None, 'stack not configured for DP')
+            self.assertTrue(dp.stack is not None, "stack not configured for DP")
             self.assertEqual(
-                dp.stack.root_name, 't1-1', 'root_dp configured incorrectly')
+                dp.stack.root_name, "t1-1", "root_dp configured incorrectly"
+            )
             self.assertEqual(
-                dp.stack.roots_names, ('t1-1', 't1-2'), 'root_dps configured incorrectly')
+                dp.stack.roots_names,
+                ("t1-1", "t1-2"),
+                "root_dps configured incorrectly",
+            )
             self.assertEqual(
-                len(dp.stack.graph.nodes),
-                3,
-                'stack graph has incorrect nodes'
+                len(dp.stack.graph.nodes), 3, "stack graph has incorrect nodes"
             )
             self.assertTrue(
-                dp.has_externals,
-                'All DPs must have external flag set if one DP has it')
+                dp.has_externals, "All DPs must have external flag set if one DP has it"
+            )
 
         t2_dpid = 0x3
         for root_dpid in (1, 2):
@@ -199,24 +190,29 @@ dps:
             stack_link_a = (root_dpid, root_stack_port)
             stack_link_b = (t2_dpid, t2_stack_port)
             for dpid_a, port_a, dpid_b, port_b in (
-                    (stack_link_a + stack_link_b),
-                    (stack_link_b + stack_link_a)):
+                (stack_link_a + stack_link_b),
+                (stack_link_b + stack_link_a),
+            ):
                 self.assertEqual(
-                    port_a.stack['dp'].dp_id,  # pytype: disable=attribute-error
+                    port_a.stack["dp"].dp_id,  # pytype: disable=attribute-error
                     dpid_b,
-                    'remote stack dp configured incorrectly')
+                    "remote stack dp configured incorrectly",
+                )
                 self.assertEqual(
-                    port_b.stack['dp'].dp_id,  # pytype: disable=attribute-error
+                    port_b.stack["dp"].dp_id,  # pytype: disable=attribute-error
                     dpid_a,
-                    'remote stack dp configured incorrectly')
+                    "remote stack dp configured incorrectly",
+                )
                 self.assertEqual(
-                    port_a.stack['port'].number,  # pytype: disable=attribute-error
+                    port_a.stack["port"].number,  # pytype: disable=attribute-error
                     port_b.number,  # pytype: disable=attribute-error
-                    'remote stack dp configured incorrectly')
+                    "remote stack dp configured incorrectly",
+                )
                 self.assertEqual(
-                    port_b.stack['port'].number,  # pytype: disable=attribute-error
+                    port_b.stack["port"].number,  # pytype: disable=attribute-error
                     port_a.number,  # pytype: disable=attribute-error
-                    'remote stack dp configured incorrectly')
+                    "remote stack dp configured incorrectly",
+                )
 
     def test_config_route_learning_override(self):
         """Test DP stack class, route_learning configuration overwrite when routing"""
@@ -516,8 +512,8 @@ dps:
         dp = self._get_dps_as_dict(config)[0x1]
         self.assertEqual(
             dp.vlans[100].faucet_mac,
-            '11:22:33:44:55:66',
-            'faucet mac configured incorrectly'
+            "11:22:33:44:55:66",
+            "faucet mac configured incorrectly",
         )
 
     def test_novlans(self):
@@ -550,13 +546,10 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         sw1 = self._get_dps_as_dict(config)[0x1]
-        self.assertTrue(
-            sw1.ports[2].output_only,
-            'mirror port not set to output only'
-        )
+        self.assertTrue(sw1.ports[2].output_only, "mirror port not set to output only")
         self.assertTrue(
             sw1.ports[1].mirror_actions() is not None,
-            'mirror port has no mirror actions'
+            "mirror port has no mirror actions",
         )
 
     def test_acl_dictionary_valid(self):
@@ -1254,19 +1247,16 @@ dps:
 """
         conf_file = self.create_config_file(config)
         _, _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
-        outputs = {
-            's1': 2,
-            's2': 3
-        }
+        outputs = {"s1": 2, "s2": 3}
         for dp in dps:
             v100 = dp.vlans[100]
             for acl in v100.acls_in:
                 for rule in acl.rules:
-                    port = rule['actions']['output']['port']
+                    port = rule["actions"]["output"]["port"]
                     self.assertEqual(
                         outputs[dp.name],
                         port,
-                        msg='acl output port resolved incorrectly'
+                        msg="acl output port resolved incorrectly",
                     )
 
     def test_acl_multi_dp_output_rule_ordered(self):
@@ -1307,19 +1297,16 @@ dps:
 """
         conf_file = self.create_config_file(config)
         _, _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
-        outputs = {
-            's1': 2,
-            's2': 3
-        }
+        outputs = {"s1": 2, "s2": 3}
         for dp in dps:
             v100 = dp.vlans[100]
             for acl in v100.acls_in:
                 for rule in acl.rules:
-                    port = rule['actions']['output'][0]['port']
+                    port = rule["actions"]["output"][0]["port"]
                     self.assertEqual(
                         outputs[dp.name],
                         port,
-                        msg='acl output port resolved incorrectly'
+                        msg="acl output port resolved incorrectly",
                     )
 
     def test_port_range_valid_config(self):
@@ -1350,8 +1337,12 @@ dps:
         _, _, dps, _ = cp.dp_parser(conf_file, LOGNAME)
         dp = dps[0]
         self.assertEqual(len(dp.ports), 8)
-        self.assertTrue(all(p.permanent_learn for p in dp.ports.values() if p.number < 9))
-        self.assertTrue(all(p.max_hosts == 2 for p in dp.ports.values() if p.number > 1))
+        self.assertTrue(
+            all(p.permanent_learn for p in dp.ports.values() if p.number < 9)
+        )
+        self.assertTrue(
+            all(p.max_hosts == 2 for p in dp.ports.values() if p.number > 1)
+        )
         self.assertTrue(dp.ports[1].max_hosts == 4)
         self.assertEqual(dp.ports[1].description, "video conf")
 
@@ -1408,26 +1399,20 @@ dps:
 
     def _check_table_names_numbers(self, dp, tables):
         for table_name, table in dp.tables.items():
-            self.assertTrue(
-                table_name in tables,
-                'Incorrect table configured in dp'
-            )
+            self.assertTrue(table_name in tables, "Incorrect table configured in dp")
             self.assertEqual(
                 tables[table_name],
                 table.table_id,
-                'Table configured with wrong table_id'
+                "Table configured with wrong table_id",
             )
         for table_name in tables:
-            self.assertTrue(
-                table_name in dp.tables,
-                'Table not configured in dp'
-            )
+            self.assertTrue(table_name in dp.tables, "Table not configured in dp")
 
     def _check_next_tables(self, table, next_tables):
         for next_table in table.next_tables:
-            self.assertIn(next_table, next_tables, 'incorrect next table configured')
+            self.assertIn(next_table, next_tables, "incorrect next table configured")
         for next_table in next_tables:
-            self.assertIn(next_table, table.next_tables, 'missing next table')
+            self.assertIn(next_table, table.next_tables, "missing next table")
 
     def test_pipeline_config_no_acl(self):
         """Test pipelines are generated correctly with different configs"""
@@ -1444,17 +1429,12 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         dp = self._get_dps_as_dict(config)[0x1]
-        tables = {
-            'vlan': 0,
-            'eth_src': 1,
-            'eth_dst': 2,
-            'flood': 3
-        }
+        tables = {"vlan": 0, "eth_src": 1, "eth_dst": 2, "flood": 3}
         self._check_table_names_numbers(dp, tables)
-        self._check_next_tables(dp.tables['vlan'], [1])
-        self._check_next_tables(dp.tables['eth_src'], [2, 3])
-        self._check_next_tables(dp.tables['eth_dst'], [])
-        self._check_next_tables(dp.tables['flood'], [])
+        self._check_next_tables(dp.tables["vlan"], [1])
+        self._check_next_tables(dp.tables["eth_src"], [2, 3])
+        self._check_next_tables(dp.tables["eth_dst"], [])
+        self._check_next_tables(dp.tables["flood"], [])
 
     def test_pipeline_config_no_acl_static_ids(self):
         """Test pipelines are generated correctly with different configs"""
@@ -1472,13 +1452,7 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         dp = self._get_dps_as_dict(config)[0x1]
-        tables = {
-            'port_acl': 0,
-            'vlan': 1,
-            'eth_src': 4,
-            'eth_dst': 9,
-            'flood': 12
-        }
+        tables = {"port_acl": 0, "vlan": 1, "eth_src": 4, "eth_dst": 9, "flood": 12}
         self._check_table_names_numbers(dp, tables)
 
     def test_pipeline_config_ipv4_no_acl(self):
@@ -1498,12 +1472,12 @@ dps:
         self.check_config_success(config, cp.dp_parser)
         dp = self._get_dps_as_dict(config)[0x1]
         tables = {
-            'vlan': 0,
-            'eth_src': 1,
-            'ipv4_fib': 2,
-            'vip': 3,
-            'eth_dst': 4,
-            'flood': 5
+            "vlan": 0,
+            "eth_src": 1,
+            "ipv4_fib": 2,
+            "vip": 3,
+            "eth_dst": 4,
+            "flood": 5,
         }
         self._check_table_names_numbers(dp, tables)
 
@@ -1524,13 +1498,13 @@ dps:
         self.check_config_success(config, cp.dp_parser)
         dp = self._get_dps_as_dict(config)[0x1]
         tables = {
-            'vlan': 0,
-            'eth_src': 1,
-            'ipv4_fib': 2,
-            'ipv6_fib': 3,
-            'vip': 4,
-            'eth_dst': 5,
-            'flood': 6
+            "vlan": 0,
+            "eth_src": 1,
+            "ipv4_fib": 2,
+            "ipv6_fib": 3,
+            "vip": 4,
+            "eth_dst": 5,
+            "flood": 6,
         }
         self._check_table_names_numbers(dp, tables)
 
@@ -1558,14 +1532,14 @@ dps:
         self.check_config_success(config, cp.dp_parser)
         dp = self._get_dps_as_dict(config)[0x1]
         tables = {
-            'vlan': 0,
-            'vlan_acl': 1,
-            'eth_src': 2,
-            'ipv4_fib': 3,
-            'ipv6_fib': 4,
-            'vip': 5,
-            'eth_dst': 6,
-            'flood': 7
+            "vlan": 0,
+            "vlan_acl": 1,
+            "eth_src": 2,
+            "ipv4_fib": 3,
+            "ipv6_fib": 4,
+            "vip": 5,
+            "eth_dst": 6,
+            "flood": 7,
         }
         self._check_table_names_numbers(dp, tables)
 
@@ -1596,30 +1570,30 @@ dps:
         self.check_config_success(config, cp.dp_parser)
         dp = self._get_dps_as_dict(config)[0x1]
         tables = {
-            'port_acl': 0,
-            'vlan': 1,
-            'vlan_acl': 2,
-            'classification': 3,
-            'eth_src': 4,
-            'ipv4_fib': 5,
-            'ipv6_fib': 6,
-            'vip': 7,
-            'eth_dst': 8,
-            'egress': 9,
-            'flood': 10,
+            "port_acl": 0,
+            "vlan": 1,
+            "vlan_acl": 2,
+            "classification": 3,
+            "eth_src": 4,
+            "ipv4_fib": 5,
+            "ipv6_fib": 6,
+            "vip": 7,
+            "eth_dst": 8,
+            "egress": 9,
+            "flood": 10,
         }
         self._check_table_names_numbers(dp, tables)
-        self._check_next_tables(dp.tables['port_acl'], [1, 7, 8, 10])
-        self._check_next_tables(dp.tables['vlan'], [2, 3, 4])
-        self._check_next_tables(dp.tables['vlan_acl'], [3, 4, 8, 10])
-        self._check_next_tables(dp.tables['classification'], [4, 5, 6, 7, 8, 10])
-        self._check_next_tables(dp.tables['eth_src'], [5, 6, 7, 8, 10])
-        self._check_next_tables(dp.tables['ipv4_fib'], [7, 8, 10])
-        self._check_next_tables(dp.tables['ipv6_fib'], [7, 8, 10])
-        self._check_next_tables(dp.tables['vip'], [8, 10])
-        self._check_next_tables(dp.tables['eth_dst'], [9])
-        self._check_next_tables(dp.tables['egress'], [10])
-        self._check_next_tables(dp.tables['flood'], [])
+        self._check_next_tables(dp.tables["port_acl"], [1, 7, 8, 10])
+        self._check_next_tables(dp.tables["vlan"], [2, 3, 4])
+        self._check_next_tables(dp.tables["vlan_acl"], [3, 4, 8, 10])
+        self._check_next_tables(dp.tables["classification"], [4, 5, 6, 7, 8, 10])
+        self._check_next_tables(dp.tables["eth_src"], [5, 6, 7, 8, 10])
+        self._check_next_tables(dp.tables["ipv4_fib"], [7, 8, 10])
+        self._check_next_tables(dp.tables["ipv6_fib"], [7, 8, 10])
+        self._check_next_tables(dp.tables["vip"], [8, 10])
+        self._check_next_tables(dp.tables["eth_dst"], [9])
+        self._check_next_tables(dp.tables["egress"], [10])
+        self._check_next_tables(dp.tables["flood"], [])
 
     def test_pipeline_config_egress(self):
         """Test pipelines are generated correctly with different configs"""
@@ -1638,11 +1612,11 @@ dps:
         self.check_config_success(config, cp.dp_parser)
         dp = self._get_dps_as_dict(config)[0x1]
         tables = {
-            'vlan': 0,
-            'eth_src': 1,
-            'eth_dst': 2,
-            'egress': 3,
-            'flood': 4,
+            "vlan": 0,
+            "eth_src": 1,
+            "eth_dst": 2,
+            "egress": 3,
+            "flood": 4,
         }
         self._check_table_names_numbers(dp, tables)
 
@@ -1669,12 +1643,12 @@ dps:
         self.check_config_success(config, cp.dp_parser)
         dp = self._get_dps_as_dict(config)[0x1]
         tables = {
-            'vlan': 0,
-            'eth_src': 1,
-            'eth_dst': 2,
-            'egress_acl': 3,
-            'egress': 4,
-            'flood': 5,
+            "vlan": 0,
+            "eth_src": 1,
+            "eth_dst": 2,
+            "egress_acl": 3,
+            "egress": 4,
+            "flood": 5,
         }
         self._check_table_names_numbers(dp, tables)
 
@@ -2385,14 +2359,18 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         sw1, sw2 = self._get_dps_as_dict(config).values()
-        self.assertTrue(sw1.tunnel_acls, 'Did not generate tunnel ACL')
+        self.assertTrue(sw1.tunnel_acls, "Did not generate tunnel ACL")
         self.assertEqual(
-            len(sw1.tunnel_acls), 2,
-            'Did not generate the correct number of tunnel ACLs')
-        self.assertTrue(sw2.tunnel_acls, 'Did not generate tunnel ACL')
+            len(sw1.tunnel_acls),
+            2,
+            "Did not generate the correct number of tunnel ACLs",
+        )
+        self.assertTrue(sw2.tunnel_acls, "Did not generate tunnel ACL")
         self.assertEqual(
-            len(sw2.tunnel_acls), 2,
-            'Did not generate the correct number of tunnel ACLs')
+            len(sw2.tunnel_acls),
+            2,
+            "Did not generate the correct number of tunnel ACLs",
+        )
         sw1_ids = {}
         sw2_ids = {}
         for acl in sw1.tunnel_acls:
@@ -2400,8 +2378,10 @@ dps:
         for acl in sw2.tunnel_acls:
             sw2_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         self.assertEqual(
-            sw1_ids, sw2_ids,
-            'Did not generate the same ID for same tunnels on different DPs')
+            sw1_ids,
+            sw2_ids,
+            "Did not generate the same ID for same tunnels on different DPs",
+        )
 
     def test_dynamic_vlan_tunnel_ordered(self):
         """Test tunnel ACL correctly generates the tunnel ID"""
@@ -2442,14 +2422,18 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         sw1, sw2 = self._get_dps_as_dict(config).values()
-        self.assertTrue(sw1.tunnel_acls, 'Did not generate tunnel ACL')
+        self.assertTrue(sw1.tunnel_acls, "Did not generate tunnel ACL")
         self.assertEqual(
-            len(sw1.tunnel_acls), 2,
-            'Did not generate the correct number of tunnel ACLs')
-        self.assertTrue(sw2.tunnel_acls, 'Did not generate tunnel ACL')
+            len(sw1.tunnel_acls),
+            2,
+            "Did not generate the correct number of tunnel ACLs",
+        )
+        self.assertTrue(sw2.tunnel_acls, "Did not generate tunnel ACL")
         self.assertEqual(
-            len(sw2.tunnel_acls), 2,
-            'Did not generate the correct number of tunnel ACLs')
+            len(sw2.tunnel_acls),
+            2,
+            "Did not generate the correct number of tunnel ACLs",
+        )
         sw1_ids = {}
         sw2_ids = {}
         for acl in sw1.tunnel_acls:
@@ -2457,8 +2441,10 @@ dps:
         for acl in sw2.tunnel_acls:
             sw2_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         self.assertEqual(
-            sw1_ids, sw2_ids,
-            'Did not generate the same ID for same tunnels on different DPs')
+            sw1_ids,
+            sw2_ids,
+            "Did not generate the same ID for same tunnels on different DPs",
+        )
 
     def test_dynamic_specified_vlan_tunnel(self):
         """Test tunnel ACL can generate without clashing with a specified tunnel ACL"""
@@ -2502,14 +2488,18 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         sw1, sw2 = self._get_dps_as_dict(config).values()
-        self.assertTrue(sw1.tunnel_acls, 'Did not generate tunnel ACL')
+        self.assertTrue(sw1.tunnel_acls, "Did not generate tunnel ACL")
         self.assertEqual(
-            len(sw1.tunnel_acls), 2,
-            'Did not generate the correct number of tunnel ACLs')
-        self.assertTrue(sw2.tunnel_acls, 'Did not generate tunnel ACL')
+            len(sw1.tunnel_acls),
+            2,
+            "Did not generate the correct number of tunnel ACLs",
+        )
+        self.assertTrue(sw2.tunnel_acls, "Did not generate tunnel ACL")
         self.assertEqual(
-            len(sw2.tunnel_acls), 2,
-            'Did not generate the correct number of tunnel ACLs')
+            len(sw2.tunnel_acls),
+            2,
+            "Did not generate the correct number of tunnel ACLs",
+        )
         sw1_ids = {}
         sw2_ids = {}
         for acl in sw1.tunnel_acls:
@@ -2517,8 +2507,10 @@ dps:
         for acl in sw2.tunnel_acls:
             sw2_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         self.assertEqual(
-            sw1_ids, sw2_ids,
-            'Did not generate the same ID for same tunnels on different DPs')
+            sw1_ids,
+            sw2_ids,
+            "Did not generate the same ID for same tunnels on different DPs",
+        )
 
     def test_dynamic_specified_vlan_tunnel_ordered(self):
         """Test tunnel ACL can generate without clashing with a specified tunnel ACL"""
@@ -2562,14 +2554,18 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         sw1, sw2 = self._get_dps_as_dict(config).values()
-        self.assertTrue(sw1.tunnel_acls, 'Did not generate tunnel ACL')
+        self.assertTrue(sw1.tunnel_acls, "Did not generate tunnel ACL")
         self.assertEqual(
-            len(sw1.tunnel_acls), 2,
-            'Did not generate the correct number of tunnel ACLs')
-        self.assertTrue(sw2.tunnel_acls, 'Did not generate tunnel ACL')
+            len(sw1.tunnel_acls),
+            2,
+            "Did not generate the correct number of tunnel ACLs",
+        )
+        self.assertTrue(sw2.tunnel_acls, "Did not generate tunnel ACL")
         self.assertEqual(
-            len(sw2.tunnel_acls), 2,
-            'Did not generate the correct number of tunnel ACLs')
+            len(sw2.tunnel_acls),
+            2,
+            "Did not generate the correct number of tunnel ACLs",
+        )
         sw1_ids = {}
         sw2_ids = {}
         for acl in sw1.tunnel_acls:
@@ -2577,8 +2573,10 @@ dps:
         for acl in sw2.tunnel_acls:
             sw2_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         self.assertEqual(
-            sw1_ids, sw2_ids,
-            'Did not generate the same ID for same tunnels on different DPs')
+            sw1_ids,
+            sw2_ids,
+            "Did not generate the same ID for same tunnels on different DPs",
+        )
 
     def test_tunnel_two_ports(self):
         """Test tunnel ACL does not try to generate different VIDs for the same tunnel"""
@@ -2617,7 +2615,9 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         sw1, sw2 = self._get_dps_as_dict(config).values()
-        self.assertEqual(sw1.vlans.keys(), sw2.vlans.keys(), 'Did not generate the same VLANs')
+        self.assertEqual(
+            sw1.vlans.keys(), sw2.vlans.keys(), "Did not generate the same VLANs"
+        )
 
     def test_tunnel_two_ports_ordered(self):
         """Test tunnel ACL does not try to generate different VIDs for the same tunnel"""
@@ -2656,7 +2656,9 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         sw1, sw2 = self._get_dps_as_dict(config).values()
-        self.assertEqual(sw1.vlans.keys(), sw2.vlans.keys(), 'Did not generate the same VLANs')
+        self.assertEqual(
+            sw1.vlans.keys(), sw2.vlans.keys(), "Did not generate the same VLANs"
+        )
 
     def test_two_tunnel_acl(self):
         """Test tunnel ACL correctly allocates VLANs for an ACL with two tunnel rules"""
@@ -2701,7 +2703,9 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         sw1, sw2 = self._get_dps_as_dict(config).values()
-        self.assertEqual(sw1.vlans.keys(), sw2.vlans.keys(), 'Did not generate the same VLANs')
+        self.assertEqual(
+            sw1.vlans.keys(), sw2.vlans.keys(), "Did not generate the same VLANs"
+        )
 
     def test_two_tunnel_acl_ordered(self):
         """Test tunnel ACL correctly allocates VLANs for an ACL with two tunnel rules"""
@@ -2746,7 +2750,9 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
         sw1, sw2 = self._get_dps_as_dict(config).values()
-        self.assertEqual(sw1.vlans.keys(), sw2.vlans.keys(), 'Did not generate the same VLANs')
+        self.assertEqual(
+            sw1.vlans.keys(), sw2.vlans.keys(), "Did not generate the same VLANs"
+        )
 
     def test_lacp_port_options(self):
         """Test LACP port selection options pass config checking"""
@@ -3850,7 +3856,7 @@ dps:
 
     def test_invalid_char(self):
         """Test config file with invalid characters."""
-        config = b'\x63\xe1'
+        config = b"\x63\xe1"
         self.check_config_failure(config, cp.dp_parser)
 
     def test_perm_denied(self):
@@ -3860,7 +3866,7 @@ dps:
             """Make config unreadable."""
             os.chmod(self.conf_file_name(), 0)
 
-        config = ''
+        config = ""
         self.check_config_failure(config, cp.dp_parser, before_function=unreadable)
 
     def test_missing_route_config(self):
@@ -4652,7 +4658,7 @@ dps:
         self.check_config_success(config, cp.dp_parser)
         dp = self._get_dps_as_dict(config)[0x1]
         vlan = dp.vlans[100]
-        self.assertEqual('0e:00:00:0f:02:03', vlan.faucet_mac)
+        self.assertEqual("0e:00:00:0f:02:03", vlan.faucet_mac)
 
     def test_dupe_dpid(self):
         """Test duplicate DPID."""

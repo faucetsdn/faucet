@@ -22,7 +22,6 @@ import functools
 import faucet.faucet_metadata as faucet_md
 from faucet import valve_of
 from faucet.valve_manager_base import ValveManagerBase
-from faucet.valve_util import LRU_MAX
 
 
 class ValvePipeline(ValveManagerBase):
@@ -49,14 +48,14 @@ class ValvePipeline(ValveManagerBase):
         self.select_priority = self._HIGH_PRIORITY
 
     @staticmethod
-    @functools.lru_cache(maxsize=LRU_MAX)
+    @functools.lru_cache(maxsize=1024)
     def _accept_to_table(table, actions):
         inst = [table.goto_this()]
         if actions:
             inst.append(valve_of.apply_actions(actions))
         return tuple(inst)
 
-    @functools.lru_cache(maxsize=LRU_MAX)
+    @functools.lru_cache(maxsize=1024)
     def accept_to_vlan(self, actions=None):
         """Get instructions to forward packet through the pipeline to
         vlan table.
@@ -67,7 +66,7 @@ class ValvePipeline(ValveManagerBase):
         """
         return self._accept_to_table(self.vlan_table, actions)
 
-    @functools.lru_cache(maxsize=LRU_MAX)
+    @functools.lru_cache(maxsize=1024)
     def accept_to_classification(self, actions=None):
         """Get instructions to forward packet through the pipeline to
         classification table.
@@ -78,7 +77,7 @@ class ValvePipeline(ValveManagerBase):
         """
         return self._accept_to_table(self.classification_table, actions)
 
-    @functools.lru_cache(maxsize=LRU_MAX)
+    @functools.lru_cache(maxsize=1024)
     def accept_to_l2_forwarding(self, actions=None):
         """Get instructions to forward packet through the pipeline to l2
         forwarding.
@@ -89,7 +88,7 @@ class ValvePipeline(ValveManagerBase):
         """
         return self._accept_to_table(self.output_table, actions)
 
-    @functools.lru_cache(maxsize=LRU_MAX)
+    @functools.lru_cache(maxsize=1024)
     def accept_to_egress(self, actions=None):
         """Get instructions to forward packet through the pipeline to egress
         table

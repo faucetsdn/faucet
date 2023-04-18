@@ -80,18 +80,18 @@ class GaugePortStateLogger(GaugePortStatePoller):
         rcv_time_str = self._rcv_time(rcv_time)
         reason = msg.reason
         port_no = msg.desc.port_no
-        log_msg = f'port {port_no} unknown state {reason}'
+        log_msg = 'port %s unknown state %s' % (port_no, reason)
         if reason == ofp.OFPPR_ADD:
-            log_msg = f'port {port_no} added'
+            log_msg = 'port %s added' % port_no
         elif reason == ofp.OFPPR_DELETE:
-            log_msg = f'port {port_no} deleted'
+            log_msg = 'port %s deleted' % port_no
         elif reason == ofp.OFPPR_MODIFY:
             link_down = (msg.desc.state & ofp.OFPPS_LINK_DOWN)
             if link_down:
-                log_msg = f'port {port_no} down'
+                log_msg = 'port %s down' % port_no
             else:
-                log_msg = f'port {port_no} up'
-        log_msg = f'{dpid_log(self.dp.dp_id)} {log_msg}'
+                log_msg = 'port %s up' % port_no
+        log_msg = '%s %s' % (dpid_log(self.dp.dp_id), log_msg)
         self.logger.info(log_msg)
         if self.conf.file:
             with open(self.conf.file, 'a', encoding='utf-8') as logfile:
@@ -152,14 +152,15 @@ class GaugeFlowTableLogger(GaugeFlowTablePoller):
         # Double Hyphen to avoid confusion with ISO8601 times
         filename = os.path.join(
             path,
-            f"{self.dp.name}--flowtable--{rcv_time_str}.json"
+            "{}--flowtable--{}.json".format(self.dp.name, rcv_time_str)
         )
         if os.path.isfile(filename):
             # If this filename already exists, add an increment to the filename
             # (for dealing with parts of a multipart message arriving at the same time)
             inc = 1
             while os.path.isfile(filename):
-                filename = os.path.join(path, f"{self.dp.name}--flowtable--{rcv_time_str}--{inc}.json")
+                filename = os.path.join(path, "{}--flowtable--{}--{}.json".format(
+                    self.dp.name, rcv_time_str, inc))
                 inc += 1
 
         if self.conf.compress:

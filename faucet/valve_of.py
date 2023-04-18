@@ -27,8 +27,15 @@ import random
 from os_ken.lib import mac  # noqa: F401
 from os_ken.lib import ofctl_v1_3 as ofctl
 from os_ken.lib.ofctl_utils import (
-    str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil)
+    str_to_int,
+    to_match_ip,
+    to_match_masked_int,
+    to_match_eth,
+    to_match_vid,
+    OFCtlUtil,
+)
 from os_ken.ofproto import ether
+
 # pylint: disable=unused-import
 from os_ken.ofproto import inet  # noqa: F401
 from os_ken.ofproto import ofproto_v1_3 as ofp
@@ -36,7 +43,6 @@ from os_ken.ofproto import ofproto_v1_3_parser as parser
 
 from faucet.conf import test_config_condition, InvalidConfigError
 from faucet.valve_of_old import OLD_MATCH_FIELDS
-from faucet.valve_util import LRU_MAX
 
 MIN_VID = 1
 MAX_VID = 4095
@@ -50,7 +56,7 @@ ECTP_ETH_TYPE = 0x9000
 # https://en.wikipedia.org/wiki/IEEE_P802.1p
 # Avoid use of PCP 1 which is BK priority (lowest)
 
-TUNNEL_INDICATOR_FIELD = 'vlan_pcp'
+TUNNEL_INDICATOR_FIELD = "vlan_pcp"
 # Used to indicate traffic in a one-to-one bi-directional tunnel is heading
 # in the reverse/return direction
 PCP_TUNNEL_REVERSE_DIRECTION_FLAG = 4
@@ -60,136 +66,192 @@ PCP_TUNNEL_FLAG = 3
 
 PCP_EXT_PORT_FLAG = 2
 PCP_NONEXT_PORT_FLAG = 0
-EXTERNAL_FORWARDING_FIELD = 'vlan_pcp'
+EXTERNAL_FORWARDING_FIELD = "vlan_pcp"
 
 
 OFERROR_TYPE_CODE = {
-    ofp.OFPET_HELLO_FAILED: ('OFPET_HELLO_FAILED', {
-        ofp.OFPHFC_INCOMPATIBLE: 'OFPHFC_INCOMPATIBLE',
-        ofp.OFPHFC_EPERM: 'OFPHFC_EPERM'}),
-    ofp.OFPET_BAD_REQUEST: ('OFPET_BAD_REQUEST', {
-        ofp.OFPBRC_BAD_VERSION: 'OFPBRC_BAD_VERSION',
-        ofp.OFPBRC_BAD_TYPE: 'OFPBRC_BAD_TYPE',
-        ofp.OFPBRC_BAD_MULTIPART: 'OFPBRC_BAD_MULTIPART',
-        ofp.OFPBRC_BAD_EXPERIMENTER: 'OFPBRC_BAD_EXPERIMENTER',
-        ofp.OFPBRC_BAD_EXP_TYPE: 'OFPBRC_BAD_EXP_TYPE',
-        ofp.OFPBRC_EPERM: 'OFPBRC_EPERM',
-        ofp.OFPBRC_BAD_LEN: 'OFPBRC_BAD_LEN',
-        ofp.OFPBRC_BUFFER_EMPTY: 'OFPBRC_BUFFER_EMPTY',
-        ofp.OFPBRC_BUFFER_UNKNOWN: 'OFPBRC_BUFFER_UNKNOWN',
-        ofp.OFPBRC_BAD_TABLE_ID: 'OFPBRC_BAD_TABLE_ID',
-        ofp.OFPBRC_IS_SLAVE: 'OFPBRC_IS_SLAVE',
-        ofp.OFPBRC_BAD_PORT: 'OFPBRC_BAD_PORT',
-        ofp.OFPBRC_BAD_PACKET: 'OFPBRC_BAD_PACKET',
-        ofp.OFPBRC_MULTIPART_BUFFER_OVERFLOW: 'OFPBRC_MULTIPART_BUFFER_OVERFLOW'}),
-    ofp.OFPET_BAD_ACTION: ('OFPET_BAD_ACTION', {
-        ofp.OFPBAC_BAD_TYPE: 'OFPBAC_BAD_TYPE',
-        ofp.OFPBAC_BAD_LEN: 'OFPBAC_BAD_LEN',
-        ofp.OFPBAC_BAD_EXPERIMENTER: 'OFPBAC_BAD_EXPERIMENTER',
-        ofp.OFPBAC_BAD_EXP_TYPE: 'OFPBAC_BAD_EXP_TYPE',
-        ofp.OFPBAC_BAD_OUT_PORT: 'OFPBAC_BAD_OUT_PORT',
-        ofp.OFPBAC_BAD_ARGUMENT: 'OFPBAC_BAD_ARGUMENT',
-        ofp.OFPBAC_EPERM: 'OFPBAC_EPERM',
-        ofp.OFPBAC_TOO_MANY: 'OFPBAC_TOO_MANY',
-        ofp.OFPBAC_BAD_QUEUE: 'OFPBAC_BAD_QUEUE',
-        ofp.OFPBAC_BAD_OUT_GROUP: 'OFPBAC_BAD_OUT_GROUP',
-        ofp.OFPBAC_MATCH_INCONSISTENT: 'OFPBAC_MATCH_INCONSISTENT',
-        ofp.OFPBAC_UNSUPPORTED_ORDER: 'OFPBAC_UNSUPPORTED_ORDER',
-        ofp.OFPBAC_BAD_TAG: 'OFPBAC_BAD_TAG',
-        ofp.OFPBAC_BAD_SET_TYPE: 'OFPBAC_BAD_SET_TYPE',
-        ofp.OFPBAC_BAD_SET_LEN: 'OFPBAC_BAD_SET_LEN',
-        ofp.OFPBAC_BAD_SET_ARGUMENT: 'OFPBAC_BAD_SET_ARGUMENT'}),
-    ofp.OFPET_BAD_INSTRUCTION: ('OFPET_BAD_INSTRUCTION', {
-        ofp.OFPBIC_UNKNOWN_INST: 'OFPBIC_UNKNOWN_INST',
-        ofp.OFPBIC_UNSUP_INST: 'OFPBIC_UNSUP_INST',
-        ofp.OFPBIC_BAD_TABLE_ID: 'OFPBIC_BAD_TABLE_ID',
-        ofp.OFPBIC_UNSUP_METADATA: 'OFPBIC_UNSUP_METADATA',
-        ofp.OFPBIC_UNSUP_METADATA_MASK: 'OFPBIC_UNSUP_METADATA_MASK',
-        ofp.OFPBIC_BAD_EXPERIMENTER: 'OFPBIC_BAD_EXPERIMENTER',
-        ofp.OFPBIC_BAD_EXP_TYPE: 'OFPBIC_BAD_EXP_TYPE',
-        ofp.OFPBIC_BAD_LEN: 'OFPBIC_BAD_LEN',
-        ofp.OFPBIC_EPERM: 'OFPBIC_EPERM'}),
-    ofp.OFPET_BAD_MATCH: ('OFPET_BAD_MATCH', {
-        ofp.OFPBMC_BAD_TYPE: 'OFPBMC_BAD_TYPE',
-        ofp.OFPBMC_BAD_LEN: 'OFPBMC_BAD_LEN',
-        ofp.OFPBMC_BAD_TAG: 'OFPBMC_BAD_TAG',
-        ofp.OFPBMC_BAD_DL_ADDR_MASK: 'OFPBMC_BAD_DL_ADDR_MASK',
-        ofp.OFPBMC_BAD_NW_ADDR_MASK: 'OFPBMC_BAD_NW_ADDR_MASK',
-        ofp.OFPBMC_BAD_WILDCARDS: 'OFPBMC_BAD_WILDCARDS',
-        ofp.OFPBMC_BAD_FIELD: 'OFPBMC_BAD_FIELD',
-        ofp.OFPBMC_BAD_VALUE: 'OFPBMC_BAD_VALUE',
-        ofp.OFPBMC_BAD_MASK: 'OFPBMC_BAD_MASK',
-        ofp.OFPBMC_BAD_PREREQ: 'OFPBMC_BAD_PREREQ',
-        ofp.OFPBMC_DUP_FIELD: 'OFPBMC_DUP_FIELD',
-        ofp.OFPBMC_EPERM: 'OFPBMC_EPERM'}),
-    ofp.OFPET_FLOW_MOD_FAILED: ('OFPET_FLOW_MOD_FAILED', {
-        ofp.OFPFMFC_UNKNOWN: 'OFPFMFC_UNKNOWN',
-        ofp.OFPFMFC_TABLE_FULL: 'OFPFMFC_TABLE_FULL',
-        ofp.OFPFMFC_BAD_TABLE_ID: 'OFPFMFC_BAD_TABLE_ID',
-        ofp.OFPFMFC_OVERLAP: 'OFPFMFC_OVERLAP',
-        ofp.OFPFMFC_EPERM: 'OFPFMFC_EPERM',
-        ofp.OFPFMFC_BAD_TIMEOUT: 'OFPFMFC_BAD_TIMEOUT',
-        ofp.OFPFMFC_BAD_COMMAND: 'OFPFMFC_BAD_COMMAND',
-        ofp.OFPFMFC_BAD_FLAGS: 'OFPFMFC_BAD_FLAGS'}),
-    ofp.OFPET_GROUP_MOD_FAILED: ('OFPET_GROUP_MOD_FAILED', {
-        ofp.OFPGMFC_GROUP_EXISTS: 'OFPGMFC_GROUP_EXISTS',
-        ofp.OFPGMFC_INVALID_GROUP: 'OFPGMFC_INVALID_GROUP',
-        ofp.OFPGMFC_WEIGHT_UNSUPPORTED: 'OFPGMFC_WEIGHT_UNSUPPORTED',
-        ofp.OFPGMFC_OUT_OF_GROUPS: 'OFPGMFC_OUT_OF_GROUPS',
-        ofp.OFPGMFC_OUT_OF_BUCKETS: 'OFPGMFC_OUT_OF_BUCKETS',
-        ofp.OFPGMFC_CHAINING_UNSUPPORTED: 'OFPGMFC_CHAINING_UNSUPPORTED',
-        ofp.OFPGMFC_WATCH_UNSUPPORTED: 'OFPGMFC_WATCH_UNSUPPORTED',
-        ofp.OFPGMFC_LOOP: 'OFPGMFC_LOOP',
-        ofp.OFPGMFC_UNKNOWN_GROUP: 'OFPGMFC_UNKNOWN_GROUP',
-        ofp.OFPGMFC_CHAINED_GROUP: 'OFPGMFC_CHAINED_GROUP',
-        ofp.OFPGMFC_BAD_TYPE: 'OFPGMFC_BAD_TYPE',
-        ofp.OFPGMFC_BAD_COMMAND: 'OFPGMFC_BAD_COMMAND',
-        ofp.OFPGMFC_BAD_BUCKET: 'OFPGMFC_BAD_BUCKET',
-        ofp.OFPGMFC_BAD_WATCH: 'OFPGMFC_BAD_WATCH',
-        ofp.OFPGMFC_EPERM: 'OFPGMFC_EPERM'}),
-    ofp.OFPET_PORT_MOD_FAILED: ('OFPET_PORT_MOD_FAILED', {
-        ofp.OFPPMFC_BAD_PORT: 'OFPPMFC_BAD_PORT',
-        ofp.OFPPMFC_BAD_HW_ADDR: 'OFPPMFC_BAD_HW_ADDR',
-        ofp.OFPPMFC_BAD_CONFIG: 'OFPPMFC_BAD_CONFIG',
-        ofp.OFPPMFC_BAD_ADVERTISE: 'OFPPMFC_BAD_ADVERTISE',
-        ofp.OFPPMFC_EPERM: 'OFPPMFC_EPERM'}),
-    ofp.OFPET_TABLE_MOD_FAILED: ('OFPET_TABLE_MOD_FAILED', {
-        ofp.OFPTMFC_BAD_TABLE: 'OFPTMFC_BAD_TABLE',
-        ofp.OFPTMFC_BAD_CONFIG: 'OFPTMFC_BAD_CONFIG',
-        ofp.OFPTMFC_EPERM: 'OFPTMFC_EPERM'}),
-    ofp.OFPET_QUEUE_OP_FAILED: ('OFPET_QUEUE_OP_FAILED', {
-        ofp.OFPQOFC_BAD_PORT: 'OFPQOFC_BAD_PORT',
-        ofp.OFPQOFC_BAD_QUEUE: 'OFPQOFC_BAD_QUEUE',
-        ofp.OFPQOFC_EPERM: 'OFPQOFC_EPERM'}),
-    ofp.OFPET_SWITCH_CONFIG_FAILED: ('OFPET_SWITCH_CONFIG_FAILED', {
-        ofp.OFPSCFC_BAD_FLAGS: 'OFPSCFC_BAD_FLAGS',
-        ofp.OFPSCFC_BAD_LEN: 'OFPSCFC_BAD_LEN',
-        ofp.OFPSCFC_EPERM: 'OFPSCFC_EPERM'}),
-    ofp.OFPET_ROLE_REQUEST_FAILED: ('OFPET_ROLE_REQUEST_FAILED', {
-        ofp.OFPRRFC_STALE: 'OFPRRFC_STALE',
-        ofp.OFPRRFC_UNSUP: 'OFPRRFC_UNSUP',
-        ofp.OFPRRFC_BAD_ROLE: 'OFPRRFC_BAD_ROLE'}),
-    ofp.OFPET_METER_MOD_FAILED: ('OFPET_METER_MOD_FAILED', {
-        ofp.OFPMMFC_UNKNOWN: 'OFPMMFC_UNKNOWN',
-        ofp.OFPMMFC_METER_EXISTS: 'OFPMMFC_METER_EXISTS',
-        ofp.OFPMMFC_INVALID_METER: 'OFPMMFC_INVALID_METER',
-        ofp.OFPMMFC_UNKNOWN_METER: 'OFPMMFC_UNKNOWN_METER',
-        ofp.OFPMMFC_BAD_COMMAND: 'OFPMMFC_BAD_COMMAND',
-        ofp.OFPMMFC_BAD_FLAGS: 'OFPMMFC_BAD_FLAGS',
-        ofp.OFPMMFC_BAD_RATE: 'OFPMMFC_BAD_RATE',
-        ofp.OFPMMFC_BAD_BURST: 'OFPMMFC_BAD_BURST',
-        ofp.OFPMMFC_BAD_BAND: 'OFPMMFC_BAD_BAND',
-        ofp.OFPMMFC_BAD_BAND_VALUE: 'OFPMMFC_BAD_BAND_VALUE',
-        ofp.OFPMMFC_OUT_OF_METERS: 'OFPMMFC_OUT_OF_METERS',
-        ofp.OFPMMFC_OUT_OF_BANDS: 'OFPMMFC_OUT_OF_BANDS'}),
-    ofp.OFPET_TABLE_FEATURES_FAILED: ('OFPET_TABLE_FEATURES_FAILED', {
-        ofp.OFPTFFC_BAD_TABLE: 'OFPTFFC_BAD_TABLE',
-        ofp.OFPTFFC_BAD_METADATA: 'OFPTFFC_BAD_METADATA',
-        ofp.OFPTFFC_BAD_TYPE: 'OFPTFFC_BAD_TYPE',
-        ofp.OFPTFFC_BAD_LEN: 'OFPTFFC_BAD_LEN',
-        ofp.OFPTFFC_BAD_ARGUMENT: 'OFPTFFC_BAD_ARGUMENT',
-        ofp.OFPTFFC_EPERM: 'OFPTFFC_EPERM'}),
-    ofp.OFPET_EXPERIMENTER: ('OFPET_EXPERIMENTER', {}),
+    ofp.OFPET_HELLO_FAILED: (
+        "OFPET_HELLO_FAILED",
+        {
+            ofp.OFPHFC_INCOMPATIBLE: "OFPHFC_INCOMPATIBLE",
+            ofp.OFPHFC_EPERM: "OFPHFC_EPERM",
+        },
+    ),
+    ofp.OFPET_BAD_REQUEST: (
+        "OFPET_BAD_REQUEST",
+        {
+            ofp.OFPBRC_BAD_VERSION: "OFPBRC_BAD_VERSION",
+            ofp.OFPBRC_BAD_TYPE: "OFPBRC_BAD_TYPE",
+            ofp.OFPBRC_BAD_MULTIPART: "OFPBRC_BAD_MULTIPART",
+            ofp.OFPBRC_BAD_EXPERIMENTER: "OFPBRC_BAD_EXPERIMENTER",
+            ofp.OFPBRC_BAD_EXP_TYPE: "OFPBRC_BAD_EXP_TYPE",
+            ofp.OFPBRC_EPERM: "OFPBRC_EPERM",
+            ofp.OFPBRC_BAD_LEN: "OFPBRC_BAD_LEN",
+            ofp.OFPBRC_BUFFER_EMPTY: "OFPBRC_BUFFER_EMPTY",
+            ofp.OFPBRC_BUFFER_UNKNOWN: "OFPBRC_BUFFER_UNKNOWN",
+            ofp.OFPBRC_BAD_TABLE_ID: "OFPBRC_BAD_TABLE_ID",
+            ofp.OFPBRC_IS_SLAVE: "OFPBRC_IS_SLAVE",
+            ofp.OFPBRC_BAD_PORT: "OFPBRC_BAD_PORT",
+            ofp.OFPBRC_BAD_PACKET: "OFPBRC_BAD_PACKET",
+            ofp.OFPBRC_MULTIPART_BUFFER_OVERFLOW: "OFPBRC_MULTIPART_BUFFER_OVERFLOW",
+        },
+    ),
+    ofp.OFPET_BAD_ACTION: (
+        "OFPET_BAD_ACTION",
+        {
+            ofp.OFPBAC_BAD_TYPE: "OFPBAC_BAD_TYPE",
+            ofp.OFPBAC_BAD_LEN: "OFPBAC_BAD_LEN",
+            ofp.OFPBAC_BAD_EXPERIMENTER: "OFPBAC_BAD_EXPERIMENTER",
+            ofp.OFPBAC_BAD_EXP_TYPE: "OFPBAC_BAD_EXP_TYPE",
+            ofp.OFPBAC_BAD_OUT_PORT: "OFPBAC_BAD_OUT_PORT",
+            ofp.OFPBAC_BAD_ARGUMENT: "OFPBAC_BAD_ARGUMENT",
+            ofp.OFPBAC_EPERM: "OFPBAC_EPERM",
+            ofp.OFPBAC_TOO_MANY: "OFPBAC_TOO_MANY",
+            ofp.OFPBAC_BAD_QUEUE: "OFPBAC_BAD_QUEUE",
+            ofp.OFPBAC_BAD_OUT_GROUP: "OFPBAC_BAD_OUT_GROUP",
+            ofp.OFPBAC_MATCH_INCONSISTENT: "OFPBAC_MATCH_INCONSISTENT",
+            ofp.OFPBAC_UNSUPPORTED_ORDER: "OFPBAC_UNSUPPORTED_ORDER",
+            ofp.OFPBAC_BAD_TAG: "OFPBAC_BAD_TAG",
+            ofp.OFPBAC_BAD_SET_TYPE: "OFPBAC_BAD_SET_TYPE",
+            ofp.OFPBAC_BAD_SET_LEN: "OFPBAC_BAD_SET_LEN",
+            ofp.OFPBAC_BAD_SET_ARGUMENT: "OFPBAC_BAD_SET_ARGUMENT",
+        },
+    ),
+    ofp.OFPET_BAD_INSTRUCTION: (
+        "OFPET_BAD_INSTRUCTION",
+        {
+            ofp.OFPBIC_UNKNOWN_INST: "OFPBIC_UNKNOWN_INST",
+            ofp.OFPBIC_UNSUP_INST: "OFPBIC_UNSUP_INST",
+            ofp.OFPBIC_BAD_TABLE_ID: "OFPBIC_BAD_TABLE_ID",
+            ofp.OFPBIC_UNSUP_METADATA: "OFPBIC_UNSUP_METADATA",
+            ofp.OFPBIC_UNSUP_METADATA_MASK: "OFPBIC_UNSUP_METADATA_MASK",
+            ofp.OFPBIC_BAD_EXPERIMENTER: "OFPBIC_BAD_EXPERIMENTER",
+            ofp.OFPBIC_BAD_EXP_TYPE: "OFPBIC_BAD_EXP_TYPE",
+            ofp.OFPBIC_BAD_LEN: "OFPBIC_BAD_LEN",
+            ofp.OFPBIC_EPERM: "OFPBIC_EPERM",
+        },
+    ),
+    ofp.OFPET_BAD_MATCH: (
+        "OFPET_BAD_MATCH",
+        {
+            ofp.OFPBMC_BAD_TYPE: "OFPBMC_BAD_TYPE",
+            ofp.OFPBMC_BAD_LEN: "OFPBMC_BAD_LEN",
+            ofp.OFPBMC_BAD_TAG: "OFPBMC_BAD_TAG",
+            ofp.OFPBMC_BAD_DL_ADDR_MASK: "OFPBMC_BAD_DL_ADDR_MASK",
+            ofp.OFPBMC_BAD_NW_ADDR_MASK: "OFPBMC_BAD_NW_ADDR_MASK",
+            ofp.OFPBMC_BAD_WILDCARDS: "OFPBMC_BAD_WILDCARDS",
+            ofp.OFPBMC_BAD_FIELD: "OFPBMC_BAD_FIELD",
+            ofp.OFPBMC_BAD_VALUE: "OFPBMC_BAD_VALUE",
+            ofp.OFPBMC_BAD_MASK: "OFPBMC_BAD_MASK",
+            ofp.OFPBMC_BAD_PREREQ: "OFPBMC_BAD_PREREQ",
+            ofp.OFPBMC_DUP_FIELD: "OFPBMC_DUP_FIELD",
+            ofp.OFPBMC_EPERM: "OFPBMC_EPERM",
+        },
+    ),
+    ofp.OFPET_FLOW_MOD_FAILED: (
+        "OFPET_FLOW_MOD_FAILED",
+        {
+            ofp.OFPFMFC_UNKNOWN: "OFPFMFC_UNKNOWN",
+            ofp.OFPFMFC_TABLE_FULL: "OFPFMFC_TABLE_FULL",
+            ofp.OFPFMFC_BAD_TABLE_ID: "OFPFMFC_BAD_TABLE_ID",
+            ofp.OFPFMFC_OVERLAP: "OFPFMFC_OVERLAP",
+            ofp.OFPFMFC_EPERM: "OFPFMFC_EPERM",
+            ofp.OFPFMFC_BAD_TIMEOUT: "OFPFMFC_BAD_TIMEOUT",
+            ofp.OFPFMFC_BAD_COMMAND: "OFPFMFC_BAD_COMMAND",
+            ofp.OFPFMFC_BAD_FLAGS: "OFPFMFC_BAD_FLAGS",
+        },
+    ),
+    ofp.OFPET_GROUP_MOD_FAILED: (
+        "OFPET_GROUP_MOD_FAILED",
+        {
+            ofp.OFPGMFC_GROUP_EXISTS: "OFPGMFC_GROUP_EXISTS",
+            ofp.OFPGMFC_INVALID_GROUP: "OFPGMFC_INVALID_GROUP",
+            ofp.OFPGMFC_WEIGHT_UNSUPPORTED: "OFPGMFC_WEIGHT_UNSUPPORTED",
+            ofp.OFPGMFC_OUT_OF_GROUPS: "OFPGMFC_OUT_OF_GROUPS",
+            ofp.OFPGMFC_OUT_OF_BUCKETS: "OFPGMFC_OUT_OF_BUCKETS",
+            ofp.OFPGMFC_CHAINING_UNSUPPORTED: "OFPGMFC_CHAINING_UNSUPPORTED",
+            ofp.OFPGMFC_WATCH_UNSUPPORTED: "OFPGMFC_WATCH_UNSUPPORTED",
+            ofp.OFPGMFC_LOOP: "OFPGMFC_LOOP",
+            ofp.OFPGMFC_UNKNOWN_GROUP: "OFPGMFC_UNKNOWN_GROUP",
+            ofp.OFPGMFC_CHAINED_GROUP: "OFPGMFC_CHAINED_GROUP",
+            ofp.OFPGMFC_BAD_TYPE: "OFPGMFC_BAD_TYPE",
+            ofp.OFPGMFC_BAD_COMMAND: "OFPGMFC_BAD_COMMAND",
+            ofp.OFPGMFC_BAD_BUCKET: "OFPGMFC_BAD_BUCKET",
+            ofp.OFPGMFC_BAD_WATCH: "OFPGMFC_BAD_WATCH",
+            ofp.OFPGMFC_EPERM: "OFPGMFC_EPERM",
+        },
+    ),
+    ofp.OFPET_PORT_MOD_FAILED: (
+        "OFPET_PORT_MOD_FAILED",
+        {
+            ofp.OFPPMFC_BAD_PORT: "OFPPMFC_BAD_PORT",
+            ofp.OFPPMFC_BAD_HW_ADDR: "OFPPMFC_BAD_HW_ADDR",
+            ofp.OFPPMFC_BAD_CONFIG: "OFPPMFC_BAD_CONFIG",
+            ofp.OFPPMFC_BAD_ADVERTISE: "OFPPMFC_BAD_ADVERTISE",
+            ofp.OFPPMFC_EPERM: "OFPPMFC_EPERM",
+        },
+    ),
+    ofp.OFPET_TABLE_MOD_FAILED: (
+        "OFPET_TABLE_MOD_FAILED",
+        {
+            ofp.OFPTMFC_BAD_TABLE: "OFPTMFC_BAD_TABLE",
+            ofp.OFPTMFC_BAD_CONFIG: "OFPTMFC_BAD_CONFIG",
+            ofp.OFPTMFC_EPERM: "OFPTMFC_EPERM",
+        },
+    ),
+    ofp.OFPET_QUEUE_OP_FAILED: (
+        "OFPET_QUEUE_OP_FAILED",
+        {
+            ofp.OFPQOFC_BAD_PORT: "OFPQOFC_BAD_PORT",
+            ofp.OFPQOFC_BAD_QUEUE: "OFPQOFC_BAD_QUEUE",
+            ofp.OFPQOFC_EPERM: "OFPQOFC_EPERM",
+        },
+    ),
+    ofp.OFPET_SWITCH_CONFIG_FAILED: (
+        "OFPET_SWITCH_CONFIG_FAILED",
+        {
+            ofp.OFPSCFC_BAD_FLAGS: "OFPSCFC_BAD_FLAGS",
+            ofp.OFPSCFC_BAD_LEN: "OFPSCFC_BAD_LEN",
+            ofp.OFPSCFC_EPERM: "OFPSCFC_EPERM",
+        },
+    ),
+    ofp.OFPET_ROLE_REQUEST_FAILED: (
+        "OFPET_ROLE_REQUEST_FAILED",
+        {
+            ofp.OFPRRFC_STALE: "OFPRRFC_STALE",
+            ofp.OFPRRFC_UNSUP: "OFPRRFC_UNSUP",
+            ofp.OFPRRFC_BAD_ROLE: "OFPRRFC_BAD_ROLE",
+        },
+    ),
+    ofp.OFPET_METER_MOD_FAILED: (
+        "OFPET_METER_MOD_FAILED",
+        {
+            ofp.OFPMMFC_UNKNOWN: "OFPMMFC_UNKNOWN",
+            ofp.OFPMMFC_METER_EXISTS: "OFPMMFC_METER_EXISTS",
+            ofp.OFPMMFC_INVALID_METER: "OFPMMFC_INVALID_METER",
+            ofp.OFPMMFC_UNKNOWN_METER: "OFPMMFC_UNKNOWN_METER",
+            ofp.OFPMMFC_BAD_COMMAND: "OFPMMFC_BAD_COMMAND",
+            ofp.OFPMMFC_BAD_FLAGS: "OFPMMFC_BAD_FLAGS",
+            ofp.OFPMMFC_BAD_RATE: "OFPMMFC_BAD_RATE",
+            ofp.OFPMMFC_BAD_BURST: "OFPMMFC_BAD_BURST",
+            ofp.OFPMMFC_BAD_BAND: "OFPMMFC_BAD_BAND",
+            ofp.OFPMMFC_BAD_BAND_VALUE: "OFPMMFC_BAD_BAND_VALUE",
+            ofp.OFPMMFC_OUT_OF_METERS: "OFPMMFC_OUT_OF_METERS",
+            ofp.OFPMMFC_OUT_OF_BANDS: "OFPMMFC_OUT_OF_BANDS",
+        },
+    ),
+    ofp.OFPET_TABLE_FEATURES_FAILED: (
+        "OFPET_TABLE_FEATURES_FAILED",
+        {
+            ofp.OFPTFFC_BAD_TABLE: "OFPTFFC_BAD_TABLE",
+            ofp.OFPTFFC_BAD_METADATA: "OFPTFFC_BAD_METADATA",
+            ofp.OFPTFFC_BAD_TYPE: "OFPTFFC_BAD_TYPE",
+            ofp.OFPTFFC_BAD_LEN: "OFPTFFC_BAD_LEN",
+            ofp.OFPTFFC_BAD_ARGUMENT: "OFPTFFC_BAD_ARGUMENT",
+            ofp.OFPTFFC_EPERM: "OFPTFFC_EPERM",
+        },
+    ),
+    ofp.OFPET_EXPERIMENTER: ("OFPET_EXPERIMENTER", {}),
 }
 
 
@@ -244,7 +306,10 @@ def is_flowaddmod(ofmsg):
         bool: True if is a FlowMod, add or modify.
     """
     return isinstance(ofmsg, parser.OFPFlowMod) and ofmsg.command in (
-        ofp.OFPFC_ADD, ofp.OFPFC_MODIFY, ofp.OFPFC_MODIFY_STRICT)
+        ofp.OFPFC_ADD,
+        ofp.OFPFC_MODIFY,
+        ofp.OFPFC_MODIFY_STRICT,
+    )
 
 
 def is_groupmod(ofmsg):
@@ -299,7 +364,10 @@ def is_flowdel(ofmsg):
     Returns:
         bool: True if is a FlowMod delete/strict.
     """
-    return is_flowmod(ofmsg) and ofmsg.command in (ofp.OFPFC_DELETE, ofp.OFPFC_DELETE_STRICT)
+    return is_flowmod(ofmsg) and ofmsg.command in (
+        ofp.OFPFC_DELETE,
+        ofp.OFPFC_DELETE_STRICT,
+    )
 
 
 def is_groupdel(ofmsg):
@@ -310,8 +378,7 @@ def is_groupdel(ofmsg):
     Returns:
         bool: True if is a GroupMod delete
     """
-    if (is_groupmod(ofmsg)
-            and (ofmsg.command == ofp.OFPGC_DELETE)):
+    if is_groupmod(ofmsg) and (ofmsg.command == ofp.OFPGC_DELETE):
         return True
     return False
 
@@ -324,8 +391,7 @@ def is_meterdel(ofmsg):
     Returns:
         bool: True if is a MeterMod delete
     """
-    if (is_metermod(ofmsg)
-            and (ofmsg.command == ofp.OFPMC_DELETE)):
+    if is_metermod(ofmsg) and (ofmsg.command == ofp.OFPMC_DELETE):
         return True
     return False
 
@@ -338,8 +404,7 @@ def is_groupadd(ofmsg):
     Returns:
         bool: True if is a GroupMod add
     """
-    if (is_groupmod(ofmsg)
-            and (ofmsg.command == ofp.OFPGC_ADD)):
+    if is_groupmod(ofmsg) and (ofmsg.command == ofp.OFPGC_ADD):
         return True
     return False
 
@@ -352,8 +417,7 @@ def is_meteradd(ofmsg):
     Returns:
         bool: True if is a MeterMod add
     """
-    if (is_metermod(ofmsg)
-            and (ofmsg.command == ofp.OFPMC_ADD)):
+    if is_metermod(ofmsg) and (ofmsg.command == ofp.OFPMC_ADD):
         return True
     return False
 
@@ -366,8 +430,10 @@ def is_apply_actions(instruction):
     Returns:
         bool: True if an apply action.
     """
-    return (isinstance(instruction, parser.OFPInstructionActions)
-            and instruction.type == ofp.OFPIT_APPLY_ACTIONS)
+    return (
+        isinstance(instruction, parser.OFPInstructionActions)
+        and instruction.type == ofp.OFPIT_APPLY_ACTIONS
+    )
 
 
 def is_meter(instruction):
@@ -394,7 +460,7 @@ def apply_meter(meter_id):
     return parser.OFPInstructionMeter(meter_id, ofp.OFPIT_METER)
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache()
 def _apply_actions(actions):
     return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
 
@@ -410,7 +476,7 @@ def apply_actions(actions):
     return _apply_actions(tuple(actions))
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache()
 def goto_table(table):
     """Return instruction to goto table.
 
@@ -422,7 +488,7 @@ def goto_table(table):
     return parser.OFPInstructionGotoTable(table.table_id)
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache()
 def goto_table_id(table_id):
     """Return instruction to goto table by table ID.
 
@@ -445,11 +511,11 @@ def metadata_goto_table(metadata, mask, table):
         list of OFPInstructions"""
     return [
         parser.OFPInstructionWriteMetadata(metadata, mask),
-        parser.OFPInstructionGotoTable(table.table_id)
+        parser.OFPInstructionGotoTable(table.table_id),
     ]
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache()
 def set_field(**kwds):
     """Return action to set any field.
 
@@ -483,7 +549,7 @@ def devid_present(vid):
     return vid ^ ofp.OFPVID_PRESENT
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache(maxsize=1024)
 def push_vlan_act(table, vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
     """Return OpenFlow action list to push Ethernet 802.1Q header with VLAN VID.
 
@@ -498,6 +564,7 @@ def push_vlan_act(table, vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
     ]
 
 
+@functools.lru_cache()
 def dec_ip_ttl():
     """Return OpenFlow action to decrement IP TTL.
 
@@ -507,6 +574,7 @@ def dec_ip_ttl():
     return parser.OFPActionDecNwTtl()
 
 
+@functools.lru_cache(maxsize=1024)
 def pop_vlan():
     """Return OpenFlow action to pop outermost Ethernet 802.1Q VLAN header.
 
@@ -549,7 +617,7 @@ def ct_nat(**kwds):
     return parser.NXActionNAT(**kwds)  # pylint: disable=no-member
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache(maxsize=1024)
 def output_port(port_num, max_len=0):
     """Return OpenFlow action to output to a port.
 
@@ -585,7 +653,7 @@ def dedupe_output_port_acts(output_port_acts):
     return [output_port(port) for port in sorted(output_ports)]
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache(maxsize=1024)
 def output_non_output_actions(flood_acts):
     """Split output actions into deduped actions, output ports, and non-output port actions.
 
@@ -614,6 +682,7 @@ def output_non_output_actions(flood_acts):
     return (deduped_acts, output_ports, nonoutput_actions)
 
 
+@functools.lru_cache()
 def output_in_port():
     """Return OpenFlow action to output out input port.
 
@@ -623,7 +692,7 @@ def output_in_port():
     return output_port(OFP_IN_PORT)
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache()
 def output_controller(max_len=MAX_PACKET_IN_BYTES):
     """Return OpenFlow action to packet in to the controller.
 
@@ -650,10 +719,11 @@ def packetouts(port_nums, data):
         buffer_id=ofp.OFP_NO_BUFFER,
         in_port=ofp.OFPP_CONTROLLER,
         actions=[output_port(port_num) for port_num in port_nums],
-        data=data)
+        data=data,
+    )
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache()
 def packetout(port_num, data):
     """Return OpenFlow action to packet out to dataplane from controller.
 
@@ -666,6 +736,7 @@ def packetout(port_num, data):
     return packetouts([port_num], data)
 
 
+@functools.lru_cache()
 def barrier():
     """Return OpenFlow barrier request.
 
@@ -676,8 +747,7 @@ def barrier():
 
 
 def table_features(body):
-    return parser.OFPTableFeaturesStatsRequest(
-        datapath=None, body=body)
+    return parser.OFPTableFeaturesStatsRequest(datapath=None, body=body)
 
 
 def match(match_fields):
@@ -691,59 +761,58 @@ def match(match_fields):
     return parser.OFPMatch(**match_fields)
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache()
 def valve_match_vid(value):
     return to_match_vid(value, ofp.OFPVID_PRESENT)
 
 
 MATCH_FIELDS = {
     # See 7.2.3.7 Flow Match Fields (OF 1.3.5)
-    'in_port': OFCtlUtil(ofp).ofp_port_from_user,
-    'in_phy_port': str_to_int,
-    'metadata': to_match_masked_int,
-    'eth_dst': to_match_eth,
-    'eth_src': to_match_eth,
-    'eth_type': str_to_int,
-    'vlan_vid': valve_match_vid,
-    'vlan_pcp': str_to_int,
-    'ip_dscp': str_to_int,
-    'ip_ecn': str_to_int,
-    'ip_proto': str_to_int,
-    'ipv4_src': to_match_ip,
-    'ipv4_dst': to_match_ip,
-    'tcp_src': to_match_masked_int,
-    'tcp_dst': to_match_masked_int,
-    'udp_src': to_match_masked_int,
-    'udp_dst': to_match_masked_int,
-    'sctp_src': to_match_masked_int,
-    'sctp_dst': to_match_masked_int,
-    'icmpv4_type': str_to_int,
-    'icmpv4_code': str_to_int,
-    'arp_op': str_to_int,
-    'arp_spa': to_match_ip,
-    'arp_tpa': to_match_ip,
-    'arp_sha': to_match_eth,
-    'arp_tha': to_match_eth,
-    'ipv6_src': to_match_ip,
-    'ipv6_dst': to_match_ip,
-    'ipv6_flabel': str_to_int,
-    'icmpv6_type': str_to_int,
-    'icmpv6_code': str_to_int,
-    'ipv6_nd_target': to_match_ip,
-    'ipv6_nd_sll': to_match_eth,
-    'ipv6_nd_tll': to_match_eth,
-    'mpls_label': str_to_int,
-    'mpls_tc': str_to_int,
-    'mpls_bos': str_to_int,
-    'pbb_isid': to_match_masked_int,
-    'tunnel_id': to_match_masked_int,
-    'ipv6_exthdr': to_match_masked_int,
-
+    "in_port": OFCtlUtil(ofp).ofp_port_from_user,
+    "in_phy_port": str_to_int,
+    "metadata": to_match_masked_int,
+    "eth_dst": to_match_eth,
+    "eth_src": to_match_eth,
+    "eth_type": str_to_int,
+    "vlan_vid": valve_match_vid,
+    "vlan_pcp": str_to_int,
+    "ip_dscp": str_to_int,
+    "ip_ecn": str_to_int,
+    "ip_proto": str_to_int,
+    "ipv4_src": to_match_ip,
+    "ipv4_dst": to_match_ip,
+    "tcp_src": to_match_masked_int,
+    "tcp_dst": to_match_masked_int,
+    "udp_src": to_match_masked_int,
+    "udp_dst": to_match_masked_int,
+    "sctp_src": to_match_masked_int,
+    "sctp_dst": to_match_masked_int,
+    "icmpv4_type": str_to_int,
+    "icmpv4_code": str_to_int,
+    "arp_op": str_to_int,
+    "arp_spa": to_match_ip,
+    "arp_tpa": to_match_ip,
+    "arp_sha": to_match_eth,
+    "arp_tha": to_match_eth,
+    "ipv6_src": to_match_ip,
+    "ipv6_dst": to_match_ip,
+    "ipv6_flabel": str_to_int,
+    "icmpv6_type": str_to_int,
+    "icmpv6_code": str_to_int,
+    "ipv6_nd_target": to_match_ip,
+    "ipv6_nd_sll": to_match_eth,
+    "ipv6_nd_tll": to_match_eth,
+    "mpls_label": str_to_int,
+    "mpls_tc": str_to_int,
+    "mpls_bos": str_to_int,
+    "pbb_isid": to_match_masked_int,
+    "tunnel_id": to_match_masked_int,
+    "ipv6_exthdr": to_match_masked_int,
     # Nicira extensions, see ovs-fields(7)
-    'ct_state': to_match_masked_int,
-    'ct_zone': str_to_int,
-    'ct_mark': to_match_masked_int,
-    'ct_label': to_match_masked_int
+    "ct_state": to_match_masked_int,
+    "ct_zone": str_to_int,
+    "ct_mark": to_match_masked_int,
+    "ct_label": to_match_masked_int,
 }
 
 
@@ -752,12 +821,15 @@ def match_from_dict(match_dict):
     kwargs = {}
     for of_match, field in match_dict.items():
         of_match = OLD_MATCH_FIELDS.get(of_match, of_match)
-        test_config_condition(of_match not in MATCH_FIELDS, 'Unknown match field: %s' % of_match)
+        test_config_condition(
+            of_match not in MATCH_FIELDS, "Unknown match field: %s" % of_match
+        )
         try:
             encoded_field = MATCH_FIELDS[of_match](field)
         except TypeError as type_error:
-            raise InvalidConfigError('%s cannot be type %s' %
-                                     (of_match, type(field))) from type_error
+            raise InvalidConfigError(
+                "%s cannot be type %s" % (of_match, type(field))
+            ) from type_error
         kwargs[of_match] = encoded_field
 
     return parser.OFPMatch(**kwargs)
@@ -769,63 +841,86 @@ def _match_ip_masked(ipa):
     return (str(ipa.ip), str(ipa.netmask))
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
-def build_match_dict(in_port=None, vlan=None, eth_type=None, eth_src=None,
-                     eth_dst=None, eth_dst_mask=None, icmpv6_type=None,
-                     nw_proto=None, nw_dst=None, metadata=None,
-                     metadata_mask=None, vlan_pcp=None, udp_src=None, udp_dst=None):
+@functools.lru_cache(maxsize=1024)
+def build_match_dict(
+    in_port=None,
+    vlan=None,
+    eth_type=None,
+    eth_src=None,
+    eth_dst=None,
+    eth_dst_mask=None,
+    icmpv6_type=None,
+    nw_proto=None,
+    nw_dst=None,
+    metadata=None,
+    metadata_mask=None,
+    vlan_pcp=None,
+    udp_src=None,
+    udp_dst=None,
+):
     match_dict = {}
     if in_port is not None:
-        match_dict['in_port'] = in_port
+        match_dict["in_port"] = in_port
     if vlan is not None:
         if isinstance(vlan, int):
             vid = vlan
         else:
             vid = vlan.vid
         if vid == ofp.OFPVID_NONE:
-            match_dict['vlan_vid'] = int(ofp.OFPVID_NONE)
+            match_dict["vlan_vid"] = int(ofp.OFPVID_NONE)
         elif vid == ofp.OFPVID_PRESENT:
-            match_dict['vlan_vid'] = (ofp.OFPVID_PRESENT, ofp.OFPVID_PRESENT)
+            match_dict["vlan_vid"] = (ofp.OFPVID_PRESENT, ofp.OFPVID_PRESENT)
         else:
-            match_dict['vlan_vid'] = vid_present(vid)
+            match_dict["vlan_vid"] = vid_present(vid)
     if eth_src is not None:
-        match_dict['eth_src'] = eth_src
+        match_dict["eth_src"] = eth_src
     if eth_dst is not None:
         if eth_dst_mask is not None:
-            match_dict['eth_dst'] = (eth_dst, eth_dst_mask)
+            match_dict["eth_dst"] = (eth_dst, eth_dst_mask)
         else:
-            match_dict['eth_dst'] = eth_dst
+            match_dict["eth_dst"] = eth_dst
     if nw_proto is not None:
-        match_dict['ip_proto'] = nw_proto
+        match_dict["ip_proto"] = nw_proto
     if udp_dst is not None:
-        match_dict['udp_dst'] = udp_dst
+        match_dict["udp_dst"] = udp_dst
     if udp_src is not None:
-        match_dict['udp_src'] = udp_src
+        match_dict["udp_src"] = udp_src
     if icmpv6_type is not None:
-        match_dict['icmpv6_type'] = icmpv6_type
+        match_dict["icmpv6_type"] = icmpv6_type
     if nw_dst is not None:
         nw_dst_masked = _match_ip_masked(nw_dst)
         if eth_type == ether.ETH_TYPE_ARP:
-            match_dict['arp_tpa'] = str(nw_dst.ip)
+            match_dict["arp_tpa"] = str(nw_dst.ip)
         elif eth_type == ether.ETH_TYPE_IP:
-            match_dict['ipv4_dst'] = nw_dst_masked
+            match_dict["ipv4_dst"] = nw_dst_masked
         else:
-            match_dict['ipv6_dst'] = nw_dst_masked
+            match_dict["ipv6_dst"] = nw_dst_masked
     if eth_type is not None:
-        match_dict['eth_type'] = eth_type
+        match_dict["eth_type"] = eth_type
     if metadata is not None:
         if metadata_mask is not None:
-            match_dict['metadata'] = (metadata, metadata_mask)
+            match_dict["metadata"] = (metadata, metadata_mask)
         else:
-            match_dict['metadata'] = metadata
+            match_dict["metadata"] = metadata
     if vlan_pcp is not None:
-        match_dict['vlan_pcp'] = vlan_pcp
+        match_dict["vlan_pcp"] = vlan_pcp
     return match_dict
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
-def flowmod(cookie, command, table_id, priority, out_port, out_group,
-            match_fields, inst, hard_timeout, idle_timeout, flags=0):
+@functools.lru_cache()
+def flowmod(
+    cookie,
+    command,
+    table_id,
+    priority,
+    out_port,
+    out_group,
+    match_fields,
+    inst,
+    hard_timeout,
+    idle_timeout,
+    flags=0,
+):
     return parser.OFPFlowMod(
         datapath=None,
         cookie=cookie,
@@ -838,15 +933,17 @@ def flowmod(cookie, command, table_id, priority, out_port, out_group,
         instructions=inst,
         hard_timeout=hard_timeout,
         idle_timeout=idle_timeout,
-        flags=flags)
+        flags=flags,
+    )
 
 
 class NullRyuDatapath:
     """Placeholder Ryu Datapath."""
+
     ofproto = ofp
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache()
 def verify_flowmod(flowmod_msg):
     """Verify flowmod can be serialized."""
     flowmod_msg.datapath = NullRyuDatapath()
@@ -860,14 +957,11 @@ def group_act(group_id):
     return parser.OFPActionGroup(group_id)
 
 
-def bucket(weight=0, watch_port=ofp.OFPP_ANY,
-           watch_group=ofp.OFPG_ANY, actions=None):
+def bucket(weight=0, watch_port=ofp.OFPP_ANY, watch_group=ofp.OFPG_ANY, actions=None):
     """Return a group action bucket with provided actions."""
     return parser.OFPBucket(
-        weight=weight,
-        watch_port=watch_port,
-        watch_group=watch_group,
-        actions=actions)
+        weight=weight, watch_port=watch_port, watch_group=watch_group, actions=actions
+    )
 
 
 def build_group_flood_buckets(vlan_flood_acts):
@@ -884,18 +978,15 @@ def build_group_flood_buckets(vlan_flood_acts):
 
 def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
     """Delete a group (default all groups)."""
-    return parser.OFPGroupMod(
-        datapath,
-        ofp.OFPGC_DELETE,
-        0,
-        group_id)
+    return parser.OFPGroupMod(datapath, ofp.OFPGC_DELETE, 0, group_id)
 
 
 def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
     """Add a group."""
     return [
         groupdel(datapath=datapath, group_id=group_id),
-        parser.OFPGroupMod(datapath, ofp.OFPGC_ADD, type_, group_id, buckets)]
+        parser.OFPGroupMod(datapath, ofp.OFPGC_ADD, type_, group_id, buckets),
+    ]
 
 
 def groupadd_ff(datapath=None, group_id=0, buckets=None):
@@ -905,11 +996,7 @@ def groupadd_ff(datapath=None, group_id=0, buckets=None):
 
 def meterdel(datapath=None, meter_id=ofp.OFPM_ALL):
     """Delete a meter (default all meters)."""
-    return parser.OFPMeterMod(
-        datapath,
-        ofp.OFPMC_DELETE,
-        0,
-        meter_id)
+    return parser.OFPMeterMod(datapath, ofp.OFPMC_DELETE, 0, meter_id)
 
 
 def meteradd(meter_conf, command=ofp.OFPMC_ADD):
@@ -946,7 +1033,8 @@ def controller_pps_meteradd(datapath=None, pps=0):
         command=ofp.OFPMC_ADD,
         flags=ofp.OFPMF_PKTPS,
         meter_id=ofp.OFPM_CONTROLLER,
-        bands=[parser.OFPMeterBandDrop(rate=pps)])
+        bands=[parser.OFPMeterBandDrop(rate=pps)],
+    )
 
 
 def controller_pps_meterdel(datapath=None):
@@ -955,7 +1043,8 @@ def controller_pps_meterdel(datapath=None):
         datapath=datapath,
         command=ofp.OFPMC_DELETE,
         flags=ofp.OFPMF_PKTPS,
-        meter_id=ofp.OFPM_CONTROLLER)
+        meter_id=ofp.OFPM_CONTROLLER,
+    )
 
 
 def slowpath_pps_meteradd(datapath=None, pps=0):
@@ -965,7 +1054,8 @@ def slowpath_pps_meteradd(datapath=None, pps=0):
         command=ofp.OFPMC_ADD,
         flags=ofp.OFPMF_PKTPS,
         meter_id=ofp.OFPM_SLOWPATH,
-        bands=[parser.OFPMeterBandDrop(rate=pps)])
+        bands=[parser.OFPMeterBandDrop(rate=pps)],
+    )
 
 
 def slowpath_pps_meterdel(datapath=None):
@@ -974,12 +1064,17 @@ def slowpath_pps_meterdel(datapath=None):
         datapath=datapath,
         command=ofp.OFPMC_DELETE,
         flags=ofp.OFPMF_PKTPS,
-        meter_id=ofp.OFPM_SLOWPATH)
+        meter_id=ofp.OFPM_SLOWPATH,
+    )
 
 
 def is_global_flowdel(ofmsg):
     """Is a delete of all flows in all tables."""
-    return is_flowdel(ofmsg) and ofmsg.table_id == ofp.OFPTT_ALL and not ofmsg.match.items()
+    return (
+        is_flowdel(ofmsg)
+        and ofmsg.table_id == ofp.OFPTT_ALL
+        and not ofmsg.match.items()
+    )
 
 
 def is_global_groupdel(ofmsg):
@@ -994,26 +1089,35 @@ def is_global_meterdel(ofmsg):
 
 # We can tell right away what kind of OF messages these are.
 _MSG_KINDS_TYPES = {
-    parser.OFPPacketOut: 'packetout',
-    parser.OFPTableFeaturesStatsRequest: 'tfm',
-    parser.OFPSetConfig: 'config',
-    parser.OFPSetAsync: 'config',
-    parser.OFPDescStatsRequest: 'config',
+    parser.OFPPacketOut: "packetout",
+    parser.OFPTableFeaturesStatsRequest: "tfm",
+    parser.OFPSetConfig: "config",
+    parser.OFPSetAsync: "config",
+    parser.OFPDescStatsRequest: "config",
 }
 
 
 # We need to examine the OF message more closely to classify it.
 _MSG_KINDS = {
     parser.OFPFlowMod: (
-        ('deleteglobal', is_global_flowdel), ('delete', is_flowdel), ('flowaddmod', is_flowaddmod)),
+        ("deleteglobal", is_global_flowdel),
+        ("delete", is_flowdel),
+        ("flowaddmod", is_flowaddmod),
+    ),
     parser.OFPGroupMod: (
-        ('deleteglobal', is_global_groupdel), ('delete', is_groupdel), ('groupadd', is_groupadd)),
+        ("deleteglobal", is_global_groupdel),
+        ("delete", is_groupdel),
+        ("groupadd", is_groupadd),
+    ),
     parser.OFPMeterMod: (
-        ('deleteglobal', is_global_meterdel), ('delete', is_meterdel), ('meteradd', is_meteradd)),
+        ("deleteglobal", is_global_meterdel),
+        ("delete", is_meterdel),
+        ("meteradd", is_meteradd),
+    ),
 }
 
 
-@functools.lru_cache(maxsize=LRU_MAX)
+@functools.lru_cache()
 def _msg_kind(ofmsg):
     ofmsg_type = type(ofmsg)
     ofmsg_kind = _MSG_KINDS_TYPES.get(ofmsg_type, None)
@@ -1024,7 +1128,7 @@ def _msg_kind(ofmsg):
         for kind, kind_func in kinds:
             if kind_func(ofmsg):
                 return kind
-    return 'other'
+    return "other"
 
 
 def _partition_ofmsgs(input_ofmsgs):
@@ -1051,8 +1155,11 @@ def sort_flows(input_ofmsgs):
     return sorted(
         input_ofmsgs,
         key=lambda ofmsg: (
-            getattr(ofmsg, 'table_id', ofp.OFPTT_ALL),
-            getattr(ofmsg, 'priority', 2**16 + 1)), reverse=True)
+            getattr(ofmsg, "table_id", ofp.OFPTT_ALL),
+            getattr(ofmsg, "priority", 2**16 + 1),
+        ),
+        reverse=True,
+    )
 
 
 def dedupe_ofmsgs(input_ofmsgs, random_order, flowkey):
@@ -1071,25 +1178,31 @@ def dedupe_overlaps_ofmsgs(input_ofmsgs, random_order, flowkey):
     deduped_ofmsgs = dedupe_ofmsgs(input_ofmsgs, random_order, flowkey)
     ofmsgs_by_table = {}
     for ofmsg in deduped_ofmsgs:
-        table_id = getattr(ofmsg, 'table_id', None)
+        table_id = getattr(ofmsg, "table_id", None)
         ofmsgs_by_table.setdefault(table_id, []).append(ofmsg)
-    all_table_ids = {table_id for table_id in ofmsgs_by_table if isinstance(table_id, int)}
+    all_table_ids = {
+        table_id for table_id in ofmsgs_by_table if isinstance(table_id, int)
+    }
 
     # If priority-less deletes across all tables are detected, then remove any
     # overlapping deletes (e.g. if a delete all tables vlan=100 is deleted, then remove
     # all other table-specific deletes that have vlan=100).
     if ofp.OFPTT_ALL in all_table_ids:
         overlap_matches = {
-            tuple(ofmsg.match.items()) for ofmsg in ofmsgs_by_table[ofp.OFPTT_ALL]
-            if not ofmsg.priority}
+            tuple(ofmsg.match.items())
+            for ofmsg in ofmsgs_by_table[ofp.OFPTT_ALL]
+            if not ofmsg.priority
+        }
         table_ids = all_table_ids - {ofp.OFPTT_ALL}
         if overlap_matches and table_ids:
             for table_id in table_ids:
                 for overlap_match in overlap_matches:
                     overlap_match = set(overlap_match)
                     ofmsgs_by_table[table_id] = [
-                        ofmsg for ofmsg in ofmsgs_by_table[table_id]
-                        if not overlap_match.issubset(set(ofmsg.match.items()))]
+                        ofmsg
+                        for ofmsg in ofmsgs_by_table[table_id]
+                        if not overlap_match.issubset(set(ofmsg.match.items()))
+                    ]
             nooverlaps_ofmsgs = []
             for _, ofmsgs in sorted(ofmsgs_by_table.items(), reverse=True):
                 nooverlaps_ofmsgs.extend(ofmsgs)
@@ -1111,15 +1224,15 @@ def remove_overlap_ofmsgs(input_ofmsgs, overlap_input_ofmsgs):
 
 # kind, random_order, suggest_barrier, flowkey
 _OFMSG_ORDER = (
-    ('config', False, True, str, dedupe_ofmsgs),
-    ('deleteglobal', False, True, str, dedupe_ofmsgs),
-    ('delete', False, True, str, dedupe_overlaps_ofmsgs),
-    ('tfm', False, True, str, dedupe_ofmsgs),
-    ('groupadd', False, True, str, dedupe_ofmsgs),
-    ('meteradd', False, True, str, dedupe_ofmsgs),
-    ('flowaddmod', False, False, _flowmodkey, dedupe_ofmsgs),
-    ('other', False, False, str, dedupe_ofmsgs),
-    ('packetout', True, False, str, dedupe_ofmsgs),
+    ("config", False, True, str, dedupe_ofmsgs),
+    ("deleteglobal", False, True, str, dedupe_ofmsgs),
+    ("delete", False, True, str, dedupe_overlaps_ofmsgs),
+    ("tfm", False, True, str, dedupe_ofmsgs),
+    ("groupadd", False, True, str, dedupe_ofmsgs),
+    ("meteradd", False, True, str, dedupe_ofmsgs),
+    ("flowaddmod", False, False, _flowmodkey, dedupe_ofmsgs),
+    ("other", False, False, str, dedupe_ofmsgs),
+    ("packetout", True, False, str, dedupe_ofmsgs),
 )
 
 
@@ -1133,22 +1246,25 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     by_kind = _partition_ofmsgs(input_ofmsgs)
 
     # Suppress all other relevant deletes if a global delete is present.
-    delete_global_ofmsgs = by_kind.get('deleteglobal', [])
+    delete_global_ofmsgs = by_kind.get("deleteglobal", [])
     if delete_global_ofmsgs:
         global_types = {type(ofmsg) for ofmsg in delete_global_ofmsgs}
         new_delete = [
-            ofmsg for ofmsg in by_kind.get('delete', []) if type(ofmsg) not in global_types]
-        by_kind['delete'] = new_delete
+            ofmsg
+            for ofmsg in by_kind.get("delete", [])
+            if type(ofmsg) not in global_types
+        ]
+        by_kind["delete"] = new_delete
 
     for kind, random_order, _suggest_barrier, flowkey, dedupe_func in _OFMSG_ORDER:
         ofmsgs = dedupe_func(by_kind.get(kind, []), random_order, flowkey)
         if ofmsgs:
             by_kind[kind] = ofmsgs
 
-    deletes = by_kind.get('delete', None)
-    addmod = by_kind.get('flowaddmod', None)
+    deletes = by_kind.get("delete", None)
+    addmod = by_kind.get("flowaddmod", None)
     if deletes and addmod:
-        by_kind['delete'] = remove_overlap_ofmsgs(deletes, addmod)
+        by_kind["delete"] = remove_overlap_ofmsgs(deletes, addmod)
 
     for kind, _random_order, suggest_barrier, _flowkey, dedupe_func in _OFMSG_ORDER:
         ofmsgs = by_kind.get(kind, [])
@@ -1164,7 +1280,9 @@ def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
     flood_acts = []
     in_port_mirror_output_ports = {}
     if in_port is not None:
-        in_port_mirror_output_ports = ports_from_output_port_acts(in_port.mirror_actions())
+        in_port_mirror_output_ports = ports_from_output_port_acts(
+            in_port.mirror_actions()
+        )
     if ports:
         for port in ports:
             if in_port is not None and port == in_port:
@@ -1186,7 +1304,8 @@ def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
 def flood_untagged_port_outputs(ports, in_port=None, exclude_ports=None):
     """Return list of actions necessary to flood to list of untagged ports."""
     flood_acts = flood_tagged_port_outputs(
-        ports, in_port=in_port, exclude_ports=exclude_ports)
+        ports, in_port=in_port, exclude_ports=exclude_ports
+    )
     if flood_acts:
         flood_acts = [pop_vlan()] + flood_acts
     return flood_acts
@@ -1194,9 +1313,9 @@ def flood_untagged_port_outputs(ports, in_port=None, exclude_ports=None):
 
 def flood_port_outputs(tagged_ports, untagged_ports, in_port=None, exclude_ports=None):
     """Return actions for both tagged and untagged ports."""
-    return (
-        flood_tagged_port_outputs(tagged_ports, in_port, exclude_ports)
-        + flood_untagged_port_outputs(untagged_ports, in_port, exclude_ports))
+    return flood_tagged_port_outputs(
+        tagged_ports, in_port, exclude_ports
+    ) + flood_untagged_port_outputs(untagged_ports, in_port, exclude_ports)
 
 
 def faucet_config(datapath=None):
@@ -1204,7 +1323,9 @@ def faucet_config(datapath=None):
     return parser.OFPSetConfig(datapath, ofp.OFPC_FRAG_NORMAL, 0)
 
 
-def faucet_async(datapath=None, notify_flow_removed=False, packet_in=True, port_status=True):
+def faucet_async(
+    datapath=None, notify_flow_removed=False, packet_in=True, port_status=True
+):
     """Return async message config for FAUCET/Gauge"""
     packet_in_mask = 0
     if packet_in:
@@ -1212,16 +1333,17 @@ def faucet_async(datapath=None, notify_flow_removed=False, packet_in=True, port_
     port_status_mask = 0
     if port_status:
         port_status_mask = (
-            1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
+            1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY
+        )
     flow_removed_mask = 0
     if notify_flow_removed:
-        flow_removed_mask = (
-            1 << ofp.OFPRR_IDLE_TIMEOUT | 1 << ofp.OFPRR_HARD_TIMEOUT)
+        flow_removed_mask = 1 << ofp.OFPRR_IDLE_TIMEOUT | 1 << ofp.OFPRR_HARD_TIMEOUT
     return parser.OFPSetAsync(
         datapath,
         [packet_in_mask, packet_in_mask],
         [port_status_mask, port_status_mask],
-        [flow_removed_mask, flow_removed_mask])
+        [flow_removed_mask, flow_removed_mask],
+    )
 
 
 def desc_stats_request(datapath=None):

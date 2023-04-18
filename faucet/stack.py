@@ -1,4 +1,3 @@
-
 """Configuration for a stack."""
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
@@ -25,32 +24,34 @@ from faucet.conf import Conf, test_config_condition
 
 class Stack(Conf):
     """Stores state related to DP stack information, this includes the current elected root as that
-is technically a fixed allocation for this DP Stack instance."""
+    is technically a fixed allocation for this DP Stack instance."""
 
     defaults = {
         # Sets the root priority value of the current DP with stacking
-        'priority': None,
+        "priority": None,
         # Use the stack route algorithms, will be forced true if routing is enabled
-        'route_learning': False,
+        "route_learning": False,
         # Number of update time intervals for a down stack node to still be considered healthy
-        'down_time_multiple': 3,
+        "down_time_multiple": 3,
         # Minimum percentage value of required UP stack ports for this stack
         # node to be considered healthy
-        'min_stack_health': 1.0,
+        "min_stack_health": 1.0,
         # Minimum percentage value of required UP LACP ports for this stack
         # node to be considered healthy
-        'min_lacp_health': 1.0,
+        "min_lacp_health": 1.0,
     }
 
     defaults_types = {
-        'priority': int,
-        'route_learning': bool,
-        'down_time_multiple': int,
-        'min_stack_health': float,
-        'min_lacp_health': float,
+        "priority": int,
+        "route_learning": bool,
+        "down_time_multiple": int,
+        "min_stack_health": float,
+        "min_lacp_health": float,
     }
 
-    def __init__(self, _id, dp_id, name, canonical_port_order, lacp_down_ports, lacp_ports, conf):
+    def __init__(
+        self, _id, dp_id, name, canonical_port_order, lacp_down_ports, lacp_ports, conf
+    ):
         """
         Constructs a new stack object
 
@@ -107,7 +108,7 @@ is technically a fixed allocation for this DP Stack instance."""
                         port_up = False
                         if port.is_stack_up():
                             port_up = True
-                        elif port.is_stack_init() and port.stack['port'].is_stack_up():
+                        elif port.is_stack_init() and port.stack["port"].is_stack_up():
                             port_up = True
                         self.modify_link(dp, port, add=port_up)
 
@@ -181,37 +182,45 @@ is technically a fixed allocation for this DP Stack instance."""
             tuple: Current stack node health state,
             str: Reason for the current state
         """
-        reason = ''
+        reason = ""
         last_live_time = dp_last_live_time.get(self.name, 0)
         timeout_healthy, health_timeout = self.live_timeout_healthy(
-            last_live_time, now, update_time)
+            last_live_time, now, update_time
+        )
         if not timeout_healthy:
             # Too long since DP last running, if DP not running then
             #   number of UP stack or LACP ports should be 0
-            reason += f'last running {now - last_live_time}s ago (timeout {health_timeout}s)'
+            reason += "last running %us ago (timeout %us)" % (
+                now - last_live_time,
+                health_timeout,
+            )
             self.dyn_healthy_info = (False, 0.0, 0.0)
             self.dyn_healthy = False
             return self.dyn_healthy, reason
-        reason += f'running {now - last_live_time}s ago'
+        reason += "running %us ago" % (now - last_live_time)
         if reason:
-            reason += ', '
+            reason += ", "
         stack_ports_healthy, stack_percentage = self.stack_port_healthy()
         if not stack_ports_healthy:
             # The number of DOWN stack ports surpasses the threshold for DOWN stack port tolerance
-            reason += 'stack ports %s (%.0f%%) not up' % (
-                list(self.down_ports()), (1.0 - stack_percentage) * 100.0)
+            reason += "stack ports %s (%.0f%%) not up" % (
+                list(self.down_ports()),
+                (1.0 - stack_percentage) * 100.0,
+            )
         else:
-            reason += '%.0f%% stack ports running' % (stack_percentage * 100.0)
+            reason += "%.0f%% stack ports running" % (stack_percentage * 100.0)
         if self.lacp_ports():
             if reason:
-                reason += ', '
+                reason += ", "
             lacp_ports_healthy, lacp_percentage = self.lacp_port_healthy()
             if not lacp_ports_healthy:
                 # The number of DOWN LACP ports surpasses the threshold for DOWN LACP port tolerance
-                reason += 'lacp ports %s (%.0f%%) not up' % (
-                    list(self.lacp_down_ports()), (1.0 - lacp_percentage) * 100.0)
+                reason += "lacp ports %s (%.0f%%) not up" % (
+                    list(self.lacp_down_ports()),
+                    (1.0 - lacp_percentage) * 100.0,
+                )
             else:
-                reason += '%.0f%% lacp ports running' % (lacp_percentage * 100.0)
+                reason += "%.0f%% lacp ports running" % (lacp_percentage * 100.0)
         else:
             # No LACP ports in node, so default to 100% UP & don't report information
             lacp_ports_healthy = True
@@ -226,12 +235,16 @@ is technically a fixed allocation for this DP Stack instance."""
     @staticmethod
     def nominate_stack_root(stacks):
         """Return stack names in priority order and the chosen root"""
+
         def health_priority(stack):
             # Invert the health priority info so it is sorted correctly
             #   in relation to priority and the binary health
-            invert_info = (1.0 - stack.dyn_healthy_info[1],
-                           1.0 - stack.dyn_healthy_info[2])
+            invert_info = (
+                1.0 - stack.dyn_healthy_info[1],
+                1.0 - stack.dyn_healthy_info[2],
+            )
             return (not stack.dyn_healthy, *invert_info, stack.priority, stack.dp_id)
+
         stack_priorities = sorted(stacks, key=health_priority)
         priority_names = tuple(stack.name for stack in stack_priorities)
         nominated_name = priority_names[0]
@@ -250,20 +263,27 @@ is technically a fixed allocation for this DP Stack instance."""
         stack_port_dps = [dp for dp in dps if dp.stack_ports()]
 
         if not stack_priority_dps:
-            test_config_condition(stack_dps, 'stacking enabled but no root DP')
+            test_config_condition(stack_dps, "stacking enabled but no root DP")
             return
 
         if not self.ports:
             return
 
         for dp in stack_priority_dps:
-            test_config_condition(not isinstance(dp.stack.priority, int), (
-                f'stack priority must be type {int} not {type(dp.stack.priority)}'))
-            test_config_condition(dp.stack.priority <= 0, (
-                'stack priority must be > 0'))
+            test_config_condition(
+                not isinstance(dp.stack.priority, int),
+                (
+                    "stack priority must be type %s not %s"
+                    % (int, type(dp.stack.priority))
+                ),
+            )
+            test_config_condition(
+                dp.stack.priority <= 0, ("stack priority must be > 0")
+            )
 
         self.roots_names, self.root_name = self.nominate_stack_root(
-            [dp.stack for dp in stack_priority_dps])
+            [dp.stack for dp in stack_priority_dps]
+        )
 
         if meta_dp_state:
             # If meta_dp_state exists, then we are reloading a new instance of the stack
@@ -284,13 +304,16 @@ is technically a fixed allocation for this DP Stack instance."""
                 edge_name = Stack.modify_topology(graph, dp, port)
                 edge_count[edge_name] += 1
         for edge_name, count in edge_count.items():
-            test_config_condition(count != 2, f'{edge_name} defined only in one direction')
+            test_config_condition(
+                count != 2, "%s defined only in one direction" % edge_name
+            )
         if graph.size() and self.name in graph:
             self.graph = graph
             for dp in graph.nodes():
                 path_to_root_len = len(self.shortest_path(self.root_name, src_dp=dp))
                 test_config_condition(
-                    path_to_root_len == 0, f'{dp} not connected to stack')
+                    path_to_root_len == 0, "%s not connected to stack" % dp
+                )
             root_len = self.longest_path_to_root_len()
             if root_len is not None and root_len > 2:
                 self.root_flood_reflection = True
@@ -300,12 +323,10 @@ is technically a fixed allocation for this DP Stack instance."""
         """Add/remove an edge to the stack graph which originates from this dp and port."""
 
         def canonical_edge(dp, port):
-            peer_dp = port.stack['dp']
-            peer_port = port.stack['port']
-            sort_edge_a = (
-                dp.name, port.name, dp, port)
-            sort_edge_z = (
-                peer_dp.name, peer_port.name, peer_dp, peer_port)
+            peer_dp = port.stack["dp"]
+            peer_port = port.stack["port"]
+            sort_edge_a = (dp.name, port.name, dp, port)
+            sort_edge_z = (peer_dp.name, peer_port.name, peer_dp, peer_port)
             sorted_edge = sorted((sort_edge_a, sort_edge_z))
             edge_a, edge_b = sorted_edge[0][2:], sorted_edge[1][2:]
             return edge_a, edge_b
@@ -313,14 +334,22 @@ is technically a fixed allocation for this DP Stack instance."""
         def make_edge_name(edge_a, edge_z):
             edge_a_dp, edge_a_port = edge_a
             edge_z_dp, edge_z_port = edge_z
-            return f'{edge_a_dp.name}:{edge_a_port.name}-{edge_z_dp.name}:{edge_z_port.name}'
+            return "%s:%s-%s:%s" % (
+                edge_a_dp.name,
+                edge_a_port.name,
+                edge_z_dp.name,
+                edge_z_port.name,
+            )
 
         def make_edge_attr(edge_a, edge_z):
             edge_a_dp, edge_a_port = edge_a
             edge_z_dp, edge_z_port = edge_z
             return {
-                'dp_a': edge_a_dp, 'port_a': edge_a_port,
-                'dp_z': edge_z_dp, 'port_z': edge_z_port}
+                "dp_a": edge_a_dp,
+                "port_a": edge_a_port,
+                "dp_z": edge_z_dp,
+                "port_z": edge_z_port,
+            }
 
         edge = canonical_edge(dp, port)
         edge_a, edge_z = edge
@@ -330,8 +359,8 @@ is technically a fixed allocation for this DP Stack instance."""
         edge_z_dp, _ = edge_z
         if add:
             graph.add_edge(
-                edge_a_dp.name, edge_z_dp.name,
-                key=edge_name, port_map=edge_attr)
+                edge_a_dp.name, edge_z_dp.name, key=edge_name, port_map=edge_attr
+            )
         elif (edge_a_dp.name, edge_z_dp.name, edge_name) in graph.edges:
             graph.remove_edge(edge_a_dp.name, edge_z_dp.name, edge_name)
 
@@ -376,7 +405,9 @@ is technically a fixed allocation for this DP Stack instance."""
             src_dp = self.name
         if self.graph:
             try:
-                return sorted(networkx.all_shortest_paths(self.graph, src_dp, dest_dp))[0]
+                return sorted(networkx.all_shortest_paths(self.graph, src_dp, dest_dp))[
+                    0
+                ]
             except (networkx.exception.NetworkXNoPath, networkx.exception.NodeNotFound):
                 pass
         return []
@@ -395,8 +426,9 @@ is technically a fixed allocation for this DP Stack instance."""
 
     def is_edge(self):
         """Return True if this DP is a stack edge."""
-        return (not self.is_root()
-                and self.longest_path_to_root_len() == len(self.shortest_path_to_root()))
+        return not self.is_root() and self.longest_path_to_root_len() == len(
+            self.shortest_path_to_root()
+        )
 
     def shortest_path_port(self, dest_dp):
         """Return first port on our DP, that is the shortest path towards dest DP."""
@@ -410,9 +442,13 @@ is technically a fixed allocation for this DP Stack instance."""
 
     def peer_up_ports(self, peer_dp):
         """Return list of stack ports that are up towards a peer."""
-        return self.canonical_port_order([
-            port for port in self.ports if port.running() and (
-                port.stack['dp'].name == peer_dp)])
+        return self.canonical_port_order(
+            [
+                port
+                for port in self.ports
+                if port.running() and (port.stack["dp"].name == peer_dp)
+            ]
+        )
 
     def longest_path_to_root_len(self):
         """Return length of the longest path to root in the stack."""
@@ -420,7 +456,8 @@ is technically a fixed allocation for this DP Stack instance."""
             return None
         len_paths_to_root = [
             len(self.shortest_path(self.root_name, src_dp=dp))
-            for dp in self.graph.nodes()]
+            for dp in self.graph.nodes()
+        ]
         if len_paths_to_root:
             return max(len_paths_to_root)
         return None
@@ -440,9 +477,13 @@ is technically a fixed allocation for this DP Stack instance."""
     def peer_symmetric_up_ports(self, peer_dp):
         """Return list of stack ports that are up towards us from a peer"""
         # Sort adjacent ports by canonical port order
-        return self.canonical_port_order([
-            port.stack['port'] for port in self.ports if port.running() and (
-                port.stack['dp'].name == peer_dp)])
+        return self.canonical_port_order(
+            [
+                port.stack["port"]
+                for port in self.ports
+                if port.running() and (port.stack["dp"].name == peer_dp)
+            ]
+        )
 
     def shortest_symmetric_path_port(self, peer_dp):
         """Return port on our DP that is the first port of the adjacent DP towards us"""
@@ -450,5 +491,5 @@ is technically a fixed allocation for this DP Stack instance."""
         if len(shortest_path) == 2:
             adjacent_up_ports = self.peer_symmetric_up_ports(peer_dp)
             if adjacent_up_ports:
-                return adjacent_up_ports[0].stack['port']
+                return adjacent_up_ports[0].stack["port"]
         return None
