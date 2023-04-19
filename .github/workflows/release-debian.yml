@@ -1,4 +1,4 @@
-name: Build debian packages and images for release
+name: Build debian packages for release
 
 on:
   push:
