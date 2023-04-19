@@ -12,10 +12,10 @@ class Message:  # pylint: disable=too-few-public-methods
     """Fake message class"""
 
     def __init__(self, *args, **kwargs):
-        self.datapath = kwargs['datapath']
-        self.cookie = kwargs['cookie']
-        self.port = kwargs['port']
-        self.data = kwargs['data']
+        self.datapath = kwargs["datapath"]
+        self.cookie = kwargs["cookie"]
+        self.port = kwargs["port"]
+        self.data = kwargs["data"]
         self.total_len = len(self.data)
         self.match = kwargs
         self.args = args

@@ -19,7 +19,7 @@ class FaucetTopoTest(TestCase):
         """Fake class for a mininet extended host"""
 
     def get_serialno(self, *_args, **_kwargs):
-        """"Return mock serial number"""
+        """Return mock serial number"""
         self.serial += 1
         return self.serial
 
@@ -29,7 +29,9 @@ class FaucetTopoTest(TestCase):
         extended = FaucetFakeOFTopoGenerator.extend_port_order(port_order, max_length=8)
         self.assertEqual(extended, [3, 2, 1, 0, 7, 6, 5, 4])
         port_order = [1, 2, 3, 4, 0]
-        extended = FaucetFakeOFTopoGenerator.extend_port_order(port_order, max_length=10)
+        extended = FaucetFakeOFTopoGenerator.extend_port_order(
+            port_order, max_length=10
+        )
         self.assertEqual(extended, [1, 2, 3, 4, 0, 6, 7, 8, 9, 5])
         host_links = {0: [0], 1: [1]}
         host_vlans = {0: 0, 1: 0}
@@ -38,11 +40,19 @@ class FaucetTopoTest(TestCase):
         port_order = [3, 2, 1, 0]
         expected_ports = [self.START_PORT + port for port in port_order]
         topo = FaucetFakeOFTopoGenerator(
-            '', '', '',
-            2, False,
-            host_links, host_vlans, switch_links, link_vlans,
-            start_port=self.START_PORT, port_order=port_order,
-            get_serialno=self.get_serialno)
+            "",
+            "",
+            "",
+            2,
+            False,
+            host_links,
+            host_vlans,
+            switch_links,
+            link_vlans,
+            start_port=self.START_PORT,
+            port_order=port_order,
+            get_serialno=self.get_serialno,
+        )
         s1_name = topo.switches_by_id[0]
         s1_ports = list(topo.ports[s1_name].keys())
         self.assertEqual(s1_ports, expected_ports[:2])
@@ -60,11 +70,19 @@ class FaucetTopoTest(TestCase):
         port_order = [3, 2, 1, 0]
         expected_ports = [start_port + port for port in port_order]
         topo = FaucetFakeOFTopoGenerator(
-            '', '', '',
-            2, False,
-            host_links, host_vlans, switch_links, link_vlans,
-            start_port=start_port, port_order=port_order,
-            get_serialno=self.get_serialno)
+            "",
+            "",
+            "",
+            2,
+            False,
+            host_links,
+            host_vlans,
+            switch_links,
+            link_vlans,
+            start_port=start_port,
+            port_order=port_order,
+            get_serialno=self.get_serialno,
+        )
         s1_name, s2_name = topo.switches_by_id.values()
         h1_name, h2_name = topo.hosts_by_id.values()
         self.assertEqual(topo.ports[s1_name][expected_ports[0]][0], s2_name)
@@ -79,14 +97,23 @@ class FaucetTopoTest(TestCase):
         switch_links = [(0, 1)]
         link_vlans = {(0, 1): [0]}
         hw_dpid = 0x123
-        hw_ports = {1: 'p1', 2: 'p2', 3: 'p3', 4: 'p4', 5: 'p5', 6: 'p6'}
+        hw_ports = {1: "p1", 2: "p2", 3: "p3", 4: "p4", 5: "p5", 6: "p6"}
         topo = FaucetFakeOFTopoGenerator(
-            '', '', '',
-            2, False,
-            host_links, host_vlans, switch_links, link_vlans,
-            hw_dpid=hw_dpid, hw_ports=hw_ports,
-            start_port=self.START_PORT, port_order=self.PORT_ORDER,
-            get_serialno=self.get_serialno)
+            "",
+            "",
+            "",
+            2,
+            False,
+            host_links,
+            host_vlans,
+            switch_links,
+            link_vlans,
+            hw_dpid=hw_dpid,
+            hw_ports=hw_ports,
+            start_port=self.START_PORT,
+            port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno,
+        )
         self.assertEqual(topo.dpids_by_id[0], hw_dpid)
         self.assertEqual(list(topo.ports[topo.switches_by_id[0]].keys()), [1, 2])
 
@@ -97,11 +124,19 @@ class FaucetTopoTest(TestCase):
         switch_links = {}
         link_vlans = {}
         topo = FaucetFakeOFTopoGenerator(
-            '', '', '',
-            2, False,
-            host_links, host_vlans, switch_links, link_vlans,
-            start_port=self.START_PORT, port_order=self.PORT_ORDER,
-            get_serialno=self.get_serialno)
+            "",
+            "",
+            "",
+            2,
+            False,
+            host_links,
+            host_vlans,
+            switch_links,
+            link_vlans,
+            start_port=self.START_PORT,
+            port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno,
+        )
         self.assertEqual(len(topo.hosts()), 1)
         self.assertEqual(len(topo.switches()), 1)
         self.assertEqual(len(topo.links()), 1)
@@ -116,11 +151,19 @@ class FaucetTopoTest(TestCase):
         switch_links = [(0, 1), (0, 1), (0, 1)]
         link_vlans = {(0, 1): [0, 1]}
         topo = FaucetFakeOFTopoGenerator(
-            '', '', '',
-            2, False,
-            host_links, host_vlans, switch_links, link_vlans,
-            start_port=self.START_PORT, port_order=self.PORT_ORDER,
-            get_serialno=self.get_serialno)
+            "",
+            "",
+            "",
+            2,
+            False,
+            host_links,
+            host_vlans,
+            switch_links,
+            link_vlans,
+            start_port=self.START_PORT,
+            port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno,
+        )
         self.assertEqual(len(topo.dpids_by_id), 2)
         self.assertEqual(len(topo.hosts_by_id), 2)
         self.assertEqual(len(topo.switches_by_id), 2)
@@ -139,19 +182,28 @@ class FaucetTopoTest(TestCase):
     def test_host_options(self):
         """Test the topology correctly provides mininet host options"""
         host_options = {
-            0: {'inNamespace': True, 'ip': '127.0.0.1'},
-            1: {'cls': self.FakeExtendedHost}}
+            0: {"inNamespace": True, "ip": "127.0.0.1"},
+            1: {"cls": self.FakeExtendedHost},
+        }
         host_links = {0: [0], 1: [0]}
         host_vlans = {0: 0, 1: None}
         switch_links = []
         link_vlans = {}
         topo = FaucetFakeOFTopoGenerator(
-            '', '', '',
-            2, False,
-            host_links, host_vlans, switch_links, link_vlans,
+            "",
+            "",
+            "",
+            2,
+            False,
+            host_links,
+            host_vlans,
+            switch_links,
+            link_vlans,
             host_options=host_options,
-            start_port=self.START_PORT, port_order=self.PORT_ORDER,
-            get_serialno=self.get_serialno)
+            start_port=self.START_PORT,
+            port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno,
+        )
         for host_id, opts in host_options.items():
             info = topo.nodeInfo(topo.hosts_by_id[host_id])
             for key, value in opts.items():
@@ -165,15 +217,25 @@ class FaucetTopoTest(TestCase):
         switch_links = [(0, 1), (0, 1), (1, 2)]
         link_vlans = {edge: None for edge in switch_links}
         topo = FaucetFakeOFTopoGenerator(
-            '', '', '',
-            2, False,
-            host_links, host_vlans, switch_links, link_vlans,
-            start_port=self.START_PORT, port_order=self.PORT_ORDER,
-            get_serialno=self.get_serialno)
-        link_port_maps = topo._create_link_port_map()  # pylint: disable=protected-access
+            "",
+            "",
+            "",
+            2,
+            False,
+            host_links,
+            host_vlans,
+            switch_links,
+            link_vlans,
+            start_port=self.START_PORT,
+            port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno,
+        )
+        link_port_maps = (
+            topo._create_link_port_map()
+        )  # pylint: disable=protected-access
         self.assertEqual(
-            link_port_maps,
-            {(0, 1): [5, 6], (1, 0): [5, 6], (1, 2): [7], (2, 1): [5]})
+            link_port_maps, {(0, 1): [5, 6], (1, 0): [5, 6], (1, 2): [7], (2, 1): [5]}
+        )
 
     def test_host_port_map(self):
         """Test correctly generated host port map"""
@@ -182,15 +244,23 @@ class FaucetTopoTest(TestCase):
         switch_links = [(0, 1), (0, 1), (1, 2)]
         link_vlans = {edge: None for edge in switch_links}
         topo = FaucetFakeOFTopoGenerator(
-            '', '', '',
-            2, False,
-            host_links, host_vlans, switch_links, link_vlans,
-            start_port=self.START_PORT, port_order=self.PORT_ORDER,
-            get_serialno=self.get_serialno)
-        host_port_maps = topo._create_host_port_map()  # pylint: disable=protected-access
-        self.assertEqual(
-            host_port_maps,
-            {0: {0: [7], 2: [6]}, 1: {1: [8]}})
+            "",
+            "",
+            "",
+            2,
+            False,
+            host_links,
+            host_vlans,
+            switch_links,
+            link_vlans,
+            start_port=self.START_PORT,
+            port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno,
+        )
+        host_port_maps = (
+            topo._create_host_port_map()
+        )  # pylint: disable=protected-access
+        self.assertEqual(host_port_maps, {0: {0: [7], 2: [6]}, 1: {1: [8]}})
 
 
 if __name__ == "__main__":

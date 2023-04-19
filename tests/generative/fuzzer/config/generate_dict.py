@@ -26,20 +26,22 @@ class ConfigDictGenerator:
     @staticmethod
     def create_config_dict(file_name):
         """Generate YAML dictionary via obtaining possible variables from Faucet CONF objects"""
-        with open(file_name, 'r+', encoding='utf-8') as config_file:
+        with open(file_name, "r+", encoding="utf-8") as config_file:
             # Read set of bogus values already currently in the config.dict file
             bogus_values = []
             for value in config_file.readlines():
                 # Remove quotes and \n from bogus value to get the true bogus value
-                bogus_values.append(r'%s' % value[1:2])
+                bogus_values.append(r"%s" % value[1:2])
             # Make sure to add head values into the dictionary
             for value in V2_TOP_CONFS:
                 for bogus in bogus_values:
-                    to_write = r'%s%s' % (value, bogus)
-                    rev_to_write = r'%s%s' % (bogus, value)
-                    if (to_write in bogus_values
-                            or rev_to_write in bogus_values
-                            or value in bogus_values):
+                    to_write = r"%s%s" % (value, bogus)
+                    rev_to_write = r"%s%s" % (bogus, value)
+                    if (
+                        to_write in bogus_values
+                        or rev_to_write in bogus_values
+                        or value in bogus_values
+                    ):
                         continue
                     config_file.write('\n"%s"' % to_write)
                     config_file.write('\n"%s"' % rev_to_write)
@@ -47,11 +49,13 @@ class ConfigDictGenerator:
             for conf_obj in [ACL, Meter, Port, Router, DP, VLAN]:
                 for value in conf_obj.defaults:
                     for bogus in bogus_values:
-                        to_write = r'%s%s' % (value, bogus)
-                        rev_to_write = r'%s%s' % (bogus, value)
-                        if (to_write in bogus_values
-                                or rev_to_write in bogus_values
-                                or value in bogus_values):
+                        to_write = r"%s%s" % (value, bogus)
+                        rev_to_write = r"%s%s" % (bogus, value)
+                        if (
+                            to_write in bogus_values
+                            or rev_to_write in bogus_values
+                            or value in bogus_values
+                        ):
                             continue
                         config_file.write('\n"%s"' % to_write)
                         config_file.write('\n"%s"' % rev_to_write)
@@ -64,7 +68,7 @@ class ConfigDictGenerator:
         num_vlans = 2
 
         def get_serialno(*_args, **_kwargs):
-            """"Return mock serial number"""
+            """Return mock serial number"""
             self.serial += 1
             return self.serial
 
@@ -80,20 +84,28 @@ class ConfigDictGenerator:
                         host_links[host_n] = [dp_i]
                         host_vlans[host_n] = v_i
                         host_n += 1
-                dp_options[dp_i] = {'hardware': 'GenericTFM'}
+                dp_options[dp_i] = {"hardware": "GenericTFM"}
                 if dp_i == 0 and stack:
-                    dp_options[dp_i]['stack'] = {'priority': 1}
+                    dp_options[dp_i]["stack"] = {"priority": 1}
             switch_links = list(network_graph.edges()) * 2
             if stack:
                 link_vlans = {link: None for link in switch_links}
             else:
                 link_vlans = {link: list(range(num_vlans)) for link in switch_links}
             topo = FaucetFakeOFTopoGenerator(
-                'ovstype', 'portsock', 'testname',
-                len(network_graph.nodes()), False,
-                host_links, host_vlans, switch_links, link_vlans,
-                start_port=1, port_order=[0, 1, 2, 3],
-                get_serialno=get_serialno)
+                "ovstype",
+                "portsock",
+                "testname",
+                len(network_graph.nodes()),
+                False,
+                host_links,
+                host_vlans,
+                switch_links,
+                link_vlans,
+                start_port=1,
+                port_order=[0, 1, 2, 3],
+                get_serialno=get_serialno,
+            )
             config = topo.get_config(num_vlans, dp_options=dp_options)
             return config
 
@@ -107,13 +119,13 @@ class ConfigDictGenerator:
             for stack in (True, False):
                 configs.append(create_config((graph), stack=stack))
         for config in configs:
-            ex_fn = os.path.join(file_base, '%s_%s' % (file_name, ex_curr))
-            with open(ex_fn, 'w+', encoding='utf-8') as ex_file:
+            ex_fn = os.path.join(file_base, "%s_%s" % (file_name, ex_curr))
+            with open(ex_fn, "w+", encoding="utf-8") as ex_file:
                 ex_file.write(config)
             ex_curr += 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     generator = ConfigDictGenerator()
-    generator.create_config_dict('config.dict')
-    generator.create_examples('examples/', 'ex')
+    generator.create_config_dict("config.dict")
+    generator.create_examples("examples/", "ex")

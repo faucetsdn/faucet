@@ -12,7 +12,7 @@ import fake_packet
 def main():
     """Shows the crash in the FAUCET log produced by given input."""
 
-    with open(sys.argv[1], encoding='utf-8') as pkt:
+    with open(sys.argv[1], encoding="utf-8") as pkt:
         packet_data = str(pkt.read())
 
     # start faucet
@@ -30,14 +30,18 @@ def main():
     # create data from read file
     byte_data = None
     try:
-        byte_data = bytearray.fromhex(packet_data)  # pytype: disable=missing-parameter,wrong-arg-types
+        byte_data = bytearray.fromhex(
+            packet_data
+        )  # pytype: disable=missing-parameter,wrong-arg-types
     except (ValueError, TypeError):
         pass
 
     if byte_data is not None:
         # create fake packet
         _dp = fake_packet.Datapath(1)
-        msg = fake_packet.Message(datapath=_dp, cookie=15243729, port=1, data=byte_data, in_port=1)
+        msg = fake_packet.Message(
+            datapath=_dp, cookie=15243729, port=1, data=byte_data, in_port=1
+        )
         pkt = fake_packet.RyuEvent(msg)
 
         # send packet to faucet and display error produced
@@ -49,4 +53,4 @@ if __name__ == "__main__":
     if len(sys.argv) == 2:
         main()
     else:
-        sys.stderr.write('USAGE: python3 display_packet_crash.py <AFL_CRASH_FILE>\n')
+        sys.stderr.write("USAGE: python3 display_packet_crash.py <AFL_CRASH_FILE>\n")

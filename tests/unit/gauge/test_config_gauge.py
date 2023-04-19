@@ -10,7 +10,7 @@ import unittest
 from faucet import config_parser as cp
 from faucet.conf import InvalidConfigError
 
-LOGNAME = '/dev/null'
+LOGNAME = "/dev/null"
 
 
 # pylint: disable=invalid-name
@@ -60,16 +60,16 @@ faucet_configs:
     def conf_file_name(self, faucet=False):
         """Return path for configuration file."""
         if faucet:
-            return os.path.join(self.tmpdir, 'faucet.yaml')
-        return os.path.join(self.tmpdir, 'gauge.yaml')
+            return os.path.join(self.tmpdir, "faucet.yaml")
+        return os.path.join(self.tmpdir, "gauge.yaml")
 
     def create_config_files(self, config, faucet_config=None):
         """Returns file path to file containing the config parameter."""
         gauge_file_name = self.conf_file_name()
         faucet_file_name = self.conf_file_name(faucet=True)
-        with open(gauge_file_name, 'w', encoding='utf-8') as conf_file:
+        with open(gauge_file_name, "w", encoding="utf-8") as conf_file:
             conf_file.write(config.format(faucet_file_name))
-        with open(faucet_file_name, 'w', encoding='utf-8') as conf_file:
+        with open(faucet_file_name, "w", encoding="utf-8") as conf_file:
             if faucet_config:
                 conf_file.write(faucet_config)
             else:
@@ -95,13 +95,15 @@ dbs:
 """
         conf = self.get_config(GAUGE_CONF)
         gauge_file, _ = self.create_config_files(conf)
-        _, _, _, watcher_confs = cp.watcher_parser(gauge_file, 'gauge_config_test', None)
-        self.assertEqual(len(watcher_confs), 2, 'failed to create config for each dp')
+        _, _, _, watcher_confs = cp.watcher_parser(
+            gauge_file, "gauge_config_test", None
+        )
+        self.assertEqual(len(watcher_confs), 2, "failed to create config for each dp")
         for watcher_conf in watcher_confs:
-            msg = 'all_dps config not applied to each dp'
-            self.assertEqual(watcher_conf.type, 'port_stats', msg)
+            msg = "all_dps config not applied to each dp"
+            self.assertEqual(watcher_conf.type, "port_stats", msg)
             self.assertEqual(watcher_conf.interval, 10, msg)
-            self.assertEqual(watcher_conf.db_type, 'prometheus', msg)
+            self.assertEqual(watcher_conf.db_type, "prometheus", msg)
 
     def test_no_all_dps(self):
         """Test setting all_dps and dps together."""
@@ -119,7 +121,7 @@ dbs:
 """
         conf = self.get_config(GAUGE_CONF)
         gauge_file, _ = self.create_config_files(conf)
-        self.assertFalse(self.parse_conf_result(gauge_file, 'gauge_config_test'))
+        self.assertFalse(self.parse_conf_result(gauge_file, "gauge_config_test"))
 
     def test_invalid_watcher_type(self):
         """Test setting invalid watcher type."""
@@ -136,7 +138,7 @@ dbs:
 """
         conf = self.get_config(GAUGE_CONF)
         gauge_file, _ = self.create_config_files(conf)
-        self.assertFalse(self.parse_conf_result(gauge_file, 'gauge_config_test'))
+        self.assertFalse(self.parse_conf_result(gauge_file, "gauge_config_test"))
 
     def test_file_not_writable(self):
         """Test file arg is not writable."""
@@ -155,7 +157,7 @@ dbs:
 """
         conf = self.get_config(GAUGE_CONF)
         gauge_file, _ = self.create_config_files(conf)
-        self.assertFalse(self.parse_conf_result(gauge_file, 'gauge_config_test'))
+        self.assertFalse(self.parse_conf_result(gauge_file, "gauge_config_test"))
 
     def test_no_faucet_config_file(self):
         """Test missing FAUCET config."""
@@ -179,14 +181,15 @@ dbs:
     prometheus:
         type: 'prometheus'
 """
-        gauge_file, _ = self.create_config_files(GAUGE_CONF, '')
+        gauge_file, _ = self.create_config_files(GAUGE_CONF, "")
         _, _, _, watcher_confs = cp.watcher_parser(
-            gauge_file, 'gauge_config_test', None)
+            gauge_file, "gauge_config_test", None
+        )
         watcher_conf = watcher_confs[0]
-        msg = 'failed to create watcher correctly when dps configured in gauge.yaml'
-        self.assertEqual(watcher_conf.dps[0], 'dp1', msg)
-        self.assertEqual(watcher_conf.type, 'port_stats', msg)
-        self.assertEqual(watcher_conf.db_type, 'prometheus', msg)
+        msg = "failed to create watcher correctly when dps configured in gauge.yaml"
+        self.assertEqual(watcher_conf.dps[0], "dp1", msg)
+        self.assertEqual(watcher_conf.type, "port_stats", msg)
+        self.assertEqual(watcher_conf.db_type, "prometheus", msg)
 
 
 if __name__ == "__main__":
