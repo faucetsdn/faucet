@@ -53,7 +53,7 @@ class PromClient:  # pylint: disable=too-few-public-methods
     def __init__(self, reg=None):
         if reg is not None:
             self._reg = reg
-        self.version = VersionInfo('faucet').semantic_version().release_string()
+        self.version = VersionInfo('c65faucet').semantic_version().release_string()
         self.faucet_version = PromGauge(
             'faucet_pbr_version',
             'Faucet PBR version',
