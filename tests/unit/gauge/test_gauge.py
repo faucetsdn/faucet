@@ -268,7 +268,7 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
             prefix = gauge_prom.PROM_PORT_PREFIX + gauge_prom.PROM_PREFIX_DELIM
             stat_name = line[0:index].replace(prefix, "")
             # get the labels within {}
-            labels = line[index + 1 : line.find("}")].split(",")
+            labels = line[index + 1: line.find("}")].split(",")
 
             for label in labels:
                 lab_name, lab_val = label.split("=", 1)
