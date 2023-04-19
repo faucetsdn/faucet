@@ -1,6 +1,6 @@
 ## Image name: faucet/gauge
 
-FROM c65sdn/faucet:1.0.46
+FROM c65sdn/faucet:1.0.47
 
 VOLUME ["/etc/faucet/", "/var/log/faucet/"]
 
