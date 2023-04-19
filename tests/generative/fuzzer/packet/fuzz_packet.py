@@ -32,13 +32,17 @@ def main():
         rcv = sys.stdin.read()
         data = None
         try:
-            data = bytearray.fromhex(rcv)  # pytype: disable=missing-parameter,wrong-arg-types
+            data = bytearray.fromhex(
+                rcv
+            )  # pytype: disable=missing-parameter,wrong-arg-types
         except (ValueError, TypeError):
             continue
 
         # create fake packet
         _dp = fake_packet.Datapath(1)
-        msg = fake_packet.Message(datapath=_dp, cookie=15243729, port=1, data=data, in_port=1)
+        msg = fake_packet.Message(
+            datapath=_dp, cookie=15243729, port=1, data=data, in_port=1
+        )
         pkt = fake_packet.RyuEvent(msg)
 
         # send fake packet to faucet

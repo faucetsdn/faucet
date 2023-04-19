@@ -42,13 +42,13 @@ def create_mock_datapath(num_ports):
     """Mock a datapath by creating mocked datapath ports."""
 
     dp_id = random.randint(1, 5000)
-    dp_name = mock.PropertyMock(return_value='datapath')
+    dp_name = mock.PropertyMock(return_value="datapath")
 
     def table_by_id(i):
         """Mock a table by id"""
 
         table = mock.Mock()
-        table_name = mock.PropertyMock(return_value='table' + str(i))
+        table_name = mock.PropertyMock(return_value="table" + str(i))
         type(table).name = table_name
         return table
 
@@ -56,25 +56,30 @@ def create_mock_datapath(num_ports):
         """Provide labels for a port"""
 
         return {
-            'port': 'port%u' % port_no, 'port_description': 'port%u' % port_no,
-            'dp_id': hex(dp_id), 'dp_name': dp_name}
+            "port": "port%u" % port_no,
+            "port_description": "port%u" % port_no,
+            "dp_id": hex(dp_id),
+            "dp_name": dp_name,
+        }
 
     ports = {}
     for i in range(1, num_ports + 1):
         port = mock.Mock()
-        port_name = mock.PropertyMock(return_value='port' + str(i))
+        port_name = mock.PropertyMock(return_value="port" + str(i))
         type(port).name = port_name
         ports[i] = port
 
-    datapath = mock.Mock(ports=ports, dp_id=dp_id, port_labels=port_labels, table_by_id=table_by_id)
+    datapath = mock.Mock(
+        ports=ports, dp_id=dp_id, port_labels=port_labels, table_by_id=table_by_id
+    )
     type(datapath).name = dp_name
     return datapath
 
 
 def start_server(handler):
-    """ Starts a HTTPServer and runs it as a daemon thread """
+    """Starts a HTTPServer and runs it as a daemon thread"""
 
-    server = HTTPServer(('', 0), handler)
+    server = HTTPServer(("", 0), handler)
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
     server_thread.start()
@@ -82,68 +87,71 @@ def start_server(handler):
 
 
 def port_state_msg(datapath, port_num, reason, status=0):
-    """ Create an OFPPortStatus message with random values. """
+    """Create an OFPPortStatus message with random values."""
 
-    port = parser.OFPPort(port_num,
-                          '00:00:00:d0:00:0' + str(port_num),
-                          datapath.ports[port_num].name,
-                          0,
-                          status,
-                          random.randint(1, 10000),
-                          random.randint(1, 10000),
-                          random.randint(1, 10000),
-                          random.randint(1, 10000),
-                          random.randint(1, 10000),
-                          random.randint(1, 10000)
-                          )
+    port = parser.OFPPort(
+        port_num,
+        "00:00:00:d0:00:0" + str(port_num),
+        datapath.ports[port_num].name,
+        0,
+        status,
+        random.randint(1, 10000),
+        random.randint(1, 10000),
+        random.randint(1, 10000),
+        random.randint(1, 10000),
+        random.randint(1, 10000),
+        random.randint(1, 10000),
+    )
 
     return parser.OFPPortStatus(datapath, reason, port)
 
 
 def port_stats_msg(datapath):
-    """ Create an OFPPortStatsReply with random values. """
+    """Create an OFPPortStatsReply with random values."""
 
     stats = []
     sec = random.randint(1, 10000)
     nsec = random.randint(0, 10000)
     for port_num in datapath.ports:
-        port_stats = parser.OFPPortStats(port_num,
-                                         random.randint(1, 10000),
-                                         random.randint(1, 10000),
-                                         random.randint(1, 10000),
-                                         random.randint(1, 10000),
-                                         random.randint(0, 10000),
-                                         random.randint(0, 10000),
-                                         random.randint(0, 10000),
-                                         random.randint(0, 10000),
-                                         random.randint(0, 10000),
-                                         random.randint(0, 10000),
-                                         random.randint(0, 10000),
-                                         random.randint(0, 10000),
-                                         sec,
-                                         nsec
-                                         )
+        port_stats = parser.OFPPortStats(
+            port_num,
+            random.randint(1, 10000),
+            random.randint(1, 10000),
+            random.randint(1, 10000),
+            random.randint(1, 10000),
+            random.randint(0, 10000),
+            random.randint(0, 10000),
+            random.randint(0, 10000),
+            random.randint(0, 10000),
+            random.randint(0, 10000),
+            random.randint(0, 10000),
+            random.randint(0, 10000),
+            random.randint(0, 10000),
+            sec,
+            nsec,
+        )
         stats.append(port_stats)
     return parser.OFPPortStatsReply(datapath, body=stats)
 
 
 def flow_stats_msg(datapath, instructions):
-    """ Create an OFPFlowStatsReply with random values. """
+    """Create an OFPFlowStatsReply with random values."""
 
     matches = generate_all_matches()
-    flow_stats = parser.OFPFlowStats(random.randint(0, 9),
-                                     random.randint(1, 10000),
-                                     random.randint(0, 10000),
-                                     random.randint(1, 10000),
-                                     random.randint(1, 10000),
-                                     random.randint(1, 10000),
-                                     0,
-                                     random.randint(1, 10000),
-                                     random.randint(1, 10000),
-                                     random.randint(1, 10000),
-                                     matches,
-                                     instructions
-                                     )
+    flow_stats = parser.OFPFlowStats(
+        random.randint(0, 9),
+        random.randint(1, 10000),
+        random.randint(0, 10000),
+        random.randint(1, 10000),
+        random.randint(1, 10000),
+        random.randint(1, 10000),
+        0,
+        random.randint(1, 10000),
+        random.randint(1, 10000),
+        random.randint(1, 10000),
+        matches,
+        instructions,
+    )
 
     return parser.OFPFlowStatsReply(datapath, body=[flow_stats])
 
@@ -158,11 +166,11 @@ def generate_all_matches():
     matches = dict()
     for oxm_type in ofproto.oxm_types:
         if oxm_type.type == type_desc.MacAddr:
-            value = 'ff:ff:ff:ff:ff:ff'
+            value = "ff:ff:ff:ff:ff:ff"
         elif oxm_type.type == type_desc.IPv4Addr:
-            value = '255.255.255.255'
+            value = "255.255.255.255"
         elif oxm_type.type == type_desc.IPv6Addr:
-            value = 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
+            value = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
         elif isinstance(oxm_type.type, type_desc.IntDescr):
             value = 2**oxm_type.type.size - 1
         else:
@@ -174,22 +182,25 @@ def generate_all_matches():
 
 
 def logger_to_ofp(port_stats):
-    """ Translates between the logger stat name and the OpenFlow stat name"""
+    """Translates between the logger stat name and the OpenFlow stat name"""
 
-    return {'packets_out': port_stats.tx_packets,
-            'packets_in': port_stats.rx_packets,
-            'bytes_out': port_stats.tx_bytes,
-            'bytes_in': port_stats.rx_bytes,
-            'dropped_out': port_stats.tx_dropped,
-            'dropped_in': port_stats.rx_dropped,
-            'errors_out': port_stats.tx_errors,
-            'errors_in': port_stats.rx_errors
-            }
+    return {
+        "packets_out": port_stats.tx_packets,
+        "packets_in": port_stats.rx_packets,
+        "bytes_out": port_stats.tx_bytes,
+        "bytes_in": port_stats.rx_bytes,
+        "dropped_out": port_stats.tx_dropped,
+        "dropped_in": port_stats.rx_dropped,
+        "errors_out": port_stats.tx_errors,
+        "errors_in": port_stats.rx_errors,
+    }
 
 
 def get_matches(match_dict):
     """Create a set of match name and value tuples"""
-    return {(entry['OXMTlv']['field'], entry['OXMTlv']['value']) for entry in match_dict}
+    return {
+        (entry["OXMTlv"]["field"], entry["OXMTlv"]["value"]) for entry in match_dict
+    }
 
 
 def check_instructions(original_inst, logger_inst, test):
@@ -210,10 +221,10 @@ def compare_flow_msg(flow_msg, flow_dict, test):
     message to a dict representation of it
     """
     for stat_name, stat_val in flow_dict.items():
-        if stat_name == 'match':
-            match_set = get_matches(stat_val['OFPMatch']['oxm_fields'])
+        if stat_name == "match":
+            match_set = get_matches(stat_val["OFPMatch"]["oxm_fields"])
             test.assertEqual(match_set, set(flow_msg.body[0].match.items()))
-        elif stat_name == 'instructions':
+        elif stat_name == "instructions":
             check_instructions(flow_msg.body[0].instructions, stat_val, test)
         else:
             test.assertEqual(getattr(flow_msg.body[0], stat_name), stat_val)
@@ -223,14 +234,14 @@ class PretendInflux(QuietHandler):
     """An HTTP Handler that receives InfluxDB messages."""
 
     def do_POST(self):  # pylint: disable=invalid-name
-        """ Write request contents to the HTTP server,
-        if there is an output file to write to. """
+        """Write request contents to the HTTP server,
+        if there is an output file to write to."""
 
-        if hasattr(self.server, 'output_file'):
-            content_length = int(self.headers['content-length'])
+        if hasattr(self.server, "output_file"):
+            content_length = int(self.headers["content-length"])
             data = self.rfile.read(content_length)
-            data = data.decode('utf-8')
-            with open(self.server.output_file, 'w', encoding='utf-8') as log:
+            data = data.decode("utf-8")
+            with open(self.server.output_file, "w", encoding="utf-8") as log:
                 log.write(data)
 
         self.send_response(204)
@@ -247,28 +258,28 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
         """Parses the port stats from prometheus into a dictionary"""
 
         parsed_output = {}
-        for line in output.split('\n'):
+        for line in output.split("\n"):
             # discard comments and stats not related to port stats
-            if line.startswith('#') or not line.startswith(gauge_prom.PROM_PORT_PREFIX):
+            if line.startswith("#") or not line.startswith(gauge_prom.PROM_PORT_PREFIX):
                 continue
 
-            index = line.find('{')
+            index = line.find("{")
             # get the stat name e.g. of_port_rx_bytes and strip 'of_port_'
             prefix = gauge_prom.PROM_PORT_PREFIX + gauge_prom.PROM_PREFIX_DELIM
-            stat_name = line[0:index].replace(prefix, '')
+            stat_name = line[0:index].replace(prefix, "")
             # get the labels within {}
-            labels = line[index + 1:line.find('}')].split(',')
+            labels = line[index + 1: line.find("}")].split(",")
 
             for label in labels:
-                lab_name, lab_val = label.split('=', 1)
-                lab_val = lab_val.replace('"', '')
-                if lab_name == 'dp_id':
+                lab_name, lab_val = label.split("=", 1)
+                lab_val = lab_val.replace('"', "")
+                if lab_name == "dp_id":
                     dp_id = int(lab_val, 16)
-                elif lab_name == 'port':
+                elif lab_name == "port":
                     port_name = lab_val
 
             key = (dp_id, port_name)
-            stat_val = line.split(' ')[-1]
+            stat_val = line.split(" ")[-1]
             if key not in parsed_output:
                 parsed_output[key] = []
 
@@ -281,10 +292,10 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
         """Attempts to contact the prometheus server
         at the address to grab port stats."""
 
-        url = 'http://{}:{}'.format(addr, port)
+        url = "http://{}:{}".format(addr, port)
         session = requests.Session()
         adapter = requests.adapters.HTTPAdapter(max_retries=10)
-        session.mount('http://', adapter)
+        session.mount("http://", adapter)
         return session.get(url).text
 
     def test_poller(self):
@@ -292,20 +303,25 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
 
         datapath = create_mock_datapath(2)
 
-        conf = mock.Mock(dp=datapath,
-                         type='',
-                         interval=1,
-                         prometheus_port=9303,
-                         prometheus_addr='localhost',
-                         use_test_thread=True
-                         )
+        conf = mock.Mock(
+            dp=datapath,
+            type="",
+            interval=1,
+            prometheus_port=9303,
+            prometheus_addr="localhost",
+            use_test_thread=True,
+        )
 
-        prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', self.prom_client)
+        prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(
+            conf, "__name__", self.prom_client
+        )
         prom_poller._running = True
         msg = port_stats_msg(datapath)
         prom_poller.update(time.time(), msg)
 
-        prom_lines = self.get_prometheus_stats(conf.prometheus_addr, conf.prometheus_port)
+        prom_lines = self.get_prometheus_stats(
+            conf.prometheus_addr, conf.prometheus_port
+        )
         prom_lines = self.parse_prom_output(prom_lines)
 
         for port_num, port in datapath.ports.items():
@@ -324,32 +340,36 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
 
         datapath = create_mock_datapath(2)
 
-        conf = mock.Mock(dp=datapath,
-                         type='',
-                         interval=1,
-                         prometheus_port=9303,
-                         prometheus_addr='localhost',
-                         use_test_thread=True
-                         )
+        conf = mock.Mock(
+            dp=datapath,
+            type="",
+            interval=1,
+            prometheus_port=9303,
+            prometheus_addr="localhost",
+            use_test_thread=True,
+        )
 
-        prom_poller = gauge_prom.GaugePortStatePrometheusPoller(conf, '__name__', self.prom_client)
+        prom_poller = gauge_prom.GaugePortStatePrometheusPoller(
+            conf, "__name__", self.prom_client
+        )
         prom_poller._running = True
         reasons = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
         for i in range(1, len(conf.dp.ports) + 1):
-
             msg = port_state_msg(conf.dp, i, reasons[i - 1])
             port_name = conf.dp.ports[i].name
             rcv_time = int(time.time())
             prom_poller.update(rcv_time, msg)
 
-            prom_lines = self.get_prometheus_stats(conf.prometheus_addr, conf.prometheus_port)
+            prom_lines = self.get_prometheus_stats(
+                conf.prometheus_addr, conf.prometheus_port
+            )
             prom_lines = self.parse_prom_output(prom_lines)
 
             stats = prom_lines[(datapath.dp_id, port_name)]
             stats_found = set()
 
             for stat_name, stat_val in stats:
-                msg_data = msg if stat_name == 'reason' else msg.desc
+                msg_data = msg if stat_name == "reason" else msg.desc
                 self.assertAlmostEqual(stat_val, getattr(msg_data, stat_name))
                 stats_found.add(stat_name)
 
@@ -360,15 +380,18 @@ class GaugePrometheusTests(unittest.TestCase):  # pytype: disable=module-attr
 
         datapath = create_mock_datapath(2)
 
-        conf = mock.Mock(dp=datapath,
-                         type='',
-                         interval=1,
-                         prometheus_port=9303,
-                         prometheus_addr='localhost',
-                         use_test_thread=True
-                         )
+        conf = mock.Mock(
+            dp=datapath,
+            type="",
+            interval=1,
+            prometheus_port=9303,
+            prometheus_addr="localhost",
+            use_test_thread=True,
+        )
 
-        prom_poller = gauge_prom.GaugeFlowTablePrometheusPoller(conf, '__name__', self.prom_client)
+        prom_poller = gauge_prom.GaugeFlowTablePrometheusPoller(
+            conf, "__name__", self.prom_client
+        )
         rcv_time = int(time.time())
         instructions = [parser.OFPInstructionGotoTable(1)]
         msg = flow_stats_msg(conf.dp, instructions)
@@ -382,13 +405,14 @@ class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
     def create_config_obj(port=12345):
         """Create a mock config object that contains the necessary InfluxDB config"""
 
-        conf = mock.Mock(influx_host='localhost',
-                         influx_port=port,
-                         influx_user='gauge',
-                         influx_pwd='',
-                         influx_db='gauge',
-                         influx_timeout=10
-                         )
+        conf = mock.Mock(
+            influx_host="localhost",
+            influx_port=port,
+            influx_user="gauge",
+            influx_pwd="",
+            influx_db="gauge",
+            influx_timeout=10,
+        )
         return conf
 
     def get_values(self, dict_to_unpack):
@@ -412,7 +436,9 @@ class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
             server = start_server(PretendInflux)
             shipper = gauge_influx.InfluxShipper()
             shipper.conf = self.create_config_obj(server.server_port)
-            points = [{'measurement': 'test_stat_name', 'fields': {'value': 1}}, ]
+            points = [
+                {"measurement": "test_stat_name", "fields": {"value": 1}},
+            ]
             shipper.ship_points(points)
         except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
@@ -429,7 +455,9 @@ class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
             shipper = gauge_influx.InfluxShipper()
             shipper.conf = self.create_config_obj()
             shipper.logger = mock.Mock()
-            points = [{'measurement': 'test_stat_name', 'fields': {'value': 1}}, ]
+            points = [
+                {"measurement": "test_stat_name", "fields": {"value": 1}},
+            ]
             shipper.ship_points(points)
         except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
@@ -440,7 +468,9 @@ class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
 
         try:
             shipper = gauge_influx.InfluxShipper()
-            points = [{'measurement': 'test_stat_name', 'fields': {'value': 1}}, ]
+            points = [
+                {"measurement": "test_stat_name", "fields": {"value": 1}},
+            ]
             shipper.ship_points(points)
         except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
@@ -449,21 +479,23 @@ class GaugeInfluxShipperTest(unittest.TestCase):  # pytype: disable=module-attr
         """Checks that the points produced still have the variables given to it"""
 
         shipper = gauge_influx.InfluxShipper()
-        dp_name = 'faucet-1'
-        port_name = 'port1.0.1'
+        dp_name = "faucet-1"
+        port_name = "port1.0.1"
         rcv_time = int(time.time())
-        stat_name = 'test_stat_name'
+        stat_name = "test_stat_name"
         # max uint64 number
         stat_val = 2**64 - 1
 
-        port_point = shipper.make_port_point(dp_name, port_name, rcv_time, stat_name, stat_val)
+        port_point = shipper.make_port_point(
+            dp_name, port_name, rcv_time, stat_name, stat_val
+        )
         values = {dp_name, port_name, rcv_time, stat_name}
         port_vals = set(self.get_values(port_point))
         port_vals_stat = port_vals.difference(values)
         self.assertEqual(len(port_vals_stat), 1)
         self.assertAlmostEqual(port_vals_stat.pop(), stat_val)
 
-        tags = {'dp_name': dp_name, 'port_name': port_name}
+        tags = {"dp_name": dp_name, "port_name": port_name}
         point = shipper.make_point(tags, rcv_time, stat_name, stat_val)
         point_vals = set(self.get_values(point))
         point_vals_stat = point_vals.difference(values)
@@ -477,15 +509,15 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
     server = None
 
     def setUp(self):
-        """ Starts up an HTTP server to mock InfluxDB.
-        Also opens a new temp file for the server to write to """
+        """Starts up an HTTP server to mock InfluxDB.
+        Also opens a new temp file for the server to write to"""
 
         self.server = start_server(PretendInflux)
         self.temp_fd, self.server.output_file = tempfile.mkstemp()
 
     def tearDown(self):
-        """ Close the temp file (which should delete it)
-        and stop the HTTP server """
+        """Close the temp file (which should delete it)
+        and stop the HTTP server"""
         os.close(self.temp_fd)
         os.remove(self.server.output_file)
         self.server.socket.close()
@@ -494,15 +526,16 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
     def create_config_obj(self, datapath):
         """Create a mock config object that contains the necessary InfluxDB config"""
 
-        conf = mock.Mock(influx_host='localhost',
-                         influx_port=self.server.server_port,
-                         influx_user='gauge',
-                         influx_pwd='',
-                         influx_db='gauge',
-                         influx_timeout=10,
-                         interval=5,
-                         dp=datapath
-                         )
+        conf = mock.Mock(
+            influx_host="localhost",
+            influx_port=self.server.server_port,
+            influx_user="gauge",
+            influx_pwd="",
+            influx_db="gauge",
+            influx_timeout=10,
+            interval=5,
+            dp=datapath,
+        )
         return conf
 
     @staticmethod
@@ -513,8 +546,8 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
         Ignore entries in the list which do not contain '='
         """
         for key_val in kv_list:
-            if '=' in key_val:
-                key, val = key_val.split('=')
+            if "=" in key_val:
+                key, val = key_val.split("=")
 
                 try:
                     val = float(val)
@@ -536,10 +569,10 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
         """
         influx_data = dict()
 
-        tags = output_to_parse.split(',')
-        fields = tags[-1].split(' ')
+        tags = output_to_parse.split(",")
+        fields = tags[-1].split(" ")
         tags[-1] = fields[0]
-        influx_data['timestamp'] = int(fields[-1])
+        influx_data["timestamp"] = int(fields[-1])
         fields = fields[1:-1]
 
         self.parse_key_value(influx_data, tags)
@@ -548,20 +581,21 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
         return (tags[0], influx_data)
 
     def test_port_state(self):
-        """ Check the update method of the GaugePortStateInfluxDBLogger class"""
+        """Check the update method of the GaugePortStateInfluxDBLogger class"""
 
         conf = self.create_config_obj(create_mock_datapath(3))
-        db_logger = gauge_influx.GaugePortStateInfluxDBLogger(conf, '__name__', mock.Mock())
+        db_logger = gauge_influx.GaugePortStateInfluxDBLogger(
+            conf, "__name__", mock.Mock()
+        )
         db_logger._running = True
 
         reasons = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
         for i in range(1, len(conf.dp.ports) + 1):
-
             msg = port_state_msg(conf.dp, i, reasons[i - 1])
             rcv_time = int(time.time())
             db_logger.update(rcv_time, msg)
 
-            with open(self.server.output_file, 'r', encoding='utf-8') as log:
+            with open(self.server.output_file, "r", encoding="utf-8") as log:
                 output = log.read()
 
             influx_data = self.parse_influx_output(output)[1]
@@ -571,34 +605,39 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
     def test_port_stats(self):
         """Check the update method of the GaugePortStatsInfluxDBLogger class"""
         conf = self.create_config_obj(create_mock_datapath(2))
-        db_logger = gauge_influx.GaugePortStatsInfluxDBLogger(conf, '__name__', mock.Mock())
+        db_logger = gauge_influx.GaugePortStatsInfluxDBLogger(
+            conf, "__name__", mock.Mock()
+        )
         db_logger._running = True
 
         msg = port_stats_msg(conf.dp)
         rcv_time = int(time.time())
 
         db_logger.update(rcv_time, msg)
-        with open(self.server.output_file, 'r', encoding='utf-8') as log:
+        with open(self.server.output_file, "r", encoding="utf-8") as log:
             output = log.readlines()
 
         for line in output:
             measurement, influx_data = self.parse_influx_output(line)
 
             # get the number at the end of the port_name
-            port_num = influx_data['port_name']  # pytype: disable=unsupported-operands
+            port_num = influx_data["port_name"]  # pytype: disable=unsupported-operands
             # get the original port stat value
-            port_stat_val = logger_to_ofp(
-                msg.body[port_num - 1])[measurement]  # pytype: disable=unsupported-operands
+            port_stat_val = logger_to_ofp(msg.body[port_num - 1])[
+                measurement
+            ]  # pytype: disable=unsupported-operands
 
-            self.assertEqual(port_stat_val, influx_data['value'])
-            self.assertEqual(conf.dp.name, influx_data['dp_name'])
-            self.assertEqual(rcv_time, influx_data['timestamp'])
+            self.assertEqual(port_stat_val, influx_data["value"])
+            self.assertEqual(conf.dp.name, influx_data["dp_name"])
+            self.assertEqual(rcv_time, influx_data["timestamp"])
 
     def test_flow_stats(self):
         """Check the update method of the GaugeFlowTableInfluxDBLogger class"""
 
         conf = self.create_config_obj(create_mock_datapath(0))
-        db_logger = gauge_influx.GaugeFlowTableInfluxDBLogger(conf, '__name__', mock.Mock())
+        db_logger = gauge_influx.GaugeFlowTableInfluxDBLogger(
+            conf, "__name__", mock.Mock()
+        )
         db_logger._running = True
 
         rcv_time = int(time.time())
@@ -606,27 +645,28 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
         msg = flow_stats_msg(conf.dp, instructions)
         db_logger.update(rcv_time, msg)
 
-        other_fields = {'dp_name': conf.dp.name,
-                        'dp_id': hex(conf.dp.dp_id),
-                        'timestamp': rcv_time,
-                        'priority': msg.body[0].priority,
-                        'table_id': msg.body[0].table_id,
-                        'inst_count': len(msg.body[0].instructions),
-                        'vlan': msg.body[0].match.get('vlan_vid') ^ ofproto.OFPVID_PRESENT,
-                        'cookie': msg.body[0].cookie,
-                        }
+        other_fields = {
+            "dp_name": conf.dp.name,
+            "dp_id": hex(conf.dp.dp_id),
+            "timestamp": rcv_time,
+            "priority": msg.body[0].priority,
+            "table_id": msg.body[0].table_id,
+            "inst_count": len(msg.body[0].instructions),
+            "vlan": msg.body[0].match.get("vlan_vid") ^ ofproto.OFPVID_PRESENT,
+            "cookie": msg.body[0].cookie,
+        }
 
-        with open(self.server.output_file, 'r', encoding='utf-8') as log:
+        with open(self.server.output_file, "r", encoding="utf-8") as log:
             output = log.readlines()
 
         for line in output:
             measurement, influx_data = self.parse_influx_output(line)
 
             for stat_name, stat_val in influx_data.items():
-                if stat_name == 'value':
-                    if measurement == 'flow_packet_count':
+                if stat_name == "value":
+                    if measurement == "flow_packet_count":
                         self.assertEqual(msg.body[0].packet_count, stat_val)
-                    elif measurement == 'flow_byte_count':
+                    elif measurement == "flow_byte_count":
                         self.assertEqual(msg.body[0].byte_count, stat_val)
                     else:
                         self.fail("Unknown measurement")
@@ -638,7 +678,9 @@ class GaugeInfluxUpdateTest(unittest.TestCase):  # pytype: disable=module-attr
                     self.assertEqual(msg.body[0].match.get(stat_name), stat_val)
 
                 else:
-                    self.fail("Unknown key: {} and value: {}".format(stat_name, stat_val))
+                    self.fail(
+                        "Unknown key: {} and value: {}".format(stat_name, stat_val)
+                    )
 
 
 class GaugeThreadPollerTest(unittest.TestCase):  # pytype: disable=module-attr
@@ -648,7 +690,7 @@ class GaugeThreadPollerTest(unittest.TestCase):  # pytype: disable=module-attr
         """Creates a gauge poller and initialises class variables"""
         self.interval = 1
         conf = mock.Mock(interval=self.interval)
-        self.poller = gauge_pollers.GaugeThreadPoller(conf, '__name__', mock.Mock())
+        self.poller = gauge_pollers.GaugeThreadPoller(conf, "__name__", mock.Mock())
         self.send_called = False
 
     def fake_send_req(self):
@@ -657,7 +699,7 @@ class GaugeThreadPollerTest(unittest.TestCase):  # pytype: disable=module-attr
         self.send_called = True
 
     def test_start(self):
-        """ Checks if the poller is started """
+        """Checks if the poller is started"""
         self.poller.send_req = self.fake_send_req
 
         self.poller.start(mock.Mock(), active=True)
@@ -667,7 +709,7 @@ class GaugeThreadPollerTest(unittest.TestCase):  # pytype: disable=module-attr
         self.assertFalse(poller_thread.dead)
 
     def test_stop(self):
-        """ Check if a poller can be stopped """
+        """Check if a poller can be stopped"""
         self.poller.send_req = self.fake_send_req
 
         self.poller.start(mock.Mock(), active=True)
@@ -679,7 +721,7 @@ class GaugeThreadPollerTest(unittest.TestCase):  # pytype: disable=module-attr
         self.assertTrue(poller_thread.dead)
 
     def test_active(self):
-        """Check if active reflects the state of the poller """
+        """Check if active reflects the state of the poller"""
         self.assertFalse(self.poller.is_active())
         self.assertFalse(self.poller.running())
         self.poller.start(mock.Mock(), active=True)
@@ -723,12 +765,14 @@ class GaugePortStatsPollerTest(GaugePollerTest):
     def test_send_req(self):
         """Check that the poller sends a port stats request"""
         conf = mock.Mock(interval=1)
-        poller = gauge_pollers.GaugePortStatsPoller(conf, '__name__', mock.Mock())
+        poller = gauge_pollers.GaugePortStatsPoller(conf, "__name__", mock.Mock())
         self.check_send_req(poller, parser.OFPPortStatsRequest)
 
     def test_no_response(self):
         """Check that the poller doesnt throw an exception"""
-        poller = gauge_pollers.GaugePortStatsPoller(mock.Mock(), '__name__', mock.Mock())
+        poller = gauge_pollers.GaugePortStatsPoller(
+            mock.Mock(), "__name__", mock.Mock()
+        )
         self.check_no_response(poller)
 
 
@@ -738,12 +782,14 @@ class GaugeFlowTablePollerTest(GaugePollerTest):
     def test_send_req(self):
         """Check that the poller sends a flow stats request"""
         conf = mock.Mock(interval=1)
-        poller = gauge_pollers.GaugeFlowTablePoller(conf, '__name__', mock.Mock())
+        poller = gauge_pollers.GaugeFlowTablePoller(conf, "__name__", mock.Mock())
         self.check_send_req(poller, parser.OFPFlowStatsRequest)
 
     def test_no_response(self):
         """Check that the poller doesnt throw an exception"""
-        poller = gauge_pollers.GaugeFlowTablePoller(mock.Mock(), '__name__', mock.Mock())
+        poller = gauge_pollers.GaugeFlowTablePoller(
+            mock.Mock(), "__name__", mock.Mock()
+        )
         self.check_no_response(poller)
 
 
@@ -760,7 +806,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
         self.conf = mock.Mock(
             file=os.path.join(self.temp_path, self.tmp_filename),
             path=self.temp_path,
-            compress=False
+            compress=False,
         )
 
     def tearDown(self):
@@ -770,7 +816,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
     def get_file_contents(self, filename=tmp_filename):
         """Return the contents of the temporary file and clear it"""
         filename = os.path.join(self.temp_path, filename)
-        with open(filename, 'r+', encoding='utf-8') as file_:
+        with open(filename, "r+", encoding="utf-8") as file_:
             contents = file_.read()
             file_.seek(0, 0)
             file_.truncate()
@@ -779,24 +825,25 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
     def test_port_state(self):
         """Check the update method in the GaugePortStateLogger class"""
 
-        reasons = {'unknown': 5,
-                   'add': ofproto.OFPPR_ADD,
-                   'delete': ofproto.OFPPR_DELETE,
-                   'up': ofproto.OFPPR_MODIFY,
-                   'down': ofproto.OFPPR_MODIFY
-                   }
+        reasons = {
+            "unknown": 5,
+            "add": ofproto.OFPPR_ADD,
+            "delete": ofproto.OFPPR_DELETE,
+            "up": ofproto.OFPPR_MODIFY,
+            "down": ofproto.OFPPR_MODIFY,
+        }
 
         # add an ofproto attribute to the datapath
         datapath = create_mock_datapath(1)
-        ofp_attr = {'ofproto': ofproto}
+        ofp_attr = {"ofproto": ofproto}
         datapath.configure_mock(**ofp_attr)
         self.conf.dp = datapath
-        logger = watcher.GaugePortStateLogger(self.conf, '__name__', mock.Mock())
+        logger = watcher.GaugePortStateLogger(self.conf, "__name__", mock.Mock())
         logger._running = True
 
         for reason, ofppr in reasons.items():
             state = 0
-            if reason == 'down':
+            if reason == "down":
                 state = ofproto.OFPPS_LINK_DOWN
 
             msg = port_state_msg(datapath, 1, ofppr, state)
@@ -804,9 +851,11 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
 
             log_str = self.get_file_contents().lower()
             self.assertTrue(reason in log_str)
-            self.assertTrue(msg.desc.name in log_str or 'port ' + str(msg.desc.port_no) in log_str)
+            self.assertTrue(
+                msg.desc.name in log_str or "port " + str(msg.desc.port_no) in log_str
+            )
 
-            hexs = re.findall(r'0x[0-9A-Fa-f]+', log_str)
+            hexs = re.findall(r"0x[0-9A-Fa-f]+", log_str)
             hexs = [int(num, 16) for num in hexs]
             self.assertTrue(datapath.dp_id in hexs or str(datapath.dp_id) in log_str)
 
@@ -815,14 +864,14 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
 
         # add an ofproto attribute to the datapath
         datapath = create_mock_datapath(2)
-        ofp_attr = {'ofproto': ofproto}
+        ofp_attr = {"ofproto": ofproto}
         datapath.configure_mock(**ofp_attr)
 
         # add the datapath as an attribute to the config
-        dp_attr = {'dp': datapath}
+        dp_attr = {"dp": datapath}
         self.conf.configure_mock(**dp_attr)
 
-        logger = watcher.GaugePortStatsLogger(self.conf, '__name__', mock.Mock())
+        logger = watcher.GaugePortStatsLogger(self.conf, "__name__", mock.Mock())
         logger._running = True
         msg = port_stats_msg(datapath)
 
@@ -836,19 +885,19 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
         for stat_name in original_stats[0]:
             stat_name = stat_name.split("_")
             # grab any lines that mention the stat_name
-            pattern = r'^.*{}.{}.*$'.format(stat_name[0], stat_name[1])
+            pattern = r"^.*{}.{}.*$".format(stat_name[0], stat_name[1])
             stats_list = re.findall(pattern, log_str, re.MULTILINE)
 
             for line in stats_list:
                 self.assertTrue(datapath.name in line)
                 # grab the port number (only works for single digit port nums)
-                index = line.find('port')
+                index = line.find("port")
                 port_num = int(line[index + 4])
                 # grab the number at the end of the line
-                last_n = re.search(r'(\d+)$', line)
+                last_n = re.search(r"(\d+)$", line)
                 assert last_n
                 val = int(last_n.group())
-                logger_stat_name = '_'.join((stat_name[0], stat_name[1]))
+                logger_stat_name = "_".join((stat_name[0], stat_name[1]))
                 original_val = original_stats[port_num - 1][logger_stat_name]
                 self.assertEqual(original_val, val)
 
@@ -857,14 +906,14 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
 
         # add an ofproto attribute to the datapath
         datapath = create_mock_datapath(0)
-        ofp_attr = {'ofproto': ofproto}
+        ofp_attr = {"ofproto": ofproto}
         datapath.configure_mock(**ofp_attr)
 
         # add the datapath as an attribute to the config
-        dp_attr = {'dp': datapath}
+        dp_attr = {"dp": datapath}
         self.conf.configure_mock(**dp_attr)
 
-        logger = watcher.GaugeFlowTableLogger(self.conf, '__name__', mock.Mock())
+        logger = watcher.GaugeFlowTableLogger(self.conf, "__name__", mock.Mock())
         logger._running = True
         instructions = [parser.OFPInstructionGotoTable(1)]
 
@@ -876,7 +925,7 @@ class GaugeWatcherTest(unittest.TestCase):  # pytype: disable=module-attr
             "{}--flowtable--{}.json".format(datapath.name, rcv_time_str)
         )
 
-        yaml_dict = yaml_load(log_str)['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
+        yaml_dict = yaml_load(log_str)["OFPFlowStatsReply"]["body"][0]["OFPFlowStats"]
 
         compare_flow_msg(msg, yaml_dict, self)
 
@@ -886,8 +935,10 @@ class OSKenAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        os.environ['GAUGE_LOG'] = os.path.join(self.tmpdir, 'gauge.log')
-        os.environ['GAUGE_EXCEPTION_LOG'] = os.path.join(self.tmpdir, 'gauge-exception.log')
+        os.environ["GAUGE_LOG"] = os.path.join(self.tmpdir, "gauge.log")
+        os.environ["GAUGE_EXCEPTION_LOG"] = os.path.join(
+            self.tmpdir, "gauge-exception.log"
+        )
         self.os_ken_app = None
 
     def tearDown(self):
@@ -897,34 +948,33 @@ class OSKenAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
 
     @staticmethod
     def _fake_dp():
-        datapath = namedtuple('datapath', ['id', 'close'])(0, lambda: None)
+        datapath = namedtuple("datapath", ["id", "close"])(0, lambda: None)
         return datapath
 
     def _fake_event(self):
         datapath = self._fake_dp()
-        msg = namedtuple('msg', ['datapath'])(datapath)
+        msg = namedtuple("msg", ["datapath"])(datapath)
         event = EventOFPMsgBase(msg=msg)
         event.dp = msg.datapath
         return event
 
     @staticmethod
     def _write_config(config_file_name, config):
-        with open(config_file_name, 'w', encoding='utf-8') as config_file:
+        with open(config_file_name, "w", encoding="utf-8") as config_file:
             config_file.write(config)
 
     def test_gauge(self):
         """Test Gauge can be initialized."""
-        os.environ['GAUGE_CONFIG'] = '/dev/null'
-        self.os_ken_app = gauge.Gauge(
-            dpset={},
-            reg=CollectorRegistry())
+        os.environ["GAUGE_CONFIG"] = "/dev/null"
+        self.os_ken_app = gauge.Gauge(dpset={}, reg=CollectorRegistry())
         self.os_ken_app.reload_config(None)
         self.assertFalse(self.os_ken_app._config_files_changed())
         self.os_ken_app._update_watcher(None, self._fake_event())
         self.os_ken_app._start_watchers(self._fake_dp(), {}, time.time())
         for event_handler in (
-                self.os_ken_app._datapath_connect,
-                self.os_ken_app._datapath_disconnect):
+            self.os_ken_app._datapath_connect,
+            self.os_ken_app._datapath_disconnect,
+        ):
             event_handler(self._fake_event())
 
     def test_gauge_config(self):
@@ -953,10 +1003,11 @@ dps:
                description: "2"
                native_vlan: 100
 """
-        os.environ['FAUCET_CONFIG'] = os.path.join(self.tmpdir, 'faucet.yaml')
-        self._write_config(os.environ['FAUCET_CONFIG'], faucet_conf1)
-        os.environ['GAUGE_CONFIG'] = os.path.join(self.tmpdir, 'gauge.yaml')
-        gauge_conf = """
+        os.environ["FAUCET_CONFIG"] = os.path.join(self.tmpdir, "faucet.yaml")
+        self._write_config(os.environ["FAUCET_CONFIG"], faucet_conf1)
+        os.environ["GAUGE_CONFIG"] = os.path.join(self.tmpdir, "gauge.yaml")
+        gauge_conf = (
+            """
 faucet_configs:
    - '%s'
 watchers:
@@ -979,11 +1030,11 @@ dbs:
         type: 'prometheus'
         prometheus_addr: '0.0.0.0'
         prometheus_port: 0
-""" % os.environ['FAUCET_CONFIG']
-        self._write_config(os.environ['GAUGE_CONFIG'], gauge_conf)
-        self.os_ken_app = gauge.Gauge(
-            dpset={},
-            reg=CollectorRegistry())
+"""
+            % os.environ["FAUCET_CONFIG"]
+        )
+        self._write_config(os.environ["GAUGE_CONFIG"], gauge_conf)
+        self.os_ken_app = gauge.Gauge(dpset={}, reg=CollectorRegistry())
         self.os_ken_app.reload_config(None)
         self.assertFalse(self.os_ken_app._config_files_changed())
         self.assertTrue(self.os_ken_app.watchers)
@@ -991,20 +1042,20 @@ dbs:
         self.assertTrue(self.os_ken_app.watchers)
         self.assertFalse(self.os_ken_app._config_files_changed())
         # Load a new FAUCET config.
-        self._write_config(os.environ['FAUCET_CONFIG'], faucet_conf2)
+        self._write_config(os.environ["FAUCET_CONFIG"], faucet_conf2)
         self.assertTrue(self.os_ken_app._config_files_changed())
         self.os_ken_app.reload_config(None)
         self.assertTrue(self.os_ken_app.watchers)
         self.assertFalse(self.os_ken_app._config_files_changed())
         # Load an invalid Gauge config
-        self._write_config(os.environ['GAUGE_CONFIG'], 'invalid')
+        self._write_config(os.environ["GAUGE_CONFIG"], "invalid")
         self.assertTrue(self.os_ken_app._config_files_changed())
         self.os_ken_app.reload_config(None)
         self.assertTrue(self.os_ken_app.watchers)
         # Keep trying to load a valid version.
         self.assertTrue(self.os_ken_app._config_files_changed())
         # Load good Gauge config back
-        self._write_config(os.environ['GAUGE_CONFIG'], gauge_conf)
+        self._write_config(os.environ["GAUGE_CONFIG"], gauge_conf)
         self.assertTrue(self.os_ken_app._config_files_changed())
         self.os_ken_app.reload_config(None)
         self.assertTrue(self.os_ken_app.watchers)

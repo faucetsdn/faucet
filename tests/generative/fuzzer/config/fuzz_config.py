@@ -15,14 +15,14 @@ from faucet.conf import InvalidConfigError
 
 
 ROUNDS = 50000
-LOGNAME = 'FAUCET_FUZZER_LOG'
+LOGNAME = "FAUCET_FUZZER_LOG"
 tmpdir = tempfile.mkdtemp()
-conf_file_name = os.path.join(tmpdir, 'faucet.yaml')
+conf_file_name = os.path.join(tmpdir, "faucet.yaml")
 
 
 def create_config_file(config):
     """Create config file with given contents."""
-    with open(conf_file_name, 'w', encoding='utf-8') as conf_file:
+    with open(conf_file_name, "w", encoding="utf-8") as conf_file:
         conf_file.write(config)
     return conf_file_name
 

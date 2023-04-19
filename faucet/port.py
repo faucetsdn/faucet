@@ -306,7 +306,7 @@ class Port(Conf):
             self.dyn_update_time = prev_port.dyn_update_time
 
     def stack_descr(self):
-        """ "Return stacking annotation if this is a stacking port."""
+        """Return stacking annotation if this is a stacking port."""
         if self.stack:
             return "remote DP %s %s" % (self.stack["dp"].name, self.stack["port"])
         return ""
