@@ -80,67 +80,67 @@ For Prometheus:
 """
 
     db_defaults = {
-        'type': None,
-        'file': None,
-        'path': None,
-        'compress': False,
+        "type": None,
+        "file": None,
+        "path": None,
+        "compress": False,
         # compress flow table file
-        'influx_db': 'faucet',
+        "influx_db": "faucet",
         # influx database name
-        'influx_host': 'localhost',
+        "influx_host": "localhost",
         # influx database location
-        'influx_port': 8086,
-        'influx_user': '',
+        "influx_port": 8086,
+        "influx_user": "",
         # influx username
-        'influx_pwd': '',
+        "influx_pwd": "",
         # influx password
-        'influx_timeout': 10,
+        "influx_timeout": 10,
         # timeout on influx requests
-        'influx_retries': 3,
+        "influx_retries": 3,
         # attempts to retry influx request
         # prometheus config
-        'prometheus_port': 9303,
-        'prometheus_addr': '0.0.0.0',
-        'prometheus_test_thread': False,
+        "prometheus_port": 9303,
+        "prometheus_addr": "0.0.0.0",
+        "prometheus_test_thread": False,
     }
 
     db_defaults_types = {
-        'type': str,
-        'file': str,
-        'path': str,
-        'compress': bool,
-        'influx_db': str,
-        'influx_host': str,
-        'influx_port': int,
-        'influx_user': str,
-        'influx_pwd': str,
-        'influx_timeout': int,
-        'influx_retries': int,
-        'prometheus_port': int,
-        'prometheus_addr': str,
-        'prometheus_test_thread': bool,
+        "type": str,
+        "file": str,
+        "path": str,
+        "compress": bool,
+        "influx_db": str,
+        "influx_host": str,
+        "influx_port": int,
+        "influx_user": str,
+        "influx_pwd": str,
+        "influx_timeout": int,
+        "influx_retries": int,
+        "prometheus_port": int,
+        "prometheus_addr": str,
+        "prometheus_test_thread": bool,
     }
 
     defaults = {
-        'name': None,
-        'type': None,
-        'dps': None,
-        'all_dps': False,
-        'interval': 30,
-        'db': None,
-        'dbs': None,
-        'db_type': 'text',
+        "name": None,
+        "type": None,
+        "dps": None,
+        "all_dps": False,
+        "interval": 30,
+        "db": None,
+        "dbs": None,
+        "db_type": "text",
     }
 
     defaults_types = {
-        'name': str,
-        'type': str,
-        'dps': list,
-        'all_dps': bool,
-        'interval': int,
-        'db': str,
-        'dbs': list,
-        'db_type': str,
+        "name": str,
+        "type": str,
+        "dps": list,
+        "all_dps": bool,
+        "interval": int,
+        "db": str,
+        "dbs": list,
+        "db_type": str,
     }
 
     def __init__(self, _id, dp_id, conf, prom_client):
@@ -176,16 +176,21 @@ For Prometheus:
         """Add database config to this watcher."""
         self._check_conf_types(db_conf, self.db_defaults_types)
         db_conf = deepcopy(db_conf)
-        db_type = db_conf.pop('type')
-        db_conf['db_type'] = db_type
+        db_type = db_conf.pop("type")
+        db_conf["db_type"] = db_type
         self.update(db_conf)
         test_config_condition(
-            self.file is not None and not
-            (os.path.dirname(self.file) and os.access(os.path.dirname(self.file), os.W_OK)),
-            '%s is not writable' % self.file)
+            self.file is not None
+            and not (
+                os.path.dirname(self.file)
+                and os.access(os.path.dirname(self.file), os.W_OK)
+            ),
+            "%s is not writable" % self.file,
+        )
         test_config_condition(
             self.path is not None and not os.access(self.path, os.W_OK),
-            '%s is not writable' % self.file)
+            "%s is not writable" % self.file,
+        )
 
     def add_dp(self, dp):
         """Add a datapath to this watcher."""
@@ -195,10 +200,11 @@ For Prometheus:
         super().check_config()
         test_config_condition(
             self.all_dps and self.dps is not None,
-            'all_dps and dps cannot be set together')
-        test_config_condition(
-            not self.type, 'type must be set')
-        valid_types = {'flow_table', 'port_stats', 'port_state', 'meter_stats'}
+            "all_dps and dps cannot be set together",
+        )
+        test_config_condition(not self.type, "type must be set")
+        valid_types = {"flow_table", "port_stats", "port_state", "meter_stats"}
         test_config_condition(
             self.type not in valid_types,
-            'type %s not one of %s' % (self.type, valid_types))
+            "type %s not one of %s" % (self.type, valid_types),
+        )

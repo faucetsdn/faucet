@@ -45,24 +45,22 @@ class OSKenAppBase(app_manager.OSKenApp):
 
     OFP_VERSIONS = valve_of.OFP_VERSIONS
     _CONTEXTS = {
-        'dpset': dpset.DPSet,
+        "dpset": dpset.DPSet,
     }
-    logname = ''
-    exc_logname = ''
+    logname = ""
+    exc_logname = ""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.dpset = kwargs['dpset']
-        self._reg = kwargs.get('reg', None)
-        self.config_file = self.get_setting('CONFIG', True)
-        self.stat_reload = self.get_setting('CONFIG_STAT_RELOAD')
-        loglevel = self.get_setting('LOG_LEVEL')
-        logfile = self.get_setting('LOG')
-        exc_logfile = self.get_setting('EXCEPTION_LOG')
-        self.logger = get_logger(
-            self.logname, logfile, loglevel, 0)
-        self.exc_logger = get_logger(
-            self.exc_logname, exc_logfile, logging.DEBUG, 1)
+        self.dpset = kwargs["dpset"]
+        self._reg = kwargs.get("reg", None)
+        self.config_file = self.get_setting("CONFIG", True)
+        self.stat_reload = self.get_setting("CONFIG_STAT_RELOAD")
+        loglevel = self.get_setting("LOG_LEVEL")
+        logfile = self.get_setting("LOG")
+        exc_logfile = self.get_setting("EXCEPTION_LOG")
+        self.logger = get_logger(self.logname, logfile, loglevel, 0)
+        self.exc_logger = get_logger(self.exc_logname, exc_logfile, logging.DEBUG, 1)
         self.threads = []
         self.thread_managers = []
         self.prom_client = None
@@ -71,8 +69,12 @@ class OSKenAppBase(app_manager.OSKenApp):
         """Return started threads."""
         threads = self.threads.copy()
         threads.extend(
-            [thread_manager.thread for thread_manager in self.thread_managers
-             if thread_manager and thread_manager.thread is not None])
+            [
+                thread_manager.thread
+                for thread_manager in self.thread_managers
+                if thread_manager and thread_manager.thread is not None
+            ]
+        )
         return threads
 
     def _check_thread_exception(self):
@@ -80,11 +82,13 @@ class OSKenAppBase(app_manager.OSKenApp):
         dead_threads = [thread for thread in self._get_threads() if thread.dead]
         if dead_threads:
             for thread in dead_threads:
-                thread_name = getattr(thread, 'name', 'unknown')
+                thread_name = getattr(thread, "name", "unknown")
                 # Inconveniently, eventlet and friends helpfully put the last
                 # exception on stderr but not anywhere else where we can log it.
                 self.logger.error(
-                    'unexpected %s thread termination - check Ryu/process stderr log', thread_name)
+                    "unexpected %s thread termination - check Ryu/process stderr log",
+                    thread_name,
+                )
             # If that succeeds (was a temporary error that killed the thread),
             # then raise an exception to make sure we know a thread died.
             raise ValveDeadThreadException
@@ -108,7 +112,7 @@ class OSKenAppBase(app_manager.OSKenApp):
 
     def get_setting(self, setting, path_eval=False):
         """Return config setting prefaced with logname."""
-        return get_setting('_'.join((self.logname.upper(), setting)), path_eval)
+        return get_setting("_".join((self.logname.upper(), setting)), path_eval)
 
     def signal_handler(self, sigid, _):
         """Handle signals.
@@ -139,18 +143,17 @@ class OSKenAppBase(app_manager.OSKenApp):
         """Start controller."""
         super().start()
         if self.prom_client:
-            self.logger.info('version %s', self.prom_client.version)
+            self.logger.info("version %s", self.prom_client.version)
         if self.stat_reload:
-            self.logger.info('will automatically reload new config on changes')
+            self.logger.info("will automatically reload new config on changes")
         self.reload_config(None)
-        self.threads.extend([
-            hub.spawn(thread) for thread in (self._config_file_stat,)])
+        self.threads.extend([hub.spawn(thread) for thread in (self._config_file_stat,)])
         signal.signal(signal.SIGHUP, self.signal_handler)
         signal.signal(signal.SIGINT, self.signal_handler)
 
     def reload_config(self, _ryu_event):
         """Handle reloading configuration."""
-        self.logger.info('Reloading configuration')
+        self.logger.info("Reloading configuration")
 
     def _get_datapath_obj(self, datapath_objs, ryu_event):
         """Get datapath object to response to an event.
@@ -163,7 +166,7 @@ class OSKenAppBase(app_manager.OSKenApp):
         """
         datapath_obj = None
         msg = None
-        if hasattr(ryu_event, 'msg'):
+        if hasattr(ryu_event, "msg"):
             msg = ryu_event.msg
             ryu_dp = msg.datapath
         else:
@@ -173,7 +176,9 @@ class OSKenAppBase(app_manager.OSKenApp):
             datapath_obj = datapath_objs[dp_id]
         else:
             ryu_dp.close()
-            self.logger.error('%s: unknown datapath %s', str(ryu_event), dpid_log(dp_id))
+            self.logger.error(
+                "%s: unknown datapath %s", str(ryu_event), dpid_log(dp_id)
+            )
         return (datapath_obj, ryu_dp, msg)
 
     @staticmethod

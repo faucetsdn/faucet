@@ -28,27 +28,27 @@ class Meter(Conf):
     meter_id = None
 
     defaults = {
-        'entry': None,
-        'meter_id': None,
+        "entry": None,
+        "meter_id": None,
     }
 
     defaults_types = {
-        'entry': dict,
-        'meter_id': int,
+        "entry": dict,
+        "meter_id": int,
     }
 
     def __init__(self, _id, dp_id, conf):
         super().__init__(_id, dp_id, conf)
-        assert conf['entry']
-        assert conf['entry']['flags']
-        assert conf['entry']['bands']
-        conf['entry']['meter_id'] = self.meter_id
+        assert conf["entry"]
+        assert conf["entry"]["flags"]
+        assert conf["entry"]["bands"]
+        conf["entry"]["meter_id"] = self.meter_id
         self.entry_msg = meteradd(self.entry)
 
     def check_config(self):
         super().check_config()
-        test_config_condition(
-            self.meter_id < 0, 'meter_id is than 0')
+        test_config_condition(self.meter_id < 0, "meter_id is than 0")
         test_config_condition(
             self.meter_id > 4294901760,
-            'DP meter_id cannot exceed 4294901760 per OF13 specification')
+            "DP meter_id cannot exceed 4294901760 per OF13 specification",
+        )
