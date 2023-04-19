@@ -1309,7 +1309,7 @@ dps:
         self.setup_valves(self.CONFIG)
 
     def _get_info(self, metric, name):
-        """ "Return (single) info dict for metric"""
+        """Return (single) info dict for metric"""
         # There doesn't seem to be a nice API for this,
         # so we use the prometheus client internal API
         metrics = list(metric.collect())

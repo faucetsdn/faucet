@@ -72,9 +72,18 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
     def setUp():
         pass
 
-    def set_up(self, stack=False, n_dps=1, n_tagged=0, n_untagged=0,
-               switch_to_switch_links=1, stack_ring=False,
-               lacp_trunk=False, use_external=False, routers=None):
+    def set_up(
+        self,
+        stack=False,
+        n_dps=1,
+        n_tagged=0,
+        n_untagged=0,
+        switch_to_switch_links=1,
+        stack_ring=False,
+        lacp_trunk=False,
+        use_external=False,
+        routers=None,
+    ):
         """
         Args:
             stack (bool): Whether to use stack or trunk links
@@ -109,10 +118,7 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
             for link in dp_links.edges(dp_i):
                 if lacp_trunk:
                     link_options.setdefault(link, {})
-                    link_options[link] = {
-                        'lacp': 1,
-                        'lacp_active': True
-                    }
+                    link_options[link] = {"lacp": 1, "lacp_active": True}
         if self.link_options():
             for dp_i in dp_links.nodes():
                 for link in dp_links.edges(dp_i):
@@ -148,22 +154,29 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
                         make_external = True
                         values[link] = True
                 host_options.setdefault(host, {})
-                host_options[host]['loop_protect_external'] = make_external
+                host_options[host]["loop_protect_external"] = make_external
         for host in host_links:
             for h_key, h_value in self.host_options().items():
                 host_options[host][h_key] = h_value
         # Create DP configuration options
         dp_options = {}
         for dp_i in range(n_dps):
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if stack and dp_i == 0:
-                dp_options[dp_i]['stack'] = {'priority': 1}
+                dp_options[dp_i]["stack"] = {"priority": 1}
             if lacp_trunk:
-                dp_options[dp_i]['lacp_timeout'] = 10
+                dp_options[dp_i]["lacp_timeout"] = 10
             for dp_key, dp_value in self.dp_options().items():
                 dp_options[dp_i][dp_key] = dp_value
         # Create VLAN configuration options
@@ -173,9 +186,9 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
                 for vlan in vlans:
                     if vlan not in vlan_options:
                         vlan_options[vlan] = {
-                            'faucet_mac': self.faucet_mac(vlan),
-                            'faucet_vips': [self.faucet_vip(vlan)],
-                            'targeted_gw_resolution': False
+                            "faucet_mac": self.faucet_mac(vlan),
+                            "faucet_vips": [self.faucet_vip(vlan)],
+                            "targeted_gw_resolution": False,
                         }
         for vlan in range(n_vlans):
             vlan_options.setdefault(vlan, {})
@@ -186,11 +199,11 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
                 if isinstance(link, tuple):
                     # link ACL
                     link_options.setdefault(link, {})
-                    link_options[link]['acls_in'] = acls
+                    link_options[link]["acls_in"] = acls
                 elif isinstance(link, int):
                     # host ACL
                     host_options.setdefault(link, {})
-                    host_options[link]['acls_in'] = acls
+                    host_options[link]["acls_in"] = acls
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -205,7 +218,7 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
             routers=routers,
             router_options=self.router_options(),
             include=self.include(),
-            include_optional=self.include_optional()
+            include_optional=self.include_optional(),
         )
         self.start_net()
 
@@ -244,16 +257,16 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
     @staticmethod
     def dp_options():
         """DP options"""
-        return {
-            'stack': {
-                'priority': 1
-            }
-        }
+        return {"stack": {"priority": 1}}
 
     def _test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
         self.set_up(
-            stack=True, n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, switch_to_switch_links=2)
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_tagged=self.NUM_HOSTS,
+            switch_to_switch_links=2,
+        )
         self.verify_stack_up()
         for coldstart in (False, True):
             self.verify_one_stack_down(0, coldstart)
@@ -261,7 +274,11 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
     def test_dp_root_hop_port(self):
         """Test if dp_root_hop_port is set"""
         self.set_up(
-            stack=True, n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, switch_to_switch_links=1)
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_tagged=self.NUM_HOSTS,
+            switch_to_switch_links=1,
+        )
         self.verify_stack_up()
         for index in range(self.NUM_DPS):
             dp_id = self.topo.dpids_by_id[index]
@@ -270,26 +287,32 @@ class FaucetSingleStackStringOfDPTagged0Test(FaucetMultiDPTestBase):
             for link, ports in self.link_port_maps.items():
                 if link == (index, index - 1):
                     root_port = ports[0]
-            labels = {'dp_id': '0x%x' % int(dp_id), 'dp_name': dp_name}
-            self.assertEqual(self.scrape_prometheus_var(
-                var='dp_root_hop_port', labels=labels, default=0,
-                dpid=dp_id), root_port)
+            labels = {"dp_id": "0x%x" % int(dp_id), "dp_name": dp_name}
+            self.assertEqual(
+                self.scrape_prometheus_var(
+                    var="dp_root_hop_port", labels=labels, default=0, dpid=dp_id
+                ),
+                root_port,
+            )
         # Stop switch 1
         self.net.switches[0].stop()
         dp_id = self.topo.dpids_by_id[2]
         dp_name = self.topo.switches_by_id[2]
-        labels = {'dp_id': '0x%x' % int(dp_id), 'dp_name': dp_name}
+        labels = {"dp_id": "0x%x" % int(dp_id), "dp_name": dp_name}
         if not self.wait_for_prometheus_var(
-                'is_dp_stack_root', 1,
-                labels=labels, dpid=dp_id, timeout=30):
-            self.fail('wanted is_dp_stack_root for %s to be %u' % (labels, 1))
+            "is_dp_stack_root", 1, labels=labels, dpid=dp_id, timeout=30
+        ):
+            self.fail("wanted is_dp_stack_root for %s to be %u" % (labels, 1))
         dp_id = self.topo.dpids_by_id[1]
         dp_name = self.topo.switches_by_id[1]
-        labels = {'dp_id': '0x%x' % int(dp_id), 'dp_name': dp_name}
+        labels = {"dp_id": "0x%x" % int(dp_id), "dp_name": dp_name}
         sw2_root_port = min(self.link_port_maps[(1, 2)])
-        self.assertEqual(self.scrape_prometheus_var(
-            var='dp_root_hop_port', labels=labels, default=0,
-            dpid=dp_id), sw2_root_port)
+        self.assertEqual(
+            self.scrape_prometheus_var(
+                var="dp_root_hop_port", labels=labels, default=0, dpid=dp_id
+            ),
+            sw2_root_port,
+        )
         self.net.switches[0].start(self.net.controllers)
 
 
@@ -301,7 +324,11 @@ class FaucetSingleStackStringOfDPTagged1Test(FaucetMultiDPTestBase):
     def test_tagged(self):
         """Test all tagged hosts in stack topology can reach each other with one stack down"""
         self.set_up(
-            stack=True, n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, switch_to_switch_links=2)
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_tagged=self.NUM_HOSTS,
+            switch_to_switch_links=2,
+        )
         self.verify_stack_up()
         for coldstart in (False, True):
             self.verify_one_stack_down(1, coldstart)
@@ -313,8 +340,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
     NUM_DPS = 2
     NUM_HOSTS = 2
     SOFTWARE_ONLY = True
-    match_bcast = {'dl_vlan': 100, 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
-    action_str = 'OUTPUT:%u'
+    match_bcast = {"dl_vlan": 100, "dl_dst": "ff:ff:ff:ff:ff:ff"}
+    action_str = "OUTPUT:%u"
 
     def setUp(self):
         """Setup network & create config file"""
@@ -323,7 +350,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             switch_to_switch_links=2,
-            lacp_trunk=True)
+            lacp_trunk=True,
+        )
 
     def lacp_ports(self):
         """Return LACP ports"""
@@ -341,17 +369,21 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
         first_link, second_link = sorted([first_link, second_link])
         first_lacp_port, remote_first_lacp_port = first_link
         second_lacp_port, remote_second_lacp_port = second_link
-        return (first_lacp_port, second_lacp_port,
-                remote_first_lacp_port, remote_second_lacp_port)
+        return (
+            first_lacp_port,
+            second_lacp_port,
+            remote_first_lacp_port,
+            remote_second_lacp_port,
+        )
 
     def wait_for_lacp_state(self, port_no, wanted_state, dpid, dp_name, timeout=30):
         """Wait for LACP port state"""
         labels = self.port_labels(port_no)
-        labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
+        labels.update({"dp_id": "0x%x" % int(dpid), "dp_name": dp_name})
         if not self.wait_for_prometheus_var(
-                'port_lacp_state', wanted_state,
-                labels=labels, dpid=False, timeout=timeout):
-            self.fail('wanted LACP state for %s to be %u' % (labels, wanted_state))
+            "port_lacp_state", wanted_state, labels=labels, dpid=False, timeout=timeout
+        ):
+            self.fail("wanted LACP state for %s to be %u" % (labels, wanted_state))
 
     def wait_for_lacp_port_none(self, port_no, dpid, dp_name):
         """Wait for LACP state NONE"""
@@ -371,19 +403,38 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
 
     def wait_for_all_lacp_up(self):
         """Wait for all LACP ports to be up"""
-        (first_lacp_port, second_lacp_port, remote_first_lacp_port, _) = self.lacp_ports()
-        self.wait_for_lacp_port_up(first_lacp_port, self.dpids[0], self.topo.switches_by_id[0])
-        self.wait_for_lacp_port_up(second_lacp_port, self.dpids[0], self.topo.switches_by_id[0])
+        (
+            first_lacp_port,
+            second_lacp_port,
+            remote_first_lacp_port,
+            _,
+        ) = self.lacp_ports()
+        self.wait_for_lacp_port_up(
+            first_lacp_port, self.dpids[0], self.topo.switches_by_id[0]
+        )
+        self.wait_for_lacp_port_up(
+            second_lacp_port, self.dpids[0], self.topo.switches_by_id[0]
+        )
         self.wait_until_matching_flow(
-            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % first_lacp_port])
+            self.match_bcast,
+            self._FLOOD_TABLE,
+            actions=[self.action_str % first_lacp_port],
+        )
         self.wait_until_matching_flow(
-            self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % remote_first_lacp_port],
-            dpid=self.dpids[1])
+            self.match_bcast,
+            self._FLOOD_TABLE,
+            actions=[self.action_str % remote_first_lacp_port],
+            dpid=self.dpids[1],
+        )
 
     def test_lacp_port_down(self):
         """LACP works with any member down."""
-        (first_lacp_port, second_lacp_port,
-         remote_first_lacp_port, remote_second_lacp_port) = self.lacp_ports()
+        (
+            first_lacp_port,
+            second_lacp_port,
+            remote_first_lacp_port,
+            remote_second_lacp_port,
+        ) = self.lacp_ports()
         local_ports = {first_lacp_port, second_lacp_port}
         remote_ports = {remote_first_lacp_port, remote_second_lacp_port}
 
@@ -391,22 +442,29 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
         self.retry_net_ping()
 
         for local_lacp_port, remote_lacp_port in (
-                (first_lacp_port, remote_first_lacp_port),
-                (second_lacp_port, remote_second_lacp_port)):
+            (first_lacp_port, remote_first_lacp_port),
+            (second_lacp_port, remote_second_lacp_port),
+        ):
             other_local_lacp_port = list(local_ports - {local_lacp_port})[0]
             other_remote_lacp_port = list(remote_ports - {remote_lacp_port})[0]
             self.set_port_down(local_lacp_port, wait=False)
             self.wait_for_lacp_port_none(
-                local_lacp_port, self.dpids[0], self.topo.switches_by_id[0])
+                local_lacp_port, self.dpids[0], self.topo.switches_by_id[0]
+            )
             self.wait_for_lacp_port_none(
-                remote_lacp_port, self.dpids[1], self.topo.switches_by_id[1])
+                remote_lacp_port, self.dpids[1], self.topo.switches_by_id[1]
+            )
             self.wait_until_matching_flow(
-                self.match_bcast, self._FLOOD_TABLE, actions=[
-                    self.action_str % other_local_lacp_port])
+                self.match_bcast,
+                self._FLOOD_TABLE,
+                actions=[self.action_str % other_local_lacp_port],
+            )
             self.wait_until_matching_flow(
-                self.match_bcast, self._FLOOD_TABLE, actions=[
-                    self.action_str % other_remote_lacp_port],
-                dpid=self.dpids[1])
+                self.match_bcast,
+                self._FLOOD_TABLE,
+                actions=[self.action_str % other_remote_lacp_port],
+                dpid=self.dpids[1],
+            )
             self.retry_net_ping()
             self.set_port_up(local_lacp_port)
             self.wait_for_all_lacp_up()
@@ -420,16 +478,16 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
             self.flap_all_switch_ports()
         # Check for presence of LAG_CHANGE event in event socket log and check for it's structure
         lag_event_found = None
-        with open(self.event_log, 'r', encoding='utf-8') as event_log_file:
+        with open(self.event_log, "r", encoding="utf-8") as event_log_file:
             for event_log_line in event_log_file.readlines():
                 event = json.loads(event_log_line.strip())
-                if 'LAG_CHANGE' in event:
-                    lag_event_found = event.get('LAG_CHANGE')
+                if "LAG_CHANGE" in event:
+                    lag_event_found = event.get("LAG_CHANGE")
                     break
         self.assertTrue(lag_event_found)
         if lag_event_found:
-            self.assertIn('state', lag_event_found)
-            self.assertIn('role', lag_event_found)
+            self.assertIn("state", lag_event_found)
+            self.assertIn("role", lag_event_found)
 
     def test_dyn_fail(self):
         """Test lacp fail on reload with dynamic lacp status."""
@@ -440,13 +498,21 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
         self.wait_for_lacp_port_up(src_port, self.dpids[0], self.topo.switches_by_id[0])
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], self.topo.switches_by_id[0])
 
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
-        interfaces_conf[fail_port]['lacp'] = 0
-        interfaces_conf[fail_port]['lacp_active'] = False
-        self.reload_conf(conf, self.faucet_config_path, restart=True,
-                         cold_start=False, change_expected=True, dpid=self.dpids[1])
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[1]]["interfaces"]
+        interfaces_conf[fail_port]["lacp"] = 0
+        interfaces_conf[fail_port]["lacp_active"] = False
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+            dpid=self.dpids[1],
+        )
 
-        self.wait_for_lacp_port_init(src_port, self.dpids[0], self.topo.switches_by_id[0])
+        self.wait_for_lacp_port_init(
+            src_port, self.dpids[0], self.topo.switches_by_id[0]
+        )
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], self.topo.switches_by_id[0])
 
     def test_passthrough(self):
@@ -455,30 +521,45 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTestBase):
         conf = self._get_faucet_conf()
         (src_port, dst_port, fail_port, end_port) = self.lacp_ports()
 
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[0]]['interfaces']
-        interfaces_conf[dst_port]['lacp_passthrough'] = [src_port]
-        interfaces_conf[dst_port]['loop_protect_external'] = True
-        interfaces_conf[dst_port]['lacp'] = 2
-        interfaces_conf[src_port]['loop_protect_external'] = True
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
-        interfaces_conf[fail_port]['loop_protect_external'] = True
-        interfaces_conf[end_port]['loop_protect_external'] = True
-        interfaces_conf[end_port]['lacp'] = 2
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[0]]["interfaces"]
+        interfaces_conf[dst_port]["lacp_passthrough"] = [src_port]
+        interfaces_conf[dst_port]["loop_protect_external"] = True
+        interfaces_conf[dst_port]["lacp"] = 2
+        interfaces_conf[src_port]["loop_protect_external"] = True
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[1]]["interfaces"]
+        interfaces_conf[fail_port]["loop_protect_external"] = True
+        interfaces_conf[end_port]["loop_protect_external"] = True
+        interfaces_conf[end_port]["lacp"] = 2
 
-        self.reload_conf(conf, self.faucet_config_path, restart=True,
-                         cold_start=None, change_expected=True)
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=None,
+            change_expected=True,
+        )
 
         self.wait_for_all_lacp_up()
         self.verify_stack_hosts()
 
-        interfaces_conf[fail_port]['lacp'] = 0
-        interfaces_conf[fail_port]['lacp_active'] = False
-        self.reload_conf(conf, self.faucet_config_path, restart=True,
-                         cold_start=False, change_expected=True, dpid=self.dpids[1])
+        interfaces_conf[fail_port]["lacp"] = 0
+        interfaces_conf[fail_port]["lacp_active"] = False
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+            dpid=self.dpids[1],
+        )
 
-        self.wait_for_lacp_port_init(src_port, self.dpids[0], self.topo.switches_by_id[0])
+        self.wait_for_lacp_port_init(
+            src_port, self.dpids[0], self.topo.switches_by_id[0]
+        )
         self.wait_for_lacp_port_up(dst_port, self.dpids[0], self.topo.switches_by_id[0])
-        self.wait_for_lacp_port_init(end_port, self.dpids[1], self.topo.switches_by_id[1])
+        self.wait_for_lacp_port_init(
+            end_port, self.dpids[1], self.topo.switches_by_id[1]
+        )
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTestBase):
@@ -490,19 +571,24 @@ class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTestBase):
 
     def verify_events_log(self, event_log):
         """Verify event log has correct L2 learn events"""
-        with open(event_log, 'r', encoding='utf-8') as event_log_file:
-            events = [json.loads(event_log_line.strip()) for event_log_line in event_log_file]
-            l2_learns = [event['L2_LEARN'] for event in events if 'L2_LEARN' in event]
+        with open(event_log, "r", encoding="utf-8") as event_log_file:
+            events = [
+                json.loads(event_log_line.strip()) for event_log_line in event_log_file
+            ]
+            l2_learns = [event["L2_LEARN"] for event in events if "L2_LEARN" in event]
             for event in l2_learns:
-                if event.get('stack_descr', None):
+                if event.get("stack_descr", None):
                     return
-            self.fail('stack_descr not in events: %s' % l2_learns)
+            self.fail("stack_descr not in events: %s" % l2_learns)
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
         self.set_up(
-            stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-            switch_to_switch_links=2)
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            switch_to_switch_links=2,
+        )
         self._enable_event_log()
         self.verify_stack_hosts()
         self.verify_events_log(self.event_log)
@@ -521,7 +607,8 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTestBase):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             switch_to_switch_links=2,
-            use_external=True)
+            use_external=True,
+        )
 
     def test_untagged(self):
         """Host can reach each other, unless both marked loop_protect_external"""
@@ -535,10 +622,10 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTestBase):
         conf = self._get_faucet_conf()
         loop_interface = None
         dp_name = self.topo.switches_by_id[1]
-        for interface, interface_conf in conf['dps'][dp_name]['interfaces'].items():
-            if 'stack' in interface_conf:
+        for interface, interface_conf in conf["dps"][dp_name]["interfaces"].items():
+            if "stack" in interface_conf:
                 continue
-            if not interface_conf.get('loop_protect_external', False):
+            if not interface_conf.get("loop_protect_external", False):
                 loop_interface = interface
                 break
 
@@ -552,10 +639,17 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTestBase):
         """Change the loop interfaces loop_protect_external option"""
         conf = self._get_faucet_conf()
         dp_name = self.topo.switches_by_id[1]
-        conf['dps'][dp_name]['interfaces'][loop_intf]['loop_protect_external'] = protect_external
+        conf["dps"][dp_name]["interfaces"][loop_intf][
+            "loop_protect_external"
+        ] = protect_external
         self.reload_conf(
-            conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+            dpid=self.topo.dpids_by_id[1],
+        )
 
     def test_missing_ext(self):
         """Test stacked dp with all external ports down on a switch"""
@@ -571,8 +665,13 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTestBase)
 
     def test_untagged(self):
         """Test the external loop protect with stacked DPs and untagged hosts"""
-        self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-                    switch_to_switch_links=2, use_external=True)
+        self.set_up(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            switch_to_switch_links=2,
+            use_external=True,
+        )
         self.verify_stack_up()
         int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
         _, root_ext_hosts = dp_hosts[self.topo.switches_by_id[0]]
@@ -581,9 +680,11 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTestBase)
             # All internal hosts can reach other internal hosts.
             for other_int_host in int_hosts - {int_host}:
                 self.verify_broadcast(
-                    hosts=(int_host, other_int_host), broadcast_expected=True)
+                    hosts=(int_host, other_int_host), broadcast_expected=True
+                )
                 self.verify_unicast(
-                    hosts=(int_host, other_int_host), unicast_expected=True)
+                    hosts=(int_host, other_int_host), unicast_expected=True
+                )
 
             # All internal hosts should reach exactly one external host.
             self.verify_one_broadcast(int_host, ext_hosts)
@@ -592,7 +693,8 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTestBase)
             # All external hosts cannot flood to each other
             for other_ext_host in ext_hosts - {ext_host}:
                 self.verify_broadcast(
-                    hosts=(ext_host, other_ext_host), broadcast_expected=False)
+                    hosts=(ext_host, other_ext_host), broadcast_expected=False
+                )
 
         remote_ext_hosts = ext_hosts - set(root_ext_hosts)
         # int host should never be broadcast to an ext host that is not on the root.
@@ -600,7 +702,9 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTestBase)
             for local_int_host in local_int_hosts:
                 for remote_ext_host in remote_ext_hosts:
                     self.verify_broadcast(
-                        hosts=(local_int_host, remote_ext_host), broadcast_expected=False)
+                        hosts=(local_int_host, remote_ext_host),
+                        broadcast_expected=False,
+                    )
 
 
 class FaucetGroupStackStringOfDPUntaggedTest(FaucetStackStringOfDPUntaggedTest):
@@ -617,8 +721,13 @@ class FaucetStackRingOfDPTest(FaucetMultiDPTestBase):
 
     def test_untagged(self):
         """Stack loop prevention works and hosts can ping each other."""
-        self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-                    switch_to_switch_links=1, stack_ring=True)
+        self.set_up(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            switch_to_switch_links=1,
+            stack_ring=True,
+        )
         self.verify_stack_up()
         self.verify_stack_has_no_loop()
         self.retry_net_ping()
@@ -650,8 +759,13 @@ class FaucetSingleStack3RingOfDPReversePortOrderTest(FaucetMultiDPTestBase):
 
     def test_sequential_connection(self):
         """Ping in sequence respective to hosts names"""
-        self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-                    switch_to_switch_links=1, stack_ring=True)
+        self.set_up(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            switch_to_switch_links=1,
+            stack_ring=True,
+        )
         self.verify_stack_up()
         hosts = self.hosts_name_ordered()
         for src in hosts:
@@ -661,8 +775,13 @@ class FaucetSingleStack3RingOfDPReversePortOrderTest(FaucetMultiDPTestBase):
 
     def test_reverse_sequential_connection(self):
         """Ping in reverse sequence respective to hosts names"""
-        self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-                    switch_to_switch_links=1, stack_ring=True)
+        self.set_up(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            switch_to_switch_links=1,
+            stack_ring=True,
+        )
         self.verify_stack_up()
         hosts = self.hosts_name_ordered()
         hosts.reverse()
@@ -691,96 +810,109 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTestBase):
         # 3 hosts on each DP (3 DPS)
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'nw_dst': '10.1.0.2',
-                    'actions': {
-                        'output': {
-                            'port': self.host_port_maps[1][0][0]  # Host 1
-                        }
-                    },
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
-                    'actions': {
-                        'output': {
-                            'ports': [
-                                self.host_port_maps[1][0][0],  # Host 1
-                                self.link_port_maps[(0, 1)][0]]  # link (0, 1)
-                        }
-                    },
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'actions': {
-                        'output': {
-                            'port': self.link_port_maps[(0, 1)][0]  # link (0, 1)
-                        }
-                    },
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    },
-                }},
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "nw_dst": "10.1.0.2",
+                        "actions": {
+                            "output": {"port": self.host_port_maps[1][0][0]}  # Host 1
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "dl_dst": "ff:ff:ff:ff:ff:ff",
+                        "actions": {
+                            "output": {
+                                "ports": [
+                                    self.host_port_maps[1][0][0],  # Host 1
+                                    self.link_port_maps[(0, 1)][0],
+                                ]  # link (0, 1)
+                            }
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "actions": {
+                            "output": {
+                                "port": self.link_port_maps[(0, 1)][0]  # link (0, 1)
+                            }
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        },
+                    }
+                },
             ],
             2: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'actions': {
-                        'output': {
-                            'port': self.link_port_maps[(1, 2)][0]  # link (1, 2)
-                        }
-                    },
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    },
-                }},
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "actions": {
+                            "output": {
+                                "port": self.link_port_maps[(1, 2)][0]  # link (1, 2)
+                            }
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        },
+                    }
+                },
             ],
             3: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'nw_dst': '10.1.0.7',
-                    'actions': {
-                        'output': {
-                            'port': self.host_port_maps[6][2][0]  # host 6
-                        }
-                    },
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
-                    'actions': {
-                        'output': {
-                            'ports': [self.host_port_maps[6][2][0]]  # host 6
-                        }
-                    },
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'actions': {
-                        'allow': 0,
-                    },
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    },
-                }},
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "nw_dst": "10.1.0.7",
+                        "actions": {
+                            "output": {"port": self.host_port_maps[6][2][0]}  # host 6
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "dl_dst": "ff:ff:ff:ff:ff:ff",
+                        "actions": {
+                            "output": {
+                                "ports": [self.host_port_maps[6][2][0]]  # host 6
+                            }
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "actions": {
+                            "allow": 0,
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        },
+                    }
+                },
             ],
         }
 
     # DP-to-acl_in port mapping.
     def link_acls(self):
         """Host/link map to acls_in"""
-        return {
-            0: [1],  # Host 0 dp 0 'acls_in': [1]
-            (1, 0): [2],
-            (2, 1): [3]
-        }
+        return {0: [1], (1, 0): [2], (2, 1): [3]}  # Host 0 dp 0 'acls_in': [1]
 
     def setUp(self):
         """Setup network & create configuration file"""
@@ -829,95 +961,110 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTestBase):
         """Configuration ACLs"""
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'nw_dst': '10.1.0.2',
-                    'actions': {
-                        'output': [
-                            {'port': self.host_port_maps[1][0][0]}  # Host 0
-                        ]
-                    },
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
-                    'actions': {
-                        'output': [
-                            {'ports': [
-                                self.host_port_maps[1][0][0],  # Host 0
-                                self.link_port_maps[(0, 1)][0]]}  # Link (0, 1)
-                        ]
-                    },
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'actions': {
-                        'output': [
-                            {'port': self.link_port_maps[(0, 1)][0]}  # Link (0, 1)
-                        ]
-                    },
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    },
-                }},
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "nw_dst": "10.1.0.2",
+                        "actions": {
+                            "output": [{"port": self.host_port_maps[1][0][0]}]  # Host 0
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "dl_dst": "ff:ff:ff:ff:ff:ff",
+                        "actions": {
+                            "output": [
+                                {
+                                    "ports": [
+                                        self.host_port_maps[1][0][0],  # Host 0
+                                        self.link_port_maps[(0, 1)][0],
+                                    ]
+                                }  # Link (0, 1)
+                            ]
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "actions": {
+                            "output": [
+                                {"port": self.link_port_maps[(0, 1)][0]}  # Link (0, 1)
+                            ]
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        },
+                    }
+                },
             ],
             2: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'actions': {
-                        'output': [
-                            {'port': self.link_port_maps[(1, 2)][0]}  # Link (0, 2)
-                        ]
-                    },
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    },
-                }},
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "actions": {
+                            "output": [
+                                {"port": self.link_port_maps[(1, 2)][0]}  # Link (0, 2)
+                            ]
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        },
+                    }
+                },
             ],
             3: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'nw_dst': '10.1.0.7',
-                    'actions': {
-                        'output': {
-                            'port': self.host_port_maps[6][2][0]  # Host 6
-                        }
-                    },
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
-                    'actions': {
-                        'output': [
-                            {'ports': [self.host_port_maps[6][2][0]]}  # Host 6
-                        ]
-                    },
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'actions': {
-                        'allow': 0,
-                    },
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    },
-                }},
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "nw_dst": "10.1.0.7",
+                        "actions": {
+                            "output": {"port": self.host_port_maps[6][2][0]}  # Host 6
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "dl_dst": "ff:ff:ff:ff:ff:ff",
+                        "actions": {
+                            "output": [
+                                {"ports": [self.host_port_maps[6][2][0]]}  # Host 6
+                            ]
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "actions": {
+                            "allow": 0,
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        },
+                    }
+                },
             ],
         }
 
     def link_acls(self):
         """Host/link map to acls in"""
-        return {
-            0: [1],  # Host 0 dp 0 'acls_in': [1]
-            (1, 0): [2],
-            (2, 1): [3]
-        }
+        return {0: [1], (1, 0): [2], (2, 1): [3]}  # Host 0 dp 0 'acls_in': [1]
 
     def setUp(self):
         """Setup network & create configuration file"""
@@ -969,27 +1116,33 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTestBase):
         """Return config ACLs"""
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 6,
-                    'tcp_dst': 5001,
-                    'actions': {
-                        'allow': 1,
-                    },
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 6,
-                    'tcp_dst': 5002,
-                    'actions': {
-                        'allow': 0,
-                    },
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    },
-                }},
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 6,
+                        "tcp_dst": 5001,
+                        "actions": {
+                            "allow": 1,
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 6,
+                        "tcp_dst": 5002,
+                        "actions": {
+                            "allow": 0,
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        },
+                    }
+                },
             ],
         }
 
@@ -1000,60 +1153,64 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTestBase):
         """Return override ACLs option"""
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 6,
-                    'tcp_dst': 5001,
-                    'actions': {
-                        'allow': 0,
-                    },
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 6,
-                    'tcp_dst': 5002,
-                    'actions': {
-                        'allow': 1,
-                    },
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    },
-                }},
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 6,
+                        "tcp_dst": 5001,
+                        "actions": {
+                            "allow": 0,
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 6,
+                        "tcp_dst": 5002,
+                        "actions": {
+                            "allow": 1,
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        },
+                    }
+                },
             ],
         }
 
     # DP-to-acl_in port mapping.
     def link_acls(self):
         """Host/link port map to acls in"""
-        return {
-            0: [1]  # Host 0 'acls_in': [1]
-        }
+        return {0: [1]}  # Host 0 'acls_in': [1]
 
     def include_optional(self):
         if self.acls_config is None:
-            self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
+            self.acls_config = os.path.join(self.tmpdir, "acls.yaml")
         if self.missing_config is None:
-            self.missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
+            self.missing_config = os.path.join(self.tmpdir, "missing_config.yaml")
         return [self.acls_config, self.missing_config]
 
     def setUp(self):
         """Setup network & create configuration file"""
         self.acls_config = None
         self.missing_config = None
-        super().set_up(
-            n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS)
+        super().set_up(n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS)
 
     def test_port5001_blocked(self):
         """Test that TCP port 5001 is blocked."""
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
-        with open(self.acls_config, 'w', encoding='utf-8') as config_file:
-            self.configuration_options['acl_options'] = self.acls_override()
-            config_file.write(self.topo.get_config(n_vlans=1, **self.configuration_options))
+        with open(self.acls_config, "w", encoding="utf-8") as config_file:
+            self.configuration_options["acl_options"] = self.acls_override()
+            config_file.write(
+                self.topo.get_config(n_vlans=1, **self.configuration_options)
+            )
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
 
@@ -1062,9 +1219,11 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTestBase):
         self.ping_all_when_learned()
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(5002, first_host, second_host)
-        with open(self.acls_config, 'w', encoding='utf-8') as config_file:
-            self.configuration_options['acl_options'] = self.acls_override()
-            config_file.write(self.topo.get_config(n_vlans=1, **self.configuration_options))
+        with open(self.acls_config, "w", encoding="utf-8") as config_file:
+            self.configuration_options["acl_options"] = self.acls_override()
+            config_file.write(
+                self.topo.get_config(n_vlans=1, **self.configuration_options)
+            )
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
@@ -1082,33 +1241,38 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTestBase):
         # Tunnel from host 0 (switch 0) to host 1 (switch 0)
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 0,
-                        'output': {
-                            'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[0],  # Switch 0
-                                'port': self.host_port_maps[1][0][0]}  # Switch 0 host 1
-                        }
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "actions": {
+                            "allow": 0,
+                            "output": {
+                                "tunnel": {
+                                    "type": "vlan",
+                                    "tunnel_id": 200,
+                                    "dp": self.topo.switches_by_id[0],  # Switch 0
+                                    "port": self.host_port_maps[1][0][0],
+                                }  # Switch 0 host 1
+                            },
+                        },
                     }
-                }}
+                }
             ]
         }
 
     def link_acls(self):
         """DP to acl port mapping"""
-        return {
-            0: [1]  # Host 0 'acls_in': [1]
-        }
+        return {0: [1]}  # Host 0 'acls_in': [1]
 
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
-        self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-                    switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
+        self.set_up(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+        )
         self.verify_stack_up()
         src_host = self.net.get(self.topo.hosts_by_id[0])
         dst_host = self.net.get(self.topo.hosts_by_id[1])
@@ -1129,34 +1293,40 @@ class FaucetSingleTunnelTest(FaucetMultiDPTestBase):
         # Tunnel from host 0 (switch 0) to host 2 (switch 1)
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 0,
-                        'output': {
-                            'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[1],
-                                'port': self.host_port_maps[2][1][0]}
-                        }
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "actions": {
+                            "allow": 0,
+                            "output": {
+                                "tunnel": {
+                                    "type": "vlan",
+                                    "tunnel_id": 200,
+                                    "dp": self.topo.switches_by_id[1],
+                                    "port": self.host_port_maps[2][1][0],
+                                }
+                            },
+                        },
                     }
-                }},
-                {'rule': {
-                    'dl_type': IPV6_ETH,
-                    'ip_proto': 56,
-                    'actions': {
-                        'allow': 0,
-                        'output': {
-                            'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[1],
-                                'port': self.host_port_maps[2][1][0]}
-                        }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV6_ETH,
+                        "ip_proto": 56,
+                        "actions": {
+                            "allow": 0,
+                            "output": {
+                                "tunnel": {
+                                    "type": "vlan",
+                                    "tunnel_id": 200,
+                                    "dp": self.topo.switches_by_id[1],
+                                    "port": self.host_port_maps[2][1][0],
+                                }
+                            },
+                        },
                     }
-                }},
+                },
             ]
         }
 
@@ -1168,7 +1338,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTestBase):
         }
 
     def output_only(self):
-        return {2}   # Host 2 (first port, second switch).
+        return {2}  # Host 2 (first port, second switch).
 
     def setUp(self):
         """Start the network"""
@@ -1176,7 +1346,8 @@ class FaucetSingleTunnelTest(FaucetMultiDPTestBase):
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
-            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+        )
 
     def verify_tunnels(self):
         """Test tunnel connectivity from local and remote switches."""
@@ -1191,7 +1362,9 @@ class FaucetSingleTunnelTest(FaucetMultiDPTestBase):
         self.verify_stack_up()
         self.verify_tunnels()
         first_stack_port = min(self.link_port_maps[(0, 1)])
-        self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
+        self.one_stack_port_down(
+            self.dpids[0], self.topo.switches_by_id[0], first_stack_port
+        )
         self.verify_tunnels()
 
 
@@ -1208,7 +1381,8 @@ class FaucetTunnelLoopTest(FaucetSingleTunnelTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
-            stack_ring=True)
+            stack_ring=True,
+        )
 
 
 class FaucetTunnelAllowTest(FaucetTopoTestBase):
@@ -1224,25 +1398,30 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
         """Return config ACL options"""
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 1,
-                        'output': {
-                            'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 300,
-                                'dp': self.topo.switches_by_id[1],
-                                'port': self.host_port_maps[2][1][0]}
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "actions": {
+                            "allow": 1,
+                            "output": {
+                                "tunnel": {
+                                    "type": "vlan",
+                                    "tunnel_id": 300,
+                                    "dp": self.topo.switches_by_id[1],
+                                    "port": self.host_port_maps[2][1][0],
+                                }
+                            },
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
                         }
                     }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    }
-                }},
+                },
             ]
         }
 
@@ -1252,18 +1431,25 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
-        host_options = {0: {'acls_in': [1]}}
+        host_options = {0: {"acls_in": [1]}}
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -1304,33 +1490,40 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTestBase):
         # Tunnel from host 0 (switch 0) to host 1 (switch 0)
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 0,
-                        'output': [
-                            {'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[0],
-                                'port': self.host_port_maps[1][0][0]}}
-                        ]
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "actions": {
+                            "allow": 0,
+                            "output": [
+                                {
+                                    "tunnel": {
+                                        "type": "vlan",
+                                        "tunnel_id": 200,
+                                        "dp": self.topo.switches_by_id[0],
+                                        "port": self.host_port_maps[1][0][0],
+                                    }
+                                }
+                            ],
+                        },
                     }
-                }}
+                }
             ]
         }
 
     def link_acls(self):
         """DP to acl port mapping"""
-        return {
-            0: [1]  # Host 0 'acls_in': [1]
-        }
+        return {0: [1]}  # Host 0 'acls_in': [1]
 
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
-        self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-                    switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
+        self.set_up(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+        )
         self.verify_stack_up()
         src_host = self.net.get(self.topo.hosts_by_id[0])
         dst_host = self.net.get(self.topo.hosts_by_id[1])
@@ -1350,28 +1543,31 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTestBase):
         """Return config ACL options"""
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 0,
-                        'output': [
-                            {'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[1],
-                                'port': self.host_port_maps[2][1][0]}}
-                        ]
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "actions": {
+                            "allow": 0,
+                            "output": [
+                                {
+                                    "tunnel": {
+                                        "type": "vlan",
+                                        "tunnel_id": 200,
+                                        "dp": self.topo.switches_by_id[1],
+                                        "port": self.host_port_maps[2][1][0],
+                                    }
+                                }
+                            ],
+                        },
                     }
-                }}
+                }
             ]
         }
 
     def link_acls(self):
         """DP link to list of acls to apply"""
-        return {
-            0: [1]  # Host 0 'acls_in': [1]
-        }
+        return {0: [1]}  # Host 0 'acls_in': [1]
 
     def setUp(self):
         """Start the network"""
@@ -1379,7 +1575,8 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTestBase):
             stack=True,
             n_dps=self.NUM_DPS,
             n_tagged=self.NUM_HOSTS,
-            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
+        )
 
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
@@ -1397,7 +1594,9 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTestBase):
         other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
         first_stack_port = min(self.link_port_maps[(0, 1)])
-        self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
+        self.one_stack_port_down(
+            self.dpids[0], self.topo.switches_by_id[0], first_stack_port
+        )
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
 
@@ -1414,7 +1613,8 @@ class FaucetTunnelLoopOrderedTest(FaucetSingleTunnelOrderedTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
-            stack_ring=True)
+            stack_ring=True,
+        )
 
 
 class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
@@ -1429,28 +1629,33 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
         """Return config ACL options"""
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 1,
-                        'output': [
-                            {'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 300,
-                                'dp': self.topo.switches_by_id[1],
-                                'port': self.host_port_maps[2][1][0]}}
-                        ]
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "actions": {
+                            "allow": 1,
+                            "output": [
+                                {
+                                    "tunnel": {
+                                        "type": "vlan",
+                                        "tunnel_id": 300,
+                                        "dp": self.topo.switches_by_id[1],
+                                        "port": self.host_port_maps[2][1][0],
+                                    }
+                                }
+                            ],
+                        },
                     }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        }
                     }
-                }},
+                },
             ]
-
-
         }
 
     def setUp(self):
@@ -1459,18 +1664,25 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
-        host_options = {0: {'acls_in': [1]}}
+        host_options = {0: {"acls_in": [1]}}
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -1519,15 +1731,22 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(n_dps)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             for key, value in self.dp_options().items():
                 dp_options[dp_i][key] = value
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         routed_vlans = 2
@@ -1543,9 +1762,9 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
         vlan_options = {}
         for v_i in range(routed_vlans):
             vlan_options[v_i] = {
-                'faucet_mac': self.faucet_mac(v_i),
-                'faucet_vips': [self.faucet_vip(v_i)],
-                'targeted_gw_resolution': False
+                "faucet_mac": self.faucet_mac(v_i),
+                "faucet_vips": [self.faucet_vip(v_i)],
+                "targeted_gw_resolution": False,
             }
         routers = {0: list(range(routed_vlans))}
         self.build_net(
@@ -1556,7 +1775,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
             vlan_options=vlan_options,
-            routers=routers
+            routers=routers,
         )
         self.start_net()
 
@@ -1564,9 +1783,9 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
     def dp_options():
         """Return DP config options"""
         return {
-            'arp_neighbor_timeout': 2,
-            'max_resolve_backoff_time': 2,
-            'proactive_learn_v4': True
+            "arp_neighbor_timeout": 2,
+            "max_resolve_backoff_time": 2,
+            "proactive_learn_v4": True,
         }
 
     def test_intervlan_routing_2stack(self):
@@ -1622,9 +1841,9 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(
     def dp_options():
         """Return DP config options"""
         return {
-            'nd_neighbor_timeout': 2,
-            'max_resolve_backoff_time': 1,
-            'proactive_learn_v6': True
+            "nd_neighbor_timeout": 2,
+            "max_resolve_backoff_time": 1,
+            "proactive_learn_v6": True,
         }
 
     def host_ping(self, src_host, dst_ip, _intf=None):
@@ -1638,11 +1857,11 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(
     @staticmethod
     def faucet_vip(i):
         """Get the IPV6 faucet vip"""
-        return 'fc0%u::1:254/112' % (i + 1)
+        return "fc0%u::1:254/112" % (i + 1)
 
     def host_ip_address(self, host_index, vlan_index):
         """Get the IPV6 host ip"""
-        return 'fc0%u::1:%u/%u' % (vlan_index + 1, host_index + 1, self.NETPREFIX)
+        return "fc0%u::1:%u/%u" % (vlan_index + 1, host_index + 1, self.NETPREFIX)
 
 
 class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
@@ -1665,15 +1884,22 @@ class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             for key, value in self.dp_options().items():
                 dp_options[dp_i][key] = value
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [1]}
@@ -1681,9 +1907,9 @@ class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
         vlan_options = {}
         for v_i in range(self.NUM_VLANS):
             vlan_options[v_i] = {
-                'faucet_mac': self.faucet_mac(v_i),
-                'faucet_vips': [self.faucet_vip(v_i)],
-                'targeted_gw_resolution': False
+                "faucet_mac": self.faucet_mac(v_i),
+                "faucet_vips": [self.faucet_vip(v_i)],
+                "targeted_gw_resolution": False,
             }
         routers = {0: list(range(self.NUM_VLANS))}
         self.build_net(
@@ -1694,7 +1920,7 @@ class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
             vlan_options=vlan_options,
-            routers=routers
+            routers=routers,
         )
         self.start_net()
 
@@ -1702,9 +1928,9 @@ class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
     def dp_options():
         """Return DP config options"""
         return {
-            'arp_neighbor_timeout': 2,
-            'max_resolve_backoff_time': 2,
-            'proactive_learn_v4': True
+            "arp_neighbor_timeout": 2,
+            "max_resolve_backoff_time": 2,
+            "proactive_learn_v4": True,
         }
 
     def test_intervlan_stack_flooding(self):
@@ -1716,8 +1942,8 @@ class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
         """
         self.set_up()
         self.verify_stack_up()
-        src_host = self.host_information[1]['host']
-        dst_ip = self.host_information[0]['ip']
+        src_host = self.host_information[1]["host"]
+        dst_ip = self.host_information[0]["ip"]
         self.host_ping(src_host, dst_ip.ip)
 
 
@@ -1735,13 +1961,20 @@ class FaucetUntaggedStackTransitTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [2]}
@@ -1776,13 +2009,20 @@ class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [1], 2: [2]}
@@ -1817,10 +2057,10 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
     def dp_options():
         """Return DP config options"""
         return {
-            'arp_neighbor_timeout': 2,
-            'max_resolve_backoff_time': 2,
-            'proactive_learn_v4': True,
-            'lacp_timeout': 10
+            "arp_neighbor_timeout": 2,
+            "max_resolve_backoff_time": 2,
+            "proactive_learn_v4": True,
+            "lacp_timeout": 10,
         }
 
     def setUp(self):
@@ -1837,15 +2077,22 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             for key, value in self.dp_options().items():
                 dp_options[dp_i][key] = value
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], self.LACP_HOST: lacp_host_links, 3: [1], 4: [1]}
@@ -1854,12 +2101,12 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         vlan_options = {}
         for v_i in range(self.NUM_VLANS):
             vlan_options[v_i] = {
-                'faucet_mac': self.faucet_mac(v_i),
-                'faucet_vips': [self.faucet_vip(v_i)],
-                'targeted_gw_resolution': False
+                "faucet_mac": self.faucet_mac(v_i),
+                "faucet_vips": [self.faucet_vip(v_i)],
+                "targeted_gw_resolution": False,
             }
         routers = {0: list(range(self.NUM_VLANS))}
-        host_options = {self.LACP_HOST: {'lacp': 1}}
+        host_options = {self.LACP_HOST: {"lacp": 1}}
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -1869,7 +2116,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
             dp_options=dp_options,
             vlan_options=vlan_options,
             routers=routers,
-            host_options=host_options
+            host_options=host_options,
         )
         self.start_net()
 
@@ -1902,11 +2149,17 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
 
         # Force warm start on switch by changing native VLAN of host1
         conf = self._get_faucet_conf()
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[0]]['interfaces']
-        interfaces_conf[self.host_port_maps[1][0][0]]['native_vlan'] = self.topo.vlan_name(0)
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[0]]["interfaces"]
+        interfaces_conf[self.host_port_maps[1][0][0]][
+            "native_vlan"
+        ] = self.topo.vlan_name(0)
         self.reload_conf(
-            conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=False)
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=False,
+        )
         self.host_information.pop(1)
 
         # Set a single LAG port back UP
@@ -1966,10 +2219,10 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
     def dp_options():
         """Return config DP options"""
         return {
-            'arp_neighbor_timeout': 2,
-            'max_resolve_backoff_time': 2,
-            'proactive_learn_v4': True,
-            'lacp_timeout': 10
+            "arp_neighbor_timeout": 2,
+            "max_resolve_backoff_time": 2,
+            "proactive_learn_v4": True,
+            "lacp_timeout": 10,
         }
 
     def setUp(self):
@@ -1981,20 +2234,27 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             for key, value in self.dp_options().items():
                 dp_options[dp_i][key] = value
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [1], 2: [2], 3: [0, 0, 2, 2]}
         host_vlans = {host_id: 0 for host_id in range(self.NUM_HOSTS)}
-        host_options = {self.LACP_HOST: {'lacp': 1}}
+        host_options = {self.LACP_HOST: {"lacp": 1}}
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -2002,7 +2262,7 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
             link_vlans=link_vlans,
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
-            host_options=host_options
+            host_options=host_options,
         )
         self.start_net()
 
@@ -2021,17 +2281,24 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
         self.set_up()
         self.verify_stack_up()
         self.require_linux_bond_up(self.LACP_HOST)
-        lacp_host = self.host_information[self.LACP_HOST]['host']
+        lacp_host = self.host_information[self.LACP_HOST]["host"]
         lacp_switches = {
             self.net.get(self.topo.switches_by_id[i])
-            for i in self.host_port_maps[self.LACP_HOST]}
-        lacp_intfs = sorted({
-            pair[0].name for switch in lacp_switches for pair in lacp_host.connectionsTo(switch)})
+            for i in self.host_port_maps[self.LACP_HOST]
+        }
+        lacp_intfs = sorted(
+            {
+                pair[0].name
+                for switch in lacp_switches
+                for pair in lacp_host.connectionsTo(switch)
+            }
+        )
         dst_host_id = 1
-        dst_host = self.host_information[dst_host_id]['host']
+        dst_host = self.host_information[dst_host_id]["host"]
         tcpdump_filter = (
-            'ip and ether src 0e:00:00:00:00:99 '
-            'and src net %s and dst net %s' % (lacp_host.IP(), dst_host.IP()))
+            "ip and ether src 0e:00:00:00:00:99 "
+            "and src net %s and dst net %s" % (lacp_host.IP(), dst_host.IP())
+        )
         # Loop until all links have been used to prove that they can be used
         link_used = [False for _ in range(len(lacp_intfs))]
         max_iter = len(lacp_intfs) * 2
@@ -2040,36 +2307,42 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
             no_packets = True
             for i, intf in enumerate(lacp_intfs):
                 funcs = []
-                funcs.append(lambda: lacp_host.cmd('ping -c5 %s' % dst_host.IP()))
+                funcs.append(lambda: lacp_host.cmd("ping -c5 %s" % dst_host.IP()))
                 tcpdump_txt = self.tcpdump_helper(
-                    lacp_host, tcpdump_filter, intf_name=intf, funcs=funcs)
+                    lacp_host, tcpdump_filter, intf_name=intf, funcs=funcs
+                )
                 no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
                 if not no_packets:
                     # Packets detected on link so can stop testing and
                     #   goto a new IP value for the remaining links
                     link_used[i] = True
-                    error('%s via %s\n' % (dst_host.IP(), intf))
+                    error("%s via %s\n" % (dst_host.IP(), intf))
                     break
             # If no packets have been detected on any port then something
             #   has gone terribly wrong
             self.assertFalse(
-                no_packets, 'Ping packets to host IP %s could not be found' % dst_host.IP())
+                no_packets,
+                "Ping packets to host IP %s could not be found" % dst_host.IP(),
+            )
             # Increment the host IP address to change the LACP hash value,
             #   potentially changing the link used
             self.increment_host_ip(dst_host_id)
             tcpdump_filter = (
-                'ip and ether src 0e:00:00:00:00:99 '
-                'and src net %s and dst net %s' % (lacp_host.IP(), dst_host.IP()))
+                "ip and ether src 0e:00:00:00:00:99 "
+                "and src net %s and dst net %s" % (lacp_host.IP(), dst_host.IP())
+            )
             iterations += 1
-        not_used = [list(lacp_intfs)[i] for i, value in enumerate(link_used) if not value]
+        not_used = [
+            list(lacp_intfs)[i] for i, value in enumerate(link_used) if not value
+        ]
         expected_links = [True, True, False, False]
-        self.assertEqual(link_used, expected_links, 'Links %s not used' % not_used)
+        self.assertEqual(link_used, expected_links, "Links %s not used" % not_used)
 
     def increment_host_ip(self, host_id):
         """Increases the host ip address"""
-        host = self.host_information[host_id]['host']
-        self.host_information[host_id]['ip'] += 3
-        self.set_host_ip(host, self.host_information[host_id]['ip'])
+        host = self.host_information[host_id]["host"]
+        self.host_information[host_id]["ip"] += 3
+        self.set_host_ip(host, self.host_information[host_id]["ip"])
 
     def test_lacp_port_change(self):
         """
@@ -2100,39 +2373,47 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
         self.set_up()
         self.verify_stack_up()
         self.require_linux_bond_up(self.LACP_HOST)
-        lacp_host = self.host_information[self.LACP_HOST]['host']
+        lacp_host = self.host_information[self.LACP_HOST]["host"]
         lacp_switches = {
             self.net.get(self.topo.switches_by_id[i])
-            for i in self.host_port_maps[self.LACP_HOST]}
+            for i in self.host_port_maps[self.LACP_HOST]
+        }
         lacp_intfs = {
-            pair[0].name for switch in lacp_switches for pair in lacp_host.connectionsTo(switch)}
-        dst_host = self.host_information[1]['host']
+            pair[0].name
+            for switch in lacp_switches
+            for pair in lacp_host.connectionsTo(switch)
+        }
+        dst_host = self.host_information[1]["host"]
         # Detect initial broadcast ARP
-        tcpdump_filter = ('arp and ether src 0e:00:00:00:00:99 '
-                          'and ether dst ff:ff:ff:ff:ff:ff')
+        tcpdump_filter = (
+            "arp and ether src 0e:00:00:00:00:99 " "and ether dst ff:ff:ff:ff:ff:ff"
+        )
         # Count the number of links that contained the broadcast ARP packet
         except_count = 0
         for intf in lacp_intfs:
             funcs = []
             # Delete all ARP records of the lacp host
-            for host in [info['host'] for info in self.host_information.values()]:
-                funcs.append(lambda host=host: host.cmd('arp -d %s' % lacp_host.IP()))
-                funcs.append(lambda host=host: host.cmd('arp -d %s' % dst_host.IP()))
-                funcs.append(lambda host=host: lacp_host.cmd('arp -d %s' % host.IP()))
+            for host in [info["host"] for info in self.host_information.values()]:
+                funcs.append(lambda host=host: host.cmd("arp -d %s" % lacp_host.IP()))
+                funcs.append(lambda host=host: host.cmd("arp -d %s" % dst_host.IP()))
+                funcs.append(lambda host=host: lacp_host.cmd("arp -d %s" % host.IP()))
             # Ping to cause broadcast ARP request
-            funcs.append(lambda: lacp_host.cmd('ping -c5 %s' % dst_host.IP()))
+            funcs.append(lambda: lacp_host.cmd("ping -c5 %s" % dst_host.IP()))
             # Start tcpdump looking for broadcast ARP packets
             tcpdump_txt = self.tcpdump_helper(
-                lacp_host, tcpdump_filter, intf_name=intf, funcs=funcs)
+                lacp_host, tcpdump_filter, intf_name=intf, funcs=funcs
+            )
             try:
                 self.verify_no_packets(tcpdump_txt)
             except AssertionError:
-                error('Broadcast detected on %s\n' % intf)
+                error("Broadcast detected on %s\n" % intf)
                 except_count += 1
         # Only the source LACP link should detect the packet
         self.assertEqual(
-            except_count, 1,
-            'Number of links detecting the broadcast ARP %s (!= 1)' % except_count)
+            except_count,
+            1,
+            "Number of links detecting the broadcast ARP %s (!= 1)" % except_count,
+        )
 
 
 class FaucetStackTopoChangeTest(FaucetMultiDPTestBase):
@@ -2143,20 +2424,27 @@ class FaucetStackTopoChangeTest(FaucetMultiDPTestBase):
     def test_graph_object(self):
         """Parse event log and validate graph object in event."""
         self.set_up(
-            stack=True, n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, switch_to_switch_links=2)
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_tagged=self.NUM_HOSTS,
+            switch_to_switch_links=2,
+        )
         self._enable_event_log()
         self.verify_stack_up()
         stack_event_found = False
-        with open(self.event_log, 'r', encoding='utf-8') as event_log_file:
+        with open(self.event_log, "r", encoding="utf-8") as event_log_file:
             for event_log_line in event_log_file.readlines():
                 event = json.loads(event_log_line.strip())
-                if 'STACK_TOPO_CHANGE' in event:
+                if "STACK_TOPO_CHANGE" in event:
                     stack_event_found = True
-                    graph = event.get('STACK_TOPO_CHANGE').get('graph')
+                    graph = event.get("STACK_TOPO_CHANGE").get("graph")
                     self.assertTrue(graph)
-                    node_count = len(graph.get('nodes'))
-                    self.assertEqual(node_count, 3,
-                                     'Number of nodes in graph object is %s (!=3)' % node_count)
+                    node_count = len(graph.get("nodes"))
+                    self.assertEqual(
+                        node_count,
+                        3,
+                        "Number of nodes in graph object is %s (!=3)" % node_count,
+                    )
         self.assertTrue(stack_event_found)
 
 
@@ -2181,13 +2469,20 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges()) * switch_to_switch_links
         link_vlans = {edge: None for edge in switch_links}
         if host_links is None:
@@ -2211,11 +2506,18 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_intervlan_routing()
         conf = self._get_faucet_conf()
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
-        interfaces_conf[self.host_port_maps[2][2][0]]['native_vlan'] = self.topo.vlan_name(0)
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[2]]["interfaces"]
+        interfaces_conf[self.host_port_maps[2][2][0]][
+            "native_vlan"
+        ] = self.topo.vlan_name(0)
         self.reload_conf(
-            conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[2])
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+            dpid=self.topo.dpids_by_id[2],
+        )
         self.verify_stack_up(timeout=1)
         self.verify_intervlan_routing()
 
@@ -2226,10 +2528,14 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_intervlan_routing()
         conf = self._get_faucet_conf()
-        conf['vlans'][self.topo.vlan_name(0)]['edge_learn_stack_root'] = False
+        conf["vlans"][self.topo.vlan_name(0)]["edge_learn_stack_root"] = False
         self.reload_conf(
-            conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True)
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+        )
         self.verify_stack_up(timeout=1)
         self.verify_intervlan_routing()
 
@@ -2241,16 +2547,23 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_intervlan_routing()
         conf = self._get_faucet_conf()
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[0]]['interfaces']
-        interfaces_conf[self.host_port_maps[0][0][0]]['native_vlan'] = self.topo.vlan_name(1)
-        self.host_information[0]['vlan'] = 1
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[0]]["interfaces"]
+        interfaces_conf[self.host_port_maps[0][0][0]][
+            "native_vlan"
+        ] = self.topo.vlan_name(1)
+        self.host_information[0]["vlan"] = 1
         self.reload_conf(
-            conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[0])
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+            dpid=self.topo.dpids_by_id[0],
+        )
         self.verify_stack_up(timeout=1)
         ip_intf = ipaddress.ip_interface(self.host_ip_address(0, 1))
-        self.host_information[0]['ip'] = ip_intf
-        self.set_host_ip(self.host_information[0]['host'], ip_intf)
+        self.host_information[0]["ip"] = ip_intf
+        self.set_host_ip(self.host_information[0]["host"], ip_intf)
         self.verify_intervlan_routing()
 
     def test_del_seconday_stack_port(self):
@@ -2259,11 +2572,20 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_intervlan_routing()
         conf = self._get_faucet_conf()
-        del conf['dps'][self.topo.switches_by_id[1]]['interfaces'][self.link_port_maps[(1, 2)][0]]
-        del conf['dps'][self.topo.switches_by_id[2]]['interfaces'][self.link_port_maps[(2, 1)][0]]
+        del conf["dps"][self.topo.switches_by_id[1]]["interfaces"][
+            self.link_port_maps[(1, 2)][0]
+        ]
+        del conf["dps"][self.topo.switches_by_id[2]]["interfaces"][
+            self.link_port_maps[(2, 1)][0]
+        ]
         self.reload_conf(
-            conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[0])
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+            dpid=self.topo.dpids_by_id[0],
+        )
         # Due to flood table size changes, some DPs will be cold starting
         self.verify_stack_up(timeout=1, prop=0.5)
         self.verify_intervlan_routing()
@@ -2274,11 +2596,20 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_intervlan_routing()
         conf = self._get_faucet_conf()
-        del conf['dps'][self.topo.switches_by_id[1]]['interfaces'][self.link_port_maps[(1, 2)][1]]
-        del conf['dps'][self.topo.switches_by_id[2]]['interfaces'][self.link_port_maps[(2, 1)][1]]
+        del conf["dps"][self.topo.switches_by_id[1]]["interfaces"][
+            self.link_port_maps[(1, 2)][1]
+        ]
+        del conf["dps"][self.topo.switches_by_id[2]]["interfaces"][
+            self.link_port_maps[(2, 1)][1]
+        ]
         self.reload_conf(
-            conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[0])
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+            dpid=self.topo.dpids_by_id[0],
+        )
         # Due to flood table size changes, some DPs will be cold starting
         self.verify_stack_up(timeout=1, prop=0.5)
         self.verify_intervlan_routing()
@@ -2290,11 +2621,16 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_intervlan_routing()
         conf = self._get_faucet_conf()
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[0]]['interfaces']
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[0]]["interfaces"]
         del interfaces_conf[self.host_port_maps[0][0][0]]
         self.reload_conf(
-            conf, self.faucet_config_path, restart=True,
-            cold_start=None, change_expected=True, dpid=self.topo.dpids_by_id[0])
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=None,
+            change_expected=True,
+            dpid=self.topo.dpids_by_id[0],
+        )
         self.verify_stack_up()
         del self.host_information[0]
         self.verify_intervlan_routing()
@@ -2309,17 +2645,24 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         # Create an additional link between S1-S2
         port_num = self.topo._create_next_port(self.topo.switches_by_id[0])
         rev_port_num = self.topo._create_next_port(self.topo.switches_by_id[1])
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[0]]['interfaces']
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[0]]["interfaces"]
         interfaces_conf[port_num] = {
-            'name': 'b%u' % port_num,
-            'stack': {'dp': self.topo.switches_by_id[1], 'port': rev_port_num}}
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
+            "name": "b%u" % port_num,
+            "stack": {"dp": self.topo.switches_by_id[1], "port": rev_port_num},
+        }
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[1]]["interfaces"]
         interfaces_conf[rev_port_num] = {
-            'name': 'b%u' % rev_port_num,
-            'stack': {'dp': self.topo.switches_by_id[0], 'port': port_num}}
+            "name": "b%u" % rev_port_num,
+            "stack": {"dp": self.topo.switches_by_id[0], "port": port_num},
+        }
         self.reload_conf(
-            conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[2])
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+            dpid=self.topo.dpids_by_id[2],
+        )
         self.verify_stack_up()
         self.verify_intervlan_routing()
 
@@ -2333,17 +2676,24 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         # Create an additional link between S1-S2
         port_num = self.topo._create_next_port(self.topo.switches_by_id[1])
         rev_port_num = self.topo._create_next_port(self.topo.switches_by_id[2])
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[1]]["interfaces"]
         interfaces_conf[port_num] = {
-            'name': 'b%u' % port_num,
-            'stack': {'dp': self.topo.switches_by_id[2], 'port': rev_port_num}}
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
+            "name": "b%u" % port_num,
+            "stack": {"dp": self.topo.switches_by_id[2], "port": rev_port_num},
+        }
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[2]]["interfaces"]
         interfaces_conf[rev_port_num] = {
-            'name': 'b%u' % rev_port_num,
-            'stack': {'dp': self.topo.switches_by_id[1], 'port': port_num}}
+            "name": "b%u" % rev_port_num,
+            "stack": {"dp": self.topo.switches_by_id[1], "port": port_num},
+        }
         self.reload_conf(
-            conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[0])
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+            dpid=self.topo.dpids_by_id[0],
+        )
         self.verify_stack_up()
         self.verify_intervlan_routing()
 
@@ -2357,18 +2707,25 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         # Create an additional link between S1-S2
         port_num = self.topo._create_next_port(self.topo.switches_by_id[1])
         rev_port_num = self.topo._create_next_port(self.topo.switches_by_id[2])
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[1]]["interfaces"]
         interfaces_conf[port_num] = {
-            'name': 'b%u' % port_num,
-            'stack': {'dp': self.topo.switches_by_id[2], 'port': rev_port_num}}
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
+            "name": "b%u" % port_num,
+            "stack": {"dp": self.topo.switches_by_id[2], "port": rev_port_num},
+        }
+        interfaces_conf = conf["dps"][self.topo.switches_by_id[2]]["interfaces"]
         interfaces_conf[rev_port_num] = {
-            'name': 'b%u' % rev_port_num,
-            'stack': {'dp': self.topo.switches_by_id[1], 'port': port_num}}
+            "name": "b%u" % rev_port_num,
+            "stack": {"dp": self.topo.switches_by_id[1], "port": port_num},
+        }
         # Expected cold start as topology changed with all ports being stack ports
         self.reload_conf(
-            conf, self.faucet_config_path, restart=True,
-            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[0])
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+            dpid=self.topo.dpids_by_id[0],
+        )
         self.verify_stack_up()
         self.verify_intervlan_routing()
 
@@ -2389,7 +2746,7 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
     @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
-        return '0.0.0.0'
+        return "0.0.0.0"
 
     def setUp(self):
         """Ignore to allow for setting up network in each test"""
@@ -2400,22 +2757,35 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
         switch_links = []
         link_vlans = {}
         host_links = {0: [0], 1: [0], 2: [0]}
         # two host on each native VLAN then DHCP host on tagged VLANs
         host_vlans = {0: 0, 1: 0, 2: [0]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
-        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
-        mininet_host_options[2] = {'vlan_intfs': {0: '10.1.0.20/24'}, 'ip': '0.0.0.0'}
+        mininet_host_options = {
+            h_i: {"ip": "0.0.0.0"} for h_i in range(self.NUM_HOSTS - 1)
+        }
+        mininet_host_options[2] = {"vlan_intfs": {0: "10.1.0.20/24"}, "ip": "0.0.0.0"}
         vlan_options = {
-            v_i: {'faucet_vips': [self.faucet_vip(v_i)], 'faucet_mac': self.faucet_mac(v_i)}
-            for v_i in range(self.NUM_VLANS)}
+            v_i: {
+                "faucet_vips": [self.faucet_vip(v_i)],
+                "faucet_mac": self.faucet_mac(v_i),
+            }
+            for v_i in range(self.NUM_VLANS)
+        }
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -2424,23 +2794,27 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
             vlan_options=vlan_options,
-            mininet_host_options=mininet_host_options
+            mininet_host_options=mininet_host_options,
         )
         self.start_net()
 
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
-        iprange = '10.1.0.10,10.1.0.20'
-        router = '10.1.0.254'
+        iprange = "10.1.0.10,10.1.0.20"
+        router = "10.1.0.254"
         vlan = 100
         host = self.net.get(self.topo.hosts_by_id[2])
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[0])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
             host.run_dhclient(self.tmpdir)
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.11')
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], "10.1.0.10"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], "10.1.0.11"
+        )
         self.check_host_connectivity_by_id(0, 1)
 
 
@@ -2460,7 +2834,7 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
     @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
-        return '0.0.0.0'
+        return "0.0.0.0"
 
     def setUp(self):
         """Ignore to allow for setting up network in each test"""
@@ -2471,24 +2845,37 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[dp_i]['stack'] = {'priority': 1}
+                dp_options[dp_i]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1], 4: [0]}
         # two host on each native VLAN then DHCP host on tagged VLANs
         host_vlans = {0: 0, 1: 0, 2: 0, 3: 0, 4: [0]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
-        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
-        mininet_host_options[4] = {'vlan_intfs': {0: '10.1.0.20/24'}, 'ip': '0.0.0.0'}
+        mininet_host_options = {
+            h_i: {"ip": "0.0.0.0"} for h_i in range(self.NUM_HOSTS - 1)
+        }
+        mininet_host_options[4] = {"vlan_intfs": {0: "10.1.0.20/24"}, "ip": "0.0.0.0"}
         vlan_options = {
-            v_i: {'faucet_vips': [self.faucet_vip(v_i)], 'faucet_mac': self.faucet_mac(v_i)}
-            for v_i in range(self.NUM_VLANS)}
+            v_i: {
+                "faucet_vips": [self.faucet_vip(v_i)],
+                "faucet_mac": self.faucet_mac(v_i),
+            }
+            for v_i in range(self.NUM_VLANS)
+        }
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -2497,25 +2884,33 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
             vlan_options=vlan_options,
-            mininet_host_options=mininet_host_options
+            mininet_host_options=mininet_host_options,
         )
         self.start_net()
 
     def test_dhcp_ip_allocation(self):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
-        iprange = '10.1.0.10,10.1.0.20'
-        router = '10.1.0.254'
+        iprange = "10.1.0.10,10.1.0.20"
+        router = "10.1.0.254"
         vlan = 100
         host = self.net.get(self.topo.hosts_by_id[4])
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[0])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
             host.run_dhclient(self.tmpdir)
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.11')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.12')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], '10.1.0.13')
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], "10.1.0.10"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], "10.1.0.11"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], "10.1.0.12"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], "10.1.0.13"
+        )
         self.check_host_connectivity_by_id(0, 1)
         self.check_host_connectivity_by_id(1, 2)
         self.check_host_connectivity_by_id(2, 3)
@@ -2539,7 +2934,7 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
     @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
-        return '0.0.0.0'
+        return "0.0.0.0"
 
     def setUp(self):
         """Ignore to allow for setting up network in each test"""
@@ -2550,25 +2945,38 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
         switch_links = []
         link_vlans = {}
         host_links = {0: [0], 1: [0], 2: [0], 3: [0], 4: [0]}
         # two host on each native VLAN then DHCP host on tagged VLANs
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 1, 4: [0, 1]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
-        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
+        mininet_host_options = {
+            h_i: {"ip": "0.0.0.0"} for h_i in range(self.NUM_HOSTS - 1)
+        }
         mininet_host_options[4] = {
-            'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'},
-            'ip': '0.0.0.0'
+            "vlan_intfs": {0: "10.1.0.20/24", 1: "10.2.0.20/24"},
+            "ip": "0.0.0.0",
         }
         vlan_options = {
-            v_i: {'faucet_vips': [self.faucet_vip(v_i)], 'faucet_mac': self.faucet_mac(v_i)}
-            for v_i in range(self.NUM_VLANS)}
+            v_i: {
+                "faucet_vips": [self.faucet_vip(v_i)],
+                "faucet_mac": self.faucet_mac(v_i),
+            }
+            for v_i in range(self.NUM_VLANS)
+        }
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -2577,7 +2985,7 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
             vlan_options=vlan_options,
-            mininet_host_options=mininet_host_options
+            mininet_host_options=mininet_host_options,
         )
         self.start_net()
 
@@ -2585,21 +2993,29 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
         host = self.net.get(self.topo.hosts_by_id[4])
-        iprange = '10.1.0.10,10.1.0.20'
-        router = '10.1.0.254'
+        iprange = "10.1.0.10,10.1.0.20"
+        router = "10.1.0.254"
         vlan = 100
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[0])
-        iprange = '10.2.0.10,10.2.0.20'
-        router = '10.2.0.254'
+        iprange = "10.2.0.10,10.2.0.20"
+        router = "10.2.0.254"
         vlan = 200
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[1])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
             host.run_dhclient(self.tmpdir)
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.11')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.2.0.10')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], '10.2.0.11')
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], "10.1.0.10"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], "10.1.0.11"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], "10.2.0.10"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], "10.2.0.11"
+        )
         self.check_host_connectivity_by_id(0, 1)
         self.check_host_connectivity_by_id(2, 3)
 
@@ -2622,7 +3038,7 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
     @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
-        return '0.0.0.0'
+        return "0.0.0.0"
 
     def setUp(self):
         """Ignore to allow for setting up network in each test"""
@@ -2633,27 +3049,40 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[dp_i]['stack'] = {'priority': 1}
+                dp_options[dp_i]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1], 4: [0]}
         # two host on each native VLAN then DHCP host on tagged VLANs
         host_vlans = {0: 0, 1: 1, 2: 0, 3: 1, 4: [0, 1]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
-        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
+        mininet_host_options = {
+            h_i: {"ip": "0.0.0.0"} for h_i in range(self.NUM_HOSTS - 1)
+        }
         mininet_host_options[4] = {
-            'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'},
-            'ip': '0.0.0.0'
+            "vlan_intfs": {0: "10.1.0.20/24", 1: "10.2.0.20/24"},
+            "ip": "0.0.0.0",
         }
         vlan_options = {
-            v_i: {'faucet_vips': [self.faucet_vip(v_i)], 'faucet_mac': self.faucet_mac(v_i)}
-            for v_i in range(self.NUM_VLANS)}
+            v_i: {
+                "faucet_vips": [self.faucet_vip(v_i)],
+                "faucet_mac": self.faucet_mac(v_i),
+            }
+            for v_i in range(self.NUM_VLANS)
+        }
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -2662,7 +3091,7 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
             vlan_options=vlan_options,
-            mininet_host_options=mininet_host_options
+            mininet_host_options=mininet_host_options,
         )
         self.start_net()
 
@@ -2670,21 +3099,29 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
         host = self.net.get(self.topo.hosts_by_id[4])
-        iprange = '10.1.0.10,10.1.0.20'
-        router = '10.1.0.254'
+        iprange = "10.1.0.10,10.1.0.20"
+        router = "10.1.0.254"
         vlan = 100
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[0])
-        iprange = '10.2.0.10,10.2.0.20'
-        router = '10.2.0.254'
+        iprange = "10.2.0.10,10.2.0.20"
+        router = "10.2.0.254"
         vlan = 200
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[1])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
             host.run_dhclient(self.tmpdir)
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.11')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.10')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], '10.2.0.11')
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], "10.1.0.10"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], "10.1.0.11"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], "10.2.0.10"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], "10.2.0.11"
+        )
         self.check_host_connectivity_by_id(0, 2)
         self.check_host_connectivity_by_id(1, 3)
 
@@ -2709,35 +3146,66 @@ class FaucetBipartiteGraphPortDownTest(FaucetTopoTestBase):
     def set_up(self):
         """Set up network"""
         super().setUp()
-        network_graph = networkx.algorithms.bipartite.generators.complete_bipartite_graph(2, 3)
+        network_graph = (
+            networkx.algorithms.bipartite.generators.complete_bipartite_graph(2, 3)
+        )
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i in [0, 1]:
-                dp_options[dp_i]['stack'] = {'priority': 1}
-                dp_options[dp_i]['lacp_timeout'] = 5
+                dp_options[dp_i]["stack"] = {"priority": 1}
+                dp_options[dp_i]["lacp_timeout"] = 5
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         # Host 0 is a tap
         # Tier 1 switches contain egress LACP hosts
         # Host devices on tier 2 switches
         host_links = {
-            0: [0], 1: [0],
+            0: [0],
+            1: [0],
             2: [1],
-            3: [2], 4: [2], 5: [2], 6: [2],
-            7: [3], 8: [3], 9: [3], 10: [3],
-            11: [4], 12: [4], 13: [4], 14: [4]}
+            3: [2],
+            4: [2],
+            5: [2],
+            6: [2],
+            7: [3],
+            8: [3],
+            9: [3],
+            10: [3],
+            11: [4],
+            12: [4],
+            13: [4],
+            14: [4],
+        }
         host_vlans = {
-            0: [0, 1], 1: [0],
+            0: [0, 1],
+            1: [0],
             2: [0],
-            3: 0, 4: 0, 5: 0, 6: 0,
-            7: 0, 8: 0, 9: 0, 10: 0,
-            11: 0, 12: 0, 13: 0, 14: 0}
-        host_options = {1: {'lacp': 3}, 2: {'lacp': 3}}
+            3: 0,
+            4: 0,
+            5: 0,
+            6: 0,
+            7: 0,
+            8: 0,
+            9: 0,
+            10: 0,
+            11: 0,
+            12: 0,
+            13: 0,
+            14: 0,
+        }
+        host_options = {1: {"lacp": 3}, 2: {"lacp": 3}}
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -2745,7 +3213,7 @@ class FaucetBipartiteGraphPortDownTest(FaucetTopoTestBase):
             link_vlans=link_vlans,
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
-            host_options=host_options
+            host_options=host_options,
         )
         self.start_net()
 
@@ -2755,8 +3223,12 @@ class FaucetBipartiteGraphPortDownTest(FaucetTopoTestBase):
         self.verify_stack_up()
         sw1_stack_port = min(self.link_port_maps[(0, 2)])
         sw2_stack_port = min(self.link_port_maps[(1, 3)])
-        self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], sw1_stack_port)
-        self.one_stack_port_down(self.dpids[1], self.topo.switches_by_id[1], sw2_stack_port)
+        self.one_stack_port_down(
+            self.dpids[0], self.topo.switches_by_id[0], sw1_stack_port
+        )
+        self.one_stack_port_down(
+            self.dpids[1], self.topo.switches_by_id[1], sw2_stack_port
+        )
         self.check_host_connectivity_by_id(3, 7)
         self.check_host_connectivity_by_id(3, 11)
 
@@ -2779,7 +3251,7 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
     @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
-        return '0.0.0.0'
+        return "0.0.0.0"
 
     def setUp(self):
         """Ignore to allow for setting up network in each test"""
@@ -2790,27 +3262,40 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[dp_i]['stack'] = {'priority': 1}
+                dp_options[dp_i]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1], 4: [0]}
         # two host on each native VLAN then DHCP host on tagged VLANs
         host_vlans = {0: [0], 1: [1], 2: [0], 3: [1], 4: [0, 1]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
-        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
+        mininet_host_options = {
+            h_i: {"ip": "0.0.0.0"} for h_i in range(self.NUM_HOSTS - 1)
+        }
         mininet_host_options[4] = {
-            'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'},
-            'ip': '0.0.0.0'
+            "vlan_intfs": {0: "10.1.0.20/24", 1: "10.2.0.20/24"},
+            "ip": "0.0.0.0",
         }
         vlan_options = {
-            v_i: {'faucet_vips': [self.faucet_vip(v_i)], 'faucet_mac': self.faucet_mac(v_i)}
-            for v_i in range(self.NUM_VLANS)}
+            v_i: {
+                "faucet_vips": [self.faucet_vip(v_i)],
+                "faucet_mac": self.faucet_mac(v_i),
+            }
+            for v_i in range(self.NUM_VLANS)
+        }
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -2819,7 +3304,7 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
             vlan_options=vlan_options,
-            mininet_host_options=mininet_host_options
+            mininet_host_options=mininet_host_options,
         )
         self.start_net()
 
@@ -2827,21 +3312,29 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
         """Test that hosts can get allocated addresses from DHCP and can then ping each other"""
         self.set_up()
         host = self.net.get(self.topo.hosts_by_id[4])
-        iprange = '10.1.0.10,10.1.0.20'
-        router = '10.1.0.254'
+        iprange = "10.1.0.10,10.1.0.20"
+        router = "10.1.0.254"
         vlan = 100
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[0])
-        iprange = '10.2.0.10,10.2.0.20'
-        router = '10.2.0.254'
+        iprange = "10.2.0.10,10.2.0.20"
+        router = "10.2.0.254"
         vlan = 200
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, host.vlan_intfs[1])
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
             host.run_dhclient(self.tmpdir)
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.11')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.10')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], '10.2.0.11')
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], "10.1.0.10"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], "10.1.0.11"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], "10.2.0.10"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], "10.2.0.11"
+        )
         self.check_host_connectivity_by_id(0, 2)
         self.check_host_connectivity_by_id(1, 3)
 
@@ -2862,25 +3355,30 @@ class FaucetTunneltoCoprocessorTest(FaucetTopoTestBase):
         # Tunnel from host 3 (switch 1) to host 0 (switch 0)
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 0,
-                        'output': {
-                            'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[0],  # Switch 0
-                                'port': self.host_port_maps[0][0][0]}  # Switch 0 host 0
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "actions": {
+                            "allow": 0,
+                            "output": {
+                                "tunnel": {
+                                    "type": "vlan",
+                                    "tunnel_id": 200,
+                                    "dp": self.topo.switches_by_id[0],  # Switch 0
+                                    "port": self.host_port_maps[0][0][0],
+                                }  # Switch 0 host 0
+                            },
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
                         }
                     }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    }
-                }},
+                },
             ]
         }
 
@@ -2890,18 +3388,28 @@ class FaucetTunneltoCoprocessorTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: None, 1: 0, 2: 0, 3: 0}
-        host_options = {0: {'coprocessor': {'strategy': 'vlan_vid'}}, 3: {'acls_in': [1]}}
+        host_options = {
+            0: {"coprocessor": {"strategy": "vlan_vid"}},
+            3: {"acls_in": [1]},
+        }
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -2919,7 +3427,9 @@ class FaucetTunneltoCoprocessorTest(FaucetTopoTestBase):
         src_host = self.net.get(self.topo.hosts_by_id[3])
         other_host = self.net.get(self.topo.hosts_by_id[2])
         dst_host = self.net.get(self.topo.hosts_by_id[0])
-        self.verify_tunnel_established(src_host, dst_host, other_host, dpid=self.dpids[1])
+        self.verify_tunnel_established(
+            src_host, dst_host, other_host, dpid=self.dpids[1]
+        )
 
 
 class FaucetDPACLTunnelTest(FaucetTopoTestBase):
@@ -2942,63 +3452,76 @@ class FaucetDPACLTunnelTest(FaucetTopoTestBase):
         #   sent into the tunnel.
         return {
             1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'in_port': self.host_port_maps[0][0][0],
-                    'actions': {
-                        'allow': 0,
-                        'output': {
-                            'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[1],  # Switch 1
-                                'port': self.host_port_maps[2][1][0]}  # Switch 1 host 2
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "in_port": self.host_port_maps[0][0][0],
+                        "actions": {
+                            "allow": 0,
+                            "output": {
+                                "tunnel": {
+                                    "type": "vlan",
+                                    "tunnel_id": 200,
+                                    "dp": self.topo.switches_by_id[1],  # Switch 1
+                                    "port": self.host_port_maps[2][1][0],
+                                }  # Switch 1 host 2
+                            },
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "in_port": self.host_port_maps[1][0][0],
+                        "actions": {
+                            "allow": 0,
+                            "output": {
+                                "tunnel": {
+                                    "type": "vlan",
+                                    "tunnel_id": 200,
+                                    "dp": self.topo.switches_by_id[1],
+                                    "port": self.host_port_maps[2][1][0],
+                                }
+                            },
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
                         }
                     }
-                }},
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'in_port': self.host_port_maps[1][0][0],
-                    'actions': {
-                        'allow': 0,
-                        'output': {
-                            'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[1],
-                                'port': self.host_port_maps[2][1][0]}
-                        }
-                    }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    }
-                }},
+                },
             ],
             2: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 0,
-                        'output': {
-                            'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[1],
-                                'port': self.host_port_maps[2][1][0]}
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "actions": {
+                            "allow": 0,
+                            "output": {
+                                "tunnel": {
+                                    "type": "vlan",
+                                    "tunnel_id": 200,
+                                    "dp": self.topo.switches_by_id[1],
+                                    "port": self.host_port_maps[2][1][0],
+                                }
+                            },
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
                         }
                     }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    }
-                }},
-            ]
+                },
+            ],
         }
 
     def setUp(self):
@@ -3007,19 +3530,26 @@ class FaucetDPACLTunnelTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
-                dp_options[0]['dp_acls'] = [1]
+                dp_options[0]["stack"] = {"priority": 1}
+                dp_options[0]["dp_acls"] = [1]
         switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: 0, 1: 0, 2: 0, 3: 0}
-        host_options = {3: {'acls_in': [2]}}
+        host_options = {3: {"acls_in": [2]}}
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -3047,7 +3577,9 @@ class FaucetDPACLTunnelTest(FaucetTopoTestBase):
         other_host = self.net.get(self.topo.hosts_by_id[3])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
         first_stack_port = min(self.link_port_maps[(0, 1)])
-        self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
+        self.one_stack_port_down(
+            self.dpids[0], self.topo.switches_by_id[0], first_stack_port
+        )
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
 
@@ -3073,26 +3605,30 @@ class FaucetACLTunnelDPDestinationTest(FaucetTopoTestBase):
         #   sent into the tunnel.
         return {
             2: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 0,
-                        'output': {
-                            'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[1],
-                                'exit_instructions': [{'vlan_vid': 100}]
-                            }
+                {
+                    "rule": {
+                        "dl_type": IPV4_ETH,
+                        "ip_proto": 1,
+                        "actions": {
+                            "allow": 0,
+                            "output": {
+                                "tunnel": {
+                                    "type": "vlan",
+                                    "tunnel_id": 200,
+                                    "dp": self.topo.switches_by_id[1],
+                                    "exit_instructions": [{"vlan_vid": 100}],
+                                }
+                            },
+                        },
+                    }
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
                         }
                     }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    }
-                }},
+                },
             ]
         }
 
@@ -3102,18 +3638,25 @@ class FaucetACLTunnelDPDestinationTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: 0, 1: 0, 2: 0, 3: 0}
-        host_options = {0: {'acls_in': [2]}}
+        host_options = {0: {"acls_in": [2]}}
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -3140,7 +3683,9 @@ class FaucetACLTunnelDPDestinationTest(FaucetTopoTestBase):
         self.check_host_connectivity_by_id(0, 2)
         self.check_host_connectivity_by_id(0, 3)
         first_stack_port = min(self.link_port_maps[(0, 1)])
-        self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
+        self.one_stack_port_down(
+            self.dpids[0], self.topo.switches_by_id[0], first_stack_port
+        )
         self.check_host_connectivity_by_id(0, 2)
         self.check_host_connectivity_by_id(0, 3)
 
@@ -3165,99 +3710,121 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         """Return ACL config"""
         return {
             1: [
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'in_port': self.host_port_maps[0][0][0],
-                    'actions': {
-                        'allow': 0,
-                        'output': [
-                            {'vlan_vid': 100},
-                            {'tunnel': {
-                                'dp': self.topo.switches_by_id[0],
-                                'port': self.link_port_maps[(0, 2)][0],
-                                'maintain_encapsulation': True,
-                                'bi_directional': True,
-                                'tunnel_id': 200}}
-                        ]
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "in_port": self.host_port_maps[0][0][0],
+                        "actions": {
+                            "allow": 0,
+                            "output": [
+                                {"vlan_vid": 100},
+                                {
+                                    "tunnel": {
+                                        "dp": self.topo.switches_by_id[0],
+                                        "port": self.link_port_maps[(0, 2)][0],
+                                        "maintain_encapsulation": True,
+                                        "bi_directional": True,
+                                        "tunnel_id": 200,
+                                    }
+                                },
+                            ],
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'actions': {
-                        'allow': 0,
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "actions": {
+                            "allow": 0,
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 67,
-                    'udp_dst': 68,
-                    'dl_type': 0x0800,
-                    'actions': {
-                        'allow': 0,
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 67,
+                        "udp_dst": 68,
+                        "dl_type": 0x0800,
+                        "actions": {
+                            "allow": 0,
+                        },
                     }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        }
                     }
-                }},
+                },
             ],
             2: [
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'in_port': self.host_port_maps[1][1][0],
-                    'actions': {
-                        'allow': 0,
-                        'output': [
-                            {'vlan_vid': 100},
-                            {'tunnel': {
-                                'dp': self.topo.switches_by_id[0],
-                                'port': self.link_port_maps[(0, 2)][0],
-                                'maintain_encapsulation': True,
-                                'bi_directional': True,
-                                'tunnel_id': 300}}
-                        ]
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "in_port": self.host_port_maps[1][1][0],
+                        "actions": {
+                            "allow": 0,
+                            "output": [
+                                {"vlan_vid": 100},
+                                {
+                                    "tunnel": {
+                                        "dp": self.topo.switches_by_id[0],
+                                        "port": self.link_port_maps[(0, 2)][0],
+                                        "maintain_encapsulation": True,
+                                        "bi_directional": True,
+                                        "tunnel_id": 300,
+                                    }
+                                },
+                            ],
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'actions': {
-                        'allow': 0,
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "actions": {
+                            "allow": 0,
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 67,
-                    'udp_dst': 68,
-                    'dl_type': 0x0800,
-                    'actions': {
-                        'allow': 0,
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 67,
+                        "udp_dst": 68,
+                        "dl_type": 0x0800,
+                        "actions": {
+                            "allow": 0,
+                        },
                     }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        }
                     }
-                }},
+                },
             ],
         }
 
     @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
-        return '0.0.0.0'
+        return "0.0.0.0"
 
     def setUp(self):
         """Start the network"""
@@ -3265,30 +3832,41 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS - 1)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
-            dp_options[dp_i]['dp_acls'] = [dp_i + 1]
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
+            dp_options[dp_i]["dp_acls"] = [dp_i + 1]
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
         # Add in coprocessor switch link
         switch_links.append((0, 2))
         link_vlans = {edge: None for edge in switch_links}
-        link_options = {(0, 2): {'coprocessor': {'strategy': 'vlan_vid'}}}
+        link_options = {(0, 2): {"coprocessor": {"strategy": "vlan_vid"}}}
         host_links = {0: [0], 1: [1], 2: [2]}
         host_vlans = {0: 0, 1: 0, 2: [0, 1, 2]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
-        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
-        mininet_host_options[2] = {
-            'vlan_intfs': {(1, 0): '10.1.0.20/24', (2, 0): '10.1.0.30/24'},
-            'ip': '0.0.0.0'
+        mininet_host_options = {
+            h_i: {"ip": "0.0.0.0"} for h_i in range(self.NUM_HOSTS - 1)
         }
-        vlan_options = {0: {'faucet_vips': [self.faucet_vip(0)], 'faucet_mac': self.faucet_mac(0)}}
-        vlan_options[1] = {'reserved_internal_vlan': True}
-        vlan_options[2] = {'reserved_internal_vlan': True}
+        mininet_host_options[2] = {
+            "vlan_intfs": {(1, 0): "10.1.0.20/24", (2, 0): "10.1.0.30/24"},
+            "ip": "0.0.0.0",
+        }
+        vlan_options = {
+            0: {"faucet_vips": [self.faucet_vip(0)], "faucet_mac": self.faucet_mac(0)}
+        }
+        vlan_options[1] = {"reserved_internal_vlan": True}
+        vlan_options[2] = {"reserved_internal_vlan": True}
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -3309,33 +3887,61 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         #   and output to the Faucet network.
         # Packets returned from the server do not have a PCP value set
         switch.cmd(
-            ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=200,'
-             'actions=set_field:4-\\>vlan_pcp,output:%s') % (
-                 switch.name, self.host_port_maps[2][2][0], self.link_port_maps[(2, 0)][0]))
+            (
+                "ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=200,"
+                "actions=set_field:4-\\>vlan_pcp,output:%s"
+            )
+            % (
+                switch.name,
+                self.host_port_maps[2][2][0],
+                self.link_port_maps[(2, 0)][0],
+            )
+        )
         switch.cmd(
-            ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=300,'
-             'actions=set_field:4-\\>vlan_pcp,output:%s') % (
-                 switch.name, self.host_port_maps[2][2][0], self.link_port_maps[(2, 0)][0]))
+            (
+                "ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=300,"
+                "actions=set_field:4-\\>vlan_pcp,output:%s"
+            )
+            % (
+                switch.name,
+                self.host_port_maps[2][2][0],
+                self.link_port_maps[(2, 0)][0],
+            )
+        )
         # Forward tunneled DHCP packets to the DNSMASQ server
         switch.cmd(
-            ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=200,'
-             'vlan_pcp=3,actions=output:%s') % (
-                 switch.name, self.link_port_maps[(2, 0)][0], self.host_port_maps[2][2][0]))
+            (
+                "ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=200,"
+                "vlan_pcp=3,actions=output:%s"
+            )
+            % (
+                switch.name,
+                self.link_port_maps[(2, 0)][0],
+                self.host_port_maps[2][2][0],
+            )
+        )
         switch.cmd(
-            ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=300,'
-             'vlan_pcp=3,actions=output:%s') % (
-                 switch.name, self.link_port_maps[(2, 0)][0], self.host_port_maps[2][2][0]))
+            (
+                "ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=300,"
+                "vlan_pcp=3,actions=output:%s"
+            )
+            % (
+                switch.name,
+                self.link_port_maps[(2, 0)][0],
+                self.host_port_maps[2][2][0],
+            )
+        )
         # Drop all other (non-DHCP tunnelled) traffic
-        switch.cmd('ovs-ofctl add-flow %s priority=0,actions=drop' % (switch.name))
+        switch.cmd("ovs-ofctl add-flow %s priority=0,actions=drop" % (switch.name))
         # Setup DHCP server
         host = self.net.get(self.topo.hosts_by_id[2])
-        iprange = '10.1.0.10,10.1.0.20'
-        router = '10.1.0.254'
+        iprange = "10.1.0.10,10.1.0.20"
+        router = "10.1.0.254"
         vlan = host.vlans[0]
         intf0 = host.vlan_intfs[(1, 0)][-1]
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, intf0)
-        iprange = '10.1.0.21,10.1.0.30'
-        router = '10.1.0.254'
+        iprange = "10.1.0.21,10.1.0.30"
+        router = "10.1.0.254"
         vlan = host.vlans[0]
         intf1 = host.vlan_intfs[(2, 0)][-1]
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, intf1)
@@ -3347,8 +3953,12 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
             host.run_dhclient(self.tmpdir)
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.10')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.1.0.21')
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], "10.1.0.10"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], "10.1.0.21"
+        )
         self.check_host_connectivity_by_id(0, 1)
 
 
@@ -3373,200 +3983,248 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         """Return ACL config"""
         return {
             1: [
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'in_port': self.host_port_maps[0][0][0],
-                    'actions': {
-                        'allow': 0,
-                        'output': [
-                            {'vlan_vid': 100},
-                            {'tunnel': {
-                                'dp': self.topo.switches_by_id[0],
-                                'port': self.link_port_maps[(0, 3)][0],
-                                'maintain_encapsulation': True,
-                                'bi_directional': True,
-                                'tunnel_id': 300}}
-                        ]
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "in_port": self.host_port_maps[0][0][0],
+                        "actions": {
+                            "allow": 0,
+                            "output": [
+                                {"vlan_vid": 100},
+                                {
+                                    "tunnel": {
+                                        "dp": self.topo.switches_by_id[0],
+                                        "port": self.link_port_maps[(0, 3)][0],
+                                        "maintain_encapsulation": True,
+                                        "bi_directional": True,
+                                        "tunnel_id": 300,
+                                    }
+                                },
+                            ],
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'in_port': self.host_port_maps[1][0][0],
-                    'actions': {
-                        'allow': 0,
-                        'output': [
-                            {'vlan_vid': 200},
-                            {'tunnel': {
-                                'dp': self.topo.switches_by_id[0],
-                                'port': self.link_port_maps[(0, 3)][0],
-                                'maintain_encapsulation': True,
-                                'bi_directional': True,
-                                'tunnel_id': 300}}
-                        ]
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "in_port": self.host_port_maps[1][0][0],
+                        "actions": {
+                            "allow": 0,
+                            "output": [
+                                {"vlan_vid": 200},
+                                {
+                                    "tunnel": {
+                                        "dp": self.topo.switches_by_id[0],
+                                        "port": self.link_port_maps[(0, 3)][0],
+                                        "maintain_encapsulation": True,
+                                        "bi_directional": True,
+                                        "tunnel_id": 300,
+                                    }
+                                },
+                            ],
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'actions': {
-                        'allow': 0,
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "actions": {
+                            "allow": 0,
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 67,
-                    'udp_dst': 68,
-                    'dl_type': 0x0800,
-                    'actions': {
-                        'allow': 0,
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 67,
+                        "udp_dst": 68,
+                        "dl_type": 0x0800,
+                        "actions": {
+                            "allow": 0,
+                        },
                     }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        }
                     }
-                }},
+                },
             ],
             2: [
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'in_port': self.host_port_maps[2][1][0],
-                    'actions': {
-                        'allow': 0,
-                        'output': [
-                            {'vlan_vid': 100},
-                            {'tunnel': {
-                                'dp': self.topo.switches_by_id[0],
-                                'port': self.link_port_maps[(0, 3)][0],
-                                'maintain_encapsulation': True,
-                                'bi_directional': True,
-                                'tunnel_id': 400}}
-                        ]
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "in_port": self.host_port_maps[2][1][0],
+                        "actions": {
+                            "allow": 0,
+                            "output": [
+                                {"vlan_vid": 100},
+                                {
+                                    "tunnel": {
+                                        "dp": self.topo.switches_by_id[0],
+                                        "port": self.link_port_maps[(0, 3)][0],
+                                        "maintain_encapsulation": True,
+                                        "bi_directional": True,
+                                        "tunnel_id": 400,
+                                    }
+                                },
+                            ],
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'in_port': self.host_port_maps[3][1][0],
-                    'actions': {
-                        'allow': 0,
-                        'output': [
-                            {'vlan_vid': 200},
-                            {'tunnel': {
-                                'dp': self.topo.switches_by_id[0],
-                                'port': self.link_port_maps[(0, 3)][0],
-                                'maintain_encapsulation': True,
-                                'bi_directional': True,
-                                'tunnel_id': 400}}
-                        ]
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "in_port": self.host_port_maps[3][1][0],
+                        "actions": {
+                            "allow": 0,
+                            "output": [
+                                {"vlan_vid": 200},
+                                {
+                                    "tunnel": {
+                                        "dp": self.topo.switches_by_id[0],
+                                        "port": self.link_port_maps[(0, 3)][0],
+                                        "maintain_encapsulation": True,
+                                        "bi_directional": True,
+                                        "tunnel_id": 400,
+                                    }
+                                },
+                            ],
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'actions': {
-                        'allow': 0,
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "actions": {
+                            "allow": 0,
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 67,
-                    'udp_dst': 68,
-                    'dl_type': 0x0800,
-                    'actions': {
-                        'allow': 0,
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 67,
+                        "udp_dst": 68,
+                        "dl_type": 0x0800,
+                        "actions": {
+                            "allow": 0,
+                        },
                     }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        }
                     }
-                }},
+                },
             ],
             3: [
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'in_port': self.host_port_maps[4][2][0],
-                    'actions': {
-                        'allow': 0,
-                        'output': [
-                            {'vlan_vid': 100},
-                            {'tunnel': {
-                                'dp': self.topo.switches_by_id[0],
-                                'port': self.link_port_maps[(0, 3)][0],
-                                'maintain_encapsulation': True,
-                                'bi_directional': True,
-                                'tunnel_id': 500}}
-                        ]
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "in_port": self.host_port_maps[4][2][0],
+                        "actions": {
+                            "allow": 0,
+                            "output": [
+                                {"vlan_vid": 100},
+                                {
+                                    "tunnel": {
+                                        "dp": self.topo.switches_by_id[0],
+                                        "port": self.link_port_maps[(0, 3)][0],
+                                        "maintain_encapsulation": True,
+                                        "bi_directional": True,
+                                        "tunnel_id": 500,
+                                    }
+                                },
+                            ],
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'in_port': self.host_port_maps[5][2][0],
-                    'actions': {
-                        'allow': 0,
-                        'output': [
-                            {'vlan_vid': 200},
-                            {'tunnel': {
-                                'dp': self.topo.switches_by_id[0],
-                                'port': self.link_port_maps[(0, 3)][0],
-                                'maintain_encapsulation': True,
-                                'bi_directional': True,
-                                'tunnel_id': 500}}
-                        ]
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "in_port": self.host_port_maps[5][2][0],
+                        "actions": {
+                            "allow": 0,
+                            "output": [
+                                {"vlan_vid": 200},
+                                {
+                                    "tunnel": {
+                                        "dp": self.topo.switches_by_id[0],
+                                        "port": self.link_port_maps[(0, 3)][0],
+                                        "maintain_encapsulation": True,
+                                        "bi_directional": True,
+                                        "tunnel_id": 500,
+                                    }
+                                },
+                            ],
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 68,
-                    'udp_dst': 67,
-                    'dl_type': 0x0800,
-                    'actions': {
-                        'allow': 0,
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 68,
+                        "udp_dst": 67,
+                        "dl_type": 0x0800,
+                        "actions": {
+                            "allow": 0,
+                        },
                     }
-                }},
-                {'rule': {
-                    'nw_proto': 17,
-                    'udp_src': 67,
-                    'udp_dst': 68,
-                    'dl_type': 0x0800,
-                    'actions': {
-                        'allow': 0,
+                },
+                {
+                    "rule": {
+                        "nw_proto": 17,
+                        "udp_src": 67,
+                        "udp_dst": 68,
+                        "dl_type": 0x0800,
+                        "actions": {
+                            "allow": 0,
+                        },
                     }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
+                },
+                {
+                    "rule": {
+                        "actions": {
+                            "allow": 1,
+                        }
                     }
-                }},
+                },
             ],
         }
 
     @staticmethod
     def host_ip_address(_host_index, _vlan_index):
         """Create a string of the host IP address"""
-        return '0.0.0.0'
+        return "0.0.0.0"
 
     def setUp(self):
         """Start the network"""
@@ -3574,38 +4232,50 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         network_graph = networkx.path_graph(self.NUM_DPS - 1)
         dp_options = {}
         for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
-            dp_options[dp_i]['dp_acls'] = [dp_i + 1]
+            dp_options.setdefault(
+                dp_i,
+                {
+                    "group_table": self.GROUP_TABLE,
+                    "ofchannel_log": self.debug_log_path + str(dp_i)
+                    if self.debug_log_path
+                    else None,
+                    "hardware": self.hardware
+                    if dp_i == 0 and self.hw_dpid
+                    else "Open vSwitch",
+                },
+            )
+            dp_options[dp_i]["dp_acls"] = [dp_i + 1]
             if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
+                dp_options[0]["stack"] = {"priority": 1}
         switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
         # Add in coprocessor switch link
         switch_links.append((0, 3))
         link_vlans = {edge: None for edge in switch_links}
-        link_options = {(0, 3): {'coprocessor': {'strategy': 'vlan_vid'}}}
+        link_options = {(0, 3): {"coprocessor": {"strategy": "vlan_vid"}}}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1], 4: [2], 5: [2], 6: [3]}
         host_vlans = {0: 0, 1: 1, 2: 0, 3: 1, 4: 0, 5: 1, 6: [0, 1, 2, 3, 4]}
         # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
-        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
+        mininet_host_options = {
+            h_i: {"ip": "0.0.0.0"} for h_i in range(self.NUM_HOSTS - 1)
+        }
         mininet_host_options[6] = {
-            'vlan_intfs': {
-                (2, 0): '10.1.0.20/24',
-                (3, 0): '10.1.0.30/24',
-                (4, 0): '10.1.0.40/24',
-                (2, 1): '10.2.0.20/24',
-                (3, 1): '10.2.0.30/24',
-                (4, 1): '10.2.0.40/24'},
-            'ip': '0.0.0.0'}
+            "vlan_intfs": {
+                (2, 0): "10.1.0.20/24",
+                (3, 0): "10.1.0.30/24",
+                (4, 0): "10.1.0.40/24",
+                (2, 1): "10.2.0.20/24",
+                (3, 1): "10.2.0.30/24",
+                (4, 1): "10.2.0.40/24",
+            },
+            "ip": "0.0.0.0",
+        }
         vlan_options = {
-            0: {'faucet_vips': [self.faucet_vip(0)], 'faucet_mac': self.faucet_mac(0)},
-            1: {'faucet_vips': [self.faucet_vip(1)], 'faucet_mac': self.faucet_mac(1)}}
-        vlan_options[2] = {'reserved_internal_vlan': True}
-        vlan_options[3] = {'reserved_internal_vlan': True}
-        vlan_options[4] = {'reserved_internal_vlan': True}
+            0: {"faucet_vips": [self.faucet_vip(0)], "faucet_mac": self.faucet_mac(0)},
+            1: {"faucet_vips": [self.faucet_vip(1)], "faucet_mac": self.faucet_mac(1)},
+        }
+        vlan_options[2] = {"reserved_internal_vlan": True}
+        vlan_options[3] = {"reserved_internal_vlan": True}
+        vlan_options[4] = {"reserved_internal_vlan": True}
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -3623,10 +4293,13 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         """Create the DNSMASQ interface link"""
         host = self.net.get(self.topo.hosts_by_id[6])
         tunnel_ip = tunnel_id - 1
-        iprange = '10.%u.0.%u,10.%u.0.%u' % (
-            host_id + 1, (tunnel_ip * 10) + 1, host_id + 1, (tunnel_ip + 1) * 10
+        iprange = "10.%u.0.%u,10.%u.0.%u" % (
+            host_id + 1,
+            (tunnel_ip * 10) + 1,
+            host_id + 1,
+            (tunnel_ip + 1) * 10,
         )
-        router = '10.%u.0.254' % (host_id + 1)
+        router = "10.%u.0.254" % (host_id + 1)
         vlan = host.vlans[host_id]
         intf = host.vlan_intfs[(tunnel_id, host_id)][-1]
         host.create_dnsmasq(self.tmpdir, iprange, router, vlan, intf)
@@ -3639,17 +4312,33 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         # Packets returned from the server do not have a PCP value set
         for i in [300, 400, 500]:
             switch.cmd(
-                ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=%s,'
-                 'actions=set_field:4-\\>vlan_pcp,output:%s') % (
-                     switch.name, self.host_port_maps[6][3][0], i, self.link_port_maps[(3, 0)][0]))
+                (
+                    "ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=67,tp_dst=68,dl_vlan=%s,"
+                    "actions=set_field:4-\\>vlan_pcp,output:%s"
+                )
+                % (
+                    switch.name,
+                    self.host_port_maps[6][3][0],
+                    i,
+                    self.link_port_maps[(3, 0)][0],
+                )
+            )
         # Forward tunneled DHCP packets to the DNSMASQ server
         for i in [300, 400, 500]:
             switch.cmd(
-                ('ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=%s,'
-                 'vlan_pcp=3,actions=output:%s') % (
-                     switch.name, self.link_port_maps[(3, 0)][0], i, self.host_port_maps[6][3][0]))
+                (
+                    "ovs-ofctl add-flow %s priority=1,in_port=%s,udp,tp_src=68,tp_dst=67,dl_vlan=%s,"
+                    "vlan_pcp=3,actions=output:%s"
+                )
+                % (
+                    switch.name,
+                    self.link_port_maps[(3, 0)][0],
+                    i,
+                    self.host_port_maps[6][3][0],
+                )
+            )
         # Drop all other (non-DHCP tunnelled) traffic
-        switch.cmd('ovs-ofctl add-flow %s priority=0,actions=drop' % (switch.name))
+        switch.cmd("ovs-ofctl add-flow %s priority=0,actions=drop" % (switch.name))
         # Setup DHCP server
         for i in [0, 1]:
             # i: host VLANS
@@ -3664,12 +4353,24 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
         for host_n in range(self.NUM_HOSTS - 1):
             host = self.net.get(self.topo.hosts_by_id[host_n])
             host.run_dhclient(self.tmpdir)
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], '10.1.0.11')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], '10.2.0.11')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], '10.1.0.21')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], '10.2.0.21')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[4]).return_ip()[:-3], '10.1.0.31')
-        self.assertEqual(self.net.get(self.topo.hosts_by_id[5]).return_ip()[:-3], '10.2.0.31')
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[0]).return_ip()[:-3], "10.1.0.11"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[1]).return_ip()[:-3], "10.2.0.11"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[2]).return_ip()[:-3], "10.1.0.21"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], "10.2.0.21"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[4]).return_ip()[:-3], "10.1.0.31"
+        )
+        self.assertEqual(
+            self.net.get(self.topo.hosts_by_id[5]).return_ip()[:-3], "10.2.0.31"
+        )
         self.check_host_connectivity_by_id(0, 1)
         self.check_host_connectivity_by_id(0, 2)
         self.check_host_connectivity_by_id(0, 3)

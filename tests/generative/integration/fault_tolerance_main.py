@@ -21,37 +21,41 @@ import fault_tolerance_tests
 
 def test_generator(func_graph, stack_roots):
     """Return the function that will start the fault-tolerance testing for a graph"""
+
     def test(self):
         """Test fault-tolerance of the topology"""
         self.set_up(func_graph, stack_roots)
         self.network_function()
+
     return test
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     GRAPHS = {}
     GRAPH_ATLAS = graph_atlas_g()
     for graph in GRAPH_ATLAS:
-        if (not graph
-                or graph.number_of_nodes() > fault_tolerance_tests.MAX_NODES
-                or graph.number_of_nodes() < fault_tolerance_tests.MIN_NODES):
+        if (
+            not graph
+            or graph.number_of_nodes() > fault_tolerance_tests.MAX_NODES
+            or graph.number_of_nodes() < fault_tolerance_tests.MIN_NODES
+        ):
             continue
         if networkx.is_connected(graph):
             GRAPHS.setdefault(graph.number_of_nodes(), [])
             GRAPHS[graph.number_of_nodes()].append(graph)
-    TEST_LIMIT = int(os.getenv('FAUCET_GENERATIVE_LIMIT', '0'))
+    TEST_LIMIT = int(os.getenv("FAUCET_GENERATIVE_LIMIT", "0"))
 
     def create_tests():
         """Create multi DP test variations."""
         test_count = 0
         for test_class in fault_tolerance_tests.TEST_CLASS_LIST:
             for test_graph in GRAPHS[test_class.NUM_DPS]:
-                test_name = 'test_%s' % test_graph.name
+                test_name = "test_%s" % test_graph.name
                 test_func = test_generator(test_graph, test_class.STACK_ROOTS)
                 setattr(test_class, test_name, test_func)
                 test_count += 1
                 if TEST_LIMIT and test_count == TEST_LIMIT:
-                    print('Limiting number of tests to', test_count)
+                    print("Limiting number of tests to", test_count)
                     return
 
     # TODO: because we are creating tests dynamically re-using the same base class,

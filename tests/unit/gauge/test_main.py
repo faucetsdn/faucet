@@ -30,12 +30,14 @@ class MainTestCase(unittest.TestCase):  # pytype: disable=module-attr
     def test_parse_args(self):
         """Sanity check argument parsing."""
         self.assertFalse(parse_args([]).verbose)
-        self.assertTrue(parse_args(['--verbose']).verbose)
+        self.assertTrue(parse_args(["--verbose"]).verbose)
 
     def test_build_ryu_args(self):
         """Test build_ryu_args()."""
-        self.assertTrue(build_ryu_args(['gauge', '--use-stderr', '--use-syslog', '--verbose']))
-        self.assertFalse(build_ryu_args(['gauge', '--version']))
+        self.assertTrue(
+            build_ryu_args(["gauge", "--use-stderr", "--use-syslog", "--verbose"])
+        )
+        self.assertFalse(build_ryu_args(["gauge", "--version"]))
 
 
 if __name__ == "__main__":

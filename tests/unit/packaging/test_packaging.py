@@ -31,7 +31,7 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
     """Test debian packaging."""
 
     def _parse_deb_control(self, control_file):
-        with open(control_file, 'r', encoding='utf-8') as handle:
+        with open(control_file, "r", encoding="utf-8") as handle:
             control = handle.read()
 
         faucet_dpkg = str()
@@ -45,15 +45,17 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
 
         faucet_dpkg = parse_control_fields(parse_deb822(faucet_dpkg))
         self.faucet_dpkg_deps = {}
-        for dep in faucet_dpkg['Depends']:
+        for dep in faucet_dpkg["Depends"]:
             if isinstance(dep, VersionedRelationship):
                 if dep.name not in self.faucet_dpkg_deps:
                     self.faucet_dpkg_deps[dep.name] = []
-                self.faucet_dpkg_deps[dep.name].append("{}{}".format(dep.operator, dep.version))
+                self.faucet_dpkg_deps[dep.name].append(
+                    "{}{}".format(dep.operator, dep.version)
+                )
 
     def _parse_pip_requirements(self, requirements_file):
         self.faucet_pip_reqs = {}
-        with open(requirements_file, 'r', encoding='utf-8') as handle:
+        with open(requirements_file, "r", encoding="utf-8") as handle:
             for pip_req in requirements.parse(handle):
                 self.faucet_pip_reqs[pip_req.name] = pip_req.specs
 
@@ -63,13 +65,13 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
         return "python3-" + pip_req
 
     def setUp(self):
-        src_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../')
-        control_file = os.path.join(src_dir, 'debian/control')
-        requirements_file = os.path.join(src_dir, 'requirements.txt')
+        src_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../")
+        control_file = os.path.join(src_dir, "debian/control")
+        requirements_file = os.path.join(src_dir, "requirements.txt")
 
         self.dpkg_name = {
-            'os_ken': 'python3-os-ken',
-            'prometheus_client': 'python3-prometheus-client'
+            "os_ken": "python3-os-ken",
+            "prometheus_client": "python3-prometheus-client",
         }
 
         self._parse_deb_control(control_file)
@@ -93,27 +95,31 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
                     dpkg_name + x for x in self.faucet_dpkg_deps[dpkg_name]
                 ]
                 for pip_req_specifier, pip_req_version in pip_req_versions:
-                    if pip_req_specifier == '==':
+                    if pip_req_specifier == "==":
                         # debian/control is annoying about how it handles exact
                         # versions, calculate the debian equivalent of the
                         # pip requirements match and compare that
                         lower_version = pip_req_version
-                        lower_match = '>=' + lower_version
+                        lower_match = ">=" + lower_version
 
-                        upper_version = pip_req_version.split('.')
+                        upper_version = pip_req_version.split(".")
                         upper_version[-1] = str(int(upper_version[-1]) + 1)
-                        upper_version = '.'.join(upper_version)
-                        upper_match = '<<' + upper_version
+                        upper_version = ".".join(upper_version)
+                        upper_match = "<<" + upper_version
 
-                        self.assertIn(dpkg_name + lower_match, debian_package_dependencies)
-                        self.assertIn(dpkg_name + upper_match, debian_package_dependencies)
-                    elif pip_req_specifier == '<':
+                        self.assertIn(
+                            dpkg_name + lower_match, debian_package_dependencies
+                        )
+                        self.assertIn(
+                            dpkg_name + upper_match, debian_package_dependencies
+                        )
+                    elif pip_req_specifier == "<":
                         # debian/control uses << instead of <
-                        match = dpkg_name + '<<' + pip_req_version
+                        match = dpkg_name + "<<" + pip_req_version
                         self.assertIn(match, debian_package_dependencies)
-                    elif pip_req_specifier == '>':
+                    elif pip_req_specifier == ">":
                         # debian/control uses >> instead of >
-                        match = dpkg_name + '>>' + pip_req_version
+                        match = dpkg_name + ">>" + pip_req_version
                         self.assertIn(match, debian_package_dependencies)
                     else:
                         match = dpkg_name + pip_req_specifier + pip_req_version
