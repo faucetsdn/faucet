@@ -51,7 +51,7 @@ def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
         for _ in range(retries):
             try:
                 if endpoint.startswith('http'):
-                    response = requests.get(endpoint)
+                    response = requests.get(endpoint, timeout=30)
                     if response.status_code == requests.status_codes.codes.ok:  # pylint: disable=no-member
                         content = response.content.decode('utf-8', 'strict')
                         break
@@ -113,7 +113,8 @@ def get_samples(endpoints, metric_name, label_matches, nonzero_only=False,
         metrics, metric_name, label_matches, nonzero_only)
 
 
-def report_label_match_metrics(report_metrics, metrics, display_labels=None,
+def report_label_match_metrics(report_metrics, metrics,  # pylint: disable=too-many-arguments
+                               display_labels=None,
                                nonzero_only=False, delim='\t',
                                label_matches=None):
     """Text report on a list of Prometheus metrics."""
