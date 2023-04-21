@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=missing-class-docstring,disable=missing-function-docstring,disable=invalid-name
+# pylint: disable=import-outside-toplevel,disable=too-few-public-methods
+
 import inspect
 from types import MethodType
 
@@ -32,19 +35,20 @@ from webob.response import Response as webob_Response
 
 from os_ken.lib import hub
 
-HEX_PATTERN = r'0x[0-9a-z]+'
-DIGIT_PATTERN = r'[1-9][0-9]*'
+HEX_PATTERN = r"0x[0-9a-z]+"
+DIGIT_PATTERN = r"[1-9][0-9]*"
 
 
 def route(name, path, methods=None, requirements=None):
     def _route(controller_method):
         controller_method.routing_info = {
-            'name': name,
-            'path': path,
-            'methods': methods,
-            'requirements': requirements,
+            "name": name,
+            "path": path,
+            "methods": methods,
+            "requirements": requirements,
         }
         return controller_method
+
     return _route
 
 
@@ -55,11 +59,11 @@ class Request(webob_Request):
     The behavior of this class is the same as webob.request.Request
     except for setting "charset" to "UTF-8" automatically.
     """
+
     DEFAULT_CHARSET = "UTF-8"
 
-    def __init__(self, environ, charset=DEFAULT_CHARSET, *args, **kwargs):
-        super(Request, self).__init__(
-            environ, charset=charset, *args, **kwargs)
+    def __init__(self, environ, *args, charset=DEFAULT_CHARSET, **kwargs):
+        super().__init__(environ, *args, **kwargs, charset=charset)
 
 
 class Response(webob_Response):
@@ -69,14 +73,14 @@ class Response(webob_Response):
     The behavior of this class is the same as webob.response.Response
     except for setting "charset" to "UTF-8" automatically.
     """
+
     DEFAULT_CHARSET = "UTF-8"
 
-    def __init__(self, charset=DEFAULT_CHARSET, *args, **kwargs):
-        super(Response, self).__init__(charset=charset, *args, **kwargs)
+    def __init__(self, *args, charset=DEFAULT_CHARSET, **kwargs):
+        super().__init__(*args, **kwargs, charset=charset)
 
 
-class WebSocketRegistrationWrapper(object):
-
+class WebSocketRegistrationWrapper:
     def __init__(self, func, controller):
         self._controller = controller
         self._controller_method = MethodType(func, controller)
@@ -96,11 +100,14 @@ class _AlreadyHandledResponse(Response):
     # https://github.com/benoitc/gunicorn/pull/2581
     from packaging import version
     import eventlet
+
     if version.parse(eventlet.__version__) >= version.parse("0.30.3"):
         import eventlet.wsgi
+
         _ALREADY_HANDLED = getattr(eventlet.wsgi, "ALREADY_HANDLED", None)
     else:
-        from eventlet.wsgi import ALREADY_HANDLED
+        from eventlet.wsgi import ALREADY_HANDLED  # pylint: disable=no-name-in-module
+
         _ALREADY_HANDLED = ALREADY_HANDLED
 
     def __call__(self, environ, start_response):
@@ -118,18 +125,20 @@ def websocket(name, path):
             #       - webob.dec.wsgify()
             #       - eventlet.wsgi.HttpProtocol.handle_one_response()
             return _AlreadyHandledResponse()
+
         __websocket.routing_info = {
-            'name': name,
-            'path': path,
-            'methods': None,
-            'requirements': None,
+            "name": name,
+            "path": path,
+            "methods": None,
+            "requirements": None,
         }
         return __websocket
+
     return _websocket
 
 
-class ControllerBase(object):
-    special_vars = ['action', 'controller']
+class ControllerBase:
+    special_vars = ["action", "controller"]
 
     def __init__(self, req, link, data, **config):
         self.req = req
@@ -140,8 +149,8 @@ class ControllerBase(object):
             setattr(self, name, value)
 
     def __call__(self, req):
-        action = self.req.urlvars.get('action', 'index')
-        if hasattr(self, '__before__'):
+        action = self.req.urlvars.get("action", "index")
+        if hasattr(self, "__before__"):
             self.__before__()
 
         kwargs = self.req.urlvars.copy()
@@ -175,7 +184,7 @@ class WebSocketRPCServer(RPCServer):
     def __init__(self, ws, rpc_callback):
         dispatcher = RPCDispatcher()
         dispatcher.register_instance(rpc_callback)
-        super(WebSocketRPCServer, self).__init__(
+        super().__init__(
             WebSocketServerTransport(ws),
             JSONRPCProtocol(),
             dispatcher,
@@ -183,7 +192,7 @@ class WebSocketRPCServer(RPCServer):
 
     def serve_forever(self):
         try:
-            super(WebSocketRPCServer, self).serve_forever()
+            super().serve_forever()
         except WebSocketDisconnectedError:
             return
 
@@ -192,7 +201,6 @@ class WebSocketRPCServer(RPCServer):
 
 
 class WebSocketClientTransport(ClientTransport):
-
     def __init__(self, ws, queue):
         self.ws = ws
         self.queue = queue
@@ -202,14 +210,14 @@ class WebSocketClientTransport(ClientTransport):
 
         if expect_reply:
             return self.queue.get()
+        return None
 
 
 class WebSocketRPCClient(RPCClient):
-
     def __init__(self, ws):
         self.ws = ws
         self.queue = hub.Queue()
-        super(WebSocketRPCClient, self).__init__(
+        super().__init__(
             JSONRPCProtocol(),
             WebSocketClientTransport(ws, self.queue),
         )
@@ -224,12 +232,11 @@ class WebSocketRPCClient(RPCClient):
 
 class wsgify_hack(webob.dec.wsgify):
     def __call__(self, environ, start_response):
-        self.kwargs['start_response'] = start_response
-        return super(wsgify_hack, self).__call__(environ, start_response)
+        self.kwargs["start_response"] = start_response
+        return super().__call__(environ, start_response)
 
 
-class WebSocketManager(object):
-
+class WebSocketManager:
     def __init__(self):
         self._connections = []
 
@@ -244,13 +251,13 @@ class WebSocketManager(object):
             connection.send(msg)
 
 
-class WSGIApplication(object):
+class WSGIApplication:
     def __init__(self, **config):
         self.config = config
         self.mapper = Mapper()
         self.registory = {}
         self._wsmanager = WebSocketManager()
-        super(WSGIApplication, self).__init__()
+        super().__init__()
 
     def _match(self, req):
         # Note: Invoke the new API, first. If the arguments unmatched,
@@ -273,11 +280,11 @@ class WSGIApplication(object):
         link = URLGenerator(self.mapper, req.environ)
 
         data = None
-        name = match['controller'].__name__
+        name = match["controller"].__name__
         if name in self.registory:
             data = self.registory[name]
 
-        controller = match['controller'](req, link, data, **self.config)
+        controller = match["controller"](req, link, data, **self.config)
         controller.parent = self
         return controller(req)
 
@@ -285,24 +292,27 @@ class WSGIApplication(object):
         def _target_filter(attr):
             if not inspect.ismethod(attr) and not inspect.isfunction(attr):
                 return False
-            if not hasattr(attr, 'routing_info'):
+            if not hasattr(attr, "routing_info"):
                 return False
             return True
+
         methods = inspect.getmembers(controller, _target_filter)
         for method_name, method in methods:
-            routing_info = getattr(method, 'routing_info')
-            name = routing_info['name']
-            path = routing_info['path']
+            routing_info = getattr(method, "routing_info")
+            name = routing_info["name"]
+            path = routing_info["path"]
             conditions = {}
-            if routing_info.get('methods'):
-                conditions['method'] = routing_info['methods']
-            requirements = routing_info.get('requirements') or {}
-            self.mapper.connect(name,
-                                path,
-                                controller=controller,
-                                requirements=requirements,
-                                action=method_name,
-                                conditions=conditions)
+            if routing_info.get("methods"):
+                conditions["method"] = routing_info["methods"]
+            requirements = routing_info.get("requirements") or {}
+            self.mapper.connect(
+                name,
+                path,
+                controller=controller,
+                requirements=requirements,
+                action=method_name,
+                conditions=conditions,
+            )
         if data:
             self.registory[controller.__name__] = data
 
@@ -313,7 +323,7 @@ class WSGIApplication(object):
 
 class WSGIServer(hub.WSGIServer):
     def __init__(self, application, host, port, **config):
-        super(WSGIServer, self).__init__((host, port), application, **config)
+        super().__init__((host, port), application, **config)
 
     def __call__(self):
         self.serve_forever()
