@@ -15,6 +15,7 @@
 
 # pylint: disable=unused-argument,disable=missing-function-docstring,disable=use-dict-literal
 # pylint: disable=no-member,disable=invalid-name,disable=too-many-arguments,disable=too-few-public-methods
+# pytype: disable=attribute-error
 
 import os
 import logging
