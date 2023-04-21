@@ -31,35 +31,35 @@ def make_wsgi_app(registry):
     """Create a WSGI app which serves the metrics from a registry."""
 
     def prometheus_app(environ, start_response):
-        query_str = environ.get('QUERY_STRING', '')
+        query_str = environ.get("QUERY_STRING", "")
         params = parse_qs(query_str)
         reg = registry
-        if 'name[]' in params:
-            reg = reg.restricted_registry(params['name[]'])
+        if "name[]" in params:
+            reg = reg.restricted_registry(params["name[]"])
         output = generate_latest(reg)
-        status = str('200 OK')
-        headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
+        status = str("200 OK")
+        headers = [(str("Content-type"), CONTENT_TYPE_LATEST)]
         start_response(status, headers)
         return [output]
+
     return prometheus_app
 
 
 class PromClient:  # pylint: disable=too-few-public-methods
     """Prometheus client."""
 
-    REQUIRED_LABELS = ['dp_id', 'dp_name']
+    REQUIRED_LABELS = ["dp_id", "dp_name"]
     _reg = REGISTRY
 
     def __init__(self, reg=None):
         if reg is not None:
             self._reg = reg
-        self.version = VersionInfo('c65faucet').semantic_version().release_string()
+        self.version = VersionInfo("c65faucet").semantic_version().release_string()
+        # pylint: disable=no-member
         self.faucet_version = PromGauge(
-            'faucet_pbr_version',
-            'Faucet PBR version',
-            ['version'],
-            registry=self._reg)
-        self.faucet_version.labels(version=self.version).set(1)  # pylint: disable=no-member
+            "faucet_pbr_version", "Faucet PBR version", ["version"], registry=self._reg
+        )
+        self.faucet_version.labels(version=self.version).set(1)
         self.server = None
         self.thread = None
 
@@ -69,22 +69,27 @@ class PromClient:  # pylint: disable=too-few-public-methods
             app = make_wsgi_app(self._reg)
             if use_test_thread:
                 # pylint: disable=import-outside-toplevel
-                from wsgiref.simple_server import (
-                    make_server, WSGIRequestHandler)
+                from wsgiref.simple_server import make_server, WSGIRequestHandler
                 import threading
 
                 class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
                     """Don't log requests."""
 
-                    def log_message(self, format, *args):  # pylint: disable=redefined-builtin
+                    def log_message(
+                        self, format, *args
+                    ):  # pylint: disable=redefined-builtin
                         pass
 
                 self.server = make_server(
-                    prom_addr, int(prom_port), app, handler_class=NoLoggingWSGIRequestHandler)
+                    prom_addr,
+                    int(prom_port),
+                    app,
+                    handler_class=NoLoggingWSGIRequestHandler,
+                )
                 self.thread = threading.Thread(target=self.server.serve_forever)
                 self.thread.daemon = True
                 self.thread.start()
             else:
                 self.server = hub.WSGIServer((prom_addr, int(prom_port)), app)
                 self.thread = hub.spawn(self.server.serve_forever)
-            self.thread.name = 'prometheus'
+            self.thread.name = "prometheus"
