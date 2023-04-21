@@ -12,43 +12,48 @@ import time
 from mininet.log import error, output
 
 
-DEVNULL = open(os.devnull, 'wb', encoding=None)  # pylint: disable=consider-using-with
-GETPORT = 'GETPORT'
-PUTPORTS = 'PUTPORTS'
-GETSERIAL = 'GETSERIAL'
-LISTPORTS = 'LISTPORTS'
-LOCALHOST = '127.0.0.1'
-LOCALHOSTV6 = '::1'
-FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
+DEVNULL = open(os.devnull, "wb", encoding=None)  # pylint: disable=consider-using-with
+GETPORT = "GETPORT"
+PUTPORTS = "PUTPORTS"
+GETSERIAL = "GETSERIAL"
+LISTPORTS = "LISTPORTS"
+LOCALHOST = "127.0.0.1"
+LOCALHOSTV6 = "::1"
+FAUCET_DIR = os.getenv("FAUCET_DIR", "../faucet")
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
-with open('/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait', encoding='utf-8') as pf:
+with open(
+    "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait", encoding="utf-8"
+) as pf:
     MIN_PORT_AGE = max(int(pf.read()) / 2, 10)
 
 
 def flat_test_name(_id):
     """Return short form test name from TestCase ID."""
-    return '-'.join(_id.split('.')[1:])
+    return "-".join(_id.split(".")[1:])
 
 
 def lsof_tcp_listening_cmd(port, ipv, state, terse):
     """Return a command line for lsof for processes with specified TCP state."""
-    terse_arg = ''
+    terse_arg = ""
     if terse:
-        terse_arg = '-t'
-    return 'lsof -b -P -n %s -sTCP:%s -i %u -a -i tcp:%u' % (
-        terse_arg, state, ipv, port)
+        terse_arg = "-t"
+    return "lsof -b -P -n %s -sTCP:%s -i %u -a -i tcp:%u" % (
+        terse_arg,
+        state,
+        ipv,
+        port,
+    )
 
 
 def lsof_udp_listening_cmd(port, terse):
     """Return a command line for lsof for processes with specified TCP state."""
-    terse_arg = ''
+    terse_arg = ""
     if terse:
-        terse_arg = '-t'
-    return 'lsof -b -P -n %s -i udp:%u -a' % (
-        terse_arg, port)
+        terse_arg = "-t"
+    return "lsof -b -P -n %s -i udp:%u -a" % (terse_arg, port)
 
 
-def tcp_listening_cmd(port, ipv=4, state='LISTEN', terse=True):
+def tcp_listening_cmd(port, ipv=4, state="LISTEN", terse=True):
     """Call lsof_tcp_listening_cmd() with default args."""
     return lsof_tcp_listening_cmd(port, ipv, state, terse)
 
@@ -60,57 +65,65 @@ def udp_listening_cmd(port, terse=True):
 
 def mininet_dpid(int_dpid):
     """Return stringified hex version, of int DPID for mininet."""
-    return str('%x' % int(int_dpid))
+    return str("%x" % int(int_dpid))
 
 
 def str_int_dpid(str_dpid):
     """Return stringified int version, of int or hex DPID from YAML."""
     str_dpid = str(str_dpid)
-    if str_dpid.startswith('0x'):
+    if str_dpid.startswith("0x"):
         return str(int(str_dpid, 16))
     return str(int(str_dpid))
 
 
 def receive_sock_line(sock):
     """Receive a \n terminated line from a socket."""
-    buf = ''
-    while buf.find('\n') <= -1:
+    buf = ""
+    while buf.find("\n") <= -1:
         buf += sock.recv(2**10).decode()
     return buf.strip()
 
 
 def tcp_listening(port):
     """Return True if any process listening on a port."""
-    return subprocess.call(
-        tcp_listening_cmd(port).split(),
-        stdin=DEVNULL,
-        stdout=DEVNULL,
-        stderr=DEVNULL,
-        close_fds=True) == 0
+    return (
+        subprocess.call(
+            tcp_listening_cmd(port).split(),
+            stdin=DEVNULL,
+            stdout=DEVNULL,
+            stderr=DEVNULL,
+            close_fds=True,
+        )
+        == 0
+    )
 
 
 def udp_listening(port):
     """Return True if any process listening on a port."""
-    return subprocess.call(
-        udp_listening_cmd(port).split(),
-        stdin=DEVNULL,
-        stdout=DEVNULL,
-        stderr=DEVNULL,
-        close_fds=True) == 0
+    return (
+        subprocess.call(
+            udp_listening_cmd(port).split(),
+            stdin=DEVNULL,
+            stdout=DEVNULL,
+            stderr=DEVNULL,
+            close_fds=True,
+        )
+        == 0
+    )
 
 
 def test_server_request(ports_socket, name, command):
     assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
-    sock.sendall(('%s,%s\n' % (command, name)).encode())
-    output('%s %s\n' % (name, command))
+    sock.sendall(("%s,%s\n" % (command, name)).encode())
+    output("%s %s\n" % (name, command))
     buf = receive_sock_line(sock)
-    responses = [int(i) for i in buf.split('\n')]
+    responses = [int(i) for i in buf.split("\n")]
     sock.close()
     if len(responses) == 1:
         responses = responses[0]
-    output('%s %s: %u\n' % (name, command, responses))
+    output("%s %s: %u\n" % (name, command, responses))
     return responses
 
 
@@ -121,21 +134,21 @@ def get_serialno(ports_socket, name):
 
 def find_free_port(ports_socket, name):
     """Retrieve a free TCP port from test server."""
-    request_name = '-'.join((name, str(os.getpid())))
+    request_name = "-".join((name, str(os.getpid())))
     while True:
         port = test_server_request(ports_socket, request_name, GETPORT)
         if not tcp_listening(port):
             return port
-        error('port %u is busy, try another' % port)
+        error("port %u is busy, try another" % port)
 
 
 def find_free_udp_port(ports_socket, name):
-    request_name = '-'.join((name, str(os.getpid())))
+    request_name = "-".join((name, str(os.getpid())))
     while True:
         port = test_server_request(ports_socket, request_name, GETPORT)
         if not udp_listening(port):
             return port
-        error('port %u is busy, try another' % port)
+        error("port %u is busy, try another" % port)
 
 
 def return_free_ports(ports_socket, name):
@@ -153,7 +166,7 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
     def get_port():
         while True:
             free_socket = socket.socket()
-            free_socket.bind(('', 0))
+            free_socket.bind(("", 0))
             free_port = free_socket.getsockname()[1]
             free_socket.close()
             if free_port < 1024:
@@ -182,7 +195,7 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
 
     while True:
         connection, _ = sock.accept()
-        command, name = receive_sock_line(connection).split(',')
+        command, name = receive_sock_line(connection).split(",")
         response = None
         if command == GETSERIAL:
             serialno += 1
@@ -210,19 +223,19 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
         elif command == LISTPORTS:
             response = list(ports_by_name[name])
         if response is not None:
-            response_str = ''
+            response_str = ""
             if isinstance(response, int):
                 response = [response]
-            response_str = ''.join(['%u\n' % i for i in response])
+            response_str = "".join(["%u\n" % i for i in response])
             connection.sendall(response_str.encode())  # pylint: disable=no-member
         connection.close()
 
 
 def timeout_cmd(cmd, timeout):
     """Return a command line prefaced with a timeout wrappers and stdout/err unbuffered."""
-    return 'timeout -sKILL %us stdbuf -o0 -e0 %s' % (timeout, cmd)
+    return "timeout -sKILL %us stdbuf -o0 -e0 %s" % (timeout, cmd)
 
 
 def timeout_soft_cmd(cmd, timeout):
     """Same as timeout_cmd buf using SIGTERM on timeout."""
-    return 'timeout %us stdbuf -o0 -e0 %s' % (timeout, cmd)
+    return "timeout %us stdbuf -o0 -e0 %s" % (timeout, cmd)

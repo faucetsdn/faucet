@@ -83,7 +83,11 @@ class FaucetTopoTestBase(FaucetTestBase):
         type: 'flow_table'
         interval: 5
         db: 'flow_dir'
-""" % (self.topo.switches_by_id[0], self.topo.switches_by_id[0], self.topo.switches_by_id[0])
+""" % (
+            self.topo.switches_by_id[0],
+            self.topo.switches_by_id[0],
+            self.topo.switches_by_id[0],
+        )
 
     def first_switch(self):
         """Return the first switch"""
@@ -91,8 +95,8 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def port_labels(self, port_no):
         """Return regex for port label"""
-        port_name = 'b%u' % port_no
-        return {'port': port_name, 'port_description': r'.+'}
+        port_name = "b%u" % port_no
+        return {"port": port_name, "port_description": r".+"}
 
     @staticmethod
     def acls():
@@ -101,33 +105,51 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def faucet_vip(self, i):
         """Faucet VLAN VIP"""
-        return '10.%u.0.254/%u' % (i + 1, self.NETPREFIX)
+        return "10.%u.0.254/%u" % (i + 1, self.NETPREFIX)
 
     @staticmethod
     def faucet_mac(i):
         """Faucet VLAN MAC"""
-        return '00:00:00:00:00:%u%u' % (i + 1, i + 1)
+        return "00:00:00:00:00:%u%u" % (i + 1, i + 1)
 
     def host_ip_address(self, host_index, vlan_index):
         """Create a string of the host IP address"""
         if isinstance(vlan_index, (list, tuple)):
             vlan_index = vlan_index[0]
-        return '10.%u.0.%u/%u' % (vlan_index + 1, host_index + 1, self.NETPREFIX)
+        return "10.%u.0.%u/%u" % (vlan_index + 1, host_index + 1, self.NETPREFIX)
 
     def host_ping(self, src_host, dst_ip, intf=None):
         """Default method to ping from one host to an IP address"""
         self.one_ipv4_ping(
-            src_host, dst_ip, require_host_learned=False, retries=5, timeout=1000, intf=intf)
+            src_host,
+            dst_ip,
+            require_host_learned=False,
+            retries=5,
+            timeout=1000,
+            intf=intf,
+        )
 
     def set_host_ip(self, host, host_ip):
         """Default method for setting a hosts IP address"""
         host.setIP(str(host_ip.ip), prefixLen=self.NETPREFIX)
 
-    def build_net(self, host_links=None, host_vlans=None, switch_links=None,
-                  link_vlans=None, mininet_host_options=None,
-                  n_vlans=1, dp_options=None, host_options=None,
-                  link_options=None, vlan_options=None, routers=None, router_options=None,
-                  include=None, include_optional=None):
+    def build_net(
+        self,
+        host_links=None,
+        host_vlans=None,
+        switch_links=None,
+        link_vlans=None,
+        mininet_host_options=None,
+        n_vlans=1,
+        dp_options=None,
+        host_options=None,
+        link_options=None,
+        vlan_options=None,
+        routers=None,
+        router_options=None,
+        include=None,
+        include_optional=None,
+    ):
         """
         Args:
             host_links (dict): Host index key to list of dp indices
@@ -159,13 +181,17 @@ class FaucetTopoTestBase(FaucetTestBase):
             hw_ports=self.switch_map,
             port_order=self.port_order,
             start_port=self.start_port,
-            host_options=mininet_host_options
+            host_options=mininet_host_options,
         )
         self.dpids = self.topo.get_dpids()
         self.dpid = self.dpids[0]
         # host_port_maps = {host_n: {switch_n: [ports, ...], ...}, ...}
         # link_port_maps = {(switch_n, switch_m): [ports, ...], ...}
-        port_maps, self.host_port_maps, self.link_port_maps = self.topo.create_port_maps()
+        (
+            port_maps,
+            self.host_port_maps,
+            self.link_port_maps,
+        ) = self.topo.create_port_maps()
         self.port_map = port_maps[self.dpid]
         dpid_names = {}
         # pylint: disable=consider-using-dict-items
@@ -175,16 +201,16 @@ class FaucetTopoTestBase(FaucetTestBase):
             dpid_names[dpid] = name
         self.set_dpid_names(dpid_names)
         self.configuration_options = {
-            'acl_options': self.acls(),
-            'dp_options': dp_options,
-            'host_options': host_options,
-            'link_options': link_options,
-            'vlan_options': vlan_options,
-            'routers': routers,
-            'router_options': router_options,
-            'include': include,
-            'include_optional': include_optional,
-            'ignored_switches': self.IGNORED_SWITCHES
+            "acl_options": self.acls(),
+            "dp_options": dp_options,
+            "host_options": host_options,
+            "link_options": link_options,
+            "vlan_options": vlan_options,
+            "routers": routers,
+            "router_options": router_options,
+            "include": include,
+            "include_optional": include_optional,
+            "ignored_switches": self.IGNORED_SWITCHES,
         }
         self.CONFIG = self.topo.get_config(
             n_vlans,
@@ -215,18 +241,18 @@ class FaucetTopoTestBase(FaucetTestBase):
                 ip_addr = self.host_ip_address(ips_for_vlans[vlan], vlan)
                 ips_for_vlans[vlan] += 1
                 if self.mininet_host_options and host_id in self.mininet_host_options:
-                    mininet_ip = self.mininet_host_options[host_id].get('ip', None)
+                    mininet_ip = self.mininet_host_options[host_id].get("ip", None)
                     if mininet_ip:
                         ip_addr = mininet_ip
                 ip_interface = ipaddress.ip_interface(ip_addr)
                 self.set_host_ip(host, ip_interface)
             self.host_information[host_id] = {
-                'host': host,
-                'ip': ip_interface,
-                'mac': host.MAC(),
-                'vlan': vlan,
-                'bond': None,
-                'ports': self.host_port_maps[host_id]
+                "host": host,
+                "ip": ip_interface,
+                "mac": host.MAC(),
+                "vlan": vlan,
+                "bond": None,
+                "ports": self.host_port_maps[host_id],
             }
         # Store faucet vip interfaces
         self.faucet_vips = {}
@@ -239,13 +265,13 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def setup_lacp_bonds(self):
         """Search through host options for lacp hosts and configure accordingly"""
-        host_options = self.configuration_options['host_options']
+        host_options = self.configuration_options["host_options"]
         if not host_options:
             return
         bond_index = 1
         for host_id, options in host_options.items():
-            if 'lacp' in options:
-                host = self.host_information[host_id]['host']
+            if "lacp" in options:
+                host = self.host_information[host_id]["host"]
                 # LACP must be configured with host ports down
                 for dp_i, ports in self.host_port_maps[host_id].items():
                     for port in ports:
@@ -253,27 +279,45 @@ class FaucetTopoTestBase(FaucetTestBase):
                 orig_ip = host.IP()
                 lacp_switches = [
                     self.net.get(self.topo.switches_by_id[i])
-                    for i in self.host_port_maps[host_id]]
+                    for i in self.host_port_maps[host_id]
+                ]
                 bond_members = [
-                    pair[0].name for switch in lacp_switches for pair in host.connectionsTo(switch)]
-                bond_name = 'bond%u' % (bond_index)
-                self.host_information[host_id]['bond'] = bond_name
+                    pair[0].name
+                    for switch in lacp_switches
+                    for pair in host.connectionsTo(switch)
+                ]
+                bond_name = "bond%u" % (bond_index)
+                self.host_information[host_id]["bond"] = bond_name
                 for bond_member in bond_members:
                     # Deconfigure bond members
-                    self.quiet_commands(host, (
-                        'ip link set %s down' % bond_member,
-                        'ip address flush dev %s' % bond_member))
+                    self.quiet_commands(
+                        host,
+                        (
+                            "ip link set %s down" % bond_member,
+                            "ip address flush dev %s" % bond_member,
+                        ),
+                    )
                 # Configure bond interface
-                self.quiet_commands(host, (
-                    ('ip link add %s address 0e:00:00:00:00:99 '
-                     'type bond mode 802.3ad lacp_rate fast miimon 100 '
-                     'xmit_hash_policy layer2+3') % (bond_name),
-                    'ip add add %s/%s dev %s' % (orig_ip, self.NETPREFIX, bond_name),
-                    'ip link set %s up' % bond_name))
+                self.quiet_commands(
+                    host,
+                    (
+                        (
+                            "ip link add %s address 0e:00:00:00:00:99 "
+                            "type bond mode 802.3ad lacp_rate fast miimon 100 "
+                            "xmit_hash_policy layer2+3"
+                        )
+                        % (bond_name),
+                        "ip add add %s/%s dev %s"
+                        % (orig_ip, self.NETPREFIX, bond_name),
+                        "ip link set %s up" % bond_name,
+                    ),
+                )
                 # Add bond members
                 for bond_member in bond_members:
-                    self.quiet_commands(host, (
-                        'ip link set dev %s master %s' % (bond_member, bond_name),))
+                    self.quiet_commands(
+                        host,
+                        ("ip link set dev %s master %s" % (bond_member, bond_name),),
+                    )
                 bond_index += 1
                 # Return the ports to UP
                 for dp_i, ports in self.host_port_maps[host_id].items():
@@ -282,17 +326,19 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def setup_intervlan_host_routes(self):
         """Configure host routes between hosts that belong on routed VLANs"""
-        if self.configuration_options['routers']:
+        if self.configuration_options["routers"]:
             for src_name, src in self.host_information.items():
-                src_host = src['host']
-                src_vlan = src['vlan']
-                src_ip = src['ip']
+                src_host = src["host"]
+                src_vlan = src["vlan"]
+                src_ip = src["ip"]
                 for dst_name, dst in self.host_information.items():
                     if src_name != dst_name:
-                        dst_host = dst['host']
-                        dst_vlan = dst['vlan']
-                        dst_ip = dst['ip']
-                        if src_vlan != dst_vlan and self.is_routed_vlans(src_vlan, dst_vlan):
+                        dst_host = dst["host"]
+                        dst_vlan = dst["vlan"]
+                        dst_ip = dst["ip"]
+                        if src_vlan != dst_vlan and self.is_routed_vlans(
+                            src_vlan, dst_vlan
+                        ):
                             src_faucet_vip = self.faucet_vips[src_vlan]
                             dst_faucet_vip = self.faucet_vips[dst_vlan]
                             self.add_host_route(src_host, dst_ip, src_faucet_vip.ip)
@@ -310,23 +356,33 @@ class FaucetTopoTestBase(FaucetTestBase):
         """Check that prometheus does not detect any stack cabling errors on all DPs"""
         for i, name in self.topo.switches_by_id.items():
             dpid = self.dpids[i]
-            labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': name}
+            labels = {"dp_id": "0x%x" % int(dpid), "dp_name": name}
             self.assertEqual(
-                0, self.scrape_prometheus_var(
-                    var='stack_cabling_errors_total', labels=labels, default=None))
+                0,
+                self.scrape_prometheus_var(
+                    var="stack_cabling_errors_total", labels=labels, default=None
+                ),
+            )
             self.assertGreater(
                 self.scrape_prometheus_var(
-                    var='stack_probes_received_total', labels=labels), 0)
+                    var="stack_probes_received_total", labels=labels
+                ),
+                0,
+            )
 
     def verify_stack_hosts(self, verify_bridge_local_rule=True, retries=3):
         """Verify hosts with stack LLDP messages"""
         lldp_cap_files = []
         for host in self.hosts_name_ordered():
-            lldp_cap_file = os.path.join(self.tmpdir, '%s-lldp.cap' % host)
+            lldp_cap_file = os.path.join(self.tmpdir, "%s-lldp.cap" % host)
             lldp_cap_files.append(lldp_cap_file)
-            host.cmd(timeout_cmd(
-                'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC and not ether src %s &' % (
-                    host.defaultIntf(), host.MAC(), lldp_cap_file), 60))
+            host.cmd(
+                timeout_cmd(
+                    "tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC and not ether src %s &"
+                    % (host.defaultIntf(), host.MAC(), lldp_cap_file),
+                    60,
+                )
+            )
         # should not flood LLDP from hosts
         self.verify_lldp_blocked(self.hosts_name_ordered())
         # hosts should see no LLDP probes
@@ -335,27 +391,37 @@ class FaucetTopoTestBase(FaucetTestBase):
             # Verify 802.1x flood block triggered.
             for dpid in self.dpids:
                 self.wait_nonzero_packet_count_flow(
-                    {'dl_dst': '01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
-                    dpid=dpid, table_id=self._FLOOD_TABLE, ofa_match=False)
+                    {"dl_dst": "01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0"},
+                    dpid=dpid,
+                    table_id=self._FLOOD_TABLE,
+                    ofa_match=False,
+                )
         self.retry_net_ping(retries=retries)
 
     def stack_port_status(self, dpid, dp_name, port_no):
         """Return the status of a stack port from prometheus"""
         labels = self.port_labels(port_no)
-        labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
+        labels.update({"dp_id": "0x%x" % int(dpid), "dp_name": dp_name})
         return self.scrape_prometheus_var(
-            'port_stack_state', labels=labels,
-            default=None, dpid=dpid)
+            "port_stack_state", labels=labels, default=None, dpid=dpid
+        )
 
     def wait_for_stack_port_status(self, dpid, dp_name, port_no, status, timeout=25):
         """Wait until prometheus detects a stack port has a certain status"""
         labels = self.port_labels(port_no)
-        labels.update({'dp_id': '0x%x' % int(dpid), 'dp_name': dp_name})
+        labels.update({"dp_id": "0x%x" % int(dpid), "dp_name": dp_name})
         if not self.wait_for_prometheus_var(
-                'port_stack_state', status, labels=labels,
-                default=None, dpid=False, timeout=timeout):
-            self.fail('did not get expected dpid %x port %u port_stack_state %u' % (
-                int(dpid), port_no, status))
+            "port_stack_state",
+            status,
+            labels=labels,
+            default=None,
+            dpid=False,
+            timeout=timeout,
+        ):
+            self.fail(
+                "did not get expected dpid %x port %u port_stack_state %u"
+                % (int(dpid), port_no, status)
+            )
 
     def one_stack_port_down(self, dpid, dp_name, port):
         """Set a stack port down and wait for prometheus to detect the change"""
@@ -385,7 +451,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             prop_up = links_up / links
             if prop_up >= prop:
                 return
-        self.fail('not enough links up: %f / %f' % (links_up, links))
+        self.fail("not enough links up: %f / %f" % (links_up, links))
 
     def verify_stack_down(self):
         """Verify all stack ports are down"""
@@ -399,7 +465,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                 links += 1
                 if status != 3:
                     links_down += 1
-        self.assertEqual(links, links_down, 'Not all links DOWN')
+        self.assertEqual(links, links_down, "Not all links DOWN")
 
     def verify_one_stack_down(self, stack_offset_port, coldstart=False):
         """Test conditions when one stack port is down"""
@@ -422,12 +488,10 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.verify_stack_up(prop=0.75)
         self.verify_stack_hosts(verify_bridge_local_rule=False)
         # Broadcast works, and first switch doesn't see broadcast packet ins from stack.
-        packet_in_before_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
+        packet_in_before_broadcast = self.scrape_prometheus_var("of_vlan_packet_ins")
         self.verify_broadcast()
-        packet_in_after_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
-        self.assertEqual(
-            packet_in_before_broadcast,
-            packet_in_after_broadcast)
+        packet_in_after_broadcast = self.scrape_prometheus_var("of_vlan_packet_ins")
+        self.assertEqual(packet_in_before_broadcast, packet_in_after_broadcast)
         self.verify_no_cable_errors()
 
     def verify_no_arp_storm(self, ping_host, tcpdump_host):
@@ -439,22 +503,30 @@ class FaucetTopoTestBase(FaucetTestBase):
                 if self.topo.isSwitch(dst_node):
                     switch_to_switch_links += 1
         num_arp_expected = switch_to_switch_links * 2
-        tcpdump_filter = 'arp and ether src %s' % ping_host.MAC()
+        tcpdump_filter = "arp and ether src %s" % ping_host.MAC()
         tcpdump_txt = self.tcpdump_helper(
-            tcpdump_host, tcpdump_filter, [
-                lambda: ping_host.cmd('arp -d %s' % tcpdump_host.IP()),
-                lambda: ping_host.cmd('ping -c1 %s' % tcpdump_host.IP())],
-            packets=(num_arp_expected + 1))
-        num_arp_received = len(re.findall(
-            'who-has %s tell %s' % (tcpdump_host.IP(), ping_host.IP()), tcpdump_txt))
+            tcpdump_host,
+            tcpdump_filter,
+            [
+                lambda: ping_host.cmd("arp -d %s" % tcpdump_host.IP()),
+                lambda: ping_host.cmd("ping -c1 %s" % tcpdump_host.IP()),
+            ],
+            packets=(num_arp_expected + 1),
+        )
+        num_arp_received = len(
+            re.findall(
+                "who-has %s tell %s" % (tcpdump_host.IP(), ping_host.IP()), tcpdump_txt
+            )
+        )
         self.assertTrue(num_arp_received)
         self.assertLessEqual(num_arp_received, num_arp_expected)
 
     def verify_stack_has_no_loop(self):
         """Ping between first and last hosts (by name) then verify there is no broadcast storm"""
         for ping_host, tcpdump_host in (
-                (self.hosts_name_ordered()[0], self.hosts_name_ordered()[-1]),
-                (self.hosts_name_ordered()[-1], self.hosts_name_ordered()[0])):
+            (self.hosts_name_ordered()[0], self.hosts_name_ordered()[-1]),
+            (self.hosts_name_ordered()[-1], self.hosts_name_ordered()[0]),
+        ):
             self.verify_no_arp_storm(ping_host, tcpdump_host)
 
     def verify_all_stack_hosts(self):
@@ -469,36 +541,51 @@ class FaucetTopoTestBase(FaucetTestBase):
             self.verify_stack_has_no_loop()
             self.flap_all_switch_ports()
 
-    def verify_tunnel_established(self, src_host, dst_host, other_host, packets=3, dpid=None):
+    def verify_tunnel_established(
+        self, src_host, dst_host, other_host, packets=3, dpid=None
+    ):
         """Verify ICMP packets tunnelled from src to dst."""
-        icmp_match = {'eth_type': IPV4_ETH, 'ip_proto': 1}
+        icmp_match = {"eth_type": IPV4_ETH, "ip_proto": 1}
         self.wait_until_matching_flow(
-            icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False, dpid=dpid)
+            icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False, dpid=dpid
+        )
         tcpdump_text = self.tcpdump_helper(
-            dst_host, 'icmp[icmptype] == 8', [
+            dst_host,
+            "icmp[icmptype] == 8",
+            [
                 # need to set static ARP as only ICMP is tunnelled.
-                lambda: src_host.cmd('arp -s %s %s' % (other_host.IP(), other_host.MAC())),
-                lambda: src_host.cmd('ping -c%u -t1 %s' % (packets, other_host.IP()))
+                lambda: src_host.cmd(
+                    "arp -s %s %s" % (other_host.IP(), other_host.MAC())
+                ),
+                lambda: src_host.cmd("ping -c%u -t1 %s" % (packets, other_host.IP())),
             ],
-            packets=1, timeout=(packets + 1),
+            packets=1,
+            timeout=(packets + 1),
         )
         self.wait_nonzero_packet_count_flow(
-            icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False, dpid=dpid)
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % other_host.IP(), tcpdump_text
-        ), 'Tunnel was not established')
+            icmp_match, table_id=self._PORT_ACL_TABLE, ofa_match=False, dpid=dpid
+        )
+        self.assertTrue(
+            re.search("%s: ICMP echo request" % other_host.IP(), tcpdump_text),
+            "Tunnel was not established",
+        )
 
     def verify_one_broadcast(self, from_host, to_hosts):
         """Verify host connectivity via broadcast"""
-        self.assertGreater(len(to_hosts), 1, 'Testing only one ext host is not useful')
+        self.assertGreater(len(to_hosts), 1, "Testing only one ext host is not useful")
         received_broadcasts = []
         for to_host in to_hosts:
-            if self.verify_broadcast(hosts=(from_host, to_host), broadcast_expected=None):
+            if self.verify_broadcast(
+                hosts=(from_host, to_host), broadcast_expected=None
+            ):
                 received_broadcasts.append(to_host)
         received_names = {host.name: host for host in received_broadcasts}
-        self.assertEqual(len(received_broadcasts), 1,
-                         'Received not exactly one broadcast from %s: %s' %
-                         (from_host.name, received_names))
+        self.assertEqual(
+            len(received_broadcasts),
+            1,
+            "Received not exactly one broadcast from %s: %s"
+            % (from_host.name, received_names),
+        )
 
     def map_int_ext_hosts(self):
         """
@@ -508,10 +595,13 @@ class FaucetTopoTestBase(FaucetTestBase):
         """
         int_hosts = []
         ext_hosts = []
-        dp_hosts = {self.topo.switches_by_id[dp_index]: ([], []) for dp_index in range(self.NUM_DPS)}
-        for host_id, options in self.configuration_options['host_options'].items():
-            host = self.host_information[host_id]['host']
-            if options.get('loop_protect_external', False):
+        dp_hosts = {
+            self.topo.switches_by_id[dp_index]: ([], [])
+            for dp_index in range(self.NUM_DPS)
+        }
+        for host_id, options in self.configuration_options["host_options"].items():
+            host = self.host_information[host_id]["host"]
+            if options.get("loop_protect_external", False):
                 ext_hosts.append(host)
                 int_or_ext = 1
             else:
@@ -537,7 +627,9 @@ class FaucetTopoTestBase(FaucetTestBase):
         for int_host in int_hosts:
             # All internal hosts can reach other internal hosts.
             for other_int_host in int_hosts - {int_host}:
-                self.verify_broadcast(hosts=(int_host, other_int_host), broadcast_expected=True)
+                self.verify_broadcast(
+                    hosts=(int_host, other_int_host), broadcast_expected=True
+                )
                 self.one_ipv4_ping(int_host, other_int_host.IP())
 
             # All internal hosts can reach exactly one external host.
@@ -546,22 +638,26 @@ class FaucetTopoTestBase(FaucetTestBase):
         for ext_host in ext_hosts:
             # All external hosts can reach internal hosts.
             for int_host in int_hosts:
-                self.verify_broadcast(hosts=(ext_host, int_host), broadcast_expected=True)
+                self.verify_broadcast(
+                    hosts=(ext_host, int_host), broadcast_expected=True
+                )
                 self.one_ipv4_ping(ext_host, int_host.IP())
 
             # All external hosts cannot flood to each other.
             for other_ext_host in ext_hosts - {ext_host}:
-                self.verify_broadcast(hosts=(ext_host, other_ext_host), broadcast_expected=False)
+                self.verify_broadcast(
+                    hosts=(ext_host, other_ext_host), broadcast_expected=False
+                )
 
     def set_externals_state(self, dp_name, externals_up):
         """Set the port up/down state of all external ports on a switch"""
-        dp_conf = self._get_faucet_conf()['dps'][dp_name]
-        for port_num, port_conf in dp_conf['interfaces'].items():
-            if port_conf.get('loop_protect_external'):
+        dp_conf = self._get_faucet_conf()["dps"][dp_name]
+        for port_num, port_conf in dp_conf["interfaces"].items():
+            if port_conf.get("loop_protect_external"):
                 if externals_up:
-                    self.set_port_up(port_num, dp_conf.get('dp_id'))
+                    self.set_port_up(port_num, dp_conf.get("dp_id"))
                 else:
-                    self.set_port_down(port_num, dp_conf.get('dp_id'))
+                    self.set_port_down(port_num, dp_conf.get("dp_id"))
 
     def validate_with_externals_down(self, dp_name):
         """Check situation when all externals on a given dp are down"""
@@ -577,7 +673,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             self.validate_with_externals_down(dp_name)
         except AssertionError:
             asserted = True
-        self.assertTrue(asserted, 'Did not fail as expected for %s' % dp_name)
+        self.assertTrue(asserted, "Did not fail as expected for %s" % dp_name)
 
     def verify_intervlan_routing(self):
         """Verify intervlan routing but for LAG host use bond interface"""
@@ -588,38 +684,56 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def check_host_connectivity_by_id(self, src_id, dst_id):
         """Ping from src to dst with host_id parameters if they should be able to"""
-        src_host, src_ip, _, src_vlan, src_bond, _ = self.host_information[src_id].values()
-        dst_host, dst_ip, _, dst_vlan, dst_bond, _ = self.host_information[dst_id].values()
+        src_host, src_ip, _, src_vlan, src_bond, _ = self.host_information[
+            src_id
+        ].values()
+        dst_host, dst_ip, _, dst_vlan, dst_bond, _ = self.host_information[
+            dst_id
+        ].values()
         connectivity = src_vlan == dst_vlan or self.is_routed_vlans(src_vlan, dst_vlan)
         if self.is_routed_vlans(src_vlan, dst_vlan):
             src_vip = self.faucet_vips[src_vlan]
             dst_vip = self.faucet_vips[dst_vlan]
-            self.host_ping(src_host, src_vip.ip, src_bond)  # pytype: disable=attribute-error
-            self.host_ping(dst_host, dst_vip.ip, dst_bond)  # pytype: disable=attribute-error
+            # pytype: disable=attribute-error
+            self.host_ping(src_host, src_vip.ip, src_bond)
+            self.host_ping(dst_host, dst_vip.ip, dst_bond)
         if connectivity:
-            self.host_ping(src_host, dst_ip.ip, src_bond)  # pytype: disable=attribute-error
-            self.host_ping(dst_host, src_ip.ip, dst_bond)  # pytype: disable=attribute-error
+            # pytype: disable=attribute-error
+            self.host_ping(src_host, dst_ip.ip, src_bond)
+            self.host_ping(dst_host, src_ip.ip, dst_bond)
 
     def is_routed_vlans(self, vlan_a, vlan_b):
         """Return true if the two vlans share a router"""
-        if self.configuration_options['routers']:
-            for vlans in self.configuration_options['routers'].values():
-                if (vlan_a in vlans and vlan_b in vlans):
+        if self.configuration_options["routers"]:
+            for vlans in self.configuration_options["routers"].values():
+                if vlan_a in vlans and vlan_b in vlans:
                     return True
         return False
 
-    def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re, retries):
+    def bcast_dst_blocked_helper(
+        self, port, first_host, second_host, success_re, retries
+    ):
         """Helper for checking broadcast destination has been blocked"""
-        tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
-            first_host.MAC(), "ff:ff:ff:ff:ff:ff")
+        tcpdump_filter = "udp and ether src %s and ether dst %s" % (
+            first_host.MAC(),
+            "ff:ff:ff:ff:ff:ff",
+        )
         target_addr = str(self.faucet_vips[0].network.broadcast_address)
         for _ in range(retries):
             tcpdump_txt = self.tcpdump_helper(
-                second_host, tcpdump_filter, [
-                    partial(first_host.cmd, (
-                        'date | socat - udp-datagram:%s:%d,broadcast' % (
-                            target_addr, port)))],
-                packets=1)
+                second_host,
+                tcpdump_filter,
+                [
+                    partial(
+                        first_host.cmd,
+                        (
+                            "date | socat - udp-datagram:%s:%d,broadcast"
+                            % (target_addr, port)
+                        ),
+                    )
+                ],
+                packets=1,
+            )
             if re.search(success_re, tcpdump_txt):
                 return True
             time.sleep(1)
@@ -628,9 +742,12 @@ class FaucetTopoTestBase(FaucetTestBase):
     def get_expected_synced_states(self, host_id):
         """Return the list of regex string for the expected sync state of a LACP LAG connection"""
         synced_state_list = []
-        oper_key = self.configuration_options['host_options'][host_id]['lacp']
+        oper_key = self.configuration_options["host_options"][host_id]["lacp"]
         lacp_ports = [
-            port for ports in self.host_information[host_id]['ports'].values() for port in ports]
+            port
+            for ports in self.host_information[host_id]["ports"].values()
+            for port in ports
+        ]
         for port in lacp_ports:
             synced_state_txt = r"""
 Slave Interface: \S+
@@ -659,17 +776,20 @@ details partner lacp pdu:
     port priority: 255
     port number: %d
     port state: 62
-""".strip() % (oper_key, port)
+""".strip() % (
+                oper_key,
+                port,
+            )
             synced_state_list.append(synced_state_txt)
         return synced_state_list
 
     def prom_lacp_up_ports(self, dpid):
         """Get the number of up LAG ports according to Prometheus for a dpid"""
         lacp_up_ports = 0
-        for host_id, options in self.configuration_options['host_options'].items():
+        for host_id, options in self.configuration_options["host_options"].items():
             # Find LACP hosts
             for key in options.keys():
-                if key == 'lacp':
+                if key == "lacp":
                     # Is LACP host
                     for dp_i, ports in self.host_port_maps[host_id].items():
                         if dpid == self.topo.dpids_by_id[dp_i]:
@@ -678,7 +798,8 @@ details partner lacp pdu:
                                 # Obtain up LACP ports for that dpid
                                 port_labels = self.port_labels(port)
                                 lacp_state = self.scrape_prometheus_var(
-                                    'port_lacp_state', port_labels, default=0, dpid=dpid)
+                                    "port_lacp_state", port_labels, default=0, dpid=dpid
+                                )
                                 lacp_up_ports += 1 if lacp_state == 3 else 0
         return lacp_up_ports
 
@@ -694,12 +815,14 @@ details partner lacp pdu:
     def require_linux_bond_up(self, host_id):
         """Checks to see if the host has properly formed into a bonded state"""
         synced_state_list = self.get_expected_synced_states(host_id)
-        host = self.host_information[host_id]['host']
-        bond_name = self.host_information[host_id]['bond']
+        host = self.host_information[host_id]["host"]
+        bond_name = self.host_information[host_id]["bond"]
         for _ in range(self.LACP_TIMEOUT * 2):
             result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond_name)
-            result = '\n'.join([line.rstrip() for line in result.splitlines()])
-            with open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w', encoding='utf-8') as state_file:
+            result = "\n".join([line.rstrip() for line in result.splitlines()])
+            with open(
+                os.path.join(self.tmpdir, "bonding-state.txt"), "w", encoding="utf-8"
+            ) as state_file:
                 state_file.write(result)
             matched_all = True
             for state_txt in synced_state_list:
@@ -715,7 +838,9 @@ details partner lacp pdu:
         synced_state_txt.strip()
         self.assertFalse(
             re.search(synced_state_txt, result),
-            msg='LACP did not synchronize: %s\n\nexpected:\n\n%s' % (result, synced_state_txt))
+            msg="LACP did not synchronize: %s\n\nexpected:\n\n%s"
+            % (result, synced_state_txt),
+        )
 
     def verify_lag_connectivity(self, host_id):
         """Verify LAG connectivity"""
@@ -752,8 +877,8 @@ details partner lacp pdu:
     def verify_lag_host_connectivity(self):
         """Verify LAG hosts can connect to any other host using the interface"""
         # Find all LACP hosts
-        for lacp_id, host_options in self.configuration_options['host_options'].items():
-            if 'lacp' in host_options:
+        for lacp_id, host_options in self.configuration_options["host_options"].items():
+            if "lacp" in host_options:
                 # Found LACP host
                 for dst_id in self.host_information:
                     if lacp_id == dst_id:
