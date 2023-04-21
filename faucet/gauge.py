@@ -42,8 +42,9 @@ class Gauge(OSKenAppBase):
     GAUGE_CONFIG. It logs to the file set as the environment variable
     GAUGE_LOG,
     """
-    logname = 'gauge'
-    exc_logname = logname + '.exception'
+
+    logname = "gauge"
+    exc_logname = logname + ".exception"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -70,15 +71,22 @@ class Gauge(OSKenAppBase):
     def _load_config(self):
         """Load Gauge config."""
         try:
-            conf_hash, _faucet_config_files, faucet_conf_hashes, new_confs = watcher_parser(
-                self.config_file, self.logname, self.prom_client)
+            (
+                conf_hash,
+                _faucet_config_files,
+                faucet_conf_hashes,
+                new_confs,
+            ) = watcher_parser(self.config_file, self.logname, self.prom_client)
             watchers = [
-                watcher_factory(watcher_conf)(watcher_conf, self.logname, self.prom_client)
-                for watcher_conf in new_confs]
+                watcher_factory(watcher_conf)(
+                    watcher_conf, self.logname, self.prom_client
+                )
+                for watcher_conf in new_confs
+            ]
             self.prom_client.reregister_nonflow_vars()
         except InvalidConfigError as err:
             self.config_watcher.update(self.config_file)
-            self.logger.error('invalid config: %s', err)
+            self.logger.error("invalid config: %s", err)
             return
 
         for old_watchers in self.watchers.values():
@@ -100,15 +108,14 @@ class Gauge(OSKenAppBase):
                 self._start_watchers(ryu_dp, watchers, timestamp)
 
         self.watchers = new_watchers
-        self.config_watcher.update(
-            self.config_file, {self.config_file: conf_hash})
+        self.config_watcher.update(self.config_file, {self.config_file: conf_hash})
         self.faucet_config_watchers = []
         for faucet_config_file, faucet_conf_hash in faucet_conf_hashes.items():
             faucet_config_watcher = ConfigWatcher()
             faucet_config_watcher.update(faucet_config_file, faucet_conf_hash)
             self.faucet_config_watchers.append(faucet_config_watcher)
-            self.logger.info('watching FAUCET config %s', faucet_config_file)
-        self.logger.info('config complete')
+            self.logger.info("watching FAUCET config %s", faucet_config_file)
+        self.logger.info("config complete")
 
     @kill_on_exception(exc_logname)
     def _update_watcher(self, name, ryu_event):
@@ -143,7 +150,8 @@ class Gauge(OSKenAppBase):
                 if isinstance(watcher, GaugePortStatePoller):
                     for port in ryu_dp.ports.values():
                         msg = parser.OFPPortStatus(
-                            ryu_dp, desc=port, reason=ofp.OFPPR_ADD)
+                            ryu_dp, desc=port, reason=ofp.OFPPR_ADD
+                        )
                         watcher.update(timestamp, msg)
 
     @kill_on_exception(exc_logname)
@@ -156,7 +164,7 @@ class Gauge(OSKenAppBase):
         watchers, ryu_dp, _ = self._get_watchers(ryu_event)
         if watchers is None:
             return
-        self.logger.info('%s up', dpid_log(ryu_dp.id))
+        self.logger.info("%s up", dpid_log(ryu_dp.id))
         ryu_dp.send_msg(valve_of.faucet_config(datapath=ryu_dp))
         ryu_dp.send_msg(valve_of.faucet_async(datapath=ryu_dp, packet_in=False))
         self._start_watchers(ryu_dp, watchers, time.time())
@@ -180,20 +188,28 @@ class Gauge(OSKenAppBase):
         watchers, ryu_dp, _ = self._get_watchers(ryu_event)
         if watchers is None:
             return
-        self.logger.info('%s down', dpid_log(ryu_dp.id))
+        self.logger.info("%s down", dpid_log(ryu_dp.id))
         self._stop_watchers(watchers)
 
     _WATCHER_HANDLERS = {
-        ofp_event.EventOFPPortStatus: 'port_state',  # pylint: disable=no-member
-        ofp_event.EventOFPPortStatsReply: 'port_stats',  # pylint: disable=no-member
-        ofp_event.EventOFPFlowStatsReply: 'flow_table',  # pylint: disable=no-member
-        ofp_event.EventOFPMeterStatsReply: 'meter_stats',  # pylint: disable=no-member
+        ofp_event.EventOFPPortStatus: "port_state",  # pylint: disable=no-member
+        ofp_event.EventOFPPortStatsReply: "port_stats",  # pylint: disable=no-member
+        ofp_event.EventOFPFlowStatsReply: "flow_table",  # pylint: disable=no-member
+        ofp_event.EventOFPMeterStatsReply: "meter_stats",  # pylint: disable=no-member
     }
 
-    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)  # pylint: disable=no-member
-    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)  # pylint: disable=no-member
-    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)  # pylint: disable=no-member
-    @set_ev_cls(ofp_event.EventOFPMeterStatsReply, MAIN_DISPATCHER)  # pylint: disable=no-member
+    @set_ev_cls(
+        ofp_event.EventOFPPortStatus, MAIN_DISPATCHER  # pylint: disable=no-member
+    )
+    @set_ev_cls(
+        ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER  # pylint: disable=no-member
+    )
+    @set_ev_cls(
+        ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER  # pylint: disable=no-member
+    )
+    @set_ev_cls(
+        ofp_event.EventOFPMeterStatsReply, MAIN_DISPATCHER  # pylint: disable=no-member
+    )
     @kill_on_exception(exc_logname)
     def update_watcher_handler(self, ryu_event):
         """Handle any kind of stats/change event.

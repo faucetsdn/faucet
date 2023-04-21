@@ -20,7 +20,8 @@
 
 # pylint: disable=using-constant-test,wrong-import-order,wrong-import-position
 import eventlet
-if True:                # A trick to satisfy linting for E402
+
+if True:  # A trick to satisfy linting for E402
     eventlet.monkey_patch()
 
 import time
@@ -45,18 +46,24 @@ from faucet import faucet_metrics
 from faucet import valve_of
 
 
-EXPORT_RYU_CONFIGS = ['echo_request_interval', 'maximum_unreplied_echo_requests']
+EXPORT_RYU_CONFIGS = ["echo_request_interval", "maximum_unreplied_echo_requests"]
 
 
-class EventFaucetMaintainStackRoot(event.EventBase):  # pylint: disable=too-few-public-methods
+class EventFaucetMaintainStackRoot(  # pylint: disable=too-few-public-methods
+    event.EventBase
+):
     """Event used to maintain stack root."""
 
 
-class EventFaucetMetricUpdate(event.EventBase):  # pylint: disable=too-few-public-methods
+class EventFaucetMetricUpdate(  # pylint: disable=too-few-public-methods
+    event.EventBase
+):
     """Event used to trigger update of metrics."""
 
 
-class EventFaucetResolveGateways(event.EventBase):  # pylint: disable=too-few-public-methods
+class EventFaucetResolveGateways(  # pylint: disable=too-few-public-methods
+    event.EventBase
+):
     """Event used to trigger gateway re/resolution."""
 
 
@@ -64,7 +71,9 @@ class EventFaucetStateExpire(event.EventBase):  # pylint: disable=too-few-public
     """Event used to trigger expiration of state in controller."""
 
 
-class EventFaucetFastStateExpire(event.EventBase):  # pylint: disable=too-few-public-methods
+class EventFaucetFastStateExpire(  # pylint: disable=too-few-public-methods
+    event.EventBase
+):
     """Event used to trigger fast expiration of state in controller."""
 
 
@@ -72,11 +81,15 @@ class EventFaucetAdvertise(event.EventBase):  # pylint: disable=too-few-public-m
     """Event used to trigger periodic network advertisements (eg IPv6 RAs)."""
 
 
-class EventFaucetFastAdvertise(event.EventBase):  # pylint: disable=too-few-public-methods
+class EventFaucetFastAdvertise(  # pylint: disable=too-few-public-methods
+    event.EventBase
+):
     """Event used to trigger periodic fast network advertisements (eg LACP)."""
 
 
-class EventFaucetEventSockHeartbeat(event.EventBase):  # pylint: disable=too-few-public-methods
+class EventFaucetEventSockHeartbeat(  # pylint: disable=too-few-public-methods
+    event.EventBase
+):
     """Event used to trigger periodic events on event sock,
     causing it to raise an exception if conn is broken.
     """
@@ -88,19 +101,20 @@ class Faucet(OSKenAppBase):
     Valve provides the switch implementation; this is a shim for the Ryu
     event handling framework to interface with Valve.
     """
+
     _CONTEXTS = {
-        'dpset': dpset.DPSet,
+        "dpset": dpset.DPSet,
     }
     _VALVE_SERVICES = {
         EventFaucetMetricUpdate: (None, 5),
-        EventFaucetResolveGateways: ('resolve_gateways', 2),
-        EventFaucetStateExpire: ('state_expire', 5),
-        EventFaucetFastStateExpire: ('fast_state_expire', 2),
-        EventFaucetAdvertise: ('advertise', 15),
-        EventFaucetFastAdvertise: ('fast_advertise', 5),
+        EventFaucetResolveGateways: ("resolve_gateways", 2),
+        EventFaucetStateExpire: ("state_expire", 5),
+        EventFaucetFastStateExpire: ("fast_state_expire", 2),
+        EventFaucetAdvertise: ("advertise", 15),
+        EventFaucetFastAdvertise: ("fast_advertise", 5),
     }
-    logname = 'faucet'
-    exc_logname = logname + '.exception'
+    logname = "faucet"
+    exc_logname = logname + ".exception"
     bgp = None
     notifier = None
     valves_manager = None
@@ -110,24 +124,41 @@ class Faucet(OSKenAppBase):
         super().__init__(*args, **kwargs)
         self.prom_client = faucet_metrics.FaucetMetrics(reg=self._reg)
         self.bgp = faucet_bgp.FaucetBgp(
-            self.logger, self.exc_logname, self.prom_client, self._send_flow_msgs)
+            self.logger, self.exc_logname, self.prom_client, self._send_flow_msgs
+        )
         self.dot1x = faucet_dot1x.FaucetDot1x(
-            self.logger, self.exc_logname, self.prom_client, self._send_flow_msgs)
+            self.logger, self.exc_logname, self.prom_client, self._send_flow_msgs
+        )
         self.notifier = faucet_event.FaucetEventNotifier(
-            self.get_setting('EVENT_SOCK'), self.prom_client, self.logger)
+            self.get_setting("EVENT_SOCK"), self.prom_client, self.logger
+        )
         self.valves_manager = valves_manager.ValvesManager(
-            self.logname, self.logger, self.prom_client, self.notifier, self.bgp,
-            self.dot1x, self.get_setting('CONFIG_AUTO_REVERT'), self._send_flow_msgs)
+            self.logname,
+            self.logger,
+            self.prom_client,
+            self.notifier,
+            self.bgp,
+            self.dot1x,
+            self.get_setting("CONFIG_AUTO_REVERT"),
+            self._send_flow_msgs,
+        )
         self.thread_managers = (self.bgp, self.dot1x, self.prom_client, self.notifier)
-        self.event_sock_hrtbeat_time = int(self.get_setting('EVENT_SOCK_HEARTBEAT') or 0)
+        self.event_sock_hrtbeat_time = int(
+            self.get_setting("EVENT_SOCK_HEARTBEAT") or 0
+        )
         if self.event_sock_hrtbeat_time > 0:
-            self._VALVE_SERVICES[EventFaucetEventSockHeartbeat] = ('event_sock_heartbeat',
-                                                                   self.event_sock_hrtbeat_time)
+            self._VALVE_SERVICES[EventFaucetEventSockHeartbeat] = (
+                "event_sock_heartbeat",
+                self.event_sock_hrtbeat_time,
+            )
         self.stack_root_state_update_time = int(
-            self.get_setting('STACK_ROOT_STATE_UPDATE_TIME') or 0)
+            self.get_setting("STACK_ROOT_STATE_UPDATE_TIME") or 0
+        )
         if self.stack_root_state_update_time:
-            self._VALVE_SERVICES[EventFaucetMaintainStackRoot] = (None,
-                                                                  self.stack_root_state_update_time)
+            self._VALVE_SERVICES[EventFaucetMaintainStackRoot] = (
+                None,
+                self.stack_root_state_update_time,
+            )
 
     @kill_on_exception(exc_logname)
     def _check_thread_exception(self):
@@ -144,8 +175,8 @@ class Faucet(OSKenAppBase):
         super().start()
 
         # Start Prometheus
-        prom_port = int(self.get_setting('PROMETHEUS_PORT'))
-        prom_addr = self.get_setting('PROMETHEUS_ADDR')
+        prom_port = int(self.get_setting("PROMETHEUS_PORT"))
+        prom_addr = self.get_setting("PROMETHEUS_ADDR")
         self.prom_client.start(prom_port, prom_addr)
         self._export_ryu_config()
 
@@ -157,13 +188,13 @@ class Faucet(OSKenAppBase):
         for service_event, service_pair in self._VALVE_SERVICES.items():
             name, interval = service_pair
             thread = hub.spawn(
-                partial(self._thread_reschedule, service_event(), interval))
+                partial(self._thread_reschedule, service_event(), interval)
+            )
             thread.name = name
             self.threads.append(thread)
 
     def _delete_deconfigured_dp(self, deleted_dpid):
-        self.logger.info(
-            'Deleting de-configured %s', dpid_log(deleted_dpid))
+        self.logger.info("Deleting de-configured %s", dpid_log(deleted_dpid))
         ryu_dp = self.dpset.get(deleted_dpid)
         if ryu_dp is not None:
             ryu_dp.close()
@@ -174,7 +205,8 @@ class Faucet(OSKenAppBase):
         """Handle a request to reload configuration."""
         super().reload_config(ryu_event)
         self.valves_manager.request_reload_configs(
-            time.time(), self.config_file, delete_dp=self._delete_deconfigured_dp)
+            time.time(), self.config_file, delete_dp=self._delete_deconfigured_dp
+        )
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, valve, flow_msgs, ryu_dp=None):
@@ -188,7 +220,7 @@ class Faucet(OSKenAppBase):
         if ryu_dp is None:
             ryu_dp = self.dpset.get(valve.dp.dp_id)
         if not ryu_dp:
-            valve.logger.error('send_flow_msgs: DP not up')
+            valve.logger.error("send_flow_msgs: DP not up")
             return
         valve.send_flows(ryu_dp, flow_msgs, time.time())
 
@@ -202,7 +234,8 @@ class Faucet(OSKenAppBase):
             valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and msg (if any)
         """
         valve, ryu_dp, msg = self._get_datapath_obj(
-            self.valves_manager.valves, ryu_event)
+            self.valves_manager.valves, ryu_event
+        )
         if valve:
             if msg:
                 valve.ofchannel_log([msg])
@@ -222,7 +255,9 @@ class Faucet(OSKenAppBase):
     @set_ev_cls(EventFaucetMaintainStackRoot, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _maintain_stack_root(self, _):
-        self.valves_manager.maintain_stack_root(time.time(), self.stack_root_state_update_time)
+        self.valves_manager.maintain_stack_root(
+            time.time(), self.stack_root_state_update_time
+        )
 
     @set_ev_cls(EventFaucetEventSockHeartbeat, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -238,10 +273,12 @@ class Faucet(OSKenAppBase):
     def _valve_flow_services(self, ryu_event):
         """Call a method on all Valves and send any resulting flows."""
         self.valves_manager.valve_flow_services(
-            time.time(),
-            self._VALVE_SERVICES[type(ryu_event)][0])
+            time.time(), self._VALVE_SERVICES[type(ryu_event)][0]
+        )
 
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)  # pylint: disable=no-member
+    @set_ev_cls(
+        ofp_event.EventOFPPacketIn, MAIN_DISPATCHER  # pylint: disable=no-member
+    )
     @kill_on_exception(exc_logname)
     def packet_in_handler(self, ryu_event):
         """Handle a packet in event from the dataplane.
@@ -254,7 +291,9 @@ class Faucet(OSKenAppBase):
             return
         self.valves_manager.valve_packet_in(ryu_event.timestamp, valve, msg)
 
-    @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)  # pylint: disable=no-member
+    @set_ev_cls(
+        ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER  # pylint: disable=no-member
+    )
     @kill_on_exception(exc_logname)
     def error_handler(self, ryu_event):
         """Handle an OFPError from a datapath.
@@ -267,7 +306,9 @@ class Faucet(OSKenAppBase):
             return
         valve.oferror(msg)
 
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)  # pylint: disable=no-member
+    @set_ev_cls(
+        ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER  # pylint: disable=no-member
+    )
     @kill_on_exception(exc_logname)
     def features_handler(self, ryu_event):
         """Handle receiving a switch features message from a datapath.
@@ -292,11 +333,16 @@ class Faucet(OSKenAppBase):
         if valve is None:
             return
         discovered_up_ports = {
-            port.port_no for port in list(ryu_dp.ports.values())
-            if (valve_of.port_status_from_state(port.state)
-                and not valve_of.ignore_port(port.port_no))}
+            port.port_no
+            for port in list(ryu_dp.ports.values())
+            if (
+                valve_of.port_status_from_state(port.state)
+                and not valve_of.ignore_port(port.port_no)
+            )
+        }
         self._send_flow_msgs(
-            valve, self.valves_manager.datapath_connect(now, valve, discovered_up_ports))
+            valve, self.valves_manager.datapath_connect(now, valve, discovered_up_ports)
+        )
         self.valves_manager.update_config_applied({valve.dp.dp_id: True})
 
     @kill_on_exception(exc_logname)
@@ -311,7 +357,9 @@ class Faucet(OSKenAppBase):
             return
         valve.datapath_disconnect(time.time())
 
-    @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER)  # pylint: disable=no-member
+    @set_ev_cls(
+        ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER  # pylint: disable=no-member
+    )
     @kill_on_exception(exc_logname)
     def desc_stats_reply_handler(self, ryu_event):
         """Handle OFPDescStatsReply from datapath.
@@ -324,7 +372,10 @@ class Faucet(OSKenAppBase):
             return
         valve.ofdescstats_handler(msg.body)
 
-    @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, CONFIG_DISPATCHER)  # pylint: disable=no-member
+    @set_ev_cls(
+        ofp_event.EventOFPPortDescStatsReply,  # pylint: disable=no-member
+        CONFIG_DISPATCHER,
+    )
     @kill_on_exception(exc_logname)
     def port_desc_stats_reply_handler(self, ryu_event):
         """Handle OFPPortDescStatsReply from datapath.
@@ -337,7 +388,9 @@ class Faucet(OSKenAppBase):
             return
         self.valves_manager.port_desc_stats_reply_handler(valve, msg, time.time())
 
-    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)  # pylint: disable=no-member
+    @set_ev_cls(
+        ofp_event.EventOFPPortStatus, MAIN_DISPATCHER  # pylint: disable=no-member
+    )
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ryu_event):
         """Handle a port status change event.
@@ -350,7 +403,9 @@ class Faucet(OSKenAppBase):
             return
         self.valves_manager.port_status_handler(valve, msg, time.time())
 
-    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)  # pylint: disable=no-member
+    @set_ev_cls(
+        ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER  # pylint: disable=no-member
+    )
     @kill_on_exception(exc_logname)
     def flowremoved_handler(self, ryu_event):
         """Handle a flow removed event.
@@ -362,4 +417,6 @@ class Faucet(OSKenAppBase):
         if valve is None:
             return
         if msg.reason == ryu_dp.ofproto.OFPRR_IDLE_TIMEOUT:
-            self._send_flow_msgs(valve, valve.flow_timeout(time.time(), msg.table_id, msg.match))
+            self._send_flow_msgs(
+                valve, valve.flow_timeout(time.time(), msg.table_id, msg.match)
+            )

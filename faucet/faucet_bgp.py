@@ -34,8 +34,11 @@ class BgpSpeakerKey:
         self.ipv = ipv
 
     def __str__(self):
-        return 'BGP speaker key DP ID: %u, VLAN VID: %u, IP version: %u' % (
-            self.dp_id, self.vlan_vid, self.ipv)
+        return "BGP speaker key DP ID: %u, VLAN VID: %u, IP version: %u" % (
+            self.dp_id,
+            self.vlan_vid,
+            self.ipv,
+        )
 
     def __repr__(self):
         return self.__str__()
@@ -81,11 +84,11 @@ class FaucetBgp:
 
     @kill_on_exception(exc_logname)
     def _bgp_up_handler(self, remote_ip, remote_as):
-        self.logger.info('BGP peer router ID %s AS %s up' % (remote_ip, remote_as))
+        self.logger.info("BGP peer router ID %s AS %s up" % (remote_ip, remote_as))
 
     @kill_on_exception(exc_logname)
     def _bgp_down_handler(self, remote_ip, remote_as):
-        self.logger.info('BGP peer router ID %s AS %s down' % (remote_ip, remote_as))
+        self.logger.info("BGP peer router ID %s AS %s down" % (remote_ip, remote_as))
         # TODO: delete RIB routes for down peer.
 
     @kill_on_exception(exc_logname)
@@ -101,20 +104,22 @@ class FaucetBgp:
         if vlan is None:
             return
         prefix = ipaddress.ip_network(str(path_change.prefix))
-        route_str = 'BGP route %s' % prefix
+        route_str = "BGP route %s" % prefix
 
         if path_change.next_hop:
             nexthop = ipaddress.ip_address(str(path_change.next_hop))
-            route_str = 'BGP route %s nexthop %s' % (prefix, nexthop)
+            route_str = "BGP route %s nexthop %s" % (prefix, nexthop)
 
             if vlan.is_faucet_vip(nexthop):
                 self.logger.error(
-                    'Skipping %s because nexthop cannot be us' % route_str)
+                    "Skipping %s because nexthop cannot be us" % route_str
+                )
                 return
 
             if valve.router_vlan_for_ip_gw(vlan, nexthop) is None:
                 self.logger.info(
-                    'Skipping %s because nexthop not in %s' % (route_str, vlan))
+                    "Skipping %s because nexthop not in %s" % (route_str, vlan)
+                )
                 return
 
         if bgp_speaker_key not in self._dp_bgp_rib:
@@ -122,12 +127,12 @@ class FaucetBgp:
 
         flowmods = []
         if path_change.is_withdraw:
-            self.logger.info('withdraw %s', route_str)
+            self.logger.info("withdraw %s", route_str)
             if prefix in self._dp_bgp_rib[bgp_speaker_key]:
                 del self._dp_bgp_rib[bgp_speaker_key][prefix]
             flowmods = valve.del_route(vlan, prefix)
         else:
-            self.logger.info('add %s', route_str)
+            self.logger.info("add %s", route_str)
             self._dp_bgp_rib[bgp_speaker_key][prefix] = nexthop
             flowmods = valve.add_route(vlan, nexthop, prefix)
         if flowmods:
@@ -136,9 +141,15 @@ class FaucetBgp:
     @staticmethod
     def _vlan_prefixes_by_ipv(vlan, ipv):
         vlan_prefixes = [
-            (str(faucet_vip), str(faucet_vip.ip)) for faucet_vip in vlan.faucet_vips_by_ipv(ipv)]
-        vlan_prefixes.extend([
-            (str(ip_dst), str(ip_gw)) for ip_dst, ip_gw in vlan.routes_by_ipv(ipv).items()])
+            (str(faucet_vip), str(faucet_vip.ip))
+            for faucet_vip in vlan.faucet_vips_by_ipv(ipv)
+        ]
+        vlan_prefixes.extend(
+            [
+                (str(ip_dst), str(ip_gw))
+                for ip_dst, ip_gw in vlan.routes_by_ipv(ipv).items()
+            ]
+        )
         return vlan_prefixes
 
     def _create_bgp_speaker_for_vlan(self, bgp_speaker_key, bgp_router):
@@ -150,7 +161,9 @@ class FaucetBgp:
         Returns:
             ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
         """
-        server_address = sorted(bgp_router.bgp_server_addresses_by_ipv(bgp_speaker_key.ipv))[0]
+        server_address = sorted(
+            bgp_router.bgp_server_addresses_by_ipv(bgp_speaker_key.ipv)
+        )[0]
         beka = Beka(
             local_address=str(server_address),
             bgp_port=bgp_router.bgp_port(),
@@ -159,16 +172,22 @@ class FaucetBgp:
             peer_up_handler=self._bgp_up_handler,
             peer_down_handler=self._bgp_down_handler,
             route_handler=lambda x: self._bgp_route_handler(x, bgp_speaker_key),
-            error_handler=self.logger.warning)
-        for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(bgp_router.bgp_vlan(), bgp_speaker_key.ipv):
+            error_handler=self.logger.warning,
+        )
+        for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(
+            bgp_router.bgp_vlan(), bgp_speaker_key.ipv
+        ):
             beka.add_route(prefix=str(ip_dst), next_hop=str(ip_gw))
-        for bgp_neighbor_address in bgp_router.bgp_neighbor_addresses_by_ipv(bgp_speaker_key.ipv):
+        for bgp_neighbor_address in bgp_router.bgp_neighbor_addresses_by_ipv(
+            bgp_speaker_key.ipv
+        ):
             beka.add_neighbor(
                 connect_mode=bgp_router.bgp_connect_mode(),
                 peer_ip=str(bgp_neighbor_address),
-                peer_as=bgp_router.bgp_neighbor_as())
+                peer_as=bgp_router.bgp_neighbor_as(),
+            )
         self.thread = hub.spawn(beka.run)
-        self.thread.name = 'beka'
+        self.thread.name = "beka"
         return beka
 
     def shutdown_bgp_speakers(self):
@@ -179,18 +198,20 @@ class FaucetBgp:
 
     def _add_bgp_speaker(self, valve, bgp_speaker_key, bgp_router):
         if bgp_speaker_key in self._dp_bgp_speakers:
-            self.logger.info('Skipping re/configuration of existing %s' % bgp_speaker_key)
+            self.logger.info(
+                "Skipping re/configuration of existing %s" % bgp_speaker_key
+            )
             bgp_speaker = self._dp_bgp_speakers[bgp_speaker_key]
             if bgp_speaker_key in self._dp_bgp_rib:
                 # Re-add routes (to avoid flapping BGP even when VLAN cold starts).
                 for prefix, nexthop in self._dp_bgp_rib[bgp_speaker_key].items():
-                    self.logger.info('Re-adding %s via %s' % (prefix, nexthop))
+                    self.logger.info("Re-adding %s via %s" % (prefix, nexthop))
                     bgp_vlan = bgp_router.bgp_vlan()
                     flowmods = valve.add_route(bgp_vlan, nexthop, prefix)
                     if flowmods:
                         self._send_flow_msgs(valve, flowmods)
         else:
-            self.logger.info('Adding %s' % bgp_speaker_key)
+            self.logger.info("Adding %s" % bgp_speaker_key)
             bgp_speaker = self._create_bgp_speaker_for_vlan(bgp_speaker_key, bgp_router)
         return {bgp_speaker_key: bgp_speaker}
 
@@ -204,7 +225,9 @@ class FaucetBgp:
                 vlan_vid = bgp_vlan.vid
                 for ipv in bgp_router.bgp_ipvs():
                     bgp_speaker_key = BgpSpeakerKey(dp_id, vlan_vid, ipv)
-                    bgp_speakers.update(self._add_bgp_speaker(valve, bgp_speaker_key, bgp_router))
+                    bgp_speakers.update(
+                        self._add_bgp_speaker(valve, bgp_speaker_key, bgp_router)
+                    )
         return bgp_speakers
 
     def reset(self, valves):
@@ -233,8 +256,13 @@ class FaucetBgp:
             neighbor_states = self._neighbor_states(bgp_speaker)
             for neighbor, neighbor_state in neighbor_states:
                 neighbor_labels = dict(
-                    valve.dp.base_prom_labels(), vlan=vlan.vid, neighbor=neighbor)
+                    valve.dp.base_prom_labels(), vlan=vlan.vid, neighbor=neighbor
+                )
                 self.metrics.bgp_neighbor_uptime_seconds.labels(  # pylint: disable=no-member
-                    **neighbor_labels).set(neighbor_state['info']['uptime'])
+                    **neighbor_labels
+                ).set(
+                    neighbor_state["info"]["uptime"]
+                )
                 self.metrics.bgp_neighbor_routes.labels(  # pylint: disable=no-member
-                    **dict(neighbor_labels, ipv=ipv)).set(vlan.route_count_by_ipv(ipv))
+                    **dict(neighbor_labels, ipv=ipv)
+                ).set(vlan.route_count_by_ipv(ipv))

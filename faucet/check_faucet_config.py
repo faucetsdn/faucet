@@ -31,7 +31,7 @@ from faucet.conf import InvalidConfigError
 def check_config(conf_files, debug_level, check_output_file):
     """Return True and successful config dict, if all config can be parsed."""
     logname = os.devnull
-    logger = logging.getLogger('%s.config' % logname)
+    logger = logging.getLogger("%s.config" % logname)
     logger_handler = logging.StreamHandler(stream=sys.stderr)
     logger.addHandler(logger_handler)
     logger.propagate = 0
@@ -54,7 +54,7 @@ def check_config(conf_files, debug_level, check_output_file):
             break
     else:
         check_result = False
-        check_output = ['no files specified']
+        check_output = ["no files specified"]
 
     pprint.pprint(check_output, stream=check_output_file)
     return check_result
@@ -65,5 +65,5 @@ def main():
     sys.exit(not check_config(sys.argv[1:], logging.DEBUG, sys.stdout))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
