@@ -57,6 +57,15 @@ jobs:
       - name: Install dependencies
         run: |
           ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt"
+      - name: Run black formatter
+        run: |
+          if [[ "${{ env.FILES_CHANGED }}" == "all" || ! -z "${{ env.RQ_FILES_CHANGED }}" ]]; then
+            echo "Running black on everything"
+            black . --check
+          else
+            echo "Running black on ${{ env.PY_FILES_CHANGED }}"
+            black ${{ env.PY_FILES_CHANGED }} --check
+          fi
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED }}
         name: Run pylint
         run: |

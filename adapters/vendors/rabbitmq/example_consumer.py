@@ -7,12 +7,14 @@ import pika
 
 def callback(chan, method, properties, body):
     """Callback that has the message that was received"""
-    logging.info(" [X] %s UTC %r:%r:%r:%r",
-                 str(datetime.datetime.utcnow()),
-                 chan,
-                 method.routing_key,
-                 properties,
-                 body)
+    logging.info(
+        " [X] %s UTC %r:%r:%r:%r",
+        str(datetime.datetime.utcnow()),
+        chan,
+        method.routing_key,
+        properties,
+        body,
+    )
 
 
 def main():
@@ -23,14 +25,12 @@ def main():
     connection = pika.BlockingConnection(params)
     channel = connection.channel()
 
-    channel.exchange_declare(exchange='topic_recs', exchange_type='topic')
-    result = channel.queue_declare('faucet')
+    channel.exchange_declare(exchange="topic_recs", exchange_type="topic")
+    result = channel.queue_declare("faucet")
     queue_name = result.method.queue
 
     binding_key = "FAUCET.Event"
-    channel.queue_bind(exchange='topic_recs',
-                       queue=queue_name,
-                       routing_key=binding_key)
+    channel.queue_bind(exchange="topic_recs", queue=queue_name, routing_key=binding_key)
 
     return channel, queue_name
 

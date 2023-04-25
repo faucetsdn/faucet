@@ -38,9 +38,11 @@ def get_sys_prefix():
     # original path in sys.real_prefix. If this value exists, and is
     # different from sys.prefix, then we are most likely running in a
     # virtualenv. Also check for Py3.3+ pyvenv.
-    sysprefix = ''
-    if (getattr(sys, 'real_prefix', sys.prefix) != sys.prefix
-            or getattr(sys, 'base_prefix', sys.prefix) != sys.prefix):
+    sysprefix = ""
+    if (
+        getattr(sys, "real_prefix", sys.prefix) != sys.prefix
+        or getattr(sys, "base_prefix", sys.prefix) != sys.prefix
+    ):
         sysprefix = sys.prefix
 
     return sysprefix
@@ -60,9 +62,9 @@ class RabbitAdapter:
 
         # get environment variables and set defaults
         self.channel = None
-        self.event_sock = os.getenv('FAUCET_EVENT_SOCK', '0')
-        self.host = os.getenv('FA_RABBIT_HOST', '')
-        self.port = os.getenv('FA_RABBIT_PORT')
+        self.event_sock = os.getenv("FAUCET_EVENT_SOCK", "0")
+        self.host = os.getenv("FA_RABBIT_HOST", "")
+        self.port = os.getenv("FA_RABBIT_PORT")
         if not self.port:
             self.port = 5672
         else:
@@ -70,34 +72,39 @@ class RabbitAdapter:
                 self.port = int(self.port)
             except ValueError:
                 self.port = 5672
-        self.exchange = os.getenv('FA_RABBIT_EXCHANGE')
+        self.exchange = os.getenv("FA_RABBIT_EXCHANGE")
         if not self.exchange:
-            self.exchange = 'topic_recs'
-        self.exchange_type = os.getenv('FA_RABBIT_EXCHANGE_TYPE')
+            self.exchange = "topic_recs"
+        self.exchange_type = os.getenv("FA_RABBIT_EXCHANGE_TYPE")
         if not self.exchange_type:
-            self.exchange_type = 'topic'
-        self.routing_key = os.getenv('FA_RABBIT_ROUTING_KEY', 'FAUCET.Event')
+            self.exchange_type = "topic"
+        self.routing_key = os.getenv("FA_RABBIT_ROUTING_KEY", "FAUCET.Event")
         if not self.routing_key:
-            self.routing_key = 'FAUCET.Event'
+            self.routing_key = "FAUCET.Event"
 
     def rabbit_conn(self):
         """Make connection to rabbit to send events"""
         # check if a rabbit host was specified
         if not self.host:
-            print('Not connecting to any RabbitMQ, host is None.')
+            print("Not connecting to any RabbitMQ, host is None.")
             return False
 
         # create connection to rabbit
-        params = pika.ConnectionParameters(host=self.host,
-                                           port=self.port,
-                                           heartbeat=600,
-                                           blocked_connection_timeout=300)
+        params = pika.ConnectionParameters(
+            host=self.host,
+            port=self.port,
+            heartbeat=600,
+            blocked_connection_timeout=300,
+        )
         try:
             self.channel = pika.BlockingConnection(params).channel()
-            self.channel.exchange_declare(exchange=self.exchange,
-                                          exchange_type=self.exchange_type)
+            self.channel.exchange_declare(
+                exchange=self.exchange, exchange_type=self.exchange_type
+            )
         except (pika.exceptions.AMQPError, socket.gaierror, OSError) as err:
-            print(f"Unable to connect to RabbitMQ at {self.host}:{self.port} because: {err}")
+            print(
+                f"Unable to connect to RabbitMQ at {self.host}:{self.port} because: {err}"
+            )
             return False
         print(f"Connected to RabbitMQ at {self.host}:{self.port}")
         return True
@@ -105,11 +112,11 @@ class RabbitAdapter:
     def socket_conn(self):
         """Make connection to sock to receive events"""
         # check if socket events are enabled
-        if self.event_sock == '0':
-            print('Not connecting to any socket, FAUCET_EVENT_SOCK is none.')
+        if self.event_sock == "0":
+            print("Not connecting to any socket, FAUCET_EVENT_SOCK is none.")
             return False
-        if self.event_sock == '1':
-            self.event_sock = get_sys_prefix() + '/var/run/faucet/faucet.sock'
+        if self.event_sock == "1":
+            self.event_sock = get_sys_prefix() + "/var/run/faucet/faucet.sock"
         # otherwise it's a path
 
         # create connection to unix socket
@@ -125,7 +132,7 @@ class RabbitAdapter:
     def poll_events(self):
         """Poll FAUCET socket for events."""
         socket_ok = False
-        event_buffer = b''
+        event_buffer = b""
         read_ready, _, _ = select.select([self.sock], [], [])
         if self.sock in read_ready:
             socket_ok = True
@@ -136,7 +143,7 @@ class RabbitAdapter:
                     socket_ok = err.errno == errno.EWOULDBLOCK
                     break
 
-        events = event_buffer.strip().split(b'\n')
+        events = event_buffer.strip().split(b"\n")
         return (socket_ok, events)
 
     def main(self):
@@ -156,10 +163,15 @@ class RabbitAdapter:
                             exchange=self.exchange,
                             routing_key=self.routing_key,
                             body=event,
-                            properties=pika.BasicProperties(delivery_mode=2,))
+                            properties=pika.BasicProperties(
+                                delivery_mode=2,
+                            ),
+                        )
                     events = []
                 except pika.exceptions.AMQPError as err:
-                    print(f"Unable to send events {events} to RabbitMQ: {err}, retrying")
+                    print(
+                        f"Unable to send events {events} to RabbitMQ: {err}, retrying"
+                    )
                     time.sleep(1)
                     self.rabbit_conn()
                     sys.stdout.flush()

@@ -14,12 +14,14 @@ class MockPikaChannel(pika.channel.Channel):
         # pylint: disable=super-init-not-called
         pass
 
-    def basic_publish(self,
-                      exchange,  # pylint: disable=unused-argument
-                      routing_key,  # pylint: disable=unused-argument
-                      body,  # pylint: disable=unused-argument
-                      properties=None,  # pylint: disable=unused-argument
-                      mandatory=False):  # pylint: disable=unused-argument
+    def basic_publish(
+        self,
+        exchange,  # pylint: disable=unused-argument
+        routing_key,  # pylint: disable=unused-argument
+        body,  # pylint: disable=unused-argument
+        properties=None,  # pylint: disable=unused-argument
+        mandatory=False,
+    ):  # pylint: disable=unused-argument
         return True
 
 
@@ -30,13 +32,15 @@ class MockPikaBadAMQP(pika.channel.Channel):
         # pylint: disable=super-init-not-called
         pass
 
-    def basic_publish(self,
-                      exchange,  # pylint: disable=unused-argument
-                      routing_key,  # pylint: disable=unused-argument
-                      body,  # pylint: disable=unused-argument
-                      properties=None,  # pylint: disable=unused-argument
-                      mandatory=False):  # pylint: disable=unused-argument
-        raise pika.exceptions.AMQPError('failure')
+    def basic_publish(
+        self,
+        exchange,  # pylint: disable=unused-argument
+        routing_key,  # pylint: disable=unused-argument
+        body,  # pylint: disable=unused-argument
+        properties=None,  # pylint: disable=unused-argument
+        mandatory=False,
+    ):  # pylint: disable=unused-argument
+        raise pika.exceptions.AMQPError("failure")
 
 
 class MockRabbitAdapter(rabbit.RabbitAdapter):
@@ -57,10 +61,10 @@ def test_no_rabbit_host():
 
 def test_no_rabbit_connection():
     """Test no connection available to rabbit"""
-    os.environ['FA_RABBIT_HOST'] = 'localhost'
+    os.environ["FA_RABBIT_HOST"] = "localhost"
     rabbit_adapter = rabbit.RabbitAdapter()
     rabbit_adapter.main()
-    assert rabbit_adapter.host == 'localhost'
+    assert rabbit_adapter.host == "localhost"
 
 
 def test_no_socket_path():
@@ -71,46 +75,46 @@ def test_no_socket_path():
 
 def test_no_socket_connection():
     """Test no connection available to socket"""
-    os.environ['FAUCET_EVENT_SOCK'] = '1'
+    os.environ["FAUCET_EVENT_SOCK"] = "1"
     rabbit_adapter = rabbit.RabbitAdapter()
     rabbit_adapter.socket_conn()
-    assert rabbit_adapter.event_sock == '/var/run/faucet/faucet.sock'
+    assert rabbit_adapter.event_sock == "/var/run/faucet/faucet.sock"
 
 
 def test_socket_connection():
     """Test connection available to socket"""
-    os.environ['FAUCET_EVENT_SOCK'] = '/var/run/faucet/faucet-event.sock'
+    os.environ["FAUCET_EVENT_SOCK"] = "/var/run/faucet/faucet-event.sock"
     rabbit_adapter = rabbit.RabbitAdapter()
     rabbit_adapter.socket_conn()
-    assert rabbit_adapter.event_sock == '/var/run/faucet/faucet-event.sock'
+    assert rabbit_adapter.event_sock == "/var/run/faucet/faucet-event.sock"
 
 
 def test_port_set_int():
     """Test port was set and it was an int"""
-    os.environ['FA_RABBIT_PORT'] = '9999'
+    os.environ["FA_RABBIT_PORT"] = "9999"
     rabbit_adapter = rabbit.RabbitAdapter()
     assert rabbit_adapter.port == 9999
 
 
 def test_port_set_not_int():
     """Test port was set and it was not an int"""
-    os.environ['FA_RABBIT_PORT'] = 'bad'
+    os.environ["FA_RABBIT_PORT"] = "bad"
     rabbit_adapter = rabbit.RabbitAdapter()
     assert rabbit_adapter.port == 5672
 
 
 def test_routing_key_not_set():
     """Test routing_key was not set"""
-    os.environ['FA_RABBIT_ROUTING_KEY'] = ''
+    os.environ["FA_RABBIT_ROUTING_KEY"] = ""
     rabbit_adapter = rabbit.RabbitAdapter()
-    assert rabbit_adapter.routing_key == 'FAUCET.Event'
+    assert rabbit_adapter.routing_key == "FAUCET.Event"
 
 
 def test_routing_key_set():
     """Test routing_key was set"""
-    os.environ['FA_RABBIT_ROUTING_KEY'] = 'foo'
+    os.environ["FA_RABBIT_ROUTING_KEY"] = "foo"
     rabbit_adapter = rabbit.RabbitAdapter()
-    assert rabbit_adapter.routing_key == 'foo'
+    assert rabbit_adapter.routing_key == "foo"
 
 
 def test_rabbit_socket_true():
