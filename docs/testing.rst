@@ -20,6 +20,8 @@ You can build and run the mininet tests with the following commands:
   sudo modprobe openvswitch
   sudo docker run --name=faucet-tests \
                   --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged --rm \
+                  --cgroupns=host \
+                  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
                   -v /var/local/lib/docker:/var/lib/docker \
                   -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
                   -ti faucet/tests
@@ -188,6 +190,8 @@ Then you can build and run the test suite:
   sudo docker build --pull -t faucet/tests -f Dockerfile.tests .
   sudo docker run --name=faucet-tests \
                   --privileged --rm --net=host --cap-add=NET_ADMIN \
+                  --cgroupns=host \
+                  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
                   -v /var/local/lib/docker:/var/lib/docker \
                   -v /tmp/faucet-pip-cache:/var/tmp/pip-cache \
                   -v /etc/faucet:/etc/faucet \
