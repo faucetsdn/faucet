@@ -15,33 +15,40 @@ from pkg_resources import resource_filename
 from setuptools import setup
 
 if sys.version_info < (3,):
-    print("""You are trying to install faucet on python {py}
+    print(
+        """You are trying to install faucet on python {py}
 
-Faucet is not compatible with python 2, please upgrade to python 3.8 or newer."""
-          .format(py='.'.join([str(v) for v in sys.version_info[:3]])), file=sys.stderr)
+Faucet is not compatible with python 2, please upgrade to python 3.8 or newer.""".format(
+            py=".".join([str(v) for v in sys.version_info[:3]])
+        ),
+        file=sys.stderr,
+    )
     sys.exit(1)
 elif sys.version_info < (3, 8):
-    print("""You are trying to install faucet on python {py}
+    print(
+        """You are trying to install faucet on python {py}
 
 Faucet 1.9.0 and above are no longer compatible with older versions of python 3.
 
-Please upgrade to python 3.7 or newer."""
-          .format(py='.'.join([str(v) for v in sys.version_info[:3]])))
+Please upgrade to python 3.7 or newer.""".format(
+            py=".".join([str(v) for v in sys.version_info[:3]])
+        )
+    )
     sys.exit(1)
 
 
 def install_configs():
-    """ Install configuration files to /etc """
+    """Install configuration files to /etc"""
 
-    dst_ryu_conf_dir = '/etc/faucet/'
-    dst_ryu_conf = os.path.join(dst_ryu_conf_dir, 'ryu.conf')
-    dst_faucet_conf_dir = '/etc/faucet/'
+    dst_ryu_conf_dir = "/etc/faucet/"
+    dst_ryu_conf = os.path.join(dst_ryu_conf_dir, "ryu.conf")
+    dst_faucet_conf_dir = "/etc/faucet/"
     src_ryu_conf = resource_filename(__name__, "etc/faucet/ryu.conf")
     src_faucet_conf_dir = resource_filename(__name__, "etc/faucet/")
-    faucet_log_dir = '/var/log/faucet/'
+    faucet_log_dir = "/var/log/faucet/"
 
-    old_ryu_conf = '/etc/ryu/ryu.conf'
-    old_faucet_conf_dir = '/etc/ryu/faucet/'
+    old_ryu_conf = "/etc/ryu/ryu.conf"
+    old_faucet_conf_dir = "/etc/ryu/faucet/"
 
     def setup_ryu_conf():
         if not os.path.exists(dst_ryu_conf_dir):
@@ -83,22 +90,28 @@ def install_configs():
         setup_faucet_log()
     except OSError as exception:
         if exception.errno == errno.EACCES:
-            print("Permission denied creating %s, skipping copying configs"
-                  % exception.filename)
+            print(
+                "Permission denied creating %s, skipping copying configs"
+                % exception.filename
+            )
         elif exception.errno == errno.ENOENT:
-            print("File not found creating %s, skipping copying configs"
-                  % exception.filename)
+            print(
+                "File not found creating %s, skipping copying configs"
+                % exception.filename
+            )
         else:
             raise
 
 
 setup(
-    name='faucet',
-    setup_requires=['pbr>=1.9', 'setuptools>=17.1'],
-    python_requires='>=3.8',
-    pbr=True
+    name="faucet",
+    setup_requires=["pbr>=1.9", "setuptools>=17.1"],
+    python_requires=">=3.8",
+    pbr=True,
 )
 
-if 'install' in sys.argv or 'bdist_wheel' in sys.argv:
-    if os.getenv("DEBINSTALL") is None or (os.getenv("DEBINSTALL") is not None and int(os.environ['DEBINSTALL']) < 1):
+if "install" in sys.argv or "bdist_wheel" in sys.argv:
+    if os.getenv("DEBINSTALL") is None or (
+        os.getenv("DEBINSTALL") is not None and int(os.environ["DEBINSTALL"]) < 1
+    ):
         install_configs()

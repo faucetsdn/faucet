@@ -13,5 +13,5 @@ all dependencies correctly installed. See ../docs/.
 from clib_mininet_test_main import test_main
 import clib_mininet_tests
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_main([clib_mininet_tests.__name__])

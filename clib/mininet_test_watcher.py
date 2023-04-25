@@ -65,7 +65,7 @@ class OptimizedTopologyWatcher:
         """
         Add a general/controller fault
         """
-        error('FAULT: %s\n' % name)
+        error("FAULT: %s\n" % name)
         self.fault_list.append(name)
 
     def add_link_fault(self, src_i, dst_i, name):
@@ -79,7 +79,8 @@ class OptimizedTopologyWatcher:
         """
         try:
             self.switch_graph.remove_edge(
-                self.topo.switches_by_id[src_i], self.topo.switches_by_id[dst_i])
+                self.topo.switches_by_id[src_i], self.topo.switches_by_id[dst_i]
+            )
             self.add_fault(name)
         except networkx.exception.NetworkXError:
             pass
@@ -139,18 +140,24 @@ class OptimizedTopologyWatcher:
                 if node not in connection_graph:
                     # Add remaining nodes to connection graph
                     path = networkx.shortest_paths.shortest_path(
-                        self.switch_graph, node, list(connection_graph.nodes())[0])
+                        self.switch_graph, node, list(connection_graph.nodes())[0]
+                    )
                     for i in range(0, len(path) - 1):
                         # Add path until we have reached a point that is completely inside
                         # the original simple graph
-                        if path[i] in connection_graph and path[i + 1] in connection_graph:
+                        if (
+                            path[i] in connection_graph
+                            and path[i + 1] in connection_graph
+                        ):
                             break
                     connection_graph.add_edge(path[i], path[i + 1])
                     if not symmetric:
                         connection_graph.add_edge(path[i + 1], path[i])
         return connection_graph
 
-    def get_connected_hosts(self, symmetric=False, transitive=False, intervlan_only=False):
+    def get_connected_hosts(
+        self, symmetric=False, transitive=False, intervlan_only=False
+    ):
         """
         Construct an expected connected host graph
 
@@ -164,7 +171,8 @@ class OptimizedTopologyWatcher:
         """
         # Generate switch connectivity graph
         switch_connection_graph = self._get_switch_connectivity_graph(
-            symmetric=symmetric, transitive=transitive)
+            symmetric=symmetric, transitive=transitive
+        )
         # Convert switch connections to host connections
         host_connection_graph = networkx.MultiDiGraph()
         for src, dst in switch_connection_graph.edges():
@@ -183,8 +191,8 @@ class OptimizedTopologyWatcher:
 
     def _routed_vlans(self, src_host, dst_host):
         """Return true only if src_host, dst_host vlans share a router"""
-        src_vlan = self.host_information[self.topo.nodeInfo(src_host)['host_n']]['vlan']
-        dst_vlan = self.host_information[self.topo.nodeInfo(dst_host)['host_n']]['vlan']
+        src_vlan = self.host_information[self.topo.nodeInfo(src_host)["host_n"]]["vlan"]
+        dst_vlan = self.host_information[self.topo.nodeInfo(dst_host)["host_n"]]["vlan"]
         for vlans in self.routers.values():
             if src_vlan in vlans and dst_vlan in vlans:
                 return True
@@ -225,9 +233,9 @@ class OptimizedTopologyWatcher:
 
     def dump_info(self, tmpdir):
         """Dump topology watcher info into test directory"""
-        sw_graph_fn = os.path.join(tmpdir, 'final_switch_graph.txt')
+        sw_graph_fn = os.path.join(tmpdir, "final_switch_graph.txt")
         networkx.write_edgelist(self.switch_graph, sw_graph_fn)
-        fault_list_fn = os.path.join(tmpdir, 'fault-list.txt')
-        with open(fault_list_fn, 'w', encoding='utf-8') as fl_file:
+        fault_list_fn = os.path.join(tmpdir, "fault-list.txt")
+        with open(fault_list_fn, "w", encoding="utf-8") as fl_file:
             for fault_name in self.fault_list:
-                fl_file.write(fault_name + '\n')
+                fl_file.write(fault_name + "\n")
