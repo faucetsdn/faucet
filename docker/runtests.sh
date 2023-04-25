@@ -263,6 +263,7 @@ EOL
 fi
 
 if [ "$INTEGRATION_TESTS" == 1 ]; then
+  mount | grep cgroup
   time ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
   cd /faucet-src/clib
   time ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
