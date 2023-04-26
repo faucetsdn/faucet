@@ -674,15 +674,10 @@ listen {
                 default_site.truncate()
         else:
             # Assume we are dealing with freeradius >=3 configuration
-            freerad_version = (
-                os.popen(r'freeradius -v | egrep -o -m 1 "Version ([0-9]\.[0.9])"')
-                .read()
-                .rstrip()
-            )
-            freerad_major_version = freerad_version.split(" ")[1]
             shutil.copytree(
-                "/etc/freeradius/%s/" % freerad_major_version,
+                "/etc/freeradius/3.0/",
                 "%s/freeradius" % self.tmpdir,
+                symlinks=True,
             )
             users_path = "%s/freeradius/mods-config/files/authorize" % self.tmpdir
 
