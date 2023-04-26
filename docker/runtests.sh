@@ -264,6 +264,7 @@ fi
 
 if [ "$INTEGRATION_TESTS" == 1 ]; then
   mount | grep cgroup
+  dpkg -l cgroup-tools
   CGROUP_LOGLEVEL=DEBUG cgcreate -g cpu,cpuacct,cpuset:/u011
   time ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
   cd /faucet-src/clib
