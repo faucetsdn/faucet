@@ -9,15 +9,12 @@ env:
 jobs:
   sanity-tests:
     name: Sanity tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     container:
       image: faucet/test-base:latest
       options: >-
         --privileged --cap-add=ALL
-        --pid=host
-        --cgroupns=host
         -v /lib/modules:/lib/modules
-        -v /sys/fs/cgroup:/sys/fs/cgroup:rw
         -v /var/local/lib/docker:/var/lib/docker
         --sysctl net.ipv6.conf.all.disable_ipv6=0
         --ulimit core=-1
@@ -67,7 +64,6 @@ jobs:
           sysctl --quiet -w kernel.core_pattern="/var/tmp/core.%h.%e.%t"
           modprobe openvswitch
           modprobe ebtables
-          pkill systemd-udevd
           ln -s "$(pwd)" /faucet-src
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Run sanity tests
@@ -84,16 +80,13 @@ jobs:
 
   integration-tests:
     name: Integration tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: sanity-tests
     container:
       image: faucet/test-base:latest
       options: >-
         --privileged --cap-add=ALL
-        --pid=host
-        --cgroupns=host
         -v /lib/modules:/lib/modules
-        -v /sys/fs/cgroup:/sys/fs/cgroup:rw
         -v /var/local/lib/docker:/var/lib/docker
         --sysctl net.ipv6.conf.all.disable_ipv6=0
         --ulimit core=-1
@@ -146,7 +139,6 @@ jobs:
           sysctl --quiet -w kernel.core_pattern="/var/tmp/core.%h.%e.%t"
           modprobe openvswitch
           modprobe ebtables
-          pkill systemd-udevd
           ln -s "$(pwd)" /faucet-src
       - if: ${{ env.FILES_CHANGED == 'all' || env.PY_FILES_CHANGED || env.RQ_FILES_CHANGED }}
         name: Shard tests
