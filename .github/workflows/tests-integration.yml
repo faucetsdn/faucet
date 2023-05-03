@@ -9,7 +9,7 @@ env:
 jobs:
   sanity-tests:
     name: Sanity tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     container:
       image: faucet/test-base:17.0.0
       options: >-
@@ -80,7 +80,7 @@ jobs:
 
   integration-tests:
     name: Integration tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     needs: sanity-tests
     container:
       image: faucet/test-base:17.0.0
