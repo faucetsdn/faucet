@@ -11,7 +11,7 @@ jobs:
     name: Sanity tests
     runs-on: ubuntu-20.04
     container:
-      image: faucet/test-base:latest
+      image: faucet/test-base:17.0.0
       options: >-
         --privileged --cap-add=ALL
         -v /lib/modules:/lib/modules
@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-20.04
     needs: sanity-tests
     container:
-      image: faucet/test-base:latest
+      image: faucet/test-base:17.0.0
       options: >-
         --privileged --cap-add=ALL
         -v /lib/modules:/lib/modules
