@@ -62,7 +62,7 @@ jobs:
           if [[ "${{ env.FILES_CHANGED }}" == "all" || ! -z "${{ env.RQ_FILES_CHANGED }}" ]]; then
             echo "Running black on everything"
             black . --check
-          else
+          elif [ ! -z "${{ env.PY_FILES_CHANGED }}" ]; then
             echo "Running black on ${{ env.PY_FILES_CHANGED }}"
             black ${{ env.PY_FILES_CHANGED }} --check
           fi
