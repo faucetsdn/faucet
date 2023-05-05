@@ -40,6 +40,7 @@ def yaml_dump(yaml_dict):
     """Wrap YAML dump library."""
     with StringIO() as stream:
         yml = YAML(typ="safe")
+        yml.default_flow_style = False
         yml.dump(yaml_dict, stream=stream)
         return stream.getvalue()
 
