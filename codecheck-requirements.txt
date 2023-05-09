@@ -1,4 +1,4 @@
 black==23.3.0
 flake8==6.0.0
-pylint==2.17.3
+pylint==2.17.4
 pytype==2022.10.26
