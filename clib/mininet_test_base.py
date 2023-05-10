@@ -2599,8 +2599,10 @@ dbs:
         match_re = re.compile(r".*(\d+) packets* captured.*")
         match = match_re.match(tcpdump_txt)
         self.assertTrue(match, msg=tcpdump_txt)
-        packets = int(match.group(1))
-        return packets
+        if match is not None:
+            packets = int(match.group(1))
+            return packets
+        return 0
 
     def tcpdump_rx_packets(self, tcpdump_txt, packets=0):
         return self.match_tcpdump_rx_packets(tcpdump_txt) == packets
