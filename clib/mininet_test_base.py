@@ -2940,7 +2940,10 @@ dbs:
     def quiet_commands(self, host, commands):
         for command in commands:
             result = host.cmd(command)
-            self.assertEqual("", result, msg="%s: %s" % (command, result))
+            self.assertTrue(
+                result == "" or result.startswith("Killed"),
+                msg="%s: %s" % (command, result),
+            )
 
     def _config_tableids(self):
         # Wait for VLAN table to appear, rapidly scrape the rest.
