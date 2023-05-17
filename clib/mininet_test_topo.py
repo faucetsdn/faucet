@@ -672,27 +672,24 @@ socket_timeout=15
             tls_cargs.append(("--ryu-ofp-ssl-listen-port=%u" % ofctl_port))
         return " ".join(tls_cargs)
 
-    def _command(self, env, tmpdir, name, args):
+    def _command(self, env, name, args):
         """Wrap controller startup command in shell script with environment."""
         env_vars = []
         for var, val in sorted(env.items()):
             env_vars.append("=".join((var, val)))
-        script_wrapper_name = os.path.join(tmpdir, "start-%s.sh" % name)
         cprofile_args = ""
         if self.CPROFILE:
             cprofile_args = "python3 -m cProfile -s time"
         full_faucet_dir = os.path.abspath(mininet_test_util.FAUCET_DIR)
-        with open(script_wrapper_name, "w", encoding="utf-8") as script_wrapper:
-            faucet_cli = "PYTHONPATH=%s %s exec timeout %u %s %s %s $*\n" % (
-                os.path.dirname(full_faucet_dir),
-                " ".join(env_vars),
-                self.MAX_CTL_TIME,
-                os.path.join(full_faucet_dir, "__main__.py"),
-                cprofile_args,
-                args,
-            )
-            script_wrapper.write(faucet_cli)
-        return "/bin/sh %s" % script_wrapper_name
+        faucet_cli = "PYTHONPATH=%s %s timeout %u %s %s %s" % (
+            os.path.dirname(full_faucet_dir),
+            " ".join(env_vars),
+            self.MAX_CTL_TIME,
+            os.path.join(full_faucet_dir, "__main__.py"),
+            cprofile_args,
+            args,
+        )
+        return faucet_cli
 
     def ryu_pid(self):
         """Return PID of ryu-manager process."""
@@ -830,7 +827,7 @@ class FAUCET(BaseFAUCET):
             controller_intf,
             controller_ipv6,
             cargs=cargs,
-            command=self._command(env, tmpdir, name, " ".join(self.START_ARGS)),
+            command=self._command(env, name, " ".join(self.START_ARGS)),
             port=port,
             **kwargs
         )
@@ -865,7 +862,7 @@ class Gauge(BaseFAUCET):
             controller_intf,
             controller_ipv6,
             cargs=self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs),
-            command=self._command(env, tmpdir, name, "--gauge"),
+            command=self._command(env, name, "--gauge"),
             port=port,
             **kwargs
         )
