@@ -3,6 +3,8 @@
 
 from collections import namedtuple
 import os
+import pty
+import select
 import socket
 import string
 import shutil
@@ -13,7 +15,7 @@ import netifaces
 
 # pylint: disable=too-many-arguments
 
-from mininet.log import output, warn
+from mininet.log import output, warn, error
 from mininet.topo import Topo
 from mininet.node import Controller
 from mininet.node import CPULimitedHost
@@ -76,6 +78,62 @@ class FaucetHost(CPULimitedHost):
     def __init__(self, *args, **kwargs):
         self.pid_files = []
         super().__init__(*args, **kwargs)
+
+    def startShell(self, mnopts=None):
+        "Start a shell process for running commands"
+        if self.shell:
+            error("%s: shell is already running\n" % self.name)
+            return
+        # mnexec: (c)lose descriptors, (d)etach from tty,
+        # (p)rint pid, and run in (n)amespace
+        opts = "-cd" if mnopts is None else mnopts
+        if self.inNamespace:
+            opts += "n"
+        # bash -i: force interactive
+        # -s: pass $* to shell, and make process easy to find in ps
+        # prompt is set to sentinel chr( 127 )
+        cmd = [
+            "mnexec",
+            opts,
+            "env",
+            "PS1=" + chr(127),
+            "dash",
+            "-is",
+            "mininet:" + self.name,
+        ]
+
+        # Spawn a shell subprocess in a pseudo-tty, to disable buffering
+        # in the subprocess and insulate it from signals (e.g. SIGINT)
+        # received by the parent
+        self.master, self.slave = pty.openpty()
+        self.shell = self._popen(
+            cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave, close_fds=False
+        )
+        # XXX BL: This doesn't seem right, and we should also probably
+        # close our files when we exit...
+        self.stdin = os.fdopen(self.master, "r")
+        self.stdout = self.stdin
+        self.pid = self.shell.pid
+        self.pollOut = select.poll()
+        self.pollOut.register(self.stdout)
+        # Maintain mapping between file descriptors and nodes
+        # This is useful for monitoring multiple nodes
+        # using select.poll()
+        self.outToNode[self.stdout.fileno()] = self
+        self.inToNode[self.stdin.fileno()] = self
+        self.execed = False
+        self.lastCmd = None
+        self.lastPid = None
+        self.readbuf = ""
+        # Wait for prompt
+        while True:
+            data = self.read(1024)
+            if data[-1] == chr(127):
+                break
+            self.pollOut.poll()
+        self.waiting = False
+        # +m: disable job control notification
+        self.cmd("unset HISTFILE; stty -echo; set +m")
 
     def terminate(self):
         # If any 'dnsmasq' processes were started, terminate them now
@@ -614,27 +672,24 @@ socket_timeout=15
             tls_cargs.append(("--ryu-ofp-ssl-listen-port=%u" % ofctl_port))
         return " ".join(tls_cargs)
 
-    def _command(self, env, tmpdir, name, args):
+    def _command(self, env, name, args):
         """Wrap controller startup command in shell script with environment."""
         env_vars = []
         for var, val in sorted(env.items()):
             env_vars.append("=".join((var, val)))
-        script_wrapper_name = os.path.join(tmpdir, "start-%s.sh" % name)
         cprofile_args = ""
         if self.CPROFILE:
             cprofile_args = "python3 -m cProfile -s time"
         full_faucet_dir = os.path.abspath(mininet_test_util.FAUCET_DIR)
-        with open(script_wrapper_name, "w", encoding="utf-8") as script_wrapper:
-            faucet_cli = "PYTHONPATH=%s %s exec timeout %u %s %s %s $*\n" % (
-                os.path.dirname(full_faucet_dir),
-                " ".join(env_vars),
-                self.MAX_CTL_TIME,
-                os.path.join(full_faucet_dir, "__main__.py"),
-                cprofile_args,
-                args,
-            )
-            script_wrapper.write(faucet_cli)
-        return "/bin/sh %s" % script_wrapper_name
+        faucet_cli = "PYTHONPATH=%s %s timeout %u %s %s %s" % (
+            os.path.dirname(full_faucet_dir),
+            " ".join(env_vars),
+            self.MAX_CTL_TIME,
+            os.path.join(full_faucet_dir, "__main__.py"),
+            cprofile_args,
+            args,
+        )
+        return faucet_cli
 
     def ryu_pid(self):
         """Return PID of ryu-manager process."""
@@ -772,7 +827,7 @@ class FAUCET(BaseFAUCET):
             controller_intf,
             controller_ipv6,
             cargs=cargs,
-            command=self._command(env, tmpdir, name, " ".join(self.START_ARGS)),
+            command=self._command(env, name, " ".join(self.START_ARGS)),
             port=port,
             **kwargs
         )
@@ -807,7 +862,7 @@ class Gauge(BaseFAUCET):
             controller_intf,
             controller_ipv6,
             cargs=self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs),
-            command=self._command(env, tmpdir, name, "--gauge"),
+            command=self._command(env, name, "--gauge"),
             port=port,
             **kwargs
         )
