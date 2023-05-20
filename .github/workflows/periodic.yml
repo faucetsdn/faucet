@@ -13,7 +13,7 @@ env:
 jobs:
   generative-testing:
     name: Generative tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         MATRIX_SHARD: [--generative_unit, --generative_tolerance]
