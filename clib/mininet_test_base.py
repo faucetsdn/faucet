@@ -705,15 +705,12 @@ class FaucetTestBase(unittest.TestCase):
         return None
 
     def _start_check(self):
-        # '_wait_controllers_connected' also checks the 'healthy' state
         if not self._wait_controllers_connected():
             return "not all controllers connected to switch"
         if not self._wait_ofctl_up():
             return "ofctl not up"
         if not self.wait_dp_status(1):
             return "prometheus port not up"
-        if not self._wait_controllers_healthy():
-            return "not all controllers healthy after initial switch connection"
         if self.config_ports:
             for port_name, port in self.config_ports.items():
                 if port is not None and not port_name.startswith("gauge"):

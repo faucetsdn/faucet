@@ -599,6 +599,7 @@ socket_timeout=15
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
         self.controller_ipv6 = controller_ipv6
+        self.cached_ryu_pid = None
         super().__init__(
             name_with_pid, cargs=self._add_cargs(cargs, name_with_pid), **kwargs
         )
@@ -695,21 +696,26 @@ socket_timeout=15
 
     def ryu_pid(self):
         """Return PID of ryu-manager process."""
-        if os.path.exists(self.pid_file) and os.path.getsize(self.pid_file) > 0:
-            pid = None
-            with open(self.pid_file, encoding="utf-8") as pid_file:
-                pid = int(pid_file.read())
-            return pid
-        return None
+        if self.cached_ryu_pid is None:
+            if os.path.exists(self.pid_file) and os.path.getsize(self.pid_file) > 0:
+                with open(self.pid_file, encoding="utf-8") as pid_file:
+                    self.cached_ryu_pid = int(pid_file.read())
+        return self.cached_ryu_pid
 
     def listen_port(self, port, state="LISTEN"):
         """Return True if port in specified TCP state."""
-        for ipv in (4, 6):
-            listening_out = self.cmd(
-                mininet_test_util.tcp_listening_cmd(port, ipv=ipv, state=state)
-            ).split()
-            for pid in listening_out:
-                if int(pid) == self.ryu_pid():
+        ryu_pid = self.ryu_pid()
+        if ryu_pid is not None:
+            for ipv in (4, 6):
+                listening_pids = [
+                    int(pid)
+                    for pid in self.cmd(
+                        mininet_test_util.tcp_listening_cmd(
+                            port, ipv=ipv, state=state, pid=ryu_pid
+                        )
+                    ).split()
+                ]
+                if listening_pids:
                     return True
         return False
 
@@ -726,7 +732,7 @@ socket_timeout=15
 
     def connected(self):
         """Return True if at least one switch connected and controller healthy."""
-        return self.healthy() and self.listen_port(self.port, state="ESTABLISHED")
+        return self.listen_port(self.port, state="ESTABLISHED") and self.healthy()
 
     def logname(self):
         """Return log file for controller."""
