@@ -632,7 +632,9 @@ socket_timeout=15
 
     def _start_tcpdump(self):
         """Start a tcpdump for OF port."""
-        self.ofcap = os.path.join(self.tmpdir, "-".join((self.name, "of.cap")))
+        self.ofcap = os.path.join(
+            self.tmpdir, "-".join((self.name, "%u-of.cap" % self.port))
+        )
         tcpdump_args = " ".join(
             (
                 "-s 0",
@@ -746,33 +748,9 @@ socket_timeout=15
         super().start()
 
     def _stop_cap(self):
-        """Stop tcpdump for OF port and run tshark to decode it."""
+        """Stop tcpdump for OF port."""
         if os.path.exists(self.ofcap):
             self.cmd(" ".join(["fuser", "-15", "-k", self.ofcap]))
-            text_ofcap_log = "%s.txt" % self.ofcap
-            with open(text_ofcap_log, "w", encoding="utf-8") as text_ofcap:
-                subprocess.call(
-                    [
-                        "timeout",
-                        str(self.MAX_CTL_TIME),
-                        "tshark",
-                        "-l",
-                        "-n",
-                        "-Q",
-                        "-d",
-                        "tcp.port==%u,openflow" % self.port,
-                        "-O",
-                        "openflow_v4",
-                        "-Y",
-                        "openflow_v4",
-                        "-r",
-                        self.ofcap,
-                    ],
-                    stdout=text_ofcap,
-                    stdin=mininet_test_util.DEVNULL,
-                    stderr=mininet_test_util.DEVNULL,
-                    close_fds=True,
-                )
 
     def stop(self):  # pylint: disable=arguments-differ
         """Stop controller."""
