@@ -9,6 +9,7 @@ import socket
 import string
 import shutil
 import subprocess
+import tempfile
 import time
 
 import netifaces
@@ -192,6 +193,14 @@ class FaucetHost(CPULimitedHost):
         """Return host IP as a string"""
         return self.cmd("hostname -I")
 
+    def run_ip_batch(self, cmds):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cmd_filename = os.path.join(tmpdir, "ipcmds.txt")
+            with open(cmd_filename, "w") as cmd_file:
+                cmd_file.write("\n".join(cmds))
+            result = self.cmd("ip -b %s" % cmd_filename)
+            assert result == "", (cmds, result)
+
 
 class VLANHost(FaucetHost):
     """Implementation of a Mininet host on a tagged VLAN."""
@@ -213,9 +222,23 @@ class VLANHost(FaucetHost):
             vlans = [100]
         self.vlans = vlans
         self.vlan_intfs = {}
-        cmds = []
+        batch_cmds = []
         intf = self.defaultIntf()
         self.intf_root_name = intf.name
+        unique_intfs = set()
+
+        def _config_vlan(root_name, full_name, vlan_id):
+            batch_cmds.extend(
+                [
+                    "link add link %s name %s type vlan id %s"
+                    % (root_name, full_name, vlan_id),
+                    "link set dev %s up" % full_name,
+                ]
+            )
+
+        def _config_ip(config_full_name, config_ip):
+            batch_cmds.extend(["addr add %s dev %s" % (config_ip, config_full_name)])
+
         if "vlan_intfs" in params:
             vlan_intfs = params.get("vlan_intfs", {})
             for vlan_id, ip_addr in vlan_intfs.items():
@@ -226,45 +249,31 @@ class VLANHost(FaucetHost):
                         prev_name = intf_name
                         # Cannot have intf name tu0xy-eth0.VID1.VID2 as that takes up too many bytes
                         intf_name += ".%s" % vlan_i
-                        cmds.extend(
-                            [
-                                "ip link add link %s name %s type vlan id %s"
-                                % (prev_name, intf_name, vlans[vlan_i]),
-                                "ip link set dev %s up" % (intf_name),
-                            ]
-                        )
+                        if intf_name not in unique_intfs:
+                            _config_vlan(prev_name, intf_name, vlans[vlan_i])
+                            unique_intfs.add(intf_name)
                         self.nameToIntf[intf_name] = intf
                         self.vlan_intfs.setdefault(vlan_id, [])
                         self.vlan_intfs[vlan_id].append(intf_name)
-                    cmds.append("ip -4 addr add %s dev %s" % (ip_addr, intf_name))
+                    _config_ip(intf_name, ip_addr)
                 else:
                     intf_name = "%s.%s" % (intf, vlans[vlan_id])
-                    cmds.extend(
-                        [
-                            "vconfig add %s %d" % (intf.name, vlans[vlan_id]),
-                            "ip -4 addr add %s dev %s" % (ip_addr, intf_name),
-                            "ip link set dev %s up" % intf_name,
-                        ]
-                    )
+                    _config_vlan(intf, intf_name, vlans[vlan_id])
+                    _config_ip(intf_name, ip_addr)
                     self.nameToIntf[intf_name] = intf
                     self.vlan_intfs[vlan_id] = intf_name
         else:
-            vlan_intf_name = "%s.%s" % (intf, ".".join(str(v) for v in vlans))
-            cmds.extend(
-                [
-                    "ip link set dev %s up" % vlan_intf_name,
-                    "ip -4 addr add %s dev %s" % (params["ip"], vlan_intf_name),
-                ]
-            )
-            for vlan in vlans:
-                cmds.append("vconfig add %s %d" % (intf, vlan))
-            intf.name = vlan_intf_name
-            self.nameToIntf[vlan_intf_name] = intf
-        cmds.extend(
-            ["ip -4 addr flush dev %s" % intf, "ip -6 addr flush dev %s" % intf]
-        )
-        for cmd in cmds:
-            self.cmd(cmd)
+            for vlan_id in vlans:
+                intf_name = "%s.%s" % (intf, vlan_id)
+                _config_vlan(intf, intf_name, vlan_id)
+                _config_ip(intf_name, params["ip"])
+                self.nameToIntf[intf_name] = intf
+                self.vlan_intfs.setdefault(vlan_id, [])
+                self.vlan_intfs[vlan_id].append(intf_name)
+            intf.name = intf_name
+
+        batch_cmds.extend(["addr flush dev %s" % self.intf_root_name])
+        self.run_ip_batch(batch_cmds)
         return super_config
 
 
@@ -378,13 +387,21 @@ class FaucetSwitch(OVSSwitch):
             + intfs
         )
         # switch interfaces on mininet host, must have no IP config.
+        sysctls = []
+        ipcmds = []
         for intf in switch_intfs:
-            for ipv in (4, 6):
-                self.cmd("ip -%u addr flush dev %s" % (ipv, intf))
-            assert (
-                self.cmd("echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6" % intf)
-                == ""
-            )
+            ipcmds.append("addr flush dev %s" % intf)
+            sysctls.append("net.ipv6.conf.%s.disable_ipv6=1" % intf)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sysctl_filename = os.path.join(tmpdir, "sysctl.txt")
+            ip_batch_filename = os.path.join(tmpdir, "ipbatch.txt")
+            with open(sysctl_filename, "w") as sysctl_file:
+                sysctl_file.write("\n".join(sysctls))
+            with open(ip_batch_filename, "w") as ip_batch_file:
+                ip_batch_file.write("\n".join(ipcmds))
+            self.cmd("sysctl -p %s" % sysctl_filename)
+            result = self.cmd("ip -b %s" % ip_batch_filename)
+            assert result == "", (result, ipcmds)
         # If necessary, restore TC config overwritten by OVS
         if not self.batch:
             for intf in self.intfList():

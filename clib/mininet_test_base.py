@@ -614,8 +614,7 @@ class FaucetTestBase(unittest.TestCase):
             phys_mac = self.get_mac_of_intf(phys_port)
             for cmd in (
                 "ip link set dev %s up" % phys_port,
-                "ip -4 addr flush dev %s" % phys_port,
-                "ip -6 addr flush dev %s" % phys_port,
+                "ip addr flush dev %s" % phys_port,
                 "ebtables -A OUTPUT -s %s -o %s -j DROP" % (phys_mac, phys_port),
             ):
                 _cmd(cmd)
@@ -2988,15 +2987,13 @@ dbs:
         else:
             mac = "address %s" % mac
         add_cmds = [
-            "ip link add %s link %s %s type macvlan mode %s"
+            "link add %s link %s %s type macvlan mode %s"
             % (macvlan_intf, host.defaultIntf(), mac, mode),
-            "ip link set dev %s up" % macvlan_intf,
+            "link set dev %s up" % macvlan_intf,
         ]
         if ipa:
-            add_cmds.append(
-                "ip address add %s/%s brd + dev %s" % (ipa, ipm, macvlan_intf)
-            )
-        self.quiet_commands(host, add_cmds)
+            add_cmds.append("addr add %s/%s brd + dev %s" % (ipa, ipm, macvlan_intf))
+        host.run_ip_batch(add_cmds)
 
     def del_macvlan(self, host, macvlan_intf):
         self.quiet_commands(
@@ -3660,8 +3657,7 @@ dbs:
 
     @staticmethod
     def host_drop_all_ips(host):
-        for ipv in (4, 6):
-            host.cmd("ip -%u addr flush dev %s" % (ipv, host.defaultIntf()))
+        host.cmd("ip addr flush dev %s" % host.defaultIntf())
 
     def setup_ipv6_hosts_addresses(
         self,
