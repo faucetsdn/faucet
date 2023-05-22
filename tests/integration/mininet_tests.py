@@ -2224,13 +2224,13 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
         netns = self.hostns(first_host)
         setup_cmds = []
-        setup_cmds.extend(["ip link set %s netns %s" % (macvlan2_intf, netns)])
+        setup_cmds.extend(["link set %s netns %s" % (macvlan2_intf, netns)])
         for exec_cmd in (
             "ip address add %s/24 brd + dev %s" % (macvlan2_ipv4, macvlan2_intf),
             "ip link set %s up" % macvlan2_intf,
         ):
-            setup_cmds.append("ip netns exec %s %s" % (netns, exec_cmd))
-        self.quiet_commands(first_host, setup_cmds)
+            setup_cmds.append("netns exec %s %s" % (netns, exec_cmd))
+        first_host.run_ip_batch(setup_cmds)
         self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
         self.one_ipv4_ping(first_host, second_host.IP())
         # Verify OUTPUT:IN_PORT flood rules are exercised.
@@ -3313,8 +3313,8 @@ vlans:
                 return (mac_intfs, mac_ips, learned_mac_ports)
 
             def down_macvlans(macvlans):
-                for macvlan in macvlans:
-                    second_host.cmd("ip link set dev %s down" % macvlan)
+                down_cmds = ["link set dev %s down" % macvlan for macvlan in macvlans]
+                second_host.run_ip_batch(down_cmds)
 
             def learn_then_down_hosts(base, count):
                 mac_intfs, mac_ips, learned_mac_ports = add_macvlans(base, count)
@@ -4830,17 +4830,17 @@ vlans:
                 "tc qdisc add dev veth-loop1 root tbf rate 1000kbps latency 10ms burst 1000",
                 "tc qdisc add dev veth-loop2 root tbf rate 1000kbps latency 10ms burst 1000",
                 # Connect one leg of veth pair to first host interface.
-                "brctl addbr br-loop1",
-                "brctl setfd br-loop1 0",
+                "ip link add dev br-loop1 type bridge",
+                "ip link set br-loop1 type bridge forward_delay 0",
                 "ip link set br-loop1 up",
-                "brctl addif br-loop1 veth-loop1",
-                "brctl addif br-loop1 %s-eth0" % second_host.name,
+                "ip link set dev veth-loop1 master br-loop1",
+                "ip link set dev %s-eth0 master br-loop1" % second_host.name,
                 # Connect other leg of veth pair.
-                "brctl addbr br-loop2",
-                "brctl setfd br-loop2 0",
+                "ip link add dev br-loop2 type bridge",
+                "ip link set br-loop2 type bridge forward_delay 0",
                 "ip link set br-loop2 up",
-                "brctl addif br-loop2 veth-loop2",
-                "brctl addif br-loop2 %s-eth1" % second_host.name,
+                "ip link set dev veth-loop2 master br-loop2",
+                "ip link set dev %s-eth1 master br-loop2" % second_host.name,
             ),
         )
 
@@ -4854,12 +4854,11 @@ vlans:
         self.assertGreater(end_bans, start_bans)
 
         # Break the loop, and learning should work again
-        self.quiet_commands(
-            second_host,
-            (
-                "ip link set veth-loop1 down",
-                "ip link set veth-loop2 down",
-            ),
+        second_host.run_ip_batch(
+            [
+                "link set veth-loop1 down",
+                "link set veth-loop2 down",
+            ]
         )
         self.one_ipv4_ping(first_host, second_host.IP())
 
@@ -5052,33 +5051,35 @@ details partner lacp pdu:
         orig_ip = first_host.IP()
         switch = self.first_switch()
         bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
+        bond_cmds = []
         # Deconfigure bond members
         for bond_member in bond_members:
-            self.quiet_commands(
-                first_host,
-                (
-                    "ip link set %s down" % bond_member,
-                    "ip address flush dev %s" % bond_member,
-                ),
+            bond_cmds.extend(
+                [
+                    "link set %s down" % bond_member,
+                    "address flush dev %s" % bond_member,
+                ]
             )
         # Configure bond interface
-        self.quiet_commands(
-            first_host,
-            (
+        bond_cmds.extend(
+            [
                 (
-                    "ip link add %s address 0e:00:00:00:00:99 "
+                    "link add %s address 0e:00:00:00:00:99 "
                     "type bond mode 802.3ad lacp_rate fast miimon 100"
                 )
                 % bond,
-                "ip add add %s/24 dev %s" % (orig_ip, bond),
-                "ip link set %s up" % bond,
-            ),
+                "addr add %s/24 dev %s" % (orig_ip, bond),
+                "link set %s up" % bond,
+            ]
         )
         # Add bond members
         for bond_member in bond_members:
-            self.quiet_commands(
-                first_host, ("ip link set dev %s master %s" % (bond_member, bond),)
+            bond_cmds.extend(
+                [
+                    "link set dev %s master %s" % (bond_member, bond),
+                ]
             )
+        first_host.run_ip_batch(bond_cmds)
 
         for _flaps in range(2):
             # All ports down.
@@ -5131,23 +5132,24 @@ class FaucetUntaggedIPv4LACPMismatchTest(FaucetUntaggedIPv4LACPTest):
         orig_ip = first_host.IP()
         switch = self.first_switch()
         bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
+        bond_cmds = []
         for i, bond_member in enumerate(bond_members):
             bond = "bond%u" % i
-            self.quiet_commands(
-                first_host,
-                (
-                    "ip link set %s down" % bond_member,
-                    "ip address flush dev %s" % bond_member,
+            bond_cmds.extend(
+                [
+                    "link set %s down" % bond_member,
+                    "address flush dev %s" % bond_member,
                     (
-                        "ip link add %s address 0e:00:00:00:00:%2.2x "
+                        "link add %s address 0e:00:00:00:00:%2.2x "
                         "type bond mode 802.3ad lacp_rate fast miimon 100"
                     )
                     % (bond, i * 2 + i),
-                    "ip add add %s/24 dev %s" % (orig_ip, bond),
-                    "ip link set %s up" % bond,
-                    "ip link set dev %s master %s" % (bond_member, bond),
-                ),
+                    "addr add %s/24 dev %s" % (orig_ip, bond),
+                    "link set %s up" % bond,
+                    "link set dev %s master %s" % (bond_member, bond),
+                ]
             )
+        first_host.run_ip_batch(bond_cmds)
         self.wait_until_matching_lines_from_faucet_log_files(
             r".+actor system mismatch.+"
         )
@@ -6670,12 +6672,11 @@ acls:
 
     def test_tagged(self):
         first_host, second_host = self.hosts_name_ordered()[:2]
-        self.quiet_commands(
-            first_host,
+        first_host.run_ip_batch(
             [
-                "ip link set %s type vlan egress %u:1" % (first_host.defaultIntf(), i)
+                "link set %s type vlan egress %u:1" % (first_host.defaultIntf(), i)
                 for i in range(0, 8)
-            ],
+            ]
         )
         self.one_ipv4_ping(first_host, second_host.IP())
         self.wait_nonzero_packet_count_flow(
@@ -6726,10 +6727,9 @@ acls:
 
     def test_tagged(self):
         first_host, second_host = self.hosts_name_ordered()[:2]
-        self.quiet_commands(
-            first_host,
+        first_host.run_ip_batch(
             [
-                "ip link set %s type vlan egress %u:1" % (first_host.defaultIntf(), i)
+                "link set %s type vlan egress %u:1" % (first_host.defaultIntf(), i)
                 for i in range(0, 8)
             ],
         )
@@ -7112,12 +7112,12 @@ vlans:
                 vlan_int = "%s.%u" % (host.intf_root_name, vid)
                 setup_commands.extend(
                     [
-                        "ip link add link %s name %s type vlan id %u"
+                        "link add link %s name %s type vlan id %u"
                         % (host.intf_root_name, vlan_int, vid),
-                        "ip link set dev %s up" % vlan_int,
+                        "link set dev %s up" % vlan_int,
                     ]
                 )
-            self.quiet_commands(host, setup_commands)
+            host.run_ip_batch(setup_commands)
         for host in self.hosts_name_ordered():
             rdisc6_commands = []
             for vid in self.NEW_VIDS:
