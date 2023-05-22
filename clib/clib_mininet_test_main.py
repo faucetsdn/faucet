@@ -809,9 +809,41 @@ def run_tests(
         shutil.rmtree(root_tmpdir)
         sys.exit(0)
     else:
-        decoded_pcap_logs = glob.glob(
-            os.path.join(os.path.join(root_tmpdir, "*"), "*of.cap.txt")
-        )
+        decoded_pcap_logs = []
+        port_match_re = re.compile(".+([0-9]+)-of.cap")
+        for of_pcap in glob.glob(
+            os.path.join(os.path.join(root_tmpdir, "*"), "*of.cap")
+        ):
+            port_match = port_match_re.match(of_pcap)
+            if not port_match:
+                print("ignoring unexpected OpenFlow pcap %s" % of_pcap)
+                continue
+            text_ofcap_log = of_pcap.replace(".cap", ".txt")
+            decoded_pcap_logs.append(text_ofcap_log)
+            of_port = int(port_match.group(1))
+            with open(text_ofcap_log, "w", encoding="utf-8") as text_ofcap:
+                subprocess.call(
+                    [
+                        "timeout",
+                        str(60),
+                        "tshark",
+                        "-l",
+                        "-n",
+                        "-Q",
+                        "-d",
+                        "tcp.port==%u,openflow" % of_port,
+                        "-O",
+                        "openflow_v4",
+                        "-Y",
+                        "openflow_v4",
+                        "-r",
+                        of_pcap,
+                    ],
+                    stdout=text_ofcap,
+                    stdin=mininet_test_util.DEVNULL,
+                    stderr=mininet_test_util.DEVNULL,
+                    close_fds=True,
+                )
         pipeline_superset_report(decoded_pcap_logs)
         clean_test_dirs(
             root_tmpdir,

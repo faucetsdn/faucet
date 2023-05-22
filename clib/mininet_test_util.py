@@ -32,12 +32,16 @@ def flat_test_name(_id):
     return "-".join(_id.split(".")[1:])
 
 
-def lsof_tcp_listening_cmd(port, ipv, state, terse):
+def lsof_tcp_listening_cmd(port, ipv, state, terse, pid):
     """Return a command line for lsof for processes with specified TCP state."""
     terse_arg = ""
     if terse:
         terse_arg = "-t"
-    return "lsof -b -P -n %s -sTCP:%s -i %u -a -i tcp:%u" % (
+    pid_arg = ""
+    if pid:
+        pid_arg = "-p %u" % pid
+    return "lsof -b -P -n %s %s -sTCP:%s -i %u -a -i tcp:%u" % (
+        pid_arg,
         terse_arg,
         state,
         ipv,
@@ -53,9 +57,9 @@ def lsof_udp_listening_cmd(port, terse):
     return "lsof -b -P -n %s -i udp:%u -a" % (terse_arg, port)
 
 
-def tcp_listening_cmd(port, ipv=4, state="LISTEN", terse=True):
+def tcp_listening_cmd(port, ipv=4, state="LISTEN", terse=True, pid=None):
     """Call lsof_tcp_listening_cmd() with default args."""
-    return lsof_tcp_listening_cmd(port, ipv, state, terse)
+    return lsof_tcp_listening_cmd(port, ipv, state, terse, pid)
 
 
 def udp_listening_cmd(port, terse=True):
