@@ -19,7 +19,7 @@ import netifaces
 from mininet.log import output, warn, error
 from mininet.topo import Topo
 from mininet.node import Controller
-from mininet.node import CPULimitedHost
+from mininet.node import Host
 from mininet.node import OVSSwitch
 from mininet.link import TCIntf, Link
 
@@ -73,7 +73,7 @@ class FaucetLink(Link):
         )
 
 
-class FaucetHost(CPULimitedHost):
+class FaucetHost(Host):
     """Base Mininet Host class, for Mininet-based tests."""
 
     def __init__(self, *args, **kwargs):

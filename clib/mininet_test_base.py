@@ -999,10 +999,10 @@ class FaucetTestBase(unittest.TestCase):
         return TcpdumpHelper(*args, **kwargs).execute()
 
     @staticmethod
-    def scapy_template(packet, iface, count=1):
+    def scapy_template(packet, iface, count=1, inter=0.5):
         return (
-            "python3 -c \"from scapy.all import * ; sendp(%s, iface='%s', count=%u)\""
-            % (packet, iface, count)
+            "python3 -c \"from scapy.all import * ; pkt = %s ; sendp(pkt, iface='%s', count=%u, inter=%u)\""
+            % (packet, iface, count, inter)
         )
 
     def scapy_base_udp(
@@ -2120,28 +2120,26 @@ dbs:
         self, received_expected, packets, tcpdump_filter, scapy_cmd, host_a, host_b
     ):
         received_packets = False
-        for _ in range(packets):
-            tcpdump_txt = self.tcpdump_helper(
-                host_b,
-                tcpdump_filter,
-                [partial(host_a.cmd, scapy_cmd)],
-                packets=1,
-                timeout=2,
-            )
-            msg = "%s (%s) -> %s (%s): %s" % (
-                host_a,
-                host_a.MAC(),
-                host_b,
-                host_b.MAC(),
-                tcpdump_txt,
-            )
-            received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
-            received_packets = received_packets or not received_no_packets
-            if received_packets:
-                if received_expected is not False:
-                    return True
-                self.assertTrue(received_expected, msg=msg)
-            time.sleep(1)
+        tcpdump_txt = self.tcpdump_helper(
+            host_b,
+            tcpdump_filter,
+            [partial(host_a.cmd, scapy_cmd)],
+            packets=packets,
+            timeout=packets,
+        )
+        msg = "%s (%s) -> %s (%s): %s" % (
+            host_a,
+            host_a.MAC(),
+            host_b,
+            host_b.MAC(),
+            tcpdump_txt,
+        )
+        received_no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
+        received_packets = received_packets or not received_no_packets
+        if received_packets:
+            if received_expected is not False:
+                return True
+            self.assertTrue(received_expected, msg=msg)
 
         if received_expected is None:
             return received_packets
