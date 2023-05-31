@@ -54,7 +54,7 @@ class FaucetLink(Link):
         intf_name2=None,
         addr1=None,
         addr2=None,
-        **params
+        **params,
     ):
         Link.__init__(
             self,
@@ -78,7 +78,38 @@ class FaucetHost(Host):
 
     def __init__(self, *args, **kwargs):
         self.pid_files = []
+        # Isolate these directories in mininet container from host filesystem
+        kwargs["privateDirs"] = [
+            ("/etc/", "/var/tmp/mininet/%(name)s/etc"),
+            ("/var/log/", "/var/tmp/mininet/%(name)s/var/log"),
+            ("/run/", "/var/tmp/mininet/%(name)s/run"),
+            ("/var/run/", "/var/tmp/mininet/%(name)s/var/run"),
+        ]
         super().__init__(*args, **kwargs)
+
+    def mountPrivateDirs(self):
+        "Mount private directories"
+        for directory in self.privateDirs:
+            if isinstance(directory, tuple):
+                # mount given private directory
+                privateDir = directory[1] % self.__dict__
+                mountPoint = directory[0]
+                self.cmd(f"mkdir -p {privateDir}")
+                self.cmd(f"cp -aRT {mountPoint} {privateDir}")
+                self.cmd(f"mount --bind {privateDir} {mountPoint}")
+            else:
+                # mount temporary filesystem on directory
+                self.cmd(f"mkdir -p {directory}")
+                self.cmd(f"mount -n -t tmpfs tmpfs {directory}")
+
+    def unmountPrivateDirs(self):
+        "Unmount private directories"
+        for directory in self.privateDirs:
+            if isinstance(directory, tuple):
+                self.cmd(f"umount {directory[0]}")
+                self.cmd(f"rm -r {directory[1]}")
+            else:
+                self.cmd(f"umount {directory}")
 
     def startShell(self, mnopts=None):
         "Start a shell process for running commands"
@@ -609,7 +640,7 @@ socket_timeout=15
         controller_intf=None,
         controller_ipv6=False,
         cargs="",
-        **kwargs
+        **kwargs,
     ):
         self.name_no_pid = name
         name_with_pid = "%s-%u" % (name, os.getpid())
@@ -815,7 +846,7 @@ class FAUCET(BaseFAUCET):
         prom_port,
         port,
         test_name,
-        **kwargs
+        **kwargs,
     ):
         self.prom_port = prom_port
         self.ofctl_port = mininet_test_util.find_free_port(ports_sock, test_name)
@@ -830,7 +861,7 @@ class FAUCET(BaseFAUCET):
             cargs=cargs,
             command=self._command(env, name, " ".join(self.START_ARGS)),
             port=port,
-            **kwargs
+            **kwargs,
         )
 
     def listening(self):
@@ -855,7 +886,7 @@ class Gauge(BaseFAUCET):
         ctl_cert,
         ca_certs,
         port,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             name,
@@ -865,5 +896,5 @@ class Gauge(BaseFAUCET):
             cargs=self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs),
             command=self._command(env, name, "--gauge"),
             port=port,
-            **kwargs
+            **kwargs,
         )
