@@ -54,7 +54,7 @@ class FaucetLink(Link):
         intf_name2=None,
         addr1=None,
         addr2=None,
-        **params
+        **params,
     ):
         Link.__init__(
             self,
@@ -640,7 +640,7 @@ socket_timeout=15
         controller_intf=None,
         controller_ipv6=False,
         cargs="",
-        **kwargs
+        **kwargs,
     ):
         self.name_no_pid = name
         name_with_pid = "%s-%u" % (name, os.getpid())
@@ -846,7 +846,7 @@ class FAUCET(BaseFAUCET):
         prom_port,
         port,
         test_name,
-        **kwargs
+        **kwargs,
     ):
         self.prom_port = prom_port
         self.ofctl_port = mininet_test_util.find_free_port(ports_sock, test_name)
@@ -861,7 +861,7 @@ class FAUCET(BaseFAUCET):
             cargs=cargs,
             command=self._command(env, name, " ".join(self.START_ARGS)),
             port=port,
-            **kwargs
+            **kwargs,
         )
 
     def listening(self):
@@ -886,7 +886,7 @@ class Gauge(BaseFAUCET):
         ctl_cert,
         ca_certs,
         port,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             name,
@@ -896,5 +896,5 @@ class Gauge(BaseFAUCET):
             cargs=self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs),
             command=self._command(env, name, "--gauge"),
             port=port,
-            **kwargs
+            **kwargs,
         )
