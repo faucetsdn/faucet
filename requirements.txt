@@ -2,7 +2,7 @@ chewie==0.0.25
 influxdb>=2.12.0
 networkx>=1.9
 pbr>=1.9
-prometheus_client==0.16.0
+prometheus_client==0.17.0
 ruamel.yaml==0.17.26
 os_ken==2.6.0
 beka==0.4.2
