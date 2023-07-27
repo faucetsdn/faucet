@@ -12,4 +12,4 @@ requests
 requirements-parser
 scapy==2.4.4
 webob
-tinyrpc<1.1.6
+tinyrpc<1.1.8
