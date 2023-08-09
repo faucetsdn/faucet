@@ -7103,29 +7103,50 @@ vlans:
         self.ping_all_when_learned()
         for host in self.hosts_name_ordered():
             setup_commands = []
-            for vid in self.NEW_VIDS:
-                vlan_int = "%s.%u" % (host.intf_root_name, vid)
-                setup_commands.extend(
-                    [
-                        "link add link %s name %s type vlan id %u"
-                        % (host.intf_root_name, vlan_int, vid),
-                        "link set dev %s up" % vlan_int,
-                    ]
+            bcast_script = os.path.join(self.tmpdir, "%s.py" % host)
+            with open(bcast_script, "w", encoding="utf8") as f:
+                f.write(
+                    "\n".join(
+                        (
+                            "from scapy.all import *",
+                            "import random",
+                            "for _ in range(100):",
+                        )
+                    )
                 )
+                for vid in self.NEW_VIDS:
+                    vlan_int = "%s.%u" % (host.intf_root_name, vid)
+                    f.write(
+                        "\n".join(
+                            (
+                                "  pkt = Ether(dst='ff:ff:ff:ff:ff:ff', type=%u) / "
+                                "IP(src='0.0.0.0', dst='255.255.255.255') / UDP(dport=67,sport=68) / "
+                                "BOOTP(op=1) / DHCP(options=[('message-type', 'discover'), ('end')])"
+                                % IPV4_ETH,
+                                "  sendp(pkt, iface='%s', count=%u, inter=%u)"
+                                % (vlan_int, 3, 0.001),
+                                "  time.sleep(random.random() * 0.1)",
+                            )
+                        )
+                    )
+                    setup_commands.extend(
+                        [
+                            "link add link %s name %s type vlan id %u"
+                            % (host.intf_root_name, vlan_int, vid),
+                            "link set dev %s up" % vlan_int,
+                        ]
+                    )
             host.run_ip_batch(setup_commands)
-        for host in self.hosts_name_ordered():
-            rdisc6_commands = []
-            for vid in self.NEW_VIDS:
-                vlan_int = "%s.%u" % (host.intf_root_name, vid)
-                rdisc6_commands.append("rdisc6 -r2 -w1 -q %s 2> /dev/null" % vlan_int)
-            self.quiet_commands(host, rdisc6_commands)
+            self.quiet_commands(
+                host,
+                [mininet_test_util.timeout_cmd("python3 %s &" % bcast_script, 180)],
+            )
         for vlan in self.NEW_VIDS:
             vlan_int = "%s.%u" % (host.intf_root_name, vid)
-            for _ in range(3):
-                for host in self.hosts_name_ordered():
-                    self.quiet_commands(
-                        host, ["rdisc6 -r2 -w1 -q %s 2> /dev/null" % vlan_int]
-                    )
+            vlan_hosts_learned = self.scrape_prometheus_var(
+                "vlan_hosts_learned", {"vlan": str(vlan)}
+            )
+            for _ in range(5):
                 vlan_hosts_learned = self.scrape_prometheus_var(
                     "vlan_hosts_learned", {"vlan": str(vlan)}
                 )
