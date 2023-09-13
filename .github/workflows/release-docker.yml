@@ -20,7 +20,7 @@ jobs:
           platforms: all
       - name: Set up docker buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           version: latest
       - name: Login to docker registry
@@ -51,7 +51,7 @@ jobs:
           platforms: all
       - name: Set up docker buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           version: latest
       - name: Login to docker registry
@@ -81,7 +81,7 @@ jobs:
           platforms: all
       - name: Set up docker buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           version: latest
       - name: Login to docker registry
@@ -112,7 +112,7 @@ jobs:
           platforms: all
       - name: Set up docker buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           version: latest
       - name: Login to docker registry
