@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - if: ${{ github.event_name == 'pull_request' }}
         name: Setup dependencies for changed files action
         run: |
@@ -22,7 +22,7 @@ jobs:
       - if: ${{ github.event_name == 'pull_request' }}
         name: Get file changes
         id: file_changes
-        uses: tj-actions/changed-files@v38
+        uses: tj-actions/changed-files@v39
         with:
           json: true
           json_raw_format: true
