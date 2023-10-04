@@ -11,7 +11,6 @@ FROOT="/faucet-src"
 dir=$(dirname "$0")
 
 ${APK} add -U ${BUILDDEPS}
-"${dir}/retrycmd.sh" "${PIP3} git+https://github.com/faucetsdn/python3-fakencclient"
 "${dir}/retrycmd.sh" "${PIP3} ${TESTDEPS}"
 "${dir}/retrycmd.sh" "${PIP3} -r ${FROOT}/requirements.txt"
 ${PIP3} ${FROOT}
