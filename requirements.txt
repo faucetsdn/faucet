@@ -7,3 +7,4 @@ ruamel.yaml==0.17.26
 os_ken==2.6.0
 beka==0.4.2
 pytricia>=1.0.0
+https://github.com/faucetsdn/python3-fakencclient/archive/main.tar.gz
