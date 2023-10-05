@@ -7,4 +7,5 @@ ruamel.yaml==0.17.34
 c65beka==1.0.1
 os_ken==2.7.0
 pytricia>=1.0.0
+eventlet@git+https://github.com/hroncok/eventlet@python3.12
 https://github.com/faucetsdn/python3-fakencclient/archive/main.tar.gz
