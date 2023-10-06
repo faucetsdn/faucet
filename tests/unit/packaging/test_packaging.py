@@ -57,7 +57,7 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
         self.faucet_pip_reqs = {}
         with open(requirements_file, "r", encoding="utf-8") as handle:
             for pip_req in requirements.parse(handle):
-                if pip_req.name is None:
+                if pip_req.name is None or pip_req.local_file:
                     continue
                 self.faucet_pip_reqs[pip_req.name] = pip_req.specs
 
