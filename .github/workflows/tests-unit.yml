@@ -5,7 +5,7 @@ on: [push, pull_request]
 env:
   FILES_CHANGED: "all"
   CODECOV_PY_VER: '3.10'
-  USING_PYTYPE: '3.8,3.9,3.10,3.11'
+  USING_PYTYPE: '3.9,3.10,3.11'
 
 jobs:
   unit-tests:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, '3.10', 3.11, 3.12]
+        python-version: [3.9, '3.10', 3.11, 3.12]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
