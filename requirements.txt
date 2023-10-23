@@ -1,11 +1,11 @@
+c65beka==1.0.1
 c65chewie==1.0.4
+eventlet @ https://github.com/faucetsdn/eventlet/archive/main.tar.gz#egg=eventlet
 influxdb>=2.12.0
+ncclient @ https://github.com/faucetsdn/python3-fakencclient/archive/main.tar.gz#egg=ncclient
 networkx>=1.9
+os_ken==2.7.0
 pbr>=1.9
 prometheus_client==0.17.1
-ruamel.yaml==0.17.35
-c65beka==1.0.1
-os_ken==2.7.0
 pytricia>=1.0.0
-eventlet@git+https://github.com/hroncok/eventlet@python3.12
-https://github.com/faucetsdn/python3-fakencclient/archive/main.tar.gz
+ruamel.yaml==0.17.35
