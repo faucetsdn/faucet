@@ -25,7 +25,7 @@ jobs:
       - if: ${{ github.event_name == 'pull_request' }}
         name: Get file changes
         id: file_changes
-        uses: tj-actions/changed-files@v39
+        uses: tj-actions/changed-files@v40
         with:
           json: true
           json_raw_format: true
@@ -95,7 +95,7 @@ jobs:
       - if: ${{ github.event_name == 'pull_request' && github.event.before != '0000000000000000000000000000000000000000' }}
         name: Get file changes
         id: file_changes
-        uses: tj-actions/changed-files@v39
+        uses: tj-actions/changed-files@v40
         with:
           json: true
           json_raw_format: true
