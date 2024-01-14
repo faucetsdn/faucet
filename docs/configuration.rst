@@ -23,6 +23,14 @@ The datapath ID may be specified as an integer or hex string (beginning with 0x)
 
 A port not explicitly defined in the YAML configuration file will be left down and will drop all packets.
 
+**Default Port and Configuration**
+
+Faucet uses port 6653 as the default listening port. You can customize this and other settings in the following configuration files:
+
+- `/etc/default/faucet`
+- `/etc/default/gauge`
+- `/etc/faucet/ryu.conf`
+
 Configuration options
 ~~~~~~~~~~~~~~~~~~~~~
 
