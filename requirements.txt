@@ -1,6 +1,6 @@
-https://github.com/faucetsdn/eventlet/archive/main.tar.gz#egg=eventlet
 https://github.com/faucetsdn/python3-fakencclient/archive/main.tar.gz#egg=ncclient
 chewie==0.0.25
+eventlet>=0.34.3; python_version >= "3.12"
 influxdb>=2.12.0
 networkx>=1.9
 pbr>=1.9
