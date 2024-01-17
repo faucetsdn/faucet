@@ -59,6 +59,9 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
             for pip_req in requirements.parse(handle):
                 if pip_req.name is None or pip_req.local_file or pip_req.uri:
                     continue
+                if "python_version" in pip_req.line:
+                    # Skip pip requirements only installed for specific python versions
+                    continue
                 self.faucet_pip_reqs[pip_req.name] = pip_req.specs
 
     def _pip_req_to_dpkg_name(self, pip_req):
