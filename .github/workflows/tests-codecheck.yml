@@ -22,7 +22,7 @@ jobs:
       - if: ${{ github.event_name == 'pull_request' }}
         name: Get file changes
         id: file_changes
-        uses: tj-actions/changed-files@v41
+        uses: tj-actions/changed-files@v42
         with:
           json: true
           json_raw_format: true
