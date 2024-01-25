@@ -19,7 +19,8 @@ if [ -z "${FAUCET_TESTS:-}" ]; then
   FAUCET_TESTS="$*"
 fi
 
-PARAMS=""
+# TODO: FaucetDockerHostTest docker-in-docker currently broken
+PARAMS="-x FaucetDockerHostTest"
 
 # Parse options, some are used by this script, some are
 # passed onto mininet_main.py & clib_mininet_main.py
