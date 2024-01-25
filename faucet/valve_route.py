@@ -356,6 +356,8 @@ class ValveRouteManager(ValveManagerBase):
     def _nexthop_actions(self, eth_dst, vlan):
         """Return flowrule actions for fib entry"""
         actions = []
+        if self.dec_ttl:
+            actions.append(valve_of.dec_ip_ttl())
         if self.routers:
             actions.append(self.fib_table.set_vlan_vid(vlan.vid))
         actions.extend(
@@ -364,8 +366,6 @@ class ValveRouteManager(ValveManagerBase):
                 self.fib_table.set_field(eth_dst=eth_dst),
             ]
         )
-        if self.dec_ttl:
-            actions.append(valve_of.dec_ip_ttl())
         return tuple(actions)
 
     def _route_match(self, vlan, ip_dst):
@@ -1096,6 +1096,35 @@ class ValveIPv4RouteManager(ValveRouteManager):
                     ofmsgs.extend(self.add_host_fib_route_from_pkt(now, pkt_meta))
         return ofmsgs
 
+    def _control_plane_time_exceeded_handler(self, pkt_meta, ipv4_pkt):
+        """Handle ICMP TTL expired packets"""
+        ofmsgs = []
+        src_ip = pkt_meta.l3_src
+        vlan = pkt_meta.vlan
+        faucet_vip = vlan.ip_in_vip_subnet(src_ip)
+        if faucet_vip is None:
+            return ofmsgs
+        pkt_meta.reparse_all()
+        # get offset to L3 header
+        l3_offset = pkt_meta.l3_offset()
+        if l3_offset is None:
+            return ofmsgs
+        l4_offset = l3_offset + valve_packet.IPV4_HEADER_SIZE
+        # need to embed layer 3 header + 8 bytes of layer 4 header in time exceeded response
+        data = pkt_meta.pkt.data[l3_offset : l4_offset + 8]
+        ofmsgs.append(
+            pkt_meta.vlan.pkt_out_port(
+                valve_packet.time_exceeded,
+                pkt_meta.port,
+                pkt_meta.vlan.faucet_mac,
+                pkt_meta.eth_src,
+                faucet_vip.ip,
+                pkt_meta.l3_src,
+                data,
+            )
+        )
+        return ofmsgs
+
     def control_plane_handler(self, now, pkt_meta):
         """Handle packets destined for router otherwise proactively learn host information"""
         if pkt_meta.packet_complete():
@@ -1104,6 +1133,13 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 return arp_replies
             ipv4_pkt = self._ip_pkt(pkt_meta.pkt)
             if ipv4_pkt is None:
+                return []
+            if pkt_meta.reason == valve_of.ofp.OFPR_INVALID_TTL:
+                time_exceeded_replies = self._control_plane_time_exceeded_handler(
+                    pkt_meta, ipv4_pkt
+                )
+                if time_exceeded_replies:
+                    return time_exceeded_replies
                 return []
             icmp_replies = self._control_plane_icmp_handler(now, pkt_meta, ipv4_pkt)
             if icmp_replies:
@@ -1325,16 +1361,59 @@ class ValveIPv6RouteManager(ValveRouteManager):
             ofmsgs = handler(self, now, pkt_meta, ipv6_pkt, icmpv6_pkt)
         return ofmsgs
 
+    def _control_plane_time_exceeded_handler(self, pkt_meta, ipv6_pkt):
+        """Handle ICMPv6 TTL expired packets"""
+        ofmsgs = []
+        # Must have no extended headers.
+        if ipv6_pkt.ext_hdrs:
+            return ofmsgs
+        src_ip = pkt_meta.l3_src
+        vlan = pkt_meta.vlan
+        faucet_vip = vlan.ip_in_vip_subnet(src_ip)
+        if faucet_vip is None:
+            return ofmsgs
+        reparse_size = 32
+        pkt_meta.reparse_ip(payload=reparse_size)
+        # get offset to L3 header
+        l3_offset = pkt_meta.l3_offset()
+        if l3_offset is None:
+            return ofmsgs
+        l4_offset = l3_offset + valve_packet.IPV6_HEADER_SIZE
+        # pad out 4 reserved bytes
+        data = b"\00" * 4
+        # need to embed layer 3 header + layer 4 packet
+        # (without exceeding ipv6 minimum MTU)
+        # in time exceeded response
+        data += pkt_meta.pkt.data[l3_offset : l4_offset + 512]
+        ofmsgs.append(
+            pkt_meta.vlan.pkt_out_port(
+                valve_packet.icmpv6_time_exceeded,
+                pkt_meta.port,
+                pkt_meta.vlan.faucet_mac,
+                pkt_meta.eth_src,
+                faucet_vip.ip,
+                pkt_meta.l3_src,
+                data,
+            )
+        )
+        return ofmsgs
+
     def control_plane_handler(self, now, pkt_meta):
         """Resolve packets destined for router or proactively learn host information"""
         if pkt_meta.packet_complete():
             ipv6_pkt = self._ip_pkt(pkt_meta.pkt)
-            if ipv6_pkt is not None:
-                icmp_replies = self._control_plane_icmpv6_handler(
-                    now, pkt_meta, ipv6_pkt
+            if ipv6_pkt is None:
+                return []
+            if pkt_meta.reason == valve_of.ofp.OFPR_INVALID_TTL:
+                time_exceeded_replies = self._control_plane_time_exceeded_handler(
+                    pkt_meta, ipv6_pkt
                 )
-                if icmp_replies:
-                    return icmp_replies
+                if time_exceeded_replies:
+                    return time_exceeded_replies
+                return []
+            icmp_replies = self._control_plane_icmpv6_handler(now, pkt_meta, ipv6_pkt)
+            if icmp_replies:
+                return icmp_replies
         return super().control_plane_handler(now, pkt_meta)
 
     def advertise(self, vlan):

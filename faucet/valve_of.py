@@ -1329,7 +1329,7 @@ def faucet_async(
     """Return async message config for FAUCET/Gauge"""
     packet_in_mask = 0
     if packet_in:
-        packet_in_mask = 1 << ofp.OFPR_ACTION
+        packet_in_mask = 1 << ofp.OFPR_ACTION | 1 << ofp.OFPR_INVALID_TTL
     port_status_mask = 0
     if port_status:
         port_status_mask = (

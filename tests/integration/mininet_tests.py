@@ -10028,3 +10028,72 @@ class FaucetSingleUntagged48PortTest(FaucetUntaggedMorePortsBase):
     # pylint: disable=invalid-name
     N_UNTAGGED = 48  # Maximum number of ports to test
     EVENT_LOGGER_TIMEOUT = 360  # Timeout for event logger process
+
+
+class FaucetUntaggedTimeExceededTest(FaucetUntaggedTest):
+    """Test TTL exceeded messages are generated in response to traceroute probes"""
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        faucet_vips: ["10.100.0.254/24", "169.254.1.1/24", "fc00::100:254/112"]
+    200:
+        faucet_vips: ["10.200.0.254/24", "169.254.2.1/24", "fc00::200:254/112"]
+routers:
+    router-1:
+        vlans: [100, 200]
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        proactive_learn_v4: True
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+            %(port_2)d:
+                native_vlan: 200
+"""
+
+    def test_untagged(self):
+        first_host_ip = ipaddress.ip_interface("10.100.0.1/24")
+        first_faucet_vip = ipaddress.ip_interface("10.100.0.254/24")
+        first_host_ipv6_ip = ipaddress.ip_interface("fc00::100:1/112")
+        first_faucet_ipv6_vip = ipaddress.ip_interface("fc00::100:254/112")
+
+        second_host_ip = ipaddress.ip_interface("10.200.0.1/24")
+        second_faucet_vip = ipaddress.ip_interface("10.200.0.254/24")
+        second_host_ipv6_ip = ipaddress.ip_interface("fc00::200:1/112")
+        second_faucet_ipv6_vip = ipaddress.ip_interface("fc00::200:254/112")
+
+        first_host, second_host = self.hosts_name_ordered()[:2]
+
+        first_host.setIP(str(first_host_ip.ip), prefixLen=24)
+        self.add_host_ipv6_address(first_host, first_host_ipv6_ip)
+        self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
+        self.add_host_route(first_host, second_host_ipv6_ip, first_faucet_ipv6_vip.ip)
+
+        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
+        self.add_host_ipv6_address(second_host, second_host_ipv6_ip)
+        self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
+        self.add_host_route(second_host, first_host_ipv6_ip, second_faucet_ipv6_vip.ip)
+
+        for proto in ["udp", "icmp", "tcp"]:
+            self.ipv4_traceroute(
+                first_host, first_faucet_vip.ip, second_host_ip.ip, protocol=proto
+            )
+            self.ipv6_traceroute(
+                first_host,
+                first_faucet_ipv6_vip.ip,
+                second_host_ipv6_ip.ip,
+                protocol=proto,
+            )
+            self.ipv4_traceroute(
+                second_host, second_faucet_vip.ip, first_host_ip.ip, protocol=proto
+            )
+            self.ipv6_traceroute(
+                second_host,
+                second_faucet_ipv6_vip.ip,
+                first_host_ipv6_ip.ip,
+                protocol=proto,
+            )

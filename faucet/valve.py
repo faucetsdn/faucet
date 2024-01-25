@@ -1091,6 +1091,7 @@ class Valve:
         if (
             pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac
             or not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)
+            or pkt_meta.reason == valve_of.ofp.OFPR_INVALID_TTL
         ):
             return route_manager.control_plane_handler(now, pkt_meta)
         return []
@@ -1177,11 +1178,21 @@ class Valve:
         return []
 
     def parse_rcv_packet(
-        self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt, vlan_pkt
+        self,
+        reason,
+        in_port,
+        vlan_vid,
+        eth_type,
+        data,
+        orig_len,
+        pkt,
+        eth_pkt,
+        vlan_pkt,
     ):
         """Parse a received packet into a PacketMeta instance.
 
         Args:
+            reason (int): reason for packet in message.
             in_port (int): port packet was received on.
             vlan_vid (int): VLAN VID of port packet was received on.
             eth_type (int): Ethernet type of packet.
@@ -1200,6 +1211,7 @@ class Valve:
             vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
         pkt_meta = valve_packet.PacketMeta(
+            reason,
             data,
             orig_len,
             pkt,
@@ -1227,7 +1239,7 @@ class Valve:
             self.logger.info("got packet in with unknown cookie %s" % msg.cookie)
             return None
         # Drop any packet we didn't specifically ask for
-        if msg.reason != valve_of.ofp.OFPR_ACTION:
+        if msg.reason not in (valve_of.ofp.OFPR_ACTION, valve_of.ofp.OFPR_INVALID_TTL):
             return None
         if not msg.match:
             return None
@@ -1255,7 +1267,15 @@ class Valve:
             self.logger.info("packet for unknown VLAN %u" % vlan_vid)
             return None
         pkt_meta = self.parse_rcv_packet(
-            in_port, vlan_vid, eth_type, data, msg.total_len, pkt, eth_pkt, vlan_pkt
+            msg.reason,
+            in_port,
+            vlan_vid,
+            eth_type,
+            data,
+            msg.total_len,
+            pkt,
+            eth_pkt,
+            vlan_pkt,
         )
         if not valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.info(
@@ -1411,7 +1431,7 @@ class Valve:
         ofmsgs = []
         if control_plane_ofmsgs:
             ofmsgs.extend(control_plane_ofmsgs)
-        else:
+        elif pkt_meta.reason == valve_of.ofp.OFPR_ACTION:
             ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
             # No CPN activity, run resolver.
             ofmsgs.extend(

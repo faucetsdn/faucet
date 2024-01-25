@@ -46,6 +46,7 @@ PEER_BGP_AS = 2**16 + 1
 IPV4_ETH = 0x0800
 IPV6_ETH = 0x86DD
 FPING_ARGS = "-s -T 1 -A"
+TRACEROUTE_ARGS = "--max-hops=1"
 
 
 class FaucetTestBase(unittest.TestCase):
@@ -100,6 +101,8 @@ class FaucetTestBase(unittest.TestCase):
     FPING_ARGS = FPING_ARGS
     FPING_ARGS_SHORT = " ".join((FPING_ARGS, "-i10 -p100 -t100"))
     FPINGS_ARGS_ONE = " ".join(("fping", FPING_ARGS, "-t100 -c 1"))
+
+    TRACEROUTE_ARGS = TRACEROUTE_ARGS
 
     REQUIRES_METERS = False
     REQUIRES_METADATA = False
@@ -3142,6 +3145,90 @@ dbs:
                 return
             time.sleep(1)
         self.fail("ping %f loss > required loss %f" % (loss, required_loss))
+
+    def _ip_traceroute(
+        self,
+        host,
+        vip,
+        dst,
+        retries,
+        timeout=500,
+        traceroute_bin="traceroute",
+        protocol="udp",
+        intf=None,
+        expected_result=True,
+    ):
+        """Traceroute to a destination from a host"""
+        if intf is None:
+            intf = host.defaultIntf()
+        good_traceroute = r"1  %s" % (vip)
+        traceroute_cmd = "%s %s --interface=%s --%s %s" % (
+            traceroute_bin,
+            self.TRACEROUTE_ARGS,
+            intf,
+            protocol,
+            dst,
+        )
+        pause = timeout / 1e3
+        for _ in range(retries):
+            traceroute_out = host.cmd(traceroute_cmd)
+            traceroute_result = bool(re.search(good_traceroute, traceroute_out))
+            if traceroute_result:
+                break
+            time.sleep(pause)
+            pause *= 2
+        self.assertEqual(
+            traceroute_result,
+            expected_result,
+            msg="%s %s: %s" % (traceroute_cmd, traceroute_result, traceroute_out),
+        )
+
+    def ipv4_traceroute(
+        self,
+        host,
+        vip,
+        dst,
+        retries=3,
+        timeout=1000,
+        protocol="udp",
+        intf=None,
+        expected_result=True,
+    ):
+        """Traceroute to an IPv4 destination from a host"""
+        return self._ip_traceroute(
+            host,
+            vip,
+            dst,
+            retries,
+            timeout=timeout,
+            protocol=protocol,
+            intf=intf,
+            expected_result=expected_result,
+        )
+
+    def ipv6_traceroute(
+        self,
+        host,
+        vip,
+        dst,
+        retries=3,
+        timeout=1000,
+        protocol="udp",
+        intf=None,
+        expected_result=True,
+    ):
+        """Traceroute to an IPv6 destination from a host"""
+        return self._ip_traceroute(
+            host,
+            vip,
+            dst,
+            retries,
+            timeout=timeout,
+            traceroute_bin="traceroute6",
+            protocol=protocol,
+            intf=intf,
+            expected_result=expected_result,
+        )
 
     @staticmethod
     def tcp_port_free(host, port, ipv=4):
