@@ -568,6 +568,32 @@ def echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, data):
     return pkt
 
 
+def time_exceeded(vid, eth_src, eth_dst, src_ip, dst_ip, data):
+    """Return an ICMP time-to-live exceeded packet.
+
+    Args:
+        vid (int or None): VLAN VID to use (or None).
+        eth_src (str): Ethernet source address.
+        eth_dst (str): destination Ethernet MAC address.
+        src_ip (ipaddress.IPv4Address): source IPv4 address.
+        dst_ip (ipaddress.IPv4Address): destination IPv4 address.
+        data (bytes): payload for reply.
+    Returns:
+        ryu.lib.packet.icmp: serialized ICMP time-to-live exceeded packet.
+    """
+    pkt = build_pkt_header(vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_IP)
+    ipv4_pkt = ipv4.ipv4(dst=dst_ip, src=src_ip, proto=valve_of.inet.IPPROTO_ICMP)
+    pkt.add_protocol(ipv4_pkt)
+    icmp_pkt = icmp.icmp(
+        type_=icmp.ICMP_TIME_EXCEEDED,
+        code=icmp.ICMP_TTL_EXPIRED_CODE,
+        data=icmp.TimeExceeded(data=data),
+    )
+    pkt.add_protocol(icmp_pkt)
+    pkt.serialize()
+    return pkt
+
+
 @functools.lru_cache(maxsize=1024)
 def ipv6_link_eth_mcast(dst_ip):
     """Return an Ethernet multicast address from an IPv6 address.
@@ -695,6 +721,28 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit, id_, seq
     return pkt
 
 
+def icmpv6_time_exceeded(vid, eth_src, eth_dst, src_ip, dst_ip, data):
+    r"""Return IPv6 ICMP hop limit exceeded packet.
+
+    Args:
+        vid (int or None): VLAN VID to use (or None).
+        eth_src (str): source Ethernet MAC address.
+        eth_dst (str): destination Ethernet MAC address.
+        src_ip (ipaddress.IPv6Address): source IPv6 address.
+        dst_ip (ipaddress.IPv6Address): destination IPv6 address.
+        data (bytes): payload for reply.
+    Returns:
+        ryu.lib.packet.ethernet: Serialized IPv6 ICMP time-to-live exceeded packet.
+    """
+    pkt = build_pkt_header(vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_IPV6)
+    ipv6_reply = ipv6.ipv6(src=src_ip, dst=dst_ip, nxt=valve_of.inet.IPPROTO_ICMPV6)
+    pkt.add_protocol(ipv6_reply)
+    icmpv6_pkt = icmpv6.icmpv6(type_=icmpv6.ICMPV6_TIME_EXCEEDED, data=data)
+    pkt.add_protocol(icmpv6_pkt)
+    pkt.serialize()
+    return pkt
+
+
 def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip, vips, pi_flags=0x6):
     """Return IPv6 ICMP Router Advert.
 
@@ -744,6 +792,7 @@ class PacketMeta:
     __slots__ = [
         "data",
         "orig_len",
+        "reason",
         "pkt",
         "eth_pkt",
         "vlan_pkt",
@@ -776,6 +825,7 @@ class PacketMeta:
 
     def __init__(
         self,
+        reason,
         data,
         orig_len,
         pkt,
@@ -787,6 +837,7 @@ class PacketMeta:
         eth_dst,
         eth_type,
     ):
+        self.reason = reason
         self.data = data
         self.orig_len = orig_len
         self.pkt = pkt
@@ -870,3 +921,11 @@ class PacketMeta:
     def packet_complete(self):
         """True if we have the complete packet."""
         return len(self.data) == self.orig_len
+
+    def l3_offset(self):
+        """Return offset to where layer 3 header (IPv4/IPv6) starts"""
+        if self.vlan_pkt is not None:
+            return ETH_VLAN_HEADER_SIZE
+        if self.eth_pkt is not None:
+            return ETH_HEADER_SIZE
+        return None

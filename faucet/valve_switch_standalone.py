@@ -1378,7 +1378,8 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
     def learn_host_from_pkt(valve, now, pkt_meta, other_valves):
         """Learn host from packet."""
         ofmsgs = []
-        ofmsgs.extend(valve.learn_host(now, pkt_meta, other_valves))
+        if pkt_meta.reason == valve_of.ofp.OFPR_ACTION:
+            ofmsgs.extend(valve.learn_host(now, pkt_meta, other_valves))
         ofmsgs.extend(valve.router_rcv_packet(now, pkt_meta))
         return {valve: ofmsgs}
 
