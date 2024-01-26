@@ -3349,7 +3349,6 @@ vlans:
 class FaucetSingleHostsNoIdleTimeoutPrometheusTest(
     FaucetSingleHostsTimeoutPrometheusTest
 ):
-
     """Test broken reset idle timer on flow refresh workaround."""
 
     CONFIG = (

@@ -165,12 +165,12 @@ class FaucetMultiDPTestBase(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if stack and dp_i == 0:
@@ -1435,12 +1435,12 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -1668,12 +1668,12 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -1735,12 +1735,12 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             for key, value in self.dp_options().items():
@@ -1888,12 +1888,12 @@ class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             for key, value in self.dp_options().items():
@@ -1965,12 +1965,12 @@ class FaucetUntaggedStackTransitTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -2013,12 +2013,12 @@ class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -2081,12 +2081,12 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             for key, value in self.dp_options().items():
@@ -2150,9 +2150,9 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         # Force warm start on switch by changing native VLAN of host1
         conf = self._get_faucet_conf()
         interfaces_conf = conf["dps"][self.topo.switches_by_id[0]]["interfaces"]
-        interfaces_conf[self.host_port_maps[1][0][0]][
-            "native_vlan"
-        ] = self.topo.vlan_name(0)
+        interfaces_conf[self.host_port_maps[1][0][0]]["native_vlan"] = (
+            self.topo.vlan_name(0)
+        )
         self.reload_conf(
             conf,
             self.faucet_config_path,
@@ -2238,12 +2238,12 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             for key, value in self.dp_options().items():
@@ -2473,12 +2473,12 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -2507,9 +2507,9 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.verify_intervlan_routing()
         conf = self._get_faucet_conf()
         interfaces_conf = conf["dps"][self.topo.switches_by_id[2]]["interfaces"]
-        interfaces_conf[self.host_port_maps[2][2][0]][
-            "native_vlan"
-        ] = self.topo.vlan_name(0)
+        interfaces_conf[self.host_port_maps[2][2][0]]["native_vlan"] = (
+            self.topo.vlan_name(0)
+        )
         self.reload_conf(
             conf,
             self.faucet_config_path,
@@ -2548,9 +2548,9 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.verify_intervlan_routing()
         conf = self._get_faucet_conf()
         interfaces_conf = conf["dps"][self.topo.switches_by_id[0]]["interfaces"]
-        interfaces_conf[self.host_port_maps[0][0][0]][
-            "native_vlan"
-        ] = self.topo.vlan_name(1)
+        interfaces_conf[self.host_port_maps[0][0][0]]["native_vlan"] = (
+            self.topo.vlan_name(1)
+        )
         self.host_information[0]["vlan"] = 1
         self.reload_conf(
             conf,
@@ -2761,12 +2761,12 @@ class FaucetDHCPSingleVLANTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
         switch_links = []
@@ -2849,12 +2849,12 @@ class FaucetStackDHCPSingleVLANTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -2949,12 +2949,12 @@ class FaucetDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
         switch_links = []
@@ -3053,12 +3053,12 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -3155,12 +3155,12 @@ class FaucetBipartiteGraphPortDownTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i in [0, 1]:
@@ -3266,12 +3266,12 @@ class FaucetStackDHCPTaggedSingleDHCPInterfaceTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -3392,12 +3392,12 @@ class FaucetTunneltoCoprocessorTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -3534,12 +3534,12 @@ class FaucetDPACLTunnelTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -3642,12 +3642,12 @@ class FaucetACLTunnelDPDestinationTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             if dp_i == 0:
@@ -3836,12 +3836,12 @@ class FaucetRemoteDHCPCoprocessorTunnelTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             dp_options[dp_i]["dp_acls"] = [dp_i + 1]
@@ -4236,12 +4236,12 @@ class FaucetRemoteDHCPCoprocessor2VLANTunnelTest(FaucetTopoTestBase):
                 dp_i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(dp_i)
-                    if self.debug_log_path
-                    else None,
-                    "hardware": self.hardware
-                    if dp_i == 0 and self.hw_dpid
-                    else "Open vSwitch",
+                    "ofchannel_log": (
+                        self.debug_log_path + str(dp_i) if self.debug_log_path else None
+                    ),
+                    "hardware": (
+                        self.hardware if dp_i == 0 and self.hw_dpid else "Open vSwitch"
+                    ),
                 },
             )
             dp_options[dp_i]["dp_acls"] = [dp_i + 1]
