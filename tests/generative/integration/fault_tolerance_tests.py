@@ -106,9 +106,9 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
                 i,
                 {
                     "group_table": self.GROUP_TABLE,
-                    "ofchannel_log": self.debug_log_path + str(i)
-                    if self.debug_log_path
-                    else None,
+                    "ofchannel_log": (
+                        self.debug_log_path + str(i) if self.debug_log_path else None
+                    ),
                     "hardware": "Open vSwitch",
                 },
             )
