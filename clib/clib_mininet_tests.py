@@ -1,6 +1,5 @@
 """Mininet tests for clib."""
 
-
 import os
 import re
 

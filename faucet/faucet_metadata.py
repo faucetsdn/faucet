@@ -1,6 +1,7 @@
 """This module contains code relating to the use of OpenFlow Metadata within
 Faucet.
 """
+
 PORT_METADATA_MASK = 0xFFF
 VLAN_METADATA_MASK = 0xFFF000
 EGRESS_METADATA_MASK = PORT_METADATA_MASK | VLAN_METADATA_MASK

@@ -316,9 +316,9 @@ def pipeline_superset_report(decoded_pcap_logs):
                                     instructions_count
                                     > table_instructions_max[table_id]
                                 ):
-                                    table_instructions_max[
-                                        table_id
-                                    ] = instructions_count
+                                    table_instructions_max[table_id] = (
+                                        instructions_count
+                                    )
                             elif section_name == "Action":
                                 table_actions[table_id].add(type_match.group(1))
                                 actions_count += 1
