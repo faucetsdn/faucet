@@ -86,9 +86,7 @@ LLDP_FAUCET_STACK_STATE = 2
 LACP_SIZE = 124
 
 EUI_BITS = len(EUI(0).packed * 8)
-MAC_MASK_BITMAP = {
-    (2**EUI_BITS - 2**i): (EUI_BITS - i) for i in range(0, EUI_BITS + 1)
-}
+MAC_MASK_BITMAP = {(2**EUI_BITS - 2**i): (EUI_BITS - i) for i in range(0, EUI_BITS + 1)}
 
 
 @functools.lru_cache(maxsize=1024)

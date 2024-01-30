@@ -1,6 +1,5 @@
 """Manage higher level stack functions"""
 
-
 from collections import defaultdict
 
 from faucet.valve_manager_base import ValveManagerBase

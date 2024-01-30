@@ -207,9 +207,8 @@ def generate_prometheus_metric_table(_):
     }
 
     for module in ["faucet", "gauge"]:
-        block_text[
-            module
-        ] = """\
+        block_text[module] = (
+            """\
 .. list-table:: {} prometheus metrics
     :widths: 40 10 55
     :header-rows: 1
@@ -218,7 +217,8 @@ def generate_prometheus_metric_table(_):
       - Type
       - Description
 """.format(
-            module.title()
+                module.title()
+            )
         )
 
         # pylint: disable=protected-access

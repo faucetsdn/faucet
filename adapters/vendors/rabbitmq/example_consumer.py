@@ -1,4 +1,5 @@
 """Example RabbitMQ consumer for testing and development purposes"""
+
 import datetime
 import logging
 
