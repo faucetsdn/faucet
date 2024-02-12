@@ -1,4 +1,4 @@
 black==24.1.1
 flake8==7.0.0
 pylint==3.0.3
-pytype==2024.1.24
+pytype==2024.2.9
