@@ -24,7 +24,7 @@ jobs:
       - name: Build python package
         run: python3 setup.py sdist
       - name: Publish python package to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.8.12
+        uses: pypa/gh-action-pypi-publish@v1.8.14
         with:
           user: __token__
           password: ${{ secrets.PYPI_TOKEN }}
