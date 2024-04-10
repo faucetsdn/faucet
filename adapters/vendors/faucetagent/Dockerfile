@@ -1,6 +1,6 @@
 ## Image name: faucet/adapter-faucetagent
 
-FROM faucet/python3:12.0.0
+FROM faucet/python3:12.0.1
 LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 
 ENV PYTHONUNBUFFERED=0
