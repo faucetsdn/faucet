@@ -543,20 +543,33 @@ def test_runner(root_tmpdir, resultclass, failfast=False):
     )
 
 
-def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests):
+def all_tests_successful(results):
+    successful_results = [
+        result
+        for result in results
+        if result.wasSuccessful() or result.unexpected_success
+    ]
+    return len(results) == len(successful_results)
+
+
+def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests, retries):
     results = []
     if parallel_tests.countTestCases():
         max_parallel_tests = min(parallel_tests.countTestCases(), max_loadavg())
         print("running maximum of %u parallel tests" % max_parallel_tests)
         parallel_runner = test_runner(root_tmpdir, resultclass)
-        parallel_suite = ConcurrentTestSuite(
-            parallel_tests, fork_for_tests(max_parallel_tests)
-        )
-        results.append(parallel_runner.run(parallel_suite))
+        for _ in retries:
+            parallel_suite = ConcurrentTestSuite(
+                parallel_tests, fork_for_tests(max_parallel_tests)
+            )
+            test_results = parallel_runner.run(parallel_suite)
+            if all_tests_successful(test_results):
+                break
+        results.append(test_results)
     return results
 
 
-def run_single_test_suites(debug, root_tmpdir, resultclass, single_tests):
+def run_single_test_suites(debug, root_tmpdir, resultclass, single_tests, retries):
     results = []
     # TODO: Tests that are serialized generally depend on hardcoded ports.
     # Make them use dynamic ports.
@@ -568,7 +581,11 @@ def run_single_test_suites(debug, root_tmpdir, resultclass, single_tests):
             single_tests.debug()
             sys.excepthook = oldexcepthook
         else:
-            results.append(single_runner.run(single_tests))
+            for _ in retries:
+                test_results = single_runner.run(single_tests)
+                if all_tests_successful(test_results):
+                    break
+            results.append(test_results)
     return results
 
 
@@ -625,6 +642,7 @@ def report_results(results, hw_config, report_json_filename):
 
 def run_test_suites(
     debug,
+    retries,
     report_json_filename,
     hw_config,
     root_tmpdir,
@@ -639,17 +657,14 @@ def run_test_suites(
     )
     results = []
     results.append(sanity_result)
-    results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
     results.extend(
-        run_single_test_suites(debug, root_tmpdir, resultclass, single_tests)
+        run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests, retries)
+    )
+    results.extend(
+        run_single_test_suites(debug, root_tmpdir, resultclass, single_tests, retries)
     )
     report_results(results, hw_config, report_json_filename)
-    successful_results = [
-        result
-        for result in results
-        if result.wasSuccessful() or result.unexpected_success
-    ]
-    return len(results) == len(successful_results)
+    return all_tests_successful(results)
 
 
 def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
@@ -731,6 +746,7 @@ def run_tests(
     regex_test_classes,
     dumpfail,
     debug,
+    retries,
     keep_logs,
     serial,
     repeat,
@@ -787,6 +803,7 @@ def run_tests(
             while True:
                 all_successful = run_test_suites(
                     debug,
+                    retries,
                     report_json_filename,
                     hw_config,
                     root_tmpdir,
@@ -872,6 +889,12 @@ def parse_args():
         "--debug",
         action="store_true",
         help="enter debug breakpoint on assertion failure",
+    )
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=3,
+        help="number of times to retry tests before declaring failure",
     )
     parser.add_argument(
         "-i",
@@ -994,6 +1017,7 @@ def test_main(modules, serial_override=None):
         clean,
         dumpfail,
         debug,
+        retries,
         keep_logs,
         nocheck,
         serial,
@@ -1047,6 +1071,7 @@ def test_main(modules, serial_override=None):
         regex_test_classes,
         dumpfail,
         debug,
+        retries,
         keep_logs,
         serial,
         repeat,
