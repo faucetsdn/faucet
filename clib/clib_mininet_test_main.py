@@ -993,6 +993,7 @@ def parse_args():
         args.clean,
         args.dumpfail,
         args.debug,
+        args.retries,
         args.keep_logs,
         args.nocheck,
         args.serial,
