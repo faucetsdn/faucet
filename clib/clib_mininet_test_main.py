@@ -558,12 +558,12 @@ def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests, retries):
         max_parallel_tests = min(parallel_tests.countTestCases(), max_loadavg())
         print("running maximum of %u parallel tests" % max_parallel_tests)
         parallel_runner = test_runner(root_tmpdir, resultclass)
-        for _ in retries:
+        for _ in range(retries):
             parallel_suite = ConcurrentTestSuite(
                 parallel_tests, fork_for_tests(max_parallel_tests)
             )
             test_results = parallel_runner.run(parallel_suite)
-            if all_tests_successful(test_results):
+            if all_tests_successful([test_results]):
                 break
         results.append(test_results)
     return results
@@ -581,9 +581,9 @@ def run_single_test_suites(debug, root_tmpdir, resultclass, single_tests, retrie
             single_tests.debug()
             sys.excepthook = oldexcepthook
         else:
-            for _ in retries:
+            for _ in range(retries):
                 test_results = single_runner.run(single_tests)
-                if all_tests_successful(test_results):
+                if all_tests_successful([test_results]):
                     break
             results.append(test_results)
     return results
