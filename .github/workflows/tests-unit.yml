@@ -83,3 +83,8 @@ jobs:
               ./pytype.sh ${{ env.PY_FILES_CHANGED }}
             fi
           fi
+      - name: Run pyright
+        # pyright is quite fast, so easier just to run global config every time.
+        run: |
+          ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt" 
+          pyright

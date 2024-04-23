@@ -1,0 +1,4 @@
+{
+  "include": ["faucet", "tests", "ofctl_rest", "adapters", "clib"],
+  "typeCheckingMode": "off"
+}
