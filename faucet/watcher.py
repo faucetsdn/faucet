@@ -27,11 +27,6 @@ from os_ken.ofproto import ofproto_v1_3 as ofp
 
 from faucet.conf import InvalidConfigError
 from faucet.valve_util import dpid_log
-from faucet.gauge_influx import (
-    GaugePortStateInfluxDBLogger,
-    GaugePortStatsInfluxDBLogger,
-    GaugeFlowTableInfluxDBLogger,
-)
 from faucet.gauge_pollers import (
     GaugePortStatePoller,
     GaugePortStatsPoller,
@@ -56,17 +51,14 @@ def watcher_factory(conf):
     watcher_types = {
         "port_state": {
             "text": GaugePortStateLogger,
-            "influx": GaugePortStateInfluxDBLogger,
             "prometheus": GaugePortStatePrometheusPoller,
         },
         "port_stats": {
             "text": GaugePortStatsLogger,
-            "influx": GaugePortStatsInfluxDBLogger,
             "prometheus": GaugePortStatsPrometheusPoller,
         },
         "flow_table": {
             "text": GaugeFlowTableLogger,
-            "influx": GaugeFlowTableInfluxDBLogger,
             "prometheus": GaugeFlowTablePrometheusPoller,
         },
         "meter_stats": {

@@ -402,7 +402,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "expr": "process_resident_memory_bytes{job=~\"faucet|gauge\"}",
           "format": "time_series",
           "groupBy": [
@@ -535,7 +534,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "expr": "process_virtual_memory_bytes{job=~\"faucet|gauge\"}",
           "format": "time_series",
           "groupBy": [
@@ -689,7 +687,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "expr": "faucet_config_reload_requests_total",
           "format": "time_series",
           "groupBy": [
@@ -817,7 +814,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "expr": "faucet_config_reload_cold_total",
           "format": "time_series",
           "groupBy": [
@@ -945,7 +941,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "expr": "faucet_config_reload_warm_total",
           "format": "time_series",
           "groupBy": [

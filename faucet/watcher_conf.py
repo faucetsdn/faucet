@@ -47,8 +47,8 @@ config block.
 The following elements can be configured for each db, at the level of
 /dbs/<db name>/:
 
- * type (string): the type of db. The available types are 'text' and 'influx' \
-       for port_state, 'text', 'influx'and 'prometheus' for port_stats and \
+ * type (string): the type of db. The available types are 'text' \
+       for port_state, 'text', and 'prometheus' for port_stats and \
        'text' and flow_table.
 
 The following config elements then depend on the type.
@@ -58,19 +58,6 @@ For text:
  * path (string): path where files should be written when writing to \
        muiltiple files
  * compress (bool): compress (with gzip) flow_table output while writing it
-
-For influx:
- * influx_db (str): The name of the influxdb database. Defaults to 'faucet'.
- * influx_host (str): The host where the influxdb is reachable. Defaults to \
-       'localhost'.
- * influx_port (int): The port that the influxdb host will listen on. Defaults \
-       to 8086.
- * influx_user (str): The username for accessing influxdb. Defaults to ''.
- * influx_pwd (str): The password for accessing influxdb. Defaults to ''.
- * influx_timeout (int): The timeout in seconds for connecting to influxdb. \
-       Defaults to 10.
- * influx_retries (int): The number of times to retry connecting to influxdb \
-       after failure. Defaults to 3.
 
 For Prometheus:
  * prometheus_port (int): The port used to export prometheus data. Defaults to \
@@ -85,19 +72,6 @@ For Prometheus:
         "path": None,
         "compress": False,
         # compress flow table file
-        "influx_db": "faucet",
-        # influx database name
-        "influx_host": "localhost",
-        # influx database location
-        "influx_port": 8086,
-        "influx_user": "",
-        # influx username
-        "influx_pwd": "",
-        # influx password
-        "influx_timeout": 10,
-        # timeout on influx requests
-        "influx_retries": 3,
-        # attempts to retry influx request
         # prometheus config
         "prometheus_port": 9303,
         "prometheus_addr": "0.0.0.0",
@@ -109,13 +83,6 @@ For Prometheus:
         "file": str,
         "path": str,
         "compress": bool,
-        "influx_db": str,
-        "influx_host": str,
-        "influx_port": int,
-        "influx_user": str,
-        "influx_pwd": str,
-        "influx_timeout": int,
-        "influx_retries": int,
         "prometheus_port": int,
         "prometheus_addr": str,
         "prometheus_test_thread": bool,
@@ -155,13 +122,6 @@ For Prometheus:
         self.compress = None
         self.file = None
         self.path = None
-        self.influx_db = None
-        self.influx_host = None
-        self.influx_port = None
-        self.influx_user = None
-        self.influx_pwd = None
-        self.influx_timeout = None
-        self.influx_retries = None
         self.name = None
         self.prometheus_port = None
         self.prometheus_addr = None

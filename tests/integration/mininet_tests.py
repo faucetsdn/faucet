@@ -68,40 +68,6 @@ CONFIG_TAGGED_BOILER = """
 """
 
 
-class QuietHTTPServer(HTTPServer):
-    allow_reuse_address = True
-    timeout = None
-
-    @staticmethod
-    def handle_error(_request, _client_address):
-        return
-
-
-class PostHandler(SimpleHTTPRequestHandler):
-    def log_message(self, format, *args):  # pylint: disable=redefined-builtin
-        return
-
-    def _log_post(self):
-        content_len = int(self.headers.get("content-length", 0))
-        content = self.rfile.read(content_len).decode().strip()
-        if content and hasattr(self.server, "influx_log"):
-            with open(self.server.influx_log, "a", encoding="utf-8") as influx_log:
-                influx_log.write(content + "\n")
-
-
-class InfluxPostHandler(PostHandler):
-    def do_POST(self):  # pylint: disable=invalid-name
-        self._log_post()
-        return self.send_response(204)
-
-
-class SlowInfluxPostHandler(PostHandler):
-    def do_POST(self):  # pylint: disable=invalid-name
-        self._log_post()
-        time.sleep(self.server.timeout * 3)
-        return self.send_response(500)
-
-
 class FaucetTest(mininet_test_base.FaucetTestBase):
     pass
 
@@ -2499,267 +2465,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         self.fail(msg="Gauge Prometheus flow counters not increasing")
 
 
-class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
-    """Basic untagged VLAN test with Influx."""
-
-    GAUGE_CONFIG_DBS = (
-        """
-    influx:
-        type: 'influx'
-        influx_db: 'faucet'
-        influx_host: '127.0.0.1'
-        influx_port: %(gauge_influx_port)d
-        influx_user: 'faucet'
-        influx_pwd: ''
-        influx_retries: 1
-"""
-        + """
-        influx_timeout: %u
-"""
-        % FaucetUntaggedTest.DB_TIMEOUT
-    )
-    config_ports = {"gauge_influx_port": None}
-    influx_log = None
-    server_thread = None
-    server = None
-
-    def get_gauge_watcher_config(self):
-        return """
-    port_stats:
-        dps: ['%s']
-        type: 'port_stats'
-        interval: 2
-        db: 'influx'
-    port_state:
-        dps: ['%s']
-        type: 'port_state'
-        interval: 2
-        db: 'influx'
-    flow_table:
-        dps: ['%s']
-        type: 'flow_table'
-        interval: 2
-        db: 'influx'
-""" % (
-            self.DP_NAME,
-            self.DP_NAME,
-            self.DP_NAME,
-        )
-
-    def setup_influx(self):
-        self.influx_log = os.path.join(self.tmpdir, "influx.log")
-        if self.server:
-            self.server.influx_log = self.influx_log
-            self.server.timeout = self.DB_TIMEOUT
-
-    def setUp(self):
-        self.handler = InfluxPostHandler
-        super().setUp()
-        self.setup_influx()
-
-    def tearDown(self, ignore_oferrors=False):
-        if self.server:
-            self.server.shutdown()
-            self.server.socket.close()
-        super().tearDown(ignore_oferrors=ignore_oferrors)
-
-    def _wait_error_shipping(self, timeout=None):
-        if timeout is None:
-            timeout = self.DB_TIMEOUT * 3 * 2
-        self.wait_until_matching_lines_from_gauge_log_files(
-            r".+error shipping.+", timeout=timeout
-        )
-
-    def _verify_influx_log(self, retries=3):
-        self.assertTrue(os.path.exists(self.influx_log))
-        expected_vars = {
-            "dropped_in",
-            "dropped_out",
-            "bytes_out",
-            "flow_packet_count",
-            "errors_in",
-            "errors_out",
-            "bytes_in",
-            "flow_byte_count",
-            "port_state_reason",
-            "packets_in",
-            "packets_out",
-        }
-
-        observed_vars = set()
-        for _ in range(retries):
-            with open(self.influx_log, encoding="utf-8") as influx_log:
-                influx_log_lines = influx_log.readlines()
-            for point_line in influx_log_lines:
-                point_fields = point_line.strip().split()
-                self.assertEqual(3, len(point_fields), msg=point_fields)
-                ts_name, value_field, _ = point_fields
-                value = float(value_field.split("=")[1])
-                ts_name_fields = ts_name.split(",")
-                self.assertGreater(len(ts_name_fields), 1)
-                observed_vars.add(ts_name_fields[0])
-                label_values = {}
-                for label_value in ts_name_fields[1:]:
-                    label, value = label_value.split("=")
-                    label_values[label] = value
-                if ts_name.startswith("flow"):
-                    self.assertTrue("inst_count" in label_values, msg=point_line)
-                    if "vlan_vid" in label_values:
-                        self.assertEqual(int(label_values["vlan"]), int(value) ^ 0x1000)
-            if expected_vars == observed_vars:
-                break
-            time.sleep(1)
-
-        self.assertEqual(expected_vars, observed_vars)
-        self.verify_no_exception(
-            self.env[self.gauge_controller.name]["GAUGE_EXCEPTION_LOG"]
-        )
-
-    def _wait_influx_log(self):
-        for _ in range(self.DB_TIMEOUT * 3):
-            if os.path.exists(self.influx_log):
-                return
-            time.sleep(1)
-
-    def _start_gauge_check(self):
-        if self.server_thread:
-            return None
-        influx_port = self.config_ports["gauge_influx_port"]
-        try:
-            self.server = QuietHTTPServer(
-                (mininet_test_util.LOCALHOST, influx_port), self.handler
-            )  # pytype: disable=attribute-error
-            self.server.timeout = self.DB_TIMEOUT
-            self.server_thread = threading.Thread(target=self.server.serve_forever)
-            self.server_thread.daemon = True
-            self.server_thread.start()
-            return None
-        except socket.error as err:
-            return "cannot start Influx test server: %s" % err
-
-    def test_untagged(self):
-        self.ping_all_when_learned()
-        self.hup_controller(self.gauge_controller.name)
-        self.flap_all_switch_ports()
-        self._wait_influx_log()
-        self._verify_influx_log()
-
-
-class FaucetUntaggedMultiDBWatcherTest(
-    FaucetUntaggedInfluxTest, FaucetUntaggedPrometheusGaugeTest
-):
-    GAUGE_CONFIG_DBS = (
-        """
-    prometheus:
-        type: 'prometheus'
-        prometheus_addr: '::1'
-        prometheus_port: %(gauge_prom_port)d
-    influx:
-        type: 'influx'
-        influx_db: 'faucet'
-        influx_host: '127.0.0.1'
-        influx_port: %(gauge_influx_port)d
-        influx_user: 'faucet'
-        influx_pwd: ''
-        influx_retries: 1
-"""
-        + """
-        influx_timeout: %u
-"""
-        % FaucetUntaggedTest.DB_TIMEOUT
-    )
-    config_ports = {"gauge_prom_port": None, "gauge_influx_port": None}
-
-    def get_gauge_watcher_config(self):
-        return """
-    port_stats:
-        dps: ['%s']
-        type: 'port_stats'
-        interval: 5
-        dbs: ['prometheus', 'influx']
-    port_state:
-        dps: ['%s']
-        type: 'port_state'
-        interval: 5
-        dbs: ['prometheus', 'influx']
-    flow_table:
-        dps: ['%s']
-        type: 'flow_table'
-        interval: 5
-        dbs: ['prometheus', 'influx']
-""" % (
-            self.DP_NAME,
-            self.DP_NAME,
-            self.DP_NAME,
-        )
-
-    @staticmethod
-    def test_tagged():
-        return
-
-    def test_untagged(self):
-        self.wait_dp_status(1, controller=self.gauge_controller.name)
-        self.assertTrue(self.wait_ports_updating(self.port_map.keys(), self.PORT_VARS))
-        self.ping_all_when_learned()
-        self.hup_controller(controller=self.gauge_controller.name)
-        self.flap_all_switch_ports()
-        self._wait_influx_log()
-        self._verify_influx_log()
-
-
-class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
-    def _start_gauge_check(self):
-        return None
-
-    def test_untagged(self):
-        self.ping_all_when_learned()
-        self._wait_error_shipping()
-        self.verify_no_exception(
-            self.env[self.gauge_controller.name]["GAUGE_EXCEPTION_LOG"]
-        )
-
-
-class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
-    GAUGE_CONFIG_DBS = """
-    influx:
-        type: 'influx'
-        influx_db: 'faucet'
-        influx_host: '127.0.0.2'
-        influx_port: %(gauge_influx_port)d
-        influx_user: 'faucet'
-        influx_pwd: ''
-        influx_timeout: 2
-"""
-
-    def _start_gauge_check(self):
-        return None
-
-    def test_untagged(self):
-        self.gauge_controller.cmd("route add 127.0.0.2 gw 127.0.0.1 lo")
-        self.ping_all_when_learned()
-        self._wait_error_shipping()
-        self.verify_no_exception(
-            self.env[self.gauge_controller.name]["GAUGE_EXCEPTION_LOG"]
-        )
-
-
-class FaucetSingleUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
-    def setUp(self):
-        self.handler = SlowInfluxPostHandler
-        super().setUp()
-        self.setup_influx()
-
-    def test_untagged(self):
-        self.ping_all_when_learned()
-        self._wait_influx_log()
-        self.assertTrue(os.path.exists(self.influx_log))
-        self._wait_error_shipping()
-        self.verify_no_exception(
-            self.env[self.gauge_controller.name]["GAUGE_EXCEPTION_LOG"]
-        )
-
-
-class FaucetNailedForwardingTest(FaucetUntaggedTest):
+class FaucetNailedForwardingOrderedTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -2770,14 +2476,14 @@ acls:
             dl_dst: "0e:00:00:00:02:02"
             actions:
                 output:
-                    port: %(port_2)d
+                    - port: %(port_2)d
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
             arp_tpa: "10.0.0.2"
             actions:
                 output:
-                    port: %(port_2)d
+                    - port: %(port_2)d
         - rule:
             actions:
                 allow: 0
@@ -2786,14 +2492,14 @@ acls:
             dl_dst: "0e:00:00:00:01:01"
             actions:
                 output:
-                    port: %(port_1)d
+                    - port: %(port_1)d
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
             arp_tpa: "10.0.0.1"
             actions:
                 output:
-                    port: %(port_1)d
+                    - port: %(port_1)d
         - rule:
             actions:
                 allow: 0
@@ -2831,7 +2537,7 @@ acls:
         self.one_ipv4_ping(second_host, first_host.IP(), require_host_learned=False)
 
 
-class FaucetNailedForwardingOrderedTest(FaucetUntaggedTest):
+class FaucetNailedForwardingTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -2842,14 +2548,14 @@ acls:
             dl_dst: "0e:00:00:00:02:02"
             actions:
                 output:
-                    - port: %(port_2)d
+                    port: %(port_2)d
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
             arp_tpa: "10.0.0.2"
             actions:
                 output:
-                    - port: %(port_2)d
+                    port: %(port_2)d
         - rule:
             actions:
                 allow: 0
@@ -2858,14 +2564,14 @@ acls:
             dl_dst: "0e:00:00:00:01:01"
             actions:
                 output:
-                    - port: %(port_1)d
+                    port: %(port_1)d
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
             arp_tpa: "10.0.0.1"
             actions:
                 output:
-                    - port: %(port_1)d
+                    port: %(port_1)d
         - rule:
             actions:
                 allow: 0

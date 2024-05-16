@@ -564,7 +564,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "expr": "of_dp_desc_stats",
           "format": "table",
           "groupBy": [
@@ -681,7 +680,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "editorMode": "code",
           "exemplar": false,
           "expr": "faucet_pbr_version",
@@ -932,7 +930,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "expr": "python_info",
           "format": "table",
           "groupBy": [

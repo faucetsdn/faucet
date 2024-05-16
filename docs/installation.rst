@@ -197,7 +197,7 @@ Docker compose
 ~~~~~~~~~~~~~~
 
 This is an example docker-compose file that can be used to set up gauge to talk
-to Prometheus and InfluxDB with a Grafana instance for dashboards and visualisations.
+to Prometheus and a Grafana instance for dashboards and visualisations.
 
 It can be run with:
 
@@ -207,7 +207,7 @@ It can be run with:
   docker-compose up
 
 The time-series databases with the default settings will write to
-``/opt/prometheus/`` ``/opt/influxdb/shared/data/db`` you can edit these locations
+``/opt/prometheus/`` you can edit these locations
 by modifying the ``docker-compose.yaml`` file.
 
 On OSX, some of the default shared paths are not accessible, so to overwrite
@@ -220,7 +220,7 @@ For example:
   export FAUCET_PREFIX=/opt/faucet
 
 When all the docker containers are running we will need to configure Grafana to
-talk to Prometheus and InfluxDB. First login to the Grafana web interface on
+talk to Prometheus. First login to the Grafana web interface on
 port 3000 (e.g http://localhost:3000) using the default credentials of
 ``admin:admin``.
 
@@ -231,18 +231,6 @@ Then add two data sources. Use the following settings for prometheus:
   Name: Prometheus
   Type: Prometheus
   Url: http://prometheus:9090
-
-And the following settings for InfluxDB:
-
-::
-
-  Name: InfluxDB
-  Type: InfluxDB
-  Url: http://influxdb:8086
-  With Credentials: true
-  Database: faucet
-  User: faucet
-  Password: faucet
 
 Check the connection using test connection.
 
