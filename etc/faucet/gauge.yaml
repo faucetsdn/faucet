@@ -14,7 +14,6 @@ watchers:
         # dps: ['sw1', 'sw2']
         interval: 10
         db: 'prometheus'
-        # db: 'influx'
     flow_table_poller:
         type: 'flow_table'
         all_dps: true
@@ -29,11 +28,3 @@ dbs:
         type: 'text'
         compress: true
         path: 'flow_tables'
-    influx:
-        type: 'influx'
-        influx_db: 'faucet'
-        influx_host: 'influxdb'
-        influx_port: 8086
-        influx_user: 'faucet'
-        influx_pwd: 'faucet'
-        influx_timeout: 10

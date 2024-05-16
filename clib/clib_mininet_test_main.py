@@ -83,7 +83,6 @@ EXTERNAL_DEPENDENCIES = (
     ("lsof", ["-v"], r"lsof version", r"revision: (\d+\.\d+(\.\d+)?)\n", "4.86"),
     ("mn", ["--version"], r"\d+\.\d+.\d+", r"(\d+\.\d+).\d+", "2.2"),
     ("exabgp", ["--version"], "ExaBGP", r"ExaBGP : (\d+\.\d+).\d+", "4.0"),
-    ("pip3", ["show", "influxdb"], "influxdb", r"Version:\s+(\d+\.\d+)\.\d+", "3.0"),
     ("curl", ["--version"], "libcurl", r"curl (\d+\.\d+).\d+", "7.3"),
     ("ladvd", ["-h"], "ladvd", r"ladvd version (\d+\.\d+)\.\d+", "0.9"),
     ("iperf", ["--version"], "iperf", r"iperf version (\d+\.\d+)\.\d+", "2.0"),

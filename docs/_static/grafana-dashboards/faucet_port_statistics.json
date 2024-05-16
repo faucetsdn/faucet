@@ -162,7 +162,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "editorMode": "builder",
           "expr": "rate(of_port_rx_bytes{dp_name=~\"$dp_name\", port=~\"$port\"}[1m]) * 8",
           "format": "time_series",
@@ -322,7 +321,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "editorMode": "builder",
           "expr": "rate(of_port_rx_packets{dp_name=~\"$dp_name\", port=~\"$port\"}[1m])",
           "format": "time_series",
@@ -482,7 +480,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "editorMode": "code",
           "expr": "rate(of_port_rx_dropped{dp_name=~\"$dp_name\", port=~\"$port\"}[1m])",
           "format": "time_series",
@@ -629,7 +626,6 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "dsType": "influxdb",
           "editorMode": "builder",
           "expr": "rate(of_port_tx_errors{dp_name=~\"$dp_name\", port=~\"$port\"}[1m])",
           "format": "time_series",

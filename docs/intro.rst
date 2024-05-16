@@ -25,7 +25,7 @@ e.g. learned hosts, via Prometheus (so that an open source NMS such as
 Grafana graph it).
 
 Gauge also has an OpenFlow connection to the switch and monitors port and flow
-state (exporting it to Prometheus or InfluxDB, or even flat text log files).
+state (exporting it to Prometheus, or even flat text log files).
 Gauge, however, does not ever modify the switch's state, so that switch
 monitoring functions can be upgraded, restarted, without impacting forwarding.
 

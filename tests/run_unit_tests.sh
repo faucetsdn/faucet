@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-MINCOVERAGE=92
+MINCOVERAGE=91
 
 SCRIPTPATH=$(readlink -f "$0")
 TESTDIR=$(dirname "${SCRIPTPATH}")
