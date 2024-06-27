@@ -28,7 +28,7 @@ jobs:
         uses: tj-actions/changed-files@v44
         with:
           json: true
-          json_raw_format: true
+          escape_json: false
       - if: ${{ steps.file_changes.outputs.all_changed_files }}
         name: Compare file changes
         run: |
@@ -98,7 +98,7 @@ jobs:
         uses: tj-actions/changed-files@v44
         with:
           json: true
-          json_raw_format: true
+          escape_json: false
       - if: ${{ steps.file_changes.outputs.all_changed_files }}
         name: Compare file changes
         run: |
