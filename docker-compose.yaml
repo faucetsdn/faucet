@@ -41,7 +41,6 @@ services:
         ports:
             - '6654:6653'
             - '9303'
-        links:
 
     faucet:
         restart: always
