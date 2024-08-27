@@ -18,7 +18,7 @@ services:
 
     grafana:
         restart: always
-        image: 'grafana/grafana:11.1.4'
+        image: 'grafana/grafana:11.2.0'
         user: 'root'
         ports:
             - '3000:3000'
