@@ -4,7 +4,7 @@ services:
 
     prometheus:
         restart: always
-        image: 'prom/prometheus:v2.54.0'
+        image: 'prom/prometheus:v2.54.1'
         user: 'root'
         ports:
             - '9090:9090'
