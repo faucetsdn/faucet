@@ -546,7 +546,8 @@ def all_tests_successful(results):
     successful_results = [
         result
         for result in results
-        if result.wasSuccessful() or result.unexpected_success
+        if result.wasSuccessful()
+        or (isinstance(result, FaucetResult) and result.unexpected_success)
     ]
     return len(results) == len(successful_results)
 
