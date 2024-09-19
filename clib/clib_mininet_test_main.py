@@ -826,7 +826,7 @@ def run_tests(
         sys.exit(0)
     else:
         decoded_pcap_logs = []
-        port_match_re = re.compile(".+\-([0-9]+)-of.cap")
+        port_match_re = re.compile(r".+\-([0-9]+)-of.cap")
         of_pcaps = glob.glob(os.path.join(os.path.join(root_tmpdir, "*"), "*of.cap"))
         for of_pcap in of_pcaps:
             port_match = port_match_re.match(of_pcap)
