@@ -118,7 +118,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         dp_highest_priority,
         faucet_dp_mac,
         drop_spoofed_faucet_mac,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self.logger = logger
         self.ports = ports
         self.vlans = vlans
@@ -196,7 +196,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         in_port,
         exclude_all_external,
         exclude_restricted_bcast_arpnd,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         """Return a list of flood actions to flood packets from a port."""
         external_ports = self.canonical_port_order(
             vlan.loop_protect_external_ports_up()
@@ -225,7 +225,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         in_port,
         exclude_all_external=False,
         exclude_restricted_bcast_arpnd=False,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         actions = []
         if vlan.loop_protect_external_ports() and vlan.tagged_flood_ports(
             exclude_unicast
@@ -265,7 +265,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         eth_dst_mask,
         exclude_unicast,
         command,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         flood_priority = self._vlan_flood_priority(eth_type, eth_dst_mask)
         match = self.flood_table.match(
             vlan=vlan, eth_type=eth_type, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask
@@ -290,7 +290,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         port,
         exclude_all_external=False,
         exclude_restricted_bcast_arpnd=False,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         flood_acts = ()
         port_output_ports = []
         port_non_output_acts = []
@@ -325,7 +325,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         eth_dst,
         eth_dst_mask,
         add_match,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         flood_priority = self._vlan_flood_priority(eth_type, eth_dst_mask) + 1
         if add_match is None:
             add_match = {}
@@ -349,7 +349,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         port,
         flood_acts,
         add_match=None,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         flood_priority, match = self._build_flood_match_priority(
             port, vlan, eth_type, eth_dst, eth_dst_mask, add_match
         )
@@ -365,7 +365,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         exclude_restricted_bcast_arpnd,
         command,
         cold_start,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         ofmsgs = []
         if self.combinatorial_port_flood:
             for port in self._vlan_all_ports(vlan, exclude_unicast):
@@ -810,7 +810,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         src_rule_idle_timeout,
         src_rule_hard_timeout,
         dst_rule_idle_timeout,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         """Return flows that implement learning a host on a port."""
         ofmsgs = []
 
@@ -909,7 +909,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         cache_age,
         delete_existing,
         refresh_rules,
-    ):  # pylint: disable=too-many-arguments,disable=unused-argument
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments,unused-argument
         learn_exit = False
         update_cache = True
         if entry is not None and entry.port.permanent_learn:
@@ -942,7 +942,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         cache_age,
         delete_existing,
         refresh_rules,
-    ):  # pylint: disable=unused-argument,disable=too-many-arguments
+    ):  # pylint: disable=unused-argument,too-many-arguments,too-many-positional-arguments
         learn_exit = False
         update_cache = True
         if cache_port is not None:
@@ -987,7 +987,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         cache_age,
         delete_existing,
         refresh_rules,
-    ):  # pylint: disable=unused-argument,disable=too-many-arguments
+    ):  # pylint: disable=unused-argument,too-many-arguments,too-many-positional-arguments
         learn_exit = False
         update_cache = True
         if port.loop_protect:
@@ -1041,7 +1041,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         cache_age,
         delete_existing,
         refresh_rules,
-    ):  # pylint: disable=unused-argument,disable=too-many-arguments
+    ):  # pylint: disable=unused-argument,too-many-arguments,too-many-positional-arguments
         learn_exit = True
         update_cache = True
         (
@@ -1079,7 +1079,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         eth_src,
         delete_existing=True,
         last_dp_coldstart_time=None,
-    ):  # pylint: disable=unused-argument,disable=too-many-arguments
+    ):  # pylint: disable=unused-argument,too-many-arguments,too-many-positional-arguments
         """Learn a host on a port."""
         ofmsgs = []
         cache_port = None
@@ -1137,7 +1137,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
 
     def lacp_update_actor_state(
         self, port, lacp_up, now=None, lacp_pkt=None, cold_start=False
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         """Updates a LAG actor state.
 
         Args:
@@ -1305,7 +1305,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
 
     def lacp_handler(
         self, now, pkt_meta, valve, other_valves, lacp_update
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         """
         Handle receiving an LACP packet
         Args:

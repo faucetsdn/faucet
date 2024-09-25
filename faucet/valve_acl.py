@@ -190,7 +190,7 @@ def build_output_actions(acl_table, output_dict, tunnel_rules=None, source_id=No
     return (output_port, output_actions, ofmsgs, output_inst)
 
 
-def build_acl_entry(  # pylint: disable=too-many-arguments,too-many-branches,too-many-statements
+def build_acl_entry(
     acl_table,
     rule_conf,
     meters,
@@ -200,7 +200,7 @@ def build_acl_entry(  # pylint: disable=too-many-arguments,too-many-branches,too
     vlan_vid=None,
     tunnel_rules=None,
     source_id=None,
-):
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-branches,too-many-statements
     """Build flow/groupmods for one ACL rule entry."""
     acl_inst = []
     acl_act = []
@@ -282,7 +282,7 @@ def build_tunnel_ofmsgs(
     vlan_vid=None,
     flowdel=False,
     reverse=False,
-):
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Build a specific tunnel only ofmsgs"""
     ofmsgs = []
     acl_inst = []
@@ -329,7 +329,7 @@ def build_rule_ofmsgs(
     tunnel_rules=None,
     source_id=None,
     flowdel=False,
-):
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Build an ACL rule and return OFMSGs"""
     ofmsgs = []
     acl_match, acl_inst, acl_cookie, acl_ofmsgs = build_acl_entry(
@@ -369,7 +369,7 @@ def build_acl_ofmsgs(
     tunnel_rules=None,
     source_id=None,
     flowdel=False,
-):
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Build flow/groupmods for all entries in an ACL."""
     ofmsgs = []
     acl_rule_priority = highest_priority
@@ -437,7 +437,7 @@ class ValveAclManager(ValveManagerBase):
         pipeline,
         meters,
         dp_acls=None,
-    ):
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self.dp_acls = dp_acls
         self.port_acl_table = port_acl_table
         self.vlan_acl_table = vlan_acl_table

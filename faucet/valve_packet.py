@@ -266,7 +266,7 @@ def build_pkt_header(vid, eth_src, eth_dst, dl_type):
 
 def lldp_beacon(
     eth_src, chassis_id, port_id, ttl, org_tlvs=None, system_name=None, port_descr=None
-):
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Return an LLDP frame suitable for a host/access port.
 
     Args:
@@ -426,7 +426,7 @@ def lacp_reqreply(
     partner_state_aggregation=0,
     partner_state_synchronization=0,
     partner_state_activity=0,
-):
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Return a LACP frame.
 
     Args:
@@ -543,7 +543,9 @@ def arp_reply(vid, eth_src, eth_dst, src_ip, dst_ip):
     return pkt
 
 
-def echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, data):
+def echo_reply(
+    vid, eth_src, eth_dst, src_ip, dst_ip, data
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Return an ICMP echo reply packet.
 
     Args:
@@ -558,15 +560,15 @@ def echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, data):
     pkt = build_pkt_header(vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_IP)
     ipv4_pkt = ipv4.ipv4(dst=dst_ip, src=src_ip, proto=valve_of.inet.IPPROTO_ICMP)
     pkt.add_protocol(ipv4_pkt)
-    icmp_pkt = icmp.icmp(
-        type_=icmp.ICMP_ECHO_REPLY, code=icmp.ICMP_ECHO_REPLY_CODE, data=data
-    )
+    icmp_pkt = icmp.icmp(type_=icmp.ICMP_ECHO_REPLY, code=icmp.ICMP_ECHO_REPLY_CODE, data=data)
     pkt.add_protocol(icmp_pkt)
     pkt.serialize()
     return pkt
 
 
-def time_exceeded(vid, eth_src, eth_dst, src_ip, dst_ip, data):
+def time_exceeded(
+    vid, eth_src, eth_dst, src_ip, dst_ip, data
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Return an ICMP time-to-live exceeded packet.
 
     Args:
@@ -681,16 +683,16 @@ def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip):
     pkt.add_protocol(ipv6_icmp6)
     icmpv6_nd_advert = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_ADVERT,
-        data=icmpv6.nd_neighbor(
-            dst=src_ip, option=icmpv6.nd_option_tla(hw_src=eth_src), res=7
-        ),
+        data=icmpv6.nd_neighbor(dst=src_ip, option=icmpv6.nd_option_tla(hw_src=eth_src), res=7),
     )
     pkt.add_protocol(icmpv6_nd_advert)
     pkt.serialize()
     return pkt
 
 
-def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit, id_, seq, data):
+def icmpv6_echo_reply(
+    vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit, id_, seq, data
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     r"""Return IPv6 ICMP echo reply packet.
 
     Args:
@@ -719,7 +721,9 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit, id_, seq
     return pkt
 
 
-def icmpv6_time_exceeded(vid, eth_src, eth_dst, src_ip, dst_ip, data):
+def icmpv6_time_exceeded(
+    vid, eth_src, eth_dst, src_ip, dst_ip, data
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     r"""Return IPv6 ICMP hop limit exceeded packet.
 
     Args:
@@ -741,7 +745,9 @@ def icmpv6_time_exceeded(vid, eth_src, eth_dst, src_ip, dst_ip, data):
     return pkt
 
 
-def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip, vips, pi_flags=0x6):
+def router_advert(
+    vid, eth_src, eth_dst, src_ip, dst_ip, vips, pi_flags=0x6
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Return IPv6 ICMP Router Advert.
 
     Args:
@@ -834,7 +840,7 @@ class PacketMeta:
         eth_src,
         eth_dst,
         eth_type,
-    ):
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self.reason = reason
         self.data = data
         self.orig_len = orig_len

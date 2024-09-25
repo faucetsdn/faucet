@@ -39,7 +39,7 @@ class ValveLLDPManager(ValveManagerBase):
         set_var,
         set_port_var,
         stack_manager,
-    ):
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self.vlan_table = vlan_table
         self.highest_priority = highest_priority
         self.logger = logger
@@ -89,7 +89,7 @@ class ValveLLDPManager(ValveManagerBase):
         remote_dp_name,
         remote_port_id,
         remote_port_state,
-    ):
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         """
         Verify correct LLDP cabling, then update port to next state
 

@@ -21,7 +21,7 @@ class MockPikaChannel(pika.channel.Channel):
         body,  # pylint: disable=unused-argument
         properties=None,  # pylint: disable=unused-argument
         mandatory=False,
-    ):  # pylint: disable=unused-argument
+    ):  # pylint: disable=unused-argument,too-many-arguments,too-many-positional-arguments
         return True
 
 
@@ -39,7 +39,7 @@ class MockPikaBadAMQP(pika.channel.Channel):
         body,  # pylint: disable=unused-argument
         properties=None,  # pylint: disable=unused-argument
         mandatory=False,
-    ):  # pylint: disable=unused-argument
+    ):  # pylint: disable=unused-argument,too-many-arguments,too-many-positional-arguments
         raise pika.exceptions.AMQPError("failure")
 
 
