@@ -560,7 +560,9 @@ def echo_reply(
     pkt = build_pkt_header(vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_IP)
     ipv4_pkt = ipv4.ipv4(dst=dst_ip, src=src_ip, proto=valve_of.inet.IPPROTO_ICMP)
     pkt.add_protocol(ipv4_pkt)
-    icmp_pkt = icmp.icmp(type_=icmp.ICMP_ECHO_REPLY, code=icmp.ICMP_ECHO_REPLY_CODE, data=data)
+    icmp_pkt = icmp.icmp(
+        type_=icmp.ICMP_ECHO_REPLY, code=icmp.ICMP_ECHO_REPLY_CODE, data=data
+    )
     pkt.add_protocol(icmp_pkt)
     pkt.serialize()
     return pkt
@@ -683,7 +685,9 @@ def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip):
     pkt.add_protocol(ipv6_icmp6)
     icmpv6_nd_advert = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_ADVERT,
-        data=icmpv6.nd_neighbor(dst=src_ip, option=icmpv6.nd_option_tla(hw_src=eth_src), res=7),
+        data=icmpv6.nd_neighbor(
+            dst=src_ip, option=icmpv6.nd_option_tla(hw_src=eth_src), res=7
+        ),
     )
     pkt.add_protocol(icmpv6_nd_advert)
     pkt.serialize()
