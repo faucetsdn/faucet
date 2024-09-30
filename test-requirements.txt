@@ -10,6 +10,6 @@ packaging
 psutil==6.0.0
 requests
 requirements-parser
-scapy==2.4.4
+scapy==2.6.0
 webob
 tinyrpc<1.1.6
