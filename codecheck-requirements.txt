@@ -1,5 +1,5 @@
 black==24.8.0
 flake8==7.1.1
 pylint==3.2.7
-pyright==1.1.382.post0
+pyright==1.1.383
 pytype==2024.9.13
