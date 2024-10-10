@@ -25,7 +25,7 @@ class ValveTableConfig:  # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         name,
-        table_id,  # pylint: disable=too-many-arguments
+        table_id,
         exact_match=None,
         meter=None,
         output=True,
@@ -39,7 +39,7 @@ class ValveTableConfig:  # pylint: disable=too-many-instance-attributes
         next_tables=None,
         metadata_match=0,
         metadata_write=0,
-    ):
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self.name = name
         self.table_id = table_id
         self.exact_match = exact_match

@@ -30,11 +30,11 @@ class CoprocessorManager(ValveManagerBase):
         ports,
         copro_table,
         vlan_table,
-        eth_src_table,  # pylint: disable=too-many-arguments
+        eth_src_table,
         output_table,
         low_priority,
         high_priority,
-    ):
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self.ports = ports
         self.copro_table = copro_table
         self.vlan_table = vlan_table

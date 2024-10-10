@@ -106,7 +106,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         port,
         exclude_all_external=False,
         exclude_restricted_bcast_arpnd=False,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         if self.external_root_only:
             exclude_all_external = True
         return super()._build_flood_acts_for_port(
@@ -124,7 +124,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         away_flood_actions,
         toward_flood_actions,
         local_flood_actions,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         raise NotImplementedError
 
     def _build_flood_rule_actions(
@@ -173,7 +173,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
     def _build_mask_flood_rules_filters(
         self, port, vlan, eth_dst, eth_dst_mask, prune
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         """Builds filter for the input table to filter packets on ports that are pruned"""
         ofmsgs = []
 
@@ -235,7 +235,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         cold_start,
         prune,
         port,
-    ):  # pylint: disable=unused-argument,disable=too-many-arguments
+    ):  # pylint: disable=unused-argument,too-many-arguments,too-many-positional-arguments
         """Builds the flood rules for the flood table to forward packets along the stack topology"""
         ofmsgs = []
         flood_acts = []
@@ -288,7 +288,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         exclude_restricted_bcast_arpnd,
         command,
         cold_start,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         """Builds that flood rules for each mask for each port in the stack.
         This takes into account the pruned and non-pruned ports and returns
             the appropriate flood rule actions"""
@@ -582,7 +582,7 @@ class ValveSwitchStackManagerNoReflection(ValveSwitchStackManagerBase):
         away_flood_actions,
         toward_flood_actions,
         local_flood_actions,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         if not in_port or self.stack_manager.is_stack_port(in_port):
             flood_prefix = ()
         else:
@@ -681,7 +681,7 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
         cache_age,
         delete_existing,
         refresh_rules,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         learn_exit = False
         update_cache = True
         if cache_port is not None:
@@ -726,7 +726,7 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
         away_flood_actions,
         toward_flood_actions,
         local_flood_actions,
-    ):  # pylint: disable=too-many-arguments
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         if self.stack_manager.stack.is_root():
             if external_ports:
                 flood_prefix = self._set_nonext_port_flag
