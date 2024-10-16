@@ -4,8 +4,8 @@ on: [push, pull_request]
 
 env:
   FILES_CHANGED: "all"
-  CODECOV_PY_VER: "3.10"
-  USING_PYTYPE: "3.9,3.10,3.11,3.12"
+  CODECOV_PY_VER: "3.11"
+  STATIC_TYPE_CHECK: "3.10,3.11,3.12"
 
 jobs:
   unit-tests:
@@ -69,21 +69,21 @@ jobs:
       - if: ${{ matrix.python-version == env.CODECOV_PY_VER }}
         name: Upload codecov
         uses: codecov/codecov-action@v4
-      - if: ${{ env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED }}
+      - if: ${{ (env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED)
+          && contains(env.STATIC_TYPE_CHECK, matrix.python-version) }}
         name: Run pytype
         run: |
-          if ${{ contains(env.USING_PYTYPE, matrix.python-version) }} == 'true' ; then
-            ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt"
-            cd ./tests/codecheck
-            if [[ "${{ env.FILES_CHANGED }}" == "all" || ! -z "${{ env.RQ_FILES_CHANGED }}" ]]; then
-              echo "Running pytype on everything"
-              ./pytype.sh
-            else
-              echo "Running pytype on ${{ env.PY_FILES_CHANGED }}"
-              ./pytype.sh ${{ env.PY_FILES_CHANGED }}
-            fi
+          ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt"
+          cd ./tests/codecheck
+          if [[ "${{ env.FILES_CHANGED }}" == "all" || -n "${{ env.RQ_FILES_CHANGED }}" ]]; then
+            echo "Running pytype on everything"
+            ./pytype.sh
+          else
+            echo "Running pytype on ${{ env.PY_FILES_CHANGED }}"
+            ./pytype.sh ${{ env.PY_FILES_CHANGED }}
           fi
-      - name: Run pyright
+      - if: ${{ contains(env.STATIC_TYPE_CHECK, matrix.python-version) }}
+        name: Run pyright
         # pyright is quite fast, so easier just to run global config every time.
         run: |
           ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt"
