@@ -68,7 +68,7 @@ jobs:
           ./tests/run_unit_tests.sh
       - if: ${{ matrix.python-version == env.CODECOV_PY_VER }}
         name: Upload codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
       - if: ${{ (env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED)
           && contains(env.STATIC_TYPE_CHECK, matrix.python-version) }}
         name: Run pytype
