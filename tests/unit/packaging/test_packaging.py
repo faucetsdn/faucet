@@ -21,9 +21,8 @@
 import os
 import unittest
 
-from deb_pkg_tools.control import parse_control_fields
-from deb_pkg_tools.deb822 import parse_deb822
-from deb_pkg_tools.deps import VersionedRelationship
+from debian_inspector import debcon
+from debian_inspector.deps import VersionedRelationship
 import requirements
 
 
@@ -43,15 +42,18 @@ class CheckDebianPackageTestCase(unittest.TestCase):  # pytype: disable=module-a
                     break
                 faucet_dpkg += "\n{}".format(line)
 
-        faucet_dpkg = parse_control_fields(parse_deb822(faucet_dpkg))
+        faucet_dpkg = debcon.parse_control_fields(
+            debcon.Debian822.from_string(faucet_dpkg)
+        )
         self.faucet_dpkg_deps = {}
         for dep in faucet_dpkg["Depends"]:
-            if isinstance(dep, VersionedRelationship):
-                if dep.name not in self.faucet_dpkg_deps:
-                    self.faucet_dpkg_deps[dep.name] = []
-                self.faucet_dpkg_deps[dep.name].append(
-                    "{}{}".format(dep.operator, dep.version)
-                )
+            if not isinstance(dep, VersionedRelationship):
+                continue
+            if dep.name not in self.faucet_dpkg_deps:
+                self.faucet_dpkg_deps[dep.name] = []
+            self.faucet_dpkg_deps[dep.name].append(
+                "{}{}".format(dep.operator, dep.version)
+            )
 
     def _parse_pip_requirements(self, requirements_file):
         self.faucet_pip_reqs = {}
