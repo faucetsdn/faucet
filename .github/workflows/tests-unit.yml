@@ -5,7 +5,8 @@ on: [push, pull_request]
 env:
   FILES_CHANGED: "all"
   CODECOV_PY_VER: "3.11"
-  STATIC_TYPE_CHECK: "3.10,3.11,3.12"
+  PYTYPE_CHECK: "3.10,3.11,3.12"
+  PYRIGHT_CHECK: "3.10,3.11,3.12,3.13"
 
 jobs:
   unit-tests:
@@ -13,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9, "3.10", 3.11, 3.12]
+        python-version: [3.9, "3.10", 3.11, 3.12, 3.13]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -70,7 +71,7 @@ jobs:
         name: Upload codecov
         uses: codecov/codecov-action@v5
       - if: ${{ (env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED)
-          && contains(env.STATIC_TYPE_CHECK, matrix.python-version) }}
+          && contains(env.PYTYPE_CHECK, matrix.python-version) }}
         name: Run pytype
         run: |
           ./docker/pip_deps.sh --extra-requirements="codecheck-requirements.txt"
@@ -82,7 +83,7 @@ jobs:
             echo "Running pytype on ${{ env.PY_FILES_CHANGED }}"
             ./pytype.sh ${{ env.PY_FILES_CHANGED }}
           fi
-      - if: ${{ contains(env.STATIC_TYPE_CHECK, matrix.python-version) }}
+      - if: ${{ contains(env.PYRIGHT_CHECK, matrix.python-version) }}
         name: Run pyright
         # pyright is quite fast, so easier just to run global config every time.
         run: |
