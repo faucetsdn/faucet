@@ -1,4 +1,4 @@
-""" Tests all of the RabbitMQ Adapter """
+"""Tests all of the RabbitMQ Adapter"""
 
 import os
 

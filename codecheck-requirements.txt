@@ -1,4 +1,4 @@
-black==24.10.0
+black==25.1.0
 flake8==7.1.1
 pylint==3.3.4
 pyright==1.1.392.post0
