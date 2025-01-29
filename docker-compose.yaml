@@ -1,7 +1,5 @@
 ---
-version: '2'
 services:
-
     prometheus:
         restart: always
         image: 'prom/prometheus:v3.1.0'
