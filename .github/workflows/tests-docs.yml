@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 env:
   FILES_CHANGED: "all"
-  DOCS_PY_VER: '3.10'
+  DOCS_PY_VER: "3.12"
 
 jobs:
   build-docs:

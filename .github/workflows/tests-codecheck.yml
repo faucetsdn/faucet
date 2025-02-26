@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 env:
   FILES_CHANGED: "all"
-  CODECHECK_PY_VER: "3.11"
+  CODECHECK_PY_VER: "3.12"
 
 jobs:
   codecheck:
