@@ -120,7 +120,7 @@ def print_version():
 
 def build_ryu_args(argv):
     args = parse_args(argv[1:])
-
+    
     # Checking version number?
     if args.version:
         print_version()
@@ -161,6 +161,7 @@ def build_ryu_args(argv):
 
     # Replace current process with ryu-manager from PATH (no PID change).
     ryu_args.insert(0, "osken-manager")
+    print("Ryu arguments:", ryu_args)
     return ryu_args
 
 

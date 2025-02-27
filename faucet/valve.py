@@ -1093,6 +1093,7 @@ class Valve:
             or not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)
             or pkt_meta.reason == valve_of.ofp.OFPR_INVALID_TTL
         ):
+            
             return route_manager.control_plane_handler(now, pkt_meta)
         return []
 
@@ -1160,7 +1161,18 @@ class Valve:
                     vid=pkt_meta.vlan.vid,
                     eth_src=pkt_meta.eth_src,
                 )
-                self._set_var("learned_l2_port", learn_port.number, labels=learn_labels)
+                """self._set_var("learned_l2_port", learn_port.number, labels=learn_labels)
+                
+                dport = getattr(pkt_meta.l3_pkt.payload, 'dport', None)
+                if dport is not None:
+                    print(f"Puerto destino: {dport}")
+                else:
+                    print("El puerto destino no existe")
+                """
+                #print(
+                #    pkt_meta.l3_pkt,
+                #    pkt_meta.data,
+                #)
                 l2_learn_msg = {
                     "port_no": learn_port.number,
                     "previous_port_no": previous_port_no,
@@ -1169,7 +1181,11 @@ class Valve:
                     "eth_dst": pkt_meta.eth_dst,
                     "eth_type": pkt_meta.eth_type,
                     "l3_src_ip": str(pkt_meta.l3_src),
+                    #"l3_src_tcpport": pkt_meta.tcp_src,
+                    #"l3_src_udpport": pkt_meta.udp_src,
                     "l3_dst_ip": str(pkt_meta.l3_dst),
+                    #"l3_dst_tcpport": pkt_meta.tcp_dst,
+                    #"l3_dst_udpport": pkt_meta.udp_dst
                 }
                 if stack_descr:
                     l2_learn_msg.update({"stack_descr": stack_descr})

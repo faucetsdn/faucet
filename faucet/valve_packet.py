@@ -859,6 +859,8 @@ class PacketMeta:
         self.l3_pkt = None
         self.l3_src = None
         self.l3_dst = None
+       
+        
 
     def log(self):
         vlan_msg = ""
@@ -914,6 +916,7 @@ class PacketMeta:
                 if ip_parseable is not None and not ip_parseable(ip_header_data):
                     return
             parse_limit = header_size + payload
+            
             self.reparse(parse_limit)
             self.l3_pkt = self.pkt.get_protocol(pkt_parser)
             if self.l3_pkt:
@@ -925,6 +928,8 @@ class PacketMeta:
                     self.l3_dst = self.l3_pkt.dst_ip
                 self.l3_src = ipaddress.ip_address(self.l3_src)
                 self.l3_dst = ipaddress.ip_address(self.l3_dst)
+                
+                
 
     def packet_complete(self):
         """True if we have the complete packet."""

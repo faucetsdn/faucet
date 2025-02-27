@@ -19,11 +19,11 @@
 # limitations under the License.
 
 # pylint: disable=using-constant-test,wrong-import-order,wrong-import-position
+import array
 import eventlet
 
-if True:  # A trick to satisfy linting for E402
-    eventlet.monkey_patch()
-
+#if True:   A trick to satisfy linting for E402
+eventlet.monkey_patch()
 import time
 
 from functools import partial
@@ -45,6 +45,7 @@ from faucet import valves_manager
 from faucet import faucet_metrics
 from faucet import valve_of
 
+from os_ken.lib.packet import packet
 
 EXPORT_RYU_CONFIGS = ["echo_request_interval", "maximum_unreplied_echo_requests"]
 
@@ -289,6 +290,10 @@ class Faucet(OSKenAppBase):
         valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
+        
+        pkt = packet.Packet(array.array('B', msg.data))
+       
+        self.notifier.notify({"all_traffic": pkt.to_jsondict()})  
         self.valves_manager.valve_packet_in(ryu_event.timestamp, valve, msg)
 
     @set_ev_cls(
@@ -319,6 +324,8 @@ class Faucet(OSKenAppBase):
         valve, ryu_dp, msg = self._get_valve(ryu_event)
         if valve is None:
             return
+        
+        
         self._send_flow_msgs(valve, valve.switch_features(msg), ryu_dp=ryu_dp)
 
     @kill_on_exception(exc_logname)
