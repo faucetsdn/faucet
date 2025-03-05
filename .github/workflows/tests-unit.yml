@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 env:
   FILES_CHANGED: "all"
-  CODECOV_PY_VER: "3.11"
+  CODECOV_PY_VER: "3.12"
   PYTYPE_CHECK: "3.10,3.11,3.12"
   PYRIGHT_CHECK: "3.10,3.11,3.12,3.13"
 
