@@ -108,6 +108,8 @@ The output action contains a dictionary with the following elements:
         "zone_src": int,
         "clear": bool,
         "nat": dict,
+        "mark": int,
+        "label": int,
     }
     ct_action_nat_types = {
         "flags": int,

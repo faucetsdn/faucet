@@ -131,6 +131,12 @@ def build_ct_actions(acl_table, ct_dict):
         }
         ct_actions.append(valve_of.ct_nat(**nat_args))
 
+    if "mark" in ct_dict:
+        ct_actions.append(valve_of.set_field(ct_mark=ct_dict["mark"]))
+
+    if "label" in ct_dict:
+        ct_actions.append(valve_of.set_field(ct_label=ct_dict["label"]))
+
     ct_args = {
         "flags": ct_dict.get("flags", 0),
         "actions": ct_actions,
