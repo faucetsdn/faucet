@@ -4,7 +4,7 @@ eventlet>=0.34.3; python_version >= "3.12"
 networkx>=1.9
 pbr>=1.9
 prometheus_client==0.22.0
-ruamel.yaml==0.18.10
+ruamel.yaml==0.18.11
 os_ken==3.0.1
 beka==0.4.2
 pytricia>=1.0.0
