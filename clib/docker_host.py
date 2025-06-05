@@ -229,7 +229,7 @@ class DockerHost(Host):
                 config_json
             )
             config = json.loads(config_json[0].decode())
-            entryconfig = config["Entrypoint"]
+            entryconfig = config.get("Entrypoint")
             entrypoint = entryconfig if entryconfig else ["/usr/bin/env"]
             cmd = config["Cmd"] if "Cmd" in config else []
             docker_cmd = entrypoint + (cmd if cmd else [])
