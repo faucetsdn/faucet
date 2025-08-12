@@ -28,7 +28,7 @@ jobs:
           curl -1sLf https://packagecloud.io/faucetsdn/faucet/gpgkey -o /etc/apt/trusted.gpg.d/faucet.asc
           apt-get update
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Bump version
         run: |
           export DEBEMAIL='maintainers@faucet.nz'
