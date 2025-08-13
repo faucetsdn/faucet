@@ -17,7 +17,7 @@ jobs:
         python-version: [3.9, "3.10", 3.11, 3.12, 3.13]
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - if: ${{ github.event_name == 'pull_request' }}
         name: Setup dependencies for changed files action
         run: |

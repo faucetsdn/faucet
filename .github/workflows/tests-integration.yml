@@ -15,7 +15,7 @@ jobs:
       options: --privileged --cap-add=ALL -v /lib/modules:/lib/modules -v /var/local/lib/docker:/var/lib/docker --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=-1
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - if: ${{ github.event_name == 'pull_request' }}
         name: Setup dependencies for changed files action
         run: |
@@ -85,7 +85,7 @@ jobs:
         MATRIX_SHARD: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - if: ${{ github.event_name == 'pull_request' && github.event.before != '0000000000000000000000000000000000000000' }}
         name: Setup dependencies for changed files action
         run: |
