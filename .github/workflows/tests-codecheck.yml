@@ -51,7 +51,7 @@ jobs:
           echo "RQ_FILES_CHANGED=${RQ_FILES_CHANGED}" >> ${GITHUB_ENV}
           echo "DOC_FILES_CHANGED=${DOC_FILES_CHANGED}" >> ${GITHUB_ENV}
       - name: Set up python-${{ env.CODECHECK_PY_VER }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.CODECHECK_PY_VER }}
       - name: Install dependencies
