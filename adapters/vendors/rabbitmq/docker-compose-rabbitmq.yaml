@@ -3,6 +3,6 @@ version: '2'
 services:
     rabbitmq:
         restart: always
-        image: 'rabbitmq:3-management-alpine'
+        image: 'rabbitmq:4-management-alpine'
         ports:
             - "5672:5672"
