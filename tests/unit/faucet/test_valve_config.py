@@ -186,7 +186,7 @@ dps:
 
     def test_change_vlan_acl(self):
         """Test vlan ACL change is detected."""
-        self.update_and_revert_config(self.CONFIG, self.MORE_CONFIG, "cold")
+        self.update_and_revert_config(self.CONFIG, self.MORE_CONFIG, "warm")
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestNetwork):
