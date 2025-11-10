@@ -1580,7 +1580,9 @@ class Valve:
                 added_ports (set): added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
                 deleted_vids (set): deleted VLAN IDs.
-                changed_vids (set): changed/added VLAN IDs.
+                changed_vids (set): changed VLAN IDs.
+                added_vids (set): added VLAN IDs.
+                changed_acl_vlans (set): changed/added VLAN ACL VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
                 all_meters_changed (bool): True if all meters changed.
                 deleted_meters: (set): deleted meter numbers.
@@ -1599,6 +1601,8 @@ class Valve:
             changed_acl_ports,
             deleted_vids,
             changed_vids,
+            added_vids,
+            changed_acl_vlans,
             all_ports_changed,
             _,
             deleted_meters,
@@ -1607,7 +1611,35 @@ class Valve:
         ) = changes
         restart_type = "cold"
         ofmsgs = []
-
+        self.logger.debug("""Valve changes are:
+            deleted_ports: {},
+            changed_ports: {},
+            added_ports: {},
+            changed_acl_ports: {},
+            deleted_vids: {},
+            changed_vids: {},
+            added_vids: {},
+            changed_acl_vlans: {},
+            all_ports_changed: {},
+            _: {},
+            deleted_meters: {},
+            added_meters: {},
+            changed_meters: {},
+            """.format(
+                deleted_ports,
+                changed_ports,
+                added_ports,
+                changed_acl_ports,
+                deleted_vids,
+                changed_vids,
+                added_vids,
+                changed_acl_vlans,
+                all_ports_changed,
+                _,
+                deleted_meters,
+                added_meters,
+                changed_meters,
+            ))
         # If pipeline or all ports changed, default to cold start.
         if self._pipeline_change(new_dp):
             self.dp_init(new_dp, valves)
@@ -1631,11 +1663,21 @@ class Valve:
 
         if deleted_ports:
             ofmsgs.extend(self.ports_delete(deleted_ports))
+
         if changed_ports:
             ofmsgs.extend(self.ports_delete(changed_ports))
+
         if deleted_vids:
             deleted_vlans = [self.dp.vlans[vid] for vid in deleted_vids]
             ofmsgs.extend(self.del_vlans(deleted_vlans))
+
+        # if vlan acl changed and there are changed/deletd vids then delete vlan acl.
+        if self.acl_manager and changed_acl_vlans.union(changed_vids, deleted_vids):
+            changed_vlans = [self.dp.vlans[vid] for vid in changed_acl_vlans.union(changed_vids, deleted_vids)]
+            for vlan in changed_vlans:
+                ofmsgs.extend(self.acl_manager.del_vlan(vlan))
+            self.logger.debug("Number of deleted Openflow messages generated: {}".format(len(ofmsgs)))
+
         # TODO: optimize for all meters being erased
         if changed_meters:
             # If a meter changed meter IDs, delete the old ID first and consider
@@ -1669,14 +1711,20 @@ class Valve:
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
                 ofmsgs.extend(self.acl_manager.cold_start_port(port))
+        if added_vids:
+            added_vlans = [self.dp.vlans[vid] for vid in added_vids]
+            ofmsgs.extend(self.add_vlans(added_vlans, cold_start=True))
         if changed_vids:
             changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
-            # TODO: handle change versus add separately so can avoid delete first.
-            ofmsgs.extend(self.del_vlans(changed_vlans))
-            # The proceeding delete operation means we don't have to generate more deletes.
             ofmsgs.extend(self.add_vlans(changed_vlans, cold_start=True))
+        if self.acl_manager and changed_acl_vlans.union(changed_vids, added_vids):
+            changed_vlans = [self.dp.vlans[vid] for vid in changed_acl_vlans.union(changed_vids, added_vids)]
+            for vlan in changed_vlans:
+                ofmsgs.extend(self.acl_manager.add_vlan(vlan, cold_start=False))
+            self.logger.debug("Number of added Openflow messages generated: {}".format(len(ofmsgs)))
         if self.stack_manager:
             ofmsgs.extend(self.stack_manager.add_tunnel_acls())
+        self.logger.info("Openflow messages generated: {}".format(len(ofmsgs)))
         return restart_type, ofmsgs
 
     def reload_config(self, _now, new_dp, valves=None):
@@ -1711,7 +1759,10 @@ class Valve:
             elif restart_type == "warm":
                 # DP not currently up, so no messages to send.
                 if not self.dp.dyn_running:
-                    ofmsgs = []
+                    # TEST: Ensure we do a cold start if DP is not running.
+                    ofmsgs = None
+                    restart_type = "cold"
+                    self.logger.info("DP is not running, change restart_type from warm to cold")
         self.notify({"CONFIG_CHANGE": {"restart_type": restart_type}})
         return ofmsgs
 
