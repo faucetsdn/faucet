@@ -1504,19 +1504,15 @@ class DP(Conf):
             ignore_keys=frozenset(["acls_in"]),
         )
         logger.debug("""
-            _: {},
             deleted_vlans: {},
             added_vlans: {},
             changed_vlans: {},
             same_vlans: {},
-            _: {},
         """.format(
-            _,
             deleted_vlans,
             added_vlans,
             changed_vlans,
             same_vlans,
-            _,
         ))
         # changed_vlans = added_vlans.union(changed_vlans)
         # DOING: optimize for warm start.
@@ -1528,7 +1524,10 @@ class DP(Conf):
                 "VLAN %u" % vlan_id, old_vlan, new_vlan, changed_acls, logger
             ):
                 changed_acl_vlans.add(vlan_id)
-        logger.debug("deleted_vlans: {}, changed_vlans: {}".format(deleted_vlans, changed_vlans))
+        logger.debug(
+            "deleted_vlans: {}, changed_vlans: {}".format(
+            deleted_vlans, changed_vlans)
+        )
         return (deleted_vlans, changed_vlans, added_vlans, changed_acl_vlans)
 
     def _acl_ref_changes(self, conf_desc, old_conf, new_conf, changed_acls, logger):
@@ -1541,7 +1540,10 @@ class DP(Conf):
         old_acl_ids = old_conf.acls_in
         if old_acl_ids:
             old_acl_ids = [acl._id for acl in old_acl_ids]
-        logger.debug("conf_desc: {}, old_acl_ids: {}, new_acl_ids: {}, conf_acls_changed: {}".format(conf_desc, old_acl_ids, new_acl_ids, conf_acls_changed))
+        logger.debug(
+            "conf_desc: {}, old_acl_ids: {}, new_acl_ids: {}, conf_acls_changed: {}".format(
+            conf_desc, old_acl_ids, new_acl_ids, conf_acls_changed)
+        )
         if conf_acls_changed:
             changed = True
             logger.info(
@@ -1564,6 +1566,7 @@ class DP(Conf):
             logger (ValveLogger): logger instance.
             new_dp (DP): new dataplane configuration.
             changed_vlans (set): changed/added VLAN IDs.
+            added_vlans (set): added VLAN IDs.
             deleted_vlans (set): deleted VLAN IDs.
             changed_acls (set): changed/added ACL IDs.
         Returns:
@@ -1607,9 +1610,11 @@ class DP(Conf):
         ))
         # What is port change?
         # - Detect port added/deleted/changed by using _get_conf_changes
-        #   - If port added or deleted, their related opfmgs are processed later by Valve._apply_config_changes()
+        #   - If port added or deleted, their related opfmgs are processed later
+        #       by Valve._apply_config_changes()
         # - Port other config changed like vlan id or port ACL?
-        #   - Vlan membership added / changed / deleted? -> go through all vlan changes to find affected ports
+        #   - Vlan membership added / changed / deleted?
+        #       -> go through all vlan changes to find affected ports
         #   - Port ACL changed
 
         changed_acl_ports = set()
@@ -1650,7 +1655,6 @@ class DP(Conf):
                     if old_vlan.vid == vlan.vid:
                         changed_port_nums = {port.number for port in vlan.get_ports()}
                         old_port_nums = {port.number for port in old_vlan.get_ports()}
-                        # changed_port_nums = old_port_nums.symmetric_difference(changed_port_nums)
                         changed_port_nums -= old_port_nums
                     logger.debug("VLAN %s changed ports: %s" % (vlan.vid, changed_port_nums))
                     changed_ports.update(changed_port_nums)

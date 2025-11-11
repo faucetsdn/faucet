@@ -218,16 +218,9 @@ class Faucet(OSKenAppBase):
             ryu_dp: Override datapath from DPSet.
         """
         if ryu_dp is None:
-            try:
-                ryu_dp = self.dpset.get(valve.dp.dp_id)
-                valve.logger.warning("value of self.dpset.get_all is {}".format(self.dpset.get_all()))
-            except Exception as e:
-                valve.logger.warning(
-                    "error: {} when getting DP".format(e),
-                )
+            ryu_dp = self.dpset.get(valve.dp.dp_id)
         if not ryu_dp:
             valve.logger.error("send_flow_msgs: DP not up")
-            valve.logger.error("send_flow_msgs: DP type is {}".format(ryu_dp))
             return
         valve.send_flows(ryu_dp, flow_msgs, time.time())
 
