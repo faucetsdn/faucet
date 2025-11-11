@@ -1621,7 +1621,6 @@ class Valve:
             added_vids: {},
             changed_acl_vlans: {},
             all_ports_changed: {},
-            _: {},
             deleted_meters: {},
             added_meters: {},
             changed_meters: {},
@@ -1635,7 +1634,6 @@ class Valve:
                 added_vids,
                 changed_acl_vlans,
                 all_ports_changed,
-                _,
                 deleted_meters,
                 added_meters,
                 changed_meters,
@@ -1759,10 +1757,7 @@ class Valve:
             elif restart_type == "warm":
                 # DP not currently up, so no messages to send.
                 if not self.dp.dyn_running:
-                    # TEST: Ensure we do a cold start if DP is not running.
-                    ofmsgs = None
-                    restart_type = "cold"
-                    self.logger.info("DP is not running, change restart_type from warm to cold")
+                    ofmsgs = []
         self.notify({"CONFIG_CHANGE": {"restart_type": restart_type}})
         return ofmsgs
 
