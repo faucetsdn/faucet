@@ -18,6 +18,7 @@
 # limitations under the License.
 
 from collections import defaultdict
+import time
 
 from faucet.conf import InvalidConfigError
 from faucet.config_parser_util import config_changed, CONFIG_HASH_FUNC
@@ -345,9 +346,14 @@ class ValvesManager:
         """Process a request to load config changes."""
         if self.config_watcher.content_changed(new_config_file):
             self.logger.info(
-                "configuration %s changed, analyzing differences", new_config_file
+                "configuration %s changed, start analyzing differences", new_config_file
             )
+            start_time = time.time()
             result = self.load_configs(now, new_config_file, delete_dp=delete_dp)
+            self.logger.info(
+                "configuration %s changed, analyzing duration is %.2f second",
+                new_config_file, time.time() - start_time
+            )
             self._notify(
                 {
                     "CONFIG_CHANGE": {
