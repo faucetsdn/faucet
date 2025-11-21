@@ -19,7 +19,7 @@ jobs:
         MATRIX_SHARD: [--generative_unit, --generative_tolerance]
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Setup docker test requirements
         run: |
           ulimit -c unlimited

@@ -16,7 +16,7 @@ jobs:
       name: "release"
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Set up python-${{ env.RELEASE_PY_VER }}
         uses: actions/setup-python@v6
         with:
