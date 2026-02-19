@@ -5,11 +5,11 @@
 from __future__ import print_function
 
 import errno
+import importlib
 import os
 import shutil
 import sys
 
-from pkg_resources import resource_filename
 from setuptools import setup
 
 if sys.version_info < (3,):
@@ -41,8 +41,12 @@ def install_configs():
     dst_ryu_conf_dir = "/etc/faucet/"
     dst_ryu_conf = os.path.join(dst_ryu_conf_dir, "ryu.conf")
     dst_faucet_conf_dir = "/etc/faucet/"
-    src_ryu_conf = resource_filename(__name__, "etc/faucet/ryu.conf")
-    src_faucet_conf_dir = resource_filename(__name__, "etc/faucet/")
+    src_ryu_conf = str(
+        importlib.resources.files("faucet").joinpath("../etc/faucet/ryu.conf")
+    )
+    src_faucet_conf_dir = str(
+        importlib.resources.files("faucet").joinpath("../etc/faucet/")
+    )
     faucet_log_dir = "/var/log/faucet/"
 
     old_ryu_conf = "/etc/ryu/ryu.conf"
