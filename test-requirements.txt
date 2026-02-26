@@ -2,6 +2,7 @@
 bitstring
 codecov
 concurrencytest
+chardet<6.0.0
 debian-inspector
 exabgp==4.2.25
 importlab>=0.3.1
