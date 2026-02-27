@@ -3,7 +3,7 @@ name: Build python packages for release
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+      - "[0-9]+.[0-9]+.[0-9]+"
 
 env:
   RELEASE_PY_VER: "3.12"
@@ -22,7 +22,9 @@ jobs:
         with:
           python-version: ${{ env.RELEASE_PY_VER }}
       - name: Build python package
-        run: python3 setup.py sdist
+        run: |
+          pip3 install setuptools
+          python3 setup.py sdist
       - name: Publish python package to PyPI
         uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
