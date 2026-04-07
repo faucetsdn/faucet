@@ -3297,7 +3297,8 @@ acls:
             new_yaml_acl_conf,
             self.acl_config_file,  # pytype: disable=attribute-error
             restart=True,
-            cold_start=True,
+            cold_start=False,
+            # cold_start=True,
         )
         self.wait_until_matching_flow({"dl_type": 0x800}, table_id=self._VLAN_ACL_TABLE)
         self.wait_until_matching_flow({"dl_type": 0x806}, table_id=self._VLAN_ACL_TABLE)
@@ -7727,7 +7728,8 @@ routers:
                 self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2
             )
             self.change_vlan_config(
-                "vlanb", "vid", vlanb_vid, restart=True, cold_start=True
+                # "vlanb", "vid", vlanb_vid, restart=True, cold_start=True
+                "vlanb", "vid", vlanb_vid, restart=True, cold_start=False
             )
 
 
@@ -7793,7 +7795,8 @@ routers:
             self.port_map["port_3"],
             {"native_vlan": "vlana"},
             restart=True,
-            cold_start=True,
+            cold_start=False,
+            # cold_start=True,
         )
 
         test_connectivity(third_host, second_host)
