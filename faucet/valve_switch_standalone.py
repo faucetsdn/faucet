@@ -1444,10 +1444,9 @@ class ValveSwitchFlowRemovedManager(ValveSwitchManager):
         ofmsgs = []
         entry = vlan.cached_host(eth_dst)
         if entry is not None:
-            ofmsgs.extend(
-                self.learn_host_on_vlan_ports(
-                    now, entry.port, vlan, eth_dst, delete_existing=False
-                )
+            _ofmsgs, _, _ = self.learn_host_on_vlan_ports(
+                now, entry.port, vlan, eth_dst, delete_existing=False
             )
+            ofmsgs.extend(_ofmsgs)
             self.logger.info("refreshing host %s from VLAN %u" % (eth_dst, vlan.vid))
         return ofmsgs
