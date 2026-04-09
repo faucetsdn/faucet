@@ -7728,8 +7728,7 @@ routers:
                 self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2
             )
             self.change_vlan_config(
-                # "vlanb", "vid", vlanb_vid, restart=True, cold_start=True
-                "vlanb", "vid", vlanb_vid, restart=True, cold_start=False
+                "vlanb", "vid", vlanb_vid, restart=True, cold_start=True
             )
 
 
@@ -7795,8 +7794,7 @@ routers:
             self.port_map["port_3"],
             {"native_vlan": "vlana"},
             restart=True,
-            cold_start=False,
-            # cold_start=True,
+            cold_start=True,
         )
 
         test_connectivity(third_host, second_host)
