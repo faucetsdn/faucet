@@ -1676,6 +1676,41 @@ class DP(Conf):
 
         # Detect port ACL change
         if not all_ports_changed:
+            def get_vids(vlans):
+                if not vlans:
+                    return set()
+                try:
+                    return {vlan.vid for vlan in vlans}
+                except TypeError:
+                    return {vlans.vid}
+
+            def _add_changed_vlan_port(port, port_dp):
+                changed_vlans.update(get_vids(port.vlans()))
+                if port.stack:
+                    changed_vlans.update(get_vids(port_dp.vlans.values()))
+
+            def _add_changed_vlans(old_port, new_port):
+                if old_port.vlans() != new_port.vlans():
+                    old_vids = get_vids(old_port.vlans())
+                    new_vids = get_vids(new_port.vlans())
+                    changed_vlans.update(old_vids.symmetric_difference(new_vids))
+                # stacking dis/enabled on a port.
+                if bool(old_port.stack) != bool(new_port.stack):
+                    changed_vlans.update(get_vids(new_dp.vlans.values()))
+
+            for port_no in changed_ports:
+                if port_no not in self.ports:
+                    continue
+                old_port = self.ports[port_no]
+                new_port = new_dp.ports[port_no]
+                _add_changed_vlans(old_port, new_port)
+            for port_no in deleted_ports:
+                port = self.ports[port_no]
+                _add_changed_vlan_port(port, self)
+            for port_no in added_ports:
+                port = new_dp.ports[port_no]
+                _add_changed_vlan_port(port, new_dp)
+
             for port_no in same_ports:
                 old_port = self.ports[port_no]
                 new_port = new_dp.ports[port_no]
