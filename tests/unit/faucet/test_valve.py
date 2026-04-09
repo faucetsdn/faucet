@@ -423,14 +423,14 @@ vlans:
         valve = self.valves_manager.valves[self.DP_ID]
         self.assertTrue(
             valve.flow_timeout(
-                self.mock_time(),
+                self.mock_time(300),
                 valve.dp.tables["eth_dst"].table_id,
                 {"vlan_vid": self.V100, "eth_dst": self.P1_V100_MAC},
             )
         )
         self.assertFalse(
             valve.flow_timeout(
-                self.mock_time(),
+                self.mock_time(300),
                 valve.dp.tables["eth_src"].table_id,
                 {"vlan_vid": self.V100, "in_port": 1, "eth_src": self.P1_V100_MAC},
             )
