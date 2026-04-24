@@ -3865,6 +3865,74 @@ class FaucetConfigReloadMACFlushTest(FaucetConfigReloadTestBase):
         self.assertLess(len(self.scrape_prometheus(var="learned_l2_port")), 4)
 
 
+class FaucetConfigReloadPortAclRemoveTest(FaucetConfigReloadTestBase):
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "office network"
+"""
+    ACL = """
+acls:
+    block-ssl:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 443
+            actions:
+                allow: 0
+    block-http:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 80
+            actions:
+                allow: 0
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acls_in: [block-ping]
+            %(port_2)d:
+                native_vlan: 100
+                acls_in: [block-ping, block-http, block-ssl]
+            %(port_3)d:
+                native_vlan: 100
+"""
+
+    def test_remove_port_acl(self):
+        hup = not self.STAT_RELOAD
+        first_host, second_host, third_host = self.hosts_name_ordered()[:3]
+        
+        # We don't really care about ping success, we care about flow existence.
+        # Check that port 2 has the block-ping rule
+        in_port_2_match = {
+            "in_port": int(self.port_map["port_2"]),
+            "eth_type": 0x800,
+            "ip_proto": 1,
+        }
+        self.wait_until_matching_flow(in_port_2_match, table_id=self._PORT_ACL_TABLE)
+        
+        # Remove the ACL from port 2 ONLY.
+        self.change_port_config(
+            self.port_map["port_2"],
+            "acls_in",
+            ["block-http", "block-ssl"],
+            restart=True,
+            cold_start=False,
+            hup=hup,
+        )
+        
+        # Verify port_2 no longer has the block-ping flow
+        self.wait_until_no_matching_flow(in_port_2_match, table_id=self._PORT_ACL_TABLE, timeout=30)
+
+
 class FaucetConfigReloadEmptyAclTest(FaucetConfigReloadTestBase):
     CONFIG = """
         interfaces:

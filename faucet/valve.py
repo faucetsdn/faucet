@@ -1689,6 +1689,10 @@ class Valve:
         if self.acl_manager:
             if deleted_meters:
                 ofmsgs.extend(self.acl_manager.del_meters(deleted_meters))
+            if changed_acl_ports:
+                for port_num in changed_acl_ports:
+                    port = self.dp.ports[port_num]
+                    ofmsgs.extend(self.acl_manager.del_port_force(port))
 
         self.dp_init(new_dp, valves)
 
@@ -1708,7 +1712,7 @@ class Valve:
         if self.acl_manager and changed_acl_ports:
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
-                ofmsgs.extend(self.acl_manager.cold_start_port(port))
+                ofmsgs.extend(self.acl_manager.add_port(port))
         if added_vids:
             added_vlans = [self.dp.vlans[vid] for vid in added_vids]
             ofmsgs.extend(self.add_vlans(added_vlans, cold_start=True))
@@ -1722,7 +1726,8 @@ class Valve:
             self.logger.debug("Number of added Openflow messages generated: {}".format(len(ofmsgs)))
         if self.stack_manager:
             ofmsgs.extend(self.stack_manager.add_tunnel_acls())
-        self.logger.info("Openflow messages generated: {}".format(len(ofmsgs)))
+        self.logger.info("Number of Openflow messages: {}".format(len(ofmsgs)))
+        self.logger.debug("Detail of generated Openflow messages: {}".format(ofmsgs))
         return restart_type, ofmsgs
 
     def reload_config(self, _now, new_dp, valves=None):

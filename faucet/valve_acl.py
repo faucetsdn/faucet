@@ -507,6 +507,21 @@ class ValveAclManager(ValveManagerBase):
                 )
         return ofmsgs
 
+    def del_port_force(self, port):
+        """Force-delete all ACL flows for a port.
+
+        Uses a priority-less delete so the flowmodkey differs from
+        any subsequently-added default rule (which carries acl_priority), preventing
+        valve_flowreorder's remove_overlap_ofmsgs from suppressing this delete.
+        In OpenFlow, OFPFC_DELETE (non-strict) ignores priority and deletes all
+        matching flows regardless of their priority.
+        """
+        ofmsgs = []
+        if self._port_acls_allowed(port):
+            in_port_match = self.port_acl_table.match(in_port=port.number)
+            ofmsgs.append(self.port_acl_table.flowdel(in_port_match))
+        return ofmsgs
+
     def del_port(self, port):
         ofmsgs = []
         if self._port_acls_allowed(port):
