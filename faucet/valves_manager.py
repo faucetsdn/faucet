@@ -18,6 +18,7 @@
 # limitations under the License.
 
 from collections import defaultdict
+import time
 
 from faucet.conf import InvalidConfigError
 from faucet.config_parser_util import config_changed, CONFIG_HASH_FUNC
@@ -306,7 +307,9 @@ class ValvesManager:
                 self.logger.info("Reconfiguring existing datapath %s", dpid_log(dp_id))
                 valve = self.valves[dp_id]
                 ofmsgs = valve.reload_config(now, new_dp, list(self.valves.values()))
+                start_time = time.time()
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
+                self.logger.info("Rule application time: %.2f seconds", time.time() - start_time)
                 sent[dp_id] = valve.dp.dyn_running
             else:
                 self.logger.info("Add new datapath %s", dpid_log(new_dp.dp_id))
@@ -345,9 +348,14 @@ class ValvesManager:
         """Process a request to load config changes."""
         if self.config_watcher.content_changed(new_config_file):
             self.logger.info(
-                "configuration %s changed, analyzing differences", new_config_file
+                "configuration %s changed, start analyzing differences", new_config_file
             )
+            start_time = time.time()
             result = self.load_configs(now, new_config_file, delete_dp=delete_dp)
+            self.logger.info(
+                "configuration %s changed, analyzing duration is %.2f second",
+                new_config_file, time.time() - start_time
+            )
             self._notify(
                 {
                     "CONFIG_CHANGE": {

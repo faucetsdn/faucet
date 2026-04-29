@@ -4046,7 +4046,7 @@ dps:
         for new_dp in new_dps:
             valve = self.valves_manager.valves[new_dp.dp_id]
             changes = valve.dp.get_config_changes(valve.logger, new_dp)
-            changed_ports, all_ports_changed = changes[1], changes[6]
+            changed_ports, all_ports_changed = changes[1], changes[8]
             for port in valve.dp.stack_ports():
                 if not all_ports_changed:
                     self.assertIn(
