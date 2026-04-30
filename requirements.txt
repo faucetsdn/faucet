@@ -7,4 +7,4 @@ prometheus_client==0.25.0
 ruamel.yaml==0.18.16
 os_ken==3.1.0
 beka==0.4.2
-pytricia>=1.0.0
+pytricia>=1.3.0
