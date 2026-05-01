@@ -587,6 +587,417 @@ dps:
         verify_func()
 
 
+class ValveChangeVIPWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test changing VIP address on a VLAN is a warm start."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_VIP_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.253/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_change_vip(self):
+        """Test changing a VIP address is warm startable."""
+        self.update_and_revert_config(self.CONFIG, self.NEW_VIP_CONFIG, "warm")
+
+
+class ValveChangeRouterWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test changing router VLAN membership is a warm start."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+            p3:
+                number: 3
+                native_vlan: 0x300
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+    v300:
+        vid: 0x300
+        faucet_vips: ['10.0.2.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_ROUTER_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+            p3:
+                number: 3
+                native_vlan: 0x300
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+    v300:
+        vid: 0x300
+        faucet_vips: ['10.0.2.254/24']
+routers:
+    router1:
+        vlans: [v100, v200, v300]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_change_router_membership(self):
+        """Test changing router VLAN membership is warm startable."""
+        self.update_and_revert_config(self.CONFIG, self.NEW_ROUTER_CONFIG, "warm")
+
+
+class ValveRemoveVIPWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test removing VIPs from a VLAN is a warm start (when routing tables remain)."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    LESS_VIP_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+routers:
+    router1:
+        vlans: [v100]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_remove_vip(self):
+        """Test removing VIPs from a VLAN is warm startable."""
+        self.update_and_revert_config(self.CONFIG, self.LESS_VIP_CONFIG, "warm")
+
+
+class ValveDeleteRoutedVLANTestCase(ValveTestBases.ValveTestNetwork):
+    """Test deleting a VLAN referenced by a router doesn't crash."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+            p3:
+                number: 3
+                native_vlan: 0x300
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+    v300:
+        vid: 0x300
+        faucet_vips: ['10.0.2.254/24']
+routers:
+    router1:
+        vlans: [v100, v200, v300]
+"""
+        % DP1_CONFIG
+    )
+
+    DELETE_VLAN_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_delete_routed_vlan(self):
+        """Test deleting a VLAN referenced by a router doesn't crash."""
+        self.update_and_revert_config(self.CONFIG, self.DELETE_VLAN_CONFIG, "cold")
+
+
+class ValveChangeIPv6VIPWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test changing an IPv6 VIP is a warm start."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
+    v200:
+        vid: 0x200
+        faucet_vips: ['fc00::2:254/112', 'fe80::2:254/64']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_VIP_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['fc00::1:253/112', 'fe80::1:254/64']
+    v200:
+        vid: 0x200
+        faucet_vips: ['fc00::2:254/112', 'fe80::2:254/64']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_change_ipv6_vip(self):
+        """Test changing an IPv6 VIP address is warm startable."""
+        self.update_and_revert_config(self.CONFIG, self.NEW_VIP_CONFIG, "warm")
+
+
+class ValveBGPColdStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test that BGP config changes still trigger cold start."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+routers:
+    router1:
+        vlans: [v100, v200]
+        bgp:
+            as: 1
+            connect_mode: passive
+            neighbor_addresses: ['127.0.0.1']
+            neighbor_as: 2
+            port: 9179
+            routerid: '1.1.1.1'
+            server_addresses: ['127.0.0.1']
+            vlan: v100
+"""
+        % DP1_CONFIG
+    )
+
+    BGP_CHANGE_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+routers:
+    router1:
+        vlans: [v100, v200]
+        bgp:
+            as: 1
+            connect_mode: passive
+            neighbor_addresses: ['127.0.0.1']
+            neighbor_as: 3
+            port: 9179
+            routerid: '1.1.1.1'
+            server_addresses: ['127.0.0.1']
+            vlan: v100
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_bgp_change_cold_start(self):
+        """Test that changing BGP config still requires cold start."""
+        self.update_and_revert_config(self.CONFIG, self.BGP_CHANGE_CONFIG, "cold")
+
+
 class ValveDeleteVLANTestCase(ValveTestBases.ValveTestNetwork):
     """Test deleting VLAN."""
 

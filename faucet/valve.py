@@ -1580,12 +1580,13 @@ class Valve:
                 added_ports (set): added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
                 deleted_vids (set): deleted VLAN IDs.
-                changed_vids (set): changed/added VLAN IDs.
+                changed_vids (set): changed VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
                 all_meters_changed (bool): True if all meters changed.
                 deleted_meters: (set): deleted meter numbers.
-                changed_meters: (set): changed meter numbers.
                 added_meters: (set): added meter numbers.
+                changed_meters: (set): changed meter numbers.
+                added_vids (set): added VLAN IDs.
             valves (list): List of other running valves
         Returns:
             tuple:
@@ -1604,6 +1605,7 @@ class Valve:
             deleted_meters,
             added_meters,
             changed_meters,
+            added_vids,
         ) = changes
         restart_type = "cold"
         ofmsgs = []
@@ -1619,7 +1621,10 @@ class Valve:
             return restart_type, ofmsgs
 
         restart_type = None
-        for change in changes:
+        # Check all fields except added_vids (position 11) which is
+        # informational for _apply_config_changes and already reflected
+        # in port/VLAN change sets.
+        for change in changes[:11]:
             if change:
                 restart_type = "warm"
                 break
@@ -1636,6 +1641,13 @@ class Valve:
         if deleted_vids:
             deleted_vlans = [self.dp.vlans[vid] for vid in deleted_vids]
             ofmsgs.extend(self.del_vlans(deleted_vlans))
+        # Delete changed VLANs BEFORE dp_init using OLD managers/VLAN objects
+        # so that old VIP/faucet_mac select_packets flows are properly cleaned up.
+        if changed_vids:
+            old_changed_vlans = [
+                self.dp.vlans[vid] for vid in changed_vids if vid in self.dp.vlans
+            ]
+            ofmsgs.extend(self.del_vlans(old_changed_vlans))
         # TODO: optimize for all meters being erased
         if changed_meters:
             # If a meter changed meter IDs, delete the old ID first and consider
@@ -1669,11 +1681,13 @@ class Valve:
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
                 ofmsgs.extend(self.acl_manager.cold_start_port(port))
+        if added_vids:
+            new_added_vlans = [self.dp.vlans[vid] for vid in added_vids]
+            ofmsgs.extend(self.add_vlans(new_added_vlans, cold_start=True))
         if changed_vids:
-            changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
-            # TODO: handle change versus add separately so can avoid delete first.
-            ofmsgs.extend(self.del_vlans(changed_vlans))
-            # The proceeding delete operation means we don't have to generate more deletes.
+            changed_vlans = [
+                self.dp.vlans[vid] for vid in changed_vids if vid in self.dp.vlans
+            ]
             ofmsgs.extend(self.add_vlans(changed_vlans, cold_start=True))
         if self.stack_manager:
             ofmsgs.extend(self.stack_manager.add_tunnel_acls())
