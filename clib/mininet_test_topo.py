@@ -798,6 +798,12 @@ socket_timeout=15
 
     def start(self):
         """Start tcpdump for OF port and then start controller."""
+        # Each restart spawns a fresh Faucet process with a new pid; drop
+        # any cached value so ryu_pid() re-reads the new pid file. Without
+        # this, the test framework's _start_faucet retry loop polls lsof
+        # against the dead pid from attempt 1 and all subsequent attempts
+        # are guaranteed to time out with "not all controllers connected".
+        self.cached_ryu_pid = None
         self._start_tcpdump()
         super().start()
 
