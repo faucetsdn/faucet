@@ -962,14 +962,17 @@ class FaucetTestBase(unittest.TestCase):
                 return False
         return True
 
-    def _wait_controllers_healthy(self, timeout=30):
+    def _wait_controllers_healthy(self, timeout=90):
         for _ in range(timeout):
             if self._controllers_healthy():
                 return True
             time.sleep(1)
         return False
 
-    def _wait_controllers_connected(self, timeout=30):
+    def _wait_controllers_connected(self, timeout=90):
+        # Slow CI runners can spend ~30s between Faucet startup and OVS
+        # establishing the OpenFlow channel; the previous 30s window
+        # turned that into a hard flake.
         for _ in range(timeout):
             if self._controllers_connected():
                 return True
