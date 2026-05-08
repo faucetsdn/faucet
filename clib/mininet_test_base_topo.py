@@ -71,17 +71,17 @@ class FaucetTopoTestBase(FaucetTestBase):
     port_stats:
         dps: ['%s']
         type: 'port_stats'
-        interval: 5
+        interval: 1
         db: 'stats_file'
     port_state:
         dps: ['%s']
         type: 'port_state'
-        interval: 5
+        interval: 1
         db: 'state_file'
     flow_table:
         dps: ['%s']
         type: 'flow_table'
-        interval: 5
+        interval: 1
         db: 'flow_dir'
 """ % (
             self.topo.switches_by_id[0],
