@@ -38,7 +38,6 @@ from clib.mininet_test_topo import FaucetLink
 from clib.tcpdump_helper import TcpdumpHelper
 from clib.valve_test_lib import yaml_load, yaml_dump
 
-
 MAX_TEST_VID = 512
 OFPVID_PRESENT = 0x1000
 MIN_FLAP_TIME = 1
@@ -432,12 +431,13 @@ class FaucetTestBase(unittest.TestCase):
         return tmpdir
 
     def _wait_load(self, load_retries=10):
+        load = os.getloadavg()[0]
         for _ in range(load_retries):
-            time.sleep(random.randint(1, 5))
-            load = os.getloadavg()[0]
             if load < self.max_test_load:
                 return
             output("load average too high %f, waiting" % load)
+            time.sleep(random.uniform(0.1, 1.0))
+            load = os.getloadavg()[0]
         self.fail("load average %f consistently too high" % load)
 
     def _allocate_config_ports(self):
@@ -827,7 +827,9 @@ class FaucetTestBase(unittest.TestCase):
             self._stop_net()
             last_error_txt += "\n\n" + self._dump_controller_logs()
             error("%s: %s" % (self._test_name(), last_error_txt))
-            time.sleep(mininet_test_util.MIN_PORT_AGE)
+            # The port server (mininet_test_util.serve_ports) already enforces
+            # MIN_PORT_AGE on dispense; sleeping it here wastes 30+s per retry.
+            time.sleep(1)
 
         if last_error_txt is not None:
             self.fail(last_error_txt)
@@ -869,10 +871,10 @@ class FaucetTestBase(unittest.TestCase):
         return isinstance(switches, list) and switches
 
     def _wait_ofctl_up(self, timeout=10):
-        for _ in range(timeout):
+        for _ in range(timeout * 4):
             if self._ofctl_up():
                 return True
-            time.sleep(1)
+            time.sleep(0.25)
         return False
 
     def _ofctl_post(self, int_dpid, req, timeout, params=None):
@@ -963,30 +965,30 @@ class FaucetTestBase(unittest.TestCase):
         return True
 
     def _wait_controllers_healthy(self, timeout=90):
-        for _ in range(timeout):
+        for _ in range(timeout * 4):
             if self._controllers_healthy():
                 return True
-            time.sleep(1)
+            time.sleep(0.25)
         return False
 
     def _wait_controllers_connected(self, timeout=90):
         # Slow CI runners can spend ~30s between Faucet startup and OVS
         # establishing the OpenFlow channel; the previous 30s window
         # turned that into a hard flake.
-        for _ in range(timeout):
+        for _ in range(timeout * 4):
             if self._controllers_connected():
                 return True
-            time.sleep(1)
+            time.sleep(0.25)
         return False
 
     def _wait_debug_log(self):
         """Require all switches to have exchanged flows with controller."""
         ofchannel_logs = self._get_ofchannel_logs()
         for _, debug_log in ofchannel_logs:
-            for _ in range(60):
+            for _ in range(60 * 4):
                 if os.path.exists(debug_log) and os.path.getsize(debug_log) > 0:
                     return True
-                time.sleep(1)
+                time.sleep(0.25)
         return False
 
     def verify_no_exception(self, exception_log_name):
@@ -1100,17 +1102,17 @@ dps:
     port_stats:
         dps: ['%s']
         type: 'port_stats'
-        interval: 5
+        interval: 1
         db: 'stats_file'
     port_state:
         dps: ['%s']
         type: 'port_state'
-        interval: 5
+        interval: 1
         db: 'state_file'
     flow_table:
         dps: ['%s']
         type: 'flow_table'
-        interval: 5
+        interval: 1
         db: 'flow_dir'
 """ % (
             self.DP_NAME,
@@ -1803,7 +1805,7 @@ dbs:
     ):
         if controller is None:
             controller = self.faucet_controllers[0].name
-        for _ in range(timeout):
+        for _ in range(timeout * 4):
             result = self.scrape_prometheus_var(
                 var,
                 labels=labels,
@@ -1818,7 +1820,7 @@ dbs:
                 return True
             if orgreater and result is not None and result > result_wanted:
                 return True
-            time.sleep(1)
+            time.sleep(0.25)
         return False
 
     def scrape_prometheus_var(
@@ -1895,7 +1897,7 @@ dbs:
             ]
         )
         found_watcher_files = set()
-        for _ in range(60):
+        for _ in range(60 * 4):
             for watcher_file in watcher_files:
                 if os.path.exists(watcher_file) and os.path.getsize(watcher_file):
                     found_watcher_files.add(watcher_file)
@@ -1906,7 +1908,7 @@ dbs:
             self.verify_no_exception(
                 self.env[self.gauge_controller.name]["GAUGE_EXCEPTION_LOG"]
             )
-            time.sleep(1)
+            time.sleep(0.25)
             found_watcher_files = set()
         missing_watcher_files = watcher_files - found_watcher_files
         self.assertEqual(
@@ -2750,11 +2752,11 @@ dbs:
         for i, controller in enumerate(self.faucet_controllers):
             cont_name = controller.name
             start_configure_count = start_configure_counts[i]
-            for _ in range(timeout):
+            for _ in range(timeout * 4):
                 configure_count = self.get_configure_count(controller=cont_name)
                 if configure_count > start_configure_count:
                     break
-                time.sleep(1)
+                time.sleep(0.25)
             self.assertNotEqual(
                 start_configure_count,
                 configure_count,
@@ -2764,7 +2766,7 @@ dbs:
                 old_count = old_counts[i]
                 if change_expected:
                     old_count = old_counts[i]
-                    for _ in range(timeout):
+                    for _ in range(timeout * 4):
                         new_count = int(
                             self.scrape_prometheus_var(
                                 var, controller=cont_name, dpid=dpid, default=0
@@ -2772,7 +2774,7 @@ dbs:
                         )
                         if new_count > old_count:
                             break
-                        time.sleep(1)
+                        time.sleep(0.25)
                     self.assertTrue(
                         new_count > old_count,
                         msg="FAUCET %s %s did not increment: %u"

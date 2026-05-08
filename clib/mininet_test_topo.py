@@ -25,7 +25,6 @@ from mininet.link import TCIntf, Link
 
 from clib import mininet_test_util
 
-
 SWITCH_START_PORT = 5
 
 
@@ -702,10 +701,10 @@ socket_timeout=15
             )
         )
         self.cmd("timeout %s tcpdump %s &" % (self.MAX_CTL_TIME, tcpdump_args))
-        for _ in range(5):
+        for _ in range(50):
             if os.path.exists(self.ofcap):
                 return
-            time.sleep(1)
+            time.sleep(0.1)
         assert False, "tcpdump of OF channel did not start"
 
     @staticmethod
@@ -753,19 +752,15 @@ socket_timeout=15
     def listen_port(self, port, state="LISTEN"):
         """Return True if port in specified TCP state."""
         ryu_pid = self.ryu_pid()
-        if ryu_pid is not None:
-            for ipv in (4, 6):
-                listening_pids = [
-                    int(pid)
-                    for pid in self.cmd(
-                        mininet_test_util.tcp_listening_cmd(
-                            port, ipv=ipv, state=state, pid=ryu_pid
-                        )
-                    ).split()
-                ]
-                if listening_pids:
-                    return True
-        return False
+        if ryu_pid is None:
+            return False
+        try:
+            listening_pids = self.cmd(
+                mininet_test_util.tcp_listening_pids_cmd(port, state=state, pid=ryu_pid)
+            ).split()
+        except AttributeError:
+            return False
+        return bool(listening_pids)
 
     # pylint: disable=invalid-name
     @staticmethod
