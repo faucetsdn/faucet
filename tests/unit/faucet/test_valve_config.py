@@ -23,12 +23,15 @@
 from functools import partial
 import copy
 import hashlib
+import os
 import unittest
 import time
 
 from os_ken.ofproto import ofproto_v1_3 as ofp
 
+from faucet import config_parser
 from faucet import config_parser_util
+from faucet import valve_acl
 from faucet import valve_of
 
 from clib.fakeoftable import CONTROLLER_PORT
@@ -186,7 +189,796 @@ dps:
 
     def test_change_vlan_acl(self):
         """Test vlan ACL change is detected."""
-        self.update_and_revert_config(self.CONFIG, self.MORE_CONFIG, "cold")
+        self.update_and_revert_config(self.CONFIG, self.MORE_CONFIG, "warm")
+
+
+class ValveRemovePortAclWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Removing all ACLs from a port warm-restarts and clears the
+    per-port ACL flows (no stale block-ping flow remaining)."""
+
+    CONFIG = (
+        """
+acls:
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [block-ping]
+            2:
+                native_vlan: office
+                acls_in: [block-ping]
+"""
+        % DP1_CONFIG
+    )
+
+    REMOVE_ACL_CONFIG = (
+        """
+acls:
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [block-ping]
+            2:
+                native_vlan: office
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Set up DP with two ports, both with the same port-level ACL."""
+        self.setup_valves(self.CONFIG)
+
+    def _port_acl_table_flows(self, port_num):
+        """Return all flows in port_acl_table that match in_port=port_num."""
+        valve = self.valves_manager.valves[self.DP_ID]
+        port_acl_table_id = valve.acl_manager.port_acl_table.table_id
+        ftes = self.network.tables[self.DP_ID].tables[port_acl_table_id]
+        results = []
+        for fte in ftes:
+            in_port_bits = fte.match_values.get("in_port")
+            if in_port_bits is None:
+                continue
+            try:
+                if int(in_port_bits.bin, 2) == port_num:
+                    results.append(fte)
+            except (AttributeError, ValueError):
+                pass
+        return results
+
+    def test_remove_port_acl(self):
+        """Removing port 2's ACL leaves no stale block-ping flow."""
+        port2_flows = self._port_acl_table_flows(2)
+        self.assertTrue(
+            any(
+                flow.match_values.get("ip_proto") is not None
+                and int(flow.match_values["ip_proto"].bin, 2) == 1
+                for flow in port2_flows
+            ),
+            "block-ping flow not present on port 2 before reload",
+        )
+
+        self.update_config(self.REMOVE_ACL_CONFIG, reload_type="warm")
+
+        port2_flows = self._port_acl_table_flows(2)
+        for flow in port2_flows:
+            ip_proto_bits = flow.match_values.get("ip_proto")
+            if ip_proto_bits is None:
+                continue
+            self.assertNotEqual(
+                int(ip_proto_bits.bin, 2),
+                1,
+                "stale block-ping flow remains on port 2 after warm reload: %s" % flow,
+            )
+
+
+class ValveAddPortAclToBarePortTestCase(ValveTestBases.ValveTestNetwork):
+    """Adding an ACL to a previously-bare port must warm-restart and
+    replace the default goto-vlan flow with the new ACL's flow."""
+
+    CONFIG = (
+        """
+acls:
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [block-ping]
+            2:
+                native_vlan: office
+"""
+        % DP1_CONFIG
+    )
+
+    ADD_ACL_CONFIG = (
+        """
+acls:
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [block-ping]
+            2:
+                native_vlan: office
+                acls_in: [block-ping]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Set up DP where port 1 has an ACL and port 2 does not."""
+        self.setup_valves(self.CONFIG)
+
+    def test_add_port_acl(self):
+        """Adding an ACL to a previously-bare port warm-restarts cleanly."""
+        self.update_and_revert_config(self.CONFIG, self.ADD_ACL_CONFIG, "warm")
+
+
+class ValveDiffAddmodsGroupModTestCase(unittest.TestCase):
+    """diff_addmods must tolerate OFPGroupMod entries in the addmod
+    list (produced by ACL rules with `failover` actions) instead of
+    AttributeError on .match / .cookie / etc. Group mods pass through
+    on the add side; old-side group mods are dropped."""
+
+    def test_groupmod_passthrough(self):
+        from os_ken.ofproto import (
+            ofproto_v1_3_parser as parser,
+        )  # pylint: disable=import-outside-toplevel
+
+        bucket = parser.OFPBucket(watch_port=1, actions=[parser.OFPActionOutput(1)])
+        group_add = parser.OFPGroupMod(
+            datapath=None,
+            command=ofp.OFPGC_ADD,
+            type_=ofp.OFPGT_FF,
+            group_id=42,
+            buckets=[bucket],
+        )
+        flow_add = parser.OFPFlowMod(
+            datapath=None,
+            cookie=0,
+            command=ofp.OFPFC_ADD,
+            table_id=0,
+            priority=100,
+            match=parser.OFPMatch(eth_type=0x800),
+            instructions=[],
+        )
+
+        dels, adds = valve_acl.diff_addmods(
+            lambda _tid: None,
+            old_addmods=[group_add, flow_add],
+            new_addmods=[group_add, flow_add],
+        )
+        # The group_add on new side flows through as an add; old side dropped.
+        self.assertIn(group_add, adds, "group mod should pass through as add")
+        self.assertEqual(
+            [],
+            dels,
+            "no flowdels expected when old and new are identical flows",
+        )
+
+
+class ValveGranularPortAclWarmReloadTestCase(ValveTestBases.ValveTestNetwork):
+    """Editing a single ACL rule emits one flowdel for the changed
+    rule's old form plus one flowmod for the new form. Unchanged rules
+    emit nothing (diff_addmods skips matching keys)."""
+
+    CONFIG = (
+        """
+acls:
+    multi-rule:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 80
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 443
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [multi-rule]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_CONFIG = (
+        """
+acls:
+    multi-rule:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 80
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 8080
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [multi-rule]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Set up DP with a port carrying a 4-rule ACL."""
+        self.setup_valves(self.CONFIG)
+
+    def test_granular_emits_old_dels_and_new_adds(self):
+        """Editing rule 2 emits exactly 1 flowdel for old rule 2 and 1
+        flowmod for new rule 2. Unchanged rules (tcp_dst=80, ip_proto=1,
+        default) emit nothing on either side -- the diff key for an
+        unchanged rule is identical between old and new addmod lists,
+        so diff_addmods skips it."""
+        valve = self.valves_manager.valves[self.DP_ID]
+        port_acl_table_id = valve.acl_manager.port_acl_table.table_id
+
+        self.update_config(self.NEW_CONFIG, reload_type="warm")
+
+        sent = self.last_flows_to_dp[self.DP_ID]
+        port_acl_msgs = [
+            msg
+            for msg in sent
+            if hasattr(msg, "table_id") and msg.table_id == port_acl_table_id
+        ]
+        old_rule2_dels = [
+            m
+            for m in port_acl_msgs
+            if m.command == ofp.OFPFC_DELETE_STRICT
+            and dict(m.match.items()).get("tcp_dst") == 443
+        ]
+        new_rule2_adds = [
+            m
+            for m in port_acl_msgs
+            if m.command == ofp.OFPFC_ADD
+            and dict(m.match.items()).get("tcp_dst") == 8080
+        ]
+        self.assertEqual(
+            1,
+            len(old_rule2_dels),
+            "expected exactly 1 flowdel for old rule 2 (tcp_dst=443)",
+        )
+        self.assertEqual(
+            1,
+            len(new_rule2_adds),
+            "expected exactly 1 flowmod for new rule 2 (tcp_dst=8080)",
+        )
+
+        # Unchanged rules: no flowmods or flowdels should reference them.
+        for unchanged_match in (
+            {"tcp_dst": 80},
+            {"ip_proto": 1, "tcp_dst": None},
+        ):
+            for msg in port_acl_msgs:
+                msg_match = dict(msg.match.items())
+                if "tcp_dst" in unchanged_match and unchanged_match["tcp_dst"] is None:
+                    if msg_match.get("ip_proto") == 1 and "tcp_dst" not in msg_match:
+                        self.fail(
+                            "unchanged ICMP rule emitted a flowmod/flowdel: %s" % msg
+                        )
+                elif msg_match.get("tcp_dst") == unchanged_match.get("tcp_dst"):
+                    self.fail(
+                        "unchanged rule (tcp_dst=%s) emitted a "
+                        "flowmod/flowdel: %s" % (unchanged_match["tcp_dst"], msg)
+                    )
+
+    def test_granular_reload_emits_only_delta(self):
+        """A 1-rule edit in a 4-rule ACL emits exactly 2 ofmsgs (1 del +
+        1 add) regardless of N. This property is what makes granular
+        reload viable for VLANs that carry hundreds of ACL rules: cost
+        scales with k (rules changed), not N (rules total)."""
+        valve = self.valves_manager.valves[self.DP_ID]
+        port_acl_table_id = valve.acl_manager.port_acl_table.table_id
+
+        self.update_config(self.NEW_CONFIG, reload_type="warm")
+
+        sent = self.last_flows_to_dp[self.DP_ID]
+        port_acl_msgs = [
+            msg
+            for msg in sent
+            if hasattr(msg, "table_id") and msg.table_id == port_acl_table_id
+        ]
+        self.assertEqual(
+            2,
+            len(port_acl_msgs),
+            "diff_addmods should emit exactly 1 del + 1 add for a "
+            "1-rule edit; got %d port_acl ofmsgs: %s"
+            % (len(port_acl_msgs), port_acl_msgs),
+        )
+
+
+class ValveAclActionOnlyChangeWarmReloadTestCase(ValveTestBases.ValveTestNetwork):
+    """When an ACL rule's match is unchanged but its action flips
+    (e.g. allow:0 -> allow:1), granular reload must still emit a
+    flowdel for the old form and a flowmod for the new. The diff key
+    must include instructions; otherwise the rule is mistakenly
+    considered unchanged and the old action stays on the wire.
+    Regression for FaucetStringOfDPACLOverrideTest."""
+
+    CONFIG = (
+        """
+acls:
+    override:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5001
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [override]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_CONFIG = (
+        """
+acls:
+    override:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5001
+            actions:
+                allow: 1
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [override]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Set up DP with a port-level ACL that blocks tcp_dst=5001."""
+        self.setup_valves(self.CONFIG)
+
+    def _tcp_dst_5001_inst(self):
+        """Return the instructions installed in port_acl_table for the
+        flow matching tcp_dst=5001. None if no such flow exists."""
+        valve = self.valves_manager.valves[self.DP_ID]
+        port_acl_table_id = valve.acl_manager.port_acl_table.table_id
+        ftes = self.network.tables[self.DP_ID].tables[port_acl_table_id]
+        for fte in ftes:
+            tcp_dst_bits = fte.match_values.get("tcp_dst")
+            if tcp_dst_bits is None:
+                continue
+            try:
+                if int(tcp_dst_bits.bin, 2) == 5001:
+                    return fte.instructions
+            except (AttributeError, ValueError):
+                pass
+        return None
+
+    def test_action_flip_takes_effect(self):
+        """The blocked rule (allow:0) installs no goto/apply-action
+        instructions; the allow rule (allow:1) installs at least one
+        instruction. After flipping the action, the on-wire flow's
+        instructions must reflect the NEW action -- otherwise the
+        granular reload silently kept the old action."""
+        before_inst = self._tcp_dst_5001_inst()
+        self.assertIsNotNone(before_inst, "blocked rule flow not installed")
+        before_inst_count = len(before_inst)
+
+        self.update_config(self.NEW_CONFIG, reload_type="warm")
+
+        after_inst = self._tcp_dst_5001_inst()
+        self.assertIsNotNone(after_inst, "rule flow disappeared after granular reload")
+        self.assertGreater(
+            len(after_inst),
+            before_inst_count,
+            "action flip allow:0 -> allow:1 did not change instructions; "
+            "granular reload missed the action change",
+        )
+
+    def test_action_flip_emits_one_add(self):
+        """Action-only change must emit exactly one OFPFC_ADD for the
+        changed rule's match -- the new rule's flowmod."""
+        valve = self.valves_manager.valves[self.DP_ID]
+        port_acl_table_id = valve.acl_manager.port_acl_table.table_id
+
+        self.update_config(self.NEW_CONFIG, reload_type="warm")
+
+        sent = self.last_flows_to_dp[self.DP_ID]
+        adds_for_5001 = [
+            msg
+            for msg in sent
+            if hasattr(msg, "table_id")
+            and msg.table_id == port_acl_table_id
+            and msg.command == ofp.OFPFC_ADD
+            and dict(msg.match.items()).get("tcp_dst") == 5001
+        ]
+        self.assertEqual(
+            1,
+            len(adds_for_5001),
+            "expected 1 flowmod for new action; got %d" % len(adds_for_5001),
+        )
+
+
+class ValveCombinedVlanAclAndConfigChangeTestCase(ValveTestBases.ValveTestNetwork):
+    """A VLAN with both ACL and non-ACL changes takes the heavy
+    reinstall path; granular ACL is skipped to avoid double-writing."""
+
+    CONFIG = (
+        """
+acls:
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+        description: "old"
+        acls_in: [block-ping]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_CONFIG = (
+        """
+acls:
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+        description: "new"
+        acls_in: [block-ping]
+        unicast_flood: false
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Set up DP with one VLAN carrying an ACL."""
+        self.setup_valves(self.CONFIG)
+
+    def test_combined_change_takes_heavy_path(self):
+        """ACL+config combined VLAN change still warm-restarts cleanly."""
+        self.update_and_revert_config(self.CONFIG, self.NEW_CONFIG, "warm")
+
+
+class ValveVlanAclEgressChangeTestCase(ValveTestBases.ValveTestNetwork):
+    """Granular warm reload must handle VLAN egress ACL changes
+    (acls_out) the same as ingress (acls_in)."""
+
+    CONFIG = (
+        """
+acls:
+    egress-block:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+        acls_out: [egress-block]
+dps:
+    s1:
+%s
+        egress_pipeline: True
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_CONFIG = (
+        """
+acls:
+    egress-block:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x800
+            ip_proto: 17
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+        acls_out: [egress-block]
+dps:
+    s1:
+%s
+        egress_pipeline: True
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Set up DP with VLAN egress ACL configured."""
+        self.setup_valves(self.CONFIG)
+
+    def _egress_acl_flows_with_ip_proto(self, ip_proto):
+        valve = self.valves_manager.valves[self.DP_ID]
+        egress_table_id = valve.acl_manager.egress_acl_table.table_id
+        ftes = self.network.tables[self.DP_ID].tables[egress_table_id]
+        results = []
+        for fte in ftes:
+            ip_proto_bits = fte.match_values.get("ip_proto")
+            if ip_proto_bits is None:
+                continue
+            try:
+                if int(ip_proto_bits.bin, 2) == ip_proto:
+                    results.append(fte)
+            except (AttributeError, ValueError):
+                pass
+        return results
+
+    def test_egress_acl_change(self):
+        """Editing rules of a VLAN egress ACL is warm-restartable."""
+        self.update_and_revert_config(self.CONFIG, self.NEW_CONFIG, "warm")
+
+    def test_egress_acl_new_rule_lands_in_egress_table(self):
+        """After adding a UDP-drop rule, the egress ACL table holds both
+        the unchanged ICMP flow and the new UDP flow."""
+        self.assertTrue(
+            self._egress_acl_flows_with_ip_proto(1),
+            "ICMP egress flow not present before reload",
+        )
+        self.assertFalse(
+            self._egress_acl_flows_with_ip_proto(17),
+            "UDP egress flow already present before reload",
+        )
+
+        self.update_config(self.NEW_CONFIG, reload_type="warm")
+
+        self.assertTrue(
+            self._egress_acl_flows_with_ip_proto(1),
+            "ICMP egress flow disappeared after granular warm reload",
+        )
+        self.assertTrue(
+            self._egress_acl_flows_with_ip_proto(17),
+            "UDP egress flow not installed after granular warm reload",
+        )
+
+
+class ValveVlanAclRuleRemovedWarmReloadTestCase(ValveTestBases.ValveTestNetwork):
+    """Granular VLAN ACL reload removes flows for rules dropped from
+    the new ACL -- not just additive. Symmetric to
+    ValveRemovePortAclWarmStartTestCase but for VLAN ACLs."""
+
+    CONFIG = (
+        """
+acls:
+    multi-rule:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x806
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+        acls_in: [multi-rule]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_CONFIG = (
+        """
+acls:
+    multi-rule:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+        acls_in: [multi-rule]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Set up DP with a VLAN ACL containing an ARP-drop rule."""
+        self.setup_valves(self.CONFIG)
+
+    def _vlan_acl_flows_with_dl_type(self, dl_type):
+        valve = self.valves_manager.valves[self.DP_ID]
+        vlan_acl_table_id = valve.acl_manager.vlan_acl_table.table_id
+        ftes = self.network.tables[self.DP_ID].tables[vlan_acl_table_id]
+        results = []
+        for fte in ftes:
+            eth_type_bits = fte.match_values.get("eth_type")
+            if eth_type_bits is None:
+                continue
+            try:
+                if int(eth_type_bits.bin, 2) == dl_type:
+                    results.append(fte)
+            except (AttributeError, ValueError):
+                pass
+        return results
+
+    def test_removed_rule_flow_disappears(self):
+        """Dropping the ARP rule from the VLAN ACL must clear the
+        corresponding flow from vlan_acl_table; the ICMP rule stays."""
+        self.assertTrue(
+            self._vlan_acl_flows_with_dl_type(0x806),
+            "ARP rule's flow not present before reload",
+        )
+        self.assertTrue(
+            self._vlan_acl_flows_with_dl_type(0x800),
+            "ICMP rule's flow not present before reload",
+        )
+
+        self.update_config(self.NEW_CONFIG, reload_type="warm")
+
+        self.assertFalse(
+            self._vlan_acl_flows_with_dl_type(0x806),
+            "stale ARP rule flow remains in vlan_acl_table after granular reload",
+        )
+        self.assertTrue(
+            self._vlan_acl_flows_with_dl_type(0x800),
+            "ICMP rule's flow disappeared after granular reload "
+            "(should be unchanged)",
+        )
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestNetwork):
@@ -585,6 +1377,785 @@ dps:
         verify_func()
         self.update_config(self.WARM_CONFIG, reload_type="warm")
         verify_func()
+
+
+class ValveChangeVIPWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test changing VIP address on a VLAN is a warm start."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_VIP_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.253/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_change_vip(self):
+        """Test changing a VIP address is warm startable."""
+        self.update_and_revert_config(self.CONFIG, self.NEW_VIP_CONFIG, "warm")
+
+
+class ValveChangeVIPSingleVLANAllPortsWarmStartTestCase(
+    ValveTestBases.ValveTestNetwork
+):
+    """VIP change on a DP whose only VLAN owns every port must warm restart."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: office
+            p2:
+                number: 2
+                native_vlan: office
+vlans:
+    office:
+        vid: 100
+        faucet_vips: ['10.0.0.1/24']
+        faucet_mac: '00:00:00:00:00:11'
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_VIP_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: office
+            p2:
+                number: 2
+                native_vlan: office
+vlans:
+    office:
+        vid: 100
+        faucet_vips: ['10.0.0.2/24']
+        faucet_mac: '00:00:00:00:00:11'
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_change_vip(self):
+        """Test changing a VIP address with single VLAN owning all ports is warm."""
+        self.update_and_revert_config(self.CONFIG, self.NEW_VIP_CONFIG, "warm")
+
+
+class ValveChangeRouterWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test changing router VLAN membership is a warm start."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+            p3:
+                number: 3
+                native_vlan: 0x300
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+    v300:
+        vid: 0x300
+        faucet_vips: ['10.0.2.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_ROUTER_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+            p3:
+                number: 3
+                native_vlan: 0x300
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+    v300:
+        vid: 0x300
+        faucet_vips: ['10.0.2.254/24']
+routers:
+    router1:
+        vlans: [v100, v200, v300]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_change_router_membership(self):
+        """Test changing router VLAN membership is warm startable."""
+        self.update_and_revert_config(self.CONFIG, self.NEW_ROUTER_CONFIG, "warm")
+
+
+class ValveAddRouterWithNewVlanWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """A router membership change that simultaneously adds a brand-new
+    VLAN must put the new VID in added_vlans only; the router-affected
+    expansion must not also place it in changed_vlans (otherwise the
+    valve.py reload path runs add_vlans for it twice)."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100, 0x200]
+            p2:
+                number: 2
+                tagged_vlans: [0x100, 0x200]
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100, 0x200, 0x300]
+            p2:
+                number: 2
+                tagged_vlans: [0x100, 0x200, 0x300]
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+    v300:
+        vid: 0x300
+        faucet_vips: ['10.0.2.254/24']
+routers:
+    router1:
+        vlans: [v100, v200, v300]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_disjoint_added_and_changed(self):
+        """get_config_changes must return v300 in added_vlans only,
+        not in changed_vlans."""
+        new_dp = _parse_dp(self.tmpdir, "new.yaml", self.NEW_CONFIG)
+        old_dp = self.valves_manager.valves[self.DP_ID].dp
+        changes = old_dp.get_config_changes(
+            self.valves_manager.valves[self.DP_ID].logger, new_dp
+        )
+        self.assertIn(0x300, changes.added_vlans, "new VID should land in added_vlans")
+        self.assertNotIn(
+            0x300,
+            changes.changed_vlans,
+            "new VID must not also be in changed_vlans (would cause "
+            "redundant add_vlans pass)",
+        )
+
+
+class ValveRouterAclCombinedChangeDisjointnessTestCase(ValveTestBases.ValveTestNetwork):
+    """When a router-membership change pulls a VID into changed_vlans via
+    affected-VLAN expansion, and that same VID's only direct change is an
+    ACL ref, the VID must end up in changed_vlans only -- not also in
+    changed_acl_vlans -- otherwise the heavy reinstall path and the
+    granular ACL path both fire and double-emit ACL flows."""
+
+    CONFIG = (
+        """
+acls:
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+        acls_in: [block-ping]
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100, 0x200]
+            p2:
+                number: 2
+                tagged_vlans: [0x100, 0x200]
+routers:
+    router1:
+        vlans: [v100]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_CONFIG = (
+        """
+acls:
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            actions:
+                allow: 0
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+        acls_in: [block-ping]
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [0x100, 0x200]
+            p2:
+                number: 2
+                tagged_vlans: [0x100, 0x200]
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_router_expansion_does_not_violate_disjointness(self):
+        new_dp = _parse_dp(self.tmpdir, "router_acl.yaml", self.NEW_CONFIG)
+        old_dp = self.valves_manager.valves[self.DP_ID].dp
+        changes = old_dp.get_config_changes(
+            self.valves_manager.valves[self.DP_ID].logger, new_dp
+        )
+        # Router membership expanded changed_vlans to include v100; v100 was
+        # also flagged as ACL-only. Disjointness must put it in the heavy
+        # path only.
+        self.assertIn(0x100, changes.changed_vlans, "router-affected VID missing")
+        self.assertNotIn(
+            0x100,
+            changes.changed_acl_vlans,
+            "VID is in BOTH changed_vlans (heavy reinstall) and "
+            "changed_acl_vlans (granular reload); both paths would fire "
+            "and double-emit ACL flows",
+        )
+
+
+def _parse_dp(tmpdir, filename, config):
+    """Parse `config` to a DP via dp_parser, using a temp file under tmpdir."""
+    path = os.path.join(tmpdir, filename)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(config)
+    _, _, dps, _ = config_parser.dp_parser(path, "test")
+    return dps[0]
+
+
+class ValveRemoveVIPWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test removing VIPs from a VLAN is a warm start (when routing tables remain)."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    LESS_VIP_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+routers:
+    router1:
+        vlans: [v100]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_remove_vip(self):
+        """Test removing VIPs from a VLAN is warm startable."""
+        self.update_and_revert_config(self.CONFIG, self.LESS_VIP_CONFIG, "warm")
+
+
+class ValveDeleteRoutedVLANTestCase(ValveTestBases.ValveTestNetwork):
+    """Test deleting a VLAN referenced by a router doesn't crash."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+            p3:
+                number: 3
+                native_vlan: 0x300
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+    v300:
+        vid: 0x300
+        faucet_vips: ['10.0.2.254/24']
+routers:
+    router1:
+        vlans: [v100, v200, v300]
+"""
+        % DP1_CONFIG
+    )
+
+    DELETE_VLAN_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_delete_routed_vlan(self):
+        """Test deleting a VLAN referenced by a router doesn't crash."""
+        self.update_and_revert_config(self.CONFIG, self.DELETE_VLAN_CONFIG, "cold")
+
+
+class ValveChangeIPv6VIPWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test changing an IPv6 VIP is a warm start."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
+    v200:
+        vid: 0x200
+        faucet_vips: ['fc00::2:254/112', 'fe80::2:254/64']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_VIP_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['fc00::1:253/112', 'fe80::1:254/64']
+    v200:
+        vid: 0x200
+        faucet_vips: ['fc00::2:254/112', 'fe80::2:254/64']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_change_ipv6_vip(self):
+        """Test changing an IPv6 VIP address is warm startable."""
+        self.update_and_revert_config(self.CONFIG, self.NEW_VIP_CONFIG, "warm")
+
+
+class ValveAddRouterWithExistingVipsWarmStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Adding a router when VLANs already have VIPs warm-restarts.
+    The "no existing routing tables" cold-start gate must NOT fire when
+    any OLD VLAN already has faucet_vips configured."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+"""
+        % DP1_CONFIG
+    )
+
+    ADD_ROUTER_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_add_router_with_existing_vips(self):
+        self.update_and_revert_config(self.CONFIG, self.ADD_ROUTER_CONFIG, "warm")
+
+
+class ValveAddRouterNoVipsColdStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Adding a router when no VLAN has VIPs must cold-restart.
+    The "no existing routing tables" gate exists because routing
+    infrastructure (FIB tables, VIP select_packets flows) has to be
+    built from scratch on first introduction."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+"""
+        % DP1_CONFIG
+    )
+
+    ADD_ROUTER_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+        faucet_vips: ['10.0.1.254/24']
+routers:
+    router1:
+        vlans: [v100, v200]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_add_router_no_old_vips(self):
+        self.update_and_revert_config(self.CONFIG, self.ADD_ROUTER_CONFIG, "cold")
+
+
+class ValveBGPColdStartTestCase(ValveTestBases.ValveTestNetwork):
+    """Test that BGP config changes still trigger cold start."""
+
+    CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+routers:
+    router1:
+        vlans: [v100, v200]
+        bgp:
+            as: 1
+            connect_mode: passive
+            neighbor_addresses: ['127.0.0.1']
+            neighbor_as: 2
+            port: 9179
+            routerid: '1.1.1.1'
+            server_addresses: ['127.0.0.1']
+            vlan: v100
+"""
+        % DP1_CONFIG
+    )
+
+    BGP_CHANGE_CONFIG = (
+        """
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+    v200:
+        vid: 0x200
+routers:
+    router1:
+        vlans: [v100, v200]
+        bgp:
+            as: 1
+            connect_mode: passive
+            neighbor_addresses: ['127.0.0.1']
+            neighbor_as: 3
+            port: 9179
+            routerid: '1.1.1.1'
+            server_addresses: ['127.0.0.1']
+            vlan: v100
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_bgp_change_cold_start(self):
+        """Test that changing BGP config still requires cold start."""
+        self.update_and_revert_config(self.CONFIG, self.BGP_CHANGE_CONFIG, "cold")
 
 
 class ValveDeleteVLANTestCase(ValveTestBases.ValveTestNetwork):

@@ -226,6 +226,16 @@ class ValvePipeline(ValveManagerBase):
             )
         ]
 
+    def remove_select(self, match_dict, priority_offset=0):
+        """Remove a select_packets rule from the classification table."""
+        return [
+            self.classification_table.flowdel(
+                self.classification_table.match(**match_dict),
+                priority=self.select_priority + priority_offset,
+                strict=True,
+            )
+        ]
+
     def remove_filter(self, match_dict, strict=True, priority_offset=0):
         """retrieve flow mods to remove a filter from the classification table"""
         priority = None

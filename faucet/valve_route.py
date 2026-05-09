@@ -489,6 +489,9 @@ class ValveRouteManager(ValveManagerBase):
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         raise NotImplementedError  # pragma: no cover
 
+    def _del_faucet_vip_nd(self, vlan, faucet_vip):
+        raise NotImplementedError  # pragma: no cover
+
     def add_vlan(self, vlan, cold_start):
         """Add a VLAN."""
         ofmsgs = []
@@ -508,8 +511,22 @@ class ValveRouteManager(ValveManagerBase):
     def del_vlan(self, vlan):
         """Delete a VLAN."""
         ofmsgs = []
-        if vlan.faucet_vips_by_ipv:
-            ofmsgs.append(self.fib_table.flowdel(match=self.fib_table.match(vlan=vlan)))
+        if vlan.faucet_vips_by_ipv(self.IPV):
+            # Remove select_packets for IP-to-faucet-mac (mirrors _add_faucet_fib_to_vip)
+            ofmsgs.extend(
+                self.pipeline.remove_select(
+                    {
+                        "eth_type": self.ETH_TYPE,
+                        "eth_dst": vlan.faucet_mac,
+                        "vlan": vlan,
+                    }
+                )
+            )
+        for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
+            # Remove select_packets for ND/ARP (mirrors _add_faucet_vip_nd)
+            ofmsgs.extend(self._del_faucet_vip_nd(vlan, faucet_vip))
+        # Remove FIB table flows for this VLAN
+        ofmsgs.append(self.fib_table.flowdel(match=self.fib_table.match(vlan=vlan)))
         return ofmsgs
 
     def _add_resolved_route(self, vlan, ip_gw, ip_dst, eth_dst, is_updated):
@@ -1003,6 +1020,12 @@ class ValveIPv4RouteManager(ValveRouteManager):
     def _vlan_nexthop_cache_limit(self, vlan):
         return vlan.proactive_arp_limit
 
+    def _del_faucet_vip_nd(self, vlan, faucet_vip):
+        # Remove select_packets for ARP (mirrors _add_faucet_vip_nd)
+        return self.pipeline.remove_select(
+            {"eth_type": valve_of.ether.ETH_TYPE_ARP, "vlan": vlan}
+        )
+
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         ofmsgs = []
         # ARP
@@ -1167,6 +1190,34 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _vlan_nexthop_cache_limit(self, vlan):
         return vlan.proactive_nd_limit
+
+    def _del_faucet_vip_nd(self, vlan, faucet_vip):
+        ofmsgs = []
+        faucet_vip_host_nd_mcast = valve_packet.ipv6_link_eth_mcast(
+            valve_packet.ipv6_solicited_node_from_ucast(faucet_vip.ip)
+        )
+        # Remove select_packets for router solicitation (link-local only)
+        if faucet_vip.ip.is_link_local:
+            ofmsgs.extend(
+                self.pipeline.remove_select(
+                    {
+                        "eth_type": self.ETH_TYPE,
+                        "eth_dst": valve_packet.IPV6_ALL_ROUTERS_MCAST,
+                        "vlan": vlan,
+                    }
+                )
+            )
+        # Remove select_packets for ND solicitation
+        ofmsgs.extend(
+            self.pipeline.remove_select(
+                {
+                    "eth_type": self.ETH_TYPE,
+                    "eth_dst": faucet_vip_host_nd_mcast,
+                    "vlan": vlan,
+                }
+            )
+        )
+        return ofmsgs
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         faucet_vip_host_nd_mcast = valve_packet.ipv6_link_eth_mcast(

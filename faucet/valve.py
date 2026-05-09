@@ -1569,42 +1569,52 @@ class Valve:
                 return True
         return False
 
+    def _apply_acl_diff(self, scope_label, scope_id, old_addmods, new_addmods):
+        """Diff old/new ACL addmods for one port or VLAN and return the
+        resulting flowdels + flowmods, logging the per-scope delta."""
+        table_lookup = (
+            self.acl_manager.table_for_id if self.acl_manager else lambda _: None
+        )
+        dels, adds = valve_acl.diff_addmods(
+            table_lookup, old_addmods, new_addmods, logger=self.logger
+        )
+        self.logger.info(
+            "%s %u ACL warm-reload: -%d +%d (old=%d new=%d total)"
+            % (
+                scope_label,
+                scope_id,
+                len(dels),
+                len(adds),
+                len(old_addmods),
+                len(new_addmods),
+            )
+        )
+        return dels + adds
+
     def _apply_config_changes(self, new_dp, changes, valves=None):
         """Apply any detected configuration changes.
 
         Args:
             new_dp: (DP): new dataplane configuration.
-            changes (tuple) of:
-                deleted_ports (set): deleted port numbers.
-                changed_ports (set): changed port numbers.
-                added_ports (set): added port numbers.
-                changed_acl_ports (set): changed ACL only port numbers.
-                deleted_vids (set): deleted VLAN IDs.
-                changed_vids (set): changed/added VLAN IDs.
-                all_ports_changed (bool): True if all ports changed.
-                all_meters_changed (bool): True if all meters changed.
-                deleted_meters: (set): deleted meter numbers.
-                changed_meters: (set): changed meter numbers.
-                added_meters: (set): added meter numbers.
+            changes (DPConfigChanges): output of DP.get_config_changes.
             valves (list): List of other running valves
         Returns:
             tuple:
                 restart_type (string or None)
                 ofmsgs (list): OpenFlow messages.
         """
-        (
-            deleted_ports,
-            changed_ports,
-            added_ports,
-            changed_acl_ports,
-            deleted_vids,
-            changed_vids,
-            all_ports_changed,
-            _,
-            deleted_meters,
-            added_meters,
-            changed_meters,
-        ) = changes
+        deleted_ports = changes.deleted_ports
+        changed_ports = changes.changed_ports
+        added_ports = changes.added_ports
+        changed_acl_ports = changes.changed_acl_ports
+        deleted_vids = changes.deleted_vlans
+        changed_vids = changes.changed_vlans
+        all_ports_changed = changes.all_ports_changed
+        deleted_meters = changes.deleted_meters
+        added_meters = changes.added_meters
+        changed_meters = changes.changed_meters
+        added_vids = changes.added_vlans
+        changed_acl_vlans = changes.changed_acl_vlans
         restart_type = "cold"
         ofmsgs = []
 
@@ -1629,6 +1639,20 @@ class Valve:
             self.dp_init(new_dp)
             return restart_type, ofmsgs
 
+        # Snapshot OLD-side ACL addmods (pure flowmod factories) before
+        # dp_init swaps acl_manager; diff against NEW-side snapshot after.
+        old_port_addmods = {}
+        old_vlan_addmods = {}
+        if self.acl_manager:
+            for port_num in changed_acl_ports:
+                old_port_addmods[port_num] = self.acl_manager.add_port(
+                    self.dp.ports[port_num]
+                )
+            for vid in changed_acl_vlans:
+                old_vlan_addmods[vid] = self.acl_manager.add_vlan(
+                    self.dp.vlans[vid], cold_start=False
+                )
+
         if deleted_ports:
             ofmsgs.extend(self.ports_delete(deleted_ports))
         if changed_ports:
@@ -1636,6 +1660,13 @@ class Valve:
         if deleted_vids:
             deleted_vlans = [self.dp.vlans[vid] for vid in deleted_vids]
             ofmsgs.extend(self.del_vlans(deleted_vlans))
+        # Delete changed VLANs BEFORE dp_init using OLD managers/VLAN objects
+        # so that old VIP/faucet_mac select_packets flows are properly cleaned up.
+        if changed_vids:
+            old_changed_vlans = [
+                self.dp.vlans[vid] for vid in changed_vids if vid in self.dp.vlans
+            ]
+            ofmsgs.extend(self.del_vlans(old_changed_vlans))
         # TODO: optimize for all meters being erased
         if changed_meters:
             # If a meter changed meter IDs, delete the old ID first and consider
@@ -1665,16 +1696,40 @@ class Valve:
                 port for port in changed_ports if port in self.dp.dyn_up_port_nos
             ]
             ofmsgs.extend(self.ports_add(all_up_port_nos))
-        if self.acl_manager and changed_acl_ports:
-            for port_num in changed_acl_ports:
-                port = self.dp.ports[port_num]
-                ofmsgs.extend(self.acl_manager.cold_start_port(port))
+        for port_num in changed_acl_ports:
+            ofmsgs.extend(
+                self._apply_acl_diff(
+                    "port",
+                    port_num,
+                    old_port_addmods.get(port_num, []),
+                    (
+                        self.acl_manager.add_port(self.dp.ports[port_num])
+                        if self.acl_manager
+                        else []
+                    ),
+                )
+            )
+        if added_vids:
+            new_added_vlans = [self.dp.vlans[vid] for vid in added_vids]
+            ofmsgs.extend(self.add_vlans(new_added_vlans, cold_start=True))
         if changed_vids:
-            changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
-            # TODO: handle change versus add separately so can avoid delete first.
-            ofmsgs.extend(self.del_vlans(changed_vlans))
-            # The proceeding delete operation means we don't have to generate more deletes.
+            changed_vlans = [
+                self.dp.vlans[vid] for vid in changed_vids if vid in self.dp.vlans
+            ]
             ofmsgs.extend(self.add_vlans(changed_vlans, cold_start=True))
+        for vid in changed_acl_vlans:
+            ofmsgs.extend(
+                self._apply_acl_diff(
+                    "VLAN",
+                    vid,
+                    old_vlan_addmods.get(vid, []),
+                    (
+                        self.acl_manager.add_vlan(self.dp.vlans[vid], cold_start=False)
+                        if self.acl_manager
+                        else []
+                    ),
+                )
+            )
         if self.stack_manager:
             ofmsgs.extend(self.stack_manager.add_tunnel_acls())
         return restart_type, ofmsgs

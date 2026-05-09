@@ -432,6 +432,49 @@ def add_mac_address_to_match(match, eth_src):
     return valve_of.match_from_dict(dict_match)
 
 
+def diff_addmods(table_lookup, old_addmods, new_addmods, logger=None):
+    """Return (flowdels, flowmods) for the rule-level delta.
+
+    Flowdels use OFPFC_DELETE_STRICT so a less-specific rule doesn't
+    wildcard-delete more specific ones sharing its match prefix.
+    Non-flowmod ofmsgs (e.g. OFPGroupMod from `failover` actions) are
+    passed through unchanged on the add side and dropped on the del side."""
+    flowkey = valve_of._flowmodkey  # pylint: disable=protected-access
+    old_flowmods = [m for m in old_addmods if valve_of.is_flowmod(m)]
+    new_flowmods = [m for m in new_addmods if valve_of.is_flowmod(m)]
+    new_non_flowmods = [m for m in new_addmods if not valve_of.is_flowmod(m)]
+    old_by_key = {flowkey(m): m for m in old_flowmods}
+    new_by_key = {flowkey(m): m for m in new_flowmods}
+    unchanged = old_by_key.keys() & new_by_key.keys()
+    dels_by_table_id = {}
+    for key, addmod in old_by_key.items():
+        if key in unchanged:
+            continue
+        dels_by_table_id.setdefault(addmod.table_id, []).append(addmod)
+    flowdels = []
+    for table_id, group in dels_by_table_id.items():
+        table = table_lookup(table_id)
+        if table is None:
+            if logger is not None:
+                logger.warning(
+                    "diff_addmods: no table for id %s; dropping %d flowdels "
+                    "(stale flows may remain on the wire)" % (table_id, len(group))
+                )
+            continue
+        flowdels.extend(
+            table.flowdel(
+                match=addmod.match,
+                priority=addmod.priority,
+                cookie=addmod.cookie,
+                strict=True,
+            )
+            for addmod in group
+        )
+    flowmods = [m for key, m in new_by_key.items() if key not in unchanged]
+    flowmods.extend(new_non_flowmods)
+    return flowdels, flowmods
+
+
 class ValveAclManager(ValveManagerBase):
     """Handle installation of ACLs on a DP"""
 
@@ -477,6 +520,17 @@ class ValveAclManager(ValveManagerBase):
     def _port_acls_allowed(self, port):
         return not self.dp_acls and not port.output_only and self.port_acl_table
 
+    def table_for_id(self, table_id):
+        """Return whichever ACL table (port, vlan, egress) has the given id."""
+        for table in (
+            self.port_acl_table,
+            self.vlan_acl_table,
+            self.egress_acl_table,
+        ):
+            if table is not None and table.table_id == table_id:
+                return table
+        return None
+
     def add_port(self, port):
         """Install port acls if configured"""
         ofmsgs = []
@@ -512,14 +566,6 @@ class ValveAclManager(ValveManagerBase):
         if self._port_acls_allowed(port):
             in_port_match = self.port_acl_table.match(in_port=port.number)
             ofmsgs.append(self.port_acl_table.flowdel(in_port_match, self.acl_priority))
-        return ofmsgs
-
-    def cold_start_port(self, port):
-        """Reload acl for a port by deleting existing rules and calling
-        add_port"""
-        ofmsgs = []
-        ofmsgs.extend(self.del_port(port))
-        ofmsgs.extend(self.add_port(port))
         return ofmsgs
 
     def del_vlan(self, vlan):

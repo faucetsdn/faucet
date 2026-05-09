@@ -19,7 +19,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from collections.abc import Iterable
 import copy
 import random
@@ -36,6 +36,26 @@ from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.valve_table import ValveTable, ValveGroupTable
 from faucet.stack import Stack
+
+
+DPConfigChanges = namedtuple(
+    "DPConfigChanges",
+    (
+        "deleted_ports",
+        "changed_ports",
+        "added_ports",
+        "changed_acl_ports",
+        "deleted_vlans",
+        "changed_vlans",
+        "all_ports_changed",
+        "all_meters_changed",
+        "deleted_meters",
+        "added_meters",
+        "changed_meters",
+        "added_vlans",
+        "changed_acl_vlans",
+    ),
+)
 
 
 # Documentation generated using documentation_generator.py
@@ -1484,7 +1504,12 @@ class DP(Conf):
         Returns:
             changes (tuple) of:
                 deleted_vlans (set): deleted VLAN IDs.
-                changed_vlans (set): changed/added VLAN IDs.
+                changed_vlans (set): VLAN IDs with non-ACL config changes.
+                added_vlans (set): added VLAN IDs.
+                changed_acl_vlans (set): VLAN IDs whose only change is an
+                    ACL ref/edit (provisional -- get_config_changes may
+                    reduce this if port-level detection promotes a VLAN
+                    into changed_vlans).
         """
         (
             _,
@@ -1499,27 +1524,34 @@ class DP(Conf):
             self.vlans,
             new_dp.vlans,
             diff=True,
-            ignore_keys=frozenset(["acls_in"]),
+            ignore_keys=frozenset(["acls_in", "acls_out"]),
         )
-        changed_vlans = added_vlans.union(changed_vlans)
-        # TODO: optimize for warm start.
+        changed_acl_vlans = set()
         for vlan_id in same_vlans:
             old_vlan = self.vlans[vlan_id]
             new_vlan = new_dp.vlans[vlan_id]
-            if self._acl_ref_changes(
-                "VLAN %u" % vlan_id, old_vlan, new_vlan, changed_acls, logger
-            ):
-                changed_vlans.add(vlan_id)
-        return (deleted_vlans, changed_vlans)
+            for attr in ("acls_in", "acls_out"):
+                if self._acl_ref_changes(
+                    "VLAN %u %s" % (vlan_id, attr),
+                    old_vlan,
+                    new_vlan,
+                    changed_acls,
+                    logger,
+                    acl_attr=attr,
+                ):
+                    changed_acl_vlans.add(vlan_id)
+        return (deleted_vlans, changed_vlans, added_vlans, changed_acl_vlans)
 
-    def _acl_ref_changes(self, conf_desc, old_conf, new_conf, changed_acls, logger):
+    def _acl_ref_changes(
+        self, conf_desc, old_conf, new_conf, changed_acls, logger, acl_attr="acls_in"
+    ):
         changed = False
-        new_acl_ids = new_conf.acls_in
+        new_acl_ids = getattr(new_conf, acl_attr, None)
         conf_acls_changed = set()
         if new_acl_ids:
             new_acl_ids = [acl._id for acl in new_acl_ids]
             conf_acls_changed = set(new_acl_ids).intersection(changed_acls)
-        old_acl_ids = old_conf.acls_in
+        old_acl_ids = getattr(old_conf, acl_attr, None)
         if old_acl_ids:
             old_acl_ids = [acl._id for acl in old_acl_ids]
         if conf_acls_changed:
@@ -1536,14 +1568,15 @@ class DP(Conf):
         return changed
 
     def _get_port_config_changes(
-        self, logger, new_dp, changed_vlans, deleted_vlans, changed_acls
+        self, logger, new_dp, changed_vlans, added_vlans, deleted_vlans, changed_acls
     ):
         """Detect any config changes to ports.
 
         Args:
             logger (ValveLogger): logger instance.
             new_dp (DP): new dataplane configuration.
-            changed_vlans (set): changed/added VLAN IDs.
+            changed_vlans (set): changed VLAN IDs.
+            added_vlans (set): added VLAN IDs.
             deleted_vlans (set): deleted VLAN IDs.
             changed_acls (set): changed/added ACL IDs.
         Returns:
@@ -1553,7 +1586,7 @@ class DP(Conf):
                 changed_ports (set): changed port numbers.
                 added_ports (set): added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
-                changed_vlans (set): changed/added VLAN IDs.
+                changed_vlans (set): changed VLAN IDs.
         """
         (
             _,
@@ -1588,18 +1621,27 @@ class DP(Conf):
             logger.info("Stack topology change detected, restarting stack ports")
             same_ports -= changed_ports
 
+        all_changed_or_added = changed_vlans | added_vlans
+        # Track VLANs changed by config (before port-level cross-VLAN detection)
+        config_changed_vlans = set(changed_vlans)
         if not same_ports:
             all_ports_changed = True
-        # TODO: optimize case where only VLAN ACL changed.
-        elif changed_vlans:
-            all_ports = frozenset(new_dp.ports.keys())
+        elif all_changed_or_added:
             new_changed_vlans = {
-                vlan for vlan in new_dp.vlans.values() if vlan.vid in changed_vlans
+                vlan
+                for vlan in new_dp.vlans.values()
+                if vlan.vid in all_changed_or_added
             }
             for vlan in new_changed_vlans:
                 changed_port_nums = {port.number for port in vlan.get_ports()}
                 changed_ports.update(changed_port_nums)
-            all_ports_changed = changed_ports == all_ports
+            # VID replacement restructures per-port classification flows;
+            # cold-start when the affected ports cover the DP. Pure config
+            # changes on existing VIDs are handled in the warm path.
+            if deleted_vlans and added_vlans:
+                all_ports = frozenset(new_dp.ports.keys())
+                if changed_ports == all_ports:
+                    all_ports_changed = True
 
         # Detect changes to VLANs and ACLs based on port changes.
         if not all_ports_changed:
@@ -1657,17 +1699,39 @@ class DP(Conf):
 
         same_ports -= changed_ports
         changed_vlans -= deleted_vlans
-        # TODO: limit scope to only routers that have affected VLANs.
-        changed_vlans_with_vips = []
-        for vid in changed_vlans:
-            vlan = new_dp.vlans[vid]
-            if vlan.faucet_vips:
-                changed_vlans_with_vips.append(vlan)
-        if changed_vlans_with_vips:
-            logger.info(
-                "forcing cold start because %s has routing" % changed_vlans_with_vips
-            )
-            all_ports_changed = True
+        changed_vlans -= added_vlans
+        # Sibling-VLAN expansion: a config-changed VLAN whose faucet_vips
+        # or faucet_mac shifted may have proactive-learn FIB entries on
+        # router-siblings that pointed at the old VIP/MAC; reinstall those
+        # too. Skip for other VLAN edits (description, max_hosts, etc.)
+        # since they don't invalidate sibling FIB. Skip for cross-VLAN
+        # port-detection promotions to avoid stacking-reparse feedback.
+        for vid in config_changed_vlans:
+            new_vlan = new_dp.vlans.get(vid)
+            old_vlan = self.vlans.get(vid)
+            if not (new_vlan and old_vlan and new_vlan.faucet_vips):
+                continue
+            if (
+                new_vlan.faucet_vips == old_vlan.faucet_vips
+                and new_vlan.faucet_mac == old_vlan.faucet_mac
+            ):
+                continue
+            for router in new_dp.routers.values():
+                if new_vlan in router.vlans:
+                    for sibling in router.vlans:
+                        changed_vlans.add(sibling.vid)
+        # Brand-new VIDs go through the added-VLAN path, not changed.
+        changed_vlans -= added_vlans
+        # Cross-VLAN-only detection on a routed set: force cold start to
+        # preserve historic behavior for stacking environments.
+        if changed_vlans and not config_changed_vlans and not added_vlans:
+            changed_vlans_with_vips = [
+                new_dp.vlans[vid]
+                for vid in changed_vlans
+                if vid in new_dp.vlans and new_dp.vlans[vid].faucet_vips
+            ]
+            if changed_vlans_with_vips:
+                all_ports_changed = True
 
         return (
             all_ports_changed,
@@ -1699,6 +1763,67 @@ class DP(Conf):
 
         return (all_meters_changed, deleted_meters, added_meters, changed_meters)
 
+    def _bgp_config_changed(self, new_dp):
+        """Return True if any router's BGP config changed."""
+        all_router_names = set(self.routers.keys()) | set(new_dp.routers.keys())
+        for rname in all_router_names:
+            old_router = self.routers.get(rname)
+            new_router = new_dp.routers.get(rname)
+            old_bgp = old_router.bgp if old_router else {}
+            new_bgp = new_router.bgp if new_router else {}
+            if old_bgp != new_bgp:
+                return True
+        return False
+
+    def _has_router_vlans_changed(self, new_dp):
+        """Return True if an existing router's resolved VID set changed.
+
+        Router.__eq__ compares orig_conf (VLAN names) and so misses pure
+        VID-renumbering on a name-stable router. Only detects changes on
+        routers present in both configs; add/remove handled elsewhere.
+        """
+        old_router_names = set(self.routers.keys())
+        new_router_names = set(new_dp.routers.keys())
+        if old_router_names != new_router_names:
+            return False
+        for rname in old_router_names:
+            old_vids = frozenset(v.vid for v in self.routers[rname].vlans)
+            new_vids = frozenset(v.vid for v in new_dp.routers[rname].vlans)
+            if old_vids != new_vids:
+                return True
+        return False
+
+    def _cold_start_changes(self):
+        return DPConfigChanges(
+            deleted_ports=set(),
+            changed_ports=set(),
+            added_ports=set(),
+            changed_acl_ports=set(),
+            deleted_vlans=set(),
+            changed_vlans=set(),
+            all_ports_changed=True,
+            all_meters_changed=True,
+            deleted_meters=set(),
+            added_meters=set(),
+            changed_meters=set(),
+            added_vlans=set(),
+            changed_acl_vlans=set(),
+        )
+
+    def _get_router_affected_vlans(self, new_dp):
+        """Return VIDs from all VLANs in any changed router (old + new)."""
+        affected_vids = set()
+        all_router_names = set(self.routers.keys()) | set(new_dp.routers.keys())
+        for rname in all_router_names:
+            old_router = self.routers.get(rname)
+            new_router = new_dp.routers.get(rname)
+            if old_router != new_router:
+                if old_router and old_router.vlans:
+                    affected_vids.update(v.vid for v in old_router.vlans)
+                if new_router and new_router.vlans:
+                    affected_vids.update(v.vid for v in new_router.vlans)
+        return affected_vids
+
     def get_config_changes(self, logger, new_dp):
         """Detect any config changes.
 
@@ -1706,19 +1831,21 @@ class DP(Conf):
             logger (ValveLogger): logger instance
             new_dp (DP): new dataplane configuration.
         Returns:
-            (tuple): changes tuple containing:
+            DPConfigChanges with fields:
 
                 deleted_ports (set): deleted port numbers.
                 changed_ports (set): changed port numbers.
                 added_ports (set): added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
                 deleted_vlans (set): deleted VLAN IDs.
-                changed_vlans (set): changed/added VLAN IDs.
+                changed_vlans (set): changed VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
                 all_meters_changed (bool): True if all meters changed
                 deleted_meters (set): deleted meter numbers
                 added_meters (set): Added meter numbers
                 changed_meters (set): changed/added meter numbers
+                added_vlans (set): added VLAN IDs.
+                changed_acl_vlans (set): VLAN IDs whose only change is an ACL ref or referenced ACL's contents; eligible for granular ACL warm reload.
         """
         if (
             new_dp.stack
@@ -1726,8 +1853,15 @@ class DP(Conf):
             and new_dp.stack.root_name != self.stack.root_name
         ):
             logger.info("Stack root change - requires cold start")
-        elif new_dp.routers != self.routers:
-            logger.info("DP routers config changed - requires cold start")
+        elif self._bgp_config_changed(new_dp):
+            logger.info("BGP config changed - requires cold start")
+        elif set(self.routers.keys()) != set(new_dp.routers.keys()) and not any(
+            vlan.faucet_vips for vlan in self.vlans.values()
+        ):
+            # Routers added/removed with no existing routing tables requires
+            # cold start. When routing tables already exist (VIPs configured),
+            # router additions/removals can warm-start.
+            logger.info("DP routers added/removed (no routing) - requires cold start")
         elif not self.ignore_subconf(
             new_dp, ignore_keys=["interfaces", "interface_ranges", "routers"]
         ):
@@ -1736,9 +1870,12 @@ class DP(Conf):
             )
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
-            deleted_vlans, changed_vlans = self._get_vlan_config_changes(
-                logger, new_dp, changed_acls
-            )
+            (
+                deleted_vlans,
+                changed_vlans,
+                added_vlans,
+                changed_acl_vlans,
+            ) = self._get_vlan_config_changes(logger, new_dp, changed_acls)
             (
                 all_meters_changed,
                 deleted_meters,
@@ -1753,35 +1890,55 @@ class DP(Conf):
                 changed_acl_ports,
                 changed_vlans,
             ) = self._get_port_config_changes(
-                logger, new_dp, changed_vlans, deleted_vlans, changed_acls
-            )
-            return (
-                deleted_ports,
-                changed_ports,
-                added_ports,
-                changed_acl_ports,
-                deleted_vlans,
+                logger,
+                new_dp,
                 changed_vlans,
-                all_ports_changed,
-                all_meters_changed,
-                deleted_meters,
-                added_meters,
-                changed_meters,
+                added_vlans,
+                deleted_vlans,
+                changed_acls,
             )
-        # default cold start
-        return (
-            set(),
-            set(),
-            set(),
-            set(),
-            set(),
-            set(),
-            True,
-            True,
-            set(),
-            set(),
-            set(),
-        )
+            # Non-BGP router changes: expand changed_vlans to the router's
+            # affected VIDs. VID replacement that covers all DP ports stays
+            # cold. Router.__eq__ compares orig_conf names so misses pure
+            # VID renumbers; _has_router_vlans_changed catches those.
+            if self._has_router_vlans_changed(new_dp) or (
+                new_dp.routers != self.routers
+            ):
+                if deleted_vlans and added_vlans:
+                    logger.info(
+                        "DP routers config changed with VLAN replacement"
+                        " - requires cold start"
+                    )
+                    all_ports_changed = True
+                else:
+                    logger.info("DP routers config changed - warm start")
+                    affected_vids = self._get_router_affected_vlans(new_dp)
+                    affected_vids -= deleted_vlans
+                    affected_vids -= added_vlans
+                    changed_vlans.update(affected_vids)
+            # Heavy reinstall covers ACL flows; keep changed_acl_vlans
+            # disjoint from changed_vlans so the two paths don't double-emit.
+            # Done after router expansion so any router-affected VID that's
+            # also in changed_acl_vlans falls into the heavy path only.
+            changed_acl_vlans -= changed_vlans
+            if changed_acl_vlans:
+                logger.info("VLANs where ACL only changed: %s" % changed_acl_vlans)
+            return DPConfigChanges(
+                deleted_ports=deleted_ports,
+                changed_ports=changed_ports,
+                added_ports=added_ports,
+                changed_acl_ports=changed_acl_ports,
+                deleted_vlans=deleted_vlans,
+                changed_vlans=changed_vlans,
+                all_ports_changed=all_ports_changed,
+                all_meters_changed=all_meters_changed,
+                deleted_meters=deleted_meters,
+                added_meters=added_meters,
+                changed_meters=changed_meters,
+                added_vlans=added_vlans,
+                changed_acl_vlans=changed_acl_vlans,
+            )
+        return self._cold_start_changes()
 
     def get_tables(self):
         """Return tables as dict for API call."""

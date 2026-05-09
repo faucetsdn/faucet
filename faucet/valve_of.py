@@ -1143,7 +1143,25 @@ def _partition_ofmsgs(input_ofmsgs):
 
 
 def _flowmodkey(ofmsg):
-    return (ofmsg.match, ofmsg.cookie, ofmsg.priority, ofmsg.table_id)
+    # Canonicalises match contents (frozenset of items) and instructions
+    # (tuple of str). OFPMatch and OFPInstruction both fall back to
+    # identity __eq__, so the prior key shape (ofmsg.match, ...) treated
+    # two semantically-identical flowmods built in different call chains
+    # as distinct -- silently breaking dedup and overlap-cancellation.
+    # Including instructions also matters for diff_addmods: an ACL rule
+    # whose match is unchanged but whose action flipped (allow:0 ->
+    # allow:1) would otherwise look identical to its old form and leave
+    # the old action on the wire. Touching the global key (rather than
+    # introducing a diff-only key) so the same canonicalisation applies
+    # everywhere flowmod equality matters -- dedup, overlap cancellation,
+    # and the diff path -- with one definition.
+    return (
+        frozenset(ofmsg.match.items()),
+        ofmsg.cookie,
+        ofmsg.priority,
+        ofmsg.table_id,
+        tuple(str(inst) for inst in ofmsg.instructions),
+    )
 
 
 def _none_flowmodkey(ofmsg):

@@ -268,9 +268,18 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
         return flowmod
 
     def flowdel(
-        self, match=None, priority=None, out_port=valve_of.ofp.OFPP_ANY, strict=False
+        self,
+        match=None,
+        priority=None,
+        out_port=valve_of.ofp.OFPP_ANY,
+        strict=False,
+        cookie=None,
     ):
-        """Delete matching flows from a table."""
+        """Delete matching flows from a table.
+
+        cookie is for the python-level overlap check in valve_flowreorder
+        only; OF-level deletion ignores cookie at cookie_mask=0.
+        """
         command = valve_of.ofp.OFPFC_DELETE
         if strict:
             command = valve_of.ofp.OFPFC_DELETE_STRICT
@@ -280,6 +289,7 @@ class ValveTable:  # pylint: disable=too-many-arguments,too-many-instance-attrib
             command=command,
             out_port=out_port,
             out_group=valve_of.ofp.OFPG_ANY,
+            cookie=cookie,
         )
 
     def flowdrop(self, match=None, priority=None, hard_timeout=0):

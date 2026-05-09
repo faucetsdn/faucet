@@ -4046,12 +4046,11 @@ dps:
         for new_dp in new_dps:
             valve = self.valves_manager.valves[new_dp.dp_id]
             changes = valve.dp.get_config_changes(valve.logger, new_dp)
-            changed_ports, all_ports_changed = changes[1], changes[6]
             for port in valve.dp.stack_ports():
-                if not all_ports_changed:
+                if not changes.all_ports_changed:
                     self.assertIn(
                         port.number,
-                        changed_ports,
+                        changes.changed_ports,
                         "Stack port not detected as changed on topology change",
                     )
 
@@ -4082,11 +4081,10 @@ dps:
         for new_dp in new_dps:
             valve = self.valves_manager.valves[new_dp.dp_id]
             changed = valve.dp.get_config_changes(valve.logger, new_dp)
-            changed_ports = changed[1]
             for port in valve.dp.stack_ports():
                 self.assertNotIn(
                     port.number,
-                    changed_ports,
+                    changed.changed_ports,
                     "Stack port detected as changed on non-topology change",
                 )
 
