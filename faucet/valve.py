@@ -1586,6 +1586,7 @@ class Valve:
                 deleted_meters: (set): deleted meter numbers.
                 changed_meters: (set): changed meter numbers.
                 added_meters: (set): added meter numbers.
+                changed_acl_vlans (set): changed ACL only VLAN IDs.
             valves (list): List of other running valves
         Returns:
             tuple:
@@ -1604,6 +1605,7 @@ class Valve:
             deleted_meters,
             added_meters,
             changed_meters,
+            changed_acl_vlans,
         ) = changes
         restart_type = "cold"
         ofmsgs = []
@@ -1628,6 +1630,14 @@ class Valve:
         if restart_type is None:
             self.dp_init(new_dp)
             return restart_type, ofmsgs
+
+        # Snapshot OLD acls_in lists before dp_init swaps self.dp.
+        old_port_acls = {
+            p: list(self.dp.ports[p].acls_in or []) for p in changed_acl_ports
+        }
+        old_vlan_acls = {
+            v: list(self.dp.vlans[v].acls_in or []) for v in changed_acl_vlans
+        }
 
         if deleted_ports:
             ofmsgs.extend(self.ports_delete(deleted_ports))
@@ -1665,10 +1675,48 @@ class Valve:
                 port for port in changed_ports if port in self.dp.dyn_up_port_nos
             ]
             ofmsgs.extend(self.ports_add(all_up_port_nos))
-        if self.acl_manager and changed_acl_ports:
+        # Each port/VLAN: del each old ACL + add each new ACL at the same
+        # priorities cold-start install would use, so remove_overlap_ofmsgs
+        # cancels the del+add pairs for unchanged ACL rules. Ports gaining
+        # or losing all ACLs flip the wildcard "in_port -> goto vlan" rule
+        # add_port installs, so they take cold_start_port instead.
+        if self.acl_manager:
             for port_num in changed_acl_ports:
-                port = self.dp.ports[port_num]
-                ofmsgs.extend(self.acl_manager.cold_start_port(port))
+                old = old_port_acls[port_num]
+                new = list(self.dp.ports[port_num].acls_in or [])
+                if not old or not new:
+                    ofmsgs.extend(
+                        self.acl_manager.cold_start_port(self.dp.ports[port_num])
+                    )
+                    continue
+                priority = self.acl_manager.acl_priority
+                for acl in old:
+                    ofmsgs.extend(
+                        self.acl_manager.del_port_acl(acl, port_num, priority=priority)
+                    )
+                    priority -= len(acl.rules)
+                priority = self.acl_manager.acl_priority
+                for acl in new:
+                    ofmsgs.extend(
+                        self.acl_manager.add_port_acl(acl, port_num, priority=priority)
+                    )
+                    priority -= len(acl.rules)
+            for vid in changed_acl_vlans:
+                vlan = self.dp.vlans[vid]
+                old = old_vlan_acls[vid]
+                new = list(vlan.acls_in or [])
+                priority = self.acl_manager.acl_priority
+                for acl in old:
+                    ofmsgs.extend(
+                        self.acl_manager.del_vlan_acl(acl, vlan, priority=priority)
+                    )
+                    priority -= len(acl.rules)
+                priority = self.acl_manager.acl_priority
+                for acl in new:
+                    ofmsgs.extend(
+                        self.acl_manager.add_vlan_acl(acl, vlan, priority=priority)
+                    )
+                    priority -= len(acl.rules)
         if changed_vids:
             changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
             # TODO: handle change versus add separately so can avoid delete first.

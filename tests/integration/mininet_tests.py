@@ -3297,7 +3297,7 @@ acls:
             new_yaml_acl_conf,
             self.acl_config_file,  # pytype: disable=attribute-error
             restart=True,
-            cold_start=True,
+            cold_start=False,
         )
         self.wait_until_matching_flow({"dl_type": 0x800}, table_id=self._VLAN_ACL_TABLE)
         self.wait_until_matching_flow({"dl_type": 0x806}, table_id=self._VLAN_ACL_TABLE)
@@ -3307,7 +3307,7 @@ acls:
             orig_yaml_acl_conf,
             self.acl_config_file,  # pytype: disable=attribute-error
             restart=True,
-            cold_start=True,
+            cold_start=False,
         )
         self.wait_until_matching_flow({"dl_type": 0x800}, table_id=self._VLAN_ACL_TABLE)
         self.wait_until_no_matching_flow(
@@ -3862,6 +3862,200 @@ class FaucetConfigReloadMACFlushTest(FaucetConfigReloadTestBase):
             actions=["SET_FIELD: {vlan_vid:4296}"],
         )
         self.assertLess(len(self.scrape_prometheus(var="learned_l2_port")), 4)
+
+
+class FaucetConfigReloadVlanAclChangeTest(FaucetConfigReloadTestBase):
+    """Warm-reload of a VLAN ACL: changing one rule inside an ACL
+    referenced by a VLAN should keep the unchanged rule's flow and
+    install the new rule's flow."""
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "office network"
+        acls_in: [vlan-block-icmp]
+"""
+    ACL = """
+acls:
+    vlan-block-icmp:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+            %(port_2)d:
+                native_vlan: 100
+            %(port_3)d:
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    NEW_ACL = """
+acls:
+    vlan-block-icmp:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x806
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+"""
+
+    def test_vlan_acl_warm_reload(self):
+        self.wait_until_matching_flow(
+            {"dl_type": 0x800, "ip_proto": 1},
+            table_id=self._VLAN_ACL_TABLE,
+        )
+
+        new_yaml_acl_conf = yaml_load(self.NEW_ACL)
+        self.reload_conf(
+            new_yaml_acl_conf,
+            self.acl_config_file,  # pytype: disable=attribute-error
+            restart=True,
+            cold_start=False,
+        )
+
+        self.wait_until_matching_flow(
+            {"dl_type": 0x800, "ip_proto": 1},
+            table_id=self._VLAN_ACL_TABLE,
+        )
+        self.wait_until_matching_flow(
+            {"dl_type": 0x806},
+            table_id=self._VLAN_ACL_TABLE,
+        )
+
+
+class FaucetConfigReloadPortAclRemoveTest(FaucetConfigReloadTestBase):
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "office network"
+"""
+    ACL = """
+acls:
+    block-ssl:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 443
+            actions:
+                allow: 0
+    block-http:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 80
+            actions:
+                allow: 0
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acls_in: [block-ping]
+            %(port_2)d:
+                native_vlan: 100
+                acls_in: [block-ping, block-http, block-ssl]
+            %(port_3)d:
+                native_vlan: 100
+"""
+
+    def test_remove_port_acl(self):
+        hup = not self.STAT_RELOAD
+        in_port_2_match = {
+            "in_port": int(self.port_map["port_2"]),
+            "eth_type": 0x800,
+            "ip_proto": 1,
+        }
+        self.wait_until_matching_flow(in_port_2_match, table_id=self._PORT_ACL_TABLE)
+
+        self.change_port_config(
+            self.port_map["port_2"],
+            "acls_in",
+            ["block-http", "block-ssl"],
+            restart=True,
+            cold_start=False,
+            hup=hup,
+        )
+
+        self.wait_until_no_matching_flow(
+            in_port_2_match, table_id=self._PORT_ACL_TABLE, timeout=30
+        )
+
+
+class FaucetConfigReloadPortAclRemoveAllTest(FaucetConfigReloadTestBase):
+    """Removing the last ACL from a port must wipe its flows, not leave
+    them stale behind the wildcard rule that add_port installs in their
+    place."""
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "office network"
+"""
+    ACL = """
+acls:
+    block-ping:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 1
+            actions:
+                allow: 0
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acls_in: [block-ping]
+            %(port_2)d:
+                native_vlan: 100
+                acls_in: [block-ping]
+            %(port_3)d:
+                native_vlan: 100
+"""
+
+    def test_remove_all_port_acls(self):
+        hup = not self.STAT_RELOAD
+        in_port_1_match = {
+            "in_port": int(self.port_map["port_1"]),
+            "eth_type": 0x800,
+            "ip_proto": 1,
+        }
+        self.wait_until_matching_flow(in_port_1_match, table_id=self._PORT_ACL_TABLE)
+
+        self.change_port_config(
+            self.port_map["port_1"],
+            "acls_in",
+            [],
+            restart=True,
+            cold_start=False,
+            hup=hup,
+        )
+
+        self.wait_until_no_matching_flow(
+            in_port_1_match, table_id=self._PORT_ACL_TABLE, timeout=30
+        )
 
 
 class FaucetConfigReloadEmptyAclTest(FaucetConfigReloadTestBase):

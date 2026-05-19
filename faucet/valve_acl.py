@@ -402,15 +402,15 @@ def build_acl_ofmsgs(
     return ofmsgs
 
 
-def build_acl_port_of_msgs(acl, vid, port_num, acl_table, goto_table, priority):
+def build_acl_port_of_msgs(acl, vid, port_num, acl_table, pipeline, priority):
     """A Helper function for building Openflow Mod Messages for Port ACLs"""
     ofmsgs = None
     if acl.rules:
         ofmsgs = build_acl_ofmsgs(
             [acl],
             acl_table,
-            [valve_of.goto_table(goto_table)],
-            [valve_of.goto_table(goto_table)],
+            pipeline.accept_to_vlan(),
+            pipeline.accept_to_l2_forwarding(),
             priority,
             acl.meter,
             acl.exact_match,
@@ -511,7 +511,10 @@ class ValveAclManager(ValveManagerBase):
         ofmsgs = []
         if self._port_acls_allowed(port):
             in_port_match = self.port_acl_table.match(in_port=port.number)
-            ofmsgs.append(self.port_acl_table.flowdel(in_port_match, self.acl_priority))
+            # Priority-less so the flowmodkey differs from the acl_priority
+            # wildcard add_port emits when acls_in is empty -- otherwise
+            # remove_overlap_ofmsgs would cancel this delete.
+            ofmsgs.append(self.port_acl_table.flowdel(in_port_match))
         return ofmsgs
 
     def cold_start_port(self, port):
@@ -599,7 +602,7 @@ class ValveAclManager(ValveManagerBase):
             )
         ]
 
-    def del_port_acl(self, acl, port_num, mac=None):
+    def del_port_acl(self, acl, port_num, mac=None, priority=None):
         """Delete ACL rules for Port"""
 
         def convert_to_flow_del(ofp_flowmods):
@@ -613,36 +616,63 @@ class ValveAclManager(ValveManagerBase):
 
             return flowdels
 
-        pipeline_vlan_table = self.pipeline.vlan_table
+        if priority is None:
+            priority = self.auth_priority
         flowmods = build_acl_port_of_msgs(
             acl,
             None,
             port_num,
             self.port_acl_table,
-            pipeline_vlan_table,
-            self.auth_priority,
+            self.pipeline,
+            priority,
         )
         for flow in flowmods:
             flow.match = add_mac_address_to_match(flow.match, mac)
 
         return convert_to_flow_del(flowmods)
 
-    def add_port_acl(self, acl, port_num, mac=None):
+    def add_port_acl(self, acl, port_num, mac=None, priority=None):
         """Create ACL openflow rules for Port"""
-        pipeline_vlan_table = self.pipeline.vlan_table
+        if priority is None:
+            priority = self.auth_priority
         flowmods = build_acl_port_of_msgs(
             acl,
             None,
             port_num,
             self.port_acl_table,
-            pipeline_vlan_table,
-            self.auth_priority,
+            self.pipeline,
+            priority,
         )
 
         for flow in flowmods:
             flow.match = add_mac_address_to_match(flow.match, mac)
 
         return flowmods
+
+    def add_vlan_acl(self, acl, vlan, priority=None):
+        """Create ACL openflow rules for a single VLAN ACL."""
+        if not acl.rules:
+            return []
+        if priority is None:
+            priority = self.acl_priority
+        return build_acl_ofmsgs(
+            [acl],
+            self.vlan_acl_table,
+            self.pipeline.accept_to_classification(),
+            self.pipeline.accept_to_l2_forwarding(),
+            priority,
+            acl.meter,
+            acl.exact_match,
+            vlan_vid=vlan.vid,
+        )
+
+    def del_vlan_acl(self, acl, vlan, priority=None):
+        """Delete ACL rules for a single VLAN ACL."""
+        flowmods = self.add_vlan_acl(acl, vlan, priority=priority)
+        return [
+            self.vlan_acl_table.flowdel(match=fm.match, priority=fm.priority)
+            for fm in flowmods
+        ]
 
     def create_dot1x_flow_pair(self, port_num, nfv_sw_port_num, mac):
         """Create dot1x flow pair"""

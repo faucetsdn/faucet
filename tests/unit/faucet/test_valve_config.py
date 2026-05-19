@@ -185,8 +185,72 @@ dps:
         self.setup_valves(self.CONFIG)
 
     def test_change_vlan_acl(self):
-        """Test vlan ACL change is detected."""
-        self.update_and_revert_config(self.CONFIG, self.MORE_CONFIG, "cold")
+        """Test vlan ACL change warm-reloads (per-ACL del+add)."""
+        self.update_and_revert_config(self.CONFIG, self.MORE_CONFIG, "warm")
+
+
+class ValveRemoveAllPortACLsTestCase(ValveTestBases.ValveTestNetwork):
+    """Removing the last ACL from a port that shares its ACL with
+    another port must warm-reload, not strand the old ACL flows."""
+
+    CONFIG = (
+        """
+acls:
+  block-ping:
+  - rule:
+      eth_type: 0x0800
+      ip_proto: 1
+      actions:
+        allow: 0
+vlans:
+  vlan1:
+    vid: 10
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+                acls_in: [block-ping]
+            2:
+                native_vlan: vlan1
+                acls_in: [block-ping]
+"""
+        % DP1_CONFIG
+    )
+
+    NEW_CONFIG = (
+        """
+acls:
+  block-ping:
+  - rule:
+      eth_type: 0x0800
+      ip_proto: 1
+      actions:
+        allow: 0
+vlans:
+  vlan1:
+    vid: 10
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan1
+                acls_in: [block-ping]
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_remove_all_port_acls(self):
+        """Test removing the last ACL from a port warm-reloads."""
+        self.update_and_revert_config(self.CONFIG, self.NEW_CONFIG, "warm")
 
 
 class ValveChangePortTestCase(ValveTestBases.ValveTestNetwork):

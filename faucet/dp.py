@@ -1485,6 +1485,7 @@ class DP(Conf):
             changes (tuple) of:
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed/added VLAN IDs.
+                changed_acl_vlans (dict): {vid: (old_acls, new_acls)}.
         """
         (
             _,
@@ -1502,15 +1503,17 @@ class DP(Conf):
             ignore_keys=frozenset(["acls_in"]),
         )
         changed_vlans = added_vlans.union(changed_vlans)
-        # TODO: optimize for warm start.
+        changed_acl_vlans = set()
         for vlan_id in same_vlans:
             old_vlan = self.vlans[vlan_id]
             new_vlan = new_dp.vlans[vlan_id]
             if self._acl_ref_changes(
                 "VLAN %u" % vlan_id, old_vlan, new_vlan, changed_acls, logger
             ):
-                changed_vlans.add(vlan_id)
-        return (deleted_vlans, changed_vlans)
+                changed_acl_vlans.add(vlan_id)
+        if changed_acl_vlans:
+            logger.info("VLANs where ACL only changed: %s" % changed_acl_vlans)
+        return (deleted_vlans, changed_vlans, changed_acl_vlans)
 
     def _acl_ref_changes(self, conf_desc, old_conf, new_conf, changed_acls, logger):
         changed = False
@@ -1719,6 +1722,7 @@ class DP(Conf):
                 deleted_meters (set): deleted meter numbers
                 added_meters (set): Added meter numbers
                 changed_meters (set): changed/added meter numbers
+                changed_acl_vlans (set): changed ACL only VLAN IDs.
         """
         if (
             new_dp.stack
@@ -1736,9 +1740,11 @@ class DP(Conf):
             )
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
-            deleted_vlans, changed_vlans = self._get_vlan_config_changes(
-                logger, new_dp, changed_acls
-            )
+            (
+                deleted_vlans,
+                changed_vlans,
+                changed_acl_vlans,
+            ) = self._get_vlan_config_changes(logger, new_dp, changed_acls)
             (
                 all_meters_changed,
                 deleted_meters,
@@ -1767,6 +1773,7 @@ class DP(Conf):
                 deleted_meters,
                 added_meters,
                 changed_meters,
+                changed_acl_vlans,
             )
         # default cold start
         return (
@@ -1778,6 +1785,7 @@ class DP(Conf):
             set(),
             True,
             True,
+            set(),
             set(),
             set(),
             set(),
