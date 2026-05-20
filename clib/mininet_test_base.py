@@ -987,9 +987,11 @@ class FaucetTestBase(unittest.TestCase):
         for _, debug_log in ofchannel_logs:
             for _ in range(60 * 4):
                 if os.path.exists(debug_log) and os.path.getsize(debug_log) > 0:
-                    return True
+                    break
                 time.sleep(0.25)
-        return False
+            else:
+                return False
+        return True
 
     def verify_no_exception(self, exception_log_name):
         if not os.path.exists(exception_log_name):
@@ -1520,8 +1522,13 @@ dbs:
                 return False
         return True
 
-    def scrape_port_counters(self, ports, port_vars):
-        """Scrape Gauge for list of ports and list of variables."""
+    def scrape_port_counters(self, ports, port_vars, assert_present=True):
+        """Scrape Gauge for list of ports and list of variables.
+
+        If ``assert_present`` is False, missing counters / speed / state values
+        are returned as None instead of failing the test — callers use this to
+        poll until the gauge has completed its first watcher cycle.
+        """
         port_counters = {port: {} for port in ports}
         for port in ports:
             port_labels = self.port_labels(self.port_map[port])
@@ -1533,7 +1540,10 @@ dbs:
                     dpid=True,
                     retries=3,
                 )
-                self.assertIsNotNone(val, "%s missing for port %s" % (port_var, port))
+                if assert_present:
+                    self.assertIsNotNone(
+                        val, "%s missing for port %s" % (port_var, port)
+                    )
                 port_counters[port][port_var] = val
             # Require port to be up and reporting non-zero speed.
             speed = self.scrape_prometheus_var(
@@ -1542,20 +1552,22 @@ dbs:
                 controller=self.gauge_controller.name,
                 retries=3,
             )
-            self.assertTrue(
-                speed and speed > 0,
-                msg="%s %s: %s" % ("of_port_curr_speed", port_labels, speed),
-            )
+            if assert_present:
+                self.assertTrue(
+                    speed and speed > 0,
+                    msg="%s %s: %s" % ("of_port_curr_speed", port_labels, speed),
+                )
             state = self.scrape_prometheus_var(
                 "of_port_state",
                 labels=port_labels,
                 controller=self.gauge_controller.name,
                 retries=3,
             )
-            self.assertFalse(
-                state & ofp.OFPPS_LINK_DOWN,
-                msg="%s %s: %s" % ("of_port_state", port_labels, state),
-            )
+            if assert_present:
+                self.assertFalse(
+                    state & ofp.OFPPS_LINK_DOWN,
+                    msg="%s %s: %s" % ("of_port_state", port_labels, state),
+                )
         return port_counters
 
     def wait_ports_updating(self, ports, port_vars, stimulate_counters_func=None):
@@ -1563,8 +1575,26 @@ dbs:
         if stimulate_counters_func is None:
             stimulate_counters_func = self.ping_all_when_learned
         ports_not_updated = set(ports)
-        first_counters = self.scrape_port_counters(ports_not_updated, port_vars)
         start_time = time.time()
+
+        # The gauge watcher can take up to one poll interval after the DP comes
+        # up to scrape port stats and export them to Prometheus. Wait for the
+        # baseline counters to appear before requiring them to increase, so the
+        # initial scrape doesn't race the watcher's first poll.
+        first_counters = self.scrape_port_counters(
+            ports_not_updated, port_vars, assert_present=False
+        )
+        for _ in range(self.DB_TIMEOUT * 3):
+            if all(
+                first_counters[port].get(var) is not None
+                for port in ports_not_updated
+                for var in port_vars
+            ):
+                break
+            time.sleep(1)
+            first_counters = self.scrape_port_counters(
+                ports_not_updated, port_vars, assert_present=False
+            )
 
         for _ in range(self.DB_TIMEOUT * 3):
             stimulate_counters_func()
