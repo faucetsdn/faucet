@@ -3,8 +3,13 @@
     "cSpell.words": [
         "DPID",
         "getpid",
+        "GETPORT",
         "popleft",
         "PUTPORTS",
         "serialno"
-    ]
+    ],
+    "accessibility.signalOptions.experimental.delays.errorAtPosition": {
+        "announcement": 3000
+    },
+    "accessibility.signalOptions.debouncePositionChanges": true
 }

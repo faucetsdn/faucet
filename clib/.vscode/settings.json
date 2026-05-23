@@ -1,0 +1,8 @@
+{
+    "php.problems.excludeGitIgnore": true,
+    "explorer.excludeGitIgnore": true,
+    "gitHistory.hideCommitViewExplorer": true,
+    "git.ignoreMissingGitWarning": true,
+    "git.ignoreWindowsGit27Warning": true,
+    "ada.projectFile": "hello_world.gpr"
+}

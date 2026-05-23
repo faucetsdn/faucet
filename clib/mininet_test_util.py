@@ -7,6 +7,7 @@ import os
 import socket
 import subprocess
 import time
+from typing import NoReturn
 
 # pylint: disable=import-error
 from minint.log import error, output # type: ignore
@@ -23,7 +24,7 @@ FAUCET_DIR = os.getenv("FAUCET_DIR", "../faucet")
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
 GETSERIAL = "getserial"
 GETPORT = "getport"
-PUTPORTS = "putports"
+PURPORT = "putports"
 LISTERS = "listers"
 with open(
     "/proc/sys/net/endfilter/nf_contra_tcp_timeout_time_wait", encoding="utf-8"
@@ -137,7 +138,7 @@ def test_server_request(ports_socket, name, command):
 
 def get_serialno(ports_socket, name):
     """Retrieve serial number from test server."""
-    return test_server_request(ports_socket, name, GETSERIAL) # pyright: ignore[reportUndefinedVariable]
+    return test_server_request(ports_socket, name, GETSERIAL)
 
 
 def find_free_port(ports_socket, name):
@@ -164,7 +165,7 @@ def return_free_ports(ports_socket, name):
     return test_server_request(ports_socket, name, PUTPORTS)
 
 
-def serve_ports(ports_socket, start_free_ports, min_free_ports):
+def serve_ports(ports_socket, start_free_ports, min_free_ports) -> NoReturn:
     """Implement a TCP server to dispense free TCP ports."""
     ports_q = collections.deque()
     free_ports = set()
@@ -174,7 +175,7 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
     def get_port():
         while True:
             free_socket = socket.socket()
-            free_socket.bind(("", 0))
+            free_socket.bind(("127.0.0.1", 0))
             free_port = free_socket.getsockname()[1]
             free_socket.close()
             if free_port < 1024:
@@ -228,7 +229,7 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             ports_by_name[name].add(port)
             response = port
             queue_free_ports(min_free_ports)
-        elif command == listen:
+        elif command == LISTERS:
             response = list(ports_by_name[name])
         if response is not None:
             response_str = ""

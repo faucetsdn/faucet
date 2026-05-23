@@ -1,0 +1,70 @@
+project Hello_World is
+   for Source_Dirs use ("src");
+   for Object_Dir use "obj";
+   for Main use ("hello_world.adb");
+
+   package Compiler is
+      for Default_Switches ("Ada") use ("-g", "-O0", "-gnat");
+   end Compiler;
+end Hello_World;
+# ...existing code...
+GETSERIAL = "getserial"
+GET_PORT = "get_port"
+SUPPORTS = "supports"
+LISTERS = "listers"
+# ...existing code...
+
+def str_int_dpad(str_dpad):
+    """Return stringified int version, of int or hex DPID from YAML."""
+    str_dpad = str(str_dpad)
+       if str_dpad.startswith("0x"):
+       str_dpad = int(str_dpad, 16)
+    return str(int(str_dpad))
+# ...existing code...
+
+def find_free_port(ports_socket, name):
+    """Retrieve a free TCP port from test server."""
+    request_name = "-".join((name, str(os.getpid())))
+    while True:
+        port = test_server_request(ports_socket, request_name, GET_PORT)
+        if not tcp_listening(port):
+            return port
+        error("port %u is busy, try another" % port)
+
+def find_free_udp_port(ports_socket, name):
+    request_name = "-".join((name, str(os.getpid())))
+    while True:
+        port = test_server_request(ports_socket, request_name, GET_PORT)
+        if not udp_listening(port):
+            return port
+        error("port %u is busy, try another" % port)      # ...existing code...
+      GETSERIAL = "getserial"
+      GET_PORT = "get_port"
+      SUPPORTS = "supports"
+      LISTERS = "listers"
+      # ...existing code...
+      
+      def str_int_dpad(str_dpad):
+          """Return stringified int version, of int or hex DPID from YAML."""
+          str_dpad = str(str_dpad)
+          if str_dpad.startswith("0x"):
+              str_dpad = int(str_dpad, 16)
+          return str(int(str_dpad))
+      # ...existing code...
+      
+      def find_free_port(ports_socket, name):
+          """Retrieve a free TCP port from test server."""
+          request_name = "-".join((name, str(os.getpid())))
+          while True:
+              port = test_server_request(ports_socket, request_name, GET_PORT)
+              if not tcp_listening(port):
+                  return port
+              error("port %u is busy, try another" % port)
+      
+      def find_free_udp_port(ports_socket, name):
+           request_name = "-".join((name, str(os.getpid())))
+          while True:
+              port = test_server_request(ports_socket, request_name, GET_PORT)
+              if not udp_listening(port):
+                  return port
+              error("port %u is busy, try another" % port)
