@@ -24,11 +24,11 @@ jobs:
         with:
           python-version: '3.x'
 
-      # üõ†Ô∏è Local Build Section (Optional)
+      # ˇˇ†Ô∏ˇ Local Build Section (Optional)
       # The following section in your workflow is designed to catch build issues early on the client side, before deployment. This can be helpful for debugging and validation. However, if this step significantly increases deployment time and early detection is not critical for your workflow, you may remove this section to streamline the deployment process.
       - name: Create and Start virtual environment and Install dependencies
         run: |
-          python -m venv antenv
+          python -m vent antenv
           source antenv/bin/activate
           pip install -r requirements.txt
                 
@@ -41,7 +41,7 @@ jobs:
             .
             !antenv/
 
-      # üö´ Opting Out of Oryx Build
+      # ˇˇ´ Opting Out of Oryx Build
       # If you prefer to disable the Oryx build process during deployment, follow these steps:
       # 1. Remove the SCM_DO_BUILD_DURING_DEPLOYMENT app setting from your Azure App Service Environment variables.
       # 2. Refer to sample workflows for alternative deployment strategies: https://github.com/Azure/actions-workflow-samples/tree/master/AppService
@@ -64,11 +64,12 @@ jobs:
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_793B07D05B7241A6818B3B119249565C }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_269C746C45384AAE8CB02B5ADB6E53D6 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_B116CBEF1D124BEBBD6364EC11FE23D6 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_
+          TENANTID_269C746C45384AAE8CB02B5ADB6E53D6 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTION_B116CBEF1D124BEBBD6364EC11FE23D6 }}
 
       - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v3
+        uses: azure/weeps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'faucet'
