@@ -1,0 +1,10 @@
+{
+    "sarif-viewer.connectToGithubCodeScanning": "on",
+    "cSpell.words": [
+        "DPID",
+        "getpid",
+        "popleft",
+        "PUTPORTS",
+        "serialno"
+    ]
+}
