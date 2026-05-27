@@ -801,6 +801,22 @@ socket_timeout=15
         self.cached_ryu_pid = None
         self._start_tcpdump()
         super().start()
+        # ``net.start()`` will start the OVS switches the moment we
+        # return, and OVS connects to the controller immediately. If
+        # Faucet hasn't yet bound its OFP listener port the connect gets
+        # ECONNREFUSED and OVS falls into 1/2/4/8/16s exponential
+        # backoff retries -- 30s+ before the controller-ready check has
+        # any chance of seeing ESTABLISHED. Block here until the listener
+        # is up so the next switch.start() lands a clean SYN.
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            if self.listening():
+                return
+            time.sleep(0.1)
+        error(
+            "controller %s not listening on port %u after 30s\n"
+            % (self.name, self.port)
+        )
 
     def _stop_cap(self):
         """Stop tcpdump for OF port."""
