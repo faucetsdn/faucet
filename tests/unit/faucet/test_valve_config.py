@@ -721,6 +721,93 @@ dps:
         self.update_and_revert_config(self.CONFIG, self.MORE_CONFIG, "cold")
 
 
+class ValveAddACLTestCase(ValveTestBases.ValveTestNetwork):
+    """Test addition of an ACL to a port."""
+
+    ACLS = """
+    acl_a:
+      - rule:
+        eth_type: 0x0804
+        actions:
+          allow: 0
+      - rule:
+        actions:
+          allow: 1
+"""
+
+    CONFIG = """
+acls:
+%s
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acl_in: acl_a
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % (
+        ACLS,
+        DP1_CONFIG,
+    )
+
+    ADD_ACL_P2_CONFIG = """
+acls:
+%s
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acl_in: acl_a
+            p2:
+                number: 2
+                native_vlan: 0x200
+                acl_in: acl_a
+""" % (
+        ACLS,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic ACL config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_add_port_acl(self):
+        """Test port ACL can be added."""
+        table = self.network.tables[self.DP_ID]
+
+        self.assertFalse(
+            table.is_output({"in_port": 1, "vlan_vid": 0, "eth_type": 0x0804}),
+            msg="Packet not blocked by ACL",
+        )
+        self.assertTrue(
+            table.is_output({"in_port": 2, "vlan_vid": 0, "eth_type": 0x0804}),
+            msg="Packet not allowed by ACL",
+        )
+
+        def verify_func():
+            for port in [1, 2]:
+                self.assertFalse(
+                    table.is_output(
+                        {"in_port": port, "vlan_vid": 0, "eth_type": 0x0804}
+                    ),
+                    msg="Packet not blocked by ACL",
+                )
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.ADD_ACL_P2_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
+
+
 class ValveChangeACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test changes to ACL on a port."""
 
@@ -846,6 +933,91 @@ dps:
         # ACL changed but we kept the learn cache.
         self.update_config(self.DIFF_CONTENT_CONFIG, reload_type="warm")
         verify_func()
+
+
+class ValveDeleteACLTestCase(ValveTestBases.ValveTestNetwork):
+    """Test deletion of an ACL from a port."""
+
+    ACLS = """
+    acl_a:
+      - rule:
+        eth_type: 0x0804
+        actions:
+          allow: 0
+      - rule:
+        actions:
+          allow: 1
+"""
+
+    CONFIG = """
+acls:
+%s
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acl_in: acl_a
+            p2:
+                number: 2
+                native_vlan: 0x200
+                acl_in: acl_a
+""" % (
+        ACLS,
+        DP1_CONFIG,
+    )
+
+    DELETE_ACL_P2_CONFIG = """
+acls:
+%s
+dps:
+    s1:
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+                acl_in: acl_a
+            p2:
+                number: 2
+                native_vlan: 0x200
+""" % (
+        ACLS,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic ACL config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_delete_port_acl(self):
+        """Test port ACL can be deleted."""
+        table = self.network.tables[self.DP_ID]
+
+        for port in [1, 2]:
+            self.assertFalse(
+                table.is_output({"in_port": port, "vlan_vid": 0, "eth_type": 0x0804}),
+                msg="Packet not blocked by ACL",
+            )
+
+        def verify_func():
+            self.assertFalse(
+                table.is_output({"in_port": 1, "vlan_vid": 0, "eth_type": 0x0804}),
+                msg="Packet not blocked by ACL",
+            )
+            self.assertTrue(
+                table.is_output({"in_port": 2, "vlan_vid": 0, "eth_type": 0x0804}),
+                msg="Packet not allowed by ACL",
+            )
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.DELETE_ACL_P2_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
 
 
 class ValveChangeMirrorTestCase(ValveTestBases.ValveTestNetwork):
