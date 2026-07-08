@@ -232,7 +232,7 @@ class FakeOFNetwork:
 
     def hash_table(self, dp_id):
         """Return a hash of a single FakeOFTable"""
-        return self.tables[dp_id].__hash__()
+        return hash(self.tables[dp_id])
 
 
 class FakeOFTable:
@@ -252,12 +252,26 @@ class FakeOFTable:
 
     def table_state(self):
         """Return tuple of table hash & table str"""
-        table_str = str(self.tables)
-        return (hash(frozenset(table_str)), table_str)
+        return (hash(self), str(self))
 
     def __hash__(self):
         """Return a host of the tables"""
-        return hash(frozenset(str(self.tables)))
+        return hash(
+            tuple(
+                tuple(
+                    sorted(
+                        table,
+                        key=lambda x: (
+                            x.priority,
+                            tuple(
+                                (k, str(v)) for k, v in sorted(x.match_values.items())
+                            ),
+                        ),
+                    )
+                )
+                for table in self.tables
+            )
+        )
 
     def _apply_groupmod(self, ofmsg):
         """Maintain group table."""
@@ -1051,10 +1065,10 @@ class FlowMod:
         return hash(
             (
                 self.priority,
-                self.match_values,
-                self.match_masks,
+                tuple(sorted(self.match_values.items())),
+                tuple(sorted(self.match_masks.items())),
                 self.out_port,
-                self.instructions,
+                str(self.instructions),
             )
         )
 
