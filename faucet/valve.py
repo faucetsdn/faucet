@@ -40,10 +40,12 @@ from faucet.valve_outonly import OutputOnlyManager
 from faucet.valve_stack import ValveStackManager
 
 
-# TODO: has to be here to avoid eventlet monkey patch in faucet_dot1x.
+# Defined here (not in faucet_dot1x) so importing valve doesn't pull in chewie.
 class Dot1xManager(ValveManagerBase):
     """Dot1x protocol manager.
-    Has to be here to avoid eventlet monkey patch in faucet_dot1x"""
+
+    Defined here rather than in faucet_dot1x so importing valve does not
+    pull in chewie."""
 
     def __init__(self, dot1x, dp_id, dot1x_ports, nfv_sw_port):
         self.dot1x = dot1x
