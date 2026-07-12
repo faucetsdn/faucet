@@ -2953,6 +2953,17 @@ dbs:
         expected_status = 1
         if status == ofp.OFPPC_PORT_DOWN:
             expected_status = 0
+        if wait:
+            # Only manipulate the port once this DP's valve is running. Faucet
+            # drops port status events for a DP whose dyn_running flag is still
+            # False (port_status_handler uses require_running=True), and
+            # dp_status is exported as int(dyn_running) only after cold start
+            # completes. With faster start_net waits a laggard DP in a multi-DP
+            # topology can still be cold-starting when we toggle one of its
+            # ports; the resulting OFPT_PORT_STATUS is then dropped, and because
+            # re-sending an identical port_mod produces no further event the
+            # port_status metric would stay stale for the whole wait window.
+            self.wait_for_prometheus_var("dp_status", 1, dpid=int(dpid), timeout=30)
         self._portmod(dpid, port_no, status, ofp.OFPPC_PORT_DOWN)
         if wait:
             self.wait_port_status(int(dpid), port_no, status, expected_status)
