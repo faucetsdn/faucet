@@ -24,12 +24,10 @@ from functools import partial
 import copy
 import hashlib
 import unittest
+import ipaddress
 import time
 
 from os_ken.ofproto import ofproto_v1_3 as ofp
-
-from faucet import config_parser_util
-from faucet import valve_of
 
 from clib.fakeoftable import CONTROLLER_PORT
 from clib.valve_test_lib import (
@@ -39,6 +37,7 @@ from clib.valve_test_lib import (
     FAUCET_MAC,
     ValveTestBases,
 )
+from faucet import config_parser_util, valve_of, valve_packet
 
 
 class ValveIncludeTestCase(ValveTestBases.ValveTestNetwork):
@@ -1521,6 +1520,114 @@ class ValveReloadConfigTestCase(
         super().setUp()
         self.flap_port(1)
         self.update_config(CONFIG, reload_type="warm", reload_expected=False)
+
+
+class ValveStaticRouteDeadNextHopTestCase(ValveTestBases.ValveTestNetwork):
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+    routes:
+        - route:
+            ip_dst: 10.99.98.0/24
+            ip_gw: 10.10.0.1
+        - route:
+            ip_dst: 2000::/64
+            ip_gw: fa00::1
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan1
+""" % (
+        DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_dead_nexthop(self):
+        """Test static routes are removed when nexthop is dead."""
+        table = self.network.tables[self.DP_ID]
+        tfm_by_name = {body.name: body for body in table.tfm.values()}
+        ipv4_fib_table = tfm_by_name.get(b"ipv4_fib")
+        ipv6_fib_table = tfm_by_name.get(b"ipv6_fib")
+        eth_dst_table = tfm_by_name.get(b"eth_dst")
+        if ipv4_fib_table is None:
+            self.fail("ipv4_fib table is missing from TFM")
+        if ipv6_fib_table is None:
+            self.fail("ipv6_fib table is missing from TFM")
+        if eth_dst_table is None:
+            self.fail("eth_dst table is missing from TFM")
+
+        arp_pkt = {
+            "eth_src": self.P1_V100_MAC,
+            "eth_dst": self.BROADCAST_MAC,
+            "eth_type": 0x806,
+            "arp_source_ip": "10.10.0.1",
+            "arp_target_ip": "10.10.0.254",
+        }
+        nd_pkt = {
+            "eth_src": self.P1_V100_MAC,
+            "eth_dst": valve_packet.ipv6_link_eth_mcast(
+                ipaddress.IPv6Address("fa00::254")
+            ),
+            "ipv6_src": "fa00::1",
+            "ipv6_dst": str(
+                valve_packet.ipv6_solicited_node_from_ucast(
+                    ipaddress.IPv6Address("fa00::254")
+                )
+            ),
+            "neighbor_solicit_ip": "fa00::254",
+        }
+        ipv4_match = {
+            "vlan_vid": self.V100,
+            "eth_type": 0x800,
+            "ipv4_dst": "10.99.98.1",
+        }
+        ipv6_match = {
+            "vlan_vid": self.V100,
+            "eth_type": 0x86DD,
+            "ipv6_dst": "2000::1",
+        }
+
+        self.rcv_packet(1, 0x100, arp_pkt)
+        self.rcv_packet(1, 0x100, nd_pkt)
+
+        for match, table_id in [
+            (ipv4_match, ipv4_fib_table.table_id),
+            (ipv6_match, ipv6_fib_table.table_id),
+        ]:
+            _, _, next_table = table.get_table_output(match, table_id)
+            self.assertEqual(next_table, eth_dst_table.table_id)
+
+        self.set_port_link_down(1)
+
+        for match, table_id in [
+            (ipv4_match, ipv4_fib_table.table_id),
+            (ipv6_match, ipv6_fib_table.table_id),
+        ]:
+            _, _, next_table = table.get_table_output(match, table_id)
+            self.assertEqual(next_table, None)
+
+        self.set_port_link_up(1)
+
+        self.rcv_packet(1, 0x100, arp_pkt)
+        self.rcv_packet(1, 0x100, nd_pkt)
+
+        for match, table_id in [
+            (ipv4_match, ipv4_fib_table.table_id),
+            (ipv6_match, ipv6_fib_table.table_id),
+        ]:
+            _, _, next_table = table.get_table_output(match, table_id)
+            self.assertEqual(next_table, eth_dst_table.table_id)
 
 
 if __name__ == "__main__":
