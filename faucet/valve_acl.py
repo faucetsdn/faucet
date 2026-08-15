@@ -511,7 +511,7 @@ class ValveAclManager(ValveManagerBase):
         ofmsgs = []
         if self._port_acls_allowed(port):
             in_port_match = self.port_acl_table.match(in_port=port.number)
-            ofmsgs.append(self.port_acl_table.flowdel(in_port_match, self.acl_priority))
+            ofmsgs.append(self.port_acl_table.flowdel(in_port_match))
         return ofmsgs
 
     def cold_start_port(self, port):
