@@ -1599,6 +1599,7 @@ class Valve:
             changed_acl_ports,
             deleted_vids,
             changed_vids,
+            changed_acl_vlans,
             all_ports_changed,
             _,
             deleted_meters,
@@ -1665,10 +1666,16 @@ class Valve:
                 port for port in changed_ports if port in self.dp.dyn_up_port_nos
             ]
             ofmsgs.extend(self.ports_add(all_up_port_nos))
-        if self.acl_manager and changed_acl_ports:
-            for port_num in changed_acl_ports:
-                port = self.dp.ports[port_num]
-                ofmsgs.extend(self.acl_manager.cold_start_port(port))
+        if self.acl_manager:
+            if changed_acl_ports:
+                for port_num in changed_acl_ports:
+                    port = self.dp.ports[port_num]
+                    ofmsgs.extend(self.acl_manager.cold_start_port(port))
+            if changed_acl_vlans:
+                for vid in changed_acl_vlans:
+                    vlan = self.dp.vlans[vid]
+                    ofmsgs.extend(self.acl_manager.del_vlan(vlan))
+                    ofmsgs.extend(self.acl_manager.add_vlan(vlan, False))
         if changed_vids:
             changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
             # TODO: handle change versus add separately so can avoid delete first.
