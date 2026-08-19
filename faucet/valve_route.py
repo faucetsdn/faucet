@@ -658,6 +658,8 @@ class ValveRouteManager(ValveManagerBase):
         expire_flows = self._del_host_fib_route(
             vlan, ipaddress.ip_network(ip_gw.exploded)
         )
+        for ip_dst in vlan.ip_dsts_for_ip_gw(ip_gw):
+            expire_flows.extend(self._del_route_flows(vlan, ip_dst))
         if port is None:
             expire_flows = []
         return expire_flows
