@@ -781,11 +781,7 @@ class ValveTestBases:
                 diff = difflib.unified_diff(
                     before_str.splitlines(), after_str.splitlines()
                 )
-                self.assertEqual(
-                    before_hash,
-                    after_hash,
-                    msg="%s != %s\n".join(diff) % (before_hash, after_hash),
-                )
+                self.assertEqual(before_hash, after_hash, msg="\n" + "\n".join(diff))
 
         def _verify_redundant_safe_offset_ofmsgs(self, ofmsgs, dp_id, offset=1):
             """
