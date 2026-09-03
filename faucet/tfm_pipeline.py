@@ -1,5 +1,9 @@
 """Configure switch tables with TFM messages."""
 
+# c65of compiles its constructors from a declared wire layout, so pylint
+# cannot see the attributes an OpenFlow structure assigns.
+# pylint: disable=no-member
+
 from faucet import valve_of
 
 REQUIRED_PROPERTIES = set(

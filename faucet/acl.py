@@ -18,7 +18,7 @@
 
 import copy
 import netaddr
-from os_ken.ofproto import ether
+from c65of.ofproto import ether
 
 from faucet import valve_of
 from faucet import valve_acl

@@ -1,9 +1,10 @@
 c65beka==1.0.4
 c65chewie==1.0.7
+c65of @ git+https://github.com/c65sdn/c65of@bootstrap-c65of
 https://github.com/faucetsdn/python3-fakencclient/archive/main.tar.gz#egg=ncclient
+netaddr>=1.3.0
 networkx>=3.6.1
 pbr>=7.0.3
 prometheus_client==0.25.0
-ruamel.yaml==0.19.1
-os_ken>=4.2.1
 pytricia>=1.3.0
+ruamel.yaml==0.19.1

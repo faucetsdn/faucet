@@ -20,7 +20,7 @@
 
 import unittest
 
-from os_ken.ofproto import ofproto_v1_3 as ofp
+from c65of import ofproto as ofp
 
 from clib.valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 

@@ -33,8 +33,8 @@ import tempfile
 
 import unittest
 
-from os_ken.lib import mac
-from os_ken.lib.packet import (
+from c65of.lib import mac
+from c65of.packet import (
     arp,
     ethernet,
     icmp,
@@ -46,9 +46,9 @@ from os_ken.lib.packet import (
     packet,
     vlan,
 )
-from os_ken.ofproto import ether, inet
-from os_ken.ofproto import ofproto_v1_3 as ofp
-from os_ken.ofproto import ofproto_v1_3_parser as parser
+from c65of.ofproto import ether, inet
+from c65of import ofproto as ofp
+from c65of.ofproto import parser
 from prometheus_client import CollectorRegistry
 from beka.route import RouteAddition, RouteRemoval
 from beka.ip import IPAddress, IPPrefix
@@ -85,7 +85,7 @@ def build_dict(pkt):
         pkt_dict["ipv6_dst"] = ipv6_pkt.dst
     icmpv6_pkt = pkt.get_protocol(icmpv6.icmpv6)
     if icmpv6_pkt:
-        type_ = icmpv6_pkt.type_
+        type_ = icmpv6_pkt.type
         if type_ == icmpv6.ND_ROUTER_ADVERT:
             for option in icmpv6_pkt.data.options:
                 if hasattr(option, "hw_src"):
@@ -110,7 +110,7 @@ def build_dict(pkt):
         pkt_dict["ipv4_dst"] = ipv4_pkt.dst
     icmp_pkt = pkt.get_protocol(icmp.icmp)
     if icmp_pkt:
-        type_ = icmp_pkt.type_
+        type_ = icmp_pkt.type
         if type_ == icmp.ICMP_ECHO_REQUEST:
             pkt_dict["echo_request_data"] = icmp_pkt.data.data
         else:

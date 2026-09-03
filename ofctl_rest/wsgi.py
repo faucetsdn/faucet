@@ -32,7 +32,7 @@ import webob.exc
 from webob.request import Request as webob_Request
 from webob.response import Response as webob_Response
 
-from os_ken.lib import hub
+from c65of import hub
 
 HEX_PATTERN = r"0x[0-9a-z]+"
 DIGIT_PATTERN = r"[1-9][0-9]*"

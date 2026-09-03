@@ -23,11 +23,11 @@ import copy
 import time
 import unittest
 
-from os_ken.lib import mac
-from os_ken.lib.packet import slow
-from os_ken.ofproto import ether
-from os_ken.ofproto import ofproto_v1_3 as ofp
-from os_ken.ofproto import ofproto_v1_3_parser as parser
+from c65of.lib import mac
+from c65of.packet import slow
+from c65of.ofproto import ether
+from c65of import ofproto as ofp
+from c65of.ofproto import parser
 
 from faucet import valve_of
 from faucet import valve_packet

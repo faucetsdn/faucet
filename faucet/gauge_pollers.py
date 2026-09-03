@@ -21,9 +21,9 @@ import random
 import threading
 import time
 
-from os_ken.lib import hub
-from os_ken.ofproto import ofproto_v1_3 as ofp
-from os_ken.ofproto import ofproto_v1_3_parser as parser
+from c65of import hub
+from c65of import ofproto as ofp
+from c65of.ofproto import parser
 
 from faucet.valve_of import devid_present
 from faucet.valve_of_old import OLD_MATCH_FIELDS

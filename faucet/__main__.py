@@ -2,9 +2,10 @@
 
 """Launch script for Faucet/Gauge.
 
-Hosts an in-process equivalent of the legacy ``osken-manager`` script so
-that Faucet keeps its existing CLI surface on os-ken >= 4.0, which removed
-the ``os_ken.cmd`` package and the ``osken-manager`` console script.
+The command line is unchanged: the ``--ryu-*`` flags and the ``ryu.conf``
+file are an operator contract, shipped in the systemd units. What changed is
+underneath -- they now configure the OpenFlow listener directly instead of
+being translated into oslo.config arguments for an inlined ``osken-manager``.
 """
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
@@ -40,60 +41,65 @@ sys.path[:] = [_p for _p in sys.path if os.path.realpath(_p) != _self_real]
 del _self_real
 
 import argparse
+import configparser
 import logging
+import logging.handlers
 
 from pbr.version import VersionInfo
 
-if sys.version_info < (3,) or sys.version_info < (3, 5):
+from c65of import hub
+from c65of.app import AppManager
+from c65of.controller import OpenFlowController
+
+if sys.version_info < (3, 11):
     raise ImportError(
         """You are trying to run faucet on python {py}
 
-Faucet is not compatible with python {py}, please upgrade to python 3.5 or newer.""".format(
+Faucet requires python 3.11 or newer.""".format(
             py=".".join([str(v) for v in sys.version_info[:3]])
         )
     )
 
+# (flag, help) or (flag, help, default). Named for Ryu because that is what
+# the systemd units and the integration tests already pass.
 RYU_OPTIONAL_ARGS = [
     ("ca-certs", "CA certificates"),
     (
-        "config-dir",
-        """Path to a config directory to pull `*.conf` files
-                      from. This file set is sorted, so as to provide a
-                      predictable parse order if individual options are
-                      over-ridden. The set is parsed after the file(s)
-                      specified via previous --config-file, arguments hence
-                      over-ridden options in the directory take precedence.""",
-    ),
-    (
         "config-file",
-        """Path to a config file to use. Multiple config files
-                       can be specified, with values in later files taking
-                       precedence. Defaults to None.""",
+        """Path to a config file to use. Defaults to
+                       /etc/faucet/ryu.conf.""",
         "/etc/faucet/ryu.conf",
     ),
     ("ctl-cert", "controller certificate"),
     ("ctl-privkey", "controller private key"),
     ("default-log-level", "default log level"),
-    ("log-config-file", "Path to a logging config file to use"),
     ("log-dir", "log file directory"),
     ("log-file", "log file name"),
-    ("log-file-mode", "default log file permission"),
-    ("observe-links", "observe link discovery events"),
     ("ofp-listen-host", "openflow listen host (default 0.0.0.0)"),
     ("ofp-ssl-listen-port", "openflow ssl listen port (default: 6653)"),
-    (
-        "ofp-switch-address-list",
-        """list of IP address and port pairs (default empty).
-                                   e.g., "127.0.0.1:6653,[::1]:6653""",
-    ),
-    (
-        "ofp-switch-connect-interval",
-        "interval in seconds to connect to switches (default 1)",
-    ),
     ("ofp-tcp-listen-port", "openflow tcp listen port (default: 6653)"),
     ("pid-file", "pid file name"),
-    ("user-flags", "Additional flags file for user applications"),
 ]
+
+# ryu.conf keys that configure the OpenFlow channel, and the constructor
+# argument each one sets.
+CONF_KEYS = {
+    "echo_request_interval": "echo_request_interval",
+    "maximum_unreplied_echo_requests": "max_unreplied_echo_requests",
+    "socket_timeout": "socket_timeout",
+    "ofp_listen_host": "listen_host",
+    "ofp_tcp_listen_port": "tcp_port",
+    "ofp_ssl_listen_port": "ssl_port",
+}
+INT_KEYS = frozenset(
+    (
+        "echo_request_interval",
+        "max_unreplied_echo_requests",
+        "socket_timeout",
+        "tcp_port",
+        "ssl_port",
+    )
+)
 
 
 def parse_args(sys_args):
@@ -102,7 +108,6 @@ def parse_args(sys_args):
     Returns:
         argparse.Namespace: command line arguments
     """
-
     args = argparse.ArgumentParser(prog="faucet", description="Faucet SDN Controller")
     args.add_argument("--gauge", action="store_true", help="run Gauge instead")
     args.add_argument(
@@ -116,10 +121,9 @@ def parse_args(sys_args):
     args.add_argument(
         "--ryu-app-lists",
         action="append",
-        help="add Ryu app (can be specified multiple times)",
+        help="add an application module (can be specified multiple times)",
         metavar="APP",
     )
-
     for ryu_arg in RYU_OPTIONAL_ARGS:
         if len(ryu_arg) >= 3:
             args.add_argument(
@@ -127,184 +131,114 @@ def parse_args(sys_args):
             )
         else:
             args.add_argument("--ryu-%s" % ryu_arg[0], help=ryu_arg[1])
-
     return args.parse_args(sys_args)
 
 
 def print_version():
     """Print version number and exit."""
     version = VersionInfo("c65faucet").semantic_version().release_string()
-    message = "c65faucet %s" % version
-    print(message)
+    print("c65faucet %s" % version)
 
 
-def build_ryu_args(argv):
-    """Translate Faucet CLI flags into the os-ken cfg arguments.
+def channel_settings(args):
+    """Merge ryu.conf and the command line into OpenFlowController arguments.
 
-    Returns the list of ``--config-file=...`` style arguments and the
-    Ryu/os-ken application module names to load. Returns an empty list
-    when there is nothing to run (e.g. ``--version``).
+    The file supplies the defaults; an explicit flag wins. The file is the
+    same ``[DEFAULT]`` INI oslo.config read, so operators' existing
+    ``ryu.conf`` keeps working.
     """
-    args = parse_args(argv[1:])
+    settings = {}
+    conf_file = args.ryu_config_file
+    if conf_file and os.path.isfile(conf_file):
+        parser = configparser.ConfigParser()
+        parser.read(conf_file)
+        for key, value in parser.defaults().items():
+            target = CONF_KEYS.get(key.replace("-", "_"))
+            if target:
+                settings[target] = value
+    for key, target in CONF_KEYS.items():
+        value = getattr(args, "ryu_%s" % key, None)
+        if value:
+            settings[target] = value
+    for key in INT_KEYS & set(settings):
+        settings[key] = int(settings[key])
+    for name, arg in (
+        ("ctl_cert", "ryu_ctl_cert"),
+        ("ctl_privkey", "ryu_ctl_privkey"),
+        ("ca_certs", "ryu_ca_certs"),
+    ):
+        value = getattr(args, arg, None)
+        if value:
+            settings[name] = value
+    return settings
 
-    # Checking version number?
-    if args.version:
-        print_version()
-        return []
 
-    prog = os.path.basename(argv[0])
-    ryu_args = []
-
-    # Handle log location
+def init_logging(args):
+    """Configure the root logger from the command line."""
+    level = logging.DEBUG if args.verbose else logging.INFO
+    if args.ryu_default_log_level:
+        level = int(args.ryu_default_log_level)
+    handlers = []
     if args.use_stderr:
-        ryu_args.append("--use-stderr")
+        handlers.append(logging.StreamHandler(sys.stderr))
     if args.use_syslog:
-        ryu_args.append("--use-syslog")
-
-    # Verbose output?
-    if args.verbose:
-        ryu_args.append("--verbose")
-
-    for arg, val in vars(args).items():
-        if not val or not arg.startswith("ryu"):
-            continue
-        if arg == "ryu_app_lists":
-            continue
-        if arg == "ryu_config_file" and not os.path.isfile(val):
-            continue
-        arg_name = arg.replace("ryu_", "").replace("_", "-")
-        ryu_args.append("--%s=%s" % (arg_name, val))
-
-    # Running Faucet or Gauge?
-    if args.gauge or os.path.basename(prog) == "gauge":
-        ryu_args.append("faucet.gauge")
-    else:
-        ryu_args.append("faucet.faucet")
-
-    # Check for additional Ryu apps.
-    if args.ryu_app_lists:
-        ryu_args.extend(args.ryu_app_lists)
-
-    return ryu_args
-
-
-def _maybe_load_user_flags(argv):
-    """Pre-import the file passed via ``--user-flags`` so it can register
-    additional oslo.config options before CLI parsing happens."""
-    try:
-        idx = list(argv).index("--user-flags")
-        user_flags_file = argv[idx + 1]
-    except (ValueError, IndexError):
-        return
-    if not (user_flags_file and os.path.isfile(user_flags_file)):
-        return
-    # pylint: disable=import-outside-toplevel
-    from os_ken.utils import _import_module_file
-
-    _import_module_file(user_flags_file)
-
-
-def _run_osken_manager(argv):
-    """Run an in-process equivalent of the ``osken-manager`` script.
-
-    Mirrors ``os_ken.cmd.manager.main`` from os-ken < 4.0. os-ken 4.0
-    deleted the ``os_ken.cmd`` package along with the ``osken-manager``
-    console script entry point, so we drive ``AppManager`` directly using
-    the same building blocks (``cfg``, ``log``, ``flags``, ``hub``) which
-    are still exported.
-    """
-    # pylint: disable=import-outside-toplevel
-    from os_ken.lib import hub
-
-    # No-op on the native hub; left as the documented entry point in case
-    # OSKEN_HUB_TYPE=eventlet is set explicitly in some environment.
-    hub.patch(thread=False)
-
-    from os_ken import __version__ as osken_version
-    from os_ken import cfg
-    from os_ken import flags  # pylint: disable=unused-import  # registers cfg opts
-    from os_ken import log
-    from os_ken.base.app_manager import AppManager
-
-    del flags  # quiet linters: imported for its registration side-effect.
-
-    log.early_init_log(logging.DEBUG)
-
-    conf = cfg.CONF
-    conf.register_cli_opts(
-        [
-            cfg.ListOpt("app-lists", default=[], help="application module name to run"),
-            cfg.MultiStrOpt(
-                "app",
-                positional=True,
-                default=[],
-                help="application module name to run",
-            ),
-            cfg.StrOpt("pid-file", default=None, help="pid file name"),
-            cfg.BoolOpt(
-                "enable-debugger",
-                default=False,
-                help="don't overwrite Python standard threading library "
-                "(use only for debugging)",
-            ),
-            cfg.StrOpt(
-                "user-flags",
-                default=None,
-                help="Additional flags file for user applications",
-            ),
-        ]
+        handlers.append(logging.handlers.SysLogHandler(address="/dev/log"))
+    log_file = args.ryu_log_file
+    if log_file:
+        if args.ryu_log_dir:
+            log_file = os.path.join(args.ryu_log_dir, log_file)
+        handlers.append(logging.FileHandler(log_file))
+    logging.basicConfig(
+        level=level,
+        handlers=handlers or None,
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
 
-    _maybe_load_user_flags(argv)
 
-    try:
-        conf(
-            args=argv,
-            prog="faucet",
-            project="os_ken",
-            version="faucet %s" % osken_version,
-            default_config_files=["/usr/local/etc/os_ken/os_ken.conf"],
-        )
-    except cfg.ConfigFilesNotFoundError:
-        conf(
-            args=argv,
-            prog="faucet",
-            project="os_ken",
-            version="faucet %s" % osken_version,
-        )
+def app_lists(args, prog):
+    """The application modules to run, in start order.
 
-    log.init_log()
-    logger = logging.getLogger(__name__)
+    The OpenFlow listener goes last: applications start in this order, and a
+    switch that connects before faucet has read its configuration is an
+    unknown datapath and gets its channel dropped.
+    """
+    if args.gauge or os.path.basename(prog) == "gauge":
+        apps = ["faucet.gauge"]
+    else:
+        apps = ["faucet.faucet"]
+    if args.ryu_app_lists:
+        apps.extend(args.ryu_app_lists)
+    apps.append("c65of.controller")
+    return apps
 
-    if not conf.enable_debugger:
-        hub.patch(thread=True)
 
-    if conf.pid_file:
-        with open(conf.pid_file, "w", encoding="utf-8") as pid_file:
+def write_pid_file(path):
+    """Record this process's pid, if asked to."""
+    if path:
+        with open(path, "w", encoding="utf-8") as pid_file:
             pid_file.write(str(os.getpid()))
-
-    app_lists = conf.app_lists + conf.app
-    if not app_lists:
-        app_lists = ["os_ken.controller.ofp_handler"]
-
-    app_mgr = AppManager.get_instance()
-    app_mgr.load_apps(app_lists)
-    contexts = app_mgr.create_contexts()
-    services = list(app_mgr.instantiate_apps(**contexts))
-
-    try:
-        hub.joinall(services)
-    except KeyboardInterrupt:
-        logger.debug("Keyboard Interrupt received, shutting down")
-    finally:
-        app_mgr.close()
 
 
 def main():
     """Main program."""
-    ryu_args = build_ryu_args(sys.argv)
-    if ryu_args:
-        _run_osken_manager(ryu_args)
+    args = parse_args(sys.argv[1:])
+    if args.version:
+        print_version()
+        return
+    init_logging(args)
+    write_pid_file(args.ryu_pid_file)
+
+    controller = OpenFlowController(**channel_settings(args))
+    manager = AppManager.get_instance()
+    manager.load_apps(app_lists(args, sys.argv[0]))
+    contexts = manager.create_contexts()
+    services = manager.instantiate_apps(controller=controller, **contexts)
+    try:
+        hub.joinall(services)
+    except KeyboardInterrupt:
+        logging.getLogger(__name__).debug("keyboard interrupt, shutting down")
+    finally:
+        manager.close()
 
 
 if __name__ == "__main__":

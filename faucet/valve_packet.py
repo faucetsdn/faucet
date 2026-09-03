@@ -23,9 +23,9 @@ import socket
 import struct
 from netaddr import EUI
 
-from os_ken.lib import addrconv
-from os_ken.lib.mac import BROADCAST, DONTCARE, is_multicast, haddr_to_bin
-from os_ken.lib.packet import (
+from c65of.lib import addrconv
+from c65of.lib.mac import BROADCAST, DONTCARE, is_multicast, haddr_to_bin
+from c65of.packet import (
     arp,
     bpdu,
     ethernet,
@@ -38,7 +38,7 @@ from os_ken.lib.packet import (
     packet,
     vlan,
 )
-from os_ken.lib.packet.stream_parser import StreamParser
+from c65of.packet.stream_parser import StreamParser
 
 from faucet import valve_util
 from faucet import valve_of

@@ -23,7 +23,7 @@ import queue
 import threading
 import time
 
-from os_ken.ofproto import ofproto_v1_3_parser as parser
+from c65of.ofproto import parser
 
 BARRIER_TIMEOUT = 5.0
 

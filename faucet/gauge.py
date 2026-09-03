@@ -18,9 +18,9 @@
 
 import time
 
-from os_ken.controller.handler import MAIN_DISPATCHER
-from os_ken.controller.handler import set_ev_cls
-from os_ken.controller import ofp_event
+from c65of.app import MAIN_DISPATCHER
+from c65of.app import set_ev_cls
+from c65of import ofp_event
 
 from faucet import valve_of
 from faucet.conf import InvalidConfigError
@@ -62,7 +62,7 @@ class Gauge(OSKenAppBase):
         """Get Watchers instances to response to an event.
 
         Args:
-            ryu_event (ryu.controller.event.EventReplyBase): DP event.
+            ryu_event (ryu.controller.app.EventReplyBase): DP event.
         Returns:
         """
         return self._get_datapath_obj(self.watchers, ryu_event)
@@ -159,7 +159,7 @@ class Gauge(OSKenAppBase):
         """Handle DP up.
 
         Args:
-            ryu_event (ryu.controller.event.EventReplyBase): DP event.
+            ryu_event (ryu.controller.app.EventReplyBase): DP event.
         """
         watchers, ryu_dp, _ = self._get_watchers(ryu_event)
         if watchers is None:
@@ -183,7 +183,7 @@ class Gauge(OSKenAppBase):
         """Handle DP down.
 
         Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP event.
+           ryu_event (ryu.controller.app.EventReplyBase): DP event.
         """
         watchers, ryu_dp, _ = self._get_watchers(ryu_event)
         if watchers is None:
@@ -215,6 +215,6 @@ class Gauge(OSKenAppBase):
         """Handle any kind of stats/change event.
 
         Args:
-           ryu_event (ryu.controller.event.EventReplyBase): stats/change event.
+           ryu_event (ryu.controller.app.EventReplyBase): stats/change event.
         """
         self._update_watcher(self._WATCHER_HANDLERS[type(ryu_event)], ryu_event)

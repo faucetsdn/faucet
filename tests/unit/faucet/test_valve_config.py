@@ -26,7 +26,7 @@ import hashlib
 import unittest
 import time
 
-from os_ken.ofproto import ofproto_v1_3 as ofp
+from c65of import ofproto as ofp
 
 from faucet import config_parser_util
 from faucet import valve_of

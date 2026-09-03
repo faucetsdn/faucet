@@ -25,7 +25,7 @@ import time
 
 import ipaddress
 
-from os_ken.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
+from c65of.packet import arp, icmp, icmpv6, ipv4, ipv6
 
 from faucet import valve_of
 from faucet import valve_packet
@@ -1343,7 +1343,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
         if icmpv6_pkt is None:
             return ofmsgs
-        icmpv6_type = icmpv6_pkt.type_
+        icmpv6_type = icmpv6_pkt.type
         if (
             ipv6_pkt.hop_limit != valve_packet.IPV6_MAX_HOP_LIM
             and icmpv6_type != icmpv6.ICMPV6_ECHO_REQUEST

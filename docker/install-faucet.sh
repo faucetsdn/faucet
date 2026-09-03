@@ -34,8 +34,6 @@ done
 # Clean up
 rm -r "${HOME}/.cache"
 rm -r "${FROOT}"
-rm -r /usr/local/lib/python3*/site-packages/os_ken/tests/
-rm -r /usr/local/lib/python3*/site-packages/os_ken/lib/of_config/
 
 # Smoke test
 faucet -V || exit 1

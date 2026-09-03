@@ -25,8 +25,8 @@ import threading
 import time
 from contextlib import contextmanager
 
-from os_ken.lib import hub
-from os_ken.lib.hub import StreamServer
+from c65of import hub
+from c65of.hub import StreamServer
 
 
 class NonBlockLock:

@@ -28,10 +28,10 @@ from collections import OrderedDict
 
 from bitstring import Bits
 
-from os_ken.ofproto import ofproto_v1_3 as ofp
-from os_ken.ofproto import ofproto_v1_3_parser as parser
-from os_ken.ofproto import ofproto_parser as ofp_parser
-from os_ken.lib import addrconv
+from c65of import ofproto as ofp
+from c65of.ofproto import parser
+from c65of.ofproto import parser as ofp_parser
+from c65of.lib import addrconv
 
 CONTROLLER_PORT = 4294967293
 IN_PORT = 4294967288

@@ -22,13 +22,13 @@ import time
 
 from functools import partial
 
-from os_ken.controller.handler import CONFIG_DISPATCHER
-from os_ken.controller.handler import MAIN_DISPATCHER
-from os_ken.controller.handler import set_ev_cls
-from os_ken.controller import dpset
-from os_ken.controller import event
-from os_ken.controller import ofp_event
-from os_ken.lib import hub
+from c65of.app import CONFIG_DISPATCHER
+from c65of.app import MAIN_DISPATCHER
+from c65of.app import set_ev_cls
+from c65of import dpset
+from c65of import app
+from c65of import ofp_event
+from c65of import hub
 
 from faucet.valve_ryuapp import EventReconfigure, OSKenAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
@@ -39,49 +39,50 @@ from faucet import valves_manager
 from faucet import faucet_metrics
 from faucet import valve_of
 
-EXPORT_RYU_CONFIGS = ["echo_request_interval", "maximum_unreplied_echo_requests"]
+# Metric label -> OpenFlowController attribute. The labels are unchanged from
+# when these came out of oslo.config, so existing dashboards keep working.
+EXPORT_RYU_CONFIGS = {
+    "echo_request_interval": "echo_request_interval",
+    "maximum_unreplied_echo_requests": "max_unreplied_echo_requests",
+}
 
 
 class EventFaucetMaintainStackRoot(  # pylint: disable=too-few-public-methods
-    event.EventBase
+    app.EventBase
 ):
     """Event used to maintain stack root."""
 
 
-class EventFaucetMetricUpdate(  # pylint: disable=too-few-public-methods
-    event.EventBase
-):
+class EventFaucetMetricUpdate(app.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger update of metrics."""
 
 
 class EventFaucetResolveGateways(  # pylint: disable=too-few-public-methods
-    event.EventBase
+    app.EventBase
 ):
     """Event used to trigger gateway re/resolution."""
 
 
-class EventFaucetStateExpire(event.EventBase):  # pylint: disable=too-few-public-methods
+class EventFaucetStateExpire(app.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger expiration of state in controller."""
 
 
 class EventFaucetFastStateExpire(  # pylint: disable=too-few-public-methods
-    event.EventBase
+    app.EventBase
 ):
     """Event used to trigger fast expiration of state in controller."""
 
 
-class EventFaucetAdvertise(event.EventBase):  # pylint: disable=too-few-public-methods
+class EventFaucetAdvertise(app.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger periodic network advertisements (eg IPv6 RAs)."""
 
 
-class EventFaucetFastAdvertise(  # pylint: disable=too-few-public-methods
-    event.EventBase
-):
+class EventFaucetFastAdvertise(app.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to trigger periodic fast network advertisements (eg LACP)."""
 
 
 class EventFaucetEventSockHeartbeat(  # pylint: disable=too-few-public-methods
-    event.EventBase
+    app.EventBase
 ):
     """Event used to trigger periodic events on event sock,
     causing it to raise an exception if conn is broken.
@@ -158,10 +159,14 @@ class Faucet(OSKenAppBase):
         super()._check_thread_exception()
 
     def _export_ryu_config(self):
-        for opt_name in EXPORT_RYU_CONFIGS:
-            value = int(getattr(self.CONF, opt_name))
+        if self.controller is None:
+            return
+        for opt_name, attr in EXPORT_RYU_CONFIGS.items():
+            value = getattr(self.controller, attr, None)
+            if value is None:
+                continue
             config_labels = dict(param=opt_name)
-            self.prom_client.ryu_config.labels(**config_labels).set(value)
+            self.prom_client.ryu_config.labels(**config_labels).set(int(value))
 
     @kill_on_exception(exc_logname)
     def start(self):
@@ -287,7 +292,7 @@ class Faucet(OSKenAppBase):
         """Handle a packet in event from the dataplane.
 
         Args:
-            ryu_event (ryu.controller.event.EventReplyBase): packet in message.
+            ryu_event (ryu.controller.app.EventReplyBase): packet in message.
         """
         valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:

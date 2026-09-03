@@ -1,4 +1,4 @@
-"""OSKenApp base class for FAUCET/Gauge."""
+"""Application base class for FAUCET/Gauge."""
 
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
@@ -23,39 +23,23 @@ import random
 import signal
 import sys
 
-from os_ken.base import app_manager
-from os_ken.controller import dpset, event
-from os_ken.controller.handler import set_ev_cls
-from os_ken.lib import hub
+from c65of import app, dpset, hub
+from c65of.app import set_ev_cls
 
 from faucet import valve_of
 from faucet.valve_util import dpid_log, get_logger, get_setting, thread_is_dead
-
-# Under os-ken's native hub, ``hub.spawn`` returns a real
-# ``threading.Thread`` that isn't a daemon, so the Python interpreter waits
-# for the background loops faucet spawns (config-file watcher, BGP, 802.1x,
-# Prometheus, etc.) at exit and the process never terminates. Flip the
-# default before any spawn happens; under eventlet this branch is skipped.
-if getattr(hub, "HUB_TYPE", None) == "native" and hasattr(hub, "HubThread"):
-    _orig_hub_thread_init = hub.HubThread.__init__
-
-    def _daemon_hub_thread_init(self, *args, **kwargs):
-        _orig_hub_thread_init(self, *args, **kwargs)
-        self.daemon = True
-
-    hub.HubThread.__init__ = _daemon_hub_thread_init
 
 
 class ValveDeadThreadException(Exception):
     """Exception raised when a dead thread is detected."""
 
 
-class EventReconfigure(event.EventBase):
+class EventReconfigure(app.EventBase):
     """Event sent to controller to cause config reload."""
 
 
-class OSKenAppBase(app_manager.OSKenApp):
-    """OSKenApp base class for FAUCET/Gauge."""
+class OSKenAppBase(app.OFApp):
+    """Application base class for FAUCET/Gauge."""
 
     OFP_VERSIONS = valve_of.OFP_VERSIONS
     _CONTEXTS = {
@@ -68,6 +52,7 @@ class OSKenAppBase(app_manager.OSKenApp):
         super().__init__(*args, **kwargs)
         self.dpset = kwargs["dpset"]
         self._reg = kwargs.get("reg", None)
+        self.controller = kwargs.get("controller", None)
         self.config_file = self.get_setting("CONFIG", True)
         self.stat_reload = self.get_setting("CONFIG_STAT_RELOAD")
         loglevel = self.get_setting("LOG_LEVEL")
@@ -117,7 +102,7 @@ class OSKenAppBase(app_manager.OSKenApp):
         """Trigger Ryu events periodically with a jitter.
 
         Args:
-            ryu_event (ryu.controller.event.EventReplyBase): event to trigger.
+            ryu_event (ryu.controller.app.EventReplyBase): event to trigger.
             period (int): how often to trigger.
         """
         while True:

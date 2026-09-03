@@ -21,8 +21,8 @@
 import random
 import unittest
 
-from os_ken.lib import mac
-from os_ken.ofproto import ofproto_v1_3 as ofp
+from c65of.lib import mac
+from c65of import ofproto as ofp
 
 import networkx
 from networkx.generators.atlas import graph_atlas_g

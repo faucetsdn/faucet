@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Guard that Faucet runs eventlet-free on os-ken's native hub."""
+"""Guard that Faucet's runtime pulls in none of the packages os-ken brought."""
 
 # Copyright (C) 2015--2019 The Contributors
 #
@@ -23,31 +23,29 @@ import unittest
 
 
 class NoEventletTestCase(unittest.TestCase):  # pytype: disable=module-attr
-    """Faucet's runtime import graph must never pull in eventlet."""
+    """Faucet's runtime import graph must stay free of os-ken's dependencies."""
 
-    # Modules covering the full runtime surface: valve/valve_ryuapp (os-ken
-    # hub), faucet_bgp (beka), faucet_dot1x (chewie), faucet_event,
-    # prom_client, gauge.
+    # Modules covering the full runtime surface: valve/valve_ryuapp (c65of),
+    # faucet_bgp (beka), faucet_dot1x (chewie), faucet_event, prom_client,
+    # gauge.
     RUNTIME_MODULES = ("faucet.faucet", "faucet.gauge")
 
-    def test_native_hub_no_eventlet(self):
-        """Importing the runtime modules on the default hub imports no eventlet."""
-        # Force os-ken's default hub selection; assert it is native and that
-        # nothing in the import graph reached for eventlet.
+    # os-ken required all of these; c65of requires none of them. netaddr is
+    # not listed: faucet uses it directly, and now declares it, having relied
+    # on os-ken to supply it.
+    FORBIDDEN = ("eventlet", "oslo_config", "os_ken")
+
+    def test_runtime_has_no_os_ken_dependencies(self):
+        """Importing the runtime modules imports nothing os-ken needed."""
         probe = (
-            "import os, sys;"
-            "os.environ.pop('OSKEN_HUB_TYPE', None);"
+            "import sys;"
             "import %s;" % ", ".join(self.RUNTIME_MODULES)
-            + "from os_ken.lib import hub;"
-            "assert hub.HUB_TYPE == 'native', hub.HUB_TYPE;"
-            "assert 'eventlet' not in sys.modules, "
-            "sorted(m for m in sys.modules if m.split('.')[0] == 'eventlet')"
+            + "found = sorted(m for m in sys.modules "
+            "if m.split('.')[0] in %r);" % (self.FORBIDDEN,) + "assert not found, found"
         )
-        env = dict(os.environ)
-        env.pop("OSKEN_HUB_TYPE", None)
         result = subprocess.run(
             [sys.executable, "-c", probe],
-            env=env,
+            env=dict(os.environ),
             capture_output=True,
             text=True,
             check=False,
@@ -55,7 +53,7 @@ class NoEventletTestCase(unittest.TestCase):  # pytype: disable=module-attr
         self.assertEqual(
             result.returncode,
             0,
-            "eventlet leaked into the runtime import graph:\n%s" % result.stderr,
+            "an os-ken dependency leaked into the runtime:\n%s" % result.stderr,
         )
 
 

@@ -24,8 +24,8 @@ from collections import namedtuple
 import os
 import unittest
 from prometheus_client import CollectorRegistry
-from os_ken.controller import dpset
-from os_ken.controller.ofp_event import EventOFPMsgBase
+from c65of import dpset
+from c65of.ofp_event import EventOFPMsgBase
 from faucet import faucet
 
 
@@ -42,32 +42,32 @@ class OSKenAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
         os.environ["FAUCET_CONFIG"] = "/dev/null"
         os.environ["FAUCET_LOG"] = "/dev/null"
         os.environ["FAUCET_EXCEPTION_LOG"] = "/dev/null"
-        os_ken_app = faucet.Faucet(dpset={}, reg=CollectorRegistry())
-        os_ken_app.reload_config(None)
-        self.assertFalse(os_ken_app._config_files_changed())
-        os_ken_app.metric_update(None)
+        sdn_app = faucet.Faucet(dpset={}, reg=CollectorRegistry())
+        sdn_app.reload_config(None)
+        self.assertFalse(sdn_app._config_files_changed())
+        sdn_app.metric_update(None)
         event_dp = dpset.EventDPReconnected(dp=self._fake_dp())
         for enter in (True, False):
             event_dp.enter = enter
-            os_ken_app.connect_or_disconnect_handler(event_dp)
+            sdn_app.connect_or_disconnect_handler(event_dp)
         for event_handler in (
-            os_ken_app.error_handler,
-            os_ken_app.features_handler,
-            os_ken_app.packet_in_handler,
-            os_ken_app.desc_stats_reply_handler,
-            os_ken_app.port_desc_stats_reply_handler,
-            os_ken_app.port_status_handler,
-            os_ken_app.flowremoved_handler,
-            os_ken_app.reconnect_handler,
-            os_ken_app._datapath_connect,
-            os_ken_app._datapath_disconnect,
+            sdn_app.error_handler,
+            sdn_app.features_handler,
+            sdn_app.packet_in_handler,
+            sdn_app.desc_stats_reply_handler,
+            sdn_app.port_desc_stats_reply_handler,
+            sdn_app.port_status_handler,
+            sdn_app.flowremoved_handler,
+            sdn_app.reconnect_handler,
+            sdn_app._datapath_connect,
+            sdn_app._datapath_disconnect,
         ):
             msg = namedtuple("msg", ["datapath"])(self._fake_dp())
             event = EventOFPMsgBase(msg=msg)
             event.dp = msg.datapath
             event_handler(event)
-        os_ken_app._check_thread_exception()
-        os_ken_app._thread_jitter(1)
+        sdn_app._check_thread_exception()
+        sdn_app._thread_jitter(1)
 
 
 if __name__ == "__main__":

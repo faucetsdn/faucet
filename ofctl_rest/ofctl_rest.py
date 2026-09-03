@@ -22,20 +22,19 @@ import logging
 import json
 import ast
 
-from os_ken.base import app_manager
-from os_ken.controller import ofp_event
-from os_ken.controller import dpset
-from os_ken.controller.handler import MAIN_DISPATCHER
-from os_ken.controller.handler import set_ev_cls
-from os_ken.exception import OSKenException
-from os_ken.ofproto import ofproto_v1_3
-from os_ken.lib import ofctl_v1_3
-from os_ken.lib import hub
+from c65of import app
+from c65of import ofp_event
+from c65of import dpset
+from c65of.app import MAIN_DISPATCHER
+from c65of.app import set_ev_cls
+from c65of import ofproto as ofproto_v1_3
+from c65of import ofctl as ofctl_v1_3
+from c65of import hub
 from wsgi import ControllerBase
 from wsgi import Response
 from wsgi import WSGIApplication, WSGIServer
 
-LOG = logging.getLogger("os_ken.app.ofctl_rest")
+LOG = logging.getLogger("ofctl_rest")
 
 DEFAULT_WSGI_HOST = "0.0.0.0"
 DEFAULT_WSGI_PORT = 8080
@@ -184,11 +183,15 @@ supported_ofctl = {
 # POST /stats/experimenter/<dpid>
 
 
-class CommandNotFoundError(OSKenException):
+class OFCtlRestError(Exception):
+    """Base for errors this REST application raises."""
+
+
+class CommandNotFoundError(OFCtlRestError):
     message = "No such command : %(cmd)s"
 
 
-class PortNotFoundError(OSKenException):
+class PortNotFoundError(OFCtlRestError):
     message = "No such port info: %(port_no)s"
 
 
@@ -483,7 +486,7 @@ class StatsController(ControllerBase):
         ofctl.set_role(dp, role)
 
 
-class RestStatsApi(app_manager.OSKenApp):
+class RestStatsApi(app.OFApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {"dpset": dpset.DPSet, "wsgi": WSGIApplication}
 
@@ -854,7 +857,6 @@ class RestStatsApi(app_manager.OSKenApp):
 
     @set_ev_cls(
         [
-            ofp_event.EventOFPStatsReply,
             ofp_event.EventOFPDescStatsReply,
             ofp_event.EventOFPFlowStatsReply,
             ofp_event.EventOFPAggregateStatsReply,
@@ -862,7 +864,6 @@ class RestStatsApi(app_manager.OSKenApp):
             ofp_event.EventOFPTableFeaturesStatsReply,
             ofp_event.EventOFPPortStatsReply,
             ofp_event.EventOFPQueueStatsReply,
-            ofp_event.EventOFPQueueDescStatsReply,
             ofp_event.EventOFPMeterStatsReply,
             ofp_event.EventOFPMeterFeaturesStatsReply,
             ofp_event.EventOFPMeterConfigStatsReply,

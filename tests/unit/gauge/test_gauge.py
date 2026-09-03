@@ -19,11 +19,11 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 from requests.exceptions import ReadTimeout
 
-from os_ken.controller.ofp_event import EventOFPMsgBase
-from os_ken.lib import type_desc
-from os_ken.lib import hub
-from os_ken.ofproto import ofproto_v1_3 as ofproto
-from os_ken.ofproto import ofproto_v1_3_parser as parser
+from c65of.ofp_event import EventOFPMsgBase
+from c65of.lib import type_desc
+from c65of import hub
+from c65of import ofproto
+from c65of.ofproto import parser
 
 from prometheus_client import CollectorRegistry
 
@@ -630,11 +630,11 @@ class OSKenAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
         os.environ["GAUGE_EXCEPTION_LOG"] = os.path.join(
             self.tmpdir, "gauge-exception.log"
         )
-        self.os_ken_app = None
+        self.sdn_app = None
 
     def tearDown(self):
-        valve_util.close_logger(self.os_ken_app.logger)
-        valve_util.close_logger(self.os_ken_app.exc_logger)
+        valve_util.close_logger(self.sdn_app.logger)
+        valve_util.close_logger(self.sdn_app.exc_logger)
         shutil.rmtree(self.tmpdir)
 
     @staticmethod
@@ -657,14 +657,14 @@ class OSKenAppSmokeTest(unittest.TestCase):  # pytype: disable=module-attr
     def test_gauge(self):
         """Test Gauge can be initialized."""
         os.environ["GAUGE_CONFIG"] = "/dev/null"
-        self.os_ken_app = gauge.Gauge(dpset={}, reg=CollectorRegistry())
-        self.os_ken_app.reload_config(None)
-        self.assertFalse(self.os_ken_app._config_files_changed())
-        self.os_ken_app._update_watcher(None, self._fake_event())
-        self.os_ken_app._start_watchers(self._fake_dp(), {}, time.time())
+        self.sdn_app = gauge.Gauge(dpset={}, reg=CollectorRegistry())
+        self.sdn_app.reload_config(None)
+        self.assertFalse(self.sdn_app._config_files_changed())
+        self.sdn_app._update_watcher(None, self._fake_event())
+        self.sdn_app._start_watchers(self._fake_dp(), {}, time.time())
         for event_handler in (
-            self.os_ken_app._datapath_connect,
-            self.os_ken_app._datapath_disconnect,
+            self.sdn_app._datapath_connect,
+            self.sdn_app._datapath_disconnect,
         ):
             event_handler(self._fake_event())
 
@@ -725,32 +725,32 @@ dbs:
             % os.environ["FAUCET_CONFIG"]
         )
         self._write_config(os.environ["GAUGE_CONFIG"], gauge_conf)
-        self.os_ken_app = gauge.Gauge(dpset={}, reg=CollectorRegistry())
-        self.os_ken_app.reload_config(None)
-        self.assertFalse(self.os_ken_app._config_files_changed())
-        self.assertTrue(self.os_ken_app.watchers)
-        self.os_ken_app.reload_config(None)
-        self.assertTrue(self.os_ken_app.watchers)
-        self.assertFalse(self.os_ken_app._config_files_changed())
+        self.sdn_app = gauge.Gauge(dpset={}, reg=CollectorRegistry())
+        self.sdn_app.reload_config(None)
+        self.assertFalse(self.sdn_app._config_files_changed())
+        self.assertTrue(self.sdn_app.watchers)
+        self.sdn_app.reload_config(None)
+        self.assertTrue(self.sdn_app.watchers)
+        self.assertFalse(self.sdn_app._config_files_changed())
         # Load a new FAUCET config.
         self._write_config(os.environ["FAUCET_CONFIG"], faucet_conf2)
-        self.assertTrue(self.os_ken_app._config_files_changed())
-        self.os_ken_app.reload_config(None)
-        self.assertTrue(self.os_ken_app.watchers)
-        self.assertFalse(self.os_ken_app._config_files_changed())
+        self.assertTrue(self.sdn_app._config_files_changed())
+        self.sdn_app.reload_config(None)
+        self.assertTrue(self.sdn_app.watchers)
+        self.assertFalse(self.sdn_app._config_files_changed())
         # Load an invalid Gauge config
         self._write_config(os.environ["GAUGE_CONFIG"], "invalid")
-        self.assertTrue(self.os_ken_app._config_files_changed())
-        self.os_ken_app.reload_config(None)
-        self.assertTrue(self.os_ken_app.watchers)
+        self.assertTrue(self.sdn_app._config_files_changed())
+        self.sdn_app.reload_config(None)
+        self.assertTrue(self.sdn_app.watchers)
         # Keep trying to load a valid version.
-        self.assertTrue(self.os_ken_app._config_files_changed())
+        self.assertTrue(self.sdn_app._config_files_changed())
         # Load good Gauge config back
         self._write_config(os.environ["GAUGE_CONFIG"], gauge_conf)
-        self.assertTrue(self.os_ken_app._config_files_changed())
-        self.os_ken_app.reload_config(None)
-        self.assertTrue(self.os_ken_app.watchers)
-        self.assertFalse(self.os_ken_app._config_files_changed())
+        self.assertTrue(self.sdn_app._config_files_changed())
+        self.sdn_app.reload_config(None)
+        self.assertTrue(self.sdn_app.watchers)
+        self.assertFalse(self.sdn_app._config_files_changed())
 
 
 if __name__ == "__main__":

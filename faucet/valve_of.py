@@ -24,9 +24,9 @@ import ipaddress
 import random
 
 # pylint: disable=unused-import
-from os_ken.lib import mac  # noqa: F401
-from os_ken.lib import ofctl_v1_3 as ofctl
-from os_ken.lib.ofctl_utils import (
+from c65of.lib import mac  # noqa: F401
+from c65of import ofctl
+from c65of.ofctl import (
     str_to_int,
     to_match_ip,
     to_match_masked_int,
@@ -34,12 +34,12 @@ from os_ken.lib.ofctl_utils import (
     to_match_vid,
     OFCtlUtil,
 )
-from os_ken.ofproto import ether
+from c65of.ofproto import ether
 
 # pylint: disable=unused-import
-from os_ken.ofproto import inet  # noqa: F401
-from os_ken.ofproto import ofproto_v1_3 as ofp
-from os_ken.ofproto import ofproto_v1_3_parser as parser
+from c65of.ofproto import inet  # noqa: F401
+from c65of import ofproto as ofp
+from c65of.ofproto import parser
 
 from faucet.conf import test_config_condition, InvalidConfigError
 from faucet.valve_of_old import OLD_MATCH_FIELDS
