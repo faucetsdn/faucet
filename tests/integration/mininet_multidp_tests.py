@@ -2158,7 +2158,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
             self.faucet_config_path,
             restart=True,
             cold_start=False,
-            change_expected=False,
+            change_expected=True,
         )
         self.host_information.pop(1)
 

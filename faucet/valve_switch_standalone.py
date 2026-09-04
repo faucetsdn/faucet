@@ -526,6 +526,15 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
             ofmsgs.extend(self.pipeline.filter_packets({"eth_src": vlan.faucet_mac}))
         return ofmsgs
 
+    def del_drop_spoofed_faucet_mac_rules(self, vlan, dp_vlans):
+        """Remove rules to drop spoofed faucet mac"""
+        ofmsgs = []
+        if self.drop_spoofed_faucet_mac:
+            dp_macs = [vlan.faucet_mac for vlan in dp_vlans]
+            if vlan.faucet_mac not in dp_macs:
+                ofmsgs.extend(self.pipeline.remove_filter({"eth_src": vlan.faucet_mac}))
+        return ofmsgs
+
     def add_vlan(self, vlan, cold_start):
         ofmsgs = []
         ofmsgs.extend(self.add_drop_spoofed_faucet_mac_rules(vlan))
@@ -539,11 +548,13 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         ofmsgs.extend(self._build_flood_rules(vlan, cold_start))
         return ofmsgs
 
-    def del_vlan(self, vlan):
-        return [
+    def del_vlan(self, vlan, dp_vlans):
+        ofmsgs = [
             self.flood_table.flowdel(match=self.flood_table.match(vlan=vlan)),
             self.eth_src_table.flowdel(match=self.eth_src_table.match(vlan=vlan)),
         ]
+        ofmsgs.extend(self.del_drop_spoofed_faucet_mac_rules(vlan, dp_vlans))
+        return ofmsgs
 
     def update_vlan(self, vlan):
         return self._build_flood_rules(vlan, cold_start=False, modify=True)
