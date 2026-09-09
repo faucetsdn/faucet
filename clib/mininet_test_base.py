@@ -325,7 +325,7 @@ class FaucetTestBase(unittest.TestCase):
         """Return the next matching event from the event sock, else fail"""
         assert timeout >= 1
         assert self.event_log and os.path.exists(self.event_log)
-        for _ in range(timeout):
+        for i in range(timeout):
             with open(self.event_log, encoding="utf-8") as events:
                 for event_str in events:
                     event = json.loads(event_str)
@@ -338,7 +338,8 @@ class FaucetTestBase(unittest.TestCase):
                             return event
                     except KeyError:
                         pass  # Allow for easy dict traversal.
-                time.sleep(1)
+                if i < (timeout - 1):
+                    time.sleep(1)
         self.fail("matching event not found in event stream")
 
     @staticmethod
@@ -434,12 +435,13 @@ class FaucetTestBase(unittest.TestCase):
 
     def _wait_load(self, load_retries=10):
         load = os.getloadavg()[0]
-        for _ in range(load_retries):
+        for i in range(load_retries):
             if load < self.max_test_load:
                 return
             output("load average too high %f, waiting" % load)
-            time.sleep(random.uniform(0.1, 1.0))
-            load = os.getloadavg()[0]
+            if i < (load_retries - 1):
+                time.sleep(random.uniform(0.1, 1.0))
+                load = os.getloadavg()[0]
         self.fail("load average %f consistently too high" % load)
 
     def _allocate_config_ports(self):
@@ -802,7 +804,8 @@ class FaucetTestBase(unittest.TestCase):
         self._wait_load()
 
         last_error_txt = None
-        for _ in range(3):
+        retries = 3
+        for i in range(retries):
             # Start Mininet, connected to the first controller
             self.net = Mininet(
                 self.topo, link=FaucetLink, controller=self.faucet_controllers[0]
@@ -831,7 +834,8 @@ class FaucetTestBase(unittest.TestCase):
             error("%s: %s" % (self._test_name(), last_error_txt))
             # The port server (mininet_test_util.serve_ports) already enforces
             # MIN_PORT_AGE on dispense; sleeping it here wastes 30+s per retry.
-            time.sleep(1)
+            if i < (retries - 1):
+                time.sleep(1)
 
         if last_error_txt is not None:
             self.fail(last_error_txt)
@@ -876,14 +880,15 @@ class FaucetTestBase(unittest.TestCase):
         return isinstance(switches, list) and switches
 
     def _wait_ofctl_up(self, timeout=10):
-        for _ in range(timeout * 4):
+        for i in range(timeout * 4):
             if self._ofctl_up():
                 return True
-            time.sleep(0.25)
+            if i < (timeout * 4 - 1):
+                time.sleep(0.25)
         return False
 
     def _ofctl_post(self, int_dpid, req, timeout, params=None):
-        for _ in range(timeout):
+        for i in range(timeout):
             try:
                 ofctl_result = requests.post(
                     self._ofctl_rest_url(req), json=params
@@ -891,18 +896,20 @@ class FaucetTestBase(unittest.TestCase):
                 return ofctl_result[int_dpid]
             except (ValueError, TypeError, requests.exceptions.ConnectionError):
                 # Didn't get valid JSON, try again
-                time.sleep(1)
+                if i < (timeout - 1):
+                    time.sleep(1)
                 continue
         return []
 
     def _ofctl_get(self, int_dpid, req, timeout, params=None):
-        for _ in range(timeout):
+        for i in range(timeout):
             ofctl_result = self._ofctl(self._ofctl_rest_url(req), params=params)
             try:
                 return ofctl_result[int_dpid]
             except (ValueError, TypeError):
                 # Didn't get valid JSON, try again
-                time.sleep(1)
+                if i < (timeout - 1):
+                    time.sleep(1)
                 continue
         return []
 
@@ -970,30 +977,34 @@ class FaucetTestBase(unittest.TestCase):
         return True
 
     def _wait_controllers_healthy(self, timeout=90):
-        for _ in range(timeout * 4):
+        for i in range(timeout * 4):
             if self._controllers_healthy():
                 return True
-            time.sleep(0.25)
+            if i < (timeout * 4 - 1):
+                time.sleep(0.25)
         return False
 
     def _wait_controllers_connected(self, timeout=90):
         # Slow CI runners can spend ~30s between Faucet startup and OVS
         # establishing the OpenFlow channel; the previous 30s window
         # turned that into a hard flake.
-        for _ in range(timeout * 4):
+        for i in range(timeout * 4):
             if self._controllers_connected():
                 return True
-            time.sleep(0.25)
+            if i < (timeout * 4 - 1):
+                time.sleep(0.25)
         return False
 
     def _wait_debug_log(self):
         """Require all switches to have exchanged flows with controller."""
         ofchannel_logs = self._get_ofchannel_logs()
+        timeout = 60
         for _, debug_log in ofchannel_logs:
-            for _ in range(60 * 4):
+            for i in range(timeout * 4):
                 if os.path.exists(debug_log) and os.path.getsize(debug_log) > 0:
                     break
-                time.sleep(0.25)
+                if i < (timeout * 4 - 1):
+                    time.sleep(0.25)
             else:
                 return False
         return True
@@ -1225,7 +1236,7 @@ dbs:
 
     def wait_matching_in_group_table(self, action, group_id, timeout=10):
         groupdump = os.path.join(self.tmpdir, "groupdump-%s.txt" % self.dpid)
-        for _ in range(timeout):
+        for i in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
             with open(groupdump, "w", encoding="utf-8") as groupdump_file:
                 for group_dict in group_dump:
@@ -1234,7 +1245,8 @@ dbs:
                         actions = set(group_dict["buckets"][0]["actions"])
                         if set([action]).issubset(actions):
                             return True
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         return False
 
     # TODO: Should this have meter_confs as well or can we just match meter_ids
@@ -1304,7 +1316,7 @@ dbs:
         if actions:
             actions_set = frozenset(actions)
 
-        for _ in range(timeout):
+        for i in range(timeout):
             flow_dicts = []
             if ofa_match:
                 flow_dump = self.get_all_flows_from_dpid(dpid, table_id, match=match)
@@ -1342,7 +1354,8 @@ dbs:
                 flow_dicts.append(flow_dict)
             if flow_dicts:
                 return flow_dicts
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         return flow_dicts
 
     def get_matching_flow_on_dpid(
@@ -1392,14 +1405,15 @@ dbs:
         )
 
     def get_group_id_for_matching_flow(self, match, table_id, timeout=10):
-        for _ in range(timeout):
+        for i in range(timeout):
             flow_dict = self.get_matching_flow(match, table_id, timeout=timeout)
             if flow_dict:
                 for action in flow_dict["actions"]:
                     if action.startswith("GROUP"):
                         _, group_id = action.split(":")
                         return int(group_id)
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         return None
 
     def matching_flow_present_on_dpid(
@@ -1589,19 +1603,20 @@ dbs:
         first_counters = self.scrape_port_counters(
             ports_not_updated, port_vars, assert_present=False
         )
-        for _ in range(self.DB_TIMEOUT * 3):
+        for i in range(self.DB_TIMEOUT * 3):
             if all(
                 first_counters[port].get(var) is not None
                 for port in ports_not_updated
                 for var in port_vars
             ):
                 break
-            time.sleep(1)
-            first_counters = self.scrape_port_counters(
-                ports_not_updated, port_vars, assert_present=False
-            )
+            if i < (self.DB_TIMEOUT * 3 - 1):
+                time.sleep(1)
+                first_counters = self.scrape_port_counters(
+                    ports_not_updated, port_vars, assert_present=False
+                )
 
-        for _ in range(self.DB_TIMEOUT * 3):
+        for i in range(self.DB_TIMEOUT * 3):
             stimulate_counters_func()
             now_counters = self.scrape_port_counters(ports_not_updated, port_vars)
             updated_ports = set()
@@ -1623,7 +1638,8 @@ dbs:
                 updated_ports.add(port)
             ports_not_updated -= updated_ports
             if ports_not_updated:
-                time.sleep(1)
+                if i < (self.DB_TIMEOUT * 3 - 1):
+                    time.sleep(1)
             else:
                 break
 
@@ -1849,7 +1865,7 @@ dbs:
     ):
         if controller is None:
             controller = self.faucet_controllers[0].name
-        for _ in range(timeout * 4):
+        for i in range(timeout * 4):
             result = self.scrape_prometheus_var(
                 var,
                 labels=labels,
@@ -1864,7 +1880,8 @@ dbs:
                 return True
             if orgreater and result is not None and result > result_wanted:
                 return True
-            time.sleep(0.25)
+            if i < (timeout * 4 - 1):
+                time.sleep(0.25)
         return False
 
     def scrape_prometheus_var(
@@ -1988,13 +2005,14 @@ dbs:
         """Return the number of times FAUCET has processed a reload request."""
         if controller is None:
             controller = self.faucet_controllers[0].name
-        for _ in range(retries):
+        for i in range(retries):
             count = self.scrape_prometheus_var(
                 "faucet_config_reload_requests_total", dpid=False, controller=controller
             )
             if count:
                 break
-            time.sleep(1)
+            if i < (retries - 1):
+                time.sleep(1)
         self.assertTrue(count, msg="configure count stayed zero")
         return count
 
@@ -2154,7 +2172,7 @@ dbs:
         mac = "0e:00:00:00:00:ff"
         locations = set()
         for host in self.hosts_name_ordered():
-            for _ in range(retries):
+            for i in range(retries):
                 host.cmd(self.scapy_dhcp(mac, host.defaultIntf()))
                 new_locations = set()
                 for line in self.scrape_prometheus(var="learned_macs"):
@@ -2163,7 +2181,8 @@ dbs:
                         new_locations.add(location)
                 if locations != new_locations:
                     break
-                time.sleep(1)
+                if i < (retries - 1):
+                    time.sleep(1)
             # TODO: verify port/host association, not just that host moved.
             self.assertNotEqual(locations, new_locations)
             locations = new_locations
@@ -2332,7 +2351,8 @@ dbs:
 
     def verify_learn_counters(self, vlan, ports, verify_neighbors=False):
         # Need to synchronize with stats update thread.
-        for _ in range(7):
+        retries = 7
+        for i in range(retries):
             vlan_hosts_learned = self.scrape_prometheus_var(
                 "vlan_hosts_learned", {"vlan": str(vlan)}
             )
@@ -2353,7 +2373,8 @@ dbs:
                 and vlan_hosts_learned == prom_macs_learned
             ):
                 break
-            time.sleep(1)
+            if i < (retries - 1):
+                time.sleep(1)
         self.assertEqual(vlan_hosts_learned, port_vlan_hosts_learned)
         self.assertEqual(vlan_hosts_learned, prom_macs_learned)
         if verify_neighbors:
@@ -2388,7 +2409,7 @@ dbs:
 
         def generate_mac_intfs(test_ipas, other_hosts):
             mac_intf_ipv4s = []
-            for i in range(0, max_hosts):
+            for i in range(max_hosts):
                 host = other_hosts[i % len(other_hosts)]
                 mac_intf = "mac%u" % i
                 mac_ipv4 = str(test_ipas[i])
@@ -2796,11 +2817,12 @@ dbs:
         for i, controller in enumerate(self.faucet_controllers):
             cont_name = controller.name
             start_configure_count = start_configure_counts[i]
-            for _ in range(timeout * 4):
+            for j in range(timeout * 4):
                 configure_count = self.get_configure_count(controller=cont_name)
                 if configure_count > start_configure_count:
                     break
-                time.sleep(0.25)
+                if j < (timeout * 4 - 1):
+                    time.sleep(0.25)
             self.assertNotEqual(
                 start_configure_count,
                 configure_count,
@@ -2810,7 +2832,7 @@ dbs:
                 old_count = old_counts[i]
                 if change_expected:
                     old_count = old_counts[i]
-                    for _ in range(timeout * 4):
+                    for j in range(timeout * 4):
                         new_count = int(
                             self.scrape_prometheus_var(
                                 var, controller=cont_name, dpid=dpid, default=0
@@ -2818,7 +2840,8 @@ dbs:
                         )
                         if new_count > old_count:
                             break
-                        time.sleep(0.25)
+                        if j < (timeout * 4 - 1):
+                            time.sleep(0.25)
                     self.assertTrue(
                         new_count > old_count,
                         msg="FAUCET %s %s did not increment: %u"
@@ -2861,12 +2884,13 @@ dbs:
         self, hosts_switch_ports, timeout, sync_counters_func=None
     ):
         first = self.get_host_port_stats(hosts_switch_ports)
-        for _ in range(timeout):
+        for i in range(timeout):
             if sync_counters_func:
                 sync_counters_func()
             if self.get_host_port_stats(hosts_switch_ports) != first:
                 return
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         self.fail("port stats for %s never updated" % hosts_switch_ports)
 
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
@@ -2897,7 +2921,8 @@ dbs:
         iperf_mbps = self.iperf(client_host, client_ip, server_host, server_ip, seconds)
         self.assertGreater(iperf_mbps, min_mbps)
         # TODO: account for drops.
-        for _ in range(3):
+        retries = 3
+        for i in range(retries):
             end_port_stats = self.get_host_port_stats(hosts_switch_ports)
             approx_match = True
             for host in hosts:
@@ -2922,7 +2947,8 @@ dbs:
                     approx_match = False
             if approx_match:
                 return
-            time.sleep(1)
+            if i < (retries - 1):
+                time.sleep(1)
         self.fail(msg=msg)
 
     @staticmethod
@@ -2934,14 +2960,15 @@ dbs:
         self.dpid_names = copy.deepcopy(dpid_names)
 
     def wait_port_status(self, dpid, port_no, status, expected_status, timeout=10):
-        for _ in range(timeout):
+        for i in range(timeout):
             port_status = self.scrape_prometheus_var(
                 "port_status", self.port_labels(port_no), default=None, dpid=dpid
             )
             if port_status is not None and port_status == expected_status:
                 return
             self._portmod(dpid, port_no, status, ofp.OFPPC_PORT_DOWN)
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         self.fail(
             "dpid %x port %s status %s != expected %u"
             % (dpid, port_no, port_status, expected_status)
@@ -3098,13 +3125,14 @@ dbs:
         if require_host_learned:
             self.require_host_learned(host)
         pause = timeout / 1e3
-        for _ in range(retries):
+        for i in range(retries):
             ping_out = host.cmd(ping_cmd)
             ping_result = bool(re.search(good_ping, ping_out))
             if ping_result:
                 break
-            time.sleep(pause)
-            pause *= 2
+            if i < (retries - 1):
+                time.sleep(pause)
+                pause *= 2
         self.assertEqual(
             ping_result,
             expected_result,
@@ -3185,14 +3213,15 @@ dbs:
 
     def retry_net_ping(self, hosts=None, required_loss=0, retries=3, timeout=2):
         loss = None
-        for _ in range(retries):
+        for i in range(retries):
             if hosts is None:
                 loss = self.ping_all(timeout=timeout)
             else:
                 loss = self.net.ping(hosts, timeout=timeout)
             if loss <= required_loss:
                 return
-            time.sleep(1)
+            if i < (retries - 1):
+                time.sleep(1)
         self.fail("ping %f loss > required loss %f" % (loss, required_loss))
 
     def _ip_traceroute(
@@ -3219,13 +3248,14 @@ dbs:
             dst,
         )
         pause = timeout / 1e3
-        for _ in range(retries):
+        for i in range(retries):
             traceroute_out = host.cmd(traceroute_cmd)
             traceroute_result = bool(re.search(good_traceroute, traceroute_out))
             if traceroute_result:
                 break
-            time.sleep(pause)
-            pause *= 2
+            if i < (retries - 1):
+                time.sleep(pause)
+                pause *= 2
         self.assertEqual(
             traceroute_result,
             expected_result,
@@ -3288,20 +3318,22 @@ dbs:
 
     def wait_for_tcp_free(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
-        for _ in range(timeout):
+        for i in range(timeout):
             listen_out = self.tcp_port_free(host, port, ipv)
             if listen_out is None:
                 return
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         self.fail("%s busy on port %u (%s)" % (host, port, listen_out))
 
     def wait_for_tcp_listen(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
-        for _ in range(timeout):
+        for i in range(timeout):
             listen_out = self.tcp_port_free(host, port, ipv)
             if listen_out is not None:
                 return
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         self.fail("%s never listened on port %u" % (host, port))
 
     def serve_str_on_tcp_port(self, host, port, serve_str="hello", timeout=20):
@@ -3319,13 +3351,14 @@ dbs:
         """Wait for a flow to be present and have a non-zero packet_count."""
         if dpid is None:
             dpid = self.dpid
-        for _ in range(timeout):
+        for i in range(timeout):
             flow = self.get_matching_flow_on_dpid(
                 dpid, match, table_id, timeout=1, actions=actions, ofa_match=ofa_match
             )
             if flow and flow["packet_count"] > 0:
                 return
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         if flow:
             self.fail(
                 "DPID %s flow %s matching %s table ID %s had zero packet count"
@@ -3374,7 +3407,7 @@ dbs:
             "ff:ff:ff:ff:ff:ff",
         )
         target_addr = str(self.FAUCET_VIPV4.network.broadcast_address)
-        for _ in range(retries):
+        for i in range(retries):
             tcpdump_txt = self.tcpdump_helper(
                 second_host,
                 tcpdump_filter,
@@ -3391,7 +3424,8 @@ dbs:
             )
             if re.search(success_re, tcpdump_txt):
                 return True
-            time.sleep(1)
+            if i < (retries - 1):
+                time.sleep(1)
         return False
 
     def verify_bcast_dst_blocked(self, port, first_host, second_host):
@@ -3442,10 +3476,11 @@ dbs:
         )
         exabgp_cli = "env %s %s" % (exabgp_env, exabgp_cmd)
         controller.cmd(exabgp_cli)
-        for _ in range(timeout):
+        for i in range(timeout):
             if os.path.exists(exabgp_log):
                 break
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         self.assertTrue(
             os.path.exists(exabgp_log), msg="exabgp (%s) did not start" % exabgp_cli
         )
@@ -3457,13 +3492,15 @@ dbs:
             "neighbor": neighbor,
             "vlan": vlan,
         }
-        for _ in range(60):
+        timeout = 60
+        for i in range(timeout):
             uptime = self.scrape_prometheus_var(
                 "bgp_neighbor_uptime", label_values, default=0
             )
             if uptime > 0:
                 return
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         exabgp_log_content = []
         for log_name in (exabgp_log, exabgp_err):
             if os.path.exists(log_name):
@@ -3482,12 +3519,13 @@ dbs:
         """Require (count) matching lines to be present in file."""
         assert timeout >= 1
         lines = []
-        for _ in range(timeout):
+        for i in range(timeout):
             if os.path.exists(log_name):
                 lines = self.matching_lines_from_file(exp, log_name)
                 if len(lines) >= count:
                     return lines
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         self.fail("%s not found in %s (%d/%d)" % (exp, log_name, len(lines), count))
 
     def wait_until_no_matching_lines_from_file(
@@ -3496,14 +3534,15 @@ dbs:
         """Require (count) matching lines to be non-existent in file."""
         assert timeout >= 1
         lines = []
-        for _ in range(timeout):
+        for i in range(timeout):
             if os.path.exists(log_name):
                 lines = self.matching_lines_from_file(exp, log_name)
                 if len(lines) >= count:
                     return self.fail(
                         "%s found in %s (%d/%d)" % (exp, log_name, len(lines), count)
                     )
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         return lines
 
     def wait_until_matching_lines_from_faucet_log_files(self, exp, timeout=30, count=1):
@@ -3525,13 +3564,14 @@ dbs:
         controller = self._get_controller()
         updates = []
         # exabgp should have received our BGP updates
-        for _ in range(timeout):
+        for i in range(timeout):
             updates = controller.cmd(
                 r'grep UPDATE %s |grep -Eo "\S+ next-hop \S+"' % exabgp_log
             )
             if updates:
                 break
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         self.assertTrue(updates, "exabgp did not receive BGP updates")
         return updates
 
@@ -3574,10 +3614,11 @@ dbs:
             300,
         )
         host.cmd(wpasupplicant_cmd)
-        for _ in range(timeout):
+        for i in range(timeout):
             if os.path.exists(wpasupplicant_log):
                 break
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         self.assertTrue(
             os.path.exists(wpasupplicant_log),
             msg="wpasupplicant (%s) did not start" % wpasupplicant_cmd,
@@ -3653,10 +3694,11 @@ dbs:
         return None
 
     def _verify_host_learned_mac(self, host, ipa, ip_ver, mac, retries):
-        for _ in range(retries):
+        for i in range(retries):
             if self._ip_neigh(host, ipa, ip_ver) == mac:
                 return
-            time.sleep(1)
+            if i < (retries - 1):
+                time.sleep(1)
         self.fail("could not verify %s resolved to %s" % (ipa, mac))
 
     def verify_ipv4_host_learned_mac(self, host, ipa, mac, retries=3):
@@ -3701,7 +3743,8 @@ dbs:
             return None
 
         timeout = (seconds * 3) + 5
-        for _ in range(3):
+        retries = 3
+        for i in range(retries):
             port = mininet_test_util.find_free_port(self.ports_sock, self._test_name())
             iperf_base_cmd = "iperf -f M -p %u" % port
             if server_ip.version == 6:
@@ -3719,7 +3762,8 @@ dbs:
             )
             if iperf_mbps is not None and iperf_mbps > 0:
                 return iperf_mbps
-            time.sleep(1)
+            if i < (retries - 1):
+                time.sleep(1)
         if iperf_mbps == -1:
             self.fail(
                 "iperf client %s did not connect to server %s"

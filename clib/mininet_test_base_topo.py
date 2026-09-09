@@ -435,7 +435,7 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def verify_stack_up(self, prop=1.0, timeout=25):
         """Verify all stack ports are up"""
-        for _ in range(timeout):
+        for i in range(timeout):
             links = 0
             links_up = 0
             for link, ports in self.link_port_maps.items():
@@ -451,7 +451,8 @@ class FaucetTopoTestBase(FaucetTestBase):
             prop_up = links_up / links
             if prop_up >= prop:
                 return
-            time.sleep(1)
+            if i < (timeout - 1):
+                time.sleep(1)
         self.fail("not enough links up: %f / %f" % (links_up, links))
 
     def verify_one_stack_down(self, stack_offset_port, coldstart=False):
@@ -706,7 +707,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             "ff:ff:ff:ff:ff:ff",
         )
         target_addr = str(self.faucet_vips[0].network.broadcast_address)
-        for _ in range(retries):
+        for i in range(retries):
             tcpdump_txt = self.tcpdump_helper(
                 second_host,
                 tcpdump_filter,
@@ -723,7 +724,8 @@ class FaucetTopoTestBase(FaucetTestBase):
             )
             if re.search(success_re, tcpdump_txt):
                 return True
-            time.sleep(1)
+            if i < (retries - 1):
+                time.sleep(1)
         return False
 
     def get_expected_synced_states(self, host_id):
@@ -793,10 +795,11 @@ details partner lacp pdu:
     def verify_num_lag_up_ports(self, expected_up_ports, dpid):
         """Checks to see if Prometheus has the expected number of up LAG ports
         on the specified DP"""
-        for _ in range(self.LACP_TIMEOUT * 10):
+        for i in range(self.LACP_TIMEOUT * 10):
             if self.prom_lacp_up_ports(dpid) == expected_up_ports:
                 return
-            time.sleep(1)
+            if i < (self.LACP_TIMEOUT * 10 - 1):
+                time.sleep(1)
         self.assertEqual(self.prom_lacp_up_ports(dpid), expected_up_ports)
 
     def require_linux_bond_up(self, host_id):
@@ -804,7 +807,7 @@ details partner lacp pdu:
         synced_state_list = self.get_expected_synced_states(host_id)
         host = self.host_information[host_id]["host"]
         bond_name = self.host_information[host_id]["bond"]
-        for _ in range(self.LACP_TIMEOUT * 2):
+        for i in range(self.LACP_TIMEOUT * 2):
             result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond_name)
             result = "\n".join([line.rstrip() for line in result.splitlines()])
             with open(
@@ -818,7 +821,8 @@ details partner lacp pdu:
                     break
             if matched_all:
                 return
-            time.sleep(1)
+            if i < (self.LACP_TIMEOUT * 2 - 1):
+                time.sleep(1)
         synced_state_txt = r""""""
         for state_txt in synced_state_list:
             synced_state_txt += state_txt + "\n\n"
