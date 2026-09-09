@@ -3143,7 +3143,7 @@ dbs:
         self,
         host,
         dst,
-        retries=3,
+        retries=5,
         timeout=1000,
         intf=None,
         require_host_learned=True,
