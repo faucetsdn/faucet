@@ -7902,6 +7902,144 @@ routers:
         self.one_ipv6_ping(second_host, first_host_net.ip)
 
 
+class FaucetUntaggedChangeVIPInterVLANRouteTest(FaucetUntaggedTest):
+    CONFIG_GLOBAL = """
+vlans:
+    vlan1:
+        vid: 0x100
+        faucet_vips: ["10.10.0.254/24", "fa00::254/64", "fe80::c00:ff:fe00:1/64"]
+    vlan2:
+        vid: 0x200
+        faucet_vips: ["10.20.0.254/24", "fb00::254/64", "fe80::c00:ff:fe00:2/64"]
+        faucet_mac: "0e:00:00:00:00:02"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: vlan1
+            %(port_2)d:
+                native_vlan: vlan2
+            %(port_3)d:
+                native_vlan: vlan2
+            %(port_4)d:
+                native_vlan: vlan2
+"""
+
+    def test_untagged(self):
+        def first_host_add_ips():
+            self.host_drop_all_ips(first_host, scope="global")
+            first_host.setIP(
+                str(first_host_ip.ip), prefixLen=first_host_ip.network.prefixlen
+            )
+            self.add_host_ipv6_address(first_host, first_host_ipv6)
+
+        def second_host_add_ips():
+            self.host_drop_all_ips(second_host, scope="global")
+            second_host.setIP(
+                str(second_host_ip.ip), prefixLen=second_host_ip.network.prefixlen
+            )
+            self.add_host_ipv6_address(second_host, second_host_ipv6)
+
+        def add_host_routes():
+            self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
+            self.add_host_route(first_host, second_host_ipv6, first_faucet_vip_ipv6.ip)
+            self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
+            self.add_host_route(second_host, first_host_ipv6, second_faucet_vip_ipv6.ip)
+
+        def first_host_connectivity_check(link_local_reachable=True):
+            self.one_ipv4_ping(first_host, second_host_ip.ip)
+            self.one_ipv6_ping(first_host, second_host_ipv6.ip)
+            self.one_ipv6_ping(
+                first_host,
+                first_faucet_vip_link_local_ipv6.ip,
+                expected_result=link_local_reachable,
+            )
+
+        def second_host_connectivity_check(link_local_reachable=True):
+            self.one_ipv4_ping(second_host, first_host_ip.ip)
+            self.one_ipv6_ping(second_host, first_host_ipv6.ip)
+            self.one_ipv6_ping(
+                second_host,
+                second_faucet_vip_link_local_ipv6.ip,
+                expected_result=link_local_reachable,
+            )
+
+        first_host, second_host = self.hosts_name_ordered()[:2]
+        first_host_ip = ipaddress.ip_interface("10.10.0.1/24")
+        first_faucet_vip = ipaddress.ip_interface("10.10.0.254/24")
+        first_host_ipv6 = ipaddress.ip_interface("fa00::1/64")
+        first_faucet_vip_ipv6 = ipaddress.ip_interface("fa00::254/64")
+        first_faucet_vip_link_local_ipv6 = ipaddress.ip_interface(
+            "fe80::c00:ff:fe00:1/64"
+        )
+        second_host_ip = ipaddress.ip_interface("10.20.0.1/24")
+        second_faucet_vip = ipaddress.ip_interface("10.20.0.254/24")
+        second_host_ipv6 = ipaddress.ip_interface("fb00::1/64")
+        second_faucet_vip_ipv6 = ipaddress.ip_interface("fb00::254/64")
+        second_faucet_vip_link_local_ipv6 = ipaddress.ip_interface(
+            "fe80::c00:ff:fe00:2/64"
+        )
+        first_host_add_ips()
+        second_host_add_ips()
+        add_host_routes()
+
+        first_host_connectivity_check()
+        second_host_connectivity_check()
+
+        self.change_vlan_config(
+            "vlan2",
+            "faucet_mac",
+            "0e:00:00:00:00:03",
+            hup=True,
+            cold_start=False,
+        )
+
+        self.change_vlan_config(
+            "vlan2",
+            "faucet_vips",
+            ["10.22.0.254/25", "fc00::254/112", "fe80::c00:ff:fe00:3/64"],
+            hup=True,
+            cold_start=False,
+        )
+
+        second_host_ip = ipaddress.ip_interface("10.22.0.129/25")
+        second_faucet_vip = ipaddress.ip_interface("10.22.0.254/25")
+        second_host_ipv6 = ipaddress.ip_interface("fc00::1/112")
+        second_faucet_vip_ipv6 = ipaddress.ip_interface("fc00::254/112")
+        second_faucet_vip_link_local_ipv6 = ipaddress.ip_interface(
+            "fe80::c00:ff:fe00:3/64"
+        )
+        second_host_add_ips()
+        add_host_routes()
+
+        second_host_connectivity_check()
+        first_host_connectivity_check()
+
+        self.change_vlan_config(
+            "vlan1",
+            "faucet_vips",
+            ["10.11.0.254/24", "fd00::254/64"],
+            hup=True,
+            cold_start=False,
+        )
+
+        first_host_ip = ipaddress.ip_interface("10.11.0.1/24")
+        first_faucet_vip = ipaddress.ip_interface("10.11.0.254/24")
+        first_host_ipv6 = ipaddress.ip_interface("fd00::1/64")
+        first_faucet_vip_ipv6 = ipaddress.ip_interface("fd00::254/64")
+        first_host_add_ips()
+        add_host_routes()
+
+        second_host_connectivity_check()
+        first_host_connectivity_check(link_local_reachable=False)
+
+
 class FaucetUntaggedIPv4PolicyRouteTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:

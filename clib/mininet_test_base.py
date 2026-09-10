@@ -3790,8 +3790,11 @@ dbs:
         )
 
     @staticmethod
-    def host_drop_all_ips(host):
-        host.cmd("ip addr flush dev %s" % host.defaultIntf())
+    def host_drop_all_ips(host, scope=None):
+        if scope:
+            host.cmd("ip addr flush dev %s scope %s" % (host.defaultIntf(), scope))
+        else:
+            host.cmd("ip addr flush dev %s" % host.defaultIntf())
 
     def setup_ipv6_hosts_addresses(
         self,
