@@ -582,7 +582,7 @@ def run_single_test_suites(debug, root_tmpdir, resultclass, single_tests, retrie
             sys.excepthook = oldexcepthook
         else:
             for _ in range(retries):
-                test_results = single_runner.run(single_tests)
+                test_results = single_runner.run(copy.deepcopy(single_tests))
                 if all_tests_successful([test_results]):
                     break
             results.append(test_results)
