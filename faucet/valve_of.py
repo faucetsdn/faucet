@@ -1143,7 +1143,7 @@ def _partition_ofmsgs(input_ofmsgs):
 
 
 def _flowmodkey(ofmsg):
-    return (ofmsg.match, ofmsg.cookie, ofmsg.priority, ofmsg.table_id)
+    return (tuple(ofmsg.match.items()), ofmsg.cookie, ofmsg.priority, ofmsg.table_id)
 
 
 def _none_flowmodkey(ofmsg):

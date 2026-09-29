@@ -542,9 +542,7 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
     def del_vlan(self, vlan):
         return [
             self.flood_table.flowdel(match=self.flood_table.match(vlan=vlan)),
-            self.eth_src_table.flowdel(
-                match=self.eth_src_table.match(vlan=vlan), priority=self.low_priority
-            ),
+            self.eth_src_table.flowdel(match=self.eth_src_table.match(vlan=vlan)),
         ]
 
     def update_vlan(self, vlan):
