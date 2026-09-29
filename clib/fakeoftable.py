@@ -954,7 +954,8 @@ class FlowMod:
             if key not in pkt_dict:
                 return False
             val_bits = self.match_to_bits(key, pkt_dict[key])
-            if val_bits != (val & self.match_masks[key]):
+            mask = self.match_masks[key]
+            if (val_bits & mask) != (val & mask):
                 return False
         return True
 
