@@ -779,7 +779,10 @@ class ValveTestBases:
             if before_hash != after_hash:
                 after_str = str(self.network.tables[dp_id])
                 diff = difflib.unified_diff(
-                    before_str.splitlines(), after_str.splitlines()
+                    before_str.splitlines(),
+                    after_str.splitlines(),
+                    fromfile="before",
+                    tofile="after",
                 )
                 self.assertEqual(before_hash, after_hash, msg="\n" + "\n".join(diff))
 
