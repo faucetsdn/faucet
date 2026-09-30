@@ -3297,7 +3297,7 @@ acls:
             new_yaml_acl_conf,
             self.acl_config_file,  # pytype: disable=attribute-error
             restart=True,
-            cold_start=True,
+            cold_start=False,
         )
         self.wait_until_matching_flow({"dl_type": 0x800}, table_id=self._VLAN_ACL_TABLE)
         self.wait_until_matching_flow({"dl_type": 0x806}, table_id=self._VLAN_ACL_TABLE)
@@ -3307,7 +3307,7 @@ acls:
             orig_yaml_acl_conf,
             self.acl_config_file,  # pytype: disable=attribute-error
             restart=True,
-            cold_start=True,
+            cold_start=False,
         )
         self.wait_until_matching_flow({"dl_type": 0x800}, table_id=self._VLAN_ACL_TABLE)
         self.wait_until_no_matching_flow(
