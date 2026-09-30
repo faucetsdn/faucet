@@ -522,7 +522,7 @@ class ValveAclManager(ValveManagerBase):
         ofmsgs.extend(self.add_port(port))
         return ofmsgs
 
-    def del_vlan(self, vlan):
+    def del_vlan(self, vlan, dp_vlans):
         """Remove VLAN ACLs if configured."""
         ofmsgs = []
         for table in (self.vlan_acl_table, self.egress_acl_table):

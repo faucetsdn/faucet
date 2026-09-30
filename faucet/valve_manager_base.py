@@ -33,7 +33,7 @@ class ValveManagerBase:
         """install flows in response to a new port"""
         return []
 
-    def del_vlan(self, vlan):
+    def del_vlan(self, vlan, dp_vlans):
         """delete flows in response to a VLAN removal"""
         return []
 
