@@ -1581,6 +1581,9 @@ class Valve:
                 changed_ports (set): changed port numbers.
                 added_ports (set): added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
+                added_routers (set): added routers.
+                deleted_routers (set): deleted routers.
+                changed_routers (set): changed routers.
                 added_vids (set): added VLAN IDs.
                 deleted_vids (set): deleted VLAN IDs.
                 changed_vids (set): changed VLAN IDs.
@@ -1600,6 +1603,9 @@ class Valve:
             changed_ports,
             added_ports,
             changed_acl_ports,
+            added_routers,
+            deleted_routers,
+            changed_routers,
             added_vids,
             deleted_vids,
             changed_vids,
@@ -1654,6 +1660,36 @@ class Valve:
         if self.acl_manager:
             if deleted_meters:
                 ofmsgs.extend(self.acl_manager.del_meters(deleted_meters))
+
+        global_routing = False
+        for route_manager in self._route_manager_by_ipv.values():
+            if route_manager.global_routing:
+                global_routing = True
+
+        if not global_routing:
+            changed_router_vids = set()
+            for deleted_router in deleted_routers:
+                changed_router_vids.update(
+                    vlan.vid for vlan in self.dp.routers[deleted_router].vlans
+                )
+            for added_router in added_routers:
+                changed_router_vids.update(
+                    vlan.vid for vlan in new_dp.routers[added_router].vlans
+                )
+            for changed_router in changed_routers:
+                changed_router_vids.update(
+                    vlan.vid for vlan in self.dp.routers[changed_router].vlans
+                )
+                changed_router_vids.update(
+                    vlan.vid for vlan in new_dp.routers[changed_router].vlans
+                )
+            added_deleted_changed_vids = added_vids.union(deleted_vids).union(
+                changed_vids
+            )
+            for vid in changed_router_vids:
+                if vid in added_deleted_changed_vids:
+                    continue
+                changed_vids.add(vid)
 
         if changed_vids:
             changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
