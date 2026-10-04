@@ -1685,7 +1685,7 @@ vlans:
             vid = random.randint(2, mininet_test_base.MAX_TEST_VID)
             if vid == last_vid:
                 continue
-            self.change_vlan_config("randvlan", "vid", vid, cold_start=True, hup=True)
+            self.change_vlan_config("randvlan", "vid", vid, cold_start=False, hup=True)
             self.ping_all_when_learned()
             last_vid = vid
 
@@ -3310,7 +3310,7 @@ acls:
             new_yaml_acl_conf,
             self.acl_config_file,  # pytype: disable=attribute-error
             restart=True,
-            cold_start=True,
+            cold_start=False,
         )
         self.wait_until_matching_flow({"dl_type": 0x800}, table_id=self._VLAN_ACL_TABLE)
         self.wait_until_matching_flow({"dl_type": 0x806}, table_id=self._VLAN_ACL_TABLE)
@@ -3320,7 +3320,7 @@ acls:
             orig_yaml_acl_conf,
             self.acl_config_file,  # pytype: disable=attribute-error
             restart=True,
-            cold_start=True,
+            cold_start=False,
         )
         self.wait_until_matching_flow({"dl_type": 0x800}, table_id=self._VLAN_ACL_TABLE)
         self.wait_until_no_matching_flow(
@@ -7726,7 +7726,7 @@ routers:
                 self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2
             )
             self.change_vlan_config(
-                "vlanb", "vid", vlanb_vid, restart=True, cold_start=True
+                "vlanb", "vid", vlanb_vid, restart=True, cold_start=False
             )
 
 
@@ -7792,7 +7792,7 @@ routers:
             self.port_map["port_3"],
             {"native_vlan": "vlana"},
             restart=True,
-            cold_start=True,
+            cold_start=False,
         )
 
         test_connectivity(third_host, second_host)

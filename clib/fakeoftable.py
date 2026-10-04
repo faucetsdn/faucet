@@ -231,7 +231,7 @@ class FakeOFNetwork:
 
     def hash_table(self, dp_id):
         """Return a hash of a single FakeOFTable"""
-        return self.tables[dp_id].__hash__()
+        return hash(self.tables[dp_id])
 
 
 class FakeOFTable:

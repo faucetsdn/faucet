@@ -784,7 +784,7 @@ class ValveTestBases:
                 self.assertEqual(
                     before_hash,
                     after_hash,
-                    msg="%s != %s\n".join(diff) % (before_hash, after_hash),
+                    msg="\n" + "\n".join(diff),
                 )
 
         def _verify_redundant_safe_offset_ofmsgs(self, ofmsgs, dp_id, offset=1):
@@ -1579,6 +1579,74 @@ class ValveTestBases:
             state_expire, _ = expire()
             for pkts in state_expire.values():
                 self.assertFalse(pkts)
+
+        def l2_learn_host(self, port, vid, host_mac):
+            """L2 learn a host by sending broadcast dhcp request packet from host."""
+            self.rcv_packet(
+                port,
+                vid,
+                {
+                    "eth_src": host_mac,
+                    "eth_dst": self.BROADCAST_MAC,
+                    "eth_type": 0x800,
+                    "ipv4_src": "0.0.0.0",
+                    "ipv4_dst": "255.255.255.255",
+                },
+            )
+
+        def l3_learn_host(self, port, vid, host_mac, host_ips, faucet_vips):
+            """L3 learn a host by sending v4/v6 ND packet from host to faucet."""
+            host_ip = next((ip for ip in host_ips if ip.version == 4), None)
+            faucet_vip = next((ip for ip in faucet_vips if ip.version == 4), None)
+
+            if host_ip and faucet_vip:
+                # ARP for faucet vip
+                self.rcv_packet(
+                    port,
+                    vid,
+                    {
+                        "eth_src": host_mac,
+                        "eth_dst": self.BROADCAST_MAC,
+                        "eth_type": 0x806,
+                        "arp_code": arp.ARP_REQUEST,
+                        "arp_source_ip": str(host_ip),
+                        "arp_target_ip": str(faucet_vip),
+                    },
+                )
+
+            for is_link_local in (False, True):
+                host_ip = next(
+                    (
+                        ip
+                        for ip in host_ips
+                        if ip.version == 6 and ip.is_link_local is is_link_local
+                    ),
+                    None,
+                )
+                faucet_vip = next(
+                    (
+                        ip
+                        for ip in faucet_vips
+                        if ip.version == 6 and ip.is_link_local is is_link_local
+                    ),
+                    None,
+                )
+
+                if host_ip and faucet_vip:
+                    # ND NS for faucet vip
+                    self.rcv_packet(
+                        port,
+                        vid,
+                        {
+                            "eth_src": host_mac,
+                            "eth_dst": valve_packet.ipv6_link_eth_mcast(faucet_vip),
+                            "ipv6_src": str(host_ip),
+                            "ipv6_dst": str(
+                                valve_packet.ipv6_solicited_node_from_ucast(faucet_vip)
+                            ),
+                            "neighbor_solicit_ip": str(faucet_vip),
+                        },
+                    )
 
         def verify_flooding(self, matches, dp_id=None):
             """Verify flooding for a packet, depending on the DP implementation."""
