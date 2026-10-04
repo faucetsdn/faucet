@@ -1189,6 +1189,57 @@ acls:
         )
 
 
+class ValveVLANExpireNexthopsTestCase(ValveTestBases.ValveTestNetwork):
+    """Test expire_vlan_nexthops and del_vlan routing code paths."""
+
+    CONFIG = (
+        """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+    faucet_mac: "0e:00:00:00:00:02"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+"""
+        % DP1_CONFIG
+    )
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_expire_vlan_nexthops(self):
+        """Test expire_vlan_nexthops executes without error."""
+        valve = self.valves_manager.valves[self.DP_ID]
+        vlan = valve.dp.vlans[0x200]
+        for mgr in valve._route_manager_by_ipv.values():
+            if vlan.faucet_vips_by_ipv(mgr.IPV):
+                ofmsgs = mgr.expire_vlan_nexthops(vlan)
+                self.assertIsInstance(ofmsgs, list)
+
+    def test_vlan_del_with_vips(self):
+        """Test del_vlan with VIPs executes without error."""
+        valve = self.valves_manager.valves[self.DP_ID]
+        vlan = valve.dp.vlans[0x200]
+        for mgr in valve._route_manager_by_ipv.values():
+            ofmsgs = mgr.del_vlan(vlan, valve.dp.vlans.values())
+            self.assertIsInstance(ofmsgs, list)
+
+
 class ValveReloadConfigProfile(ValveTestBases.ValveTestNetwork):
     """Test reload processing time."""
 
