@@ -26,10 +26,13 @@ import hashlib
 import unittest
 import time
 
+from ipaddress import ip_address
+
 from c65of import ofproto as ofp
 
 from faucet import config_parser_util
 from faucet import valve_of
+from faucet import valve_packet
 
 from clib.fakeoftable import CONTROLLER_PORT
 from clib.valve_test_lib import (
@@ -410,7 +413,7 @@ dps:
 
     def test_port_add(self):
         """Test port can be added."""
-        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type="cold")[
+        reload_ofmsgs = self.update_config(self.MORE_CONFIG, reload_type="warm")[
             self.DP_ID
         ]
         self.assertTrue(self._inport_flows(3, reload_ofmsgs))
@@ -1020,7 +1023,7 @@ acls:
             )
 
         self.update_and_revert_config(
-            CONFIG, acl_config, reload_type="cold", verify_func=verify_func
+            CONFIG, acl_config, reload_type="warm", verify_func=verify_func
         )
 
 
@@ -1240,6 +1243,1174 @@ dps:
             self.assertIsInstance(ofmsgs, list)
 
 
+class ValveStaticRouteDeadNextHopTestCase(ValveTestBases.ValveTestNetwork):
+    """Test static routes are removed when nexthop is dead."""
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+    routes:
+        - route:
+            ip_dst: 10.99.98.0/24
+            ip_gw: 10.10.0.1
+        - route:
+            ip_dst: 2000::/64
+            ip_gw: fa00::1
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan1
+""" % (
+        DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_dead_nexthop(self):
+        """Test static routes are removed when nexthop is dead."""
+        table = self.network.tables[self.DP_ID]
+        tfm_by_name = {body.name: body for body in table.tfm.values()}
+        ipv4_fib_table = tfm_by_name.get(b"ipv4_fib")
+        ipv6_fib_table = tfm_by_name.get(b"ipv6_fib")
+        eth_dst_table = tfm_by_name.get(b"eth_dst")
+        if ipv4_fib_table is None:
+            self.fail("ipv4_fib table is missing from TFM")
+        if ipv6_fib_table is None:
+            self.fail("ipv6_fib table is missing from TFM")
+        if eth_dst_table is None:
+            self.fail("eth_dst table is missing from TFM")
+
+        arp_pkt = {
+            "eth_src": self.P1_V100_MAC,
+            "eth_dst": self.BROADCAST_MAC,
+            "eth_type": 0x806,
+            "arp_source_ip": "10.10.0.1",
+            "arp_target_ip": "10.10.0.254",
+        }
+        nd_pkt = {
+            "eth_src": self.P1_V100_MAC,
+            "eth_dst": valve_packet.ipv6_link_eth_mcast(ip_address("fa00::254")),
+            "ipv6_src": "fa00::1",
+            "ipv6_dst": str(
+                valve_packet.ipv6_solicited_node_from_ucast(ip_address("fa00::254"))
+            ),
+            "neighbor_solicit_ip": "fa00::254",
+        }
+        ipv4_match = {
+            "vlan_vid": self.V100,
+            "eth_type": 0x800,
+            "ipv4_dst": "10.99.98.1",
+        }
+        ipv6_match = {
+            "vlan_vid": self.V100,
+            "eth_type": 0x86DD,
+            "ipv6_dst": "2000::1",
+        }
+
+        self.rcv_packet(1, 0x100, arp_pkt)
+        self.rcv_packet(1, 0x100, nd_pkt)
+
+        for match, table_id in [
+            (ipv4_match, ipv4_fib_table.table_id),
+            (ipv6_match, ipv6_fib_table.table_id),
+        ]:
+            _, _, next_table = table.get_table_output(match, table_id)
+            self.assertEqual(next_table, eth_dst_table.table_id)
+
+        self.set_port_link_down(1)
+
+        for match, table_id in [
+            (ipv4_match, ipv4_fib_table.table_id),
+            (ipv6_match, ipv6_fib_table.table_id),
+        ]:
+            _, _, next_table = table.get_table_output(match, table_id)
+            self.assertEqual(next_table, None)
+
+        self.set_port_link_up(1)
+
+        self.rcv_packet(1, 0x100, arp_pkt)
+        self.rcv_packet(1, 0x100, nd_pkt)
+
+        for match, table_id in [
+            (ipv4_match, ipv4_fib_table.table_id),
+            (ipv6_match, ipv6_fib_table.table_id),
+        ]:
+            _, _, next_table = table.get_table_output(match, table_id)
+            self.assertEqual(next_table, eth_dst_table.table_id)
+
+
+class ValveAddVIPTestCase(ValveTestBases.ValveTestNetwork):
+    """Test adding VIPs to a VLAN."""
+
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_mac: "%s"
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_add_vip(self):
+        """Test adding VIPs to a VLAN is a warm start."""
+        table = self.network.tables[self.DP_ID]
+
+        def verify_func():
+            self.assertTrue(
+                table.is_output(
+                    {
+                        "in_port": 2,
+                        "vlan_vid": 0,
+                        "eth_type": 0x800,
+                        "eth_src": self.P2_V200_MAC,
+                        "eth_dst": self.FAUCET_MAC2,
+                        "ipv4_src": "10.20.0.1",
+                        "ipv4_dst": "10.20.0.253",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet not sent to controller",
+            )
+            self.assertTrue(
+                table.is_output(
+                    {
+                        "in_port": 2,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P2_V200_MAC,
+                        "eth_dst": self.FAUCET_MAC2,
+                        "ipv6_src": "fb00::1",
+                        "ipv6_dst": "fb00::254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet not sent to controller",
+            )
+            self.assertTrue(
+                table.is_output(
+                    {
+                        "in_port": 2,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P2_V200_MAC,
+                        "eth_dst": valve_packet.ipv6_link_eth_mcast(
+                            ip_address("fe80::c00:ff:fe00:2")
+                        ),
+                        "ipv6_src": "fe80::200:ff:fe02:2",
+                        "ipv6_dst": "fe80::c00:ff:fe00:2",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet not sent to controller",
+            )
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
+
+
+class ValveDeleteVIPTestCase(ValveTestBases.ValveTestNetwork):
+    """Test deleting VIPs from a VLAN."""
+
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_mac: "%s"
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_delete_vip(self):
+        """Test deleting VIPs from a VLAN is a warm start."""
+        table = self.network.tables[self.DP_ID]
+
+        def verify_func():
+            self.l2_learn_host(2, 0x200, self.P2_V200_MAC)
+            self.assertFalse(
+                table.is_output(
+                    {
+                        "in_port": 2,
+                        "vlan_vid": 0,
+                        "eth_type": 0x800,
+                        "eth_src": self.P2_V200_MAC,
+                        "eth_dst": self.FAUCET_MAC2,
+                        "ipv4_src": "10.20.0.1",
+                        "ipv4_dst": "10.20.0.254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet sent to controller",
+            )
+            self.assertFalse(
+                table.is_output(
+                    {
+                        "in_port": 2,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P2_V200_MAC,
+                        "eth_dst": self.FAUCET_MAC2,
+                        "ipv6_src": "fb00::1",
+                        "ipv6_dst": "fb00::254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet sent to controller",
+            )
+            self.assertFalse(
+                table.is_output(
+                    {
+                        "in_port": 2,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P2_V200_MAC,
+                        "eth_dst": valve_packet.ipv6_link_eth_mcast(
+                            ip_address("fe80::c00:ff:fe00:2")
+                        ),
+                        "ipv6_src": "fe80::200:ff:fe02:2",
+                        "ipv6_dst": "fe80::c00:ff:fe00:2",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet sent to controller",
+            )
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
+
+
+class ValveAddVIPInterVLANRouteTestCase(ValveTestBases.ValveTestNetwork):
+    """Test adding VIPs to a VLAN with InterVLAN routing."""
+
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_add_vip(self):
+        """Test adding VIPs to a VLAN with InterVLAN routing is a warm start."""
+        table = self.network.tables[self.DP_ID]
+
+        def verify_func():
+            self.assertTrue(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x800,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv4_src": "10.10.0.1",
+                        "ipv4_dst": "10.20.0.254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet not routed",
+            )
+            self.assertTrue(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv6_src": "fa00::1",
+                        "ipv6_dst": "fb00::254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet not routed",
+            )
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
+
+
+class ValveDeleteVIPInterVLANRouteTestCase(ValveTestBases.ValveTestNetwork):
+    """Test deleting VIPs from a VLAN with InterVLAN routing."""
+
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_delete_vip(self):
+        """Test deleting VIPs from a VLAN with InterVLAN routing is a warm start."""
+        table = self.network.tables[self.DP_ID]
+
+        def verify_func():
+            self.assertFalse(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x800,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv4_src": "10.10.0.1",
+                        "ipv4_dst": "10.20.0.254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet routed",
+            )
+            self.assertFalse(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv6_src": "fa00::1",
+                        "ipv6_dst": "fb00::254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet routed",
+            )
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
+
+
+class ValveAddVIPGlobalInterVLANRouteTestCase(ValveTestBases.ValveTestNetwork):
+    """Test adding VIPs to a VLAN with global InterVLAN routing."""
+
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        global_vlan: 4094
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        global_vlan: 4094
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_add_vip(self):
+        """Test adding VIPs to a VLAN with global InterVLAN routing is a warm start."""
+        table = self.network.tables[self.DP_ID]
+
+        def verify_func():
+            self.assertTrue(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x800,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv4_src": "10.10.0.1",
+                        "ipv4_dst": "10.20.0.254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet not routed",
+            )
+            self.assertTrue(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv6_src": "fa00::1",
+                        "ipv6_dst": "fb00::254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet not routed",
+            )
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
+
+
+class ValveDeleteVIPGlobalInterVLANRouteTestCase(ValveTestBases.ValveTestNetwork):
+    """Test deleting VIPs from a VLAN with global InterVLAN routing."""
+
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        global_vlan: 4094
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        global_vlan: 4094
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_delete_vip(self):
+        """Test deleting VIPs from a VLAN with global InterVLAN routing is a warm start."""
+        table = self.network.tables[self.DP_ID]
+
+        def verify_func():
+            self.assertFalse(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x800,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv4_src": "10.10.0.1",
+                        "ipv4_dst": "10.20.0.254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet routed",
+            )
+            self.assertFalse(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv6_src": "fa00::1",
+                        "ipv6_dst": "fb00::254",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=CONTROLLER_PORT,
+                ),
+                msg="Packet routed",
+            )
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
+
+
+class ValveAddStaticRouteInterVLANRouteTestCase(ValveTestBases.ValveTestNetwork):
+    """Test adding static routes to a VLAN with InterVLAN routing."""
+
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    routes:
+        - route:
+            ip_dst: 10.99.99.0/24
+            ip_gw: 10.20.0.1
+        - route:
+            ip_dst: 2000::/64
+            ip_gw: fb00::1
+        - route:
+            ip_dst: 2001::/64
+            ip_gw: fe80::200:ff:fe02:2
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_add_static_route(self):
+        """Test adding static routes to a VLAN with InterVLAN routing is a warm start."""
+        table = self.network.tables[self.DP_ID]
+        self.l2_learn_host(1, 0x100, self.P1_V100_MAC)
+        before_table_state = table.table_state()
+
+        def verify_func():
+            self.l3_learn_host(
+                1,
+                0x100,
+                self.P1_V100_MAC,
+                [
+                    ip_address("10.10.0.1"),
+                    ip_address("fa00::1"),
+                    ip_address("fe80::200:ff:fe01:1"),
+                ],
+                [
+                    ip_address("10.10.0.254"),
+                    ip_address("fa00::254"),
+                    ip_address("fe80::c00:ff:fe00:1"),
+                ],
+            )
+            self.l3_learn_host(
+                2,
+                0x200,
+                self.P2_V200_MAC,
+                [
+                    ip_address("10.20.0.1"),
+                    ip_address("fb00::1"),
+                    ip_address("fe80::200:ff:fe02:2"),
+                ],
+                [
+                    ip_address("10.20.0.254"),
+                    ip_address("fb00::254"),
+                    ip_address("fe80::c00:ff:fe00:2"),
+                ],
+            )
+
+            self.assertTrue(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x800,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv4_src": "10.10.0.1",
+                        "ipv4_dst": "10.99.99.1",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=2,
+                ),
+                msg="Packet not routed",
+            )
+            self.assertTrue(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv6_src": "fa00::1",
+                        "ipv6_dst": "2000::1",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=2,
+                ),
+                msg="Packet not routed",
+            )
+            self.assertTrue(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv6_src": "fa00::1",
+                        "ipv6_dst": "2001::1",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=2,
+                ),
+                msg="Packet not routed",
+            )
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+            before_table_states={self.DP_ID: before_table_state},
+        )
+
+
+class ValveDeleteStaticRouteInterVLANRouteTestCase(ValveTestBases.ValveTestNetwork):
+    """Test deleting static routes from a VLAN with InterVLAN routing."""
+
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    routes:
+        - route:
+            ip_dst: 10.99.99.0/24
+            ip_gw: 10.20.0.1
+        - route:
+            ip_dst: 2000::/64
+            ip_gw: fb00::1
+        - route:
+            ip_dst: 2001::/64
+            ip_gw: fe80::200:ff:fe02:2
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+""" % (
+        FAUCET_MAC2,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_delete_static_route(self):
+        """Test deleting static routes is a warm start."""
+        table = self.network.tables[self.DP_ID]
+        before_table_state = table.table_state()
+
+        def verify_func():
+            self.l2_learn_host(1, 0x100, self.P1_V100_MAC)
+            self.l2_learn_host(2, 0x200, self.P2_V200_MAC)
+            self.l3_learn_host(
+                1,
+                0x100,
+                self.P1_V100_MAC,
+                [
+                    ip_address("10.10.0.1"),
+                    ip_address("fa00::1"),
+                    ip_address("fe80::200:ff:fe01:1"),
+                ],
+                [
+                    ip_address("10.10.0.254"),
+                    ip_address("fa00::254"),
+                    ip_address("fe80::c00:ff:fe00:1"),
+                ],
+            )
+            self.l3_learn_host(
+                2,
+                0x200,
+                self.P2_V200_MAC,
+                [
+                    ip_address("10.20.0.1"),
+                    ip_address("fb00::1"),
+                    ip_address("fe80::200:ff:fe02:2"),
+                ],
+                [
+                    ip_address("10.20.0.254"),
+                    ip_address("fb00::254"),
+                    ip_address("fe80::c00:ff:fe00:2"),
+                ],
+            )
+
+            self.assertFalse(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x800,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv4_src": "10.10.0.1",
+                        "ipv4_dst": "10.99.99.1",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=2,
+                ),
+                msg="Packet still routed via static route",
+            )
+            self.assertFalse(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv6_src": "fa00::1",
+                        "ipv6_dst": "2000::1",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=2,
+                ),
+                msg="Packet still routed via static route",
+            )
+            self.assertFalse(
+                table.is_output(
+                    {
+                        "in_port": 1,
+                        "vlan_vid": 0,
+                        "eth_type": 0x86DD,
+                        "eth_src": self.P1_V100_MAC,
+                        "eth_dst": self.FAUCET_MAC,
+                        "ipv6_src": "fa00::1",
+                        "ipv6_dst": "2001::1",
+                        "echo_request_data": self.ICMP_PAYLOAD,
+                    },
+                    port=2,
+                ),
+                msg="Packet still routed via static route",
+            )
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+            before_table_states={self.DP_ID: before_table_state},
+        )
+
+
 class ValveReloadConfigProfile(ValveTestBases.ValveTestNetwork):
     """Test reload processing time."""
 
@@ -1286,7 +2457,7 @@ dps:
         for i in range(5):
             load_orig_config()
             pstats_out, pstats_text = self.profile(
-                partial(self.update_config, self.CONFIG, reload_type="cold")
+                partial(self.update_config, self.CONFIG, reload_type="warm")
             )
             cache_info = valve_of.output_non_output_actions.cache_info()
             self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)

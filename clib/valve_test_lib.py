@@ -775,9 +775,9 @@ class ValveTestBases:
                 before_str (str): String representation of the table before changes
                 dp_id (int): DP ID of the table to test difference
             """
-            after_hash = self.network.hash_table(int(dp_id))
+            after_state = self.network.tables[dp_id].table_state()
+            after_hash, after_str = after_state
             if before_hash != after_hash:
-                after_str = str(self.network.tables[dp_id])
                 diff = difflib.unified_diff(
                     before_str.splitlines(), after_str.splitlines()
                 )

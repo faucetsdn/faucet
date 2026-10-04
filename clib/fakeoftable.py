@@ -251,12 +251,26 @@ class FakeOFTable:
 
     def table_state(self):
         """Return tuple of table hash & table str"""
-        table_str = str(self.tables)
-        return (hash(frozenset(table_str)), table_str)
+
+        def _entry_sort_key(entry):
+            return (-entry.priority, str(entry))
+
+        sorted_tables = [
+            sorted(entries, key=_entry_sort_key) for entries in self.tables
+        ]
+        table_str = str(sorted_tables)
+        return (hash(table_str), table_str)
 
     def __hash__(self):
         """Return a host of the tables"""
-        return hash(frozenset(str(self.tables)))
+
+        def _entry_sort_key(entry):
+            return (-entry.priority, str(entry))
+
+        sorted_tables = [
+            sorted(entries, key=_entry_sort_key) for entries in self.tables
+        ]
+        return hash(str(sorted_tables))
 
     def _apply_groupmod(self, ofmsg):
         """Maintain group table."""
@@ -734,6 +748,28 @@ class FakeOFTable:
                         for action in instruction.actions:
                             if action.type == ofp.OFPAT_SET_FIELD:
                                 packet_dict[action.key] = action.value
+                            elif action.type == ofp.OFPAT_PUSH_VLAN:
+                                if (
+                                    "vlan_vid" in packet_dict
+                                    and packet_dict["vlan_vid"] & ofp.OFPVID_PRESENT
+                                ):
+                                    packet_dict["encap_vid"] = packet_dict["vlan_vid"]
+                                packet_dict["vlan_vid"] = ofp.OFPVID_PRESENT
+                            elif action.type == ofp.OFPAT_POP_VLAN:
+                                packet_dict.pop("vlan_vid", None)
+                                packet_dict.pop("vlan_pcp", None)
+                                if "encap_vid" in packet_dict:
+                                    packet_dict["vlan_vid"] = packet_dict.pop(
+                                        "encap_vid"
+                                    )
+                                else:
+                                    packet_dict["vlan_vid"] = 0
+                            elif action.type == ofp.OFPAT_SET_QUEUE:
+                                pass  # Ignored in simulation
+                            elif action.type == ofp.OFPAT_PUSH_MPLS:
+                                pass  # Ignored in simulation
+                            elif action.type == ofp.OFPAT_POP_MPLS:
+                                pass  # Ignored in simulation
                     elif instruction.type == ofp.OFPIT_WRITE_METADATA:
                         metadata = packet_dict.get("metadata", 0)
                         mask = instruction.metadata_mask
