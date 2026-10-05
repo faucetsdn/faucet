@@ -459,6 +459,18 @@ class ValveRouteManager(ValveManagerBase):
                         inst=(self.fib_table.goto(self.vip_table),),
                     )
                 )
+            # Add FIB flow for the current VLAN to route to VIP table.
+            # This is needed when there's only one VLAN (no inter-VLAN routing)
+            # so the loop above is skipped.
+            ofmsgs.append(
+                self.fib_table.flowmod(
+                    self._route_match(vlan, faucet_vip),
+                    priority=learn_connected_priority,
+                    inst=(self.fib_table.goto(self.vip_table),),
+                )
+            )
+            # Always install unknown host flows for this VLAN's VIP subnet,
+            # regardless of whether there are other routed VLANs.
             # Unicast ICMP to us.
             priority -= 1
             ofmsgs.append(

@@ -1023,7 +1023,7 @@ acls:
             )
 
         self.update_and_revert_config(
-            CONFIG, acl_config, reload_type="warm", verify_func=verify_func
+            CONFIG, acl_config, reload_type="cold", verify_func=verify_func
         )
 
 

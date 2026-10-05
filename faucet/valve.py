@@ -1664,6 +1664,8 @@ class Valve:
 
         self.dp_init(new_dp, valves)
 
+        ofmsgs.extend(self._pipeline_flows())
+
         if self.acl_manager:
             if added_meters:
                 ofmsgs.extend(self.acl_manager.add_meters(added_meters))
@@ -1747,6 +1749,7 @@ class Valve:
                 self.logger.info(
                     "forcing DP reconnection to ensure ports are synchronized"
                 )
+                self._inc_var("faucet_config_reload_warm")
                 ofmsgs = None
             elif restart_type == "warm":
                 # DP not currently up, so no messages to send.
@@ -1943,10 +1946,17 @@ class TfmValve(Valve):
 
     def _pipeline_change(self, new_dp):
         if new_dp:
-            old_pipeline = self.dp.pipeline_str()
-            new_pipeline = new_dp.pipeline_str()
-            # TFM based pipelines, any pipeline change is significant.
-            if old_pipeline != new_pipeline:
+            # Only check structural changes (table IDs), not capacity changes
+            # (table sizes scale with port count but don't affect warm reload).
+            if len(self.dp.ports) != len(new_dp.ports):
+                self._pipeline_diff(new_dp)
+                return True
+            if len(self.dp.vlans) != len(new_dp.vlans):
+                self._pipeline_diff(new_dp)
+                return True
+            old_table_ids = self.dp.pipeline_tableids()
+            new_table_ids = new_dp.pipeline_tableids()
+            if old_table_ids != new_table_ids:
                 self._pipeline_diff(new_dp)
                 return True
         return False
