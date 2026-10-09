@@ -663,7 +663,7 @@ class ValveRouteManager(ValveManagerBase):
 
         # Expire next hops for this VLAN to remove static routes
         # from FIB of VLANs in same router as this one
-        self.expire_vlan_nexthops(vlan)
+        ofmsgs.extend(self.expire_vlan_nexthops(vlan))
 
         dp_faucet_vips = set()
         dp_faucet_vip_hosts = set()
