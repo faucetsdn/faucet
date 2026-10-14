@@ -1,5 +1,5 @@
 -r requirements.txt
-bitstring
+bitstring>=5.0.0
 codecov
 concurrencytest
 debian-inspector
