@@ -1042,7 +1042,7 @@ class FlowMod:
         def _val_to_bits(conv, val, length):
             if val == -1:
                 return Bits(int=-1, length=length)
-            return Bits(bytes=conv(val), length=length)
+            return Bits.from_bytes(conv(val), length=length)
 
         if key in self.MAC_MATCH_FIELDS:
             return _val_to_bits(addrconv.mac.text_to_bin, val, 48)
