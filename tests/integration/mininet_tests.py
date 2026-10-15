@@ -9940,3 +9940,142 @@ routers:
                 first_host_ipv6_ip.ip,
                 protocol=proto,
             )
+
+
+class FaucetUntaggedChangeRouterInterVLANRouteTest(FaucetUntaggedTest):
+    CONFIG_GLOBAL = """
+vlans:
+    vlan1:
+        vid: 0x100
+        faucet_vips: ["10.10.0.254/24", "fa00::254/64", "fe80::c00:ff:fe00:1/64"]
+    vlan2:
+        vid: 0x200
+        faucet_vips: ["10.20.0.254/24", "fb00::254/64", "fe80::c00:ff:fe00:2/64"]
+        faucet_mac: "0e:00:00:00:00:02"
+    vlan3:
+        vid: 0x300
+        faucet_vips: ["10.30.0.254/24", "fc00::254/64", "fe80::c00:ff:fe00:3/64"]
+        faucet_mac: "0e:00:00:00:00:03"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: vlan1
+            %(port_2)d:
+                native_vlan: vlan2
+            %(port_3)d:
+                native_vlan: vlan3
+            %(port_4)d:
+                native_vlan: vlan1
+"""
+
+    def test_untagged(self):
+        def one_ipv4_ipv6_ping(host, dst_v4, dst_v6, reachable=True):
+            args = {}
+            if not reachable:
+                args = {"retries": 1, "expected_result": False}
+            self.one_ipv4_ping(host, dst_v4.ip, **args)
+            self.one_ipv6_ping(host, dst_v6.ip, **args)
+
+        def first_host_connectivity_check(host3_reachable=True):
+            one_ipv4_ipv6_ping(first_host, second_host_ip, second_host_ipv6)
+            one_ipv4_ipv6_ping(
+                first_host, third_host_ip, third_host_ipv6, reachable=host3_reachable
+            )
+            one_ipv4_ipv6_ping(first_host, fourth_host_ip, fourth_host_ipv6)
+
+        def second_host_connectivity_check(host3_reachable=True):
+            one_ipv4_ipv6_ping(second_host, first_host_ip, first_host_ipv6)
+            one_ipv4_ipv6_ping(
+                second_host, third_host_ip, third_host_ipv6, reachable=host3_reachable
+            )
+
+        def third_host_connectivity_check(host1_reachable=True, host2_reachable=True):
+            one_ipv4_ipv6_ping(
+                third_host, first_host_ip, first_host_ipv6, reachable=host1_reachable
+            )
+            one_ipv4_ipv6_ping(
+                third_host, second_host_ip, second_host_ipv6, reachable=host2_reachable
+            )
+
+        def fourth_host_connectivity_check(host3_reachable=True):
+            one_ipv4_ipv6_ping(fourth_host, first_host_ip, first_host_ipv6)
+            one_ipv4_ipv6_ping(fourth_host, second_host_ip, second_host_ipv6)
+            one_ipv4_ipv6_ping(
+                fourth_host, third_host_ip, third_host_ipv6, reachable=host3_reachable
+            )
+
+        default_route_v4 = ipaddress.ip_interface("0.0.0.0/0")
+        default_route_v6 = ipaddress.ip_interface("::/0")
+
+        first_host, second_host, third_host, fourth_host = self.hosts_name_ordered()
+        first_host_ip = ipaddress.ip_interface("10.10.0.1/24")
+        first_faucet_vip = ipaddress.ip_interface("10.10.0.254/24")
+        first_host_ipv6 = ipaddress.ip_interface("fa00::1/64")
+        first_faucet_vip_ipv6 = ipaddress.ip_interface("fa00::254/64")
+        second_host_ip = ipaddress.ip_interface("10.20.0.1/24")
+        second_faucet_vip = ipaddress.ip_interface("10.20.0.254/24")
+        second_host_ipv6 = ipaddress.ip_interface("fb00::1/64")
+        second_faucet_vip_ipv6 = ipaddress.ip_interface("fb00::254/64")
+        third_host_ip = ipaddress.ip_interface("10.30.0.1/24")
+        third_faucet_vip = ipaddress.ip_interface("10.30.0.254/24")
+        third_host_ipv6 = ipaddress.ip_interface("fc00::1/64")
+        third_faucet_vip_ipv6 = ipaddress.ip_interface("fc00::254/64")
+        fourth_host_ip = ipaddress.ip_interface("10.10.0.2/24")
+        fourth_host_ipv6 = ipaddress.ip_interface("fa00::2/64")
+
+        first_host.setIP(
+            str(first_host_ip.ip), prefixLen=first_host_ip.network.prefixlen
+        )
+        self.add_host_ipv6_address(first_host, first_host_ipv6)
+        second_host.setIP(
+            str(second_host_ip.ip), prefixLen=second_host_ip.network.prefixlen
+        )
+        self.add_host_ipv6_address(second_host, second_host_ipv6)
+        third_host.setIP(
+            str(third_host_ip.ip), prefixLen=third_host_ip.network.prefixlen
+        )
+        self.add_host_ipv6_address(third_host, third_host_ipv6)
+        fourth_host.setIP(
+            str(fourth_host_ip.ip), prefixLen=fourth_host_ip.network.prefixlen
+        )
+        self.add_host_ipv6_address(fourth_host, fourth_host_ipv6)
+
+        self.add_host_route(first_host, default_route_v4, first_faucet_vip.ip)
+        self.add_host_route(first_host, default_route_v6, first_faucet_vip_ipv6.ip)
+        self.add_host_route(second_host, default_route_v4, second_faucet_vip.ip)
+        self.add_host_route(second_host, default_route_v6, second_faucet_vip_ipv6.ip)
+        self.add_host_route(third_host, default_route_v4, third_faucet_vip.ip)
+        self.add_host_route(third_host, default_route_v6, third_faucet_vip_ipv6.ip)
+        self.add_host_route(fourth_host, default_route_v4, first_faucet_vip.ip)
+        self.add_host_route(fourth_host, default_route_v6, first_faucet_vip_ipv6.ip)
+
+        first_host_connectivity_check(host3_reachable=False)
+        second_host_connectivity_check(host3_reachable=False)
+        third_host_connectivity_check(host1_reachable=False, host2_reachable=False)
+        fourth_host_connectivity_check(host3_reachable=False)
+
+        conf = self._get_faucet_conf()
+        conf["routers"] = {
+            "router-1": {
+                "vlans": ["vlan1", "vlan2", "vlan3"],
+            }
+        }
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+        )
+
+        first_host_connectivity_check()
+        second_host_connectivity_check()
+        third_host_connectivity_check()
+        fourth_host_connectivity_check()
