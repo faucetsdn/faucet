@@ -1474,6 +1474,25 @@ class DP(Conf):
         )
         return added_acls.union(changed_acls)
 
+    def _get_router_config_changes(self, logger, new_dp):
+        """Detect any config changes to routers.
+
+        Args:
+            logger (ValveLogger): logger instance.
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changes (tuple) of:
+                added_routers (set): added routers.
+                deleted_routers (set): deleted routers.
+                changed_routers (set): changed routers.
+        """
+        _, deleted_routers, added_routers, changed_routers, same_routers, _ = (
+            self._get_conf_changes(
+                logger, "router", self.routers, new_dp.routers, diff=True
+            )
+        )
+        return (added_routers, deleted_routers, changed_routers)
+
     def _get_vlan_config_changes(self, logger, new_dp, changed_acls):
         """Detect any config changes to VLANs.
 
@@ -1738,6 +1757,9 @@ class DP(Conf):
                 changed_ports (set): changed port numbers.
                 added_ports (set): added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
+                added_routers (set): added routers.
+                deleted_routers (set): deleted routers.
+                changed_routers (set): changed routers.
                 added_vlans (set): added VLAN IDs.
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed VLAN IDs.
@@ -1754,8 +1776,6 @@ class DP(Conf):
             and new_dp.stack.root_name != self.stack.root_name
         ):
             logger.info("Stack root change - requires cold start")
-        elif new_dp.routers != self.routers:
-            logger.info("DP routers config changed - requires cold start")
         elif not self.ignore_subconf(
             new_dp, ignore_keys=["interfaces", "interface_ranges", "routers"]
         ):
@@ -1764,6 +1784,9 @@ class DP(Conf):
             )
         else:
             changed_acls = self._get_acl_config_changes(logger, new_dp)
+            added_routers, deleted_routers, changed_routers = (
+                self._get_router_config_changes(logger, new_dp)
+            )
             added_vlans, deleted_vlans, changed_vlans, changed_acl_vlans = (
                 self._get_vlan_config_changes(logger, new_dp, changed_acls)
             )
@@ -1794,6 +1817,9 @@ class DP(Conf):
                 changed_ports,
                 added_ports,
                 changed_acl_ports,
+                added_routers,
+                deleted_routers,
+                changed_routers,
                 added_vlans,
                 deleted_vlans,
                 changed_vlans,
@@ -1806,6 +1832,9 @@ class DP(Conf):
             )
         # default cold start
         return (
+            set(),
+            set(),
+            set(),
             set(),
             set(),
             set(),

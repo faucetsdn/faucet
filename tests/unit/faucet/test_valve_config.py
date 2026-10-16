@@ -3067,5 +3067,608 @@ dps:
         )
 
 
+class ValveAddDeleteInterVLANRouterTestCase(ValveTestBases.ValveTestNetwork):
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+    FAUCET_MAC3 = "0e:00:00:00:00:03"
+    FAUCET_MAC4 = "0e:00:00:00:00:04"
+    P3_V300_MAC = "00:00:00:03:00:03"
+    P4_V400_MAC = "00:00:00:04:00:04"
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+    routes:
+        - route:
+            ip_dst: 10.99.99.0/24
+            ip_gw: 10.20.0.1
+        - route:
+            ip_dst: 2000::/64
+            ip_gw: fb00::1
+        - route:
+            ip_dst: 2001::/64
+            ip_gw: fe80::200:ff:fe02:2
+  vlan3:
+    vid: 0x300
+    faucet_vips:
+      - "10.30.0.254/24"
+      - "fc00::254/64"
+      - "fe80::c00:ff:fe00:3/64"
+    faucet_mac: "%s"
+  vlan4:
+    vid: 0x400
+    faucet_vips:
+      - "10.40.0.254/24"
+      - "fd00::254/64"
+      - "fe80::c00:ff:fe00:4/64"
+    faucet_mac: "%s"
+    routes:
+        - route:
+            ip_dst: 10.99.100.0/24
+            ip_gw: 10.40.0.1
+        - route:
+            ip_dst: 2002::/64
+            ip_gw: fd00::1
+        - route:
+            ip_dst: 2003::/64
+            ip_gw: fe80::200:0ff:fe04:4
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+            3:
+                native_vlan: vlan3
+            4:
+                native_vlan: vlan4
+""" % (
+        FAUCET_MAC2,
+        FAUCET_MAC3,
+        FAUCET_MAC4,
+        DP1_CONFIG,
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+    routes:
+        - route:
+            ip_dst: 10.99.99.0/24
+            ip_gw: 10.20.0.1
+        - route:
+            ip_dst: 2000::/64
+            ip_gw: fb00::1
+        - route:
+            ip_dst: 2001::/64
+            ip_gw: fe80::200:ff:fe02:2
+  vlan3:
+    vid: 0x300
+    faucet_vips:
+      - "10.30.0.254/24"
+      - "fc00::254/64"
+      - "fe80::c00:ff:fe00:3/64"
+    faucet_mac: "%s"
+  vlan4:
+    vid: 0x400
+    faucet_vips:
+      - "10.40.0.254/24"
+      - "fd00::254/64"
+      - "fe80::c00:ff:fe00:4/64"
+    faucet_mac: "%s"
+    routes:
+        - route:
+            ip_dst: 10.99.100.0/24
+            ip_gw: 10.40.0.1
+        - route:
+            ip_dst: 2002::/64
+            ip_gw: fd00::1
+        - route:
+            ip_dst: 2003::/64
+            ip_gw: fe80::200:0ff:fe04:4
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+    router-2:
+        vlans: [vlan3, vlan4]
+dps:
+    s1:
+%s
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+            3:
+                native_vlan: vlan3
+            4:
+                native_vlan: vlan4
+""" % (
+        FAUCET_MAC2,
+        FAUCET_MAC3,
+        FAUCET_MAC4,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def learn_host3_host4(self):
+        self.l3_learn_host(
+            3,
+            0x300,
+            self.P3_V300_MAC,
+            [
+                ip_address("10.30.0.1"),
+                ip_address("fc00::1"),
+                ip_address("fe80::200:0ff:fe03:3"),
+            ],
+            [
+                ip_address("10.30.0.254"),
+                ip_address("fc00::254"),
+                ip_address("fe80::c00:ff:fe00:3"),
+            ],
+        )
+        self.l3_learn_host(
+            4,
+            0x400,
+            self.P4_V400_MAC,
+            [
+                ip_address("10.40.0.1"),
+                ip_address("fd00::1"),
+                ip_address("fe80::200:0ff:fe04:4"),
+            ],
+            [
+                ip_address("10.40.0.254"),
+                ip_address("fd00::254"),
+                ip_address("fe80::c00:ff:fe00:4"),
+            ],
+        )
+
+    def host1_connectivity_check(self, table):
+        self.assertTrue(
+            table.is_output(
+                {
+                    "in_port": 1,
+                    "vlan_vid": 0,
+                    "eth_type": 0x800,
+                    "eth_src": self.P1_V100_MAC,
+                    "eth_dst": self.FAUCET_MAC,
+                    "ipv4_src": "10.10.0.1",
+                    "ipv4_dst": "10.99.99.1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=2,
+            ),
+            msg="Packet not routed",
+        )
+        self.assertTrue(
+            table.is_output(
+                {
+                    "in_port": 1,
+                    "vlan_vid": 0,
+                    "eth_type": 0x86DD,
+                    "eth_src": self.P1_V100_MAC,
+                    "eth_dst": self.FAUCET_MAC,
+                    "ipv6_src": "fa00::1",
+                    "ipv6_dst": "2000::1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=2,
+            ),
+            msg="Packet not routed",
+        )
+        self.assertTrue(
+            table.is_output(
+                {
+                    "in_port": 1,
+                    "vlan_vid": 0,
+                    "eth_type": 0x86DD,
+                    "eth_src": self.P1_V100_MAC,
+                    "eth_dst": self.FAUCET_MAC,
+                    "ipv6_src": "fa00::1",
+                    "ipv6_dst": "2001::1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=2,
+            ),
+            msg="Packet not routed",
+        )
+
+    def host3_connectivity_check(self, table, reachable=True):
+        self.assertEqual(
+            table.is_output(
+                {
+                    "in_port": 3,
+                    "vlan_vid": 0,
+                    "eth_type": 0x800,
+                    "eth_src": self.P3_V300_MAC,
+                    "eth_dst": self.FAUCET_MAC3,
+                    "ipv4_src": "10.30.0.1",
+                    "ipv4_dst": "10.99.100.1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=4,
+            ),
+            reachable,
+            msg=("Packet not routed" if reachable else "Packet routed"),
+        )
+        self.assertEqual(
+            table.is_output(
+                {
+                    "in_port": 3,
+                    "vlan_vid": 0,
+                    "eth_type": 0x86DD,
+                    "eth_src": self.P3_V300_MAC,
+                    "eth_dst": self.FAUCET_MAC3,
+                    "ipv6_src": "fc00::1",
+                    "ipv6_dst": "2002::1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=4,
+            ),
+            reachable,
+            msg=("Packet not routed" if reachable else "Packet routed"),
+        )
+        self.assertEqual(
+            table.is_output(
+                {
+                    "in_port": 3,
+                    "vlan_vid": 0,
+                    "eth_type": 0x86DD,
+                    "eth_src": self.P3_V300_MAC,
+                    "eth_dst": self.FAUCET_MAC3,
+                    "ipv6_src": "fc00::1",
+                    "ipv6_dst": "2003::1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=4,
+            ),
+            reachable,
+            msg=("Packet not routed" if reachable else "Packet routed"),
+        )
+
+    def test_add_delete_intervlan_router(self):
+        """Test adding and deleting InterVLAN router with static routes is a warm start."""
+        table = self.network.tables[self.DP_ID]
+
+        self.l3_learn_host(
+            1,
+            0x100,
+            self.P1_V100_MAC,
+            [
+                ip_address("10.10.0.1"),
+                ip_address("fa00::1"),
+                ip_address("fe80::200:ff:fe01:1"),
+            ],
+            [
+                ip_address("10.10.0.254"),
+                ip_address("fa00::254"),
+                ip_address("fe80::c00:ff:fe00:1"),
+            ],
+        )
+        self.l3_learn_host(
+            2,
+            0x200,
+            self.P2_V200_MAC,
+            [
+                ip_address("10.20.0.1"),
+                ip_address("fb00::1"),
+                ip_address("fe80::200:ff:fe02:2"),
+            ],
+            [
+                ip_address("10.20.0.254"),
+                ip_address("fb00::254"),
+                ip_address("fe80::c00:ff:fe00:2"),
+            ],
+        )
+
+        self.update_config(self.MORE_CONFIG, reload_type="warm")
+
+        self.host1_connectivity_check(table)
+        self.learn_host3_host4()
+        self.host3_connectivity_check(table)
+
+        self.update_config(self.CONFIG, reload_type="warm")
+
+        self.host1_connectivity_check(table)
+        self.learn_host3_host4()
+        self.host3_connectivity_check(table, reachable=False)
+
+
+class ValveAddDeleteVLANInterVLANRouterTestCase(ValveTestBases.ValveTestNetwork):
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+    FAUCET_MAC3 = "0e:00:00:00:00:03"
+    P3_V300_MAC = "00:00:00:03:00:03"
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+  vlan3:
+    vid: 0x300
+    faucet_vips:
+      - "10.30.0.254/24"
+      - "fc00::254/64"
+      - "fe80::c00:ff:fe00:3/64"
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2]
+dps:
+    s1:
+%s
+        table_sizes:
+          vip: 64
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+            3:
+                native_vlan: vlan3
+""" % (
+        FAUCET_MAC2,
+        FAUCET_MAC3,
+        DP1_CONFIG,
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+      - "fa00::254/64"
+      - "fe80::c00:ff:fe00:1/64"
+  vlan2:
+    vid: 0x200
+    faucet_vips:
+      - "10.20.0.254/24"
+      - "fb00::254/64"
+      - "fe80::c00:ff:fe00:2/64"
+    faucet_mac: "%s"
+  vlan3:
+    vid: 0x300
+    faucet_vips:
+      - "10.30.0.254/24"
+      - "fc00::254/64"
+      - "fe80::c00:ff:fe00:3/64"
+    faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [vlan1, vlan2, vlan3]
+dps:
+    s1:
+%s
+        table_sizes:
+          vip: 64
+        interfaces:
+            1:
+                native_vlan: vlan1
+            2:
+                native_vlan: vlan2
+            3:
+                native_vlan: vlan3
+""" % (
+        FAUCET_MAC2,
+        FAUCET_MAC3,
+        DP1_CONFIG,
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def learn_hosts(self):
+        self.l3_learn_host(
+            1,
+            0x100,
+            self.P1_V100_MAC,
+            [
+                ip_address("10.10.0.1"),
+                ip_address("fa00::1"),
+                ip_address("fe80::200:ff:fe01:1"),
+            ],
+            [
+                ip_address("10.10.0.254"),
+                ip_address("fa00::254"),
+                ip_address("fe80::c00:ff:fe00:1"),
+            ],
+        )
+        self.l3_learn_host(
+            2,
+            0x200,
+            self.P2_V200_MAC,
+            [
+                ip_address("10.20.0.1"),
+                ip_address("fb00::1"),
+                ip_address("fe80::200:ff:fe02:2"),
+            ],
+            [
+                ip_address("10.20.0.254"),
+                ip_address("fb00::254"),
+                ip_address("fe80::c00:ff:fe00:2"),
+            ],
+        )
+        self.l3_learn_host(
+            3,
+            0x300,
+            self.P3_V300_MAC,
+            [
+                ip_address("10.30.0.1"),
+                ip_address("fc00::1"),
+                ip_address("fe80::200:0ff:fe03:3"),
+            ],
+            [
+                ip_address("10.30.0.254"),
+                ip_address("fc00::254"),
+                ip_address("fe80::c00:ff:fe00:3"),
+            ],
+        )
+
+    def host1_connectivity_check(self, table, host3_reachable=True):
+        self.assertTrue(
+            table.is_output(
+                {
+                    "in_port": 1,
+                    "vlan_vid": 0,
+                    "eth_type": 0x800,
+                    "eth_src": self.P1_V100_MAC,
+                    "eth_dst": self.FAUCET_MAC,
+                    "ipv4_src": "10.10.0.1",
+                    "ipv4_dst": "10.20.0.1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=2,
+            ),
+            msg="Packet not routed",
+        )
+        self.assertTrue(
+            table.is_output(
+                {
+                    "in_port": 1,
+                    "vlan_vid": 0,
+                    "eth_type": 0x86DD,
+                    "eth_src": self.P1_V100_MAC,
+                    "eth_dst": self.FAUCET_MAC,
+                    "ipv6_src": "fa00::1",
+                    "ipv6_dst": "fb00::1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=2,
+            ),
+            msg="Packet not routed",
+        )
+        self.assertEqual(
+            table.is_output(
+                {
+                    "in_port": 1,
+                    "vlan_vid": 0,
+                    "eth_type": 0x800,
+                    "eth_src": self.P1_V100_MAC,
+                    "eth_dst": self.FAUCET_MAC,
+                    "ipv4_src": "10.10.0.1",
+                    "ipv4_dst": "10.30.0.1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=3,
+            ),
+            host3_reachable,
+            msg=("Packet not routed" if host3_reachable else "Packet routed"),
+        )
+        self.assertEqual(
+            table.is_output(
+                {
+                    "in_port": 1,
+                    "vlan_vid": 0,
+                    "eth_type": 0x86DD,
+                    "eth_src": self.P1_V100_MAC,
+                    "eth_dst": self.FAUCET_MAC,
+                    "ipv6_src": "fa00::1",
+                    "ipv6_dst": "fc00::1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=3,
+            ),
+            host3_reachable,
+            msg=("Packet not routed" if host3_reachable else "Packet routed"),
+        )
+
+    def host3_connectivity_check(self, table, host1_reachable=True):
+        self.assertEqual(
+            table.is_output(
+                {
+                    "in_port": 3,
+                    "vlan_vid": 0,
+                    "eth_type": 0x800,
+                    "eth_src": self.P3_V300_MAC,
+                    "eth_dst": self.FAUCET_MAC3,
+                    "ipv4_src": "10.30.0.1",
+                    "ipv4_dst": "10.10.0.1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=1,
+            ),
+            host1_reachable,
+            msg=("Packet not routed" if host1_reachable else "Packet routed"),
+        )
+        self.assertEqual(
+            table.is_output(
+                {
+                    "in_port": 3,
+                    "vlan_vid": 0,
+                    "eth_type": 0x86DD,
+                    "eth_src": self.P3_V300_MAC,
+                    "eth_dst": self.FAUCET_MAC3,
+                    "ipv6_src": "fc00::1",
+                    "ipv6_dst": "fa00::1",
+                    "echo_request_data": self.ICMP_PAYLOAD,
+                },
+                port=1,
+            ),
+            host1_reachable,
+            msg=("Packet not routed" if host1_reachable else "Packet routed"),
+        )
+
+    def test_add_delete_vlan(self):
+        """Test adding and deleting a VLAN from an InterVLAN router is a warm start."""
+        table = self.network.tables[self.DP_ID]
+
+        self.learn_hosts()
+
+        self.update_config(self.MORE_CONFIG, reload_type="warm")
+
+        self.learn_hosts()
+        self.host1_connectivity_check(table)
+        self.host3_connectivity_check(table)
+
+        self.update_config(self.CONFIG, reload_type="warm")
+
+        self.learn_hosts()
+        self.host1_connectivity_check(table, host3_reachable=False)
+        self.host3_connectivity_check(table, host1_reachable=False)
+
+
 if __name__ == "__main__":
     unittest.main()  # pytype: disable=module-attr
