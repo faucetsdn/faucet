@@ -37,7 +37,7 @@ autodoc_default_options = {
 # -- Project information -----------------------------------------------------
 
 project = "Faucet"
-copyright = "2018-2024, Faucet Developers"  # pylint: disable=redefined-builtin
+copyright = "2018-2026, Faucet Developers"  # pylint: disable=redefined-builtin
 author = "Faucet Developers"
 
 # -- General configuration ------------------------------------------------
