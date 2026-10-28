@@ -1594,6 +1594,7 @@ class Valve:
                 deleted_meters: (set): deleted meter numbers.
                 added_meters: (set): added meter numbers.
                 changed_meters: (set): changed meter numbers.
+                dp_config_changed (bool): True if DP config changed.
             valves (list): List of other running valves
         Returns:
             tuple:
@@ -1617,6 +1618,7 @@ class Valve:
             deleted_meters,
             added_meters,
             changed_meters,
+            _,
         ) = changes
         restart_type = "cold"
         ofmsgs = []

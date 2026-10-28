@@ -1460,6 +1460,47 @@ class DP(Conf):
             description_only_confs,
         )
 
+    def _dp_config_changed(self, new_dp):
+        """Detect any config changes to DPs.
+
+        Args:
+            logger (ValveLogger): logger instance.
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changed (bool): True if DP configuration changed.
+            cold_start (bool): True if cold start required.
+        """
+        return (
+            not self.ignore_subconf(
+                new_dp,
+                ignore_keys=[
+                    "interfaces",
+                    "interface_ranges",
+                    "routers",
+                ],
+            ),
+            not self.ignore_subconf(
+                new_dp,
+                ignore_keys=[
+                    "interfaces",
+                    "interface_ranges",
+                    "routers",
+                    "description",
+                    "arp_neighbor_timeout",
+                    "nd_neighbor_timeout",
+                    "ignore_learn_ins",
+                    "max_hosts_per_resolve_cycle",
+                    "advertise_interval",
+                    "fast_advertise_interval",
+                    "lldp_beacon",
+                    "metrics_rate_limit_sec",
+                    "faucet_dp_mac",
+                    "lacp_timeout",
+                    "strict_packet_in_cookie",
+                ],
+            ),
+        )
+
     def _get_acl_config_changes(self, logger, new_dp):
         """Detect any config changes to ACLs.
 
@@ -1769,20 +1810,23 @@ class DP(Conf):
                 deleted_meters (set): deleted meter numbers.
                 added_meters (set): Added meter numbers.
                 changed_meters (set): changed/added meter numbers.
+                dp_config_changed (bool): True if DP config changed.
         """
+        dp_config_changed, dp_cold_start = self._dp_config_changed(new_dp)
         if (
             new_dp.stack
             and self.stack
             and new_dp.stack.root_name != self.stack.root_name
         ):
             logger.info("Stack root change - requires cold start")
-        elif not self.ignore_subconf(
-            new_dp, ignore_keys=["interfaces", "interface_ranges", "routers"]
-        ):
+        elif dp_cold_start:
             logger.info(
                 "DP config changed - requires cold start: %s" % self.conf_diff(new_dp)
             )
         else:
+            if dp_config_changed:
+                logger.info("DP config changed: %s" % self.conf_diff(new_dp))
+
             changed_acls = self._get_acl_config_changes(logger, new_dp)
             added_routers, deleted_routers, changed_routers = (
                 self._get_router_config_changes(logger, new_dp)
@@ -1829,6 +1873,7 @@ class DP(Conf):
                 deleted_meters,
                 added_meters,
                 changed_meters,
+                dp_config_changed,
             )
         # default cold start
         return (
@@ -1848,6 +1893,7 @@ class DP(Conf):
             set(),
             set(),
             set(),
+            False,
         )
 
     def get_tables(self):
