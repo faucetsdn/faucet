@@ -1100,8 +1100,9 @@ class Valve:
 
     def rate_limit_packet_ins(self, now):
         """Return True if too many packet ins this second."""
-        if self._last_packet_in_sec != now:
-            self._last_packet_in_sec = now
+        now_sec = int(now)
+        if self._last_packet_in_sec != now_sec:
+            self._last_packet_in_sec = now_sec
             self._packet_in_count_sec = 0
         self._packet_in_count_sec += 1
         if self.dp.ignore_learn_ins:
