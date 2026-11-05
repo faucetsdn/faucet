@@ -16,7 +16,8 @@ You can build and run the mininet tests with the following commands:
 .. code:: console
 
   sudo docker build --pull -t faucet/tests -f Dockerfile.tests .
-  sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+  sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump || true
+  sudo apparmor_parser -R /etc/apparmor.d/nc.openbsd || true
   sudo modprobe openvswitch
   sudo docker run --name=faucet-tests \
                   --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged --rm \
@@ -179,7 +180,8 @@ need to disable the profile for tcpdump:
 
   sudo modprobe openvswitch
   sudo modprobe ebtables
-  sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+  sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump || true
+  sudo apparmor_parser -R /etc/apparmor.d/nc.openbsd || true
 
 Then you can build and run the test suite:
 

@@ -23,6 +23,7 @@ sudo modprobe ebtables
 if which apparmor_status >&/dev/null ; then
     if sudo apparmor_status --enabled ; then
         sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump || :
+        sudo apparmor_parser -R /etc/apparmor.d/nc.openbsd || :
     fi
 fi
 
