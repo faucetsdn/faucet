@@ -28,6 +28,7 @@ import time
 
 from ipaddress import ip_address
 
+from os_ken.lib.packet import slow
 from os_ken.ofproto import ofproto_v1_3 as ofp
 
 from clib.fakeoftable import CONTROLLER_PORT
@@ -3668,6 +3669,242 @@ dps:
         self.learn_hosts()
         self.host1_connectivity_check(table, host3_reachable=False)
         self.host3_connectivity_check(table, host1_reachable=False)
+
+
+class ValveChangeMaxHostsPerResolveCycleTest(ValveTestBases.ValveTestNetwork):
+    """Test changing max_hosts_per_resolve_cycle."""
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+    routes:
+        - route:
+            ip_dst: 10.99.98.0/24
+            ip_gw: 10.10.0.1
+        - route:
+            ip_dst: 10.99.99.0/24
+            ip_gw: 10.10.0.2
+dps:
+    s1:
+%s
+        max_hosts_per_resolve_cycle: 100
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: vlan1
+            p2:
+                number: 2
+                native_vlan: vlan1
+""" % (
+        DP1_CONFIG
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+    faucet_vips:
+      - "10.10.0.254/24"
+    routes:
+        - route:
+            ip_dst: 10.99.98.0/24
+            ip_gw: 10.10.0.1
+        - route:
+            ip_dst: 10.99.99.0/24
+            ip_gw: 10.10.0.2
+dps:
+    s1:
+%s
+        max_hosts_per_resolve_cycle: 1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: vlan1
+            p2:
+                number: 2
+                native_vlan: vlan1
+""" % (
+        DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_change_max_hosts_per_resolve_cycle(self):
+        """Test changing max_hosts_per_resolve_cycle is a warm start."""
+        valve = self.valves_manager.valves.get(self.DP_ID)
+        if valve is None:
+            self.fail("no valve for DP ID")
+        route_manager = valve._route_manager_by_ipv.get(4, None)
+        vlan = valve.dp.vlans.get(0x100)
+        route_manager.resolve_gateways(vlan, self.mock_time(10))
+        ofmsgs = route_manager.resolve_gateways(vlan, self.mock_time(10))
+        self.assertEqual(len(ofmsgs), 2)
+
+        def verify_func():
+            valve = self.valves_manager.valves.get(self.DP_ID)
+            if valve is None:
+                self.fail("no valve for DP ID")
+            route_manager = valve._route_manager_by_ipv.get(4)
+            vlan = valve.dp.vlans.get(0x100)
+            ofmsgs = route_manager.resolve_gateways(vlan, self.mock_time(60))
+            self.assertEqual(len(ofmsgs), 1)
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
+
+
+class ValveChangeMetricsRateLimitSecTest(ValveTestBases.ValveTestNetwork):
+    """Test changing max_hosts_per_resolve_cycle."""
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+dps:
+    s1:
+%s
+        metrics_rate_limit_sec: 0
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: vlan1
+            p2:
+                number: 2
+                native_vlan: vlan1
+""" % (
+        DP1_CONFIG
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+dps:
+    s1:
+%s
+        metrics_rate_limit_sec: 100
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: vlan1
+            p2:
+                number: 2
+                native_vlan: vlan1
+""" % (
+        DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_change_metrics_rate_limit_sec(self):
+        """Test changing max_hosts_per_resolve_cycle is a warm start."""
+
+        valve = self.valves_manager.valves.get(self.DP_ID)
+        if valve is None:
+            self.fail("no valve for DP ID")
+        vlan = valve.dp.vlans.get(0x100)
+        vlan_labels = {"vlan": str(0x100)}
+
+        vlan.add_cache_host(self.P1_V100_MAC, valve.dp.ports.get(1), self.mock_time(10))
+
+        valve.update_metrics(self.mock_time(10), rate_limited=True)
+        self.assertEqual(self.get_prom("vlan_hosts_learned", labels=vlan_labels), 1)
+
+        def verify_func():
+            vlan.add_cache_host(
+                self.P2_V100_MAC, valve.dp.ports.get(2), self.mock_time(10)
+            )
+            valve.update_metrics(self.mock_time(10), rate_limited=True)
+            self.assertEqual(self.get_prom("vlan_hosts_learned", labels=vlan_labels), 1)
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
+
+
+class ValveChangeLACPTimeoutTest(ValveTestBases.ValveTestNetwork):
+    """Test changing lacp_timeout."""
+
+    CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+dps:
+    s1:
+%s
+        lacp_timeout: 30
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: vlan1
+                lacp: 1
+""" % (
+        DP1_CONFIG
+    )
+
+    MORE_CONFIG = """
+vlans:
+  vlan1:
+    vid: 0x100
+dps:
+    s1:
+%s
+        lacp_timeout: 1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: vlan1
+                lacp: 1
+""" % (
+        DP1_CONFIG
+    )
+
+    def setUp(self):
+        """Setup basic port and vlan config"""
+        self.setup_valves(self.CONFIG)
+
+    def test_change_lacp_timeout(self):
+        """Test changing lacp_timeout is a warm start."""
+
+        self.rcv_packet(
+            1,
+            0,
+            {
+                "actor_system": "0e:00:00:00:00:02",
+                "partner_system": FAUCET_MAC,
+                "eth_dst": slow.SLOW_PROTOCOL_MULTICAST,
+                "eth_src": "0e:00:00:00:00:02",
+                "actor_state_synchronization": 1,
+            },
+        )
+
+        def verify_func():
+            valve = self.valves_manager.valves.get(self.DP_ID)
+            if valve is None:
+                self.fail("no valve for DP ID")
+            expire_ofmsgs = valve.state_expire(self.mock_time(10), None)
+            self.assertTrue(expire_ofmsgs)
+
+        self.update_and_revert_config(
+            self.CONFIG,
+            self.MORE_CONFIG,
+            reload_type="warm",
+            verify_func=verify_func,
+        )
 
 
 if __name__ == "__main__":
