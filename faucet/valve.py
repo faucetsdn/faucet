@@ -1588,11 +1588,12 @@ class Valve:
                 added_vids (set): added VLAN IDs.
                 deleted_vids (set): deleted VLAN IDs.
                 changed_vids (set): changed VLAN IDs.
+                changed_acl_vlans (set): changed ACL only VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
                 all_meters_changed (bool): True if all meters changed.
                 deleted_meters: (set): deleted meter numbers.
-                changed_meters: (set): changed meter numbers.
                 added_meters: (set): added meter numbers.
+                changed_meters: (set): changed meter numbers.
             valves (list): List of other running valves
         Returns:
             tuple:

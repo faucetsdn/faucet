@@ -1765,10 +1765,10 @@ class DP(Conf):
                 changed_vlans (set): changed VLAN IDs.
                 changed_acl_vlans (set): changed ACL only VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
-                all_meters_changed (bool): True if all meters changed
-                deleted_meters (set): deleted meter numbers
-                added_meters (set): Added meter numbers
-                changed_meters (set): changed/added meter numbers
+                all_meters_changed (bool): True if all meters changed.
+                deleted_meters (set): deleted meter numbers.
+                added_meters (set): Added meter numbers.
+                changed_meters (set): changed/added meter numbers.
         """
         if (
             new_dp.stack
