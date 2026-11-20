@@ -10079,3 +10079,378 @@ routers:
         second_host_connectivity_check()
         third_host_connectivity_check()
         fourth_host_connectivity_check()
+
+
+class FaucetUntaggedChangeNeighborTimeoutTest(FaucetUntaggedTest):
+    FAUCET_MAC2 = "0e:00:00:00:00:02"
+
+    CONFIG_GLOBAL = (
+        """
+vlans:
+    100:
+        faucet_vips: ["10.10.0.254/24", "fa00::254/64"]
+    vlanb:
+        vid: 200
+        faucet_vips: ["10.20.0.254/24", "fb00::254/64"]
+        faucet_mac: "%s"
+routers:
+    router-1:
+        vlans: [100, vlanb]
+"""
+        % FAUCET_MAC2
+    )
+
+    CONFIG = """
+        arp_neighbor_timeout: 120
+        nd_neighbor_timeout: 120
+        proactive_learn_v4: True
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+            %(port_2)d:
+                native_vlan: vlanb
+            %(port_3)d:
+                native_vlan: vlanb
+            %(port_4)d:
+                native_vlan: vlanb
+"""
+
+    def test_untagged(self):
+        first_host_ip = ipaddress.ip_interface("10.10.0.1/24")
+        first_faucet_vip = ipaddress.ip_interface("10.10.0.254/24")
+        first_host_ipv6 = ipaddress.ip_interface("fa00::1/64")
+        first_faucet_vip_ipv6 = ipaddress.ip_interface("fa00::254/64")
+        second_host_ip = ipaddress.ip_interface("10.20.0.1/24")
+        second_faucet_vip = ipaddress.ip_interface("10.20.0.254/24")
+        second_host_ipv6 = ipaddress.ip_interface("fb00::1/64")
+        second_faucet_vip_ipv6 = ipaddress.ip_interface("fb00::254/64")
+
+        first_host, second_host = self.hosts_name_ordered()[:2]
+        first_host.setIP(str(first_host_ip.ip), prefixLen=24)
+        self.add_host_ipv6_address(first_host, first_host_ipv6)
+        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
+        for faucet_vip in [first_faucet_vip, first_faucet_vip_ipv6]:
+            first_host.cmd(
+                "ip neighbor add %s lladdr %s dev %s"
+                % (faucet_vip.ip, self.FAUCET_MAC, first_host.intf())
+            )
+        self.add_host_ipv6_address(second_host, second_host_ipv6)
+        self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
+        self.add_host_route(first_host, second_host_ipv6, first_faucet_vip_ipv6.ip)
+        self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
+        self.add_host_route(second_host, first_host_ipv6, second_faucet_vip_ipv6.ip)
+
+        self.one_ipv4_ping(second_host, first_host_ip.ip)
+        self.one_ipv6_ping(second_host, first_host_ipv6.ip)
+
+        conf = self._get_faucet_conf()
+        conf["dps"][self.DP_NAME]["arp_neighbor_timeout"] = 2
+        conf["dps"][self.DP_NAME]["nd_neighbor_timeout"] = 2
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+        )
+
+        timeout = 10
+        tcpdump_txt = self.tcpdump_helper(
+            first_host,
+            "arp or icmp6",
+            [lambda: first_host.cmd("sleep %u" % timeout)],
+            timeout=timeout,
+            vflags="",
+            packets=2,
+        )
+        self.assertIn("Request who-has 10.10.0.1 tell 10.10.0.254", tcpdump_txt)
+        self.assertIn(
+            "fa00::254 > fa00::1: ICMP6, neighbor solicitation, who has fa00::1",
+            tcpdump_txt,
+        )
+
+        self.one_ipv4_ping(second_host, first_host_ip.ip)
+        self.one_ipv6_ping(second_host, first_host_ipv6.ip)
+
+
+class FaucetUntaggedChangeIgnoreLearnInsTest(FaucetUntaggedTest):
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        faucet_vips: ["10.10.0.254/24"]
+"""
+
+    CONFIG = (
+        """
+        ignore_learn_ins: 100
+"""
+        + CONFIG_BOILER_UNTAGGED
+    )
+
+    def generate_packet_ins(
+        self, host, faucet_vip, total_packets=10, packet_interval_ms=100
+    ):
+        host.cmd(
+            "fping %s --count=%u --interval=%u %s"
+            % (
+                self.FPING_ARGS_SHORT,
+                total_packets,
+                packet_interval_ms,
+                faucet_vip.ip,
+            )
+        )
+
+    def test_untagged(self):
+        first_host_ip = ipaddress.ip_interface("10.10.0.1/24")
+        first_faucet_vip = ipaddress.ip_interface("10.10.0.254/24")
+
+        first_host = self.hosts_name_ordered()[0]
+        first_host.setIP(str(first_host_ip.ip), prefixLen=24)
+
+        self.generate_packet_ins(first_host, first_faucet_vip)
+        self.assertEqual(
+            self.scrape_prometheus_var("of_ignored_packet_ins_total", default=0), 0
+        )
+
+        conf = self._get_faucet_conf()
+        conf["dps"][self.DP_NAME]["ignore_learn_ins"] = 2
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+        )
+
+        self.generate_packet_ins(first_host, first_faucet_vip)
+        self.assertGreaterEqual(
+            self.scrape_prometheus_var("of_ignored_packet_ins_total", default=0), 4
+        )
+
+
+class FaucetUntaggedChangeAdvertiseIntervalTest(FaucetUntaggedTest):
+    NUM_FAUCET_CONTROLLERS = 1
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        faucet_vips: ["fe80::1:254/64"]
+"""
+
+    CONFIG = (
+        """
+        advertise_interval: 120
+"""
+        + CONFIG_BOILER_UNTAGGED
+    )
+
+    def test_untagged(self):
+        hosts = self.hosts_name_ordered()
+        for host in hosts:
+            host.cmd(
+                "echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6" % host.defaultIntf()
+            )
+
+        conf = self._get_faucet_conf()
+        conf["dps"][self.DP_NAME]["advertise_interval"] = 10
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+        )
+
+        tcpdump_filter = " and ".join(
+            (
+                "ether dst 33:33:00:00:00:01",
+                "ether src %s" % self.FAUCET_MAC,
+                "icmp6",
+                "ip6[40] == 134",
+                "ip6 host fe80::1:254",
+            )
+        )
+        tcpdump_txt = self.tcpdump_helper(
+            host, tcpdump_filter, [], timeout=40, packets=2
+        )
+        self.assertEqual(tcpdump_txt.count("ICMP6, router advertisement"), 2)
+
+
+class FaucetUntaggedChangeFastAdvertiseIntervalTest(FaucetUntaggedTest):
+    NUM_FAUCET_CONTROLLERS = 1
+
+    CONFIG = """
+        fast_advertise_interval: 10
+        lldp_beacon:
+            send_interval: 5
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                lldp_beacon:
+                    enable: True
+                    system_name: "faucet"
+                    port_descr: "first_port"
+                    org_tlvs:
+                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
+"""
+
+    def test_untagged(self):
+        conf = self._get_faucet_conf()
+        conf["dps"][self.DP_NAME]["fast_advertise_interval"] = 5
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+        )
+        first_host = self.hosts_name_ordered()[0]
+        tcpdump_filter = "ether proto 0x88cc"
+        timeout = 30
+        tcpdump_txt = self.tcpdump_helper(
+            first_host,
+            tcpdump_filter,
+            [lambda: first_host.cmd("sleep %u" % timeout)],
+            timeout=timeout,
+            packets=4,
+        )
+        self.assertEqual(tcpdump_txt.count("ethertype LLDP"), 4)
+
+
+class FaucetUntaggedChangeLLDPBeaconTest(FaucetUntaggedTest):
+    NUM_FAUCET_CONTROLLERS = 1
+
+    CONFIG = """
+        lldp_beacon:
+            send_interval: 10
+            max_per_interval: 5
+            system_name: "faucet"
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                lldp_beacon:
+                    enable: True
+                    port_descr: "first_port"
+                    org_tlvs:
+                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
+"""
+
+    def test_untagged(self):
+        conf = self._get_faucet_conf()
+        conf["dps"][self.DP_NAME]["lldp_beacon"]["send_interval"] = 5
+        conf["dps"][self.DP_NAME]["lldp_beacon"]["system_name"] = "new_system_name"
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+        )
+        first_host = self.hosts_name_ordered()[0]
+        tcpdump_filter = "ether proto 0x88cc"
+        timeout = 30
+        tcpdump_txt = self.tcpdump_helper(
+            first_host,
+            tcpdump_filter,
+            [lambda: first_host.cmd("sleep %u" % timeout)],
+            timeout=timeout,
+            packets=4,
+        )
+        self.assertEqual(tcpdump_txt.count("ethertype LLDP"), 4)
+        self.assertIn("new_system_name", tcpdump_txt)
+
+
+class FaucetUntaggedChangeFaucetDPMACTest(FaucetUntaggedTest):
+    NUM_FAUCET_CONTROLLERS = 1
+
+    CONFIG = """
+        lldp_beacon:
+            send_interval: 10
+            max_per_interval: 5
+            system_name: "faucet"
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                lldp_beacon:
+                    enable: True
+                    port_descr: "first_port"
+                    org_tlvs:
+                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
+"""
+
+    def test_untagged(self):
+        conf = self._get_faucet_conf()
+        conf["dps"][self.DP_NAME]["faucet_dp_mac"] = "00:12:34:56:78:90"
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+        )
+        first_host = self.hosts_name_ordered()[0]
+        tcpdump_filter = "ether proto 0x88cc"
+        timeout = 15
+        tcpdump_txt = self.tcpdump_helper(
+            first_host,
+            tcpdump_filter,
+            [lambda: first_host.cmd("sleep %u" % timeout)],
+            timeout=timeout,
+            packets=1,
+        )
+        self.assertIn("0x001234", tcpdump_txt)
+
+
+class FaucetUntaggedChangeStrictPacketInCookieTest(FaucetUntaggedTest):
+    CONFIG = (
+        """
+        strict_packet_in_cookie: false
+"""
+        + CONFIG_BOILER_UNTAGGED
+    )
+
+    def test_untagged(self):
+        dst_mac = "00:11:22:33:44:55"
+        dst_ip = "198.51.100.1"
+        switch = self.first_switch()
+        switch.cmd(
+            self.OFCTL,
+            "add-flow",
+            switch,
+            "cookie=0xabc123,table=0,priority=32768,eth_dst=%s,actions=output:controller"
+            % dst_mac,
+        )
+
+        conf = self._get_faucet_conf()
+        conf["dps"][self.DP_NAME]["strict_packet_in_cookie"] = True
+        self.reload_conf(
+            conf,
+            self.faucet_config_path,
+            restart=True,
+            cold_start=False,
+            change_expected=True,
+        )
+
+        first_host = self.hosts_name_ordered()[0]
+        first_host.cmd(
+            "ip neighbor add %s lladdr %s dev %s" % (dst_ip, dst_mac, first_host.intf())
+        )
+        self.one_ipv4_ping(
+            first_host,
+            dst_ip,
+            retries=1,
+            require_host_learned=False,
+            expected_result=False,
+        )
+        for controller_env in self.env.values():
+            if "FAUCET_LOG" in controller_env:
+                pattern = r".*got packet in with unknown cookie 11256099"
+                lines = self.matching_lines_from_file(
+                    pattern, controller_env["FAUCET_LOG"]
+                )
+                self.assertGreater(
+                    len(lines),
+                    0,
+                    msg="%s not found in %s" % (pattern, controller_env["FAUCET_LOG"]),
+                )
