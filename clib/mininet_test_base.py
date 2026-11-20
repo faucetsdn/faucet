@@ -2092,20 +2092,12 @@ dbs:
     def coldstart_conf(self, hup=True):
         orig_conf = self._get_faucet_conf()
         cold_start_conf = copy.deepcopy(orig_conf)
-        if "routers" in cold_start_conf:
-            del cold_start_conf["routers"]
-        used_vids = set()
-        for vlan_name, vlan_conf in cold_start_conf["vlans"].items():
-            used_vids.add(vlan_conf.get("vid", vlan_name))
-        unused_vids = list(set(range(2, max(used_vids))) - used_vids)
-        assert len(unused_vids) >= len(self.port_map)
-        # Ensure cold start by moving all ports to new, unused VLANs,
-        # then back again.
+        # Ensure cold start by modifying the pipeline by temporarily decreasing
+        # the size of eth_src table and then restoring back to the original config.
         for dp_conf in cold_start_conf["dps"].values():
-            dp_conf["interfaces"] = {
-                self.port_map[port]: {"native_vlan": unused_vids[i]}
-                for i, port in enumerate(self.port_map.keys(), start=0)
-            }
+            if "table_sizes" not in dp_conf:
+                dp_conf["table_sizes"] = {}
+            dp_conf["table_sizes"]["eth_src"] = 30
         for conf in (cold_start_conf, orig_conf):
             self.reload_conf(
                 conf, self.faucet_config_path, restart=True, cold_start=True, hup=hup
