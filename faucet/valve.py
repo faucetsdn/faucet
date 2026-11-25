@@ -1100,8 +1100,9 @@ class Valve:
 
     def rate_limit_packet_ins(self, now):
         """Return True if too many packet ins this second."""
-        if self._last_packet_in_sec != now:
-            self._last_packet_in_sec = now
+        now_sec = int(now)
+        if self._last_packet_in_sec != now_sec:
+            self._last_packet_in_sec = now_sec
             self._packet_in_count_sec = 0
         self._packet_in_count_sec += 1
         if self.dp.ignore_learn_ins:
@@ -1587,11 +1588,13 @@ class Valve:
                 added_vids (set): added VLAN IDs.
                 deleted_vids (set): deleted VLAN IDs.
                 changed_vids (set): changed VLAN IDs.
+                changed_acl_vlans (set): changed ACL only VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
                 all_meters_changed (bool): True if all meters changed.
                 deleted_meters: (set): deleted meter numbers.
-                changed_meters: (set): changed meter numbers.
                 added_meters: (set): added meter numbers.
+                changed_meters: (set): changed meter numbers.
+                dp_config_changed (bool): True if DP config changed.
             valves (list): List of other running valves
         Returns:
             tuple:
@@ -1615,6 +1618,7 @@ class Valve:
             deleted_meters,
             added_meters,
             changed_meters,
+            _,
         ) = changes
         restart_type = "cold"
         ofmsgs = []
